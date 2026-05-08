@@ -109,6 +109,14 @@ fn temp_runtime_dir() -> PathBuf {
 #[test]
 fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
     let task = task_without_workspace_root();
+    let promoted_readiness = super::runtime_harness_selector_live_promotion_readiness_proof(
+        "promotion-session",
+        &task,
+        "Explain the runtime harness.",
+        "verify",
+        "objective_satisfied",
+        true,
+    );
     let promoted = super::runtime_harness_selector_decision_with_default_promotion(
         "promotion-session",
         &task,
@@ -116,6 +124,7 @@ fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
         "verify",
         "objective_satisfied",
         true,
+        Some(&promoted_readiness),
     );
     assert_eq!(
         promoted
@@ -142,8 +151,22 @@ fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
             .and_then(|value| value.as_bool()),
         Some(true)
     );
+    assert_eq!(
+        promoted
+            .get("livePromotionReadinessReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
 
     let mutating_task = task_with_workspace_root("/tmp/mutating-workspace");
+    let blocked_readiness = super::runtime_harness_selector_live_promotion_readiness_proof(
+        "promotion-session",
+        &mutating_task,
+        "Edit the workspace.",
+        "verify",
+        "objective_satisfied",
+        true,
+    );
     let blocked = super::runtime_harness_selector_decision_with_default_promotion(
         "promotion-session",
         &mutating_task,
@@ -151,6 +174,7 @@ fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
         "verify",
         "objective_satisfied",
         true,
+        Some(&blocked_readiness),
     );
     assert_eq!(
         blocked
@@ -408,6 +432,16 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "verify",
         "objective_satisfied",
         true,
+        Some(
+            &super::runtime_harness_selector_live_promotion_readiness_proof(
+                sid,
+                &task,
+                latest_user_turn,
+                "verify",
+                "objective_satisfied",
+                true,
+            ),
+        ),
     );
     let shadow = super::runtime_harness_shadow_run(
         &task,

@@ -780,6 +780,13 @@ fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
     assert_eq!(proof.rollback_target, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
     assert!(proof.rollback_available);
     assert!(proof.activation_blockers.is_empty());
+    assert!(proof.live_promotion_readiness_proof.is_none());
+    assert!(!proof.live_promotion_readiness_ready);
+    assert!(proof.live_promotion_readiness_blockers.is_empty());
+    assert_eq!(
+        proof.live_promotion_readiness_policy_decision,
+        "not_required_for_canary_handoff"
+    );
     assert!(proof
         .gated_cluster_ids
         .contains(&HarnessPromotionClusterId::AuthorityTooling));
@@ -820,6 +827,13 @@ fn runtime_selector_decision_keeps_legacy_default_while_routing_canary() {
         DEFAULT_AGENT_HARNESS_ACTIVATION_ID
     );
     assert!(decision.rollback_available);
+    assert!(decision.live_promotion_readiness_proof.is_none());
+    assert!(!decision.live_promotion_readiness_ready);
+    assert!(decision.live_promotion_readiness_blockers.is_empty());
+    assert_eq!(
+        decision.live_promotion_readiness_policy_decision,
+        "not_required_for_canary_selector"
+    );
 }
 
 #[test]

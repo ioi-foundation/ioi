@@ -1892,6 +1892,8 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   defaultPromotionGateEligible?: boolean;
   defaultPromotionGateActivationBlockers?: string[];
   defaultPromotionGatePolicyDecision?: string;
+  livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
+  requireLivePromotionReadinessProof?: boolean;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
   activationIdGateProofNowMs?: number;
   activationIdGateProofMaxAgeMs?: number;
@@ -1905,15 +1907,39 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   activationBlockers?: string[];
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessLiveHandoffProof {
-  const selector = options.selector ?? "blessed_workflow_live_canary";
+  const requestedSelector = options.selector ?? "blessed_workflow_live_canary";
   const defaultAuthorityTransferred = options.defaultAuthorityTransferred ?? false;
-  const productionDefaultSelector =
+  const defaultRequested =
+    requestedSelector === "blessed_workflow_live_default" ||
+    defaultAuthorityTransferred;
+  const requireLivePromotionReadinessProof =
+    options.requireLivePromotionReadinessProof ?? defaultRequested;
+  const livePromotionReadinessBlockers = requireLivePromotionReadinessProof
+    ? workflowHarnessLivePromotionReadinessProofBlockers(
+        options.livePromotionReadinessProof,
+      )
+    : [];
+  const livePromotionReadinessReady =
+    requireLivePromotionReadinessProof && livePromotionReadinessBlockers.length === 0;
+  const effectiveDefaultAuthorityTransferred =
+    defaultAuthorityTransferred && livePromotionReadinessReady;
+  const selector =
+    defaultRequested && !effectiveDefaultAuthorityTransferred
+      ? "blessed_workflow_live_canary"
+      : requestedSelector;
+  const requestedProductionDefaultSelector =
     options.productionDefaultSelector ??
     (defaultAuthorityTransferred ? "blessed_workflow_live_default" : "legacy_runtime");
+  const productionDefaultSelector = effectiveDefaultAuthorityTransferred
+    ? requestedProductionDefaultSelector
+    : "legacy_runtime";
   const defaultPromotionGateEnabled =
     options.defaultPromotionGateEnabled ?? defaultAuthorityTransferred;
-  const defaultPromotionGateEligible =
+  const requestedDefaultPromotionGateEligible =
     options.defaultPromotionGateEligible ?? defaultAuthorityTransferred;
+  const defaultPromotionGateEligible =
+    requestedDefaultPromotionGateEligible &&
+    (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? defaultAuthorityTransferred)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -1927,12 +1953,14 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   const defaultPromotionGateActivationBlockers =
     uniqueStrings([
       ...(options.defaultPromotionGateActivationBlockers ??
-        (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
+        (requestedDefaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
       ...activationIdGateProofBlockers,
+      ...livePromotionReadinessBlockers,
     ]);
   const activationBlockers = uniqueStrings([
     ...(options.activationBlockers ?? []),
     ...activationIdGateProofBlockers,
+    ...livePromotionReadinessBlockers,
   ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
@@ -1973,20 +2001,19 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
       ],
     executionBoundaryStatus: "passed",
     executionBoundaryExecutor: "crate::project::execute_workflow_harness_canary_node",
-    defaultAuthorityTransferred,
+    defaultAuthorityTransferred: effectiveDefaultAuthorityTransferred,
     runtimeAuthority:
-      options.runtimeAuthority ??
-      (defaultAuthorityTransferred
-        ? "blessed_workflow_activation_default"
-        : "blessed_workflow_activation_canary"),
+      effectiveDefaultAuthorityTransferred
+        ? options.runtimeAuthority ?? "blessed_workflow_activation_default"
+        : "blessed_workflow_activation_canary",
     fallbackSelector: options.fallbackSelector ?? "legacy_runtime",
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: options.rollbackAvailable ?? true,
     policyDecision:
-      options.policyDecision ??
-      (defaultAuthorityTransferred
-        ? "promote_blessed_workflow_default_for_non_mutating_turn"
-        : "allow_blessed_workflow_live_canary"),
+      effectiveDefaultAuthorityTransferred
+        ? options.policyDecision ??
+          "promote_blessed_workflow_default_for_non_mutating_turn"
+        : "allow_blessed_workflow_live_canary",
     gatedClusterIds:
       options.gatedClusterIds ?? [
         "cognition",
@@ -1997,6 +2024,14 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
     nodeTimelineAttemptIds: options.nodeTimelineAttemptIds ?? [],
     receiptIds: options.receiptIds ?? [],
     replayFixtureRefs: options.replayFixtureRefs ?? [],
+    livePromotionReadinessProof: options.livePromotionReadinessProof ?? null,
+    livePromotionReadinessReady,
+    livePromotionReadinessBlockers,
+    livePromotionReadinessPolicyDecision:
+      options.livePromotionReadinessProof?.policyDecision ??
+      (requireLivePromotionReadinessProof
+        ? "block_default_harness_live_promotion_readiness"
+        : "not_required_for_canary_handoff"),
     activationBlockers,
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
@@ -2005,7 +2040,7 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
       nonMutatingOnly: true,
       selector,
       productionDefaultSelector,
-      defaultAuthorityTransferred,
+      defaultAuthorityTransferred: effectiveDefaultAuthorityTransferred,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       activationBlockers: defaultPromotionGateActivationBlockers,
       policyDecision: defaultPromotionGatePolicyDecision,
@@ -2030,26 +2065,60 @@ export function makeHarnessRuntimeSelectorDecision(options: {
   defaultPromotionGateAuthorityTransferred?: boolean;
   defaultPromotionGateActivationBlockers?: string[];
   defaultPromotionGatePolicyDecision?: string;
+  livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
+  requireLivePromotionReadinessProof?: boolean;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
   activationIdGateProofNowMs?: number;
   activationIdGateProofMaxAgeMs?: number;
   requireActivationIdGateClickProof?: boolean;
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessRuntimeSelectorDecision {
-  const selectedSelector = options.selectedSelector ?? "blessed_workflow_live_canary";
+  const requestedSelectedSelector =
+    options.selectedSelector ?? "blessed_workflow_live_canary";
+  const defaultRequested =
+    requestedSelectedSelector === "blessed_workflow_live_default";
+  const requireLivePromotionReadinessProof =
+    options.requireLivePromotionReadinessProof ?? defaultRequested;
+  const livePromotionReadinessBlockers = requireLivePromotionReadinessProof
+    ? workflowHarnessLivePromotionReadinessProofBlockers(
+        options.livePromotionReadinessProof,
+      )
+    : [];
+  const livePromotionReadinessReady =
+    requireLivePromotionReadinessProof && livePromotionReadinessBlockers.length === 0;
+  const requestedCanaryEligible =
+    options.canaryEligible ??
+    (requestedSelectedSelector === "blessed_workflow_live_canary" ||
+      requestedSelectedSelector === "blessed_workflow_live_default");
+  const requestedDefaultPromotionGateEligible =
+    options.defaultPromotionGateEligible ?? defaultRequested;
+  const requestedDefaultPromotionAuthorityTransferred =
+    options.defaultPromotionGateAuthorityTransferred ?? defaultRequested;
+  const selectedSelector =
+    defaultRequested &&
+    (!livePromotionReadinessReady || !requestedDefaultPromotionGateEligible)
+      ? requestedCanaryEligible
+        ? "blessed_workflow_live_canary"
+        : "legacy_runtime"
+      : requestedSelectedSelector;
   const workflowSelected =
     selectedSelector === "blessed_workflow_live_canary" ||
     selectedSelector === "blessed_workflow_live_default";
   const defaultSelected = selectedSelector === "blessed_workflow_live_default";
-  const productionDefaultSelector =
+  const requestedProductionDefaultSelector =
     options.productionDefaultSelector ??
-    (defaultSelected ? "blessed_workflow_live_default" : "legacy_runtime");
+    (defaultRequested ? "blessed_workflow_live_default" : "legacy_runtime");
+  const productionDefaultSelector = defaultSelected
+    ? requestedProductionDefaultSelector
+    : "legacy_runtime";
   const defaultPromotionGateEnabled =
-    options.defaultPromotionGateEnabled ?? defaultSelected;
+    options.defaultPromotionGateEnabled ?? defaultRequested;
   const defaultPromotionGateEligible =
-    options.defaultPromotionGateEligible ?? defaultSelected;
+    requestedDefaultPromotionGateEligible &&
+    defaultSelected &&
+    (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
   const activationIdGateProofBlockers =
-    (options.requireActivationIdGateClickProof ?? defaultSelected)
+    (options.requireActivationIdGateClickProof ?? defaultRequested)
       ? workflowHarnessActivationIdGateClickProofBlockers(
           options.activationIdGateClickProof,
           {
@@ -2059,12 +2128,15 @@ export function makeHarnessRuntimeSelectorDecision(options: {
         )
       : [];
   const defaultPromotionGateAuthorityTransferred =
-    options.defaultPromotionGateAuthorityTransferred ?? defaultSelected;
+    requestedDefaultPromotionAuthorityTransferred &&
+    defaultSelected &&
+    (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
   const defaultPromotionGateActivationBlockers =
     uniqueStrings([
       ...(options.defaultPromotionGateActivationBlockers ??
-        (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
+        (requestedDefaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
       ...activationIdGateProofBlockers,
+      ...livePromotionReadinessBlockers,
     ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
@@ -2077,36 +2149,45 @@ export function makeHarnessRuntimeSelectorDecision(options: {
     requestedSelector: options.requestedSelector ?? "auto_canary",
     selectedSelector,
     productionDefaultSelector,
-    canaryEligible: options.canaryEligible ?? workflowSelected,
+    canaryEligible: requestedCanaryEligible && workflowSelected,
     canaryBlockers: options.canaryBlockers ?? [],
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
     executionMode: options.executionMode ?? (workflowSelected ? "live" : "gated"),
     actualRuntimeAuthority:
-      options.actualRuntimeAuthority ??
-      (defaultSelected
-        ? "blessed_workflow_activation_default"
+      defaultSelected
+        ? options.actualRuntimeAuthority ?? "blessed_workflow_activation_default"
         : workflowSelected
           ? "blessed_workflow_activation_canary"
-          : "existing_runtime_service"),
+          : "existing_runtime_service",
     fallbackSelector: "legacy_runtime",
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: true,
     policyDecision:
-      options.policyDecision ??
-      (defaultSelected
-        ? "promote_blessed_workflow_default_for_non_mutating_turn"
+      defaultSelected
+        ? options.policyDecision ??
+          "promote_blessed_workflow_default_for_non_mutating_turn"
         : workflowSelected
         ? "allow_blessed_workflow_live_canary"
-        : "retain_legacy_runtime_default"),
+        : "retain_legacy_runtime_default",
     routeReason:
       options.routeReason ??
       (defaultSelected
         ? "Blessed workflow activation is promoted to the default runtime selector for a non-mutating turn."
+        : defaultRequested
+        ? "Blessed workflow default promotion is blocked until the live-promotion readiness proof passes."
         : workflowSelected
         ? "Turn is non-mutating and eligible for blessed workflow canary routing."
         : "Turn remains on the legacy runtime selector."),
+    livePromotionReadinessProof: options.livePromotionReadinessProof ?? null,
+    livePromotionReadinessReady,
+    livePromotionReadinessBlockers,
+    livePromotionReadinessPolicyDecision:
+      options.livePromotionReadinessProof?.policyDecision ??
+      (requireLivePromotionReadinessProof
+        ? "block_default_harness_live_promotion_readiness"
+        : "not_required_for_canary_selector"),
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
       enabled: defaultPromotionGateEnabled,
@@ -2552,6 +2633,104 @@ export function makeHarnessLivePromotionReadinessProof(options: {
       ...(options.evidenceRefs ?? []),
     ]),
   };
+}
+
+export function workflowHarnessLivePromotionReadinessProofBlockers(
+  proof?: WorkflowHarnessLivePromotionReadinessProof | null,
+): string[] {
+  if (!proof) {
+    return ["live_promotion_readiness_proof_missing"];
+  }
+  const blockers: string[] = [];
+  const requiredClusterIds: WorkflowHarnessPromotionClusterId[] = [
+    "cognition",
+    "routing_model",
+    "verification_output",
+    "authority_tooling",
+  ];
+
+  if (proof.schemaVersion !== "workflow.harness.live-promotion-readiness.v1") {
+    blockers.push("live_promotion_readiness_schema_mismatch");
+  }
+  if (proof.workflowId !== DEFAULT_AGENT_HARNESS_WORKFLOW_ID) {
+    blockers.push("live_promotion_readiness_workflow_mismatch");
+  }
+  if (proof.activationId !== DEFAULT_AGENT_HARNESS_ACTIVATION_ID) {
+    blockers.push("live_promotion_readiness_activation_mismatch");
+  }
+  if (proof.harnessHash !== DEFAULT_AGENT_HARNESS_HASH) {
+    blockers.push("live_promotion_readiness_hash_mismatch");
+  }
+  if (proof.targetExecutionMode !== "live") {
+    blockers.push("live_promotion_readiness_target_not_live");
+  }
+  if (!proof.allClustersReady) {
+    blockers.push("live_promotion_readiness_clusters_not_ready");
+  }
+  if (!proof.promotionEligible) {
+    blockers.push("live_promotion_readiness_not_eligible");
+  }
+  if (!proof.defaultLiveActivationReady) {
+    blockers.push("live_promotion_readiness_default_activation_not_ready");
+  }
+  if (!proof.invalidForkLiveActivationBlocked) {
+    blockers.push("live_promotion_readiness_invalid_fork_not_blocked");
+  }
+  if (!proof.rollbackAvailable || !proof.rollbackTarget) {
+    blockers.push("live_promotion_readiness_rollback_unavailable");
+  }
+  if (
+    proof.policyDecision !== "allow_default_harness_live_promotion_readiness"
+  ) {
+    blockers.push("live_promotion_readiness_policy_blocked");
+  }
+
+  for (const blocker of proof.activationBlockers ?? []) {
+    blockers.push(`live_promotion_readiness_activation_blocker:${blocker}`);
+  }
+
+  for (const clusterId of requiredClusterIds) {
+    if (!proof.requiredClusterIds.includes(clusterId)) {
+      blockers.push(`live_promotion_readiness_required_cluster_missing:${clusterId}`);
+    }
+    const cluster = proof.clusterReadiness.find(
+      (candidate) => candidate.clusterId === clusterId,
+    );
+    if (!cluster) {
+      blockers.push(`live_promotion_readiness_cluster_missing:${clusterId}`);
+      continue;
+    }
+    if (cluster.targetExecutionMode !== "live") {
+      blockers.push(`live_promotion_readiness_cluster_not_live:${clusterId}`);
+    }
+    if (!cluster.readinessReady) {
+      blockers.push(`live_promotion_readiness_cluster_readiness_not_ready:${clusterId}`);
+    }
+    if (!cluster.receiptReady || cluster.receiptRefs.length === 0) {
+      blockers.push(`live_promotion_readiness_cluster_receipts_missing:${clusterId}`);
+    }
+    if (!cluster.replayGateReady || cluster.replayFixtureRefs.length === 0) {
+      blockers.push(`live_promotion_readiness_cluster_replay_missing:${clusterId}`);
+    }
+    if (!cluster.canaryReady) {
+      blockers.push(`live_promotion_readiness_cluster_canary_not_ready:${clusterId}`);
+    }
+    if (!cluster.rollbackReady) {
+      blockers.push(`live_promotion_readiness_cluster_rollback_not_ready:${clusterId}`);
+    }
+    if (
+      !cluster.divergenceReady ||
+      cluster.blockingDivergenceCount > 0 ||
+      cluster.unclassifiedDivergenceCount > 0
+    ) {
+      blockers.push(`live_promotion_readiness_cluster_divergence_not_ready:${clusterId}`);
+    }
+    for (const blocker of cluster.blockers ?? []) {
+      blockers.push(`live_promotion_readiness_cluster_blocker:${clusterId}:${blocker}`);
+    }
+  }
+
+  return uniqueStrings(blockers);
 }
 
 export function makeHarnessDefaultRuntimeDispatchProof(options: {

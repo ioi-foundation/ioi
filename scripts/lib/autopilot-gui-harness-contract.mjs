@@ -199,6 +199,7 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "harness_canary_execution_boundary_present",
   "harness_live_handoff_present",
   "harness_selector_default_promoted",
+  "harness_selector_live_promotion_readiness_gated",
   "harness_default_runtime_dispatch_present",
   "harness_live_promotion_readiness_present",
   "harness_chat_runtime_binding_matches_workflow_activation",

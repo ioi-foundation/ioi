@@ -537,8 +537,26 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     ...activationIdGateClickProof.mintedActivation.receiptRefs,
     ...activationIdGateClickProof.mintedActivation.evidenceRefs,
   ]);
+  const selectorDecisionId = `harness-selector:${workflow.metadata.id || workflow.metadata.slug}:live-gui-default`;
+  const defaultRuntimeDispatchProof = makeHarnessDefaultRuntimeDispatchProof({
+    selectorDecisionId,
+    acceptedClusterIds: HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS,
+    sourceBoundaryIds: uniqueHarnessRefs(
+      canaryBoundaries.map((boundary) => boundary.boundaryId),
+    ),
+    acceptedNodeAttemptIds: boundaryAttemptIds,
+    receiptIds: boundaryReceiptIds,
+    replayFixtureRefs: boundaryReplayFixtureRefs,
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: nowMs,
+    activationIdGateWorkerBindingActivationId:
+      harness.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    evidenceRefs: defaultPromotionEvidenceRefs,
+  });
+  const livePromotionReadinessProof =
+    defaultRuntimeDispatchProof.livePromotionReadinessProof;
   const selectorDecision = makeHarnessRuntimeSelectorDecision({
-    decisionId: `harness-selector:${workflow.metadata.id || workflow.metadata.slug}:live-gui-default`,
+    decisionId: selectorDecisionId,
     selectedSelector: "blessed_workflow_live_default",
     productionDefaultSelector: "blessed_workflow_live_default",
     canaryEligible: true,
@@ -554,6 +572,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     defaultPromotionGateActivationBlockers: [],
     defaultPromotionGatePolicyDecision:
       "promote_blessed_workflow_default_for_non_mutating_turn",
+    livePromotionReadinessProof,
     activationIdGateClickProof,
     activationIdGateProofNowMs: nowMs,
     evidenceRefs: defaultPromotionEvidenceRefs,
@@ -569,6 +588,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     defaultPromotionGateActivationBlockers: [],
     defaultPromotionGatePolicyDecision:
       "promote_blessed_workflow_default_for_non_mutating_turn",
+    livePromotionReadinessProof,
     gatedClusterIds: HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS,
     executionBoundaryIds: uniqueHarnessRefs(
       canaryBoundaries.map((boundary) => boundary.boundaryId),
@@ -580,21 +600,6 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     activationBlockers: [],
     activationIdGateClickProof,
     activationIdGateProofNowMs: nowMs,
-    evidenceRefs: defaultPromotionEvidenceRefs,
-  });
-  const defaultRuntimeDispatchProof = makeHarnessDefaultRuntimeDispatchProof({
-    selectorDecisionId: selectorDecision.decisionId,
-    acceptedClusterIds: HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS,
-    sourceBoundaryIds: uniqueHarnessRefs(
-      canaryBoundaries.map((boundary) => boundary.boundaryId),
-    ),
-    acceptedNodeAttemptIds: boundaryAttemptIds,
-    receiptIds: boundaryReceiptIds,
-    replayFixtureRefs: boundaryReplayFixtureRefs,
-    activationIdGateClickProof,
-    activationIdGateProofNowMs: nowMs,
-    activationIdGateWorkerBindingActivationId:
-      harness.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const workerBinding = {

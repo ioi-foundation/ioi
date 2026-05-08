@@ -843,6 +843,10 @@ pub struct HarnessLiveHandoffProof {
     pub node_timeline_attempt_ids: Vec<String>,
     pub receipt_ids: Vec<String>,
     pub replay_fixture_refs: Vec<String>,
+    pub live_promotion_readiness_proof: Option<HarnessLivePromotionReadinessProof>,
+    pub live_promotion_readiness_ready: bool,
+    pub live_promotion_readiness_blockers: Vec<String>,
+    pub live_promotion_readiness_policy_decision: String,
     pub activation_blockers: Vec<String>,
     pub default_promotion_gate: HarnessDefaultPromotionGate,
     pub evidence_refs: Vec<String>,
@@ -867,6 +871,10 @@ pub struct HarnessRuntimeSelectorDecision {
     pub rollback_available: bool,
     pub policy_decision: String,
     pub route_reason: String,
+    pub live_promotion_readiness_proof: Option<HarnessLivePromotionReadinessProof>,
+    pub live_promotion_readiness_ready: bool,
+    pub live_promotion_readiness_blockers: Vec<String>,
+    pub live_promotion_readiness_policy_decision: String,
     pub default_promotion_gate: HarnessDefaultPromotionGate,
     pub evidence_refs: Vec<String>,
 }
@@ -2028,6 +2036,10 @@ pub fn default_blessed_live_handoff_proof(
         node_timeline_attempt_ids,
         receipt_ids,
         replay_fixture_refs,
+        live_promotion_readiness_proof: None,
+        live_promotion_readiness_ready: false,
+        live_promotion_readiness_blockers: Vec::new(),
+        live_promotion_readiness_policy_decision: "not_required_for_canary_handoff".to_string(),
         activation_blockers: Vec::new(),
         default_promotion_gate: HarnessDefaultPromotionGate {
             config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
@@ -2065,6 +2077,10 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
         policy_decision: "allow_blessed_workflow_live_canary".to_string(),
         route_reason: "Turn is non-mutating and eligible for blessed workflow canary routing."
             .to_string(),
+        live_promotion_readiness_proof: None,
+        live_promotion_readiness_ready: false,
+        live_promotion_readiness_blockers: Vec::new(),
+        live_promotion_readiness_policy_decision: "not_required_for_canary_selector".to_string(),
         default_promotion_gate: HarnessDefaultPromotionGate {
             config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
             enabled: false,

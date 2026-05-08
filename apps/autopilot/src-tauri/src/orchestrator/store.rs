@@ -13,11 +13,13 @@ use ioi_memory::{MemoryRuntime, StoredTranscriptMessage, TranscriptPrivacyMetada
 use ioi_services::agentic::runtime::harness::invoke_default_harness_component;
 use ioi_types::app::{
     compare_harness_live_shadow_attempts, default_harness_default_runtime_dispatch_proof,
-    default_harness_gated_cluster_run_for_shadow_run, default_harness_shadow_run_for_attempts,
+    default_harness_gated_cluster_run_for_shadow_run,
+    default_harness_live_promotion_readiness_proof, default_harness_shadow_run_for_attempts,
     harness_component_adapter_result_camel_value, harness_gated_cluster_run_camel_value,
     harness_node_attempt_record_from_camel_value, harness_promotion_cluster_components,
     harness_shadow_comparison_camel_value, runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
     HarnessComponentInvocation, HarnessComponentKind, HarnessExecutionMode,
+    HarnessLivePromotionClusterReadiness, HarnessLivePromotionReadinessProof,
     HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
     HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS, DEFAULT_AGENT_HARNESS_HASH,
@@ -774,6 +776,274 @@ fn runtime_harness_default_promotion_enabled() -> bool {
         .unwrap_or(false)
 }
 
+fn runtime_harness_value_string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn runtime_harness_live_promotion_cluster_readiness_camel_value(
+    cluster: &HarnessLivePromotionClusterReadiness,
+) -> Value {
+    json!({
+        "clusterId": cluster.cluster_id.as_str(),
+        "label": cluster.label,
+        "currentStatus": cluster.current_status.as_str(),
+        "targetExecutionMode": cluster.target_execution_mode.as_str(),
+        "componentKinds": cluster
+            .component_kinds
+            .iter()
+            .map(|component_kind| component_kind.as_str())
+            .collect::<Vec<_>>(),
+        "readinessReady": cluster.readiness_ready,
+        "receiptReady": cluster.receipt_ready,
+        "replayGateReady": cluster.replay_gate_ready,
+        "canaryReady": cluster.canary_ready,
+        "rollbackReady": cluster.rollback_ready,
+        "divergenceReady": cluster.divergence_ready,
+        "blockingDivergenceCount": cluster.blocking_divergence_count,
+        "unclassifiedDivergenceCount": cluster.unclassified_divergence_count,
+        "attemptIds": cluster.attempt_ids,
+        "receiptRefs": cluster.receipt_refs,
+        "replayFixtureRefs": cluster.replay_fixture_refs,
+        "actionFrameIds": cluster.action_frame_ids,
+        "divergenceClasses": cluster
+            .divergence_classes
+            .iter()
+            .map(|divergence_class| divergence_class.as_str())
+            .collect::<Vec<_>>(),
+        "rollbackTarget": cluster.rollback_target,
+        "blockers": cluster.blockers,
+        "decision": cluster.decision,
+    })
+}
+
+fn runtime_harness_live_promotion_readiness_proof_camel_value(
+    proof: &HarnessLivePromotionReadinessProof,
+) -> Value {
+    json!({
+        "schemaVersion": proof.schema_version,
+        "proofId": proof.proof_id,
+        "dispatchId": proof.dispatch_id,
+        "workflowId": proof.workflow_id,
+        "activationId": proof.activation_id,
+        "harnessHash": proof.harness_hash,
+        "targetExecutionMode": proof.target_execution_mode.as_str(),
+        "requiredClusterIds": proof
+            .required_cluster_ids
+            .iter()
+            .map(|cluster_id| cluster_id.as_str())
+            .collect::<Vec<_>>(),
+        "clusterReadiness": proof
+            .cluster_readiness
+            .iter()
+            .map(runtime_harness_live_promotion_cluster_readiness_camel_value)
+            .collect::<Vec<_>>(),
+        "allClustersReady": proof.all_clusters_ready,
+        "promotionEligible": proof.promotion_eligible,
+        "defaultLiveActivationReady": proof.default_live_activation_ready,
+        "invalidForkLiveActivationBlocked": proof.invalid_fork_live_activation_blocked,
+        "rollbackAvailable": proof.rollback_available,
+        "rollbackTarget": proof.rollback_target,
+        "activationBlockers": proof.activation_blockers,
+        "policyDecision": proof.policy_decision,
+        "evidenceRefs": proof.evidence_refs,
+    })
+}
+
+fn runtime_harness_selector_live_promotion_readiness_proof(
+    sid: &str,
+    task: &AgentTask,
+    latest_user_turn: &str,
+    selected_action: &str,
+    stop_reason: &str,
+    default_promotion_enabled: bool,
+) -> Value {
+    let mut activation_blockers =
+        runtime_canary_blockers(task, latest_user_turn, selected_action, stop_reason);
+    if !default_promotion_enabled {
+        activation_blockers.push("promotion_gate_disabled".to_string());
+    }
+    activation_blockers.sort();
+    activation_blockers.dedup();
+    let dispatch_id = format!(
+        "harness-default-dispatch:{sid}:turn-{}:read-only",
+        task.progress
+    );
+    let proof = default_harness_live_promotion_readiness_proof(dispatch_id, activation_blockers);
+    runtime_harness_live_promotion_readiness_proof_camel_value(&proof)
+}
+
+fn runtime_harness_live_promotion_readiness_blockers(proof: Option<&Value>) -> Vec<String> {
+    let Some(proof) = proof else {
+        return vec!["live_promotion_readiness_proof_missing".to_string()];
+    };
+    let mut blockers = Vec::<String>::new();
+    if proof.get("schemaVersion").and_then(Value::as_str)
+        != Some("workflow.harness.live-promotion-readiness.v1")
+    {
+        blockers.push("live_promotion_readiness_schema_mismatch".to_string());
+    }
+    if proof.get("workflowId").and_then(Value::as_str) != Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID) {
+        blockers.push("live_promotion_readiness_workflow_mismatch".to_string());
+    }
+    if proof.get("activationId").and_then(Value::as_str)
+        != Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    {
+        blockers.push("live_promotion_readiness_activation_mismatch".to_string());
+    }
+    if proof.get("harnessHash").and_then(Value::as_str) != Some(DEFAULT_AGENT_HARNESS_HASH) {
+        blockers.push("live_promotion_readiness_hash_mismatch".to_string());
+    }
+    if proof.get("targetExecutionMode").and_then(Value::as_str) != Some("live") {
+        blockers.push("live_promotion_readiness_target_not_live".to_string());
+    }
+    if proof.get("allClustersReady").and_then(Value::as_bool) != Some(true) {
+        blockers.push("live_promotion_readiness_clusters_not_ready".to_string());
+    }
+    if proof.get("promotionEligible").and_then(Value::as_bool) != Some(true) {
+        blockers.push("live_promotion_readiness_not_eligible".to_string());
+    }
+    if proof
+        .get("defaultLiveActivationReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("live_promotion_readiness_default_activation_not_ready".to_string());
+    }
+    if proof
+        .get("invalidForkLiveActivationBlocked")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("live_promotion_readiness_invalid_fork_not_blocked".to_string());
+    }
+    if proof.get("rollbackAvailable").and_then(Value::as_bool) != Some(true)
+        || proof
+            .get("rollbackTarget")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .is_empty()
+    {
+        blockers.push("live_promotion_readiness_rollback_unavailable".to_string());
+    }
+    if proof.get("policyDecision").and_then(Value::as_str)
+        != Some("allow_default_harness_live_promotion_readiness")
+    {
+        blockers.push("live_promotion_readiness_policy_blocked".to_string());
+    }
+
+    blockers.extend(
+        runtime_harness_value_string_array(proof.get("activationBlockers"))
+            .into_iter()
+            .map(|blocker| format!("live_promotion_readiness_activation_blocker:{blocker}")),
+    );
+
+    let required_cluster_ids = [
+        "cognition",
+        "routing_model",
+        "verification_output",
+        "authority_tooling",
+    ];
+    let proof_required_cluster_ids =
+        runtime_harness_value_string_array(proof.get("requiredClusterIds"));
+    let cluster_readiness = proof
+        .get("clusterReadiness")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    for cluster_id in required_cluster_ids {
+        if !proof_required_cluster_ids
+            .iter()
+            .any(|candidate| candidate == cluster_id)
+        {
+            blockers.push(format!(
+                "live_promotion_readiness_required_cluster_missing:{cluster_id}"
+            ));
+        }
+        let Some(cluster) = cluster_readiness.iter().find(|candidate| {
+            candidate.get("clusterId").and_then(Value::as_str) == Some(cluster_id)
+        }) else {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_missing:{cluster_id}"
+            ));
+            continue;
+        };
+        if cluster.get("targetExecutionMode").and_then(Value::as_str) != Some("live") {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_not_live:{cluster_id}"
+            ));
+        }
+        if cluster.get("readinessReady").and_then(Value::as_bool) != Some(true) {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_readiness_not_ready:{cluster_id}"
+            ));
+        }
+        let receipt_refs = runtime_harness_value_string_array(cluster.get("receiptRefs"));
+        if cluster.get("receiptReady").and_then(Value::as_bool) != Some(true)
+            || receipt_refs.is_empty()
+        {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_receipts_missing:{cluster_id}"
+            ));
+        }
+        let replay_fixture_refs =
+            runtime_harness_value_string_array(cluster.get("replayFixtureRefs"));
+        if cluster.get("replayGateReady").and_then(Value::as_bool) != Some(true)
+            || replay_fixture_refs.is_empty()
+        {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_replay_missing:{cluster_id}"
+            ));
+        }
+        if cluster.get("canaryReady").and_then(Value::as_bool) != Some(true) {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_canary_not_ready:{cluster_id}"
+            ));
+        }
+        if cluster.get("rollbackReady").and_then(Value::as_bool) != Some(true) {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_rollback_not_ready:{cluster_id}"
+            ));
+        }
+        if cluster.get("divergenceReady").and_then(Value::as_bool) != Some(true)
+            || cluster
+                .get("blockingDivergenceCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(1)
+                > 0
+            || cluster
+                .get("unclassifiedDivergenceCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(1)
+                > 0
+        {
+            blockers.push(format!(
+                "live_promotion_readiness_cluster_divergence_not_ready:{cluster_id}"
+            ));
+        }
+        blockers.extend(
+            runtime_harness_value_string_array(cluster.get("blockers"))
+                .into_iter()
+                .map(|blocker| {
+                    format!("live_promotion_readiness_cluster_blocker:{cluster_id}:{blocker}")
+                }),
+        );
+    }
+
+    blockers.sort();
+    blockers.dedup();
+    blockers
+}
+
 fn runtime_harness_provider_gated_visible_output_enabled() -> bool {
     std::env::var(WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT_ENV)
         .ok()
@@ -1229,13 +1499,23 @@ fn runtime_harness_selector_decision(
     selected_action: &str,
     stop_reason: &str,
 ) -> Value {
+    let default_promotion_enabled = runtime_harness_default_promotion_enabled();
+    let live_promotion_readiness_proof = runtime_harness_selector_live_promotion_readiness_proof(
+        sid,
+        task,
+        latest_user_turn,
+        selected_action,
+        stop_reason,
+        default_promotion_enabled,
+    );
     runtime_harness_selector_decision_with_default_promotion(
         sid,
         task,
         latest_user_turn,
         selected_action,
         stop_reason,
-        runtime_harness_default_promotion_enabled(),
+        default_promotion_enabled,
+        Some(&live_promotion_readiness_proof),
     )
 }
 
@@ -1246,6 +1526,7 @@ fn runtime_harness_selector_decision_with_default_promotion(
     selected_action: &str,
     stop_reason: &str,
     default_promotion_enabled: bool,
+    live_promotion_readiness_proof: Option<&Value>,
 ) -> Value {
     let canary_blockers =
         runtime_canary_blockers(task, latest_user_turn, selected_action, stop_reason);
@@ -1254,6 +1535,12 @@ fn runtime_harness_selector_decision_with_default_promotion(
     if !default_promotion_enabled {
         default_promotion_blockers.push("promotion_gate_disabled".to_string());
     }
+    let live_promotion_readiness_blockers = if default_promotion_enabled {
+        runtime_harness_live_promotion_readiness_blockers(live_promotion_readiness_proof)
+    } else {
+        Vec::new()
+    };
+    default_promotion_blockers.extend(live_promotion_readiness_blockers.clone());
     default_promotion_blockers.sort();
     default_promotion_blockers.dedup();
     let default_promotion_eligible = default_promotion_blockers.is_empty();
@@ -1301,6 +1588,18 @@ fn runtime_harness_selector_decision_with_default_promotion(
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "rollbackAvailable": true,
         "policyDecision": policy_decision,
+        "livePromotionReadinessProof": live_promotion_readiness_proof.cloned(),
+        "livePromotionReadinessReady": default_promotion_enabled
+            && live_promotion_readiness_blockers.is_empty(),
+        "livePromotionReadinessBlockers": live_promotion_readiness_blockers,
+        "livePromotionReadinessPolicyDecision": live_promotion_readiness_proof
+            .and_then(|proof| proof.get("policyDecision"))
+            .and_then(Value::as_str)
+            .unwrap_or(if default_promotion_enabled {
+                "block_default_harness_live_promotion_readiness"
+            } else {
+                "not_required_for_canary_selector"
+            }),
         "defaultPromotionGate": {
             "configKey": "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
             "enabled": default_promotion_enabled,
@@ -3597,6 +3896,20 @@ fn runtime_harness_live_handoff(
                 "policyDecision": "retain_legacy_runtime_default"
             })
         });
+    let live_promotion_readiness_proof = selector_decision
+        .get("livePromotionReadinessProof")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let live_promotion_readiness_ready = selector_decision
+        .get("livePromotionReadinessReady")
+        .and_then(Value::as_bool)
+        == Some(true);
+    let live_promotion_readiness_blockers =
+        runtime_harness_value_string_array(selector_decision.get("livePromotionReadinessBlockers"));
+    let live_promotion_readiness_policy_decision = selector_decision
+        .get("livePromotionReadinessPolicyDecision")
+        .and_then(Value::as_str)
+        .unwrap_or("block_default_harness_live_promotion_readiness");
     let default_promotion_requested = default_promotion_gate
         .get("enabled")
         .and_then(Value::as_bool)
@@ -3605,7 +3918,8 @@ fn runtime_harness_live_handoff(
             .get("eligible")
             .and_then(Value::as_bool)
             == Some(true)
-        && selected_selector == "blessed_workflow_live_default";
+        && selected_selector == "blessed_workflow_live_default"
+        && live_promotion_readiness_ready;
     let default_authority_transferred = canary_passed && default_promotion_requested;
     let production_default_selector = if default_authority_transferred {
         "blessed_workflow_live_default"
@@ -3690,6 +4004,10 @@ fn runtime_harness_live_handoff(
         "nodeTimelineAttemptIds": node_timeline_attempt_ids,
         "receiptIds": receipt_ids,
         "replayFixtureRefs": replay_fixture_refs,
+        "livePromotionReadinessProof": live_promotion_readiness_proof,
+        "livePromotionReadinessReady": live_promotion_readiness_ready,
+        "livePromotionReadinessBlockers": live_promotion_readiness_blockers,
+        "livePromotionReadinessPolicyDecision": live_promotion_readiness_policy_decision,
         "activationBlockers": activation_blockers,
         "defaultPromotionGate": resolved_default_promotion_gate,
         "evidenceRefs": [
@@ -3766,6 +4084,13 @@ fn runtime_harness_default_runtime_dispatch(
             != Some(true)
     {
         activation_blockers.push("default_promotion_gate_not_eligible".to_string());
+    }
+    if selector_decision
+        .get("livePromotionReadinessReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        activation_blockers.push("selector_live_promotion_readiness_not_ready".to_string());
     }
     if live_handoff
         .get("defaultAuthorityTransferred")
@@ -11558,6 +11883,14 @@ fn workflow_visible_output_write_eligible(task: &AgentTask, sid: &str) -> bool {
         } else {
             "verify"
         };
+    let live_promotion_readiness_proof = runtime_harness_selector_live_promotion_readiness_proof(
+        sid,
+        task,
+        latest_user_turn,
+        selected_action,
+        stop_reason,
+        true,
+    );
     runtime_harness_selector_decision_with_default_promotion(
         sid,
         task,
@@ -11565,6 +11898,7 @@ fn workflow_visible_output_write_eligible(task: &AgentTask, sid: &str) -> bool {
         selected_action,
         stop_reason,
         true,
+        Some(&live_promotion_readiness_proof),
     )
     .get("selectedSelector")
     .and_then(Value::as_str)
@@ -12083,6 +12417,38 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && decision.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+                && decision
+                    .get("livePromotionReadinessReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && decision
+                    .get("livePromotionReadinessBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
+    let harness_selector_live_promotion_readiness_gated = harness_selector_decision
+        .as_ref()
+        .map(|decision| {
+            decision
+                .get("livePromotionReadinessProof")
+                .and_then(|proof| proof.get("schemaVersion"))
+                .and_then(Value::as_str)
+                == Some("workflow.harness.live-promotion-readiness.v1")
+                && decision
+                    .get("livePromotionReadinessReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && decision
+                    .get("livePromotionReadinessBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && decision
+                    .get("livePromotionReadinessPolicyDecision")
+                    .and_then(Value::as_str)
+                    == Some("allow_default_harness_live_promotion_readiness")
         })
         .unwrap_or(false);
     let harness_live_handoff = projection.get("HarnessLiveHandoff").cloned();
@@ -12157,6 +12523,15 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|gate| gate.get("defaultAuthorityTransferred"))
                     .and_then(Value::as_bool)
                     == Some(true)
+                && handoff
+                    .get("livePromotionReadinessReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && handoff
+                    .get("livePromotionReadinessBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
         })
         .unwrap_or(false);
     let harness_live_handoff_rollback = harness_live_handoff
@@ -14298,6 +14673,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_selector_canary_routed": harness_selector_canary_routed,
             "harness_selector_legacy_default": harness_selector_legacy_default,
             "harness_selector_default_promoted": harness_selector_default_promoted,
+            "harness_selector_live_promotion_readiness_gated": harness_selector_live_promotion_readiness_gated,
             "harness_shadow_run": harness_shadow_run,
             "harness_node_attempt_count": harness_node_attempt_count,
             "harness_shadow_comparison_count": harness_shadow_comparison_count,
@@ -14410,6 +14786,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_selector_canary_routed": harness_selector_canary_routed,
             "harness_selector_legacy_default": harness_selector_legacy_default,
             "harness_selector_default_promoted": harness_selector_default_promoted,
+            "harness_selector_live_promotion_readiness_gated": harness_selector_live_promotion_readiness_gated,
             "harness_live_handoff_canary": harness_live_handoff_canary,
             "harness_live_handoff_default_promoted": harness_live_handoff_default_promoted,
             "harness_live_handoff_rollback": harness_live_handoff_rollback,

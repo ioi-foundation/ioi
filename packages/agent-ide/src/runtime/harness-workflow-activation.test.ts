@@ -743,8 +743,27 @@ const withClusterReadiness = (
 
 {
   const activationIdGateClickProof = makeActivationIdGateClickProof();
+  const selectorDecisionId = "harness-selector:default-agent-harness:live-default-test";
+  const nodeTimelineAttemptIds = ["attempt-planner", "attempt-model-router"];
+  const receiptIds = ["receipt-planner", "receipt-model-router"];
+  const replayFixtureRefs = ["fixture-planner", "fixture-model-router"];
+  const dispatch = makeHarnessDefaultRuntimeDispatchProof({
+    selectorDecisionId,
+    acceptedClusterIds: [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling",
+    ],
+    acceptedNodeAttemptIds: nodeTimelineAttemptIds,
+    receiptIds,
+    replayFixtureRefs,
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: 10_100,
+  });
+  const livePromotionReadinessProof = dispatch.livePromotionReadinessProof;
   const selector = makeHarnessRuntimeSelectorDecision({
-    decisionId: "harness-selector:default-agent-harness:live-default-test",
+    decisionId: selectorDecisionId,
     selectedSelector: "blessed_workflow_live_default",
     productionDefaultSelector: "blessed_workflow_live_default",
     canaryEligible: true,
@@ -755,6 +774,7 @@ const withClusterReadiness = (
     defaultPromotionGateEligible: true,
     defaultPromotionGateAuthorityTransferred: true,
     defaultPromotionGateActivationBlockers: [],
+    livePromotionReadinessProof,
     activationIdGateClickProof,
     activationIdGateProofNowMs: 10_100,
   });
@@ -766,25 +786,12 @@ const withClusterReadiness = (
     defaultPromotionGateEnabled: true,
     defaultPromotionGateEligible: true,
     defaultPromotionGateActivationBlockers: [],
+    livePromotionReadinessProof,
     activationIdGateClickProof,
     activationIdGateProofNowMs: 10_100,
-    nodeTimelineAttemptIds: ["attempt-planner", "attempt-model-router"],
-    receiptIds: ["receipt-planner", "receipt-model-router"],
-    replayFixtureRefs: ["fixture-planner", "fixture-model-router"],
-  });
-  const dispatch = makeHarnessDefaultRuntimeDispatchProof({
-    selectorDecisionId: selector.decisionId,
-    acceptedClusterIds: [
-      "cognition",
-      "routing_model",
-      "verification_output",
-      "authority_tooling",
-    ],
-    acceptedNodeAttemptIds: handoff.nodeTimelineAttemptIds,
-    receiptIds: handoff.receiptIds,
-    replayFixtureRefs: handoff.replayFixtureRefs,
-    activationIdGateClickProof,
-    activationIdGateProofNowMs: 10_100,
+    nodeTimelineAttemptIds,
+    receiptIds,
+    replayFixtureRefs,
   });
 
   assert.equal(selector.selectedSelector, "blessed_workflow_live_default");
@@ -795,12 +802,20 @@ const withClusterReadiness = (
   assert.equal(selector.defaultPromotionGate?.eligible, true);
   assert.equal(selector.defaultPromotionGate?.defaultAuthorityTransferred, true);
   assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, []);
+  assert.equal(selector.livePromotionReadinessReady, true);
+  assert.deepEqual(selector.livePromotionReadinessBlockers, []);
+  assert.equal(
+    selector.livePromotionReadinessProof?.proofId,
+    dispatch.livePromotionReadinessProof.proofId,
+  );
   assert.equal(handoff.selector, "blessed_workflow_live_default");
   assert.equal(handoff.productionDefaultSelector, "blessed_workflow_live_default");
   assert.equal(handoff.defaultAuthorityTransferred, true);
   assert.equal(handoff.runtimeAuthority, "blessed_workflow_activation_default");
   assert.equal(handoff.defaultPromotionGate?.eligible, true);
   assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, []);
+  assert.equal(handoff.livePromotionReadinessReady, true);
+  assert.deepEqual(handoff.livePromotionReadinessBlockers, []);
   assert.equal(dispatch.selectorDecisionId, selector.decisionId);
   assert.equal(dispatch.selectedSelector, "blessed_workflow_live_default");
   assert.equal(dispatch.productionDefaultSelector, "blessed_workflow_live_default");
@@ -865,8 +880,12 @@ const withClusterReadiness = (
     defaultPromotionGateEligible: true,
     defaultPromotionGateAuthorityTransferred: true,
   });
+  assert.equal(selector.selectedSelector, "blessed_workflow_live_canary");
+  assert.equal(selector.productionDefaultSelector, "legacy_runtime");
+  assert.equal(selector.livePromotionReadinessReady, false);
   assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, [
     "activation_id_gate_click_proof_missing",
+    "live_promotion_readiness_proof_missing",
   ]);
 
   const handoff = makeBlessedHarnessLiveHandoffProof({
@@ -874,11 +893,17 @@ const withClusterReadiness = (
     productionDefaultSelector: "blessed_workflow_live_default",
     defaultAuthorityTransferred: true,
   });
+  assert.equal(handoff.selector, "blessed_workflow_live_canary");
+  assert.equal(handoff.defaultAuthorityTransferred, false);
+  assert.equal(handoff.productionDefaultSelector, "legacy_runtime");
+  assert.equal(handoff.livePromotionReadinessReady, false);
   assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, [
     "activation_id_gate_click_proof_missing",
+    "live_promotion_readiness_proof_missing",
   ]);
   assert.deepEqual(handoff.activationBlockers, [
     "activation_id_gate_click_proof_missing",
+    "live_promotion_readiness_proof_missing",
   ]);
 
   const missingProofDispatch = makeHarnessDefaultRuntimeDispatchProof();

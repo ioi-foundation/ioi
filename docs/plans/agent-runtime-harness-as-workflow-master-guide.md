@@ -22,6 +22,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T12-22-46-391Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T12-28-29-887Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-02-20-661Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -67,22 +69,23 @@ through a workflow-backed harness.
 
 ## Latest Validated Checkpoint
 
-As of 2026-05-08, the default live harness activation-id gate, default runtime
-dispatch proof, gated verification/output adapter proof, and gated
-authority/tooling adapter proof have a green end-to-end checkpoint:
+As of 2026-05-08, the default live harness activation-id gate, runtime selector
+readiness gate, live handoff, default runtime dispatch proof, gated
+verification/output adapter proof, and gated authority/tooling adapter proof
+have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-02-20-661Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
-the fork activation click proof, the default runtime dispatch binding, live
-handoff, route-stateful deep links, activation audit links, rollback restore
-actions, and runtime evidence in one retained-query evidence bundle. It also
-proves the blessed default dispatch is bound to
-`activation:default-agent-harness:blessed-readonly` while the fork activation
-wizard remains its own evidence object.
+the fork activation click proof, the selector-owned live-promotion readiness
+gate, the default runtime dispatch binding, live handoff, route-stateful deep
+links, activation audit links, rollback restore actions, and runtime evidence
+in one retained-query evidence bundle. It also proves the blessed default
+dispatch is bound to `activation:default-agent-harness:blessed-readonly` while
+the fork activation wizard remains its own evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -280,6 +283,46 @@ drive the actual activation selector/canary path more directly: the selector
 should consume the readiness object as its primary gate input, and invalid fork
 live activation should be proven through the same object rather than through
 parallel validation counters.
+
+### 2026-05-08 Selector-Gated Live Promotion Readiness Slice
+
+The live-promotion readiness proof now gates the runtime selector instead of
+only appearing as default-dispatch evidence:
+
+- Rust canonical harness contracts now attach live-promotion readiness fields
+  to `HarnessRuntimeSelectorDecision` and `HarnessLiveHandoffProof`.
+- TypeScript graph/runtime contracts mirror those fields on
+  `WorkflowHarnessRuntimeSelectorDecision` and
+  `WorkflowHarnessLiveHandoffProof`: the proof object, ready boolean, blockers,
+  and policy decision.
+- `makeHarnessRuntimeSelectorDecision` fails closed: a requested
+  `blessed_workflow_live_default` selector falls back to canary unless
+  `livePromotionReadinessProof` is present, all four required clusters are
+  live-ready, rollback is available, invalid fork live activation is blocked,
+  policy allows promotion, and there are no readiness blockers.
+- `makeBlessedHarnessLiveHandoffProof` no longer transfers default authority
+  unless the same readiness proof passes.
+- Autopilot runtime evidence now emits
+  `harness_selector_live_promotion_readiness_gated` and requires it for
+  `harness_selector_default_promoted`, default dispatch acceptance, live
+  handoff transfer, and the retained GUI/P3 validation path.
+- The Workflows right rail now shows selector-level live-promotion readiness
+  with blocker count, rollback posture, cluster count, and policy decision, so
+  reviewers can distinguish "dispatch has a proof" from "the selector consumed
+  and enforced the proof."
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-02-20-661Z/`;
+  runtime consistency includes
+  `harness_selector_live_promotion_readiness_gated: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`.
+
+This changes the promotion boundary from "visible validation evidence" to
+"runtime selector authority." The next chronological slice should bind the
+selector-gated proof to durable activation IDs and rollback/canary state at the
+worker binding layer, so a default live worker cannot attach unless the
+selector-readiness proof, dispatch proof, activation record, and rollback target
+all agree.
 
 ## Current State
 

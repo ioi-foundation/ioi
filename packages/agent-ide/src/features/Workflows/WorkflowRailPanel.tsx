@@ -428,6 +428,20 @@ export function WorkflowRailPanel({
   const harnessDefaultRuntimeDispatchProof = workflow.metadata.harness?.defaultRuntimeDispatchProof;
   const harnessLivePromotionReadinessProof =
     harnessDefaultRuntimeDispatchProof?.livePromotionReadinessProof ?? null;
+  const harnessSelectorLivePromotionReadinessProof =
+    harnessRuntimeSelectorDecision?.livePromotionReadinessProof ??
+    harnessLiveHandoffProof?.livePromotionReadinessProof ??
+    harnessLivePromotionReadinessProof;
+  const harnessSelectorLivePromotionReadinessReady =
+    harnessRuntimeSelectorDecision?.livePromotionReadinessReady ??
+    harnessLiveHandoffProof?.livePromotionReadinessReady ??
+    harnessSelectorLivePromotionReadinessProof?.defaultLiveActivationReady ??
+    false;
+  const harnessSelectorLivePromotionReadinessBlockers =
+    harnessRuntimeSelectorDecision?.livePromotionReadinessBlockers ??
+    harnessLiveHandoffProof?.livePromotionReadinessBlockers ??
+    harnessSelectorLivePromotionReadinessProof?.activationBlockers ??
+    [];
   const harnessActiveRuntimeBindingReceiptRefs = workflowUniqueReceiptRefs([
     ...(harnessDefaultRuntimeDispatchProof?.receiptIds ?? []),
     ...(harnessLiveHandoffProof?.receiptIds ?? []),
@@ -3689,6 +3703,33 @@ export function WorkflowRailPanel({
                   default {harnessRuntimeSelectorDecision.productionDefaultSelector} · {harnessRuntimeSelectorDecision.executionMode}
                 </span>
                 <small>{harnessRuntimeSelectorDecision.policyDecision}</small>
+              </article>
+            ) : null}
+            {harnessSelectorLivePromotionReadinessProof ? (
+              <article
+                className={`workflow-output-row is-${
+                  harnessSelectorLivePromotionReadinessReady ? "ready" : "blocked"
+                }`}
+                data-testid="workflow-harness-selector-live-promotion-readiness"
+                data-readiness={
+                  harnessSelectorLivePromotionReadinessReady ? "live_ready" : "blocked"
+                }
+              >
+                <strong>
+                  selector readiness{" "}
+                  {harnessSelectorLivePromotionReadinessReady ? "ready" : "blocked"}
+                </strong>
+                <span>
+                  {harnessSelectorLivePromotionReadinessProof.clusterReadiness.length} clusters · rollback{" "}
+                  {harnessSelectorLivePromotionReadinessProof.rollbackAvailable
+                    ? "ready"
+                    : "blocked"}
+                </span>
+                <small>
+                  {harnessSelectorLivePromotionReadinessBlockers.length} blockers ·{" "}
+                  {harnessRuntimeSelectorDecision?.livePromotionReadinessPolicyDecision ??
+                    harnessSelectorLivePromotionReadinessProof.policyDecision}
+                </small>
               </article>
             ) : null}
             {harnessDefaultRuntimeDispatchProof ? (
