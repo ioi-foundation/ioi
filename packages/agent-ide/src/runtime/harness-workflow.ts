@@ -13,6 +13,7 @@ import type {
   WorkflowHarnessActivationAuditEventType,
   WorkflowHarnessActivationRollbackExecution,
   WorkflowHarnessActivationRollbackProof,
+  WorkflowHarnessActivationIdGateClickProof,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessForkActivationRecord,
   WorkflowHarnessLiveHandoffProof,
@@ -57,6 +58,8 @@ export const DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS = Object.freeze([
   "canary_not_run",
   "activation_review_incomplete",
 ]);
+export const DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS =
+  5 * 60 * 1000;
 
 const HARNESS_INPUT_SCHEMA = {
   type: "object",
@@ -80,6 +83,112 @@ const HARNESS_OUTPUT_SCHEMA = {
     receipts: { type: "array", items: { type: "string" } },
   },
 };
+
+export function workflowHarnessActivationIdGateClickProofBlockers(
+  proof: WorkflowHarnessActivationIdGateClickProof | null | undefined,
+  options: {
+    nowMs?: number;
+    maxAgeMs?: number;
+  } = {},
+): string[] {
+  const blockers: string[] = [];
+  if (!proof) return ["activation_id_gate_click_proof_missing"];
+  const maxAgeMs =
+    options.maxAgeMs ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS;
+  if (proof.passed !== true || proof.blockers.length > 0) {
+    blockers.push("activation_id_gate_click_proof_failed");
+  }
+  if (
+    typeof options.nowMs === "number" &&
+    Number.isFinite(proof.generatedAtMs) &&
+    (proof.generatedAtMs > options.nowMs + 1000 ||
+      options.nowMs - proof.generatedAtMs > maxAgeMs)
+  ) {
+    blockers.push("activation_id_gate_click_proof_stale");
+  }
+  const blockedDryRun = proof.blockedDryRun;
+  if (blockedDryRun.clicked !== true) {
+    blockers.push("activation_id_gate_dry_run_not_clicked");
+  }
+  if (blockedDryRun.gateId !== "activation-id") {
+    blockers.push("activation_id_gate_dry_run_gate_mismatch");
+  }
+  if (blockedDryRun.action.kind !== "run_activation_dry_run") {
+    blockers.push("activation_id_gate_dry_run_kind_mismatch");
+  }
+  if (blockedDryRun.action.command !== "workflow-harness-gate-action-activation-id") {
+    blockers.push("activation_id_gate_dry_run_command_mismatch");
+  }
+  if (blockedDryRun.decision !== "blocked") {
+    blockers.push("activation_id_gate_dry_run_not_blocked");
+  }
+  if (blockedDryRun.activationBlockerCount <= 0) {
+    blockers.push("activation_id_gate_dry_run_no_blockers");
+  }
+  if (blockedDryRun.workflowActivationId) {
+    blockers.push("activation_id_gate_dry_run_minted_activation_id");
+  }
+  if (blockedDryRun.workflowActivationState !== "blocked") {
+    blockers.push("activation_id_gate_dry_run_activation_state_mismatch");
+  }
+  if (blockedDryRun.latestAuditEventType !== "dry_run_blocked") {
+    blockers.push("activation_id_gate_dry_run_audit_type_mismatch");
+  }
+
+  const minted = proof.mintedActivation;
+  const activationId = minted.activationId;
+  if (minted.clicked !== true) blockers.push("activation_id_gate_mint_not_clicked");
+  if (minted.applied !== true) blockers.push("activation_id_gate_mint_not_applied");
+  if (minted.gateId !== "activation-id") {
+    blockers.push("activation_id_gate_mint_gate_mismatch");
+  }
+  if (minted.action.kind !== "mint_activation") {
+    blockers.push("activation_id_gate_mint_kind_mismatch");
+  }
+  if (minted.action.command !== "workflow-harness-gate-action-activation-id") {
+    blockers.push("activation_id_gate_mint_command_mismatch");
+  }
+  if (!activationId?.startsWith("activation:")) {
+    blockers.push("activation_id_gate_mint_activation_id_missing");
+  }
+  if (minted.workflowActivationId !== activationId) {
+    blockers.push("activation_id_gate_mint_workflow_activation_mismatch");
+  }
+  if (minted.workflowActivationState !== "validated") {
+    blockers.push("activation_id_gate_mint_activation_state_mismatch");
+  }
+  if (minted.workerBindingActivationId !== activationId) {
+    blockers.push("activation_id_gate_mint_worker_binding_mismatch");
+  }
+  if (minted.activationRecordWorkerBindingActivationId !== activationId) {
+    blockers.push("activation_id_gate_mint_activation_record_binding_mismatch");
+  }
+  if (minted.revisionBindingActivationId !== activationId) {
+    blockers.push("activation_id_gate_mint_revision_binding_mismatch");
+  }
+  if (minted.rollbackTarget !== DEFAULT_AGENT_HARNESS_ACTIVATION_ID) {
+    blockers.push("activation_id_gate_mint_rollback_target_mismatch");
+  }
+  if (!minted.activationRecordRevisionBindingHash) {
+    blockers.push("activation_id_gate_mint_revision_hash_missing");
+  }
+  if (!minted.rollbackRevisionBindingHash) {
+    blockers.push("activation_id_gate_mint_rollback_hash_missing");
+  }
+  if (minted.latestAuditEventType !== "activation_minted") {
+    blockers.push("activation_id_gate_mint_audit_type_mismatch");
+  }
+  if (minted.latestAuditStatus !== "applied") {
+    blockers.push("activation_id_gate_mint_audit_status_mismatch");
+  }
+  if (minted.receiptRefs.length === 0) {
+    blockers.push("activation_id_gate_mint_receipts_missing");
+  }
+  if (minted.evidenceRefs.length === 0) {
+    blockers.push("activation_id_gate_mint_evidence_missing");
+  }
+  return uniqueStrings(blockers);
+}
 
 const HARNESS_ERROR_SCHEMA = {
   type: "object",
@@ -1780,6 +1889,10 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   defaultPromotionGateEligible?: boolean;
   defaultPromotionGateActivationBlockers?: string[];
   defaultPromotionGatePolicyDecision?: string;
+  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
+  activationIdGateProofNowMs?: number;
+  activationIdGateProofMaxAgeMs?: number;
+  requireActivationIdGateClickProof?: boolean;
   gatedClusterIds?: WorkflowHarnessLiveHandoffProof["gatedClusterIds"];
   executionBoundaryIds?: string[];
   executionBoundaryClusterIds?: WorkflowHarnessPromotionClusterId[];
@@ -1798,9 +1911,26 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
     options.defaultPromotionGateEnabled ?? defaultAuthorityTransferred;
   const defaultPromotionGateEligible =
     options.defaultPromotionGateEligible ?? defaultAuthorityTransferred;
+  const activationIdGateProofBlockers =
+    (options.requireActivationIdGateClickProof ?? defaultAuthorityTransferred)
+      ? workflowHarnessActivationIdGateClickProofBlockers(
+          options.activationIdGateClickProof,
+          {
+            nowMs: options.activationIdGateProofNowMs,
+            maxAgeMs: options.activationIdGateProofMaxAgeMs,
+          },
+        )
+      : [];
   const defaultPromotionGateActivationBlockers =
-    options.defaultPromotionGateActivationBlockers ??
-    (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"]);
+    uniqueStrings([
+      ...(options.defaultPromotionGateActivationBlockers ??
+        (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
+      ...activationIdGateProofBlockers,
+    ]);
+  const activationBlockers = uniqueStrings([
+    ...(options.activationBlockers ?? []),
+    ...activationIdGateProofBlockers,
+  ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
     (defaultPromotionGateEligible
@@ -1864,7 +1994,7 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
     nodeTimelineAttemptIds: options.nodeTimelineAttemptIds ?? [],
     receiptIds: options.receiptIds ?? [],
     replayFixtureRefs: options.replayFixtureRefs ?? [],
-    activationBlockers: options.activationBlockers ?? [],
+    activationBlockers,
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
       enabled: defaultPromotionGateEnabled,
@@ -1897,6 +2027,10 @@ export function makeHarnessRuntimeSelectorDecision(options: {
   defaultPromotionGateAuthorityTransferred?: boolean;
   defaultPromotionGateActivationBlockers?: string[];
   defaultPromotionGatePolicyDecision?: string;
+  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
+  activationIdGateProofNowMs?: number;
+  activationIdGateProofMaxAgeMs?: number;
+  requireActivationIdGateClickProof?: boolean;
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessRuntimeSelectorDecision {
   const selectedSelector = options.selectedSelector ?? "blessed_workflow_live_canary";
@@ -1911,11 +2045,24 @@ export function makeHarnessRuntimeSelectorDecision(options: {
     options.defaultPromotionGateEnabled ?? defaultSelected;
   const defaultPromotionGateEligible =
     options.defaultPromotionGateEligible ?? defaultSelected;
+  const activationIdGateProofBlockers =
+    (options.requireActivationIdGateClickProof ?? defaultSelected)
+      ? workflowHarnessActivationIdGateClickProofBlockers(
+          options.activationIdGateClickProof,
+          {
+            nowMs: options.activationIdGateProofNowMs,
+            maxAgeMs: options.activationIdGateProofMaxAgeMs,
+          },
+        )
+      : [];
   const defaultPromotionGateAuthorityTransferred =
     options.defaultPromotionGateAuthorityTransferred ?? defaultSelected;
   const defaultPromotionGateActivationBlockers =
-    options.defaultPromotionGateActivationBlockers ??
-    (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"]);
+    uniqueStrings([
+      ...(options.defaultPromotionGateActivationBlockers ??
+        (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
+      ...activationIdGateProofBlockers,
+    ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
     (defaultPromotionGateEligible
@@ -1985,6 +2132,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
   receiptIds?: string[];
   replayFixtureRefs?: string[];
   activationBlockers?: string[];
+  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
+  activationIdGateProofNowMs?: number;
+  activationIdGateProofMaxAgeMs?: number;
+  requireActivationIdGateClickProof?: boolean;
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessDefaultRuntimeDispatchProof {
   const acceptedClusterIds = options.acceptedClusterIds ?? [
@@ -2021,6 +2172,21 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "model-binding:default-agent-harness:workflow-default-model-route";
   const modelExecutionPromptHash = promptAssemblyPromptHash;
   const modelExecutionOutputHash = actualVisibleOutputHash;
+  const activationIdGateProofBlockers =
+    (options.requireActivationIdGateClickProof ?? true)
+      ? workflowHarnessActivationIdGateClickProofBlockers(
+          options.activationIdGateClickProof,
+          {
+            nowMs: options.activationIdGateProofNowMs,
+            maxAgeMs: options.activationIdGateProofMaxAgeMs,
+          },
+        )
+      : [];
+  const activationBlockers = uniqueStrings([
+    ...(options.activationBlockers ?? []),
+    ...activationIdGateProofBlockers,
+  ]);
+  const dispatchAccepted = activationBlockers.length === 0;
   const workflowTranscriptWriteCandidate = {
     target: "checkpoint_transcript_messages",
     role: "agent",
@@ -2126,8 +2292,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
-    executionMode: "live",
-    runtimeAuthority: "blessed_workflow_activation_default",
+    executionMode: dispatchAccepted ? "live" : "gated",
+    runtimeAuthority: dispatchAccepted
+      ? "blessed_workflow_activation_default"
+      : "existing_runtime_service",
     dispatchScope: "read_only_cognition_routing_verification_completion_authority_tooling",
     acceptedClusterIds,
     componentKinds: acceptedClusterIds
@@ -2399,7 +2567,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     executorKind: "workflow_node_executor",
     executorRef: "crate::project::execute_workflow_harness_live_default_node",
     synchronous: true,
-    drivesRuntimeDecision: true,
+    drivesRuntimeDecision: dispatchAccepted,
     cognitionExecutionMode: "workflow_synchronous_envelope",
     cognitionExecutionReady: true,
     promptAssemblyMode: "workflow_synchronous_envelope",
@@ -3010,9 +3178,11 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     mutatingTurnsBlocked: true,
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: true,
-    activationBlockers: options.activationBlockers ?? [],
+    activationBlockers,
     policyDecision:
-      "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write",
+      dispatchAccepted
+        ? "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write"
+        : "retain_legacy_runtime_default",
     evidenceRefs: options.evidenceRefs ?? [],
   };
 }

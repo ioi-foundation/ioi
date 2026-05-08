@@ -108,6 +108,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessCanaryExecutionBoundary/);
   assert.match(graph, /defaultRuntimeDispatchProof\?: WorkflowHarnessDefaultRuntimeDispatchProof/);
   assert.match(graph, /canaryExecutionBoundaries\?: WorkflowHarnessCanaryExecutionBoundary\[\]/);
+  assert.match(workflow, /workflowHarnessActivationIdGateClickProofBlockers[\s\S]*activation_id_gate_click_proof_missing[\s\S]*activation_id_gate_mint_worker_binding_mismatch/);
   assert.match(workflow, /makeHarnessForkActivationRecord[\s\S]*activationState: "blocked"/);
   assert.match(workflow, /harnessForkActivationId[\s\S]*validated-canary/);
   assert.match(workflow, /makeBlessedHarnessLiveHandoffProof[\s\S]*blessed_workflow_live_canary/);

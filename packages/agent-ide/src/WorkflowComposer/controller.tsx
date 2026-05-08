@@ -508,6 +508,7 @@ function workflowWithMintableHarnessActivationCandidate(
 function workflowWithBlessedDefaultRuntimeActivationProof(
   workflow: WorkflowProject,
   nowMs: number,
+  activationIdGateClickProof: WorkflowHarnessActivationIdGateClickProof,
 ): WorkflowProject {
   const harness = workflow.metadata.harness;
   if (!harness) return workflow;
@@ -530,6 +531,12 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
   const boundaryReplayFixtureRefs = uniqueHarnessRefs(
     canaryBoundaries.flatMap((boundary) => boundary.replayFixtureRefs),
   );
+  const defaultPromotionEvidenceRefs = uniqueHarnessRefs([
+    ...transitionRefs,
+    activationIdGateClickProof.mintedActivation.activationId,
+    ...activationIdGateClickProof.mintedActivation.receiptRefs,
+    ...activationIdGateClickProof.mintedActivation.evidenceRefs,
+  ]);
   const selectorDecision = makeHarnessRuntimeSelectorDecision({
     decisionId: `harness-selector:${workflow.metadata.id || workflow.metadata.slug}:live-gui-default`,
     selectedSelector: "blessed_workflow_live_default",
@@ -547,7 +554,9 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     defaultPromotionGateActivationBlockers: [],
     defaultPromotionGatePolicyDecision:
       "promote_blessed_workflow_default_for_non_mutating_turn",
-    evidenceRefs: transitionRefs,
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: nowMs,
+    evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const liveHandoffProof = makeBlessedHarnessLiveHandoffProof({
     selector: "blessed_workflow_live_default",
@@ -569,7 +578,9 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     receiptIds: boundaryReceiptIds,
     replayFixtureRefs: boundaryReplayFixtureRefs,
     activationBlockers: [],
-    evidenceRefs: transitionRefs,
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: nowMs,
+    evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const defaultRuntimeDispatchProof = makeHarnessDefaultRuntimeDispatchProof({
     selectorDecisionId: selectorDecision.decisionId,
@@ -580,7 +591,9 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     acceptedNodeAttemptIds: boundaryAttemptIds,
     receiptIds: boundaryReceiptIds,
     replayFixtureRefs: boundaryReplayFixtureRefs,
-    evidenceRefs: transitionRefs,
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: nowMs,
+    evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const workerBinding = {
     ...workflowHarnessWorkerBinding(workflow),
@@ -6425,36 +6438,6 @@ export function useWorkflowComposerController({
         workflow = live.workflow;
         liveAttempts.push(live.attempt);
       });
-      workflow = workflowWithBlessedDefaultRuntimeActivationProof(workflow, nowMs + 90);
-      const nextTests = defaultAgentHarnessTests(workflow);
-      setWorkflowPath(proofWorkflowPath);
-      setTestsPath(proofWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"));
-      setTests(nextTests);
-      setProposals([]);
-      setRuns([]);
-      clearRunState();
-      loadWorkflowProject(workflow);
-      setValidationResult(validateWorkflowProject(workflow, nextTests));
-      setReadinessResult(
-        evaluateWorkflowActivationReadiness(
-          workflow,
-          nextTests,
-          validateWorkflowProject(workflow, nextTests),
-          [],
-          [],
-        ),
-      );
-      setSelectedHarnessGroupId(primaryClusterId);
-      setRightPanel("outputs");
-      setBottomPanel("selection");
-      setStatusMessage("Blessed harness activation promoted to live default");
-      await nextHarnessWorkbenchFrame();
-      const deepLinkReplayProof = await runHarnessDeepLinkReplayProbe(
-        workflow,
-        nowMs + 100,
-      );
-      const coldStartDeepLinkRestoreProof =
-        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 110);
       const activationBlockerFork = forkDefaultAgentHarnessWorkflow(
         "Activation Blocker Deep Link Fork",
         nowMs + 115,
@@ -6518,6 +6501,40 @@ export function useWorkflowComposerController({
           activationBlockerFork.proposals,
           nowMs + 145,
         );
+      workflow = workflowWithBlessedDefaultRuntimeActivationProof(
+        workflow,
+        nowMs + 150,
+        activationIdGateClickProof,
+      );
+      const nextTests = defaultAgentHarnessTests(workflow);
+      setWorkflowPath(proofWorkflowPath);
+      setTestsPath(proofWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"));
+      setTests(nextTests);
+      setProposals([]);
+      setRuns([]);
+      clearRunState();
+      loadWorkflowProject(workflow);
+      setValidationResult(validateWorkflowProject(workflow, nextTests));
+      setReadinessResult(
+        evaluateWorkflowActivationReadiness(
+          workflow,
+          nextTests,
+          validateWorkflowProject(workflow, nextTests),
+          [],
+          [],
+        ),
+      );
+      setSelectedHarnessGroupId(primaryClusterId);
+      setRightPanel("outputs");
+      setBottomPanel("selection");
+      setStatusMessage("Blessed harness activation promoted to live default");
+      await nextHarnessWorkbenchFrame();
+      const deepLinkReplayProof = await runHarnessDeepLinkReplayProbe(
+        workflow,
+        nowMs + 155,
+      );
+      const coldStartDeepLinkRestoreProof =
+        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 160);
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
