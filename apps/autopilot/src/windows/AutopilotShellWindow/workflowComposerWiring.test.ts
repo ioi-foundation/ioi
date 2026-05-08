@@ -1565,8 +1565,14 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /interface WorkflowPortablePackageManifest[\s\S]*readinessStatus[\s\S]*portable[\s\S]*files: WorkflowPortablePackageFile\[\]/,
-  "Portable workflow package manifests should carry readiness and file integrity metadata",
+  /interface WorkflowPortablePackageManifest[\s\S]*harnessPackageManifest\?: WorkflowHarnessPackageEvidenceManifest[\s\S]*readinessStatus[\s\S]*portable[\s\S]*files: WorkflowPortablePackageFile\[\]/,
+  "Portable workflow package manifests should carry harness package evidence, readiness, and file integrity metadata",
+);
+
+assert.match(
+  `${graphTypes}\n${harnessWorkflow}\n${workflowRailPanel}\n${projectCommands}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*makeWorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*withWorkflowHarnessPackageManifest)(?=[\s\S]*harnessWorkbenchDeepLinkHash)(?=[\s\S]*harnessPackageManifest)(?=[\s\S]*data-harness-package-manifest-present)(?=[\s\S]*harness-package-evidence\.json)(?=[\s\S]*harness_package_manifest)(?=[\s\S]*packageManifest)/,
+  "Harness fork portable packages should preserve evidence manifests, route-restorable deep links, GUI coverage counts, and Rust bundle sidecars across export/import.",
 );
 
 assert.match(

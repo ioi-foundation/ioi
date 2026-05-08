@@ -625,6 +625,8 @@ pub struct WorkflowPortablePackageManifest {
     #[serde(default)]
     pub harness: Option<Value>,
     #[serde(default)]
+    pub harness_package_manifest: Option<Value>,
+    #[serde(default)]
     pub worker_harness_binding: Option<Value>,
     pub readiness_status: String,
     pub portable: bool,

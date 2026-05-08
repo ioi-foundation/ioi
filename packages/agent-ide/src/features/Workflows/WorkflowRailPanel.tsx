@@ -2856,6 +2856,23 @@ export function WorkflowRailPanel({
             <article
               className={`workflow-test-row is-${portablePackage.manifest.portable ? "passed" : "blocked"}`}
               data-testid="workflow-package-summary"
+              data-harness-package-manifest-present={
+                portablePackage.manifest.harnessPackageManifest
+                  ? "true"
+                  : "false"
+              }
+              data-harness-package-receipt-ref-count={
+                portablePackage.manifest.harnessPackageManifest?.receiptRefs
+                  .length ?? 0
+              }
+              data-harness-package-replay-fixture-ref-count={
+                portablePackage.manifest.harnessPackageManifest
+                  ?.replayFixtureRefs.length ?? 0
+              }
+              data-harness-package-deep-link-count={
+                portablePackage.manifest.harnessPackageManifest?.deepLinks
+                  .length ?? 0
+              }
             >
               <strong>
                 {portablePackage.manifest.portable

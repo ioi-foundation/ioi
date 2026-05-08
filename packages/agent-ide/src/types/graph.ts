@@ -1242,6 +1242,42 @@ export interface WorkflowHarnessRollbackRestoreCanary {
   createdAtMs: number;
 }
 
+export interface WorkflowHarnessPackageEvidenceLink {
+  kind:
+    | "activation"
+    | "canary_boundary"
+    | "rollback_drill"
+    | "rollback_restore"
+    | "worker_handoff"
+    | string;
+  ref: string;
+  hash: string;
+}
+
+export interface WorkflowHarnessPackageEvidenceManifest {
+  schemaVersion: "workflow.harness.package-evidence-manifest.v1" | string;
+  packageName: string;
+  workflowId: string;
+  harnessWorkflowId: string;
+  activationId?: string;
+  activationState?: WorkflowHarnessActivationState;
+  harnessHash: string;
+  workflowContentHash: string;
+  rollbackTarget?: string;
+  componentVersionSet: Record<string, string>;
+  evidenceRefs: string[];
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  nodeAttemptIds: string[];
+  canaryBoundaryIds: string[];
+  rollbackDrillIds: string[];
+  workerHandoffNodeAttemptIds: string[];
+  workerHandoffReceiptIds: string[];
+  rollbackRestoreReceiptRefs: string[];
+  deepLinks: WorkflowHarnessPackageEvidenceLink[];
+  createdAtMs: number;
+}
+
 export interface WorkflowHarnessForkActivationRecord {
   schemaVersion: "workflow.harness.activation.v1" | string;
   workflowId: string;
@@ -1270,6 +1306,7 @@ export interface WorkflowHarnessForkActivationRecord {
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
+  packageManifest?: WorkflowHarnessPackageEvidenceManifest;
   mintedAtMs?: number;
 }
 
@@ -2465,6 +2502,7 @@ export interface WorkflowHarnessMetadata {
     harnessHash: string;
   };
   packageName?: string;
+  packageManifest?: WorkflowHarnessPackageEvidenceManifest;
   activationId?: string;
   activationState?: WorkflowHarnessActivationState;
   activationRecord?: WorkflowHarnessForkActivationRecord;
@@ -3179,6 +3217,7 @@ export interface WorkflowPortablePackageManifest {
   workflowSlug: string;
   sourceWorkflowPath: string;
   harness?: WorkflowHarnessMetadata;
+  harnessPackageManifest?: WorkflowHarnessPackageEvidenceManifest;
   workerHarnessBinding?: WorkflowHarnessWorkerBinding;
   readinessStatus: WorkflowValidationResult["status"];
   portable: boolean;
