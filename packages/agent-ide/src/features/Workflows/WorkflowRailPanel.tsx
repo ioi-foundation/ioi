@@ -34,6 +34,7 @@ import {
   workflowHarnessLivePromotionReadinessProofBlockers,
   workflowHarnessPromotionTransitionEligibility,
   workflowHarnessWorkerBinding,
+  workflowHarnessWorkerBindingRegistryBlockers,
   workflowIsBlessedHarness,
   workflowIsHarness,
   workflowIsHarnessFork,
@@ -609,6 +610,18 @@ export function WorkflowRailPanel({
                 activationId &&
               harnessActivationRecord.workerBinding?.harnessHash ===
                 harnessHash);
+          const workerBindingRegistryRecord =
+            harnessDefaultRuntimeDispatchProof.workerBindingRegistryRecord ??
+            harnessActivationRecord?.workerBindingRegistryRecord ??
+            workflow.metadata.harness?.workerBindingRegistryRecord ??
+            null;
+          const workerBindingRegistryBlockers =
+            workflowHarnessWorkerBindingRegistryBlockers(
+              workerBindingRegistryRecord,
+            );
+          const workerBindingRegistryBound =
+            workerBindingRegistryRecord?.bindingStatus === "bound" &&
+            workerBindingRegistryBlockers.length === 0;
           const workerBindingAuthorityBlockers = [
             ...(workflowIdentityMatches ? [] : ["workflow_identity_mismatch"]),
             ...(activationIdentityMatches
@@ -653,6 +666,10 @@ export function WorkflowRailPanel({
             ...(activationRecordBindingMatches
               ? []
               : ["activation_record_binding_mismatch"]),
+            ...(workerBindingRegistryBound
+              ? []
+              : ["worker_binding_registry_not_bound"]),
+            ...workerBindingRegistryBlockers,
           ];
           const workerBindingAuthorityReady =
             workerBindingAuthorityBlockers.length === 0;
@@ -699,6 +716,11 @@ export function WorkflowRailPanel({
             invalidForkLiveActivationBlocked,
             workerBindingAuthorityReady,
             workerBindingAuthorityBlockers,
+            workerBindingRegistryRecord,
+            workerBindingRegistryBound,
+            workerBindingRegistryStatus:
+              workerBindingRegistryRecord?.bindingStatus ?? "missing",
+            workerBindingRegistryBlockers,
             receiptRefs: harnessActiveRuntimeBindingReceiptRefs,
             replayFixtureRefs: harnessActiveRuntimeBindingReplayFixtureRefs,
             blockers: workerBindingAuthorityBlockers,
@@ -2881,6 +2903,14 @@ export function WorkflowRailPanel({
                     ? "true"
                     : "false"
                 }
+                data-worker-binding-registry-bound={
+                  harnessActiveRuntimeBinding.workerBindingRegistryBound
+                    ? "true"
+                    : "false"
+                }
+                data-worker-binding-registry-status={
+                  harnessActiveRuntimeBinding.workerBindingRegistryStatus
+                }
                 data-live-promotion-readiness-proof-id={
                   harnessActiveRuntimeBinding.selectorLivePromotionReadinessProofId
                 }
@@ -2937,6 +2967,12 @@ export function WorkflowRailPanel({
                         : "blocked"}
                     </dd>
                   </div>
+                  <div>
+                    <dt>Registry</dt>
+                    <dd>
+                      {harnessActiveRuntimeBinding.workerBindingRegistryStatus}
+                    </dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${
@@ -2969,6 +3005,10 @@ export function WorkflowRailPanel({
                       ? "true"
                       : "false"
                   }
+                  data-worker-binding-registry-record-id={
+                    harnessActiveRuntimeBinding.workerBindingRegistryRecord
+                      ?.registryRecordId ?? ""
+                  }
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -2986,6 +3026,11 @@ export function WorkflowRailPanel({
                     {
                       harnessActiveRuntimeBinding.selectorLivePromotionReadinessProofId
                     }
+                  </small>
+                  <small>
+                    registry{" "}
+                    {harnessActiveRuntimeBinding.workerBindingRegistryRecord
+                      ?.registryRecordId ?? "missing"}
                   </small>
                 </article>
                 <div

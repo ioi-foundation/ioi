@@ -935,6 +935,29 @@ fn workflow_harness_activation_record_validated(
     let Some(worker_binding) = workflow.metadata.worker_harness_binding.as_ref() else {
         return false;
     };
+    let Some(worker_binding_registry_record) = record.get("workerBindingRegistryRecord") else {
+        return false;
+    };
+    let registry_component_version_set_present = worker_binding_registry_record
+        .get("componentVersionSet")
+        .map(|version_set| match version_set {
+            Value::Object(items) => !items.is_empty(),
+            Value::Array(items) => !items.is_empty(),
+            _ => false,
+        })
+        .unwrap_or(false);
+    let registry_binding_status_ready = matches!(
+        workflow_json_string(worker_binding_registry_record, "bindingStatus").as_deref(),
+        Some("canary" | "bound")
+    );
+    let registry_canary_passed =
+        workflow_json_string(worker_binding_registry_record, "canaryResultId")
+            .map(|value| value.contains(":passed"))
+            .unwrap_or(false);
+    let registry_policy_present =
+        workflow_json_string(worker_binding_registry_record, "policyDecision")
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false);
     workflow_json_string(record, "activationId") == Some(activation_id)
         && workflow_json_string(record, "activationState") == Some("validated")
         && workflow_json_string(record, "canaryStatus") == Some("passed")
@@ -952,6 +975,34 @@ fn workflow_harness_activation_record_validated(
             .and_then(|binding| binding.get("harnessActivationId"))
             .and_then(Value::as_str)
             == Some(activation_id)
+        && workflow_json_string(worker_binding_registry_record, "activationId")
+            == Some(activation_id)
+        && workflow_json_string(worker_binding_registry_record, "harnessHash")
+            == workflow_json_string(record, "harnessHash")
+        && workflow_json_string(worker_binding_registry_record, "activationHash")
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+        && registry_component_version_set_present
+        && registry_binding_status_ready
+        && registry_canary_passed
+        && registry_policy_present
+        && worker_binding_registry_record
+            .get("workerBinding")
+            .and_then(|binding| binding.get("harnessActivationId"))
+            .and_then(Value::as_str)
+            == Some(activation_id)
+        && worker_binding_registry_record
+            .get("workerBinding")
+            .and_then(|binding| binding.get("harnessWorkflowId"))
+            .and_then(Value::as_str)
+            == worker_binding
+                .get("harnessWorkflowId")
+                .and_then(Value::as_str)
+        && worker_binding_registry_record
+            .get("workerBinding")
+            .and_then(|binding| binding.get("harnessHash"))
+            .and_then(Value::as_str)
+            == worker_binding.get("harnessHash").and_then(Value::as_str)
 }
 
 pub(super) fn apply_workflow_activation_readiness(

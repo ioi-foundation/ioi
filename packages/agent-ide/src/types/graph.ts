@@ -1258,6 +1258,7 @@ export interface WorkflowHarnessForkActivationRecord {
   liveAuthorityTransferred: boolean;
   evidenceRefs: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
+  workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
@@ -1840,6 +1841,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   verificationOutputProof?: Record<string, unknown>;
   authorityToolingAdapterProof?: Record<string, unknown>;
   livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof;
+  workerBindingRegistryRecord: WorkflowHarnessWorkerBindingRegistryRecord;
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;
@@ -2440,6 +2442,7 @@ export interface WorkflowHarnessMetadata {
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
+  workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
@@ -2471,6 +2474,31 @@ export interface WorkflowHarnessWorkerBinding {
   authorityBindingBlockers?: string[];
   livePromotionReadinessProofId?: string;
   policyDecision?: string;
+}
+
+export type WorkflowHarnessWorkerBindingStatus =
+  | "projection"
+  | "blocked"
+  | "canary"
+  | "bound"
+  | string;
+
+export interface WorkflowHarnessWorkerBindingRegistryRecord {
+  schemaVersion: "workflow.harness.worker-binding-registry.v1" | string;
+  registryRecordId: string;
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  componentVersionSet: Record<string, string>;
+  rollbackTarget: string;
+  readinessProofId: string;
+  canaryResultId: string;
+  policyDecision: string;
+  bindingStatus: WorkflowHarnessWorkerBindingStatus;
+  blockers: string[];
+  workerBinding: WorkflowHarnessWorkerBinding;
+  createdAtMs?: number;
 }
 
 export type WorkflowNodeKind =

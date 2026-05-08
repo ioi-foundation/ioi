@@ -575,6 +575,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       )
         ? binding.workerBindingAuthorityBlockers
         : null,
+      workerBindingRegistryBound: binding.workerBindingRegistryBound ?? null,
+      workerBindingRegistryStatus: binding.workerBindingRegistryStatus ?? null,
+      workerBindingRegistryBlockers: Array.isArray(
+        binding.workerBindingRegistryBlockers,
+      )
+        ? binding.workerBindingRegistryBlockers
+        : null,
       workerBinding:
         binding.workerBinding && typeof binding.workerBinding === "object"
           ? {
@@ -602,6 +609,40 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               policyDecision: binding.workerBinding.policyDecision ?? null,
             }
           : null,
+      workerBindingRegistryRecord:
+        binding.workerBindingRegistryRecord &&
+        typeof binding.workerBindingRegistryRecord === "object"
+          ? {
+              registryRecordId:
+                binding.workerBindingRegistryRecord.registryRecordId ?? null,
+              workflowId:
+                binding.workerBindingRegistryRecord.workflowId ?? null,
+              activationId:
+                binding.workerBindingRegistryRecord.activationId ?? null,
+              activationHash:
+                binding.workerBindingRegistryRecord.activationHash ?? null,
+              harnessHash:
+                binding.workerBindingRegistryRecord.harnessHash ?? null,
+              rollbackTarget:
+                binding.workerBindingRegistryRecord.rollbackTarget ?? null,
+              readinessProofId:
+                binding.workerBindingRegistryRecord.readinessProofId ?? null,
+              canaryResultId:
+                binding.workerBindingRegistryRecord.canaryResultId ?? null,
+              bindingStatus:
+                binding.workerBindingRegistryRecord.bindingStatus ?? null,
+              blockers: Array.isArray(
+                binding.workerBindingRegistryRecord.blockers,
+              )
+                ? binding.workerBindingRegistryRecord.blockers
+                : null,
+              workerBindingActivationId:
+                binding.workerBindingRegistryRecord.workerBinding
+                  ?.harnessActivationId ?? null,
+              workerBinding:
+                binding.workerBindingRegistryRecord.workerBinding ?? null,
+            }
+          : null,
     };
     const bindingMatched =
       binding.bindingMatched === true &&
@@ -625,6 +666,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.workerBindingAuthorityReady === true &&
       Array.isArray(binding.workerBindingAuthorityBlockers) &&
       binding.workerBindingAuthorityBlockers.length === 0 &&
+      binding.workerBindingRegistryBound === true &&
+      binding.workerBindingRegistryStatus === "bound" &&
+      Array.isArray(binding.workerBindingRegistryBlockers) &&
+      binding.workerBindingRegistryBlockers.length === 0 &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
       typeof binding.defaultDispatchId === "string" &&
@@ -644,7 +689,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       Array.isArray(binding.workerBinding?.authorityBindingBlockers) &&
       binding.workerBinding.authorityBindingBlockers.length === 0 &&
       binding.workerBinding?.livePromotionReadinessProofId ===
-        binding.selectorLivePromotionReadinessProofId;
+        binding.selectorLivePromotionReadinessProofId &&
+      binding.workerBindingRegistryRecord?.bindingStatus === "bound" &&
+      Array.isArray(binding.workerBindingRegistryRecord?.blockers) &&
+      binding.workerBindingRegistryRecord.blockers.length === 0 &&
+      binding.workerBindingRegistryRecord?.readinessProofId ===
+        binding.selectorLivePromotionReadinessProofId &&
+      binding.workerBindingRegistryRecord?.activationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.workerBindingRegistryRecord?.activationHash ===
+        DEFAULT_AGENT_HARNESS_HASH &&
+      binding.workerBindingRegistryRecord?.workerBinding
+        ?.harnessActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
     if (bindingMatched) {
       summary.harnessDefaultRuntimeBindingMatchedCount += 1;
     }
@@ -3080,6 +3136,10 @@ function buildGuiEvidenceAssessment({
         binding.workerBindingAuthorityReady === true &&
         Array.isArray(binding.workerBindingAuthorityBlockers) &&
         binding.workerBindingAuthorityBlockers.length === 0 &&
+        binding.workerBindingRegistryBound === true &&
+        binding.workerBindingRegistryStatus === "bound" &&
+        Array.isArray(binding.workerBindingRegistryBlockers) &&
+        binding.workerBindingRegistryBlockers.length === 0 &&
         binding.selectorLivePromotionReadinessProofId ===
           workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
         binding.dispatchLivePromotionReadinessProofId ===
@@ -3106,7 +3166,16 @@ function buildGuiEvidenceAssessment({
         Array.isArray(binding.workerBinding?.authorityBindingBlockers) &&
         binding.workerBinding.authorityBindingBlockers.length === 0 &&
         binding.workerBinding?.livePromotionReadinessProofId ===
-          binding.selectorLivePromotionReadinessProofId,
+          binding.selectorLivePromotionReadinessProofId &&
+        binding.workerBindingRegistryRecord?.bindingStatus === "bound" &&
+        Array.isArray(binding.workerBindingRegistryRecord?.blockers) &&
+        binding.workerBindingRegistryRecord.blockers.length === 0 &&
+        binding.workerBindingRegistryRecord?.readinessProofId ===
+          binding.selectorLivePromotionReadinessProofId &&
+        binding.workerBindingRegistryRecord?.activationId ===
+          workflowProofRuntimeSelector.activationId &&
+        binding.workerBindingRegistryRecord?.workerBinding
+          ?.harnessActivationId === workflowProofRuntimeSelector.activationId,
     );
   const hasHarnessChatRuntimeBinding =
     hasHarnessDefaultRuntimeDispatch &&
@@ -3791,6 +3860,11 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
     const activationRecord =
       workflow?.metadata?.harness?.activationRecord ?? null;
     const workerBinding = workflow?.metadata?.workerHarnessBinding ?? null;
+    const workerBindingRegistry =
+      defaultDispatch?.workerBindingRegistryRecord ??
+      workflow?.metadata?.harness?.workerBindingRegistryRecord ??
+      activationRecord?.workerBindingRegistryRecord ??
+      null;
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
     const coldStartDeepLinkRestoreProof =
@@ -3969,6 +4043,47 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           attempt.targetExecutionMode === targetExecutionMode &&
           attempt.attemptStatus === attemptStatus,
       );
+    const workerBindingRegistryBound =
+      workerBindingRegistry?.schemaVersion ===
+        "workflow.harness.worker-binding-registry.v1" &&
+      workerBindingRegistry?.bindingStatus === "bound" &&
+      Array.isArray(workerBindingRegistry?.blockers) &&
+      workerBindingRegistry.blockers.length === 0 &&
+      workerBindingRegistry?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+      workerBindingRegistry?.activationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      workerBindingRegistry?.activationHash === DEFAULT_AGENT_HARNESS_HASH &&
+      workerBindingRegistry?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
+      workerBindingRegistry?.rollbackTarget ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      workerBindingRegistry?.readinessProofId ===
+        selector?.livePromotionReadinessProof?.proofId &&
+      workerBindingRegistry?.readinessProofId ===
+        defaultDispatch?.livePromotionReadinessProof?.proofId &&
+      workerBindingRegistry?.canaryResultId?.includes(":passed") === true &&
+      workerBindingRegistry?.policyDecision ===
+        "promote_blessed_workflow_default_for_non_mutating_turn" &&
+      workerBindingRegistry?.workerBinding?.harnessWorkflowId ===
+        DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+      workerBindingRegistry?.workerBinding?.harnessActivationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      workerBindingRegistry?.workerBinding?.harnessHash ===
+        DEFAULT_AGENT_HARNESS_HASH &&
+      workerBindingRegistry?.workerBinding?.executionMode === "live" &&
+      workerBindingRegistry?.workerBinding?.selectorDecisionId ===
+        selector?.decisionId &&
+      workerBindingRegistry?.workerBinding?.defaultDispatchId ===
+        defaultDispatch?.dispatchId &&
+      workerBindingRegistry?.workerBinding?.rollbackTarget ===
+        selector?.rollbackTarget &&
+      workerBindingRegistry?.workerBinding?.authorityBindingReady === true &&
+      Array.isArray(
+        workerBindingRegistry?.workerBinding?.authorityBindingBlockers,
+      ) &&
+      workerBindingRegistry.workerBinding.authorityBindingBlockers.length ===
+        0 &&
+      workerBindingRegistry?.workerBinding?.livePromotionReadinessProofId ===
+        selector?.livePromotionReadinessProof?.proofId;
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -4104,7 +4219,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         workerBinding?.livePromotionReadinessProofId ===
           selector?.livePromotionReadinessProof?.proofId &&
         workerBinding?.livePromotionReadinessProofId ===
-          defaultDispatch?.livePromotionReadinessProof?.proofId,
+          defaultDispatch?.livePromotionReadinessProof?.proofId &&
+        workerBindingRegistryBound,
+      workerBindingRegistryBound,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -4426,7 +4543,25 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             activationIdGate: defaultDispatch.activationIdGate ?? null,
             livePromotionReadinessProof:
               defaultDispatch.livePromotionReadinessProof ?? null,
+            workerBindingRegistryRecord:
+              defaultDispatch.workerBindingRegistryRecord ?? null,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
+          }
+        : null,
+      workerBindingRegistry: workerBindingRegistry
+        ? {
+            registryRecordId: workerBindingRegistry.registryRecordId ?? null,
+            workflowId: workerBindingRegistry.workflowId ?? null,
+            activationId: workerBindingRegistry.activationId ?? null,
+            activationHash: workerBindingRegistry.activationHash ?? null,
+            harnessHash: workerBindingRegistry.harnessHash ?? null,
+            rollbackTarget: workerBindingRegistry.rollbackTarget ?? null,
+            readinessProofId: workerBindingRegistry.readinessProofId ?? null,
+            canaryResultId: workerBindingRegistry.canaryResultId ?? null,
+            policyDecision: workerBindingRegistry.policyDecision ?? null,
+            bindingStatus: workerBindingRegistry.bindingStatus ?? null,
+            blockers: workerBindingRegistry.blockers ?? [],
+            workerBinding: workerBindingRegistry.workerBinding ?? null,
           }
         : null,
       attempts: transitions

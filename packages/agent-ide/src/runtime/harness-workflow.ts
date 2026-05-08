@@ -36,6 +36,7 @@ import type {
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
+  WorkflowHarnessWorkerBindingRegistryRecord,
   WorkflowRevisionBinding,
   WorkflowRevisionRestoreRequest,
   WorkflowRevisionRestoreResult,
@@ -263,6 +264,146 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   );
 }
 
+export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
+  workflowId?: string;
+  activationId?: string;
+  activationHash?: string;
+  harnessHash?: string;
+  selectorDecisionId?: string;
+  defaultDispatchId?: string;
+  componentVersionSet?: Record<string, string>;
+  rollbackTarget?: string;
+  readinessProofId?: string;
+  canaryResultId?: string;
+  policyDecision?: string;
+  bindingStatus?: WorkflowHarnessWorkerBindingRegistryRecord["bindingStatus"];
+  blockers?: string[];
+  workerBinding?: WorkflowHarnessWorkerBinding;
+  createdAtMs?: number;
+}): WorkflowHarnessWorkerBindingRegistryRecord {
+  const workflowId = options.workflowId ?? DEFAULT_AGENT_HARNESS_WORKFLOW_ID;
+  const activationId =
+    options.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const harnessHash = options.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH;
+  const activationHash = options.activationHash ?? harnessHash;
+  const rollbackTarget =
+    options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const readinessProofId = options.readinessProofId ?? "";
+  const policyDecision =
+    options.policyDecision ?? "retain_legacy_runtime_default";
+  const blockers = uniqueStrings(options.blockers ?? []);
+  const bindingStatus =
+    options.bindingStatus ??
+    (blockers.length === 0 && readinessProofId ? "bound" : "blocked");
+  const workerBinding: WorkflowHarnessWorkerBinding = options.workerBinding ?? {
+    harnessWorkflowId: workflowId,
+    harnessActivationId: activationId,
+    harnessHash,
+    executionMode: bindingStatus === "bound" ? "live" : "projection",
+    source: "default",
+    selectorDecisionId: options.selectorDecisionId,
+    defaultDispatchId: options.defaultDispatchId,
+    rollbackTarget,
+    authorityBindingReady: bindingStatus === "bound" && blockers.length === 0,
+    authorityBindingBlockers: blockers,
+    livePromotionReadinessProofId: readinessProofId || undefined,
+    policyDecision,
+  };
+  return {
+    schemaVersion: "workflow.harness.worker-binding-registry.v1",
+    registryRecordId: `harness-worker-binding-registry:${workflowId}:${activationId}:${options.defaultDispatchId ?? "pending"}`,
+    workflowId,
+    activationId,
+    activationHash,
+    harnessHash,
+    componentVersionSet:
+      options.componentVersionSet ?? defaultHarnessComponentVersionSet(),
+    rollbackTarget,
+    readinessProofId,
+    canaryResultId:
+      options.canaryResultId ??
+      (bindingStatus === "bound"
+        ? "harness-canary-result:default-agent-harness:passed"
+        : "harness-canary-result:default-agent-harness:not-run"),
+    policyDecision,
+    bindingStatus,
+    blockers,
+    workerBinding,
+    createdAtMs: options.createdAtMs,
+  };
+}
+
+export function workflowHarnessWorkerBindingRegistryBlockers(
+  record: WorkflowHarnessWorkerBindingRegistryRecord | null | undefined,
+): string[] {
+  if (!record) return ["worker_binding_registry_missing"];
+  const blockers = uniqueStrings(record.blockers ?? []);
+  if (record.schemaVersion !== "workflow.harness.worker-binding-registry.v1") {
+    blockers.push("worker_binding_registry_schema_mismatch");
+  }
+  if (record.workflowId !== DEFAULT_AGENT_HARNESS_WORKFLOW_ID) {
+    blockers.push("worker_binding_registry_workflow_mismatch");
+  }
+  if (record.activationId !== DEFAULT_AGENT_HARNESS_ACTIVATION_ID) {
+    blockers.push("worker_binding_registry_activation_mismatch");
+  }
+  if (!record.activationHash) {
+    blockers.push("worker_binding_registry_activation_hash_missing");
+  }
+  if (record.harnessHash !== DEFAULT_AGENT_HARNESS_HASH) {
+    blockers.push("worker_binding_registry_harness_hash_mismatch");
+  }
+  if (record.rollbackTarget !== DEFAULT_AGENT_HARNESS_ACTIVATION_ID) {
+    blockers.push("worker_binding_registry_rollback_target_mismatch");
+  }
+  if (!record.readinessProofId) {
+    blockers.push("worker_binding_registry_readiness_proof_missing");
+  }
+  if (!record.canaryResultId || record.canaryResultId.endsWith(":not-run")) {
+    blockers.push("worker_binding_registry_canary_missing");
+  }
+  if (record.bindingStatus !== "bound") {
+    blockers.push("worker_binding_registry_not_bound");
+  }
+  if (
+    record.policyDecision !==
+    "promote_blessed_workflow_default_for_non_mutating_turn"
+  ) {
+    blockers.push("worker_binding_registry_policy_blocked");
+  }
+  if (record.workerBinding.harnessWorkflowId !== record.workflowId) {
+    blockers.push("worker_binding_registry_worker_workflow_mismatch");
+  }
+  if (record.workerBinding.harnessActivationId !== record.activationId) {
+    blockers.push("worker_binding_registry_worker_activation_mismatch");
+  }
+  if (record.workerBinding.harnessHash !== record.harnessHash) {
+    blockers.push("worker_binding_registry_worker_hash_mismatch");
+  }
+  if (record.workerBinding.executionMode !== "live") {
+    blockers.push("worker_binding_registry_worker_not_live");
+  }
+  if (record.workerBinding.rollbackTarget !== record.rollbackTarget) {
+    blockers.push("worker_binding_registry_worker_rollback_mismatch");
+  }
+  if (record.workerBinding.authorityBindingReady !== true) {
+    blockers.push("worker_binding_registry_worker_authority_not_ready");
+  }
+  if ((record.workerBinding.authorityBindingBlockers ?? []).length > 0) {
+    blockers.push("worker_binding_registry_worker_authority_blocked");
+  }
+  if (
+    record.workerBinding.livePromotionReadinessProofId !==
+    record.readinessProofId
+  ) {
+    blockers.push("worker_binding_registry_worker_readiness_proof_mismatch");
+  }
+  if (Object.keys(record.componentVersionSet ?? {}).length === 0) {
+    blockers.push("worker_binding_registry_component_versions_missing");
+  }
+  return uniqueStrings(blockers);
+}
+
 function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
@@ -467,6 +608,7 @@ export function makeHarnessForkActivationRecord(options: {
   liveAuthorityTransferred?: boolean;
   evidenceRefs?: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
+  workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
@@ -514,6 +656,7 @@ export function makeHarnessForkActivationRecord(options: {
     liveAuthorityTransferred: options.liveAuthorityTransferred ?? false,
     evidenceRefs: options.evidenceRefs ?? [],
     workerBinding: options.workerBinding,
+    workerBindingRegistryRecord: options.workerBindingRegistryRecord,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
     rollbackRestoreCanary: options.rollbackRestoreCanary,
@@ -1952,6 +2095,27 @@ export function applyWorkflowHarnessActivationCandidate(
     createdAtMs: nowMs,
   };
   const receiptRefs = activationCandidateReceiptRefs(candidate);
+  const workerBindingRegistryRecord =
+    makeWorkflowHarnessWorkerBindingRegistryRecord({
+      workflowId,
+      activationId,
+      activationHash: revisionBinding.workflowContentHash,
+      harnessHash: workerBinding.harnessHash,
+      componentVersionSet: candidate.componentVersionSet,
+      rollbackTarget,
+      canaryResultId:
+        candidate.canaryStatus === "passed"
+          ? `harness-canary-result:${workflowId}:${activationId}:passed`
+          : `harness-canary-result:${workflowId}:${activationId}:blocked`,
+      policyDecision: candidate.policyPosture,
+      bindingStatus: candidate.canaryStatus === "passed" ? "canary" : "blocked",
+      blockers:
+        candidate.canaryStatus === "passed"
+          ? ["fork_activation_not_live_default"]
+          : ["fork_activation_canary_not_passed"],
+      workerBinding,
+      createdAtMs: nowMs,
+    });
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId,
     harnessWorkflowId: workerBinding.harnessWorkflowId,
@@ -1971,6 +2135,7 @@ export function applyWorkflowHarnessActivationCandidate(
       ...candidate.evidenceRefs,
     ]),
     workerBinding,
+    workerBindingRegistryRecord,
     revisionBinding,
     rollbackRevisionBinding: previousRevisionBinding,
     rollbackRestoreCanary: candidate.rollbackRestoreCanary,
@@ -1996,6 +2161,7 @@ export function applyWorkflowHarnessActivationCandidate(
                 activationState: "validated",
                 activationRecord,
                 revisionBinding,
+                workerBindingRegistryRecord,
               }
             : workflow.metadata.harness,
           workerHarnessBinding: workerBinding,
@@ -3135,6 +3301,9 @@ export function makeHarnessDefaultRuntimeDispatchProof(
   const dispatchId =
     options.dispatchId ??
     "harness-default-dispatch:default-agent-harness:readonly";
+  const selectorDecisionId =
+    options.selectorDecisionId ??
+    "harness-selector:default-agent-harness:default";
   const sourceBoundaryIds =
     options.sourceBoundaryIds ??
     acceptedClusterIds.map(
@@ -3353,12 +3522,24 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     latestAgentDuplicateSuppressed: true,
     idempotencyGuard: "role_timestamp_content_hash",
   };
+  const workerBindingRegistryRecord =
+    makeWorkflowHarnessWorkerBindingRegistryRecord({
+      selectorDecisionId,
+      defaultDispatchId: dispatchId,
+      readinessProofId: livePromotionReadinessProof.proofId,
+      componentVersionSet: defaultHarnessComponentVersionSet(),
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      canaryResultId: "harness-canary-result:default-agent-harness:passed",
+      policyDecision: dispatchAccepted
+        ? "promote_blessed_workflow_default_for_non_mutating_turn"
+        : "retain_legacy_runtime_default",
+      bindingStatus: dispatchAccepted ? "bound" : "blocked",
+      blockers: activationBlockers,
+    });
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
-    selectorDecisionId:
-      options.selectorDecisionId ??
-      "harness-selector:default-agent-harness:default",
+    selectorDecisionId,
     selectedSelector: "blessed_workflow_live_default",
     productionDefaultSelector: "blessed_workflow_live_default",
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
@@ -4024,6 +4205,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       policyDecision: "accept_workflow_authority_tooling_adapter_envelope",
     },
     livePromotionReadinessProof,
+    workerBindingRegistryRecord,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
@@ -5797,6 +5979,7 @@ function harnessMetadata(options: {
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
+  workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
@@ -5817,6 +6000,7 @@ function harnessMetadata(options: {
     liveHandoffProof: options.liveHandoffProof,
     runtimeSelectorDecision: options.runtimeSelectorDecision,
     defaultRuntimeDispatchProof: options.defaultRuntimeDispatchProof,
+    workerBindingRegistryRecord: options.workerBindingRegistryRecord,
     canaryExecutionBoundary: options.canaryExecutionBoundary,
     canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [
@@ -5846,6 +6030,24 @@ export function makeDefaultAgentHarnessWorkflow(
   nowMs = Date.now(),
 ): WorkflowProject {
   const nodes = HARNESS_FLOW.map(makeHarnessNode);
+  const workerHarnessBinding: WorkflowHarnessWorkerBinding = {
+    harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    harnessActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
+    source: "default",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    authorityBindingReady: false,
+    authorityBindingBlockers: ["worker_binding_authority_not_live"],
+  };
+  const workerBindingRegistryRecord =
+    makeWorkflowHarnessWorkerBindingRegistryRecord({
+      workerBinding: workerHarnessBinding,
+      bindingStatus: "projection",
+      blockers: ["worker_binding_registry_not_live"],
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      createdAtMs: nowMs,
+    });
   const workflow: WorkflowProject = {
     version: "workflow.v1",
     metadata: {
@@ -5861,17 +6063,9 @@ export function makeDefaultAgentHarnessWorkflow(
         blessed: true,
         activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         activationState: "read_only",
+        workerBindingRegistryRecord,
       }),
-      workerHarnessBinding: {
-        harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
-        harnessActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-        harnessHash: DEFAULT_AGENT_HARNESS_HASH,
-        executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
-        source: "default",
-        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-        authorityBindingReady: false,
-        authorityBindingBlockers: ["worker_binding_authority_not_live"],
-      },
+      workerHarnessBinding,
       createdAtMs: nowMs,
       updatedAtMs: nowMs,
     },
@@ -5991,12 +6185,26 @@ export function forkDefaultAgentHarnessWorkflow(
     authorityBindingReady: false,
     authorityBindingBlockers: ["fork_activation_not_live_default"],
   };
+  const forkWorkerBindingRegistryRecord =
+    makeWorkflowHarnessWorkerBindingRegistryRecord({
+      workflowId: slug,
+      activationId: `activation:${slug}:blocked`,
+      workerBinding: {
+        ...forkWorkerHarnessBinding,
+        harnessActivationId: `activation:${slug}:blocked`,
+      },
+      bindingStatus: "blocked",
+      blockers: ["fork_activation_not_live_default"],
+      rollbackTarget: DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
+      createdAtMs: nowMs,
+    });
   const blockedActivationRecord = makeHarnessForkActivationRecord({
     workflowId: slug,
     harnessWorkflowId: slug,
     activationState: "blocked",
     evidenceRefs: [activationGateProposalId],
     workerBinding: forkWorkerHarnessBinding,
+    workerBindingRegistryRecord: forkWorkerBindingRegistryRecord,
     mintedAtMs: nowMs,
   });
   const workflow: WorkflowProject = {
@@ -6019,6 +6227,7 @@ export function forkDefaultAgentHarnessWorkflow(
         packageName: slug,
         activationState: "blocked",
         activationRecord: blockedActivationRecord,
+        workerBindingRegistryRecord: forkWorkerBindingRegistryRecord,
       }),
       workerHarnessBinding: forkWorkerHarnessBinding,
       createdAtMs: nowMs,

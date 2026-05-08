@@ -793,6 +793,22 @@ fn workflow_activation_readiness_blocks_unvalidated_harness_fork_and_accepts_can
         "executionMode": "gated",
         "source": "fork"
     });
+    let valid_worker_binding_registry_record = json!({
+        "schemaVersion": "workflow.harness.worker-binding-registry.v1",
+        "registryRecordId": "harness-worker-binding-registry:harness-fork:validated-canary:default-agent",
+        "workflowId": "harness-fork",
+        "activationId": activation_id,
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "componentVersionSet": {"ioi.agent-harness.planner.v1": "1.0.0"},
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:harness-fork:validated-canary:default-agent",
+        "canaryResultId": "harness-canary-result:harness-fork:validated-canary:default-agent:passed",
+        "policyDecision": "canary",
+        "bindingStatus": "canary",
+        "blockers": ["fork_activation_not_live_default"],
+        "workerBinding": valid_worker_binding.clone()
+    });
     let valid_harness = bundle
         .workflow
         .metadata
@@ -816,7 +832,8 @@ fn workflow_activation_readiness_blocks_unvalidated_harness_fork_and_accepts_can
         "rollbackAvailable": true,
         "liveAuthorityTransferred": false,
         "evidenceRefs": ["run-harness-fork-canary"],
-        "workerBinding": valid_worker_binding.clone()
+        "workerBinding": valid_worker_binding.clone(),
+        "workerBindingRegistryRecord": valid_worker_binding_registry_record
     });
     bundle.workflow.metadata.worker_harness_binding = Some(valid_worker_binding);
     save_workflow_project(bundle.workflow_path.clone(), bundle.workflow)
