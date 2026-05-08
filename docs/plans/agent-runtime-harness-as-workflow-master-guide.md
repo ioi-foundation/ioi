@@ -1,6 +1,6 @@
 # Agent Runtime Harness-As-Workflow Master Guide
 
-Last updated: 2026-05-07
+Last updated: 2026-05-08
 Owner: agent runtime / workflow substrate / Autopilot GUI
 Status: next-leg master guide
 
@@ -12,6 +12,8 @@ Companion documents:
 - `docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md`
 - `docs/specs/runtime/harness-change-workflow.md`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T08-40-44-212Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T08-47-27-651Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -54,6 +56,24 @@ an inspectable mental model for why an agent planned, routed, asked approval,
 called a tool, retried, repaired, verified, or stopped. It also creates a real
 dogfood loop: the default agent that edits workflows should itself be running
 through a workflow-backed harness.
+
+## Latest Validated Checkpoint
+
+As of 2026-05-08, the default live harness activation-id gate and default
+runtime dispatch proof have a green end-to-end checkpoint:
+
+- Full retained Autopilot GUI harness run:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T08-40-44-212Z/result.json`
+- Runtime P3 validation with required GUI evidence:
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T08-47-27-651Z/dashboard-index.json`
+
+This checkpoint proves the GUI promotion flow can show the activation-id gate,
+the fork activation click proof, the default runtime dispatch binding, live
+handoff, route-stateful deep links, activation audit links, rollback restore
+actions, and runtime evidence in one retained-query evidence bundle. It also
+proves the blessed default dispatch is bound to
+`activation:default-agent-harness:blessed-readonly` while the fork activation
+wizard remains its own evidence object.
 
 ## Current State
 

@@ -807,6 +807,10 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
         dispatch.runtime_authority,
         "blessed_workflow_activation_default"
     );
+    assert!(dispatch.activation_id_gate_click_proof_present);
+    assert!(dispatch.activation_id_gate_click_proof_passed);
+    assert!(dispatch.activation_id_gate_click_proof_blockers.is_empty());
+    assert!(dispatch.default_dispatch_activation_blockers.is_empty());
     assert_eq!(
         dispatch.dispatch_scope,
         "read_only_cognition_routing_verification_completion_authority_tooling"

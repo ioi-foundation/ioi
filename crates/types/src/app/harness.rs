@@ -16,6 +16,7 @@ pub const DEFAULT_AGENT_HARNESS_VERSION: &str = "2026.04.default-harness.v1";
 pub const DEFAULT_AGENT_HARNESS_HASH: &str = "sha256:default-agent-harness-component-projection-v1";
 pub const DEFAULT_AGENT_HARNESS_ACTIVATION_ID: &str =
     "activation:default-agent-harness:blessed-readonly";
+pub const DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS: u64 = 5 * 60 * 1000;
 
 pub const HARNESS_COMPONENT_VERSION_V1: &str = "1.0.0";
 pub const HARNESS_INPUT_SCHEMA_ID: &str = "ioi.agent-harness.input.v1";
@@ -882,6 +883,10 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub executor_ref: String,
     pub synchronous: bool,
     pub drives_runtime_decision: bool,
+    pub activation_id_gate_click_proof_present: bool,
+    pub activation_id_gate_click_proof_passed: bool,
+    pub activation_id_gate_click_proof_blockers: Vec<String>,
+    pub default_dispatch_activation_blockers: Vec<String>,
     pub cognition_execution_mode: String,
     pub cognition_execution_ready: bool,
     pub prompt_assembly_mode: String,
@@ -2343,6 +2348,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         executor_ref: "crate::project::execute_workflow_harness_live_default_node".to_string(),
         synchronous: true,
         drives_runtime_decision: true,
+        activation_id_gate_click_proof_present: true,
+        activation_id_gate_click_proof_passed: true,
+        activation_id_gate_click_proof_blockers: Vec::new(),
+        default_dispatch_activation_blockers: Vec::new(),
         cognition_execution_mode: "workflow_synchronous_envelope".to_string(),
         cognition_execution_ready: true,
         prompt_assembly_mode: "workflow_synchronous_envelope".to_string(),

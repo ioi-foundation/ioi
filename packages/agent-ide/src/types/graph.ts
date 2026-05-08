@@ -1533,6 +1533,23 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   executorRef: string;
   synchronous: boolean;
   drivesRuntimeDecision: boolean;
+  activationIdGateClickProofPresent: boolean;
+  activationIdGateClickProofPassed: boolean;
+  activationIdGateClickProofBlockers: string[];
+  defaultDispatchActivationBlockers: string[];
+  activationIdGate?: {
+    schemaVersion:
+      | "workflow.harness.default-runtime-dispatch.activation-id-gate.v1"
+      | string;
+    gateId: "activation-id" | string;
+    proofPresent: boolean;
+    proofPassed: boolean;
+    proofBlockers: string[];
+    workflowId: string;
+    activationId: string;
+    workerBindingActivationId: string;
+    defaultDispatchActivationBlockers: string[];
+  };
   cognitionExecutionMode: "workflow_synchronous_envelope" | string;
   cognitionExecutionReady: boolean;
   promptAssemblyMode: "workflow_synchronous_envelope" | string;
