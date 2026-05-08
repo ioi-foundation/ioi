@@ -134,6 +134,7 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   revisionBindingRef?: string;
   activationBlockerIndex?: string;
   activationBlockerRef?: string;
+  activationAuditEventId?: string;
 };
 
 function workflowRevisionBindingDeepLinkRef(
@@ -159,6 +160,7 @@ export function WorkflowRailPanel({
   selectedHarnessSelectorDecisionId,
   selectedHarnessDefaultDispatchId,
   selectedHarnessWorkerBindingId,
+  selectedHarnessActivationAuditEventId,
   selectedHarnessActivationBlockerIndex,
   selectedHarnessActivationBlockerRef,
   selectedHarnessRevisionBindingKind,
@@ -224,6 +226,7 @@ export function WorkflowRailPanel({
   selectedHarnessSelectorDecisionId?: string | null;
   selectedHarnessDefaultDispatchId?: string | null;
   selectedHarnessWorkerBindingId?: string | null;
+  selectedHarnessActivationAuditEventId?: string | null;
   selectedHarnessActivationBlockerIndex?: string | null;
   selectedHarnessActivationBlockerRef?: string | null;
   selectedHarnessRevisionBindingKind?: string | null;
@@ -2621,6 +2624,9 @@ export function WorkflowRailPanel({
                 data-testid="workflow-harness-activation-audit"
                 data-audit-count={harnessActivationAudit.length}
                 data-receipt-refs={harnessActivationAuditReceiptRefs.join("|")}
+                data-selected-activation-audit-event-id={
+                  selectedHarnessActivationAuditEventId ?? ""
+                }
               >
                 <h4>Activation audit</h4>
                 <article
@@ -2673,8 +2679,13 @@ export function WorkflowRailPanel({
                         key={event.eventId}
                         className={`workflow-test-row is-${
                           event.status === "blocked" ? "blocked" : "passed"
+                        } ${
+                          selectedHarnessActivationAuditEventId === event.eventId
+                            ? "is-active"
+                            : ""
                         }`}
                         data-testid={`workflow-harness-activation-audit-event-${event.eventId}`}
+                        data-audit-event-id={event.eventId}
                         data-audit-event-type={event.eventType}
                         data-audit-receipt-refs={eventReceiptRefs.join("|")}
                       >
@@ -2686,11 +2697,31 @@ export function WorkflowRailPanel({
                             "no activation"}
                         </span>
                         <small>{eventReceiptRefs[0] ?? event.summary}</small>
-                        {eventReceiptRefs.length > 0 ? (
+                        {eventReceiptRefs.length > 0 || onCopyHarnessDeepLink ? (
                           <div
                             className="workflow-harness-authority-gate-actions"
                             data-testid={`workflow-harness-activation-audit-receipts-${event.eventId}`}
                           >
+                            {onCopyHarnessDeepLink ? (
+                              <button
+                                type="button"
+                                className={`workflow-harness-ref-button ${
+                                  selectedHarnessActivationAuditEventId === event.eventId
+                                    ? "is-active"
+                                    : ""
+                                }`}
+                                data-testid={`workflow-harness-activation-audit-event-link-${event.eventId}`}
+                                data-activation-audit-event-id={event.eventId}
+                                onClick={() =>
+                                  onCopyHarnessDeepLink?.({
+                                    panel: "settings",
+                                    activationAuditEventId: event.eventId,
+                                  })
+                                }
+                              >
+                                <code>{event.eventId}</code>
+                              </button>
+                            ) : null}
                             {eventReceiptRefs.map((receiptRef, index) => (
                               <button
                                 key={receiptRef}
@@ -3923,6 +3954,9 @@ export function WorkflowRailPanel({
           }
           data-selected-activation-blocker-ref={
             selectedHarnessActivationBlockerRef ?? ""
+          }
+          data-selected-activation-audit-event-id={
+            selectedHarnessActivationAuditEventId ?? ""
           }
         >
           <h4>Deep link</h4>

@@ -2135,6 +2135,10 @@ function buildGuiEvidenceAssessment({
       ?.activationBlockerDeepLinkProof?.passed === true &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.routeStatefulActivationBlockerDeepLink === true;
+  const hasHarnessActivationAuditDeepLinkRestore =
+    hasHarnessColdStartDeepLinkRestore &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.routeStatefulActivationAuditDeepLink === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2288,6 +2292,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessRevisionBindingDeepLinkRestore,
       harness_activation_blocker_deep_link_restore_present:
         hasHarnessActivationBlockerDeepLinkRestore,
+      harness_activation_audit_deep_link_restore_present:
+        hasHarnessActivationAuditDeepLinkRestore,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2351,6 +2357,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessColdStartDeepLinkRestore,
       hasHarnessRevisionBindingDeepLinkRestore,
       hasHarnessActivationBlockerDeepLinkRestore,
+      hasHarnessActivationAuditDeepLinkRestore,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2774,6 +2781,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       "receipt",
       "replay",
       "revision",
+      "activation-audit",
     ];
     const deepLinkReplayCasesById = new Map(
       (deepLinkReplayProof?.cases ?? []).map((replayCase) => [
@@ -2864,6 +2872,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationBlockerDeepLinkProof?.cases?.find(
           (replayCase) => replayCase.id === "activation-blocker",
         )?.hash ?? null,
+      activationAudit: audit[0]?.eventId
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "settings",
+            activationAuditEventId: audit[0].eventId,
+          }).toString()}`
+        : null,
     };
     const transitionFor = (clusterId, targetExecutionMode, attemptStatus) =>
       transitions.some(
@@ -2949,6 +2963,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationBlockerDeepLinkProof?.passed === true &&
         routeStatefulDeepLinks.activationBlocker?.includes("activationBlockerIndex=0") &&
         routeStatefulDeepLinks.activationBlocker?.includes("activationBlockerRef="),
+      routeStatefulActivationAuditDeepLink:
+        routeStatefulDeepLinks.activationAudit?.includes("activationAuditEventId="),
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -3259,6 +3275,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_activation_blocker_deep_link_restore:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.routeStatefulActivationBlockerDeepLink === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_audit_deep_link_restore:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.routeStatefulActivationAuditDeepLink === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:

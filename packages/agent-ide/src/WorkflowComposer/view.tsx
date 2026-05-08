@@ -173,6 +173,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedFixtures,
     selectedHarnessGroup,
     selectedHarnessDefaultDispatchId,
+    selectedHarnessActivationAuditEventId,
     selectedHarnessActivationBlockerIndex,
     selectedHarnessActivationBlockerRef,
     selectedHarnessReceiptRef,
@@ -1258,6 +1259,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }
                     selectedHarnessActivationBlockerRef={
                       selectedHarnessActivationBlockerRef
+                    }
+                    selectedHarnessActivationAuditEventId={
+                      selectedHarnessActivationAuditEventId
                     }
                     selectedHarnessReceiptRef={selectedHarnessReceiptRef}
                     selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
