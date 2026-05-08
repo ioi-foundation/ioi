@@ -237,6 +237,7 @@ pub struct HarnessPromotionCluster {
     pub promotion_rule: String,
     pub rollback_target: String,
     pub blocks_live_activation: bool,
+    pub promotion_status: HarnessClusterPromotionStatus,
     pub replay_gate_proof: Option<HarnessPromotionClusterReplayGateProof>,
 }
 
@@ -320,6 +321,65 @@ pub struct HarnessGatedClusterRun {
     pub canary_status: String,
     pub promotion_blocked: bool,
     pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessPromotionTransitionTarget {
+    Gated,
+    Live,
+}
+
+impl HarnessPromotionTransitionTarget {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Gated => "gated",
+            Self::Live => "live",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessPromotionTransitionEligibility {
+    pub schema_version: String,
+    pub cluster_id: HarnessPromotionClusterId,
+    pub target_execution_mode: HarnessPromotionTransitionTarget,
+    pub current_status: HarnessClusterPromotionStatus,
+    pub eligible: bool,
+    pub readiness_ready: bool,
+    pub receipt_ready: bool,
+    pub replay_gate_ready: bool,
+    pub canary_ready: bool,
+    pub rollback_ready: bool,
+    pub component_ids: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub canary_boundary_id: Option<String>,
+    pub rollback_target: Option<String>,
+    pub blockers: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessPromotionTransitionAttempt {
+    pub schema_version: String,
+    pub transition_id: String,
+    pub workflow_id: String,
+    pub activation_id: Option<String>,
+    pub cluster_id: HarnessPromotionClusterId,
+    pub cluster_label: String,
+    pub target_execution_mode: HarnessPromotionTransitionTarget,
+    pub previous_status: HarnessClusterPromotionStatus,
+    pub next_status: HarnessClusterPromotionStatus,
+    pub attempt_status: String,
+    pub gate_decision: String,
+    pub eligibility: HarnessPromotionTransitionEligibility,
+    pub blockers: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub created_at_ms: u64,
 }
 
 #[derive(
@@ -1564,6 +1624,7 @@ pub fn default_harness_promotion_clusters() -> Vec<HarnessPromotionCluster> {
         promotion_rule: "zero blocking or unclassified divergence, receipt coverage, replay fixture coverage, and rollback target required".to_string(),
         rollback_target: "shadow".to_string(),
         blocks_live_activation: true,
+        promotion_status: HarnessClusterPromotionStatus::ShadowReady,
         replay_gate_proof: None,
     })
     .collect()

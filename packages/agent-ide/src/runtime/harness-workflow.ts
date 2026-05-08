@@ -2,6 +2,7 @@ import type {
   Node,
   WorkflowEdge,
   WorkflowHarnessCanaryExecutionBoundary,
+  WorkflowHarnessClusterPromotionStatus,
   WorkflowHarnessComponentReadiness,
   WorkflowHarnessComponentKind,
   WorkflowHarnessComponentSpec,
@@ -20,6 +21,9 @@ import type {
   WorkflowHarnessPromotionCluster,
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionClusterReplayGateProof,
+  WorkflowHarnessPromotionTransitionAttempt,
+  WorkflowHarnessPromotionTransitionEligibility,
+  WorkflowHarnessPromotionTransitionTarget,
   WorkflowHarnessReplayEnvelope,
   WorkflowHarnessRuntimeSelectorDecision,
   WorkflowHarnessReplayDrillDivergenceClass,
@@ -1180,6 +1184,266 @@ function workflowHarnessPromotionClustersWithReplayGateProof(
       ? { ...candidate, replayGateProof: proof }
       : candidate,
   );
+}
+
+const HARNESS_READINESS_ORDER: Record<WorkflowHarnessComponentReadiness, number> = {
+  projection_only: 0,
+  simulated: 1,
+  shadow_ready: 2,
+  live_ready: 3,
+};
+
+function workflowHarnessReadinessAllows(
+  actual: WorkflowHarnessComponentReadiness | undefined,
+  required: WorkflowHarnessComponentReadiness,
+): boolean {
+  return (HARNESS_READINESS_ORDER[actual ?? "projection_only"] ?? 0) >= HARNESS_READINESS_ORDER[required];
+}
+
+function workflowHarnessClusterForId(
+  workflow: WorkflowProject,
+  clusterId: WorkflowHarnessPromotionClusterId | string,
+): WorkflowHarnessPromotionCluster | null {
+  return (
+    (workflow.metadata.harness?.promotionClusters ?? []).find(
+      (cluster) => String(cluster.clusterId) === String(clusterId),
+    ) ?? null
+  );
+}
+
+function workflowHarnessNodesForCluster(
+  workflow: WorkflowProject,
+  cluster: WorkflowHarnessPromotionCluster,
+): Node[] {
+  const componentKinds = new Set(cluster.componentKinds);
+  return workflow.nodes.filter((node) => {
+    const componentKind =
+      node.runtimeBinding?.componentKind ?? harnessComponentForNode(node)?.kind;
+    return Boolean(componentKind && componentKinds.has(componentKind));
+  });
+}
+
+function workflowHarnessPromotionClusterCurrentStatus(
+  workflow: WorkflowProject,
+  cluster: WorkflowHarnessPromotionCluster,
+): WorkflowHarnessClusterPromotionStatus {
+  if (cluster.promotionStatus) return cluster.promotionStatus;
+  const latestPromoted = [...(workflow.metadata.harness?.promotionTransitions ?? [])]
+    .reverse()
+    .find(
+      (attempt) =>
+        attempt.clusterId === cluster.clusterId && attempt.attemptStatus === "promoted",
+    );
+  return latestPromoted?.nextStatus ?? "shadow_ready";
+}
+
+function workflowHarnessPromotionClusterWithStatus(
+  clusters: WorkflowHarnessPromotionCluster[] | undefined,
+  clusterId: WorkflowHarnessPromotionClusterId,
+  status: WorkflowHarnessClusterPromotionStatus,
+): WorkflowHarnessPromotionCluster[] | undefined {
+  if (!clusters) return clusters;
+  return clusters.map((cluster) =>
+    cluster.clusterId === clusterId ? { ...cluster, promotionStatus: status } : cluster,
+  );
+}
+
+function workflowHarnessCanaryBoundaryForCluster(
+  workflow: WorkflowProject,
+  clusterId: WorkflowHarnessPromotionClusterId,
+): WorkflowHarnessCanaryExecutionBoundary | null {
+  const harness = workflow.metadata.harness;
+  return (
+    [
+      ...(harness?.canaryExecutionBoundaries ?? []),
+      ...(harness?.canaryExecutionBoundary ? [harness.canaryExecutionBoundary] : []),
+    ].find((boundary) => boundary.clusterId === clusterId) ?? null
+  );
+}
+
+export function workflowHarnessPromotionTransitionEligibility(
+  workflow: WorkflowProject,
+  clusterId: WorkflowHarnessPromotionClusterId | string,
+  targetExecutionMode: WorkflowHarnessPromotionTransitionTarget,
+  options: { nowMs?: number } = {},
+): WorkflowHarnessPromotionTransitionEligibility {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const cluster = workflowHarnessClusterForId(workflow, clusterId);
+  const fallbackClusterId = (
+    typeof clusterId === "string" ? clusterId : "cognition"
+  ) as WorkflowHarnessPromotionClusterId;
+  const currentStatus = cluster
+    ? workflowHarnessPromotionClusterCurrentStatus(workflow, cluster)
+    : "blocked";
+  const nodes = cluster ? workflowHarnessNodesForCluster(workflow, cluster) : [];
+  const requiredReadiness =
+    targetExecutionMode === "live" ? "live_ready" : cluster?.minimumReadiness ?? "shadow_ready";
+  const readinessReady =
+    Boolean(cluster) &&
+    nodes.length > 0 &&
+    nodes.every((node) =>
+      workflowHarnessReadinessAllows(
+        node.runtimeBinding?.readiness ?? harnessComponentForNode(node)?.readiness,
+        requiredReadiness,
+      ),
+    );
+  const replayGateProof = cluster?.replayGateProof;
+  const canaryBoundary = cluster
+    ? workflowHarnessCanaryBoundaryForCluster(workflow, cluster.clusterId)
+    : null;
+  const receiptRefs = uniqueStrings([
+    ...(replayGateProof?.receiptRefs ?? []),
+    ...(canaryBoundary?.receiptIds ?? []),
+  ]);
+  const receiptReady = Boolean(cluster) && nodes.length > 0 && receiptRefs.length > 0;
+  const replayGateReady =
+    replayGateProof?.gateStatus === "passed" &&
+    replayGateProof.activationGateImpact === "passed" &&
+    replayGateProof.totalFixtures > 0 &&
+    replayGateProof.blockingDivergenceCount === 0 &&
+    replayGateProof.blockingReplayFixtureRefs.length === 0;
+  const activationRecord = workflow.metadata.harness?.activationRecord;
+  const canaryReady =
+    canaryBoundary?.status === "passed" &&
+    canaryBoundary.canaryEligible === true &&
+    canaryBoundary.rollbackDrill.drillStatus === "passed";
+  const rollbackReady =
+    (canaryBoundary?.rollbackAvailable === true && Boolean(canaryBoundary.rollbackTarget)) ||
+    (activationRecord?.rollbackAvailable === true && Boolean(activationRecord.rollbackTarget));
+  const targetOrderReady =
+    targetExecutionMode === "gated" ||
+    currentStatus === "gated" ||
+    currentStatus === "live";
+  const blockers = uniqueStrings([
+    ...(cluster ? [] : ["promotion_cluster_missing"]),
+    ...(targetOrderReady ? [] : ["promotion_live_requires_gated_cluster"]),
+    ...(readinessReady ? [] : [`promotion_readiness_below_${requiredReadiness}`]),
+    ...(receiptReady ? [] : ["promotion_receipts_missing"]),
+    ...(replayGateReady ? [] : ["promotion_replay_gate_not_passed"]),
+    ...(canaryReady ? [] : ["promotion_canary_not_passed"]),
+    ...(rollbackReady ? [] : ["promotion_rollback_unavailable"]),
+  ]);
+  return {
+    schemaVersion: "workflow.harness.promotion-transition-eligibility.v1",
+    clusterId: cluster?.clusterId ?? fallbackClusterId,
+    targetExecutionMode,
+    currentStatus,
+    eligible: blockers.length === 0,
+    readinessReady,
+    receiptReady,
+    replayGateReady,
+    canaryReady,
+    rollbackReady,
+    componentIds: uniqueStrings(
+      nodes.map((node) => node.runtimeBinding?.componentId ?? harnessComponentForNode(node)?.componentId ?? node.id),
+    ),
+    receiptRefs,
+    replayFixtureRefs: uniqueStrings([
+      ...(replayGateProof?.replayFixtureRefs ?? []),
+      ...(canaryBoundary?.replayFixtureRefs ?? []),
+    ]),
+    canaryBoundaryId: canaryBoundary?.boundaryId,
+    rollbackTarget: canaryBoundary?.rollbackTarget ?? activationRecord?.rollbackTarget,
+    blockers,
+    evidenceRefs: uniqueStrings([
+      replayGateProof?.gateId,
+      canaryBoundary?.boundaryId,
+      ...(replayGateProof?.evidenceRefs ?? []),
+      ...(canaryBoundary?.evidenceRefs ?? []),
+    ]),
+    createdAtMs,
+  };
+}
+
+export function executeWorkflowHarnessPromotionTransition(
+  workflow: WorkflowProject,
+  clusterId: WorkflowHarnessPromotionClusterId | string,
+  targetExecutionMode: WorkflowHarnessPromotionTransitionTarget,
+  options: { nowMs?: number } = {},
+): {
+  promoted: boolean;
+  workflow: WorkflowProject;
+  attempt: WorkflowHarnessPromotionTransitionAttempt;
+  eligibility: WorkflowHarnessPromotionTransitionEligibility;
+  blockers: string[];
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const eligibility = workflowHarnessPromotionTransitionEligibility(
+    workflow,
+    clusterId,
+    targetExecutionMode,
+    { nowMs: createdAtMs },
+  );
+  const cluster = workflowHarnessClusterForId(workflow, eligibility.clusterId);
+  const previousStatus = eligibility.currentStatus;
+  const nextStatus: WorkflowHarnessClusterPromotionStatus = eligibility.eligible
+    ? targetExecutionMode
+    : previousStatus;
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const transitionId = `harness-promotion-transition:${slugify(workflowId)}:${slugify(
+    `${eligibility.clusterId}:${targetExecutionMode}`,
+  )}:${createdAtMs}`;
+  const attempt: WorkflowHarnessPromotionTransitionAttempt = {
+    schemaVersion: "workflow.harness.promotion-transition-attempt.v1",
+    transitionId,
+    workflowId,
+    activationId: workflow.metadata.harness?.activationId,
+    clusterId: eligibility.clusterId,
+    clusterLabel:
+      cluster?.label ?? HARNESS_PROMOTION_CLUSTER_LABELS[eligibility.clusterId],
+    targetExecutionMode,
+    previousStatus,
+    nextStatus,
+    attemptStatus: eligibility.eligible ? "promoted" : "blocked",
+    gateDecision: eligibility.eligible
+      ? "allow_promotion_transition"
+      : "block_promotion_transition",
+    eligibility,
+    blockers: eligibility.blockers,
+    receiptRefs: eligibility.receiptRefs,
+    replayFixtureRefs: eligibility.replayFixtureRefs,
+    evidenceRefs: uniqueStrings([transitionId, ...eligibility.evidenceRefs]),
+    createdAtMs,
+  };
+  const promotionClusters = eligibility.eligible
+    ? workflowHarnessPromotionClusterWithStatus(
+        workflow.metadata.harness?.promotionClusters,
+        eligibility.clusterId,
+        nextStatus,
+      )
+    : workflow.metadata.harness?.promotionClusters;
+  const workflowWithAudit = appendWorkflowHarnessActivationAudit(
+    workflow,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType: eligibility.eligible
+        ? "promotion_transition_promoted"
+        : "promotion_transition_blocked",
+      status: eligibility.eligible ? "passed" : "blocked",
+      activationId: workflow.metadata.harness?.activationId,
+      blockers: eligibility.blockers,
+      evidenceRefs: attempt.evidenceRefs,
+      receiptRefs: attempt.receiptRefs,
+      summary: eligibility.eligible
+        ? `${attempt.clusterLabel} promoted to ${targetExecutionMode}`
+        : `${attempt.clusterLabel} promotion to ${targetExecutionMode} blocked by ${eligibility.blockers.length} gates`,
+      createdAtMs,
+    }),
+    {
+      promotionClusters,
+      promotionTransitions: [
+        ...(workflow.metadata.harness?.promotionTransitions ?? []),
+        attempt,
+      ],
+    },
+  );
+  return {
+    promoted: eligibility.eligible,
+    workflow: workflowWithRefreshedHarnessRevisionBinding(workflowWithAudit, createdAtMs),
+    attempt,
+    eligibility,
+    blockers: eligibility.blockers,
+  };
 }
 
 export function executeWorkflowHarnessReplayDrill(
@@ -3909,6 +4173,7 @@ export function defaultHarnessPromotionClusters(): WorkflowHarnessPromotionClust
       "Requires zero blocking divergence, receipt coverage, replay fixture coverage, canary pass, and rollback target.",
     rollbackTarget: "shadow",
     blocksLiveActivation: true,
+    promotionStatus: "shadow_ready",
     replayGateProof: {
       schemaVersion: "workflow.harness.promotion-cluster-replay-gate-proof.v1",
       clusterId,

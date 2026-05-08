@@ -10,6 +10,7 @@ import type {
   WorkflowDogfoodRun,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
+  WorkflowHarnessPromotionTransitionTarget,
   WorkflowNodeFixture,
   WorkflowPortablePackage,
   WorkflowProject,
@@ -28,6 +29,7 @@ import {
   DEFAULT_AGENT_HARNESS_COMPONENTS,
   harnessNodeEvidenceSummary,
   harnessSlotsForWorkflow,
+  workflowHarnessPromotionTransitionEligibility,
   workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
   workflowIsHarness,
@@ -155,6 +157,7 @@ export function WorkflowRailPanel({
   onRunHarnessActivationDryRun,
   onRunHarnessReplayDrill,
   onRunHarnessReplayGate,
+  onRunHarnessPromotionTransition,
   onApplyHarnessActivationCandidate,
   onRunHarnessRollbackDrill,
   onExecuteHarnessRollback,
@@ -212,6 +215,9 @@ export function WorkflowRailPanel({
   onRunHarnessActivationDryRun?: () => void;
   onRunHarnessReplayDrill?: () => void;
   onRunHarnessReplayGate?: () => void;
+  onRunHarnessPromotionTransition?: (
+    targetExecutionMode: WorkflowHarnessPromotionTransitionTarget,
+  ) => void;
   onApplyHarnessActivationCandidate?: () => void;
   onRunHarnessRollbackDrill?: () => void;
   onExecuteHarnessRollback?: () => void;
@@ -3347,6 +3353,38 @@ export function WorkflowRailPanel({
     : null;
   const selectedHarnessGroupReplayGateProof =
     selectedHarnessGroupPromotionCluster?.replayGateProof ?? null;
+  const selectedHarnessGroupGatedEligibility = selectedHarnessGroup
+    ? workflowHarnessPromotionTransitionEligibility(
+        workflow,
+        String(selectedHarnessGroup.groupId),
+        "gated",
+        { nowMs: selectedHarnessGroupReplayGateProof?.verifiedAtMs ?? 0 },
+      )
+    : null;
+  const selectedHarnessGroupLiveEligibility = selectedHarnessGroup
+    ? workflowHarnessPromotionTransitionEligibility(
+        workflow,
+        String(selectedHarnessGroup.groupId),
+        "live",
+        { nowMs: selectedHarnessGroupReplayGateProof?.verifiedAtMs ?? 0 },
+      )
+    : null;
+  const selectedHarnessGroupPromotionAttempts = selectedHarnessGroup
+    ? (workflow.metadata.harness?.promotionTransitions ?? []).filter(
+        (attempt) =>
+          String(attempt.clusterId) === String(selectedHarnessGroup.groupId),
+      )
+    : [];
+  const selectedHarnessGroupLatestPromotionAttempt =
+    selectedHarnessGroupPromotionAttempts[
+      selectedHarnessGroupPromotionAttempts.length - 1
+    ] ?? null;
+  const selectedHarnessGroupPromotionBlockers = Array.from(
+    new Set([
+      ...(selectedHarnessGroupGatedEligibility?.blockers ?? []),
+      ...(selectedHarnessGroupLiveEligibility?.blockers ?? []),
+    ]),
+  );
   const selectedHarnessGroupIssues = selectedHarnessGroup
     ? [
         ...(validationResult?.errors ?? []),
@@ -4013,6 +4051,109 @@ export function WorkflowRailPanel({
                   : "Run replay gate for this promotion cluster before gated or live promotion."}
               </small>
             </article>
+            <div
+              className="workflow-harness-activation-actions"
+              data-testid="workflow-harness-group-promotion-actions"
+            >
+              <button
+                type="button"
+                data-testid="workflow-harness-promote-cluster-gated"
+                disabled={
+                  !onRunHarnessPromotionTransition ||
+                  selectedHarnessGroupGatedEligibility?.eligible !== true
+                }
+                onClick={() => onRunHarnessPromotionTransition?.("gated")}
+              >
+                Promote gated
+              </button>
+              <button
+                type="button"
+                data-testid="workflow-harness-promote-cluster-live"
+                disabled={
+                  !onRunHarnessPromotionTransition ||
+                  selectedHarnessGroupLiveEligibility?.eligible !== true
+                }
+                onClick={() => onRunHarnessPromotionTransition?.("live")}
+              >
+                Promote live
+              </button>
+            </div>
+            <article
+              className={`workflow-output-row is-${
+                selectedHarnessGroupGatedEligibility?.eligible ||
+                selectedHarnessGroupLiveEligibility?.eligible
+                  ? "ready"
+                  : "blocked"
+              }`}
+              data-testid="workflow-harness-group-promotion-eligibility"
+              data-gated-eligible={
+                selectedHarnessGroupGatedEligibility?.eligible ? "true" : "false"
+              }
+              data-live-eligible={
+                selectedHarnessGroupLiveEligibility?.eligible ? "true" : "false"
+              }
+              data-gated-blockers={
+                selectedHarnessGroupGatedEligibility?.blockers.join("|") ?? ""
+              }
+              data-live-blockers={
+                selectedHarnessGroupLiveEligibility?.blockers.join("|") ?? ""
+              }
+            >
+              <strong>Promotion transition</strong>
+              <span>
+                gated{" "}
+                {selectedHarnessGroupGatedEligibility?.eligible
+                  ? "eligible"
+                  : "blocked"}{" "}
+                · live{" "}
+                {selectedHarnessGroupLiveEligibility?.eligible
+                  ? "eligible"
+                  : "blocked"}
+              </span>
+              <small>
+                {selectedHarnessGroupPromotionBlockers.slice(0, 4).join(" | ") ||
+                  "readiness, receipts, replay, canary, and rollback are ready"}
+              </small>
+            </article>
+            {selectedHarnessGroupLatestPromotionAttempt ? (
+              <article
+                className={`workflow-test-row is-${
+                  selectedHarnessGroupLatestPromotionAttempt.attemptStatus ===
+                  "promoted"
+                    ? "passed"
+                    : "blocked"
+                }`}
+                data-testid="workflow-harness-group-promotion-attempt"
+                data-transition-id={
+                  selectedHarnessGroupLatestPromotionAttempt.transitionId
+                }
+                data-attempt-status={
+                  selectedHarnessGroupLatestPromotionAttempt.attemptStatus
+                }
+                data-target-execution-mode={
+                  selectedHarnessGroupLatestPromotionAttempt.targetExecutionMode
+                }
+                data-receipt-refs={
+                  selectedHarnessGroupLatestPromotionAttempt.receiptRefs.join("|")
+                }
+                data-evidence-refs={
+                  selectedHarnessGroupLatestPromotionAttempt.evidenceRefs.join("|")
+                }
+              >
+                <strong>
+                  {selectedHarnessGroupLatestPromotionAttempt.gateDecision}
+                </strong>
+                <span>
+                  {selectedHarnessGroupLatestPromotionAttempt.previousStatus}
+                  {" -> "}
+                  {selectedHarnessGroupLatestPromotionAttempt.nextStatus}
+                </span>
+                <small>
+                  {selectedHarnessGroupLatestPromotionAttempt.blockers.join(" | ") ||
+                    `${selectedHarnessGroupLatestPromotionAttempt.receiptRefs.length} receipts · ${selectedHarnessGroupLatestPromotionAttempt.replayFixtureRefs.length} replay fixtures`}
+                </small>
+              </article>
+            ) : null}
           </section>
           <section
             className="workflow-rail-section"
