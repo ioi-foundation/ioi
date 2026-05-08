@@ -74,6 +74,116 @@ function workflowHarnessPromotionClusterReplayGateBlockers(
   );
 }
 
+type WorkflowHarnessPackageEvidenceReview = {
+  ready: boolean;
+  required: boolean;
+  value: string;
+  blockers: string[];
+  evidenceRefs: string[];
+};
+
+function workflowUniqueStrings(refs: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      refs.filter((ref): ref is string => typeof ref === "string" && ref.length > 0),
+    ),
+  );
+}
+
+function workflowHarnessPackageEvidenceReview(
+  workflow: WorkflowProject,
+): WorkflowHarnessPackageEvidenceReview {
+  const harness = workflow.metadata.harness;
+  const activationRecord = harness?.activationRecord;
+  const manifest = harness?.packageManifest ?? activationRecord?.packageManifest;
+  const required =
+    harness?.activationState === "validated" ||
+    Boolean(harness?.activationId) ||
+    activationRecord?.activationState === "validated" ||
+    Boolean(activationRecord?.activationId);
+  if (!manifest) {
+    return {
+      ready: !required,
+      required,
+      value: required ? "missing" : "not required",
+      blockers: required ? ["package_manifest_missing"] : [],
+      evidenceRefs: [],
+    };
+  }
+  const manifestIsValidated =
+    required ||
+    manifest.activationState === "validated" ||
+    Boolean(manifest.activationId);
+  const receiptRefs = Array.isArray(manifest.receiptRefs) ? manifest.receiptRefs : [];
+  const evidenceRefs = Array.isArray(manifest.evidenceRefs) ? manifest.evidenceRefs : [];
+  const replayFixtureRefs = Array.isArray(manifest.replayFixtureRefs)
+    ? manifest.replayFixtureRefs
+    : [];
+  const deepLinks = Array.isArray(manifest.deepLinks) ? manifest.deepLinks : [];
+  const workerHandoffNodeAttemptIds = Array.isArray(
+    manifest.workerHandoffNodeAttemptIds,
+  )
+    ? manifest.workerHandoffNodeAttemptIds
+    : [];
+  const workerHandoffReceiptIds = Array.isArray(manifest.workerHandoffReceiptIds)
+    ? manifest.workerHandoffReceiptIds
+    : [];
+  const rollbackRestoreReceiptRefs = Array.isArray(
+    manifest.rollbackRestoreReceiptRefs,
+  )
+    ? manifest.rollbackRestoreReceiptRefs
+    : [];
+  const blockers = manifestIsValidated
+    ? [
+        ...(manifest.schemaVersion ===
+        "workflow.harness.package-evidence-manifest.v1"
+          ? []
+          : ["package_manifest_schema_mismatch"]),
+        ...(receiptRefs.length > 0
+          ? []
+          : ["package_manifest_receipts_missing"]),
+        ...(replayFixtureRefs.length > 0
+          ? []
+          : ["package_manifest_replay_fixtures_missing"]),
+        ...(deepLinks.length > 0
+          ? []
+          : ["package_manifest_deep_links_missing"]),
+        ...(workerHandoffNodeAttemptIds.length > 0
+          ? []
+          : ["package_manifest_worker_handoff_attempts_missing"]),
+        ...(workerHandoffReceiptIds.length > 0
+          ? []
+          : ["package_manifest_worker_handoff_receipts_missing"]),
+        ...(rollbackRestoreReceiptRefs.length > 0
+          ? []
+          : ["package_manifest_rollback_restore_receipts_missing"]),
+      ]
+    : [];
+  return {
+    ready: blockers.length === 0,
+    required: manifestIsValidated,
+    value:
+      blockers.length === 0
+        ? manifestIsValidated
+          ? "verified"
+          : "recorded"
+        : `${blockers.length} blockers`,
+    blockers,
+    evidenceRefs: workflowUniqueStrings([
+      manifest.activationId,
+      manifest.workflowContentHash,
+      manifest.rollbackTarget,
+      ...evidenceRefs,
+      ...receiptRefs,
+      ...replayFixtureRefs,
+      ...rollbackRestoreReceiptRefs,
+      ...workerHandoffNodeAttemptIds,
+      ...workerHandoffReceiptIds,
+      ...deepLinks.map((link) => link?.ref),
+    ]),
+  };
+}
+
 const WORKFLOW_REPAIR_BY_CODE: Record<
   string,
   Partial<
@@ -370,6 +480,11 @@ const WORKFLOW_REPAIR_BY_CODE: Record<
     configSection: "advanced",
     repairActionId: "open-harness-replay-gate",
     repairLabel: "Run cluster replay gate",
+  },
+  harness_package_manifest_incomplete: {
+    configSection: "advanced",
+    repairActionId: "open-harness-package-evidence",
+    repairLabel: "Review package evidence",
   },
   harness_self_mutation_not_proposal_only: {
     configSection: "policy",
@@ -1195,6 +1310,13 @@ export function evaluateWorkflowActivationReadiness(
             : `${cluster.label} needs a passing replay gate before gated or live promotion.`,
       });
     });
+    const packageEvidenceReview = workflowHarnessPackageEvidenceReview(workflow);
+    if (!packageEvidenceReview.ready) {
+      addReadinessIssue({
+        code: "harness_package_manifest_incomplete",
+        message: `Imported or validated harness forks need a portable package evidence manifest with receipts, replay fixtures, rollback restore refs, worker handoff refs, and deep links. Missing: ${packageEvidenceReview.blockers.join(", ")}.`,
+      });
+    }
     if (harness?.aiMutationMode !== "proposal_only") {
       addReadinessIssue({
         code: "harness_self_mutation_not_proposal_only",
@@ -1467,6 +1589,7 @@ export function createWorkflowHarnessActivationCandidate(
   const receiptReadyComponentCount = workflow.nodes.filter(
     (node) => (node.runtimeBinding?.receiptKinds ?? []).length > 0,
   ).length;
+  const packageEvidenceReview = workflowHarnessPackageEvidenceReview(workflow);
   const activationRecord = harness?.activationRecord;
   const canaryBoundaries =
     harness?.canaryExecutionBoundaries ??
@@ -1580,6 +1703,16 @@ export function createWorkflowHarnessActivationCandidate(
       value: `${receiptReadyComponentCount}/${workflow.nodes.length}`,
       detail: "Every harness component must expose mapped receipt refs.",
       evidenceRefs: workflow.nodes.flatMap((node) => node.runtimeBinding?.receiptKinds ?? []),
+    },
+    {
+      gateId: "package-evidence",
+      label: "Package evidence",
+      status: packageEvidenceReview.ready ? "passed" : "blocked",
+      value: packageEvidenceReview.value,
+      detail: packageEvidenceReview.required
+        ? "Portable package evidence must preserve receipts, replay fixtures, rollback restore refs, worker handoff refs, and deep links."
+        : "Package evidence is recorded for export/import review once activation evidence exists.",
+      evidenceRefs: packageEvidenceReview.evidenceRefs,
     },
     {
       gateId: "canary",

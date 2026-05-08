@@ -914,6 +914,44 @@ review surface: invalid forks stay blocked with visible missing evidence, while
 valid imported forks can prove canary, rollback, receipt coverage, replay
 coverage, and worker handoff continuity before minting a new activation id.
 
+### 2026-05-08 Package Evidence Activation Gate Slice
+
+The package evidence manifest is now an activation gate, not just portable
+metadata:
+
+- `workflowHarnessPackageEvidenceReview` evaluates imported or validated
+  harness forks against manifest schema, receipt refs, replay fixture refs,
+  rollback-restore receipt refs, worker handoff attempts, worker handoff
+  receipts, and route-restorable deep links.
+- Incomplete imported or validated package manifests now create the
+  `harness_package_manifest_incomplete` readiness issue, with repair metadata
+  that routes operators to the advanced package-evidence review surface.
+- `createWorkflowHarnessActivationCandidate` now inserts a `package-evidence`
+  gate between receipt coverage and canary, so a fork cannot mint activation
+  until its portable evidence graph is complete.
+- The activation wizard exposes a `Package evidence` step with evidence refs,
+  receipt refs, replay fixture refs, readiness status, and a shared gate
+  action that re-runs package continuity checks.
+- The retained GUI contract now distinguishes
+  `harness_package_evidence_manifest` from `harness_package_evidence_gate`,
+  proving both that the manifest moves with the fork and that activation
+  review actually checks it.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T21-07-53-552Z/`;
+  all eight retained queries passed with
+  `harness_package_evidence_manifest_present: true` and
+  `harness_package_evidence_gate_present: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T21-14-03-098Z/dashboard-index.json`.
+
+This changes package import/review from "the activation evidence graph is
+available if someone looks for it" to "the activation path blocks until the
+package evidence graph is complete and inspectable." The next chronological
+slice should make package evidence review click-through fully live in the GUI:
+select the `package-evidence` gate, inspect missing manifest refs, deep-link
+to preserved receipt/replay/rollback/handoff proof, and show the same review
+state when a package is exported, imported, and activated from a new root.
+
 ## Current State
 
 ### Roadmap State
