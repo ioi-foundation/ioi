@@ -8,6 +8,7 @@ import type {
 } from "../types/graph.ts";
 import {
   applyWorkflowHarnessActivationCandidate,
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   executeWorkflowHarnessPromotionTransition,
   executeWorkflowHarnessRollbackDrill,
   executeWorkflowHarnessReplayDrill,
@@ -806,6 +807,22 @@ const withClusterReadiness = (
   assert.equal(dispatch.executionMode, "live");
   assert.equal(dispatch.runtimeAuthority, "blessed_workflow_activation_default");
   assert.equal(dispatch.drivesRuntimeDecision, true);
+  assert.equal(dispatch.activationIdGateClickProofPresent, true);
+  assert.equal(dispatch.activationIdGateClickProofPassed, true);
+  assert.deepEqual(dispatch.activationIdGateClickProofBlockers, []);
+  assert.deepEqual(dispatch.defaultDispatchActivationBlockers, []);
+  assert.equal(dispatch.activationIdGate?.gateId, "activation-id");
+  assert.equal(dispatch.activationIdGate?.proofPresent, true);
+  assert.equal(dispatch.activationIdGate?.proofPassed, true);
+  assert.deepEqual(dispatch.activationIdGate?.proofBlockers, []);
+  assert.equal(
+    dispatch.activationIdGate?.workerBindingActivationId,
+    DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  );
+  assert.deepEqual(
+    dispatch.activationIdGate?.defaultDispatchActivationBlockers,
+    [],
+  );
   assert.deepEqual(dispatch.activationBlockers, []);
   assert.equal(dispatch.acceptedClusterIds.length, 4);
 }
@@ -843,6 +860,17 @@ const withClusterReadiness = (
   assert.deepEqual(missingProofDispatch.activationBlockers, [
     "activation_id_gate_click_proof_missing",
   ]);
+  assert.equal(missingProofDispatch.activationIdGateClickProofPresent, false);
+  assert.equal(missingProofDispatch.activationIdGateClickProofPassed, false);
+  assert.deepEqual(missingProofDispatch.activationIdGateClickProofBlockers, [
+    "activation_id_gate_click_proof_missing",
+  ]);
+  assert.equal(missingProofDispatch.activationIdGate?.proofPresent, false);
+  assert.equal(missingProofDispatch.activationIdGate?.proofPassed, false);
+  assert.deepEqual(missingProofDispatch.activationIdGate?.proofBlockers, [
+    "activation_id_gate_click_proof_missing",
+  ]);
+  assert.equal(missingProofDispatch.activationIdGate?.workerBindingActivationId, "");
   assert.equal(missingProofDispatch.drivesRuntimeDecision, false);
   assert.equal(missingProofDispatch.executionMode, "gated");
   assert.equal(missingProofDispatch.runtimeAuthority, "existing_runtime_service");
@@ -874,6 +902,19 @@ const withClusterReadiness = (
     dryRunOnlyDispatch.activationBlockers.join("\n"),
     /activation_id_gate_mint_not_applied/,
   );
+  assert.equal(dryRunOnlyDispatch.activationIdGateClickProofPresent, true);
+  assert.equal(dryRunOnlyDispatch.activationIdGateClickProofPassed, false);
+  assert.deepEqual(
+    dryRunOnlyDispatch.defaultDispatchActivationBlockers,
+    dryRunOnlyDispatch.activationBlockers,
+  );
+  assert.equal(dryRunOnlyDispatch.activationIdGate?.proofPresent, true);
+  assert.equal(dryRunOnlyDispatch.activationIdGate?.proofPassed, false);
+  assert.deepEqual(
+    dryRunOnlyDispatch.activationIdGate?.proofBlockers,
+    dryRunOnlyDispatch.activationIdGateClickProofBlockers,
+  );
+  assert.equal(dryRunOnlyDispatch.activationIdGate?.workerBindingActivationId, "");
   assert.equal(dryRunOnlyDispatch.drivesRuntimeDecision, false);
 
   const mismatchedProof = makeActivationIdGateClickProof({
@@ -890,6 +931,9 @@ const withClusterReadiness = (
     mismatchDispatch.activationBlockers.join("\n"),
     /activation_id_gate_mint_worker_binding_mismatch/,
   );
+  assert.equal(mismatchDispatch.activationIdGateClickProofPassed, false);
+  assert.equal(mismatchDispatch.activationIdGate?.proofPassed, false);
+  assert.equal(mismatchDispatch.activationIdGate?.workerBindingActivationId, "");
   assert.equal(mismatchDispatch.drivesRuntimeDecision, false);
 
   const staleProof = makeActivationIdGateClickProof({ generatedAtMs: 1_000 });

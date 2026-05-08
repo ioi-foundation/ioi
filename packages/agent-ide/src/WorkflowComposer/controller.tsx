@@ -593,6 +593,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     replayFixtureRefs: boundaryReplayFixtureRefs,
     activationIdGateClickProof,
     activationIdGateProofNowMs: nowMs,
+    activationIdGateWorkerBindingActivationId:
+      harness.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const workerBinding = {

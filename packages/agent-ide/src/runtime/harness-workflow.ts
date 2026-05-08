@@ -2135,6 +2135,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
   activationIdGateProofNowMs?: number;
   activationIdGateProofMaxAgeMs?: number;
+  activationIdGateWorkerBindingActivationId?: string;
   requireActivationIdGateClickProof?: boolean;
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessDefaultRuntimeDispatchProof {
@@ -2187,6 +2188,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     ...activationIdGateProofBlockers,
   ]);
   const dispatchAccepted = activationBlockers.length === 0;
+  const activationIdGateClickProofPresent = Boolean(
+    options.activationIdGateClickProof,
+  );
+  const activationIdGateClickProofPassed =
+    activationIdGateClickProofPresent &&
+    activationIdGateProofBlockers.length === 0;
+  const activationIdGateWorkerBindingActivationId =
+    activationIdGateClickProofPassed
+      ? options.activationIdGateWorkerBindingActivationId ??
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+      : "";
   const workflowTranscriptWriteCandidate = {
     target: "checkpoint_transcript_messages",
     role: "agent",
@@ -2568,6 +2580,21 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     executorRef: "crate::project::execute_workflow_harness_live_default_node",
     synchronous: true,
     drivesRuntimeDecision: dispatchAccepted,
+    activationIdGateClickProofPresent,
+    activationIdGateClickProofPassed,
+    activationIdGateClickProofBlockers: activationIdGateProofBlockers,
+    defaultDispatchActivationBlockers: activationBlockers,
+    activationIdGate: {
+      schemaVersion: "workflow.harness.default-runtime-dispatch.activation-id-gate.v1",
+      gateId: "activation-id",
+      proofPresent: activationIdGateClickProofPresent,
+      proofPassed: activationIdGateClickProofPassed,
+      proofBlockers: activationIdGateProofBlockers,
+      workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+      activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      workerBindingActivationId: activationIdGateWorkerBindingActivationId,
+      defaultDispatchActivationBlockers: activationBlockers,
+    },
     cognitionExecutionMode: "workflow_synchronous_envelope",
     cognitionExecutionReady: true,
     promptAssemblyMode: "workflow_synchronous_envelope",

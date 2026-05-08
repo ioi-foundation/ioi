@@ -451,6 +451,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveHandoffDefaultPromotedCount: 0,
     harnessLiveHandoffRollbackCount: 0,
     harnessDefaultRuntimeDispatchReadonlyCount: 0,
+    harnessActivationIdGateClickProofRuntimeCount: 0,
+    harnessActivationIdGateClickProofRuntimeBlockedCount: 0,
     harnessDefaultRuntimeBindingCount: 0,
     harnessDefaultRuntimeBindingMatchedCount: 0,
     harnessDefaultRuntimeBindingSamples: [],
@@ -952,6 +954,26 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         }
         if (projection.HarnessDefaultRuntimeDispatch) {
           const dispatch = projection.HarnessDefaultRuntimeDispatch;
+          const dispatchActivationIdGateReady =
+            dispatch.activationIdGateClickProofPresent === true &&
+            dispatch.activationIdGateClickProofPassed === true &&
+            Array.isArray(dispatch.activationIdGateClickProofBlockers) &&
+            dispatch.activationIdGateClickProofBlockers.length === 0 &&
+            Array.isArray(dispatch.defaultDispatchActivationBlockers) &&
+            dispatch.defaultDispatchActivationBlockers.length === 0 &&
+            dispatch.activationIdGate?.gateId === "activation-id" &&
+            dispatch.activationIdGate?.proofPassed === true &&
+            dispatch.activationIdGate?.workerBindingActivationId ===
+              DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+          if (dispatchActivationIdGateReady) {
+            summary.harnessActivationIdGateClickProofRuntimeCount += 1;
+          }
+          if (
+            Array.isArray(dispatch.activationIdGateClickProofBlockers) &&
+            dispatch.activationIdGateClickProofBlockers.length > 0
+          ) {
+            summary.harnessActivationIdGateClickProofRuntimeBlockedCount += 1;
+          }
           if (
             dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
             dispatch.selectedSelector === "blessed_workflow_live_default" &&
@@ -1263,6 +1285,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.acceptedNodeAttemptIds.length >= 18 &&
             Array.isArray(dispatch.activationBlockers) &&
             dispatch.activationBlockers.length === 0 &&
+            dispatchActivationIdGateReady &&
             dispatch.rollbackAvailable === true
           ) {
             summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
@@ -2245,6 +2268,7 @@ function buildGuiEvidenceAssessment({
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
+    summary.harnessActivationIdGateClickProofRuntimeCount > 0 &&
     summary.harnessAuthorityToolingGateLiveCount > 0 &&
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
@@ -2401,6 +2425,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationGateRollbackRestoreClickProof,
       harness_activation_id_gate_click_proof_present:
         hasHarnessActivationIdGateClickProof,
+      harness_activation_id_gate_click_proof_runtime_present:
+        summary.harnessActivationIdGateClickProofRuntimeCount > 0,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -3097,6 +3123,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         defaultDispatch?.executionMode === "live" &&
         defaultDispatch?.rollbackAvailable === true &&
         defaultDispatch?.drivesRuntimeDecision === true &&
+        defaultDispatch?.activationIdGateClickProofPresent === true &&
+        defaultDispatch?.activationIdGateClickProofPassed === true &&
+        (defaultDispatch?.activationIdGateClickProofBlockers ?? []).length === 0 &&
+        (defaultDispatch?.defaultDispatchActivationBlockers ?? []).length === 0 &&
+        defaultDispatch?.activationIdGate?.workerBindingActivationId ===
+          DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         (defaultDispatch?.activationBlockers ?? []).length === 0 &&
         clusterIds.every((clusterId) =>
           (defaultDispatch?.acceptedClusterIds ?? []).includes(clusterId),
@@ -3390,6 +3422,15 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             drivesRuntimeDecision: defaultDispatch.drivesRuntimeDecision,
             acceptedClusterIds: defaultDispatch.acceptedClusterIds,
             activationBlockers: defaultDispatch.activationBlockers ?? [],
+            activationIdGateClickProofPresent:
+              defaultDispatch.activationIdGateClickProofPresent,
+            activationIdGateClickProofPassed:
+              defaultDispatch.activationIdGateClickProofPassed,
+            activationIdGateClickProofBlockers:
+              defaultDispatch.activationIdGateClickProofBlockers ?? [],
+            defaultDispatchActivationBlockers:
+              defaultDispatch.defaultDispatchActivationBlockers ?? [],
+            activationIdGate: defaultDispatch.activationIdGate ?? null,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
@@ -3770,6 +3811,7 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_default_runtime_dispatch:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
+          runtimeArtifacts.summary.harnessActivationIdGateClickProofRuntimeCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&

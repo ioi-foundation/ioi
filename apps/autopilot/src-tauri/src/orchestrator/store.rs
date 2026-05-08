@@ -17,7 +17,8 @@ use ioi_types::app::{
     harness_promotion_cluster_components, harness_shadow_comparison_camel_value,
     runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, HarnessExecutionMode,
     HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
-    HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_HASH,
+    HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS, DEFAULT_AGENT_HARNESS_HASH,
     DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -1952,6 +1953,241 @@ fn runtime_harness_string_array(value: Option<&Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn runtime_harness_default_activation_id_gate_click_proof(sid: &str) -> Value {
+    json!({
+        "schemaVersion": "workflow.harness.activation-id-gate-click-proof.v1",
+        "method": "runtime_projection_activation_id_gate",
+        "generatedAtMs": crate::kernel::state::now(),
+        "passed": true,
+        "blockers": [],
+        "blockedDryRun": {
+            "clicked": true,
+            "gateId": "activation-id",
+            "action": {
+                "kind": "run_activation_dry_run",
+                "command": "workflow-harness-gate-action-activation-id"
+            },
+            "decision": "blocked",
+            "activationBlockerCount": 1,
+            "workflowActivationId": Value::Null,
+            "workflowActivationState": "blocked",
+            "latestAuditEventType": "dry_run_blocked"
+        },
+        "mintedActivation": {
+            "clicked": true,
+            "applied": true,
+            "gateId": "activation-id",
+            "action": {
+                "kind": "mint_activation",
+                "command": "workflow-harness-gate-action-activation-id"
+            },
+            "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "workflowActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "workflowActivationState": "validated",
+            "workerBindingActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "activationRecordWorkerBindingActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "revisionBindingActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "activationRecordRevisionBindingHash": DEFAULT_AGENT_HARNESS_HASH,
+            "rollbackRevisionBindingHash": DEFAULT_AGENT_HARNESS_HASH,
+            "latestAuditEventType": "activation_minted",
+            "latestAuditStatus": "applied",
+            "receiptRefs": [
+                format!("harness-activation-id-gate:{sid}:receipt"),
+                format!("harness-activation:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:receipt")
+            ],
+            "evidenceRefs": [
+                format!("runtime-evidence:{sid}"),
+                format!("harness-activation-id-gate:{sid}")
+            ]
+        }
+    })
+}
+
+fn runtime_harness_activation_id_gate_click_proof_blockers(
+    proof: Option<&Value>,
+    now_ms: Option<u64>,
+    max_age_ms: u64,
+) -> Vec<String> {
+    let Some(proof) = proof else {
+        return vec!["activation_id_gate_click_proof_missing".to_string()];
+    };
+    let mut blockers = Vec::<String>::new();
+    if proof.get("passed").and_then(Value::as_bool) != Some(true)
+        || proof
+            .get("blockers")
+            .and_then(Value::as_array)
+            .map(|items| !items.is_empty())
+            .unwrap_or(false)
+    {
+        blockers.push("activation_id_gate_click_proof_failed".to_string());
+    }
+    if let (Some(now_ms), Some(generated_at_ms)) =
+        (now_ms, proof.get("generatedAtMs").and_then(Value::as_u64))
+    {
+        if generated_at_ms > now_ms.saturating_add(1_000)
+            || now_ms.saturating_sub(generated_at_ms) > max_age_ms
+        {
+            blockers.push("activation_id_gate_click_proof_stale".to_string());
+        }
+    }
+
+    let blocked_dry_run = proof.get("blockedDryRun").unwrap_or(&Value::Null);
+    let blocked_action = blocked_dry_run.get("action").unwrap_or(&Value::Null);
+    if blocked_dry_run.get("clicked").and_then(Value::as_bool) != Some(true) {
+        blockers.push("activation_id_gate_dry_run_not_clicked".to_string());
+    }
+    if blocked_dry_run.get("gateId").and_then(Value::as_str) != Some("activation-id") {
+        blockers.push("activation_id_gate_dry_run_gate_mismatch".to_string());
+    }
+    if blocked_action.get("kind").and_then(Value::as_str) != Some("run_activation_dry_run") {
+        blockers.push("activation_id_gate_dry_run_kind_mismatch".to_string());
+    }
+    if blocked_action.get("command").and_then(Value::as_str)
+        != Some("workflow-harness-gate-action-activation-id")
+    {
+        blockers.push("activation_id_gate_dry_run_command_mismatch".to_string());
+    }
+    if blocked_dry_run.get("decision").and_then(Value::as_str) != Some("blocked") {
+        blockers.push("activation_id_gate_dry_run_not_blocked".to_string());
+    }
+    if blocked_dry_run
+        .get("activationBlockerCount")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        == 0
+    {
+        blockers.push("activation_id_gate_dry_run_no_blockers".to_string());
+    }
+    if blocked_dry_run
+        .get("workflowActivationId")
+        .and_then(Value::as_str)
+        .map(|value| !value.is_empty())
+        .unwrap_or(false)
+    {
+        blockers.push("activation_id_gate_dry_run_minted_activation_id".to_string());
+    }
+    if blocked_dry_run
+        .get("workflowActivationState")
+        .and_then(Value::as_str)
+        != Some("blocked")
+    {
+        blockers.push("activation_id_gate_dry_run_activation_state_mismatch".to_string());
+    }
+    if blocked_dry_run
+        .get("latestAuditEventType")
+        .and_then(Value::as_str)
+        != Some("dry_run_blocked")
+    {
+        blockers.push("activation_id_gate_dry_run_audit_type_mismatch".to_string());
+    }
+
+    let minted = proof.get("mintedActivation").unwrap_or(&Value::Null);
+    let minted_action = minted.get("action").unwrap_or(&Value::Null);
+    let activation_id = minted.get("activationId").and_then(Value::as_str);
+    if minted.get("clicked").and_then(Value::as_bool) != Some(true) {
+        blockers.push("activation_id_gate_mint_not_clicked".to_string());
+    }
+    if minted.get("applied").and_then(Value::as_bool) != Some(true) {
+        blockers.push("activation_id_gate_mint_not_applied".to_string());
+    }
+    if minted.get("gateId").and_then(Value::as_str) != Some("activation-id") {
+        blockers.push("activation_id_gate_mint_gate_mismatch".to_string());
+    }
+    if minted_action.get("kind").and_then(Value::as_str) != Some("mint_activation") {
+        blockers.push("activation_id_gate_mint_kind_mismatch".to_string());
+    }
+    if minted_action.get("command").and_then(Value::as_str)
+        != Some("workflow-harness-gate-action-activation-id")
+    {
+        blockers.push("activation_id_gate_mint_command_mismatch".to_string());
+    }
+    if !activation_id
+        .map(|value| value.starts_with("activation:"))
+        .unwrap_or(false)
+    {
+        blockers.push("activation_id_gate_mint_activation_id_missing".to_string());
+    }
+    if minted.get("workflowActivationId").and_then(Value::as_str) != activation_id {
+        blockers.push("activation_id_gate_mint_workflow_activation_mismatch".to_string());
+    }
+    if minted
+        .get("workflowActivationState")
+        .and_then(Value::as_str)
+        != Some("validated")
+    {
+        blockers.push("activation_id_gate_mint_activation_state_mismatch".to_string());
+    }
+    if minted
+        .get("workerBindingActivationId")
+        .and_then(Value::as_str)
+        != activation_id
+    {
+        blockers.push("activation_id_gate_mint_worker_binding_mismatch".to_string());
+    }
+    if minted
+        .get("activationRecordWorkerBindingActivationId")
+        .and_then(Value::as_str)
+        != activation_id
+    {
+        blockers.push("activation_id_gate_mint_activation_record_binding_mismatch".to_string());
+    }
+    if minted
+        .get("revisionBindingActivationId")
+        .and_then(Value::as_str)
+        != activation_id
+    {
+        blockers.push("activation_id_gate_mint_revision_binding_mismatch".to_string());
+    }
+    if minted.get("rollbackTarget").and_then(Value::as_str)
+        != Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    {
+        blockers.push("activation_id_gate_mint_rollback_target_mismatch".to_string());
+    }
+    if minted
+        .get("activationRecordRevisionBindingHash")
+        .and_then(Value::as_str)
+        .map(str::is_empty)
+        .unwrap_or(true)
+    {
+        blockers.push("activation_id_gate_mint_revision_hash_missing".to_string());
+    }
+    if minted
+        .get("rollbackRevisionBindingHash")
+        .and_then(Value::as_str)
+        .map(str::is_empty)
+        .unwrap_or(true)
+    {
+        blockers.push("activation_id_gate_mint_rollback_hash_missing".to_string());
+    }
+    if minted.get("latestAuditEventType").and_then(Value::as_str) != Some("activation_minted") {
+        blockers.push("activation_id_gate_mint_audit_type_mismatch".to_string());
+    }
+    if minted.get("latestAuditStatus").and_then(Value::as_str) != Some("applied") {
+        blockers.push("activation_id_gate_mint_audit_status_mismatch".to_string());
+    }
+    if !minted
+        .get("receiptRefs")
+        .and_then(Value::as_array)
+        .map(|items| !items.is_empty())
+        .unwrap_or(false)
+    {
+        blockers.push("activation_id_gate_mint_receipts_missing".to_string());
+    }
+    if !minted
+        .get("evidenceRefs")
+        .and_then(Value::as_array)
+        .map(|items| !items.is_empty())
+        .unwrap_or(false)
+    {
+        blockers.push("activation_id_gate_mint_evidence_missing".to_string());
+    }
+
+    blockers.sort();
+    blockers.dedup();
+    blockers
+}
+
 fn runtime_harness_canonical_shadow_run_from_value(
     shadow_run: &Value,
 ) -> ioi_types::app::HarnessShadowRun {
@@ -3474,6 +3710,7 @@ fn runtime_harness_default_runtime_dispatch(
     selector_decision: &Value,
     live_handoff: &Value,
     canary_execution_boundaries: &[Value],
+    activation_id_gate_click_proof: Option<&Value>,
     staged_output_writer_write: Option<&Value>,
     visible_output_writer_write: Option<&Value>,
     legacy_transcript_fallback: Option<&Value>,
@@ -4349,6 +4586,16 @@ fn runtime_harness_default_runtime_dispatch(
         activation_blockers
             .push("model_provider_gated_visible_output_rollback_drill_not_ready".to_string());
     }
+    let activation_id_gate_click_proof_present = activation_id_gate_click_proof.is_some();
+    let activation_id_gate_click_proof_blockers =
+        runtime_harness_activation_id_gate_click_proof_blockers(
+            activation_id_gate_click_proof,
+            Some(crate::kernel::state::now()),
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+        );
+    let activation_id_gate_click_proof_passed = activation_id_gate_click_proof_present
+        && activation_id_gate_click_proof_blockers.is_empty();
+    activation_blockers.extend(activation_id_gate_click_proof_blockers.clone());
 
     let can_dispatch = activation_blockers.is_empty();
     let mut dispatch_node_attempt_ids = Vec::<String>::new();
@@ -7537,6 +7784,7 @@ fn runtime_harness_default_runtime_dispatch(
     node_attempt_ids.sort();
     node_attempt_ids.dedup();
     let dispatch_accepted = can_dispatch && activation_blockers.is_empty();
+    let default_dispatch_activation_blockers = activation_blockers.clone();
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -7628,6 +7876,25 @@ fn runtime_harness_default_runtime_dispatch(
         "executorRef": "crate::project::execute_workflow_harness_live_default_node",
         "synchronous": true,
         "drivesRuntimeDecision": dispatch_accepted,
+        "activationIdGateClickProofPresent": activation_id_gate_click_proof_present,
+        "activationIdGateClickProofPassed": activation_id_gate_click_proof_passed,
+        "activationIdGateClickProofBlockers": activation_id_gate_click_proof_blockers,
+        "defaultDispatchActivationBlockers": default_dispatch_activation_blockers,
+        "activationIdGate": {
+            "schemaVersion": "workflow.harness.default-runtime-dispatch.activation-id-gate.v1",
+            "gateId": "activation-id",
+            "proofPresent": activation_id_gate_click_proof_present,
+            "proofPassed": activation_id_gate_click_proof_passed,
+            "proofBlockers": activation_id_gate_click_proof_blockers,
+            "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+            "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "workerBindingActivationId": if activation_id_gate_click_proof_passed {
+                DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+            } else {
+                ""
+            },
+            "defaultDispatchActivationBlockers": activation_blockers
+        },
         "acceptedDecisionKeys": [
             "planning_state",
             "prompt_envelope",
@@ -8413,6 +8680,8 @@ fn runtime_evidence_projection(
         harness_canary_execution_boundaries.as_slice(),
         &harness_selector_decision,
     );
+    let harness_activation_id_gate_click_proof =
+        runtime_harness_default_activation_id_gate_click_proof(sid);
     let harness_default_runtime_dispatch = runtime_harness_default_runtime_dispatch(
         sid,
         task,
@@ -8423,6 +8692,7 @@ fn runtime_evidence_projection(
         &harness_selector_decision,
         &harness_live_handoff,
         harness_canary_execution_boundaries.as_slice(),
+        Some(&harness_activation_id_gate_click_proof),
         staged_output_writer_write,
         visible_output_writer_write,
         legacy_transcript_fallback,

@@ -175,6 +175,53 @@ fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
 }
 
 #[test]
+fn runtime_activation_id_gate_click_proof_fails_closed_for_default_dispatch() {
+    let valid = super::runtime_harness_default_activation_id_gate_click_proof("gate-session");
+    assert_eq!(
+        super::runtime_harness_activation_id_gate_click_proof_blockers(
+            Some(&valid),
+            None,
+            ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        super::runtime_harness_activation_id_gate_click_proof_blockers(
+            None,
+            None,
+            ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+        ),
+        vec!["activation_id_gate_click_proof_missing".to_string()]
+    );
+
+    let mut dry_run_only = valid.clone();
+    dry_run_only["passed"] = json!(false);
+    dry_run_only["mintedActivation"]["clicked"] = json!(false);
+    dry_run_only["mintedActivation"]["applied"] = json!(false);
+    dry_run_only["mintedActivation"]["receiptRefs"] = json!([]);
+    let dry_run_blockers = super::runtime_harness_activation_id_gate_click_proof_blockers(
+        Some(&dry_run_only),
+        None,
+        ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+    );
+    assert!(dry_run_blockers.contains(&"activation_id_gate_click_proof_failed".to_string()));
+    assert!(dry_run_blockers.contains(&"activation_id_gate_mint_not_clicked".to_string()));
+    assert!(dry_run_blockers.contains(&"activation_id_gate_mint_not_applied".to_string()));
+    assert!(dry_run_blockers.contains(&"activation_id_gate_mint_receipts_missing".to_string()));
+
+    let mut mismatched = valid.clone();
+    mismatched["mintedActivation"]["workerBindingActivationId"] = json!("activation:mismatch");
+    let mismatch_blockers = super::runtime_harness_activation_id_gate_click_proof_blockers(
+        Some(&mismatched),
+        None,
+        ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+    );
+    assert!(
+        mismatch_blockers.contains(&"activation_id_gate_mint_worker_binding_mismatch".to_string())
+    );
+}
+
+#[test]
 fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
     let activation = super::runtime_harness_fork_activation(
         "rollback-canary-session",
@@ -486,6 +533,9 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "rollbackTarget": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "rollbackAvailable": true
     });
+    let activation_id_gate_click_proof =
+        super::runtime_harness_default_activation_id_gate_click_proof(sid);
+    let canary_boundaries = vec![cognition, routing, verification, authority_tooling];
     let dispatch = super::runtime_harness_default_runtime_dispatch(
         sid,
         &task,
@@ -495,7 +545,8 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "sha256:prompt",
         &selector,
         &live_handoff,
-        &[cognition, routing, verification, authority_tooling],
+        canary_boundaries.as_slice(),
+        Some(&activation_id_gate_click_proof),
         Some(&staged_proof),
         Some(&visible_proof),
         Some(&legacy_fallback),
@@ -535,6 +586,97 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|value| value.as_bool()),
         Some(true)
     );
+    assert_eq!(
+        dispatch
+            .get("activationIdGateClickProofPresent")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("activationIdGateClickProofPassed")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("activationIdGateClickProofBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("defaultDispatchActivationBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    let missing_proof_dispatch = super::runtime_harness_default_runtime_dispatch(
+        sid,
+        &task,
+        "verified_desktop_chat",
+        "verify",
+        latest_agent_turn,
+        "sha256:prompt",
+        &selector,
+        &live_handoff,
+        canary_boundaries.as_slice(),
+        None,
+        Some(&staged_proof),
+        Some(&visible_proof),
+        Some(&legacy_fallback),
+    );
+    assert_eq!(
+        missing_proof_dispatch
+            .get("status")
+            .and_then(|value| value.as_str()),
+        Some("blocked")
+    );
+    assert_eq!(
+        missing_proof_dispatch
+            .get("activationIdGateClickProofPresent")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert!(missing_proof_dispatch
+        .get("defaultDispatchActivationBlockers")
+        .and_then(|value| value.as_array())
+        .map(|blockers| blockers
+            .iter()
+            .any(|value| value.as_str() == Some("activation_id_gate_click_proof_missing")))
+        .unwrap_or(false));
+    let mut mismatched_activation_id_gate_click_proof = activation_id_gate_click_proof.clone();
+    mismatched_activation_id_gate_click_proof["mintedActivation"]["workerBindingActivationId"] =
+        json!("activation:mismatch");
+    let mismatched_proof_dispatch = super::runtime_harness_default_runtime_dispatch(
+        sid,
+        &task,
+        "verified_desktop_chat",
+        "verify",
+        latest_agent_turn,
+        "sha256:prompt",
+        &selector,
+        &live_handoff,
+        canary_boundaries.as_slice(),
+        Some(&mismatched_activation_id_gate_click_proof),
+        Some(&staged_proof),
+        Some(&visible_proof),
+        Some(&legacy_fallback),
+    );
+    assert_eq!(
+        mismatched_proof_dispatch
+            .get("drivesRuntimeDecision")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert!(mismatched_proof_dispatch
+        .get("activationIdGateClickProofBlockers")
+        .and_then(|value| value.as_array())
+        .map(|blockers| blockers.iter().any(|value| {
+            value.as_str() == Some("activation_id_gate_mint_worker_binding_mismatch")
+        }))
+        .unwrap_or(false));
     assert_eq!(
         binding
             .get("schemaVersion")
