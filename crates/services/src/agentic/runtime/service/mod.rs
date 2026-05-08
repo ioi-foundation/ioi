@@ -42,7 +42,10 @@ use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::{AccountId, ChainId};
-use ioi_types::app::{HarnessExecutionMode, HarnessWorkerBinding, KernelEvent};
+use ioi_types::app::{
+    HarnessExecutionMode, HarnessWorkerAttachReceipt, HarnessWorkerBinding,
+    HarnessWorkerBindingRegistryRecord, KernelEvent,
+};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
@@ -122,6 +125,10 @@ pub struct RuntimeAgentService {
     pub(crate) lens_registry: Arc<LensRegistry>,
     /// Workflow activation identity for the default runtime harness.
     pub(crate) harness_worker_binding: HarnessWorkerBinding,
+    /// Registry record that authorizes the active harness worker binding.
+    pub(crate) harness_worker_binding_registry_record: HarnessWorkerBindingRegistryRecord,
+    /// Last durable worker attach receipt resolved from the registry.
+    pub(crate) harness_worker_attach_receipt: HarnessWorkerAttachReceipt,
 }
 
 /// Snapshot of the active transaction context used by action execution helpers.
@@ -232,6 +239,14 @@ impl BlockchainService for RuntimeAgentService {
 impl RuntimeAgentService {
     pub fn harness_worker_binding(&self) -> &HarnessWorkerBinding {
         &self.harness_worker_binding
+    }
+
+    pub fn harness_worker_binding_registry_record(&self) -> &HarnessWorkerBindingRegistryRecord {
+        &self.harness_worker_binding_registry_record
+    }
+
+    pub fn harness_worker_attach_receipt(&self) -> &HarnessWorkerAttachReceipt {
+        &self.harness_worker_attach_receipt
     }
 
     pub fn harness_execution_mode(&self) -> HarnessExecutionMode {

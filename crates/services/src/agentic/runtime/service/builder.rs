@@ -15,8 +15,11 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::{
-    default_harness_worker_binding, validate_harness_worker_binding, HarnessWorkerBinding,
-    KernelEvent,
+    default_harness_worker_attach_request, default_harness_worker_binding,
+    default_harness_worker_binding_registry_record, resolve_harness_worker_binding,
+    validate_harness_worker_binding, validate_harness_worker_binding_registry_record,
+    HarnessWorkerAttachReceipt, HarnessWorkerAttachStatus, HarnessWorkerBinding,
+    HarnessWorkerBindingRegistryRecord, KernelEvent,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,6 +30,17 @@ use ioi_drivers::gui::lenses::{auto::AutoLens, react::ReactLens, LensRegistry};
 
 fn shield_policy_path_from_env() -> Option<PathBuf> {
     std::env::var_os("IOI_SHIELD_POLICY_PATH").map(PathBuf::from)
+}
+
+fn default_worker_attach_state() -> (
+    HarnessWorkerBindingRegistryRecord,
+    HarnessWorkerAttachReceipt,
+) {
+    let registry_record = default_harness_worker_binding_registry_record();
+    let attach_request =
+        default_harness_worker_attach_request(&registry_record, HarnessWorkerAttachStatus::Unbound);
+    let attach_receipt = resolve_harness_worker_binding(&registry_record, &attach_request);
+    (registry_record, attach_receipt)
 }
 
 impl RuntimeAgentService {
@@ -47,6 +61,9 @@ impl RuntimeAgentService {
         lens_registry.register(Box::new(AutoLens));
         // [FIX] Wrap in Arc to share with Executor
         let lens_registry_arc = Arc::new(lens_registry);
+
+        let (harness_worker_binding_registry_record, harness_worker_attach_receipt) =
+            default_worker_attach_state();
 
         Self {
             gui,
@@ -70,6 +87,8 @@ impl RuntimeAgentService {
             last_accessibility_tree: Arc::new(RwLock::new(None)),
             lens_registry: lens_registry_arc,
             harness_worker_binding: default_harness_worker_binding(),
+            harness_worker_binding_registry_record,
+            harness_worker_attach_receipt,
         }
     }
 
@@ -91,6 +110,9 @@ impl RuntimeAgentService {
         lens_registry.register(Box::new(AutoLens));
         // [FIX] Wrap in Arc to share with Executor
         let lens_registry_arc = Arc::new(lens_registry);
+
+        let (harness_worker_binding_registry_record, harness_worker_attach_receipt) =
+            default_worker_attach_state();
 
         Self {
             gui,
@@ -114,6 +136,8 @@ impl RuntimeAgentService {
             last_accessibility_tree: Arc::new(RwLock::new(None)),
             lens_registry: lens_registry_arc,
             harness_worker_binding: default_harness_worker_binding(),
+            harness_worker_binding_registry_record,
+            harness_worker_attach_receipt,
         }
     }
 
@@ -159,6 +183,25 @@ impl RuntimeAgentService {
         validate_harness_worker_binding(&binding)
             .expect("harness worker binding must include activation identity");
         self.harness_worker_binding = binding;
+        self
+    }
+
+    pub fn with_harness_worker_binding_registry_record(
+        mut self,
+        record: HarnessWorkerBindingRegistryRecord,
+    ) -> Self {
+        validate_harness_worker_binding_registry_record(&record)
+            .expect("harness worker binding registry record must be structurally valid");
+        let attach_request =
+            default_harness_worker_attach_request(&record, HarnessWorkerAttachStatus::Bound);
+        let attach_receipt = resolve_harness_worker_binding(&record, &attach_request);
+        assert!(
+            attach_receipt.accepted,
+            "harness worker attach must resolve to an accepted live binding"
+        );
+        self.harness_worker_binding = attach_receipt.worker_binding.clone();
+        self.harness_worker_binding_registry_record = record;
+        self.harness_worker_attach_receipt = attach_receipt;
         self
     }
 

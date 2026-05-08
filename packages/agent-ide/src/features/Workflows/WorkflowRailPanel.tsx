@@ -33,6 +33,7 @@ import {
   harnessSlotsForWorkflow,
   workflowHarnessLivePromotionReadinessProofBlockers,
   workflowHarnessPromotionTransitionEligibility,
+  workflowHarnessWorkerAttachBlockers,
   workflowHarnessWorkerBinding,
   workflowHarnessWorkerBindingRegistryBlockers,
   workflowIsBlessedHarness,
@@ -622,6 +623,16 @@ export function WorkflowRailPanel({
           const workerBindingRegistryBound =
             workerBindingRegistryRecord?.bindingStatus === "bound" &&
             workerBindingRegistryBlockers.length === 0;
+          const workerAttachReceipt =
+            harnessDefaultRuntimeDispatchProof.workerAttachReceipt ??
+            harnessActivationRecord?.workerAttachReceipt ??
+            workflow.metadata.harness?.workerAttachReceipt ??
+            null;
+          const workerAttachBlockers =
+            workflowHarnessWorkerAttachBlockers(workerAttachReceipt);
+          const workerAttachAccepted =
+            workerAttachReceipt?.accepted === true &&
+            workerAttachBlockers.length === 0;
           const workerBindingAuthorityBlockers = [
             ...(workflowIdentityMatches ? [] : ["workflow_identity_mismatch"]),
             ...(activationIdentityMatches
@@ -669,7 +680,9 @@ export function WorkflowRailPanel({
             ...(workerBindingRegistryBound
               ? []
               : ["worker_binding_registry_not_bound"]),
+            ...(workerAttachAccepted ? [] : ["worker_attach_not_accepted"]),
             ...workerBindingRegistryBlockers,
+            ...workerAttachBlockers,
           ];
           const workerBindingAuthorityReady =
             workerBindingAuthorityBlockers.length === 0;
@@ -721,6 +734,10 @@ export function WorkflowRailPanel({
             workerBindingRegistryStatus:
               workerBindingRegistryRecord?.bindingStatus ?? "missing",
             workerBindingRegistryBlockers,
+            workerAttachReceipt,
+            workerAttachAccepted,
+            workerAttachStatus: workerAttachReceipt?.attachStatus ?? "missing",
+            workerAttachBlockers,
             receiptRefs: harnessActiveRuntimeBindingReceiptRefs,
             replayFixtureRefs: harnessActiveRuntimeBindingReplayFixtureRefs,
             blockers: workerBindingAuthorityBlockers,
@@ -2911,6 +2928,14 @@ export function WorkflowRailPanel({
                 data-worker-binding-registry-status={
                   harnessActiveRuntimeBinding.workerBindingRegistryStatus
                 }
+                data-worker-attach-status={
+                  harnessActiveRuntimeBinding.workerAttachStatus
+                }
+                data-worker-attach-accepted={
+                  harnessActiveRuntimeBinding.workerAttachAccepted
+                    ? "true"
+                    : "false"
+                }
                 data-live-promotion-readiness-proof-id={
                   harnessActiveRuntimeBinding.selectorLivePromotionReadinessProofId
                 }
@@ -2973,6 +2998,10 @@ export function WorkflowRailPanel({
                       {harnessActiveRuntimeBinding.workerBindingRegistryStatus}
                     </dd>
                   </div>
+                  <div>
+                    <dt>Attach</dt>
+                    <dd>{harnessActiveRuntimeBinding.workerAttachStatus}</dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${
@@ -3009,6 +3038,10 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeBinding.workerBindingRegistryRecord
                       ?.registryRecordId ?? ""
                   }
+                  data-worker-attach-receipt-id={
+                    harnessActiveRuntimeBinding.workerAttachReceipt
+                      ?.receiptId ?? ""
+                  }
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -3031,6 +3064,11 @@ export function WorkflowRailPanel({
                     registry{" "}
                     {harnessActiveRuntimeBinding.workerBindingRegistryRecord
                       ?.registryRecordId ?? "missing"}
+                  </small>
+                  <small>
+                    attach{" "}
+                    {harnessActiveRuntimeBinding.workerAttachReceipt
+                      ?.receiptId ?? "missing"}
                   </small>
                 </article>
                 <div

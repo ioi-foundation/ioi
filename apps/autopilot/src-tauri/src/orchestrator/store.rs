@@ -1340,6 +1340,166 @@ fn runtime_harness_workflow_selector_selected(selected_selector: &str) -> bool {
     )
 }
 
+fn runtime_harness_worker_attach_receipt(
+    sid: &str,
+    turn_id: &str,
+    registry_record: &Value,
+    attach_request: &Value,
+) -> Value {
+    let worker_binding = registry_record
+        .get("workerBinding")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let mut blockers = Vec::<String>::new();
+    if attach_request.get("schemaVersion").and_then(Value::as_str)
+        != Some("workflow.harness.worker-attach-request.v1")
+    {
+        blockers.push("worker_attach_request_schema_mismatch".to_string());
+    }
+    let record_string = |key: &str| registry_record.get(key).and_then(Value::as_str);
+    let request_string = |key: &str| attach_request.get(key).and_then(Value::as_str);
+    if request_string("workflowId") != record_string("workflowId") {
+        blockers.push("worker_attach_workflow_mismatch".to_string());
+    }
+    if request_string("activationId") != record_string("activationId") {
+        blockers.push("worker_attach_activation_mismatch".to_string());
+    }
+    if request_string("activationHash") != record_string("activationHash") {
+        blockers.push("worker_attach_activation_hash_mismatch".to_string());
+    }
+    if request_string("harnessHash") != record_string("harnessHash") {
+        blockers.push("worker_attach_harness_hash_mismatch".to_string());
+    }
+    if attach_request.get("componentVersionSet") != registry_record.get("componentVersionSet") {
+        blockers.push("worker_attach_component_version_set_mismatch".to_string());
+    }
+    if request_string("rollbackTarget")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_rollback_target_missing".to_string());
+    }
+    if request_string("rollbackTarget") != record_string("rollbackTarget") {
+        blockers.push("worker_attach_rollback_target_mismatch".to_string());
+    }
+    if request_string("readinessProofId")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_readiness_proof_missing".to_string());
+    }
+    if request_string("readinessProofId") != record_string("readinessProofId") {
+        blockers.push("worker_attach_readiness_proof_mismatch".to_string());
+    }
+    let binding_status = record_string("bindingStatus").unwrap_or("blocked");
+    if binding_status != "bound" {
+        blockers.push("worker_attach_registry_not_bound".to_string());
+    }
+    if registry_record
+        .get("blockers")
+        .and_then(Value::as_array)
+        .map(|items| !items.is_empty())
+        .unwrap_or(true)
+    {
+        blockers.push("worker_attach_registry_blocked".to_string());
+    }
+    if !record_string("canaryResultId")
+        .unwrap_or_default()
+        .ends_with(":passed")
+    {
+        blockers.push("worker_attach_canary_not_passed".to_string());
+    }
+    if worker_binding.get("executionMode").and_then(Value::as_str) != Some("live") {
+        blockers.push("worker_attach_worker_not_live".to_string());
+    }
+    if worker_binding.get("rollbackTarget").and_then(Value::as_str)
+        != registry_record
+            .get("rollbackTarget")
+            .and_then(Value::as_str)
+    {
+        blockers.push("worker_attach_worker_rollback_mismatch".to_string());
+    }
+    if worker_binding
+        .get("authorityBindingReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_attach_authority_not_ready".to_string());
+    }
+    if worker_binding
+        .get("authorityBindingBlockers")
+        .and_then(Value::as_array)
+        .map(|items| !items.is_empty())
+        .unwrap_or(true)
+    {
+        blockers.push("worker_attach_authority_blocked".to_string());
+    }
+    if worker_binding
+        .get("livePromotionReadinessProofId")
+        .and_then(Value::as_str)
+        != registry_record
+            .get("readinessProofId")
+            .and_then(Value::as_str)
+    {
+        blockers.push("worker_attach_worker_readiness_proof_mismatch".to_string());
+    }
+    blockers.sort();
+    blockers.dedup();
+    let accepted = blockers.is_empty();
+    let requested_status = request_string("requestedStatus").unwrap_or("bound");
+    let attach_status = if accepted {
+        match requested_status {
+            "resumed" => "resumed",
+            "rolled_back" => "rolled_back",
+            _ => "bound",
+        }
+    } else if binding_status == "projection" {
+        "unbound"
+    } else if binding_status == "canary" {
+        "canary"
+    } else {
+        "blocked"
+    };
+    let rollback_available = request_string("rollbackTarget")
+        == registry_record
+            .get("rollbackTarget")
+            .and_then(Value::as_str)
+        && request_string("rollbackTarget")
+            .map(|value| !value.is_empty())
+            .unwrap_or(false);
+    json!({
+        "schemaVersion": "workflow.harness.worker-attach-receipt.v1",
+        "receiptId": format!(
+            "harness-worker-attach-receipt:{sid}:{turn_id}:{attach_status}"
+        ),
+        "workerId": request_string("workerId").unwrap_or("harness-worker:unknown"),
+        "workflowId": request_string("workflowId").unwrap_or_default(),
+        "activationId": request_string("activationId").unwrap_or_default(),
+        "activationHash": request_string("activationHash").unwrap_or_default(),
+        "harnessHash": request_string("harnessHash").unwrap_or_default(),
+        "componentVersionSet": attach_request.get("componentVersionSet").cloned().unwrap_or_else(|| json!({})),
+        "rollbackTarget": request_string("rollbackTarget").unwrap_or_default(),
+        "rollbackAvailable": rollback_available,
+        "readinessProofId": request_string("readinessProofId").unwrap_or_default(),
+        "registryRecordId": record_string("registryRecordId").unwrap_or_default(),
+        "bindingStatus": binding_status,
+        "attachStatus": attach_status,
+        "accepted": accepted,
+        "blockers": blockers,
+        "workerBinding": worker_binding,
+        "policyDecision": if accepted {
+            "allow_harness_worker_attach"
+        } else {
+            "block_harness_worker_attach"
+        },
+        "evidenceRefs": [
+            record_string("registryRecordId").unwrap_or_default(),
+            record_string("readinessProofId").unwrap_or_default(),
+            record_string("canaryResultId").unwrap_or_default()
+        ]
+    })
+}
+
 fn runtime_harness_default_runtime_binding(
     sid: &str,
     task: &AgentTask,
@@ -1639,7 +1799,7 @@ fn runtime_harness_default_runtime_binding(
         "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "activationHash": DEFAULT_AGENT_HARNESS_HASH,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
-        "componentVersionSet": component_version_set,
+        "componentVersionSet": component_version_set.clone(),
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
         "canaryResultId": canary_result_id,
@@ -1648,7 +1808,68 @@ fn runtime_harness_default_runtime_binding(
         "blockers": worker_binding_registry_blockers.clone(),
         "workerBinding": worker_binding.clone()
     });
-    let binding_matched = worker_binding_authority_ready && worker_binding_registry_bound;
+    let worker_attach_request = json!({
+        "schemaVersion": "workflow.harness.worker-attach-request.v1",
+        "requestId": format!("harness-worker-attach-request:{sid}:{turn_id}:bound"),
+        "workerId": format!("harness-worker:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}"),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "activationHash": DEFAULT_AGENT_HARNESS_HASH,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "componentVersionSet": component_version_set,
+        "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "requestedStatus": "bound"
+    });
+    let worker_attach_receipt = runtime_harness_worker_attach_receipt(
+        sid,
+        &turn_id,
+        &worker_binding_registry_record,
+        &worker_attach_request,
+    );
+    let worker_attach_status = worker_attach_receipt
+        .get("attachStatus")
+        .and_then(Value::as_str)
+        .unwrap_or("blocked")
+        .to_string();
+    let worker_attach_blockers = worker_attach_receipt
+        .get("blockers")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let worker_attach_accepted = worker_attach_receipt
+        .get("accepted")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && worker_attach_status == "bound"
+        && worker_attach_blockers.is_empty();
+    let mut invalid_worker_attach_request = worker_attach_request.clone();
+    invalid_worker_attach_request["activationHash"] = json!("sha256:invalid-worker-attach");
+    let invalid_worker_attach_receipt = runtime_harness_worker_attach_receipt(
+        sid,
+        &turn_id,
+        &worker_binding_registry_record,
+        &invalid_worker_attach_request,
+    );
+    let invalid_worker_attach_blocked = invalid_worker_attach_receipt
+        .get("accepted")
+        .and_then(Value::as_bool)
+        == Some(false)
+        && invalid_worker_attach_receipt
+            .get("attachStatus")
+            .and_then(Value::as_str)
+            == Some("blocked")
+        && invalid_worker_attach_receipt
+            .get("blockers")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .any(|item| item.as_str() == Some("worker_attach_activation_hash_mismatch"))
+            })
+            .unwrap_or(false);
+    let binding_matched =
+        worker_binding_authority_ready && worker_binding_registry_bound && worker_attach_accepted;
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-binding.v1",
@@ -1684,6 +1905,14 @@ fn runtime_harness_default_runtime_binding(
         "workerBindingRegistryBlockers": worker_binding_registry_blockers,
         "workerBinding": worker_binding,
         "workerBindingRegistryRecord": worker_binding_registry_record,
+        "workerAttachRequest": worker_attach_request,
+        "workerAttachReceipt": worker_attach_receipt,
+        "workerAttachAccepted": worker_attach_accepted,
+        "workerAttachStatus": worker_attach_status,
+        "workerAttachBlockers": worker_attach_blockers,
+        "workerAttachRollbackAvailable": worker_attach_receipt.get("rollbackAvailable").and_then(Value::as_bool) == Some(true),
+        "invalidWorkerAttachBlocked": invalid_worker_attach_blocked,
+        "invalidWorkerAttachReceipt": invalid_worker_attach_receipt,
         "workflowIdentityMatches": workflow_identity_matches,
         "activationIdentityMatches": activation_identity_matches,
         "harnessHashMatches": harness_hash_matches,
@@ -10022,6 +10251,31 @@ fn runtime_harness_default_runtime_dispatch(
             "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn"
         }
     });
+    let worker_attach_request = json!({
+        "schemaVersion": "workflow.harness.worker-attach-request.v1",
+        "requestId": format!("harness-worker-attach-request:{sid}:{turn_id}:bound"),
+        "workerId": format!("harness-worker:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}"),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "activationHash": DEFAULT_AGENT_HARNESS_HASH,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "componentVersionSet": worker_binding_registry_record
+            .get("componentVersionSet")
+            .cloned()
+            .unwrap_or_else(|| json!({})),
+        "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "readinessProofId": live_promotion_readiness_proof
+            .get("proofId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "requestedStatus": if dispatch_accepted { "bound" } else { "blocked" }
+    });
+    let worker_attach_receipt = runtime_harness_worker_attach_receipt(
+        sid,
+        &turn_id,
+        &worker_binding_registry_record,
+        &worker_attach_request,
+    );
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -10441,6 +10695,7 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingAdapterProof": authority_tooling_adapter_proof,
         "livePromotionReadinessProof": live_promotion_readiness_proof,
         "workerBindingRegistryRecord": worker_binding_registry_record,
+        "workerAttachReceipt": worker_attach_receipt,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,
@@ -11094,12 +11349,37 @@ fn runtime_evidence_projection(
                 "workerBinding": harness_worker_binding.clone()
             })
         });
+    let harness_worker_attach_receipt = harness_default_runtime_binding
+        .get("workerAttachReceipt")
+        .cloned()
+        .unwrap_or_else(|| {
+            let attach_request = json!({
+                "schemaVersion": "workflow.harness.worker-attach-request.v1",
+                "requestId": format!("harness-worker-attach-request:{sid}:missing"),
+                "workerId": format!("harness-worker:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}"),
+                "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                "activationHash": DEFAULT_AGENT_HARNESS_HASH,
+                "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                "componentVersionSet": {},
+                "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                "readinessProofId": "",
+                "requestedStatus": "blocked"
+            });
+            runtime_harness_worker_attach_receipt(
+                sid,
+                &format!("turn-{}", task.progress),
+                &harness_worker_binding_registry_record,
+                &attach_request,
+            )
+        });
 
     json!({
         "schemaVersion": RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
         "HarnessRuntimeSelectorDecision": harness_selector_decision,
         "HarnessWorkerBinding": harness_worker_binding,
         "HarnessWorkerBindingRegistryRecord": harness_worker_binding_registry_record,
+        "HarnessWorkerAttachReceipt": harness_worker_attach_receipt,
         "HarnessShadowRun": harness_shadow_run,
         "HarnessGatedClusterRuns": harness_gated_cluster_runs,
         "HarnessForkActivation": harness_fork_activation,
@@ -14142,6 +14422,21 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_array)
                     .map(|items| items.is_empty())
                     .unwrap_or(false)
+                && binding.get("workerAttachAccepted").and_then(Value::as_bool) == Some(true)
+                && binding.get("workerAttachStatus").and_then(Value::as_str) == Some("bound")
+                && binding
+                    .get("workerAttachBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && binding
+                    .get("workerAttachRollbackAvailable")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("invalidWorkerAttachBlocked")
+                    .and_then(Value::as_bool)
+                    == Some(true)
                 && binding
                     .get("selectorLivePromotionReadinessReady")
                     .and_then(Value::as_bool)
@@ -14258,6 +14553,41 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|worker| worker.get("harnessActivationId"))
                     .and_then(Value::as_str)
                     == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+                && binding
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("schemaVersion"))
+                    .and_then(Value::as_str)
+                    == Some("workflow.harness.worker-attach-receipt.v1")
+                && binding
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("attachStatus"))
+                    .and_then(Value::as_str)
+                    == Some("bound")
+                && binding
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("registryRecordId"))
+                    .and_then(Value::as_str)
+                    == binding
+                        .get("workerBindingRegistryRecord")
+                        .and_then(|record| record.get("registryRecordId"))
+                        .and_then(Value::as_str)
+                && binding
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("readinessProofId"))
+                    .and_then(Value::as_str)
+                    == binding
+                        .get("selectorLivePromotionReadinessProofId")
+                        .and_then(Value::as_str)
+                && binding
+                    .get("invalidWorkerAttachReceipt")
+                    .and_then(|receipt| receipt.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(false)
         })
         .unwrap_or(false);
     let harness_authority_tooling_gate_live = harness_default_runtime_dispatch

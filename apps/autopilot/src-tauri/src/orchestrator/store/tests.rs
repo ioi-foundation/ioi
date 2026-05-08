@@ -839,6 +839,31 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         binding
+            .get("workerAttachAccepted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerAttachStatus")
+            .and_then(|value| value.as_str()),
+        Some("bound")
+    );
+    assert_eq!(
+        binding
+            .get("workerAttachBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("invalidWorkerAttachBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
             .get("livePromotionReadinessProofIdsMatch")
             .and_then(|value| value.as_bool()),
         Some(true)
@@ -894,6 +919,30 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|value| value.get("harnessActivationId"))
             .and_then(|value| value.as_str()),
         Some(ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    );
+    assert_eq!(
+        binding
+            .get("workerAttachReceipt")
+            .and_then(|value| value.get("registryRecordId"))
+            .and_then(|value| value.as_str()),
+        binding
+            .get("workerBindingRegistryRecord")
+            .and_then(|value| value.get("registryRecordId"))
+            .and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        binding
+            .get("workerAttachReceipt")
+            .and_then(|value| value.get("attachStatus"))
+            .and_then(|value| value.as_str()),
+        Some("bound")
+    );
+    assert_eq!(
+        binding
+            .get("invalidWorkerAttachReceipt")
+            .and_then(|value| value.get("accepted"))
+            .and_then(|value| value.as_bool()),
+        Some(false)
     );
     let clusters = dispatch
         .get("acceptedClusterIds")

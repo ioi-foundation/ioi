@@ -582,6 +582,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       )
         ? binding.workerBindingRegistryBlockers
         : null,
+      workerAttachAccepted: binding.workerAttachAccepted ?? null,
+      workerAttachStatus: binding.workerAttachStatus ?? null,
+      workerAttachBlockers: Array.isArray(binding.workerAttachBlockers)
+        ? binding.workerAttachBlockers
+        : null,
+      workerAttachRollbackAvailable:
+        binding.workerAttachRollbackAvailable ?? null,
+      invalidWorkerAttachBlocked: binding.invalidWorkerAttachBlocked ?? null,
       workerBinding:
         binding.workerBinding && typeof binding.workerBinding === "object"
           ? {
@@ -643,6 +651,36 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerBindingRegistryRecord.workerBinding ?? null,
             }
           : null,
+      workerAttachReceipt:
+        binding.workerAttachReceipt &&
+        typeof binding.workerAttachReceipt === "object"
+          ? {
+              receiptId: binding.workerAttachReceipt.receiptId ?? null,
+              registryRecordId:
+                binding.workerAttachReceipt.registryRecordId ?? null,
+              attachStatus: binding.workerAttachReceipt.attachStatus ?? null,
+              accepted: binding.workerAttachReceipt.accepted ?? null,
+              readinessProofId:
+                binding.workerAttachReceipt.readinessProofId ?? null,
+              blockers: Array.isArray(binding.workerAttachReceipt.blockers)
+                ? binding.workerAttachReceipt.blockers
+                : null,
+            }
+          : null,
+      invalidWorkerAttachReceipt:
+        binding.invalidWorkerAttachReceipt &&
+        typeof binding.invalidWorkerAttachReceipt === "object"
+          ? {
+              attachStatus:
+                binding.invalidWorkerAttachReceipt.attachStatus ?? null,
+              accepted: binding.invalidWorkerAttachReceipt.accepted ?? null,
+              blockers: Array.isArray(
+                binding.invalidWorkerAttachReceipt.blockers,
+              )
+                ? binding.invalidWorkerAttachReceipt.blockers
+                : null,
+            }
+          : null,
     };
     const bindingMatched =
       binding.bindingMatched === true &&
@@ -670,6 +708,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.workerBindingRegistryStatus === "bound" &&
       Array.isArray(binding.workerBindingRegistryBlockers) &&
       binding.workerBindingRegistryBlockers.length === 0 &&
+      binding.workerAttachAccepted === true &&
+      binding.workerAttachStatus === "bound" &&
+      Array.isArray(binding.workerAttachBlockers) &&
+      binding.workerAttachBlockers.length === 0 &&
+      binding.workerAttachRollbackAvailable === true &&
+      binding.invalidWorkerAttachBlocked === true &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
       typeof binding.defaultDispatchId === "string" &&
@@ -700,7 +744,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.workerBindingRegistryRecord?.activationHash ===
         DEFAULT_AGENT_HARNESS_HASH &&
       binding.workerBindingRegistryRecord?.workerBinding
-        ?.harnessActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+        ?.harnessActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.workerAttachReceipt?.schemaVersion ===
+        "workflow.harness.worker-attach-receipt.v1" &&
+      binding.workerAttachReceipt?.accepted === true &&
+      binding.workerAttachReceipt?.attachStatus === "bound" &&
+      binding.workerAttachReceipt?.registryRecordId ===
+        binding.workerBindingRegistryRecord?.registryRecordId &&
+      binding.workerAttachReceipt?.readinessProofId ===
+        binding.selectorLivePromotionReadinessProofId &&
+      binding.invalidWorkerAttachReceipt?.accepted === false &&
+      Array.isArray(binding.invalidWorkerAttachReceipt?.blockers) &&
+      binding.invalidWorkerAttachReceipt.blockers.includes(
+        "worker_attach_activation_hash_mismatch",
+      );
     if (bindingMatched) {
       summary.harnessDefaultRuntimeBindingMatchedCount += 1;
     }
@@ -3140,6 +3197,12 @@ function buildGuiEvidenceAssessment({
         binding.workerBindingRegistryStatus === "bound" &&
         Array.isArray(binding.workerBindingRegistryBlockers) &&
         binding.workerBindingRegistryBlockers.length === 0 &&
+        binding.workerAttachAccepted === true &&
+        binding.workerAttachStatus === "bound" &&
+        Array.isArray(binding.workerAttachBlockers) &&
+        binding.workerAttachBlockers.length === 0 &&
+        binding.workerAttachRollbackAvailable === true &&
+        binding.invalidWorkerAttachBlocked === true &&
         binding.selectorLivePromotionReadinessProofId ===
           workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
         binding.dispatchLivePromotionReadinessProofId ===
@@ -3175,7 +3238,14 @@ function buildGuiEvidenceAssessment({
         binding.workerBindingRegistryRecord?.activationId ===
           workflowProofRuntimeSelector.activationId &&
         binding.workerBindingRegistryRecord?.workerBinding
-          ?.harnessActivationId === workflowProofRuntimeSelector.activationId,
+          ?.harnessActivationId === workflowProofRuntimeSelector.activationId &&
+        binding.workerAttachReceipt?.accepted === true &&
+        binding.workerAttachReceipt?.attachStatus === "bound" &&
+        binding.workerAttachReceipt?.registryRecordId ===
+          binding.workerBindingRegistryRecord?.registryRecordId &&
+        binding.workerAttachReceipt?.readinessProofId ===
+          binding.selectorLivePromotionReadinessProofId &&
+        binding.invalidWorkerAttachReceipt?.accepted === false,
     );
   const hasHarnessChatRuntimeBinding =
     hasHarnessDefaultRuntimeDispatch &&
@@ -3865,6 +3935,11 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.workerBindingRegistryRecord ??
       activationRecord?.workerBindingRegistryRecord ??
       null;
+    const workerAttachReceipt =
+      defaultDispatch?.workerAttachReceipt ??
+      workflow?.metadata?.harness?.workerAttachReceipt ??
+      activationRecord?.workerAttachReceipt ??
+      null;
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
     const coldStartDeepLinkRestoreProof =
@@ -4084,6 +4159,28 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         0 &&
       workerBindingRegistry?.workerBinding?.livePromotionReadinessProofId ===
         selector?.livePromotionReadinessProof?.proofId;
+    const workerAttachBound =
+      workerAttachReceipt?.schemaVersion ===
+        "workflow.harness.worker-attach-receipt.v1" &&
+      workerAttachReceipt?.accepted === true &&
+      workerAttachReceipt?.attachStatus === "bound" &&
+      Array.isArray(workerAttachReceipt?.blockers) &&
+      workerAttachReceipt.blockers.length === 0 &&
+      workerAttachReceipt?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+      workerAttachReceipt?.activationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      workerAttachReceipt?.activationHash === DEFAULT_AGENT_HARNESS_HASH &&
+      workerAttachReceipt?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
+      workerAttachReceipt?.rollbackTarget ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      workerAttachReceipt?.rollbackAvailable === true &&
+      workerAttachReceipt?.readinessProofId ===
+        selector?.livePromotionReadinessProof?.proofId &&
+      workerAttachReceipt?.registryRecordId ===
+        workerBindingRegistry?.registryRecordId &&
+      workerAttachReceipt?.workerBinding?.harnessActivationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      workerAttachReceipt?.workerBinding?.executionMode === "live";
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -4222,6 +4319,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           defaultDispatch?.livePromotionReadinessProof?.proofId &&
         workerBindingRegistryBound,
       workerBindingRegistryBound,
+      workerAttachBound,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -4545,6 +4643,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               defaultDispatch.livePromotionReadinessProof ?? null,
             workerBindingRegistryRecord:
               defaultDispatch.workerBindingRegistryRecord ?? null,
+            workerAttachReceipt: defaultDispatch.workerAttachReceipt ?? null,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
@@ -4562,6 +4661,20 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             bindingStatus: workerBindingRegistry.bindingStatus ?? null,
             blockers: workerBindingRegistry.blockers ?? [],
             workerBinding: workerBindingRegistry.workerBinding ?? null,
+          }
+        : null,
+      workerAttach: workerAttachReceipt
+        ? {
+            receiptId: workerAttachReceipt.receiptId ?? null,
+            workerId: workerAttachReceipt.workerId ?? null,
+            workflowId: workerAttachReceipt.workflowId ?? null,
+            activationId: workerAttachReceipt.activationId ?? null,
+            registryRecordId: workerAttachReceipt.registryRecordId ?? null,
+            attachStatus: workerAttachReceipt.attachStatus ?? null,
+            accepted: workerAttachReceipt.accepted ?? null,
+            blockers: workerAttachReceipt.blockers ?? [],
+            rollbackAvailable: workerAttachReceipt.rollbackAvailable ?? null,
+            readinessProofId: workerAttachReceipt.readinessProofId ?? null,
           }
         : null,
       attempts: transitions

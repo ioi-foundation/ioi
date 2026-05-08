@@ -788,6 +788,64 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
 }
 
 #[test]
+fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
+    let record = bound_default_harness_worker_binding_registry_record(
+        "harness-selector:default-agent-harness:default",
+        "harness-default-dispatch:default-agent-harness:readonly",
+        "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "promote_blessed_workflow_default_for_non_mutating_turn",
+    );
+    let request = default_harness_worker_attach_request(&record, HarnessWorkerAttachStatus::Bound);
+    let receipt = resolve_harness_worker_binding(&record, &request);
+
+    assert!(receipt.accepted);
+    assert_eq!(receipt.attach_status, HarnessWorkerAttachStatus::Bound);
+    assert!(receipt.blockers.is_empty());
+    assert_eq!(receipt.registry_record_id, record.registry_record_id);
+    assert_eq!(
+        receipt.readiness_proof_id,
+        "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+    );
+    assert_eq!(receipt.policy_decision, "allow_harness_worker_attach");
+    assert!(receipt.rollback_available);
+
+    let resumed = resolve_harness_worker_binding(
+        &record,
+        &default_harness_worker_attach_request(&record, HarnessWorkerAttachStatus::Resumed),
+    );
+    assert!(resumed.accepted);
+    assert_eq!(resumed.attach_status, HarnessWorkerAttachStatus::Resumed);
+
+    let mut invalid_request =
+        default_harness_worker_attach_request(&record, HarnessWorkerAttachStatus::Bound);
+    invalid_request.activation_hash = "sha256:mismatch".to_string();
+    let invalid_receipt = resolve_harness_worker_binding(&record, &invalid_request);
+    assert!(!invalid_receipt.accepted);
+    assert_eq!(
+        invalid_receipt.attach_status,
+        HarnessWorkerAttachStatus::Blocked
+    );
+    assert!(invalid_receipt
+        .blockers
+        .iter()
+        .any(|blocker| blocker == "worker_attach_activation_hash_mismatch"));
+
+    let projection_record = default_harness_worker_binding_registry_record();
+    let projection_receipt = resolve_harness_worker_binding(
+        &projection_record,
+        &default_harness_worker_attach_request(
+            &projection_record,
+            HarnessWorkerAttachStatus::Bound,
+        ),
+    );
+    assert!(!projection_receipt.accepted);
+    assert_eq!(
+        projection_receipt.attach_status,
+        HarnessWorkerAttachStatus::Unbound
+    );
+}
+
+#[test]
 fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
     let proof = default_blessed_live_handoff_proof(
         vec!["attempt-planner".to_string()],

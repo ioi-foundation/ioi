@@ -134,9 +134,11 @@ import {
   makeDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
   makeHarnessRuntimeSelectorDecision,
+  makeWorkflowHarnessWorkerAttachRequest,
   makeWorkflowHarnessWorkerBindingRegistryRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
+  resolveWorkflowHarnessWorkerBinding,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
   workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
@@ -636,9 +638,17 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       workerBinding,
       createdAtMs: nowMs,
     });
+  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
+    workerBindingRegistryRecord,
+    makeWorkflowHarnessWorkerAttachRequest(
+      workerBindingRegistryRecord,
+      "bound",
+    ),
+  );
   const defaultRuntimeDispatchProofWithRegistry = {
     ...defaultRuntimeDispatchProof,
     workerBindingRegistryRecord,
+    workerAttachReceipt,
   };
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId: workflow.metadata.id || workflow.metadata.slug,
@@ -663,6 +673,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     ]),
     workerBinding,
     workerBindingRegistryRecord,
+    workerAttachReceipt,
     revisionBinding: harness.revisionBinding,
     rollbackRevisionBinding: harness.revisionBinding,
     mintedAtMs: nowMs,
@@ -681,6 +692,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
         liveHandoffProof,
         defaultRuntimeDispatchProof: defaultRuntimeDispatchProofWithRegistry,
         workerBindingRegistryRecord,
+        workerAttachReceipt,
       },
       updatedAtMs: nowMs,
     },
