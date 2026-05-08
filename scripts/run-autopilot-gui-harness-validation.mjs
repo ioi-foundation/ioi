@@ -1896,7 +1896,70 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
   return { path, proof };
 }
 
-function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRestoreCanaryUiProof }) {
+function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
+  const path = join(outputRoot, "promotion-transition-gui-behavior-proof.json");
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "scripts/lib/harness-promotion-transition-gui-probe.mjs",
+      path,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TSX_TSCONFIG_PATH: resolve(repoRoot, "packages/agent-ide/tsconfig.json"),
+      },
+      timeout: 60_000,
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (result.status !== 0 || !existsSync(path)) {
+    const proof = {
+      schemaVersion: "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
+      passed: false,
+      checks: {
+        probeExecuted: false,
+      },
+      error:
+        result.error?.message ??
+        (result.signal
+          ? `promotion transition GUI probe terminated by ${result.signal}`
+          : `promotion transition GUI probe exited with ${result.status ?? "unknown"}`),
+      stdout: result.stdout?.slice(-8_000) ?? "",
+      stderr: result.stderr?.slice(-8_000) ?? "",
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+  try {
+    return {
+      path,
+      proof: JSON.parse(readFileSync(path, "utf8")),
+    };
+  } catch (error) {
+    const proof = {
+      schemaVersion: "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
+      passed: false,
+      checks: {
+        proofParsed: false,
+      },
+      error: String(error?.message || error),
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+}
+
+function buildGuiEvidenceAssessment({
+  queryResults,
+  runtimeArtifacts,
+  rollbackRestoreCanaryUiProof,
+  promotionTransitionGuiBehaviorProof,
+}) {
   const allScreenshotsCaptured =
     queryResults.length === AUTOPILOT_RETAINED_QUERIES.length &&
     queryResults.every((result) => result.passed === true);
@@ -1960,6 +2023,9 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
     hasHarnessActivationAuditReceipts &&
     hasHarnessRollbackExecutionReceipts &&
     rollbackRestoreCanaryUiProof?.proof?.passed === true;
+  const hasHarnessPromotionTransitionGuiBehavior =
+    hasHarnessRollbackRestoreCanaryUi &&
+    promotionTransitionGuiBehaviorProof?.proof?.passed === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2064,6 +2130,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
       harness_rollback_execution_receipts_present:
         hasHarnessRollbackExecutionReceipts,
       harness_rollback_restore_canary_ui_present: hasHarnessRollbackRestoreCanaryUi,
+      harness_promotion_transition_gui_behavior_present:
+        hasHarnessPromotionTransitionGuiBehavior,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2119,6 +2187,7 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
       hasHarnessActivationAuditReceipts,
       hasHarnessRollbackExecutionReceipts,
       hasHarnessRollbackRestoreCanaryUi,
+      hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2174,6 +2243,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
       harnessRollbackRestoreCanaryStatuses:
         summary.harnessRollbackRestoreCanaryStatuses,
       harnessRollbackRestoreCanaryUiProof: rollbackRestoreCanaryUiProof?.proof ?? null,
+      harnessPromotionTransitionGuiBehaviorProof:
+        promotionTransitionGuiBehaviorProof?.proof ?? null,
       harnessCanaryBoundaryExecutedCount: summary.harnessCanaryBoundaryExecutedCount,
       harnessCanaryBoundaryRollbackDrillCount: summary.harnessCanaryBoundaryRollbackDrillCount,
       harnessSelectorCanaryRoutedCount: summary.harnessSelectorCanaryRoutedCount,
@@ -2428,10 +2499,13 @@ async function runGuiValidation(args, outputRoot) {
     writeFileSync(logPath, log.join(""), "utf8");
     const runtimeArtifacts = await collectRuntimeArtifacts(outputRoot, logPath);
     const rollbackRestoreCanaryUiProof = collectRollbackRestoreCanaryUiProof(outputRoot);
+    const promotionTransitionGuiBehaviorProof =
+      collectPromotionTransitionGuiBehaviorProof(outputRoot);
     const guiEvidence = buildGuiEvidenceAssessment({
       queryResults,
       runtimeArtifacts,
       rollbackRestoreCanaryUiProof,
+      promotionTransitionGuiBehaviorProof,
     });
     return {
       schemaVersion: autopilotGuiHarnessContract().schemaVersion,
@@ -2501,6 +2575,10 @@ async function runGuiValidation(args, outputRoot) {
         harness_rollback_restore_canary_ui:
           rollbackRestoreCanaryUiProof.proof.passed === true
             ? rollbackRestoreCanaryUiProof.path
+            : false,
+        harness_promotion_transition_gui_behavior:
+          promotionTransitionGuiBehaviorProof.proof.passed === true
+            ? promotionTransitionGuiBehaviorProof.path
             : false,
         harness_canary_execution_boundary:
           runtimeArtifacts.summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2589,6 +2667,7 @@ async function runGuiValidation(args, outputRoot) {
       evidenceAssessment: guiEvidence.assessment,
       uiAssertions: {
         rollbackRestoreCanary: rollbackRestoreCanaryUiProof.proof,
+        promotionTransitionBehavior: promotionTransitionGuiBehaviorProof.proof,
       },
       logPath,
     };
