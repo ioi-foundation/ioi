@@ -65,6 +65,7 @@ import type {
   WorkflowConnectionClass,
   WorkflowHarnessComponentKind,
   WorkflowHarnessForkActivationCandidate,
+  WorkflowHarnessDeepLinkReplayProof,
   WorkflowHarnessGroupView,
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionTransitionAttempt,
@@ -613,6 +614,32 @@ function writeHarnessWorkbenchDeepLink(hash: string): void {
   if (nextHref !== window.location.href) {
     window.history.replaceState(null, "", nextHref);
   }
+}
+
+function nextHarnessWorkbenchFrame(): Promise<void> {
+  if (typeof requestAnimationFrame === "undefined") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
+function readHarnessRailSelectedState(testId: string): Record<string, string> {
+  if (typeof document === "undefined") return {};
+  const target = document.querySelector(`[data-testid="${testId}"]`);
+  if (!target) return {};
+  const selectedAttributes = [
+    "data-selected-selector-decision-id",
+    "data-selected-default-dispatch-id",
+    "data-selected-worker-binding-id",
+    "data-selected-rollback-target",
+    "data-selected-receipt-ref",
+    "data-selected-replay-fixture-ref",
+  ];
+  return Object.fromEntries(
+    selectedAttributes.map((attribute) => [attribute, target.getAttribute(attribute) ?? ""]),
+  );
 }
 
 type HarnessGroupCanvasView = WorkflowHarnessGroupView & {
@@ -1577,6 +1604,8 @@ export function useWorkflowComposerController({
         link.replayFixtureRef ??
         null;
       if (activeBindingTarget) {
+        setSelectedHarnessGroupId(null);
+        handleNodeSelect(null);
         setRightPanel(
           link.panel ?? (link.receiptRef || link.replayFixtureRef ? "outputs" : "settings"),
         );
@@ -1612,6 +1641,151 @@ export function useWorkflowComposerController({
       writeHarnessWorkbenchDeepLink(harnessWorkbenchDeepLinkHash);
     }
   }, [harnessWorkbenchDeepLinkHash]);
+  const runHarnessDeepLinkReplayProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
+      const selector = workflow.metadata.harness?.runtimeSelectorDecision ?? null;
+      const dispatch = workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+      const workerBinding = workflow.metadata.workerHarnessBinding ?? null;
+      const replayCases: Array<{
+        id: string;
+        link: HarnessWorkbenchDeepLink;
+        expectedAttribute: string;
+        expectedValue: string;
+        selectedRailTestId: string;
+      }> = [
+        selector?.decisionId
+          ? {
+              id: "selector",
+              link: {
+                panel: "settings" as WorkflowRightPanel,
+                selectorDecisionId: selector.decisionId,
+              },
+              expectedAttribute: "data-selected-selector-decision-id",
+              expectedValue: selector.decisionId,
+              selectedRailTestId: "workflow-harness-active-runtime-binding",
+            }
+          : null,
+        dispatch?.dispatchId
+          ? {
+              id: "dispatch",
+              link: {
+                panel: "settings" as WorkflowRightPanel,
+                dispatchId: dispatch.dispatchId,
+              },
+              expectedAttribute: "data-selected-default-dispatch-id",
+              expectedValue: dispatch.dispatchId,
+              selectedRailTestId: "workflow-harness-active-runtime-binding",
+            }
+          : null,
+        workerBinding?.harnessActivationId
+          ? {
+              id: "worker",
+              link: {
+                panel: "settings" as WorkflowRightPanel,
+                workerBindingId: workerBinding.harnessActivationId,
+              },
+              expectedAttribute: "data-selected-worker-binding-id",
+              expectedValue: workerBinding.harnessActivationId,
+              selectedRailTestId: "workflow-harness-active-runtime-binding",
+            }
+          : null,
+        dispatch?.rollbackTarget
+          ? {
+              id: "rollback",
+              link: {
+                panel: "settings" as WorkflowRightPanel,
+                rollbackTarget: dispatch.rollbackTarget,
+              },
+              expectedAttribute: "data-selected-rollback-target",
+              expectedValue: dispatch.rollbackTarget,
+              selectedRailTestId: "workflow-harness-active-runtime-binding",
+            }
+          : null,
+        dispatch?.receiptIds[0]
+          ? {
+              id: "receipt",
+              link: {
+                panel: "outputs" as WorkflowRightPanel,
+                receiptRef: dispatch.receiptIds[0],
+              },
+              expectedAttribute: "data-selected-receipt-ref",
+              expectedValue: dispatch.receiptIds[0],
+              selectedRailTestId: "workflow-harness-deep-link-state",
+            }
+          : null,
+        dispatch?.replayFixtureRefs[0]
+          ? {
+              id: "replay",
+              link: {
+                panel: "outputs" as WorkflowRightPanel,
+                replayFixtureRef: dispatch.replayFixtureRefs[0],
+              },
+              expectedAttribute: "data-selected-replay-fixture-ref",
+              expectedValue: dispatch.replayFixtureRefs[0],
+              selectedRailTestId: "workflow-harness-deep-link-state",
+            }
+          : null,
+      ].filter((item): item is NonNullable<typeof item> => item !== null);
+      const cases = [];
+      for (const replayCase of replayCases) {
+        const hash = encodeHarnessWorkbenchDeepLink(replayCase.link);
+        const parsed = parseHarnessWorkbenchDeepLink(hash);
+        if (parsed) {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        const observedSelectedState = readHarnessRailSelectedState(
+          replayCase.selectedRailTestId,
+        );
+        const observedValue =
+          observedSelectedState[replayCase.expectedAttribute] ?? null;
+        cases.push({
+          id: replayCase.id,
+          hash,
+          expectedPanel: replayCase.link.panel ?? "outputs",
+          expectedAttribute: replayCase.expectedAttribute,
+          expectedValue: replayCase.expectedValue,
+          selectedRailTestId: replayCase.selectedRailTestId,
+          openedHash: typeof window === "undefined" ? "" : window.location.hash,
+          parsedMatches: parsed?.[Object.keys(replayCase.link).find(
+            (key) => key !== "panel",
+          ) as keyof HarnessWorkbenchDeepLink] === replayCase.expectedValue,
+          historyMatches:
+            typeof window !== "undefined" && window.location.hash === hash,
+          observedValue,
+          observedSelectedState,
+          passed:
+            Boolean(parsed) &&
+            observedValue === replayCase.expectedValue &&
+            (typeof window === "undefined" || window.location.hash === hash),
+        });
+      }
+      const requiredCaseIds = ["selector", "dispatch", "worker", "rollback", "receipt", "replay"];
+      const presentCaseIds = new Set(cases.map((replayCase) => replayCase.id));
+      const blockers = [
+        ...requiredCaseIds
+          .filter((caseId) => !presentCaseIds.has(caseId))
+          .map((caseId) => `missing_${caseId}_deep_link_replay`),
+        ...cases
+          .filter((replayCase) => !replayCase.passed)
+          .map((replayCase) => `${replayCase.id}_deep_link_replay_failed`),
+      ];
+      return {
+        schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+        method:
+          "same-session Workflows bridge writes each harness hash, parses it, applies workbench state, waits for the rail, and reads data-selected attributes",
+        generatedAtMs,
+        cases,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
       const issue = canvasEdgeIssues.get(sourceEdgeId);
@@ -4456,6 +4630,27 @@ export function useWorkflowComposerController({
       setRightPanel("outputs");
       setBottomPanel("selection");
       setStatusMessage("Blessed harness activation promoted to live default");
+      await nextHarnessWorkbenchFrame();
+      const deepLinkReplayProof = await runHarnessDeepLinkReplayProbe(
+        workflow,
+        nowMs + 100,
+      );
+      const harnessMetadata = workflow.metadata.harness;
+      if (!harnessMetadata) {
+        throw new Error("Harness deep-link replay proof requires harness metadata.");
+      }
+      workflow = {
+        ...workflow,
+        metadata: {
+          ...workflow.metadata,
+          harness: {
+            ...harnessMetadata,
+            deepLinkReplayProof,
+          },
+          updatedAtMs: Date.now(),
+        },
+      };
+      setWorkflow(workflow);
       if (runtime.saveWorkflowProject) {
         await runtime.saveWorkflowProject(proofWorkflowPath, workflow);
       }
@@ -4466,6 +4661,8 @@ export function useWorkflowComposerController({
         gatedAttemptStatuses: gatedAttempts.map((attempt) => attempt.attemptStatus),
         liveAttemptStatuses: liveAttempts.map((attempt) => attempt.attemptStatus),
         targetExecutionMode: "live",
+        deepLinkReplayPassed: deepLinkReplayProof.passed,
+        deepLinkReplayCaseIds: deepLinkReplayProof.cases.map((replayCase) => replayCase.id),
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -4480,7 +4677,13 @@ export function useWorkflowComposerController({
         error: message,
       });
     }
-  }, [clearRunState, currentProject?.rootPath, loadWorkflowProject, runtime]);
+  }, [
+    clearRunState,
+    currentProject?.rootPath,
+    loadWorkflowProject,
+    runHarnessDeepLinkReplayProbe,
+    runtime,
+  ]);
 
   useEffect(() => {
     if (!HARNESS_PROMOTION_LIVE_GUI_SCRIPT) return;
