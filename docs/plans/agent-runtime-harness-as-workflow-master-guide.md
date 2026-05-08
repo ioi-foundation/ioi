@@ -14,6 +14,8 @@ Companion documents:
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-29-56-082Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -63,9 +65,9 @@ As of 2026-05-08, the default live harness activation-id gate and default
 runtime dispatch proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-29-56-082Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the default runtime dispatch binding, live
@@ -128,6 +130,37 @@ This completes the cognition cluster proof shape while preserving the staged
 promotion discipline: only the cognition authority triplet is live-ready; the
 uncertainty, budget, and capability gates are proven through gated adapter
 records until shadow/gated divergence criteria justify live promotion.
+
+### 2026-05-08 Routing-Model Gate Adapter Slice
+
+The next slice applies the same canonical adapter proof shape to the
+`routing_model` cluster:
+
+- `model_router`, `model_call`, and `tool_router` now run as staged default
+  dispatch workflow envelopes in `gated` mode.
+- Their canonical adapter invocations remain `shadow_ready`, emit action frame
+  ids, typed adapter results, attempt ids, receipt refs, replay fixture refs,
+  and divergence classifications.
+- The default dispatch proof now exposes `routingModelAdapterMode`,
+  `routingModelAdapterResults`, `routingModelComponentKinds`,
+  `routingModelAttemptIds`, `routingModelReceiptIds`,
+  `routingModelReplayFixtureRefs`, and `routingModelDivergenceClasses`.
+- The TypeScript harness projection mirrors those fields, and the GUI/P3
+  validators now require all three routing-model components to appear with
+  `gated` execution, `shadow_ready` readiness, `gated` node-attempt status, and
+  zero divergence.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/`;
+  the copied workflow proof contains `routingModelAdapterMode:
+  workflow_component_adapter_gated` and component kinds `model_router`,
+  `model_call`, and `tool_router`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`.
+
+This promotes routing/model proof visibility without handing over live model or
+tool authority yet. The existing runtime path remains the user-visible authority
+while the routing-model cluster accumulates retained-query evidence for later
+gated-to-live promotion.
 
 ## Current State
 

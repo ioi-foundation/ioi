@@ -745,6 +745,42 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     assert!(components.contains(&"approval_gate"));
     assert_eq!(
         dispatch
+            .get("routingModelAdapterMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_component_adapter_gated")
+    );
+    let routing_model_component_kinds = dispatch
+        .get("routingModelComponentKinds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(routing_model_component_kinds.contains(&"model_router"));
+    assert!(routing_model_component_kinds.contains(&"model_call"));
+    assert!(routing_model_component_kinds.contains(&"tool_router"));
+    assert_eq!(
+        dispatch
+            .get("routingModelAdapterResults")
+            .and_then(|value| value.as_array())
+            .map(|items| items.len()),
+        Some(3)
+    );
+    assert!(dispatch
+        .get("routingModelDivergenceClasses")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .all(|value| value == "none")
+        })
+        .unwrap_or(false));
+    assert_eq!(
+        dispatch
             .get("outputWriterDeferred")
             .and_then(|value| value.as_bool()),
         Some(false)

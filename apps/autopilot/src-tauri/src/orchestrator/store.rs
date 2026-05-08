@@ -4619,6 +4619,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut cognition_execution_gate_action_frame_ids = Vec::<String>::new();
     let mut cognition_execution_gate_component_kinds = Vec::<String>::new();
     let mut cognition_execution_gate_divergence_classes = Vec::<String>::new();
+    let mut routing_model_attempt_ids = Vec::<String>::new();
+    let mut routing_model_receipt_ids = Vec::<String>::new();
+    let mut routing_model_replay_fixture_refs = Vec::<String>::new();
+    let mut routing_model_adapter_results = Vec::<Value>::new();
+    let mut routing_model_action_frame_ids = Vec::<String>::new();
+    let mut routing_model_component_kinds = Vec::<String>::new();
+    let mut routing_model_divergence_classes = Vec::<String>::new();
     let mut model_execution_attempt_ids = Vec::<String>::new();
     let mut model_execution_receipt_ids = Vec::<String>::new();
     let mut model_execution_replay_fixture_refs = Vec::<String>::new();
@@ -5509,6 +5516,277 @@ fn runtime_harness_default_runtime_dispatch(
                             selector_decision_id.clone(),
                             format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
                         ],
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        }
+                    }));
+                }
+            }
+        }
+
+        let mut previous_routing_model_output = previous_model_output.clone();
+        let routing_model_adapter_specs = vec![
+            (
+                HarnessComponentKind::ModelRouter,
+                "model_binding",
+                "Routing-model adapter model route envelope",
+                "routing_model_model_router_envelope",
+                "accept_routing_model_adapter_route_binding",
+                json!({
+                    "modelBinding": {
+                        "modelRef": model_execution_binding_id,
+                        "modelId": "workflow-default-runtime-model",
+                        "routeId": "workflow-default-model-route",
+                        "capability": "chat",
+                        "receiptRequired": true,
+                        "selectedEndpointId": "workflow-provider-canary",
+                        "mockBinding": true,
+                        "credentialReady": true,
+                        "capabilityScope": ["model:route", "model:call-envelope"],
+                        "sideEffectClass": "none",
+                        "requiresApproval": false,
+                        "toolUseMode": "none"
+                    },
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::ModelCall,
+                "model_call",
+                "Routing-model adapter model call envelope",
+                "routing_model_model_call_envelope",
+                "accept_routing_model_adapter_model_call_contract",
+                json!({
+                    "modelRef": model_execution_binding_id,
+                    "promptHash": model_execution_prompt_hash,
+                    "expectedOutputHash": model_execution_output_hash,
+                    "actualOutputHash": model_execution_output_hash,
+                    "providerInvocationMode": model_execution_provider_invocation_mode,
+                    "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
+                    "fallbackSelector": model_execution_fallback_selector,
+                    "stream": false,
+                    "toolUseMode": "none",
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::ToolRouter,
+                "decision",
+                "Routing-model adapter tool router envelope",
+                "routing_model_tool_router_envelope",
+                "accept_routing_model_adapter_tool_route_without_live_invocation",
+                json!({
+                    "routes": ["no_tool_call", "read_only_tool_available", "deny_mutation"],
+                    "defaultRoute": "no_tool_call",
+                    "toolUseMode": "none",
+                    "liveMutatingToolInvocation": false,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated"
+                }),
+            ),
+        ];
+        for (component_kind, node_type, node_name, attempt_slug, policy_decision, logic) in
+            routing_model_adapter_specs
+        {
+            let component_kind_label = component_kind.as_str();
+            let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
+            let attempt_id = format!(
+                "harness-default-dispatch:{sid}:{turn_id}:{attempt_slug}:attempt-{attempt_index}"
+            );
+            let workflow_node_id = format!("harness.default_dispatch.{attempt_slug}");
+            let receipt_id = format!("{sid}:{workflow_node_id}:{policy_decision}");
+            let replay_fixture_ref =
+                format!("runtime-evidence:{sid}:default-dispatch-fixture:{attempt_slug}");
+            let input = json!({
+                "sessionId": sid,
+                "turnId": turn_id,
+                "selectorDecisionId": selector_decision_id,
+                "sourceBoundaryIds": source_boundary_ids,
+                "componentKind": component_kind_label,
+                "selectedStrategy": selected_strategy,
+                "selectedAction": selected_action,
+                "modelBindingId": model_execution_binding_id,
+                "promptFinalHash": model_execution_prompt_hash,
+                "promptHashAlgorithm": "runtime_prompt_hash:v1",
+                "expectedOutputHash": model_execution_output_hash,
+                "actualOutputHash": model_execution_output_hash,
+                "outputHashMatches": model_execution_output_hash_matches,
+                "providerInvocationMode": model_execution_provider_invocation_mode,
+                "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
+                "fallbackSelector": model_execution_fallback_selector,
+                "toolUseMode": "none",
+                "liveMutatingToolInvocation": false,
+                "previousRoutingModelOutput": previous_routing_model_output,
+                "promotionMode": "gated"
+            });
+            let input_hash = runtime_harness_canary_node_output_hash(&input);
+            let node = json!({
+                "id": workflow_node_id,
+                "type": node_type,
+                "name": node_name,
+                "config": {
+                    "logic": logic,
+                    "law": {
+                        "requireHumanGate": false,
+                        "sandboxPolicy": {
+                            "permissions": []
+                        }
+                    }
+                }
+            });
+            let started_at_ms = crate::kernel::state::now();
+            let execution =
+                crate::project::execute_workflow_harness_live_default_node(&node, input.clone(), 1);
+            let finished_at_ms = crate::kernel::state::now();
+            let duration_ms = finished_at_ms.saturating_sub(started_at_ms);
+            dispatch_node_attempt_ids.push(attempt_id.clone());
+            routing_model_attempt_ids.push(attempt_id.clone());
+            routing_model_receipt_ids.push(receipt_id.clone());
+            routing_model_replay_fixture_refs.push(replay_fixture_ref.clone());
+            receipt_ids.push(receipt_id.clone());
+            replay_fixture_refs.push(replay_fixture_ref.clone());
+            match execution {
+                Ok(output) => {
+                    let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let evidence_refs = vec![
+                        format!("runtime-evidence:{sid}"),
+                        selector_decision_id.clone(),
+                        format!("harness-gated-routing-model:{sid}:{}", task.progress),
+                    ];
+                    let adapter_result_value = match invoke_default_harness_component(
+                        HarnessComponentInvocation {
+                            invocation_id: format!(
+                                "default-dispatch:{sid}:{turn_id}:{attempt_slug}"
+                            ),
+                            component_kind,
+                            execution_mode: HarnessExecutionMode::Gated,
+                            attempt_index,
+                            input_hash: Some(input_hash.clone()),
+                            output_hash: Some(output_hash.clone()),
+                            policy_decision: Some(policy_decision.to_string()),
+                            receipt_ids: vec![receipt_id.clone()],
+                            evidence_refs: evidence_refs.clone(),
+                            replay_fixture_ref: Some(replay_fixture_ref.clone()),
+                            started_at_ms: Some(started_at_ms),
+                            duration_ms: Some(duration_ms),
+                        },
+                    ) {
+                        Ok(adapter_result) => {
+                            routing_model_action_frame_ids.push(format!(
+                                "{}:{}",
+                                adapter_result.action_frame.node_id,
+                                adapter_result.action_frame.component_id
+                            ));
+                            routing_model_component_kinds.push(
+                                adapter_result
+                                    .action_frame
+                                    .component_kind
+                                    .as_str()
+                                    .to_string(),
+                            );
+                            routing_model_divergence_classes.push("none".to_string());
+                            let value =
+                                harness_component_adapter_result_camel_value(&adapter_result);
+                            routing_model_adapter_results.push(value.clone());
+                            value
+                        }
+                        Err(error) => {
+                            activation_blockers.push(format!(
+                                "routing_model_component_adapter_error:{attempt_slug}"
+                            ));
+                            json!({
+                                "schemaVersion": "workflow.harness.component-adapter-result.v1",
+                                "invocationId": format!("default-dispatch:{sid}:{turn_id}:{attempt_slug}"),
+                                "errorClass": "harness_component_adapter_error",
+                                "error": format!("{error:?}"),
+                                "readiness": "blocked"
+                            })
+                        }
+                    };
+                    previous_routing_model_output = output.clone();
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "gated",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": output_hash,
+                        "errorClass": null,
+                        "policyDecision": policy_decision,
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": evidence_refs,
+                        "divergenceClass": "none",
+                        "blockingDivergence": false,
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "adapterMode": "workflow_component_adapter_gated",
+                        "adapterResult": adapter_result_value,
+                        "executorResult": output
+                    }));
+                }
+                Err(error) => {
+                    activation_blockers.push(format!(
+                        "routing_model_envelope_executor_error:{attempt_slug}"
+                    ));
+                    routing_model_divergence_classes.push("unclassified".to_string());
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "rolled_back",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": null,
+                        "errorClass": "workflow_executor_error",
+                        "error": error,
+                        "policyDecision": "rollback_to_legacy_runtime",
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": [
+                            format!("runtime-evidence:{sid}"),
+                            selector_decision_id.clone(),
+                            format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
+                        ],
+                        "divergenceClass": "unclassified",
+                        "blockingDivergence": true,
                         "replay": {
                             "deterministicEnvelope": true,
                             "capturesInput": true,
@@ -8156,6 +8434,14 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
         "cognitionExecutionGateComponentKinds": cognition_execution_gate_component_kinds.clone(),
         "cognitionExecutionGateDivergenceClasses": cognition_execution_gate_divergence_classes.clone(),
+        "routingModelAdapterMode": "workflow_component_adapter_gated",
+        "routingModelAttemptIds": routing_model_attempt_ids.clone(),
+        "routingModelReceiptIds": routing_model_receipt_ids.clone(),
+        "routingModelReplayFixtureRefs": routing_model_replay_fixture_refs.clone(),
+        "routingModelAdapterResults": routing_model_adapter_results.clone(),
+        "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
+        "routingModelComponentKinds": routing_model_component_kinds.clone(),
+        "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
         "modelExecutionAttemptIds": model_execution_attempt_ids.clone(),
         "modelExecutionReceiptIds": model_execution_receipt_ids.clone(),
         "modelExecutionReplayFixtureRefs": model_execution_replay_fixture_refs.clone(),
@@ -8251,6 +8537,8 @@ fn runtime_harness_default_runtime_dispatch(
             "model_call_contract",
             "workflow_model_route_envelope",
             "workflow_model_call_envelope",
+            "workflow_routing_model_adapter",
+            "workflow_routing_model_tool_router_envelope",
             "workflow_model_provider_call_canary",
             "workflow_provider_gated_visible_output",
             "workflow_provider_gated_visible_output_rollback_drill",
@@ -8296,6 +8584,14 @@ fn runtime_harness_default_runtime_dispatch(
             "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
             "cognitionExecutionGateComponentKinds": cognition_execution_gate_component_kinds.clone(),
             "cognitionExecutionGateDivergenceClasses": cognition_execution_gate_divergence_classes.clone(),
+            "routingModelAdapterMode": "workflow_component_adapter_gated",
+            "routingModelAdapterResultCount": routing_model_adapter_results.len(),
+            "routingModelAttemptIds": routing_model_attempt_ids.clone(),
+            "routingModelReceiptIds": routing_model_receipt_ids.clone(),
+            "routingModelReplayFixtureRefs": routing_model_replay_fixture_refs.clone(),
+            "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
+            "routingModelComponentKinds": routing_model_component_kinds.clone(),
+            "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
             "modelExecutionMode": "workflow_synchronous_envelope",
             "modelExecutionEnvelopeReady": model_execution_envelope_ready,
             "modelExecutionBindingId": model_execution_binding_id,
@@ -8654,6 +8950,14 @@ fn runtime_harness_default_runtime_dispatch(
             "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
             "fallbackSelector": model_execution_fallback_selector,
             "latencyMs": model_execution_latency_ms,
+            "routingModelAdapterMode": "workflow_component_adapter_gated",
+            "routingModelAdapterResultCount": routing_model_adapter_results.len(),
+            "routingModelAttemptIds": routing_model_attempt_ids.clone(),
+            "routingModelReceiptIds": routing_model_receipt_ids.clone(),
+            "routingModelReplayFixtureRefs": routing_model_replay_fixture_refs.clone(),
+            "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
+            "routingModelComponentKinds": routing_model_component_kinds.clone(),
+            "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
             "providerCanaryReady": model_provider_canary_ready,
             "providerCanaryAttemptIds": model_provider_canary_attempt_ids,
             "providerCanaryReceiptIds": model_provider_canary_receipt_ids,
@@ -11369,6 +11673,80 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .unwrap_or(false)
                 && dispatch
                     .get("cognitionExecutionGateDivergenceClasses")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .all(|value| value == "none")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("routingModelAdapterMode")
+                    .and_then(Value::as_str)
+                    == Some("workflow_component_adapter_gated")
+                && dispatch
+                    .get("routingModelAdapterResults")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds = items
+                            .iter()
+                            .filter_map(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("componentKind"))
+                                    .and_then(Value::as_str)
+                            })
+                            .collect::<Vec<_>>();
+                        items.len() >= 3
+                            && component_kinds.contains(&"model_router")
+                            && component_kinds.contains(&"model_call")
+                            && component_kinds.contains(&"tool_router")
+                            && items.iter().all(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("executionMode"))
+                                    .and_then(Value::as_str)
+                                    == Some("gated")
+                                    && item
+                                        .get("actionFrame")
+                                        .and_then(|frame| frame.get("readiness"))
+                                        .and_then(Value::as_str)
+                                        == Some("shadow_ready")
+                                    && item
+                                        .get("nodeAttempt")
+                                        .and_then(|attempt| attempt.get("status"))
+                                        .and_then(Value::as_str)
+                                        == Some("gated")
+                            })
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("routingModelAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("routingModelReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("routingModelReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("routingModelComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"model_router")
+                            && component_kinds.contains(&"model_call")
+                            && component_kinds.contains(&"tool_router")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("routingModelDivergenceClasses")
                     .and_then(Value::as_array)
                     .map(|items| {
                         items
