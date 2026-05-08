@@ -3178,6 +3178,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /packageEvidenceImportRoundTripProof/.test(controller) &&
       /packageImportReviewProof/.test(controller) &&
       /packageImportActivationHandoffProof/.test(controller) &&
+      /packageImportActivationApplyProof/.test(controller) &&
       /workflow-harness-package-import-handoff/.test(rail) &&
       /workflow-harness-package-import-handoff-activation-link/.test(rail) &&
       /workflow-harness-package-import-handoff-canary-link/.test(rail) &&
@@ -3193,6 +3194,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationIdGateClickProof/.test(graph) &&
       /WorkflowHarnessPackageImportReviewProof/.test(graph) &&
       /WorkflowHarnessPackageImportActivationHandoffProof/.test(graph) &&
+      /WorkflowHarnessPackageImportActivationApplyProof/.test(graph) &&
       /WorkflowPackageImportActivationHandoff/.test(graph) &&
       /WorkflowPackageImportReview/.test(graph) &&
       /WorkflowHarnessPackageEvidenceGateClickProof/.test(graph) &&
@@ -3564,6 +3566,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessPackageImportReviewMode &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.packageImportActivationHandoffProof === true;
+  const hasHarnessPackageImportActivationApply =
+    hasHarnessPackageImportActivationHandoff &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.packageImportActivationApplyProof === true;
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
@@ -3962,6 +3968,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessPackageImportReviewMode,
       harness_package_import_activation_handoff_present:
         hasHarnessPackageImportActivationHandoff,
+      harness_package_import_activation_apply_present:
+        hasHarnessPackageImportActivationApply,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -4067,6 +4075,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessPackageEvidenceImportRoundTrip,
       hasHarnessPackageImportReviewMode,
       hasHarnessPackageImportActivationHandoff,
+      hasHarnessPackageImportActivationApply,
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessRouteStatefulDeepLinkReplay,
@@ -4647,6 +4656,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.packageImportReviewProof ?? null;
     const packageImportActivationHandoffProof =
       workflow?.metadata?.harness?.packageImportActivationHandoffProof ?? null;
+    const packageImportActivationApplyProof =
+      workflow?.metadata?.harness?.packageImportActivationApplyProof ?? null;
     const activationGateCollectEvidenceClickProof =
       workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ??
       null;
@@ -5523,6 +5534,70 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         ] ===
           packageImportActivationHandoffProof.activationAction.valid
             .workerBindingId,
+      packageImportActivationApplyProof:
+        packageImportActivationApplyProof?.passed === true &&
+        packageImportActivationApplyProof.clicked === true &&
+        packageImportActivationApplyProof.activationAction?.handoffDecision ===
+          "mintable" &&
+        packageImportActivationApplyProof.activationAction?.disabled === false &&
+        packageImportActivationApplyProof.activationAction?.mintable === true &&
+        packageImportActivationApplyProof.activationResult?.applied === true &&
+        packageImportActivationApplyProof.activationResult?.activationId ===
+          packageImportActivationApplyProof.activationAction
+            .activationIdPreview &&
+        packageImportActivationApplyProof.activationResult
+          ?.workflowActivationId ===
+          packageImportActivationApplyProof.activationResult?.activationId &&
+        packageImportActivationApplyProof.activationResult
+          ?.workflowActivationState === "validated" &&
+        packageImportActivationApplyProof.activationResult
+          ?.workerBindingActivationId ===
+          packageImportActivationApplyProof.activationResult?.activationId &&
+        packageImportActivationApplyProof.activationResult
+          ?.activationRecordWorkerBindingActivationId ===
+          packageImportActivationApplyProof.activationResult?.activationId &&
+        packageImportActivationApplyProof.activationResult?.rollbackTarget ===
+          packageImportActivationApplyProof.activationAction.rollbackTarget &&
+        packageImportActivationApplyProof.activationResult
+          ?.revisionBindingActivationId ===
+          packageImportActivationApplyProof.activationResult?.activationId &&
+        typeof packageImportActivationApplyProof.activationResult
+          ?.activationRecordRevisionBindingHash === "string" &&
+        packageImportActivationApplyProof.activationResult
+          .activationRecordRevisionBindingHash.length > 0 &&
+        typeof packageImportActivationApplyProof.activationResult
+          ?.rollbackRevisionBindingHash === "string" &&
+        packageImportActivationApplyProof.activationResult
+          .rollbackRevisionBindingHash.length > 0 &&
+        packageImportActivationApplyProof.activationResult
+          ?.latestAuditEventType === "activation_minted" &&
+        packageImportActivationApplyProof.activationResult
+          ?.latestAuditStatus === "applied" &&
+        (packageImportActivationApplyProof.activationResult?.receiptRefs
+          ?.length ?? 0) > 0 &&
+        (packageImportActivationApplyProof.activationResult?.evidenceRefs
+          ?.length ?? 0) > 0 &&
+        (packageImportActivationApplyProof.activationResult
+          ?.workerHandoffReceiptIds?.length ?? 0) > 0 &&
+        (packageImportActivationApplyProof.activationResult
+          ?.workerHandoffNodeAttemptIds?.length ?? 0) > 0 &&
+        (packageImportActivationApplyProof.activationResult
+          ?.workerHandoffReplayFixtureRefs?.length ?? 0) > 0 &&
+        packageImportActivationApplyProof.workerHandoff?.selectedState?.[
+          "data-selected-activation-gate-id"
+        ] === "worker-handoff" &&
+        packageImportActivationApplyProof.workerHandoff?.selectedState?.[
+          "data-selected-activation-gate-node-attempt-id"
+        ] ===
+          packageImportActivationApplyProof.activationResult
+            .workerHandoffNodeAttemptIds[0] &&
+        packageImportActivationApplyProof.workerHandoff?.timelineVisible ===
+          true &&
+        packageImportActivationApplyProof.workerHandoff?.selectedAttemptId ===
+          packageImportActivationApplyProof.activationResult
+            .workerHandoffNodeAttemptIds[0] &&
+        packageImportActivationApplyProof.incompleteAction?.disabled === true &&
+        packageImportActivationApplyProof.incompleteAction?.mintable === false,
       activationGateCollectEvidenceClickProof:
         activationGateCollectEvidenceClickProof?.passed === true &&
         activationGateCollectEvidenceClickProof.clicked === true &&
@@ -6104,6 +6179,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       packageEvidenceImportRoundTripProof,
       packageImportReviewProof,
       packageImportActivationHandoffProof,
+      packageImportActivationApplyProof,
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
       activationIdGateClickProof,
@@ -6414,6 +6490,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_package_import_activation_handoff:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.packageImportActivationHandoffProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_package_import_activation_apply:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.packageImportActivationApplyProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_promotion_transition_gui_behavior:

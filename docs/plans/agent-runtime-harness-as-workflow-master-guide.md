@@ -166,7 +166,10 @@ green; the retained GUI evidence marks
 `harness_package_import_review_mode_present: true`. Reviewed imports also show a
 first-class activation handoff with preserved activation id, canary, rollback,
 and worker binding routes; the retained GUI evidence marks
-`harness_package_import_activation_handoff_present: true`.
+`harness_package_import_activation_handoff_present: true`. The retained GUI
+proof now commits the reviewed import activation through the real
+`Activate reviewed import` button and marks
+`harness_package_import_activation_apply_present: true`.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -1122,6 +1125,42 @@ the user is about to commit:
 This closes the reviewed-import loop: a portable harness package is not merely
 visible and evidence-gated; the GUI now shows the exact activation id, worker
 binding, canary, and rollback posture before the user activates it.
+
+### 2026-05-08 Reviewed Import Activation Apply Slice
+
+The reviewed-import flow now proves the final commit click, not only the
+pre-activation handoff:
+
+- The package import round-trip probe clicks
+  `workflow-harness-package-import-activate` on the valid reviewed import and
+  records `workflow.harness.package-import-activation-apply-proof.v1`.
+- The proof requires the real activation result from
+  `applyWorkflowHarnessActivationCandidate`: `applied: true`, activation id
+  equal to the reviewed handoff activation id, workflow activation state
+  `validated`, worker binding and activation-record worker binding both pinned
+  to the activation id, rollback target preserved, revision and rollback hashes
+  present, and latest audit event `activation_minted` / `applied`.
+- The proof also requires activation receipt refs, evidence refs, worker
+  handoff receipt ids, worker handoff node attempts, and worker handoff replay
+  fixture refs to remain connected after activation.
+- The worker handoff deep link restores the `worker-handoff` activation gate,
+  selects the committed handoff node attempt, and shows the handoff timeline.
+- The intentionally incomplete imported package remains disabled after the
+  valid import is committed, proving the apply path is still evidence-gated.
+- The retained GUI contract now requires
+  `harness_package_import_activation_apply`, and runtime consistency requires
+  `harness_package_import_activation_apply_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T23-41-17-655Z/`;
+  all eight retained queries passed and
+  `promotion-transition-live-gui-interaction-proof.json` reports
+  `packageImportActivationApplyProof.passed: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T23-47-26-390Z/dashboard-index.json`.
+
+This closes the activation side of the package loop: a fork package can be
+exported, imported, reviewed, inspected, activated, audited, and traced to the
+worker handoff timeline through the GUI.
 
 ## Current State
 

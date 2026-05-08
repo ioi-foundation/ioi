@@ -67,6 +67,7 @@ import type {
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
   WorkflowHarnessActivationIdGateClickProof,
+  WorkflowHarnessPackageImportActivationApplyProof,
   WorkflowHarnessPackageImportActivationHandoffProof,
   WorkflowHarnessPackageImportReviewProof,
   WorkflowHarnessPackageEvidenceGateClickProof,
@@ -3793,6 +3794,7 @@ export function useWorkflowComposerController({
       packageEvidenceImportRoundTripProof: WorkflowHarnessPackageEvidenceImportRoundTripProof;
       packageImportReviewProof: WorkflowHarnessPackageImportReviewProof;
       packageImportActivationHandoffProof: WorkflowHarnessPackageImportActivationHandoffProof;
+      packageImportActivationApplyProof: WorkflowHarnessPackageImportActivationApplyProof;
     }> => {
       const selectedRailTestId = "workflow-harness-activation-gate-inspector";
       const projectRoot = currentProject?.rootPath || ".";
@@ -3891,6 +3893,42 @@ export function useWorkflowComposerController({
           },
           passed: false,
           blockers: ["package_import_activation_handoff_not_exercised"],
+        };
+      const emptyPackageImportActivationAction = {
+        present: false,
+        disabled: true,
+        evidenceReady: false,
+        blockerCount: 0,
+        handoffPresent: false,
+        handoffDecision: null,
+        activationIdPreview: null,
+        canaryStatus: null,
+        rollbackTarget: null,
+        workerBindingId: null,
+        mintable: false,
+      };
+      let packageImportActivationApplyProof: WorkflowHarnessPackageImportActivationApplyProof =
+        {
+          schemaVersion:
+            "workflow.harness.package-import-activation-apply-proof.v1",
+          method:
+            "same-session Workflows bridge clicks Activate reviewed import and proves activation id, worker binding, rollback, audit, and handoff receipts are committed",
+          generatedAtMs,
+          review: null,
+          clicked: false,
+          beforeState: {},
+          afterState: {},
+          activationAction: emptyPackageImportActivationAction,
+          activationResult: null,
+          workerHandoff: {
+            deepLinkHash: null,
+            selectedState: {},
+            timelineVisible: false,
+            selectedAttemptId: null,
+          },
+          incompleteAction: emptyPackageImportActivationAction,
+          passed: false,
+          blockers: ["package_import_activation_apply_not_exercised"],
         };
       let validImport: WorkflowHarnessPackageEvidenceImportRoundTripProof["validImport"] =
         {
@@ -4098,6 +4136,102 @@ export function useWorkflowComposerController({
             null,
           mintable:
             handoffState["data-package-import-handoff-mintable"] === "true",
+        };
+      };
+      const clickPackageImportActivationApply = async () => {
+        const applyBlockers: string[] = [];
+        let clicked = false;
+        let mintResult: HarnessActivationMintClickResult | null = null;
+        let workerHandoffDeepLinkHash: string | null = null;
+        let workerHandoffState: Record<string, string> = {};
+        let workerHandoffTimelineVisible = false;
+        let workerHandoffTimelineAttemptId: string | null = null;
+        await restorePackageGate();
+        const beforeState = {
+          ...readHarnessPackageImportReviewState(),
+          ...readHarnessPackageImportHandoffState(),
+        };
+        if (typeof window !== "undefined") {
+          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
+            null;
+        }
+        const button = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-package-import-activate"]',
+        );
+        if (!button) {
+          applyBlockers.push("package_import_activation_apply_button_missing");
+        } else if (button.disabled) {
+          applyBlockers.push("package_import_activation_apply_button_disabled");
+        } else {
+          button.click();
+          clicked = true;
+          for (let attempt = 0; attempt < 80; attempt += 1) {
+            await nextHarnessWorkbenchFrame();
+            mintResult = readHarnessActivationMintClickResult();
+            if (mintResult && typeof mintResult.applied === "boolean") break;
+          }
+        }
+        await nextHarnessWorkbenchFrame();
+        const afterState = {
+          ...readHarnessPackageImportReviewState(),
+          ...readHarnessPackageImportHandoffState(),
+        };
+        const workerHandoffNodeAttemptId =
+          mintResult?.workerHandoffNodeAttemptIds[0] ?? null;
+        if (workerHandoffNodeAttemptId) {
+          const workerHandoffLink = {
+            panel: "settings" as WorkflowRightPanel,
+            activationGateId: "worker-handoff",
+            activationGateNodeAttemptId: workerHandoffNodeAttemptId,
+            nodeAttemptId: workerHandoffNodeAttemptId,
+            activationGateReceiptRef:
+              mintResult?.workerHandoffReceiptIds[0] ?? undefined,
+            receiptRef: mintResult?.workerHandoffReceiptIds[0] ?? undefined,
+            activationGateReplayFixtureRef:
+              mintResult?.workerHandoffReplayFixtureRefs[0] ?? undefined,
+            replayFixtureRef:
+              mintResult?.workerHandoffReplayFixtureRefs[0] ?? undefined,
+          };
+          workerHandoffDeepLinkHash =
+            encodeHarnessWorkbenchDeepLink(workerHandoffLink);
+          const workerHandoffParsed = parseHarnessWorkbenchDeepLink(
+            workerHandoffDeepLinkHash,
+          );
+          if (workerHandoffParsed) {
+            writeHarnessWorkbenchDeepLink(workerHandoffDeepLinkHash);
+            applyHarnessWorkbenchDeepLink(workerHandoffParsed);
+            await nextHarnessWorkbenchFrame();
+            writeHarnessWorkbenchDeepLink(workerHandoffDeepLinkHash);
+            await nextHarnessWorkbenchFrame();
+            workerHandoffState = readHarnessRailSelectedState(selectedRailTestId);
+            const timeline = document.querySelector<HTMLElement>(
+              '[data-testid="workflow-harness-activation-gate-node-timeline"]',
+            );
+            const selectedTimelineAttempt =
+              document.querySelector<HTMLElement>(
+                `[data-node-attempt-id="${workerHandoffNodeAttemptId}"]`,
+              );
+            workerHandoffTimelineVisible = Boolean(timeline);
+            workerHandoffTimelineAttemptId =
+              selectedTimelineAttempt?.dataset.nodeAttemptId ?? null;
+          } else {
+            applyBlockers.push(
+              "package_import_activation_apply_worker_handoff_link_parse_failed",
+            );
+          }
+        }
+        return {
+          clicked,
+          beforeState,
+          afterState,
+          mintResult,
+          workerHandoff: {
+            deepLinkHash: workerHandoffDeepLinkHash,
+            selectedState: workerHandoffState,
+            timelineVisible: workerHandoffTimelineVisible,
+            selectedAttemptId: workerHandoffTimelineAttemptId,
+          },
+          blockers: applyBlockers,
         };
       };
       const exercisePackageEvidenceReview = async (
@@ -4359,6 +4493,8 @@ export function useWorkflowComposerController({
           "package_import_handoff_worker_link_missing",
         );
         await restorePackageGate();
+        const validImportActivationApply =
+          await clickPackageImportActivationApply();
 
         const incompleteWorkflow: WorkflowProject = JSON.parse(
           JSON.stringify(importedBundle.workflow),
@@ -4625,6 +4761,164 @@ export function useWorkflowComposerController({
             "package_import_incomplete_handoff_evidence_ready",
           );
         }
+        const packageImportActivationApplyBlockers = [
+          ...validImportActivationApply.blockers,
+        ];
+        const applyResult = validImportActivationApply.mintResult;
+        if (!validImportActivationApply.clicked) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_not_clicked",
+          );
+        }
+        if (applyResult?.applied !== true) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_not_applied",
+          );
+        }
+        if (
+          applyResult?.activationId !==
+          validImportActivationAction.activationIdPreview
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_activation_id_mismatch",
+          );
+        }
+        if (applyResult?.workflowActivationId !== applyResult?.activationId) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_workflow_activation_mismatch",
+          );
+        }
+        if (applyResult?.workflowActivationState !== "validated") {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_state_not_validated",
+          );
+        }
+        if (
+          applyResult?.workerBindingActivationId !== applyResult?.activationId
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_worker_binding_mismatch",
+          );
+        }
+        if (
+          applyResult?.activationRecordWorkerBindingActivationId !==
+          applyResult?.activationId
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_record_worker_binding_mismatch",
+          );
+        }
+        if (applyResult?.rollbackTarget !== validImportActivationAction.rollbackTarget) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_rollback_target_mismatch",
+          );
+        }
+        if (
+          applyResult?.revisionBindingActivationId !== applyResult?.activationId
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_revision_binding_mismatch",
+          );
+        }
+        if (!applyResult?.activationRecordRevisionBindingHash) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_revision_hash_missing",
+          );
+        }
+        if (!applyResult?.rollbackRevisionBindingHash) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_rollback_hash_missing",
+          );
+        }
+        if (applyResult?.latestAuditEventType !== "activation_minted") {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_audit_type_mismatch",
+          );
+        }
+        if (applyResult?.latestAuditStatus !== "applied") {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_audit_status_mismatch",
+          );
+        }
+        if ((applyResult?.receiptRefs.length ?? 0) <= 0) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_receipts_missing",
+          );
+        }
+        if ((applyResult?.evidenceRefs.length ?? 0) <= 0) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_evidence_missing",
+          );
+        }
+        if ((applyResult?.workerHandoffReceiptIds.length ?? 0) <= 0) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_worker_handoff_receipts_missing",
+          );
+        }
+        if ((applyResult?.workerHandoffNodeAttemptIds.length ?? 0) <= 0) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_worker_handoff_attempts_missing",
+          );
+        }
+        if ((applyResult?.workerHandoffReplayFixtureRefs.length ?? 0) <= 0) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_worker_handoff_replay_missing",
+          );
+        }
+        const expectedApplyHandoffAttempt =
+          applyResult?.workerHandoffNodeAttemptIds[0] ?? null;
+        if (
+          expectedApplyHandoffAttempt &&
+          !validImportActivationApply.workerHandoff.deepLinkHash?.includes(
+            "activationGateNodeAttemptId=",
+          )
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_handoff_node_link_missing",
+          );
+        }
+        if (
+          expectedApplyHandoffAttempt &&
+          validImportActivationApply.workerHandoff.selectedState[
+            "data-selected-activation-gate-id"
+          ] !== "worker-handoff"
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_handoff_gate_not_restored",
+          );
+        }
+        if (
+          expectedApplyHandoffAttempt &&
+          validImportActivationApply.workerHandoff.selectedState[
+            "data-selected-activation-gate-node-attempt-id"
+          ] !== expectedApplyHandoffAttempt
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_handoff_attempt_not_restored",
+          );
+        }
+        if (
+          expectedApplyHandoffAttempt &&
+          !validImportActivationApply.workerHandoff.timelineVisible
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_handoff_timeline_missing",
+          );
+        }
+        if (
+          expectedApplyHandoffAttempt &&
+          validImportActivationApply.workerHandoff.selectedAttemptId !==
+            expectedApplyHandoffAttempt
+        ) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_handoff_timeline_attempt_missing",
+          );
+        }
+        if (!incompleteImportActivationAction.disabled) {
+          packageImportActivationApplyBlockers.push(
+            "package_import_activation_apply_incomplete_action_enabled",
+          );
+        }
         packageImportReviewProof = {
           schemaVersion: "workflow.harness.package-import-review-proof.v1",
           method:
@@ -4663,6 +4957,23 @@ export function useWorkflowComposerController({
           passed: packageImportActivationHandoffBlockers.length === 0,
           blockers: packageImportActivationHandoffBlockers,
         };
+        packageImportActivationApplyProof = {
+          schemaVersion:
+            "workflow.harness.package-import-activation-apply-proof.v1",
+          method:
+            "same-session Workflows bridge clicks Activate reviewed import and proves activation id, worker binding, rollback, audit, and handoff receipts are committed",
+          generatedAtMs,
+          review: validImportReview,
+          clicked: validImportActivationApply.clicked,
+          beforeState: validImportActivationApply.beforeState,
+          afterState: validImportActivationApply.afterState,
+          activationAction: validImportActivationAction,
+          activationResult: applyResult,
+          workerHandoff: validImportActivationApply.workerHandoff,
+          incompleteAction: incompleteImportActivationAction,
+          passed: packageImportActivationApplyBlockers.length === 0,
+          blockers: packageImportActivationApplyBlockers,
+        };
       } catch (error) {
         blockers.push(
           `package_evidence_import_roundtrip_failed:${errorMessage(error)}`,
@@ -4679,6 +4990,13 @@ export function useWorkflowComposerController({
           blockers: [
             ...packageImportActivationHandoffProof.blockers,
             `package_import_activation_handoff_failed:${errorMessage(error)}`,
+          ],
+        };
+        packageImportActivationApplyProof = {
+          ...packageImportActivationApplyProof,
+          blockers: [
+            ...packageImportActivationApplyProof.blockers,
+            `package_import_activation_apply_failed:${errorMessage(error)}`,
           ],
         };
       } finally {
@@ -4796,6 +5114,7 @@ export function useWorkflowComposerController({
         },
         packageImportReviewProof,
         packageImportActivationHandoffProof,
+        packageImportActivationApplyProof,
       };
     },
     [
@@ -9000,6 +9319,7 @@ export function useWorkflowComposerController({
         packageEvidenceImportRoundTripProof,
         packageImportReviewProof,
         packageImportActivationHandoffProof,
+        packageImportActivationApplyProof,
       } =
         await runHarnessPackageEvidenceImportRoundTripProbe(nowMs + 134);
       const activationGateCollectEvidenceClickProof =
@@ -9070,6 +9390,7 @@ export function useWorkflowComposerController({
             packageEvidenceImportRoundTripProof,
             packageImportReviewProof,
             packageImportActivationHandoffProof,
+            packageImportActivationApplyProof,
             activationGateCollectEvidenceClickProof,
             activationGateRollbackRestoreClickProof,
             activationIdGateClickProof,
@@ -9147,6 +9468,14 @@ export function useWorkflowComposerController({
         packageImportActivationHandoffWorker:
           packageImportActivationHandoffProof.activationAction.valid
             .workerBindingId,
+        packageImportActivationApplyPassed:
+          packageImportActivationApplyProof.passed,
+        packageImportActivationApplyActivationId:
+          packageImportActivationApplyProof.activationResult?.activationId ??
+          null,
+        packageImportActivationApplyAudit:
+          packageImportActivationApplyProof.activationResult
+            ?.latestAuditEventType ?? null,
         activationGateCollectEvidenceClickPassed:
           activationGateCollectEvidenceClickProof.passed,
         activationGateCollectEvidenceCommand:
