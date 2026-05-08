@@ -843,6 +843,34 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
         projection_receipt.attach_status,
         HarnessWorkerAttachStatus::Unbound
     );
+
+    let lifecycle = default_harness_worker_attach_lifecycle_events(&record);
+    assert_eq!(lifecycle.len(), 3);
+    assert_eq!(
+        lifecycle[0].phase,
+        HarnessWorkerAttachLifecyclePhase::Attach
+    );
+    assert_eq!(lifecycle[0].attach_status, HarnessWorkerAttachStatus::Bound);
+    assert_eq!(
+        lifecycle[1].phase,
+        HarnessWorkerAttachLifecyclePhase::Resume
+    );
+    assert_eq!(
+        lifecycle[1].attach_status,
+        HarnessWorkerAttachStatus::Resumed
+    );
+    assert_eq!(
+        lifecycle[2].phase,
+        HarnessWorkerAttachLifecyclePhase::Rollback
+    );
+    assert_eq!(
+        lifecycle[2].attach_status,
+        HarnessWorkerAttachStatus::RolledBack
+    );
+    assert!(lifecycle.iter().all(|event| event.accepted));
+    assert!(lifecycle
+        .iter()
+        .all(|event| event.workflow_node_id == "harness.handoff_bridge"));
 }
 
 #[test]

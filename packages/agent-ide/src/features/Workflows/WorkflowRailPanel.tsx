@@ -34,6 +34,7 @@ import {
   workflowHarnessLivePromotionReadinessProofBlockers,
   workflowHarnessPromotionTransitionEligibility,
   workflowHarnessWorkerAttachBlockers,
+  workflowHarnessWorkerAttachLifecycleComplete,
   workflowHarnessWorkerBinding,
   workflowHarnessWorkerBindingRegistryBlockers,
   workflowIsBlessedHarness,
@@ -628,10 +629,34 @@ export function WorkflowRailPanel({
             harnessActivationRecord?.workerAttachReceipt ??
             workflow.metadata.harness?.workerAttachReceipt ??
             null;
+          const workerAttachLifecycle =
+            harnessDefaultRuntimeDispatchProof.workerAttachLifecycle ??
+            harnessActivationRecord?.workerAttachLifecycle ??
+            workflow.metadata.harness?.workerAttachLifecycle ??
+            [];
+          const workerAttachResumeReceipt =
+            harnessDefaultRuntimeDispatchProof.workerAttachResumeReceipt ??
+            workerAttachLifecycle.find((event) => event.phase === "resume")
+              ?.receipt ??
+            null;
+          const workerAttachRollbackReceipt =
+            harnessDefaultRuntimeDispatchProof.workerAttachRollbackReceipt ??
+            workerAttachLifecycle.find((event) => event.phase === "rollback")
+              ?.receipt ??
+            null;
+          const workerAttachLifecycleComplete =
+            workflowHarnessWorkerAttachLifecycleComplete(workerAttachLifecycle);
+          const workerAttachLifecycleStatuses = workerAttachLifecycle.map(
+            (event) => event.attachStatus,
+          );
+          const workerAttachLifecycleAttemptIds = workerAttachLifecycle.map(
+            (event) => event.attemptId,
+          );
           const workerAttachBlockers =
             workflowHarnessWorkerAttachBlockers(workerAttachReceipt);
           const workerAttachAccepted =
             workerAttachReceipt?.accepted === true &&
+            workerAttachReceipt.attachStatus === "bound" &&
             workerAttachBlockers.length === 0;
           const workerBindingAuthorityBlockers = [
             ...(workflowIdentityMatches ? [] : ["workflow_identity_mismatch"]),
@@ -681,6 +706,9 @@ export function WorkflowRailPanel({
               ? []
               : ["worker_binding_registry_not_bound"]),
             ...(workerAttachAccepted ? [] : ["worker_attach_not_accepted"]),
+            ...(workerAttachLifecycleComplete
+              ? []
+              : ["worker_attach_lifecycle_incomplete"]),
             ...workerBindingRegistryBlockers,
             ...workerAttachBlockers,
           ];
@@ -735,6 +763,12 @@ export function WorkflowRailPanel({
               workerBindingRegistryRecord?.bindingStatus ?? "missing",
             workerBindingRegistryBlockers,
             workerAttachReceipt,
+            workerAttachResumeReceipt,
+            workerAttachRollbackReceipt,
+            workerAttachLifecycle,
+            workerAttachLifecycleComplete,
+            workerAttachLifecycleStatuses,
+            workerAttachLifecycleAttemptIds,
             workerAttachAccepted,
             workerAttachStatus: workerAttachReceipt?.attachStatus ?? "missing",
             workerAttachBlockers,
@@ -3002,6 +3036,14 @@ export function WorkflowRailPanel({
                     <dt>Attach</dt>
                     <dd>{harnessActiveRuntimeBinding.workerAttachStatus}</dd>
                   </div>
+                  <div>
+                    <dt>Lifecycle</dt>
+                    <dd>
+                      {harnessActiveRuntimeBinding.workerAttachLifecycleComplete
+                        ? "complete"
+                        : "blocked"}
+                    </dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${
@@ -3042,6 +3084,25 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeBinding.workerAttachReceipt
                       ?.receiptId ?? ""
                   }
+                  data-worker-attach-resume-receipt-id={
+                    harnessActiveRuntimeBinding.workerAttachResumeReceipt
+                      ?.receiptId ?? ""
+                  }
+                  data-worker-attach-rollback-receipt-id={
+                    harnessActiveRuntimeBinding.workerAttachRollbackReceipt
+                      ?.receiptId ?? ""
+                  }
+                  data-worker-attach-lifecycle-complete={
+                    harnessActiveRuntimeBinding.workerAttachLifecycleComplete
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-attach-lifecycle-statuses={harnessActiveRuntimeBinding.workerAttachLifecycleStatuses.join(
+                    ",",
+                  )}
+                  data-worker-attach-lifecycle-attempt-ids={harnessActiveRuntimeBinding.workerAttachLifecycleAttemptIds.join(
+                    ",",
+                  )}
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -3069,6 +3130,12 @@ export function WorkflowRailPanel({
                     attach{" "}
                     {harnessActiveRuntimeBinding.workerAttachReceipt
                       ?.receiptId ?? "missing"}
+                  </small>
+                  <small>
+                    lifecycle{" "}
+                    {harnessActiveRuntimeBinding.workerAttachLifecycleStatuses.join(
+                      " / ",
+                    ) || "missing"}
                   </small>
                 </article>
                 <div
@@ -4693,6 +4760,15 @@ export function WorkflowRailPanel({
               <article
                 className="workflow-output-row"
                 data-testid="workflow-harness-default-runtime-dispatch"
+                data-worker-attach-lifecycle-complete={
+                  harnessDefaultRuntimeDispatchProof.workerAttachLifecycleComplete
+                    ? "true"
+                    : "false"
+                }
+                data-worker-attach-lifecycle-statuses={(
+                  harnessDefaultRuntimeDispatchProof.workerAttachLifecycleStatuses ??
+                  []
+                ).join(",")}
               >
                 <strong>
                   {harnessDefaultRuntimeDispatchProof.selectedSelector}
@@ -4709,6 +4785,13 @@ export function WorkflowRailPanel({
                       .length
                   }{" "}
                   attempts
+                </small>
+                <small>
+                  worker lifecycle{" "}
+                  {(
+                    harnessDefaultRuntimeDispatchProof.workerAttachLifecycleStatuses ??
+                    []
+                  ).join(" / ") || "missing"}
                 </small>
               </article>
             ) : null}

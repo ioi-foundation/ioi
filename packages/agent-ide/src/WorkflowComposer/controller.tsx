@@ -134,12 +134,12 @@ import {
   makeDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
   makeHarnessRuntimeSelectorDecision,
-  makeWorkflowHarnessWorkerAttachRequest,
+  makeWorkflowHarnessWorkerAttachLifecycle,
   makeWorkflowHarnessWorkerBindingRegistryRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
-  resolveWorkflowHarnessWorkerBinding,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
+  workflowHarnessWorkerAttachLifecycleComplete,
   workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
   workflowIsHarness,
@@ -638,17 +638,41 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       workerBinding,
       createdAtMs: nowMs,
     });
-  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
+  const workerAttachLifecycle = makeWorkflowHarnessWorkerAttachLifecycle(
     workerBindingRegistryRecord,
-    makeWorkflowHarnessWorkerAttachRequest(
-      workerBindingRegistryRecord,
-      "bound",
-    ),
+    { createdAtMs: nowMs },
   );
+  const workerAttachReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "attach")?.receipt ??
+    workerAttachLifecycle[0].receipt;
+  const workerAttachResumeReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "resume")?.receipt ??
+    workerAttachReceipt;
+  const workerAttachRollbackReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "rollback")
+      ?.receipt ?? workerAttachReceipt;
+  const workerAttachLifecycleAttemptIds = workerAttachLifecycle.map(
+    (event) => event.attemptId,
+  );
+  const workerAttachLifecycleStatuses = workerAttachLifecycle.map(
+    (event) => event.attachStatus,
+  );
+  const workerAttachLifecycleComplete =
+    workflowHarnessWorkerAttachLifecycleComplete(workerAttachLifecycle);
   const defaultRuntimeDispatchProofWithRegistry = {
     ...defaultRuntimeDispatchProof,
     workerBindingRegistryRecord,
     workerAttachReceipt,
+    workerAttachResumeReceipt,
+    workerAttachRollbackReceipt,
+    workerAttachLifecycle,
+    workerAttachLifecycleAttemptIds,
+    workerAttachLifecycleStatuses,
+    workerAttachLifecycleComplete,
+    dispatchNodeAttemptIds: uniqueHarnessRefs([
+      ...defaultRuntimeDispatchProof.dispatchNodeAttemptIds,
+      ...workerAttachLifecycleAttemptIds,
+    ]),
   };
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId: workflow.metadata.id || workflow.metadata.slug,
@@ -674,6 +698,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     workerBinding,
     workerBindingRegistryRecord,
     workerAttachReceipt,
+    workerAttachLifecycle,
     revisionBinding: harness.revisionBinding,
     rollbackRevisionBinding: harness.revisionBinding,
     mintedAtMs: nowMs,
@@ -693,6 +718,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
         defaultRuntimeDispatchProof: defaultRuntimeDispatchProofWithRegistry,
         workerBindingRegistryRecord,
         workerAttachReceipt,
+        workerAttachLifecycle,
       },
       updatedAtMs: nowMs,
     },

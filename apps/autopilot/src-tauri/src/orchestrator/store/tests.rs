@@ -939,6 +939,39 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         binding
+            .get("workerAttachResumeReceipt")
+            .and_then(|value| value.get("attachStatus"))
+            .and_then(|value| value.as_str()),
+        Some("resumed")
+    );
+    assert_eq!(
+        binding
+            .get("workerAttachRollbackReceipt")
+            .and_then(|value| value.get("attachStatus"))
+            .and_then(|value| value.as_str()),
+        Some("rolled_back")
+    );
+    assert_eq!(
+        binding
+            .get("workerAttachLifecycleComplete")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    let worker_attach_lifecycle_statuses = binding
+        .get("workerAttachLifecycleStatuses")
+        .and_then(|value| value.as_array())
+        .expect("worker attach lifecycle statuses");
+    assert!(worker_attach_lifecycle_statuses
+        .iter()
+        .any(|value| value.as_str() == Some("bound")));
+    assert!(worker_attach_lifecycle_statuses
+        .iter()
+        .any(|value| value.as_str() == Some("resumed")));
+    assert!(worker_attach_lifecycle_statuses
+        .iter()
+        .any(|value| value.as_str() == Some("rolled_back")));
+    assert_eq!(
+        binding
             .get("invalidWorkerAttachReceipt")
             .and_then(|value| value.get("accepted"))
             .and_then(|value| value.as_bool()),
@@ -1499,6 +1532,24 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .and_then(|value| value.as_array())
         .map(|items| items.len() >= 19)
         .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("workerAttachLifecycleComplete")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    let dispatch_worker_attach_lifecycle_attempt_ids = dispatch
+        .get("workerAttachLifecycleAttemptIds")
+        .and_then(|value| value.as_array())
+        .expect("dispatch worker attach lifecycle attempt ids");
+    assert!(dispatch_worker_attach_lifecycle_attempt_ids.len() >= 3);
+    let dispatch_node_attempt_ids = dispatch
+        .get("dispatchNodeAttemptIds")
+        .and_then(|value| value.as_array())
+        .expect("dispatch node attempt ids");
+    for attempt_id in dispatch_worker_attach_lifecycle_attempt_ids {
+        assert!(dispatch_node_attempt_ids.contains(attempt_id));
+    }
     assert!(dispatch
         .get("cognitionExecutionAttemptIds")
         .and_then(|value| value.as_array())

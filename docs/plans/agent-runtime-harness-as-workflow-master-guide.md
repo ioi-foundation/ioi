@@ -460,6 +460,48 @@ attach/resume/rollback lifecycle events first-class timeline entries and prove
 the `resumed` and `rolled_back` states through retained GUI evidence, alongside
 the current valid/invalid attach proof.
 
+### 2026-05-08 Worker-Attach Lifecycle Timeline Slice
+
+Worker attach is now a three-phase lifecycle on the harness timeline, not a
+single bound receipt. The live default worker path must prove attach, resume,
+and rollback against the same registry-bound identity before the default
+runtime binding can be considered matched:
+
+- Rust canonical harness contracts now define
+  `HarnessWorkerAttachLifecyclePhase` and
+  `HarnessWorkerAttachLifecycleEvent`, plus
+  `default_harness_worker_attach_lifecycle_events`.
+- The TS harness runtime mirrors the lifecycle with
+  `makeWorkflowHarnessWorkerAttachLifecycle` and
+  `workflowHarnessWorkerAttachLifecycleComplete`.
+- Default runtime dispatch proofs now include
+  `workerAttachResumeReceipt`, `workerAttachRollbackReceipt`,
+  `workerAttachLifecycle`, lifecycle attempt ids, lifecycle statuses, and a
+  complete/incomplete readiness flag.
+- Autopilot runtime evidence now rejects a matched default runtime binding
+  unless `bound`, `resumed`, and `rolled_back` are all accepted with empty
+  blockers and lifecycle attempts are present in `dispatchNodeAttemptIds`.
+- The Workflows right rail exposes lifecycle completeness, lifecycle statuses,
+  resume receipt id, rollback receipt id, and lifecycle attempt ids as DOM
+  evidence on the active runtime binding and default dispatch rows.
+- Retained GUI validation now requires `workerAttachLifecycleComplete: true`
+  in the live GUI proof, in addition to `workerAttachBound: true`.
+- Focused validation is green for Rust canonical lifecycle coverage,
+  Autopilot store evidence, TS contract consistency, TS activation contracts,
+  IDE build, harness wiring, and the GUI harness contract.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-21-32-741Z/`;
+  the live GUI proof explicitly reports `workerAttachLifecycleComplete: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T15-29-14-667Z/dashboard-index.json`.
+
+This changes the promotion boundary from "a worker can attach to the blessed
+registry" to "a worker's attach, resume, and rollback lifecycle is visible as
+workflow-node evidence." The next chronological slice should bind these
+lifecycle events to an explicit persisted worker session record so the GUI can
+show which worker instance is currently running, which instance was resumed,
+and which rollback target would receive control if the live activation fails.
+
 ## Current State
 
 ### Roadmap State

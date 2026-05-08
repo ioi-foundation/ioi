@@ -589,6 +589,21 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         : null,
       workerAttachRollbackAvailable:
         binding.workerAttachRollbackAvailable ?? null,
+      workerAttachResumeAccepted: binding.workerAttachResumeAccepted ?? null,
+      workerAttachRollbackAccepted:
+        binding.workerAttachRollbackAccepted ?? null,
+      workerAttachLifecycleComplete:
+        binding.workerAttachLifecycleComplete ?? null,
+      workerAttachLifecycleStatuses: Array.isArray(
+        binding.workerAttachLifecycleStatuses,
+      )
+        ? binding.workerAttachLifecycleStatuses
+        : null,
+      workerAttachLifecycleAttemptIds: Array.isArray(
+        binding.workerAttachLifecycleAttemptIds,
+      )
+        ? binding.workerAttachLifecycleAttemptIds
+        : null,
       invalidWorkerAttachBlocked: binding.invalidWorkerAttachBlocked ?? null,
       workerBinding:
         binding.workerBinding && typeof binding.workerBinding === "object"
@@ -667,6 +682,46 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 : null,
             }
           : null,
+      workerAttachResumeReceipt:
+        binding.workerAttachResumeReceipt &&
+        typeof binding.workerAttachResumeReceipt === "object"
+          ? {
+              receiptId: binding.workerAttachResumeReceipt.receiptId ?? null,
+              attachStatus:
+                binding.workerAttachResumeReceipt.attachStatus ?? null,
+              accepted: binding.workerAttachResumeReceipt.accepted ?? null,
+              blockers: Array.isArray(
+                binding.workerAttachResumeReceipt.blockers,
+              )
+                ? binding.workerAttachResumeReceipt.blockers
+                : null,
+            }
+          : null,
+      workerAttachRollbackReceipt:
+        binding.workerAttachRollbackReceipt &&
+        typeof binding.workerAttachRollbackReceipt === "object"
+          ? {
+              receiptId: binding.workerAttachRollbackReceipt.receiptId ?? null,
+              attachStatus:
+                binding.workerAttachRollbackReceipt.attachStatus ?? null,
+              accepted: binding.workerAttachRollbackReceipt.accepted ?? null,
+              blockers: Array.isArray(
+                binding.workerAttachRollbackReceipt.blockers,
+              )
+                ? binding.workerAttachRollbackReceipt.blockers
+                : null,
+            }
+          : null,
+      workerAttachLifecycle: Array.isArray(binding.workerAttachLifecycle)
+        ? binding.workerAttachLifecycle.map((event) => ({
+            phase: event?.phase ?? null,
+            attemptId: event?.attemptId ?? null,
+            attachStatus: event?.attachStatus ?? null,
+            accepted: event?.accepted ?? null,
+            receiptId: event?.receiptId ?? null,
+            blockers: Array.isArray(event?.blockers) ? event.blockers : null,
+          }))
+        : null,
       invalidWorkerAttachReceipt:
         binding.invalidWorkerAttachReceipt &&
         typeof binding.invalidWorkerAttachReceipt === "object"
@@ -713,6 +768,27 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       Array.isArray(binding.workerAttachBlockers) &&
       binding.workerAttachBlockers.length === 0 &&
       binding.workerAttachRollbackAvailable === true &&
+      binding.workerAttachResumeAccepted === true &&
+      binding.workerAttachRollbackAccepted === true &&
+      binding.workerAttachLifecycleComplete === true &&
+      Array.isArray(binding.workerAttachLifecycleStatuses) &&
+      binding.workerAttachLifecycleStatuses.includes("bound") &&
+      binding.workerAttachLifecycleStatuses.includes("resumed") &&
+      binding.workerAttachLifecycleStatuses.includes("rolled_back") &&
+      Array.isArray(binding.workerAttachLifecycleAttemptIds) &&
+      binding.workerAttachLifecycleAttemptIds.length >= 3 &&
+      Array.isArray(binding.workerAttachLifecycle) &&
+      binding.workerAttachLifecycle.length >= 3 &&
+      binding.workerAttachLifecycle.every(
+        (event) =>
+          event?.schemaVersion ===
+            "workflow.harness.worker-attach-lifecycle.v1" &&
+          event?.workflowNodeId === "harness.handoff_bridge" &&
+          event?.componentKind === "handoff_bridge" &&
+          event?.accepted === true &&
+          Array.isArray(event?.blockers) &&
+          event.blockers.length === 0,
+      ) &&
       binding.invalidWorkerAttachBlocked === true &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
@@ -753,6 +829,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         binding.workerBindingRegistryRecord?.registryRecordId &&
       binding.workerAttachReceipt?.readinessProofId ===
         binding.selectorLivePromotionReadinessProofId &&
+      binding.workerAttachResumeReceipt?.accepted === true &&
+      binding.workerAttachResumeReceipt?.attachStatus === "resumed" &&
+      binding.workerAttachRollbackReceipt?.accepted === true &&
+      binding.workerAttachRollbackReceipt?.attachStatus === "rolled_back" &&
       binding.invalidWorkerAttachReceipt?.accepted === false &&
       Array.isArray(binding.invalidWorkerAttachReceipt?.blockers) &&
       binding.invalidWorkerAttachReceipt.blockers.includes(
@@ -3202,6 +3282,15 @@ function buildGuiEvidenceAssessment({
         Array.isArray(binding.workerAttachBlockers) &&
         binding.workerAttachBlockers.length === 0 &&
         binding.workerAttachRollbackAvailable === true &&
+        binding.workerAttachResumeAccepted === true &&
+        binding.workerAttachRollbackAccepted === true &&
+        binding.workerAttachLifecycleComplete === true &&
+        Array.isArray(binding.workerAttachLifecycleStatuses) &&
+        binding.workerAttachLifecycleStatuses.includes("bound") &&
+        binding.workerAttachLifecycleStatuses.includes("resumed") &&
+        binding.workerAttachLifecycleStatuses.includes("rolled_back") &&
+        Array.isArray(binding.workerAttachLifecycleAttemptIds) &&
+        binding.workerAttachLifecycleAttemptIds.length >= 3 &&
         binding.invalidWorkerAttachBlocked === true &&
         binding.selectorLivePromotionReadinessProofId ===
           workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
@@ -3245,6 +3334,10 @@ function buildGuiEvidenceAssessment({
           binding.workerBindingRegistryRecord?.registryRecordId &&
         binding.workerAttachReceipt?.readinessProofId ===
           binding.selectorLivePromotionReadinessProofId &&
+        binding.workerAttachResumeReceipt?.accepted === true &&
+        binding.workerAttachResumeReceipt?.attachStatus === "resumed" &&
+        binding.workerAttachRollbackReceipt?.accepted === true &&
+        binding.workerAttachRollbackReceipt?.attachStatus === "rolled_back" &&
         binding.invalidWorkerAttachReceipt?.accepted === false,
     );
   const hasHarnessChatRuntimeBinding =
@@ -3940,6 +4033,35 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.workerAttachReceipt ??
       activationRecord?.workerAttachReceipt ??
       null;
+    const workerAttachLifecycle =
+      defaultDispatch?.workerAttachLifecycle ??
+      workflow?.metadata?.harness?.workerAttachLifecycle ??
+      activationRecord?.workerAttachLifecycle ??
+      [];
+    const workerAttachResumeReceipt =
+      defaultDispatch?.workerAttachResumeReceipt ??
+      workerAttachLifecycle.find((event) => event?.phase === "resume")
+        ?.receipt ??
+      null;
+    const workerAttachRollbackReceipt =
+      defaultDispatch?.workerAttachRollbackReceipt ??
+      workerAttachLifecycle.find((event) => event?.phase === "rollback")
+        ?.receipt ??
+      null;
+    const workerAttachLifecycleStatuses = Array.isArray(
+      defaultDispatch?.workerAttachLifecycleStatuses,
+    )
+      ? defaultDispatch.workerAttachLifecycleStatuses
+      : workerAttachLifecycle
+          .map((event) => event?.attachStatus)
+          .filter((status) => typeof status === "string");
+    const workerAttachLifecycleAttemptIds = Array.isArray(
+      defaultDispatch?.workerAttachLifecycleAttemptIds,
+    )
+      ? defaultDispatch.workerAttachLifecycleAttemptIds
+      : workerAttachLifecycle
+          .map((event) => event?.attemptId)
+          .filter((attemptId) => typeof attemptId === "string");
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
     const coldStartDeepLinkRestoreProof =
@@ -4181,6 +4303,29 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerAttachReceipt?.workerBinding?.harnessActivationId ===
         DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
       workerAttachReceipt?.workerBinding?.executionMode === "live";
+    const workerAttachLifecycleComplete =
+      Array.isArray(workerAttachLifecycle) &&
+      workerAttachLifecycle.length >= 3 &&
+      workerAttachLifecycleStatuses.includes("bound") &&
+      workerAttachLifecycleStatuses.includes("resumed") &&
+      workerAttachLifecycleStatuses.includes("rolled_back") &&
+      workerAttachLifecycleAttemptIds.length >= 3 &&
+      workerAttachResumeReceipt?.accepted === true &&
+      workerAttachResumeReceipt?.attachStatus === "resumed" &&
+      workerAttachRollbackReceipt?.accepted === true &&
+      workerAttachRollbackReceipt?.attachStatus === "rolled_back" &&
+      workerAttachLifecycle.every(
+        (event) =>
+          event?.schemaVersion ===
+            "workflow.harness.worker-attach-lifecycle.v1" &&
+          event?.workflowNodeId === "harness.handoff_bridge" &&
+          event?.componentKind === "handoff_bridge" &&
+          event?.accepted === true &&
+          Array.isArray(event?.blockers) &&
+          event.blockers.length === 0 &&
+          defaultDispatch?.dispatchNodeAttemptIds?.includes(event.attemptId) ===
+            true,
+      );
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -4320,6 +4465,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         workerBindingRegistryBound,
       workerBindingRegistryBound,
       workerAttachBound,
+      workerAttachLifecycleComplete,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -4644,6 +4790,19 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             workerBindingRegistryRecord:
               defaultDispatch.workerBindingRegistryRecord ?? null,
             workerAttachReceipt: defaultDispatch.workerAttachReceipt ?? null,
+            workerAttachResumeReceipt:
+              defaultDispatch.workerAttachResumeReceipt ?? null,
+            workerAttachRollbackReceipt:
+              defaultDispatch.workerAttachRollbackReceipt ?? null,
+            workerAttachLifecycle:
+              defaultDispatch.workerAttachLifecycle?.map((event) => ({
+                phase: event?.phase ?? null,
+                attemptId: event?.attemptId ?? null,
+                attachStatus: event?.attachStatus ?? null,
+                accepted: event?.accepted ?? null,
+                receiptId: event?.receiptId ?? null,
+              })) ?? [],
+            workerAttachLifecycleComplete,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
@@ -4677,6 +4836,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             readinessProofId: workerAttachReceipt.readinessProofId ?? null,
           }
         : null,
+      workerAttachLifecycle: workerAttachLifecycle.map((event) => ({
+        phase: event?.phase ?? null,
+        attemptId: event?.attemptId ?? null,
+        attachStatus: event?.attachStatus ?? null,
+        accepted: event?.accepted ?? null,
+        receiptId: event?.receiptId ?? null,
+        blockers: event?.blockers ?? [],
+      })),
       attempts: transitions
         .filter((attempt) => clusterIds.includes(attempt.clusterId))
         .map((attempt) => ({
