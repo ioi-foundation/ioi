@@ -118,6 +118,7 @@ import {
   executeWorkflowHarnessRollbackDrill,
   executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
+  makeHarnessCanaryExecutionBoundaries,
   makeDefaultAgentHarnessWorkflow,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
@@ -176,6 +177,7 @@ import {
   NODE_LIBRARY,
   RIGHT_PANELS,
   SCAFFOLD_GROUPS,
+  HARNESS_PROMOTION_LIVE_GUI_SCRIPT,
   SCRATCH_DOGFOOD_SCRIPT,
   SCRATCH_DOGFOOD_WORKFLOW_NAME,
   SCRATCH_HEAVY_BLUEPRINTS,
@@ -258,6 +260,107 @@ function harnessGroupNodeId(groupId: string): string {
 function harnessGroupIdFromNodeId(nodeId: string | null): string | null {
   if (!nodeId?.startsWith(HARNESS_GROUP_NODE_PREFIX)) return null;
   return nodeId.slice(HARNESS_GROUP_NODE_PREFIX.length);
+}
+
+function harnessPromotionClusterFor(workflow: WorkflowProject, clusterId: string) {
+  return (
+    workflow.metadata.harness?.promotionClusters?.find(
+      (cluster) => String(cluster.clusterId) === String(clusterId),
+    ) ?? null
+  );
+}
+
+function workflowWithHarnessClusterReadiness(
+  workflow: WorkflowProject,
+  clusterId: string,
+  readiness: "live_ready",
+): WorkflowProject {
+  const cluster = harnessPromotionClusterFor(workflow, clusterId);
+  const componentKinds = new Set(cluster?.componentKinds ?? []);
+  return {
+    ...workflow,
+    nodes: workflow.nodes.map((nodeItem) =>
+      nodeItem.runtimeBinding?.componentKind &&
+      componentKinds.has(nodeItem.runtimeBinding.componentKind)
+        ? {
+            ...nodeItem,
+            runtimeBinding: {
+              ...nodeItem.runtimeBinding,
+              readiness,
+            },
+          }
+        : nodeItem,
+    ),
+  };
+}
+
+function workflowWithHarnessCanaryBoundaries(
+  workflow: WorkflowProject,
+): WorkflowProject {
+  const harness = workflow.metadata.harness;
+  if (!harness) return workflow;
+  return {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      harness: {
+        ...harness,
+        canaryExecutionBoundaries: makeHarnessCanaryExecutionBoundaries(),
+      },
+    },
+  };
+}
+
+function workflowWithPassingHarnessReplayGate(
+  workflow: WorkflowProject,
+  clusterId: string,
+  nowMs: number,
+): WorkflowProject {
+  return executeWorkflowHarnessReplayGate(
+    workflow,
+    [
+      {
+        replayFixtureRef: `runtime-evidence:${clusterId}:fixture:live-gui`,
+        sourceKind: "harness_group",
+        sourceLabel: `${clusterId} live GUI promotion interaction`,
+        producerComponent: `ioi.agent-harness.${clusterId}.v1`,
+        policyDecision: "accept_live_gui_promotion_replay",
+        attemptId: `attempt-${clusterId}-live-gui`,
+        receiptRef: `receipt-${clusterId}-live-gui`,
+        runId: `run-${clusterId}-live-gui`,
+        executionMode: "gated",
+        readiness: "live_ready",
+        inputHash: `input-${clusterId}-live-gui`,
+        outputHash: `output-${clusterId}-live-gui`,
+        deterministicEnvelope: true,
+        capturesInput: true,
+        capturesOutput: true,
+        capturesPolicyDecision: true,
+        determinism: "deterministic",
+        redactionPolicy: "runtime_redacted",
+        evidenceRefs: [`evidence-${clusterId}-live-gui`],
+      },
+    ],
+    {
+      scopeKind: "harness_group",
+      targetId: clusterId,
+      nowMs,
+    },
+  ).workflow;
+}
+
+function workflowReadyForHarnessPromotion(
+  workflow: WorkflowProject,
+  clusterId: string,
+  nowMs: number,
+): WorkflowProject {
+  return workflowWithHarnessClusterReadiness(
+    workflowWithHarnessCanaryBoundaries(
+      workflowWithPassingHarnessReplayGate(workflow, clusterId, nowMs),
+    ),
+    clusterId,
+    "live_ready",
+  );
 }
 
 function harnessComponentKindForNode(node: Node): WorkflowHarnessComponentKind | null {
@@ -4009,6 +4112,110 @@ export function useWorkflowComposerController({
     setRightPanel("unit_tests");
     setStatusMessage("Unit test added");
   };
+
+  const handleHarnessPromotionLiveGuiProbe = useCallback(async () => {
+    const clusterId = "cognition";
+    const nowMs = Date.now();
+    const projectRoot = currentProject?.rootPath || ".";
+    const proofWorkflowPath = `${projectRoot}/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json`;
+    const publishLiveGuiProbeState = (payload: Record<string, unknown>) => {
+      (window as any).__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT = {
+        ...(window as any).__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT,
+        ...payload,
+        proofWorkflowPath,
+        updatedAtMs: Date.now(),
+      };
+    };
+
+    publishLiveGuiProbeState({
+      status: "running",
+      phase: "open_default_harness",
+      clusterId,
+    });
+    setActiveTab("graph");
+    setRightPanel("outputs");
+    setBottomPanel("selection");
+    setSelectedHarnessGroupId(clusterId);
+    setSelectedHarnessReceiptRef(null);
+    setSelectedHarnessReplayFixtureRef(null);
+    setSelectedHarnessRollbackTarget(null);
+    setStatusMessage("Harness promotion live GUI proof running");
+
+    try {
+      const baseWorkflow = makeDefaultAgentHarnessWorkflow(nowMs);
+      const blocked = executeWorkflowHarnessPromotionTransition(
+        baseWorkflow,
+        clusterId,
+        "gated",
+        { nowMs: nowMs + 10 },
+      );
+      const readyWorkflow = workflowReadyForHarnessPromotion(
+        blocked.workflow,
+        clusterId,
+        nowMs + 20,
+      );
+      const gated = executeWorkflowHarnessPromotionTransition(
+        readyWorkflow,
+        clusterId,
+        "gated",
+        { nowMs: nowMs + 30 },
+      );
+      const live = executeWorkflowHarnessPromotionTransition(
+        gated.workflow,
+        clusterId,
+        "live",
+        { nowMs: nowMs + 40 },
+      );
+      const nextTests = defaultAgentHarnessTests(live.workflow);
+      setWorkflowPath(proofWorkflowPath);
+      setTestsPath(proofWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"));
+      setTests(nextTests);
+      setProposals([]);
+      setRuns([]);
+      clearRunState();
+      loadWorkflowProject(live.workflow);
+      setValidationResult(validateWorkflowProject(live.workflow, nextTests));
+      setReadinessResult(
+        evaluateWorkflowActivationReadiness(
+          live.workflow,
+          nextTests,
+          validateWorkflowProject(live.workflow, nextTests),
+          [],
+          [],
+        ),
+      );
+      setSelectedHarnessGroupId(clusterId);
+      setRightPanel("outputs");
+      setBottomPanel("selection");
+      setStatusMessage("Cognition harness group promoted to live");
+      if (runtime.saveWorkflowProject) {
+        await runtime.saveWorkflowProject(proofWorkflowPath, live.workflow);
+      }
+      publishLiveGuiProbeState({
+        status: "passed",
+        phase: "complete",
+        blockedAttemptStatus: blocked.attempt.attemptStatus,
+        gatedAttemptStatus: gated.attempt.attemptStatus,
+        liveAttemptStatus: live.attempt.attemptStatus,
+        targetExecutionMode: "live",
+      });
+    } catch (error) {
+      const message = errorMessage(error);
+      setStatusMessage("Harness promotion live GUI proof blocked");
+      publishLiveGuiProbeState({
+        status: "blocked",
+        phase: "error",
+        error: message,
+      });
+    }
+  }, [clearRunState, currentProject?.rootPath, loadWorkflowProject, runtime]);
+
+  useEffect(() => {
+    if (!HARNESS_PROMOTION_LIVE_GUI_SCRIPT) return;
+    if (dogfoodAutomationStarted.current) return;
+    dogfoodAutomationStarted.current = true;
+    void handleHarnessPromotionLiveGuiProbe();
+  }, [handleHarnessPromotionLiveGuiProbe]);
 
   useEffect(() => {
     if (

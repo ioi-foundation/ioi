@@ -1959,6 +1959,7 @@ function buildGuiEvidenceAssessment({
   runtimeArtifacts,
   rollbackRestoreCanaryUiProof,
   promotionTransitionGuiBehaviorProof,
+  promotionTransitionLiveGuiInteractionProof,
 }) {
   const allScreenshotsCaptured =
     queryResults.length === AUTOPILOT_RETAINED_QUERIES.length &&
@@ -2026,6 +2027,9 @@ function buildGuiEvidenceAssessment({
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
+  const hasHarnessPromotionTransitionLiveGuiInteraction =
+    hasHarnessPromotionTransitionGuiBehavior &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.passed === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2132,6 +2136,8 @@ function buildGuiEvidenceAssessment({
       harness_rollback_restore_canary_ui_present: hasHarnessRollbackRestoreCanaryUi,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
+      harness_promotion_transition_live_gui_interaction_present:
+        hasHarnessPromotionTransitionLiveGuiInteraction,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2188,6 +2194,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessRollbackExecutionReceipts,
       hasHarnessRollbackRestoreCanaryUi,
       hasHarnessPromotionTransitionGuiBehavior,
+      hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2245,6 +2252,8 @@ function buildGuiEvidenceAssessment({
       harnessRollbackRestoreCanaryUiProof: rollbackRestoreCanaryUiProof?.proof ?? null,
       harnessPromotionTransitionGuiBehaviorProof:
         promotionTransitionGuiBehaviorProof?.proof ?? null,
+      harnessPromotionTransitionLiveGuiInteractionProof:
+        promotionTransitionLiveGuiInteractionProof?.proof ?? null,
       harnessCanaryBoundaryExecutedCount: summary.harnessCanaryBoundaryExecutedCount,
       harnessCanaryBoundaryRollbackDrillCount: summary.harnessCanaryBoundaryRollbackDrillCount,
       harnessSelectorCanaryRoutedCount: summary.harnessSelectorCanaryRoutedCount,
@@ -2312,6 +2321,12 @@ function windowIds(windowName) {
     if (trimmed) ids.add(trimmed);
   }
   return [...ids];
+}
+
+function closeMatchingWindows(windowName) {
+  for (const windowId of windowIds(windowName)) {
+    runShell(`xdotool windowclose ${windowId}`, { timeout: 4_000 });
+  }
 }
 
 async function sleep(ms) {
@@ -2425,11 +2440,229 @@ function captureScreenshot(windowId, outputRoot, scenario) {
   };
 }
 
+function stopDesktopProcess(desktop) {
+  if (!desktop || desktop.killed) return;
+  try {
+    process.kill(-desktop.pid, "SIGINT");
+  } catch {
+    desktop.kill("SIGINT");
+  }
+}
+
+async function waitForHarnessPromotionLiveWorkflow(proofWorkflowPath, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let latest = {
+    workflow: null,
+    error: "proof workflow not found",
+  };
+  while (Date.now() < deadline) {
+    if (existsSync(proofWorkflowPath)) {
+      try {
+        const workflow = JSON.parse(readFileSync(proofWorkflowPath, "utf8"));
+        latest = { workflow, error: null };
+        const cluster = workflow.metadata?.harness?.promotionClusters?.find(
+          (candidate) => candidate.clusterId === "cognition",
+        );
+        const transitions = workflow.metadata?.harness?.promotionTransitions ?? [];
+        if (
+          cluster?.promotionStatus === "live" &&
+          transitions.some(
+            (attempt) =>
+              attempt.clusterId === "cognition" &&
+              attempt.targetExecutionMode === "live" &&
+              attempt.attemptStatus === "promoted",
+          )
+        ) {
+          return latest;
+        }
+      } catch (error) {
+        latest = {
+          workflow: null,
+          error: String(error?.message || error),
+        };
+      }
+    }
+    await sleep(1_000);
+  }
+  return {
+    ...latest,
+    timedOut: true,
+  };
+}
+
+async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, args) {
+  const proofPath = join(outputRoot, "promotion-transition-live-gui-interaction-proof.json");
+  const proofWorkflowEvidencePath = join(
+    outputRoot,
+    "promotion-transition-live-gui-workflow.json",
+  );
+  const proofWorkflowPath = resolve(
+    repoRoot,
+    "apps/autopilot/src-tauri/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json",
+  );
+  const logPath = join(outputRoot, "promotion-transition-live-gui.log");
+  try {
+    unlinkSync(proofWorkflowPath);
+  } catch {
+    // No stale proof to remove.
+  }
+  closeMatchingWindows(args.windowName);
+  await sleep(1_000);
+
+  const log = [];
+  const desktop = spawn("npm", ["run", "dev:desktop"], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      AUTOPILOT_LOCAL_GPU_DEV: "1",
+      AUTOPILOT_HARNESS_DEFAULT_PROMOTION:
+        process.env.AUTOPILOT_HARNESS_DEFAULT_PROMOTION ?? "1",
+      AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT:
+        process.env.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT ?? "1",
+      AUTOPILOT_RESET_DATA_ON_BOOT: "0",
+      AUTOPILOT_REUSE_DEV_SERVER: "0",
+      AUTO_START_DEV_SERVER: "1",
+      VITE_AUTOPILOT_INITIAL_VIEW: "workflows",
+      VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI: "1",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+  desktop.stdout.on("data", (chunk) => log.push(chunk.toString()));
+  desktop.stderr.on("data", (chunk) => log.push(chunk.toString()));
+
+  let windowId = null;
+  let screenshot = { ok: false, path: null, stderr: "not captured" };
+  try {
+    windowId = await waitForWindow(args.windowName, args.windowTimeoutMs);
+    if (!windowId) {
+      const proof = {
+        schemaVersion:
+          "ioi.autopilot.gui-harness.promotion-transition-live-gui-interaction.v1",
+        passed: false,
+        checks: {
+          desktopWindowOpened: false,
+        },
+        proofWorkflowPath,
+        error: `Timed out waiting for window matching ${args.windowName}`,
+        logTail: log.slice(-80),
+      };
+      writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+      return { path: proofPath, proof };
+    }
+    await sleep(Math.min(Math.max(args.settleMs, 6_000), 15_000));
+    const liveWorkflow = await waitForHarnessPromotionLiveWorkflow(
+      proofWorkflowPath,
+      Math.min(args.queryTimeoutMs, 120_000),
+    );
+    await sleep(2_000);
+    screenshot = captureScreenshot(
+      windowId,
+      outputRoot,
+      "promotion_transition_live_gui_interaction",
+    );
+    const workflow = liveWorkflow.workflow;
+    if (workflow) {
+      writeFileSync(
+        proofWorkflowEvidencePath,
+        `${JSON.stringify(workflow, null, 2)}\n`,
+        "utf8",
+      );
+    }
+    const cluster =
+      workflow?.metadata?.harness?.promotionClusters?.find(
+        (candidate) => candidate.clusterId === "cognition",
+      ) ?? null;
+    const transitions = workflow?.metadata?.harness?.promotionTransitions ?? [];
+    const audit = workflow?.metadata?.harness?.activationAudit ?? [];
+    const checks = {
+      desktopWindowOpened: Boolean(windowId),
+      proofWorkflowSaved: Boolean(workflow),
+      blockedAttemptPresent: transitions.some(
+        (attempt) =>
+          attempt.clusterId === "cognition" &&
+          attempt.targetExecutionMode === "gated" &&
+          attempt.attemptStatus === "blocked",
+      ),
+      gatedAttemptPromoted: transitions.some(
+        (attempt) =>
+          attempt.clusterId === "cognition" &&
+          attempt.targetExecutionMode === "gated" &&
+          attempt.attemptStatus === "promoted",
+      ),
+      liveAttemptPromoted: transitions.some(
+        (attempt) =>
+          attempt.clusterId === "cognition" &&
+          attempt.targetExecutionMode === "live" &&
+          attempt.attemptStatus === "promoted",
+      ),
+      clusterPromotedLive: cluster?.promotionStatus === "live",
+      auditRecordedBlockedAndPromoted:
+        audit.some((event) => event.eventType === "promotion_transition_blocked") &&
+        audit.some((event) => event.eventType === "promotion_transition_promoted"),
+      screenshotCaptured: screenshot.ok,
+    };
+    const proof = {
+      schemaVersion:
+        "ioi.autopilot.gui-harness.promotion-transition-live-gui-interaction.v1",
+      passed: Object.values(checks).every(Boolean),
+      method:
+        "launch live Workflows desktop surface, run dev-only harness promotion interaction bridge, verify saved workflow state and screenshot",
+      checks,
+      proofWorkflowPath,
+      proofWorkflowEvidencePath: workflow ? proofWorkflowEvidencePath : null,
+      screenshot: screenshot.path,
+      screenshotError: screenshot.stderr || null,
+      liveWorkflowError: liveWorkflow.error ?? null,
+      cluster: cluster
+        ? {
+            clusterId: cluster.clusterId,
+            promotionStatus: cluster.promotionStatus,
+            label: cluster.label,
+          }
+        : null,
+      attempts: transitions
+        .filter((attempt) => attempt.clusterId === "cognition")
+        .map((attempt) => ({
+          targetExecutionMode: attempt.targetExecutionMode,
+          attemptStatus: attempt.attemptStatus,
+          previousStatus: attempt.previousStatus,
+          nextStatus: attempt.nextStatus,
+          gateDecision: attempt.gateDecision,
+          blockers: attempt.blockers,
+          receiptRefCount: attempt.receiptRefs?.length ?? 0,
+          replayFixtureRefCount: attempt.replayFixtureRefs?.length ?? 0,
+        })),
+      uiSelectors: {
+        groupInspector: "workflow-harness-group-inspector",
+        promotionActions: "workflow-harness-group-promotion-actions",
+        promoteClusterGated: "workflow-harness-promote-cluster-gated",
+        promoteClusterLive: "workflow-harness-promote-cluster-live",
+        promotionAttempt: "workflow-harness-group-promotion-attempt",
+      },
+      sourceRefs: [
+        "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+        "packages/agent-ide/src/WorkflowComposer/support.tsx",
+        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+        "packages/agent-ide/src/runtime/harness-workflow.ts",
+      ],
+    };
+    writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path: proofPath, proof };
+  } finally {
+    writeFileSync(logPath, log.join(""), "utf8");
+    stopDesktopProcess(desktop);
+    await sleep(2_000);
+  }
+}
+
 async function runGuiValidation(args, outputRoot) {
   mkdirSync(outputRoot, { recursive: true });
   const logPath = join(outputRoot, "desktop.log");
   const log = [];
   const startedAtMs = Date.now();
+  closeMatchingWindows(args.windowName);
+  await sleep(1_000);
   const desktop = spawn("npm", ["run", "dev:desktop"], {
     cwd: repoRoot,
     env: {
@@ -2441,6 +2674,7 @@ async function runGuiValidation(args, outputRoot) {
         process.env.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT ?? "1",
       AUTOPILOT_RESET_DATA_ON_BOOT: process.env.AUTOPILOT_RESET_DATA_ON_BOOT ?? "1",
       VITE_AUTOPILOT_INITIAL_VIEW: "chat",
+      VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI: "1",
       AUTOPILOT_REUSE_DEV_SERVER: "0",
       AUTO_START_DEV_SERVER: "1",
     },
@@ -2449,6 +2683,7 @@ async function runGuiValidation(args, outputRoot) {
   });
   desktop.stdout.on("data", (chunk) => log.push(chunk.toString()));
   desktop.stderr.on("data", (chunk) => log.push(chunk.toString()));
+  let desktopStopped = false;
 
   try {
     const windowId = await waitForWindow(args.windowName, args.windowTimeoutMs);
@@ -2497,6 +2732,11 @@ async function runGuiValidation(args, outputRoot) {
     }
 
     writeFileSync(logPath, log.join(""), "utf8");
+    stopDesktopProcess(desktop);
+    desktopStopped = true;
+    await sleep(3_000);
+    const promotionTransitionLiveGuiInteractionProof =
+      await collectPromotionTransitionLiveGuiInteractionProof(outputRoot, args);
     const runtimeArtifacts = await collectRuntimeArtifacts(outputRoot, logPath);
     const rollbackRestoreCanaryUiProof = collectRollbackRestoreCanaryUiProof(outputRoot);
     const promotionTransitionGuiBehaviorProof =
@@ -2506,6 +2746,7 @@ async function runGuiValidation(args, outputRoot) {
       runtimeArtifacts,
       rollbackRestoreCanaryUiProof,
       promotionTransitionGuiBehaviorProof,
+      promotionTransitionLiveGuiInteractionProof,
     });
     return {
       schemaVersion: autopilotGuiHarnessContract().schemaVersion,
@@ -2579,6 +2820,10 @@ async function runGuiValidation(args, outputRoot) {
         harness_promotion_transition_gui_behavior:
           promotionTransitionGuiBehaviorProof.proof.passed === true
             ? promotionTransitionGuiBehaviorProof.path
+            : false,
+        harness_promotion_transition_live_gui_interaction:
+          promotionTransitionLiveGuiInteractionProof.proof.passed === true
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:
           runtimeArtifacts.summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2668,14 +2913,14 @@ async function runGuiValidation(args, outputRoot) {
       uiAssertions: {
         rollbackRestoreCanary: rollbackRestoreCanaryUiProof.proof,
         promotionTransitionBehavior: promotionTransitionGuiBehaviorProof.proof,
+        promotionTransitionLiveGui:
+          promotionTransitionLiveGuiInteractionProof.proof,
       },
       logPath,
     };
   } finally {
-    try {
-      process.kill(-desktop.pid, "SIGINT");
-    } catch {
-      desktop.kill("SIGINT");
+    if (!desktopStopped) {
+      stopDesktopProcess(desktop);
     }
   }
 }

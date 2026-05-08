@@ -253,6 +253,11 @@ export const SCRATCH_DOGFOOD_SCRIPT =
     ? ((import.meta as unknown as { env?: Record<string, string | undefined> })
         .env?.VITE_AUTOPILOT_WORKFLOW_DOGFOOD_SCRIPT as string | undefined)
     : undefined;
+export const HARNESS_PROMOTION_LIVE_GUI_SCRIPT =
+  typeof import.meta !== "undefined"
+    ? ((import.meta as unknown as { env?: Record<string, string | undefined> })
+        .env?.VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI === "1")
+    : false;
 
 export function WorkflowHeaderAction({
   label,
@@ -521,4 +526,3 @@ export function workflowConfigSectionForIssue(
   }
   return WORKFLOW_ISSUE_SECTION_BY_CODE[issue.code] ?? "settings";
 }
-
