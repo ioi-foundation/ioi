@@ -697,6 +697,8 @@ export function makeWorkflowHarnessWorkerSessionRecord(
   const lifecycleAttemptIds = lifecycle.map((event) => event.attemptId);
   const receiptIds = lifecycle.map((event) => event.receiptId);
   const persistenceBlockers = accepted ? [] : blockers;
+  const launchAuthorityBlockers = accepted ? [] : blockers;
+  const rollbackHandoffBlockers = accepted ? [] : blockers;
   return {
     schemaVersion: "workflow.harness.worker-session.v1",
     sessionRecordId,
@@ -742,6 +744,12 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     runtimeCheckpointSource:
       "runtime_state_access_harness_worker_session_record",
     persistenceBlockers,
+    launchAuthorityReady: accepted,
+    launchAuthorityBlockers,
+    launchAuthoritySource: "persisted_harness_worker_session_record",
+    rollbackHandoffReady: accepted,
+    rollbackHandoffBlockers,
+    rollbackHandoffTarget: record.rollbackTarget,
     createdAtMs: options.createdAtMs ?? record.createdAtMs,
   };
 }
@@ -777,6 +785,18 @@ export function workflowHarnessWorkerSessionBlockers(
   }
   if ((session.persistenceBlockers ?? []).length > 0) {
     blockers.push("worker_session_persistence_blocked");
+  }
+  if (session.launchAuthorityReady !== true) {
+    blockers.push("worker_session_launch_authority_not_ready");
+  }
+  if ((session.launchAuthorityBlockers ?? []).length > 0) {
+    blockers.push("worker_session_launch_authority_blocked");
+  }
+  if (session.rollbackHandoffReady !== true) {
+    blockers.push("worker_session_rollback_handoff_not_ready");
+  }
+  if ((session.rollbackHandoffBlockers ?? []).length > 0) {
+    blockers.push("worker_session_rollback_handoff_blocked");
   }
   return uniqueStrings(blockers);
 }

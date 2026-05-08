@@ -252,7 +252,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessWorkerSessionRecord/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerSessionRecord[\s\S]*sessionRecordId: string[\s\S]*sessionId: string[\s\S]*workerId: string[\s\S]*currentStatus: WorkflowHarnessWorkerSessionStatus[\s\S]*rollbackTargetReady: boolean[\s\S]*accepted: boolean[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\]/,
+    /WorkflowHarnessWorkerSessionRecord[\s\S]*sessionRecordId: string[\s\S]*sessionId: string[\s\S]*workerId: string[\s\S]*currentStatus: WorkflowHarnessWorkerSessionStatus[\s\S]*rollbackTargetReady: boolean[\s\S]*accepted: boolean[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\][\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityBlockers: string\[\][\s\S]*launchAuthoritySource: string[\s\S]*rollbackHandoffReady: boolean[\s\S]*rollbackHandoffBlockers: string\[\][\s\S]*rollbackHandoffTarget: string/,
   );
   assert.match(
     graph,

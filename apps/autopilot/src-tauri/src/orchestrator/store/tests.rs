@@ -1027,6 +1027,32 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .unwrap_or(false));
     assert_eq!(
         binding
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("launchAuthorityReady"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert!(binding
+        .get("workerSessionRecord")
+        .and_then(|value| value.get("launchAuthorityBlockers"))
+        .and_then(|value| value.as_array())
+        .map(|items| items.is_empty())
+        .unwrap_or(false));
+    assert_eq!(
+        binding
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("rollbackHandoffReady"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert!(binding
+        .get("workerSessionRecord")
+        .and_then(|value| value.get("rollbackHandoffBlockers"))
+        .and_then(|value| value.as_array())
+        .map(|items| items.is_empty())
+        .unwrap_or(false));
+    assert_eq!(
+        binding
             .get("invalidWorkerAttachReceipt")
             .and_then(|value| value.get("accepted"))
             .and_then(|value| value.as_bool()),
@@ -1623,6 +1649,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         dispatch
             .get("workerSessionRecord")
             .and_then(|value| value.get("restoredFromPersistedSession"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("launchAuthorityReady"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("rollbackHandoffReady"))
             .and_then(|value| value.as_bool()),
         Some(true)
     );

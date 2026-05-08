@@ -892,6 +892,22 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
         "runtime_state_access_harness_worker_session_record"
     );
     assert!(session_record.persistence_blockers.is_empty());
+    assert!(!session_record.launch_authority_ready);
+    assert_eq!(
+        session_record.launch_authority_source,
+        "persisted_harness_worker_session_record"
+    );
+    assert!(session_record
+        .launch_authority_blockers
+        .contains(&"worker_session_not_persisted".to_string()));
+    assert!(!session_record.rollback_handoff_ready);
+    assert_eq!(
+        session_record.rollback_handoff_target,
+        record.rollback_target
+    );
+    assert!(session_record
+        .rollback_handoff_blockers
+        .contains(&"worker_session_not_persisted".to_string()));
     assert!(session_record
         .persistence_key
         .starts_with("agent::harness_worker_session::"));

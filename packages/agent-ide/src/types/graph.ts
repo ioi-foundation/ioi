@@ -2632,6 +2632,12 @@ export interface WorkflowHarnessWorkerSessionRecord {
   restoredFromPersistedSession: boolean;
   runtimeCheckpointSource: string;
   persistenceBlockers: string[];
+  launchAuthorityReady: boolean;
+  launchAuthorityBlockers: string[];
+  launchAuthoritySource: string;
+  rollbackHandoffReady: boolean;
+  rollbackHandoffBlockers: string[];
+  rollbackHandoffTarget: string;
   createdAtMs?: number;
 }
 

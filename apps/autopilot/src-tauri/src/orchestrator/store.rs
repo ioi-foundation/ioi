@@ -1798,6 +1798,16 @@ fn runtime_harness_worker_session_record(
     } else {
         blockers.clone()
     };
+    let launch_authority_blockers = if accepted {
+        Vec::<String>::new()
+    } else {
+        blockers.clone()
+    };
+    let rollback_handoff_blockers = if accepted {
+        Vec::<String>::new()
+    } else {
+        blockers.clone()
+    };
 
     json!({
         "schemaVersion": "workflow.harness.worker-session.v1",
@@ -1836,7 +1846,13 @@ fn runtime_harness_worker_session_record(
         "persistedInRuntimeCheckpoint": accepted,
         "restoredFromPersistedSession": accepted,
         "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
-        "persistenceBlockers": persistence_blockers
+        "persistenceBlockers": persistence_blockers,
+        "launchAuthorityReady": accepted,
+        "launchAuthorityBlockers": launch_authority_blockers,
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": accepted,
+        "rollbackHandoffBlockers": rollback_handoff_blockers,
+        "rollbackHandoffTarget": rollback_target
     })
 }
 

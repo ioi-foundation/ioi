@@ -535,6 +535,246 @@ fn harness_worker_session_record_key_label(session_record_id: &str) -> String {
     )
 }
 
+fn harness_component_version_sets_match(
+    left: &[ioi_types::app::HarnessComponentVersionBinding],
+    right: &[ioi_types::app::HarnessComponentVersionBinding],
+) -> bool {
+    let left = left
+        .iter()
+        .map(|binding| (&binding.component_id, &binding.component_version))
+        .collect::<BTreeMap<_, _>>();
+    let right = right
+        .iter()
+        .map(|binding| (&binding.component_id, &binding.component_version))
+        .collect::<BTreeMap<_, _>>();
+    left == right
+}
+
+fn harness_worker_session_authority_required(service: &RuntimeAgentService) -> bool {
+    service.harness_execution_mode() == HarnessExecutionMode::Live
+        && service
+            .harness_worker_binding_registry_record()
+            .binding_status
+            == HarnessWorkerBindingStatus::Bound
+}
+
+fn expected_harness_worker_id(service: &RuntimeAgentService, child_session_id: [u8; 32]) -> String {
+    let registry = service.harness_worker_binding_registry_record();
+    format!(
+        "harness-worker:{}:{}:{}",
+        registry.workflow_id,
+        registry.activation_id,
+        hex::encode(child_session_id)
+    )
+}
+
+fn expected_harness_worker_session_record_id(
+    service: &RuntimeAgentService,
+    child_session_id: [u8; 32],
+) -> String {
+    let registry = service.harness_worker_binding_registry_record();
+    format!(
+        "harness-worker-session:{}:{}:{}:{}:{}",
+        registry.workflow_id,
+        registry.activation_id,
+        registry.activation_hash,
+        expected_harness_worker_id(service, child_session_id),
+        hex::encode(child_session_id)
+    )
+}
+
+fn harness_worker_session_launch_authority_blockers(
+    service: &RuntimeAgentService,
+    child_session_id: [u8; 32],
+    assignment: &WorkerAssignment,
+    record: &HarnessWorkerSessionRecord,
+) -> Vec<String> {
+    let registry = service.harness_worker_binding_registry_record();
+    let session_id = hex::encode(child_session_id);
+    let expected_worker_id = expected_harness_worker_id(service, child_session_id);
+    let expected_record_id = expected_harness_worker_session_record_id(service, child_session_id);
+    let mut blockers = Vec::<String>::new();
+
+    if record.schema_version != "workflow.harness.worker-session.v1" {
+        blockers.push("worker_session_schema_mismatch".to_string());
+    }
+    if record.session_id != session_id {
+        blockers.push("worker_session_id_mismatch".to_string());
+    }
+    if record.worker_id != expected_worker_id {
+        blockers.push("worker_session_worker_id_mismatch".to_string());
+    }
+    if record.session_record_id != expected_record_id {
+        blockers.push("worker_session_record_id_mismatch".to_string());
+    }
+    if assignment.assigned_session_id != Some(child_session_id) {
+        blockers.push("worker_session_assignment_session_mismatch".to_string());
+    }
+    if assignment.step_key.trim().is_empty() {
+        blockers.push("worker_session_assignment_step_key_missing".to_string());
+    }
+    if !assignment.step_key.trim().is_empty()
+        && !record
+            .evidence_refs
+            .iter()
+            .any(|reference| reference == &assignment.step_key)
+    {
+        blockers.push("worker_session_assignment_step_key_unlinked".to_string());
+    }
+    if record.workflow_id != registry.workflow_id {
+        blockers.push("worker_session_workflow_mismatch".to_string());
+    }
+    if record.activation_id != registry.activation_id {
+        blockers.push("worker_session_activation_mismatch".to_string());
+    }
+    if record.activation_hash != registry.activation_hash {
+        blockers.push("worker_session_activation_hash_mismatch".to_string());
+    }
+    if record.harness_hash != registry.harness_hash {
+        blockers.push("worker_session_harness_hash_mismatch".to_string());
+    }
+    if !harness_component_version_sets_match(
+        &record.component_version_set,
+        &registry.component_version_set,
+    ) {
+        blockers.push("worker_session_component_version_set_mismatch".to_string());
+    }
+    if record.rollback_target != registry.rollback_target {
+        blockers.push("worker_session_rollback_target_mismatch".to_string());
+    }
+    if record.readiness_proof_id != registry.readiness_proof_id {
+        blockers.push("worker_session_readiness_proof_mismatch".to_string());
+    }
+    if record.registry_record_id != registry.registry_record_id {
+        blockers.push("worker_session_registry_record_mismatch".to_string());
+    }
+    if registry.binding_status != HarnessWorkerBindingStatus::Bound {
+        blockers.push("worker_session_registry_not_bound".to_string());
+    }
+    if service.harness_execution_mode() != HarnessExecutionMode::Live {
+        blockers.push("worker_session_binding_not_live".to_string());
+    }
+    if record.current_status == HarnessWorkerSessionStatus::Blocked {
+        blockers.push("worker_session_blocked".to_string());
+    }
+    if !record.accepted {
+        blockers.push("worker_session_not_accepted".to_string());
+    }
+    if !record.blockers.is_empty() {
+        blockers.push("worker_session_has_blockers".to_string());
+    }
+    if !record.persisted_in_runtime_checkpoint {
+        blockers.push("worker_session_not_persisted".to_string());
+    }
+    if record.persistence_key != harness_worker_session_key_label(child_session_id) {
+        blockers.push("worker_session_persistence_key_mismatch".to_string());
+    }
+    if record.record_persistence_key
+        != harness_worker_session_record_key_label(&record.session_record_id)
+    {
+        blockers.push("worker_session_record_persistence_key_mismatch".to_string());
+    }
+    if !record.persistence_blockers.is_empty() {
+        blockers.push("worker_session_persistence_blocked".to_string());
+    }
+
+    blockers.sort();
+    blockers.dedup();
+    blockers
+}
+
+fn harness_worker_session_rollback_handoff_blockers(
+    launch_blockers: &[String],
+    record: &HarnessWorkerSessionRecord,
+) -> Vec<String> {
+    let mut blockers = Vec::<String>::new();
+    if !launch_blockers.is_empty() {
+        blockers.push("worker_session_launch_authority_blocked".to_string());
+    }
+    if record.current_status != HarnessWorkerSessionStatus::RollbackReady {
+        blockers.push("worker_session_not_rollback_ready".to_string());
+    }
+    if !record.resumed {
+        blockers.push("worker_session_not_resumed".to_string());
+    }
+    if !record.rollback_available {
+        blockers.push("worker_session_rollback_not_available".to_string());
+    }
+    if !record.rollback_target_ready {
+        blockers.push("worker_session_rollback_target_not_ready".to_string());
+    }
+    if record.rollback_target.trim().is_empty() {
+        blockers.push("worker_session_rollback_target_missing".to_string());
+    }
+    if record
+        .rollback_event_id
+        .as_deref()
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_session_rollback_event_missing".to_string());
+    }
+    if record
+        .lifecycle_statuses
+        .iter()
+        .all(|status| *status != ioi_types::app::HarnessWorkerAttachStatus::RolledBack)
+    {
+        blockers.push("worker_session_rollback_lifecycle_missing".to_string());
+    }
+    if record.receipt_ids.is_empty() {
+        blockers.push("worker_session_receipts_missing".to_string());
+    }
+
+    blockers.sort();
+    blockers.dedup();
+    blockers
+}
+
+fn stamp_harness_worker_session_authority(
+    service: &RuntimeAgentService,
+    child_session_id: [u8; 32],
+    assignment: &WorkerAssignment,
+    mut record: HarnessWorkerSessionRecord,
+) -> HarnessWorkerSessionRecord {
+    let launch_blockers = harness_worker_session_launch_authority_blockers(
+        service,
+        child_session_id,
+        assignment,
+        &record,
+    );
+    let rollback_blockers =
+        harness_worker_session_rollback_handoff_blockers(&launch_blockers, &record);
+    record.launch_authority_ready = launch_blockers.is_empty();
+    record.launch_authority_blockers = launch_blockers;
+    record.launch_authority_source = "persisted_harness_worker_session_record".to_string();
+    record.rollback_handoff_ready = rollback_blockers.is_empty();
+    record.rollback_handoff_blockers = rollback_blockers;
+    record.rollback_handoff_target = record.rollback_target.clone();
+    record
+}
+
+fn enforce_harness_worker_session_authority(
+    service: &RuntimeAgentService,
+    record: &HarnessWorkerSessionRecord,
+) -> Result<(), String> {
+    if !harness_worker_session_authority_required(service) {
+        return Ok(());
+    }
+    if record.launch_authority_ready && record.rollback_handoff_ready {
+        return Ok(());
+    }
+    let mut blockers = Vec::<String>::new();
+    blockers.extend(record.launch_authority_blockers.iter().cloned());
+    blockers.extend(record.rollback_handoff_blockers.iter().cloned());
+    blockers.sort();
+    blockers.dedup();
+    Err(format!(
+        "ERROR_CLASS=UnexpectedState worker_session_launch_authority_blocked session_record_id={} blockers={}",
+        record.session_record_id,
+        blockers.join(",")
+    ))
+}
+
 pub(crate) fn harness_worker_session_record_for_assignment(
     service: &RuntimeAgentService,
     child_session_id: [u8; 32],
@@ -567,6 +807,12 @@ pub(crate) fn harness_worker_session_record_for_assignment(
     } else {
         record.blockers.clone()
     };
+    record.launch_authority_ready = false;
+    record.launch_authority_blockers = vec!["worker_session_not_persisted".to_string()];
+    record.launch_authority_source = "persisted_harness_worker_session_record".to_string();
+    record.rollback_handoff_ready = false;
+    record.rollback_handoff_blockers = vec!["worker_session_not_persisted".to_string()];
+    record.rollback_handoff_target = record.rollback_target.clone();
     record.evidence_refs.push(session_id);
     record.evidence_refs.push(assignment.step_key.clone());
     if let Some(workflow_id) = assignment.workflow_id.as_ref() {
@@ -593,7 +839,6 @@ pub(crate) fn persist_harness_worker_session_record(
     persisted.record_persistence_key =
         harness_worker_session_record_key_label(&persisted.session_record_id);
     persisted.persisted_in_runtime_checkpoint = true;
-    persisted.restored_from_persisted_session = false;
     persisted.runtime_checkpoint_source =
         "runtime_state_access_harness_worker_session_record".to_string();
     persisted.persistence_blockers = if persisted.accepted {
@@ -672,13 +917,22 @@ pub(crate) fn ensure_harness_worker_session_record(
     child_session_id: [u8; 32],
     assignment: &WorkerAssignment,
 ) -> Result<(HarnessWorkerSessionRecord, bool), String> {
-    if let Some(record) = load_harness_worker_session_record(state, child_session_id)? {
-        return Ok((record, true));
-    }
+    let (record, restored) =
+        if let Some(record) = load_harness_worker_session_record(state, child_session_id)? {
+            (record, true)
+        } else {
+            let record =
+                harness_worker_session_record_for_assignment(service, child_session_id, assignment);
+            (
+                persist_harness_worker_session_record(state, child_session_id, &record)?,
+                false,
+            )
+        };
     let record =
-        harness_worker_session_record_for_assignment(service, child_session_id, assignment);
+        stamp_harness_worker_session_authority(service, child_session_id, assignment, record);
     let persisted = persist_harness_worker_session_record(state, child_session_id, &record)?;
-    Ok((persisted, false))
+    enforce_harness_worker_session_authority(service, &persisted)?;
+    Ok((persisted, restored))
 }
 
 pub(crate) fn restore_harness_worker_session_record(
@@ -715,6 +969,30 @@ pub(crate) fn restore_harness_worker_session_record(
             )
         })?;
     Ok(Some(record))
+}
+
+pub(crate) fn restore_harness_worker_session_record_with_authority(
+    service: &RuntimeAgentService,
+    state: &mut dyn StateAccess,
+    child_session_id: [u8; 32],
+) -> Result<Option<HarnessWorkerSessionRecord>, String> {
+    let Some(record) = restore_harness_worker_session_record(state, child_session_id)? else {
+        return Ok(None);
+    };
+    let Some(assignment) = load_worker_assignment(state, child_session_id)? else {
+        if harness_worker_session_authority_required(service) {
+            return Err(format!(
+                "ERROR_CLASS=UnexpectedState worker_session_launch_authority_blocked session_record_id={} blockers=worker_session_assignment_missing",
+                record.session_record_id
+            ));
+        }
+        return Ok(Some(record));
+    };
+    let record =
+        stamp_harness_worker_session_authority(service, child_session_id, &assignment, record);
+    let persisted = persist_harness_worker_session_record(state, child_session_id, &record)?;
+    enforce_harness_worker_session_authority(service, &persisted)?;
+    Ok(Some(persisted))
 }
 
 pub(crate) fn load_worker_session_result(

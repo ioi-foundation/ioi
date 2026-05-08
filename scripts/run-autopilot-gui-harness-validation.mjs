@@ -740,6 +740,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               workerId: binding.workerSessionRecord.workerId ?? null,
               workflowId: binding.workerSessionRecord.workflowId ?? null,
               activationId: binding.workerSessionRecord.activationId ?? null,
+              activationHash:
+                binding.workerSessionRecord.activationHash ?? null,
+              harnessHash: binding.workerSessionRecord.harnessHash ?? null,
+              rollbackTarget:
+                binding.workerSessionRecord.rollbackTarget ?? null,
+              readinessProofId:
+                binding.workerSessionRecord.readinessProofId ?? null,
               registryRecordId:
                 binding.workerSessionRecord.registryRecordId ?? null,
               currentStatus: binding.workerSessionRecord.currentStatus ?? null,
@@ -771,6 +778,24 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               )
                 ? binding.workerSessionRecord.persistenceBlockers
                 : null,
+              launchAuthorityReady:
+                binding.workerSessionRecord.launchAuthorityReady ?? null,
+              launchAuthorityBlockers: Array.isArray(
+                binding.workerSessionRecord.launchAuthorityBlockers,
+              )
+                ? binding.workerSessionRecord.launchAuthorityBlockers
+                : null,
+              launchAuthoritySource:
+                binding.workerSessionRecord.launchAuthoritySource ?? null,
+              rollbackHandoffReady:
+                binding.workerSessionRecord.rollbackHandoffReady ?? null,
+              rollbackHandoffBlockers: Array.isArray(
+                binding.workerSessionRecord.rollbackHandoffBlockers,
+              )
+                ? binding.workerSessionRecord.rollbackHandoffBlockers
+                : null,
+              rollbackHandoffTarget:
+                binding.workerSessionRecord.rollbackHandoffTarget ?? null,
             }
           : null,
       invalidWorkerAttachReceipt:
@@ -868,6 +893,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         "runtime_state_access_harness_worker_session_record" &&
       Array.isArray(binding.workerSessionRecord?.persistenceBlockers) &&
       binding.workerSessionRecord.persistenceBlockers.length === 0 &&
+      binding.workerSessionRecord?.launchAuthorityReady === true &&
+      Array.isArray(binding.workerSessionRecord?.launchAuthorityBlockers) &&
+      binding.workerSessionRecord.launchAuthorityBlockers.length === 0 &&
+      binding.workerSessionRecord?.launchAuthoritySource ===
+        "persisted_harness_worker_session_record" &&
+      binding.workerSessionRecord?.rollbackHandoffReady === true &&
+      Array.isArray(binding.workerSessionRecord?.rollbackHandoffBlockers) &&
+      binding.workerSessionRecord.rollbackHandoffBlockers.length === 0 &&
+      binding.workerSessionRecord?.rollbackHandoffTarget ===
+        binding.workerSessionRecord?.rollbackTarget &&
       binding.invalidWorkerAttachBlocked === true &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
@@ -2827,7 +2862,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         rail,
       ),
     workerSessionCheckpointUi:
-      /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\]/.test(
+      /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\][\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityBlockers: string\[\][\s\S]*launchAuthoritySource: string[\s\S]*rollbackHandoffReady: boolean[\s\S]*rollbackHandoffBlockers: string\[\][\s\S]*rollbackHandoffTarget: string/.test(
         graph,
       ) &&
       /data-worker-session-persistence-key/.test(rail) &&
@@ -2835,8 +2870,12 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-worker-session-persisted/.test(rail) &&
       /data-worker-session-restored/.test(rail) &&
       /data-worker-session-checkpoint-source/.test(rail) &&
+      /data-worker-session-launch-authority-ready/.test(rail) &&
+      /data-worker-session-rollback-handoff-ready/.test(rail) &&
       /worker_session_not_persisted/.test(harnessWorkflow) &&
-      /worker_session_not_restored/.test(harnessWorkflow),
+      /worker_session_not_restored/.test(harnessWorkflow) &&
+      /worker_session_launch_authority_not_ready/.test(harnessWorkflow) &&
+      /worker_session_rollback_handoff_not_ready/.test(harnessWorkflow),
     rollbackExecutionReceiptRefs:
       /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(
         graph,
@@ -3407,6 +3446,16 @@ function buildGuiEvidenceAssessment({
           "runtime_state_access_harness_worker_session_record" &&
         Array.isArray(binding.workerSessionRecord?.persistenceBlockers) &&
         binding.workerSessionRecord.persistenceBlockers.length === 0 &&
+        binding.workerSessionRecord?.launchAuthorityReady === true &&
+        Array.isArray(binding.workerSessionRecord?.launchAuthorityBlockers) &&
+        binding.workerSessionRecord.launchAuthorityBlockers.length === 0 &&
+        binding.workerSessionRecord?.launchAuthoritySource ===
+          "persisted_harness_worker_session_record" &&
+        binding.workerSessionRecord?.rollbackHandoffReady === true &&
+        Array.isArray(binding.workerSessionRecord?.rollbackHandoffBlockers) &&
+        binding.workerSessionRecord.rollbackHandoffBlockers.length === 0 &&
+        binding.workerSessionRecord?.rollbackHandoffTarget ===
+          binding.workerSessionRecord?.rollbackTarget &&
         binding.invalidWorkerAttachBlocked === true &&
         binding.selectorLivePromotionReadinessProofId ===
           workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
@@ -4477,6 +4526,16 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         "runtime_state_access_harness_worker_session_record" &&
       Array.isArray(workerSessionRecord?.persistenceBlockers) &&
       workerSessionRecord.persistenceBlockers.length === 0 &&
+      workerSessionRecord?.launchAuthorityReady === true &&
+      Array.isArray(workerSessionRecord?.launchAuthorityBlockers) &&
+      workerSessionRecord.launchAuthorityBlockers.length === 0 &&
+      workerSessionRecord?.launchAuthoritySource ===
+        "persisted_harness_worker_session_record" &&
+      workerSessionRecord?.rollbackHandoffReady === true &&
+      Array.isArray(workerSessionRecord?.rollbackHandoffBlockers) &&
+      workerSessionRecord.rollbackHandoffBlockers.length === 0 &&
+      workerSessionRecord?.rollbackHandoffTarget ===
+        workerSessionRecord?.rollbackTarget &&
       Array.isArray(workerSessionRecord?.lifecycleAttemptIds) &&
       workerSessionRecord.lifecycleAttemptIds.length >= 3 &&
       workerSessionRecord.lifecycleAttemptIds.every(
@@ -5011,6 +5070,30 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
                   )
                     ? defaultDispatch.workerSessionRecord.persistenceBlockers
                     : [],
+                  launchAuthorityReady:
+                    defaultDispatch.workerSessionRecord.launchAuthorityReady ??
+                    null,
+                  launchAuthorityBlockers: Array.isArray(
+                    defaultDispatch.workerSessionRecord.launchAuthorityBlockers,
+                  )
+                    ? defaultDispatch.workerSessionRecord
+                        .launchAuthorityBlockers
+                    : [],
+                  launchAuthoritySource:
+                    defaultDispatch.workerSessionRecord.launchAuthoritySource ??
+                    null,
+                  rollbackHandoffReady:
+                    defaultDispatch.workerSessionRecord.rollbackHandoffReady ??
+                    null,
+                  rollbackHandoffBlockers: Array.isArray(
+                    defaultDispatch.workerSessionRecord.rollbackHandoffBlockers,
+                  )
+                    ? defaultDispatch.workerSessionRecord
+                        .rollbackHandoffBlockers
+                    : [],
+                  rollbackHandoffTarget:
+                    defaultDispatch.workerSessionRecord.rollbackHandoffTarget ??
+                    null,
                 }
               : null,
             workerSessionRecordBound,
@@ -5097,6 +5180,24 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             )
               ? workerSessionRecord.persistenceBlockers
               : [],
+            launchAuthorityReady:
+              workerSessionRecord.launchAuthorityReady ?? null,
+            launchAuthorityBlockers: Array.isArray(
+              workerSessionRecord.launchAuthorityBlockers,
+            )
+              ? workerSessionRecord.launchAuthorityBlockers
+              : [],
+            launchAuthoritySource:
+              workerSessionRecord.launchAuthoritySource ?? null,
+            rollbackHandoffReady:
+              workerSessionRecord.rollbackHandoffReady ?? null,
+            rollbackHandoffBlockers: Array.isArray(
+              workerSessionRecord.rollbackHandoffBlockers,
+            )
+              ? workerSessionRecord.rollbackHandoffBlockers
+              : [],
+            rollbackHandoffTarget:
+              workerSessionRecord.rollbackHandoffTarget ?? null,
             evidenceRefs: workerSessionRecord.evidenceRefs ?? [],
           }
         : null,

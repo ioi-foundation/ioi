@@ -3172,6 +3172,26 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeBinding.workerSessionRecord
                       ?.runtimeCheckpointSource ?? ""
                   }
+                  data-worker-session-launch-authority-ready={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.launchAuthorityReady
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-session-launch-authority-source={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.launchAuthoritySource ?? ""
+                  }
+                  data-worker-session-rollback-handoff-ready={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.rollbackHandoffReady
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-session-rollback-handoff-target={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.rollbackHandoffTarget ?? ""
+                  }
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -3222,6 +3242,18 @@ export function WorkflowRailPanel({
                       ?.restoredFromPersistedSession
                       ? "restored"
                       : "not restored"}
+                  </small>
+                  <small>
+                    launch{" "}
+                    {harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.launchAuthorityReady
+                      ? "authoritative"
+                      : "blocked"}{" "}
+                    / rollback{" "}
+                    {harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.rollbackHandoffReady
+                      ? "handoff ready"
+                      : "handoff blocked"}
                   </small>
                 </article>
                 <div
@@ -4887,6 +4919,26 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerSessionRecord
                     ?.runtimeCheckpointSource ?? ""
                 }
+                data-worker-session-launch-authority-ready={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.launchAuthorityReady
+                    ? "true"
+                    : "false"
+                }
+                data-worker-session-launch-authority-source={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.launchAuthoritySource ?? ""
+                }
+                data-worker-session-rollback-handoff-ready={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.rollbackHandoffReady
+                    ? "true"
+                    : "false"
+                }
+                data-worker-session-rollback-handoff-target={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.rollbackHandoffTarget ?? ""
+                }
               >
                 <strong>
                   {harnessDefaultRuntimeDispatchProof.selectedSelector}
@@ -4927,6 +4979,18 @@ export function WorkflowRailPanel({
                     ?.restoredFromPersistedSession
                     ? "restored"
                     : "not restored"}
+                </small>
+                <small>
+                  launch{" "}
+                  {harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.launchAuthorityReady
+                    ? "authoritative"
+                    : "blocked"}{" "}
+                  / rollback{" "}
+                  {harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.rollbackHandoffReady
+                    ? "handoff ready"
+                    : "handoff blocked"}
                 </small>
               </article>
             ) : null}
