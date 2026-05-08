@@ -1,0 +1,286 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-harness.promotion-transition-live-gui-interaction.v1",
+  "passed": true,
+  "method": "launch live Workflows desktop surface, run dev-only harness promotion interaction bridge, verify saved workflow state and screenshot",
+  "checks": {
+    "desktopWindowOpened": true,
+    "proofWorkflowSaved": true,
+    "blockedAttemptPresent": true,
+    "gatedAttemptPromoted": true,
+    "liveAttemptPromoted": true,
+    "clusterPromotedLive": true,
+    "runtimeSelectorDefaultPromoted": true,
+    "liveHandoffTransferred": true,
+    "defaultDispatchBound": true,
+    "activeWorkerBinding": true,
+    "routeStatefulActiveRuntimeBindingDeepLinks": true,
+    "auditRecordedBlockedAndPromoted": true,
+    "screenshotCaptured": true
+  },
+  "proofWorkflowPath": "/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json",
+  "proofWorkflowEvidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-gui-harness-validation/2026-05-08T02-44-35-750Z/promotion-transition-live-gui-workflow.json",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-gui-harness-validation/2026-05-08T02-44-35-750Z/promotion_transition_live_gui_interaction.png",
+  "screenshotError": null,
+  "liveWorkflowError": null,
+  "clusters": [
+    {
+      "clusterId": "cognition",
+      "promotionStatus": "live",
+      "label": "Cognition"
+    },
+    {
+      "clusterId": "routing_model",
+      "promotionStatus": "live",
+      "label": "Routing and model"
+    },
+    {
+      "clusterId": "verification_output",
+      "promotionStatus": "live",
+      "label": "Verification and output"
+    },
+    {
+      "clusterId": "authority_tooling",
+      "promotionStatus": "live",
+      "label": "Authority and tooling"
+    }
+  ],
+  "runtimeSelector": {
+    "decisionId": "harness-selector:default-agent-harness:live-gui-default",
+    "workflowId": "default-agent-harness",
+    "activationId": "activation:default-agent-harness:blessed-readonly",
+    "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+    "selectedSelector": "blessed_workflow_live_default",
+    "productionDefaultSelector": "blessed_workflow_live_default",
+    "executionMode": "live",
+    "actualRuntimeAuthority": "blessed_workflow_activation_default",
+    "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+    "rollbackAvailable": true,
+    "defaultPromotionGate": {
+      "activationBlockers": [],
+      "configKey": "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
+      "defaultAuthorityTransferred": true,
+      "eligible": true,
+      "enabled": true,
+      "nonMutatingOnly": true,
+      "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "selector": "blessed_workflow_live_default"
+    }
+  },
+  "liveHandoff": {
+    "workflowId": "default-agent-harness",
+    "activationId": "activation:default-agent-harness:blessed-readonly",
+    "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+    "selector": "blessed_workflow_live_default",
+    "productionDefaultSelector": "blessed_workflow_live_default",
+    "defaultAuthorityTransferred": true,
+    "runtimeAuthority": "blessed_workflow_activation_default",
+    "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+    "rollbackAvailable": true,
+    "activationBlockerCount": 0
+  },
+  "defaultDispatch": {
+    "dispatchId": "harness-default-dispatch:default-agent-harness:readonly",
+    "selectorDecisionId": "harness-selector:default-agent-harness:live-gui-default",
+    "workflowId": "default-agent-harness",
+    "activationId": "activation:default-agent-harness:blessed-readonly",
+    "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+    "selectedSelector": "blessed_workflow_live_default",
+    "productionDefaultSelector": "blessed_workflow_live_default",
+    "executionMode": "live",
+    "runtimeAuthority": "blessed_workflow_activation_default",
+    "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+    "rollbackAvailable": true,
+    "drivesRuntimeDecision": true,
+    "acceptedClusterIds": [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling"
+    ]
+  },
+  "attempts": [
+    {
+      "clusterId": "cognition",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "routing_model",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "verification_output",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "authority_tooling",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_readiness_below_shadow_ready",
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "cognition",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "routing_model",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 4,
+      "replayFixtureRefCount": 4
+    },
+    {
+      "clusterId": "verification_output",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "authority_tooling",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 9,
+      "replayFixtureRefCount": 9
+    },
+    {
+      "clusterId": "cognition",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "routing_model",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 4,
+      "replayFixtureRefCount": 4
+    },
+    {
+      "clusterId": "verification_output",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "authority_tooling",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 9,
+      "replayFixtureRefCount": 9
+    }
+  ],
+  "uiSelectors": {
+    "groupInspector": "workflow-harness-group-inspector",
+    "promotionActions": "workflow-harness-group-promotion-actions",
+    "promoteClusterGated": "workflow-harness-promote-cluster-gated",
+    "promoteClusterLive": "workflow-harness-promote-cluster-live",
+    "promotionAttempt": "workflow-harness-group-promotion-attempt",
+    "runtimeSelectorBadge": "workflow-harness-runtime-selector",
+    "defaultDispatchPanel": "workflow-harness-default-runtime-dispatch",
+    "activeRuntimeBinding": "workflow-harness-active-runtime-binding",
+    "activeRuntimeBindingSelectorLink": "workflow-harness-active-runtime-binding-selector-link",
+    "activeRuntimeBindingDispatchLink": "workflow-harness-active-runtime-binding-dispatch-link",
+    "activeRuntimeBindingWorkerLink": "workflow-harness-active-runtime-binding-worker-link",
+    "activeRuntimeBindingRollbackLink": "workflow-harness-active-runtime-binding-rollback-link"
+  },
+  "routeStatefulDeepLinks": {
+    "selector": "#harness-workbench?panel=settings&selectorDecisionId=harness-selector%3Adefault-agent-harness%3Alive-gui-default",
+    "dispatch": "#harness-workbench?panel=settings&dispatchId=harness-default-dispatch%3Adefault-agent-harness%3Areadonly",
+    "worker": "#harness-workbench?panel=settings&workerBindingId=activation%3Adefault-agent-harness%3Ablessed-readonly",
+    "rollback": "#harness-workbench?panel=settings&rollbackTarget=activation%3Adefault-agent-harness%3Ablessed-readonly",
+    "receipt": "#harness-workbench?panel=outputs&receiptRef=default%3Aharness.planner%3Aworkflow-node-execution",
+    "replay": "#harness-workbench?panel=outputs&replayFixtureRef=runtime-evidence%3Adefault%3Acanary-fixture%3Aplanner"
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/WorkflowComposer/support.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+    "packages/agent-ide/src/runtime/harness-workflow.ts"
+  ]
+}
