@@ -72,6 +72,17 @@ pub enum HarnessReplayDeterminism {
     Disabled,
 }
 
+impl HarnessReplayDeterminism {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Deterministic => "deterministic",
+            Self::Nondeterministic => "nondeterministic",
+            Self::Redacted => "redacted",
+            Self::Disabled => "disabled",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct HarnessReplayEnvelope {
     pub deterministic_envelope: bool,
@@ -94,6 +105,20 @@ pub enum HarnessNodeAttemptStatus {
     Succeeded,
     Failed,
     Blocked,
+}
+
+impl HarnessNodeAttemptStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Projection => "projection",
+            Self::Shadow => "shadow",
+            Self::Gated => "gated",
+            Self::Live => "live",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Blocked => "blocked",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -1455,8 +1480,8 @@ fn component_readiness(kind: HarnessComponentKind) -> HarnessComponentReadiness 
     match kind {
         HarnessComponentKind::Planner
         | HarnessComponentKind::PromptAssembler
-        | HarnessComponentKind::TaskState
-        | HarnessComponentKind::UncertaintyGate
+        | HarnessComponentKind::TaskState => HarnessComponentReadiness::LiveReady,
+        HarnessComponentKind::UncertaintyGate
         | HarnessComponentKind::BudgetGate
         | HarnessComponentKind::CapabilitySequencer
         | HarnessComponentKind::ModelRouter
@@ -3229,6 +3254,81 @@ pub fn harness_node_attempt_record_from_camel_value(
         receipt_ids: harness_string_array(attempt.get("receiptIds")),
         evidence_refs: harness_string_array(attempt.get("evidenceRefs")),
         replay: harness_replay_envelope_from_camel_value(attempt.get("replay")),
+    })
+}
+
+pub fn harness_replay_envelope_camel_value(replay: &HarnessReplayEnvelope) -> Value {
+    json!({
+        "deterministicEnvelope": replay.deterministic_envelope,
+        "capturesInput": replay.captures_input,
+        "capturesOutput": replay.captures_output,
+        "capturesPolicyDecision": replay.captures_policy_decision,
+        "fixtureRef": &replay.fixture_ref,
+        "determinism": replay.determinism.as_str(),
+        "nondeterminismReason": &replay.nondeterminism_reason,
+        "redactionPolicy": &replay.redaction_policy,
+    })
+}
+
+pub fn harness_node_attempt_record_camel_value(attempt: &HarnessNodeAttemptRecord) -> Value {
+    json!({
+        "attemptId": &attempt.attempt_id,
+        "harnessWorkflowId": &attempt.harness_workflow_id,
+        "harnessActivationId": &attempt.harness_activation_id,
+        "harnessHash": &attempt.harness_hash,
+        "workflowNodeId": &attempt.workflow_node_id,
+        "componentId": &attempt.component_id,
+        "componentKind": attempt.component_kind.as_str(),
+        "executionMode": attempt.execution_mode.as_str(),
+        "readiness": attempt.readiness.as_str(),
+        "attemptIndex": attempt.attempt_index,
+        "status": attempt.status.as_str(),
+        "inputHash": &attempt.input_hash,
+        "outputHash": &attempt.output_hash,
+        "errorClass": &attempt.error_class,
+        "policyDecision": &attempt.policy_decision,
+        "startedAtMs": attempt.started_at_ms,
+        "durationMs": attempt.duration_ms,
+        "receiptIds": &attempt.receipt_ids,
+        "evidenceRefs": &attempt.evidence_refs,
+        "replay": harness_replay_envelope_camel_value(&attempt.replay),
+    })
+}
+
+pub fn harness_action_frame_camel_value(frame: &HarnessActionFrame) -> Value {
+    json!({
+        "workflowId": &frame.workflow_id,
+        "workflowVersion": &frame.workflow_version,
+        "workflowHash": &frame.workflow_hash,
+        "executionMode": frame.execution_mode.as_str(),
+        "nodeId": &frame.node_id,
+        "componentId": &frame.component_id,
+        "componentVersion": &frame.component_version,
+        "componentKind": frame.component_kind.as_str(),
+        "readiness": frame.readiness.as_str(),
+        "kernelRef": &frame.kernel_ref,
+        "slotIds": &frame.slot_ids,
+        "deterministicEnvelope": frame.deterministic_envelope,
+        "replay": harness_replay_envelope_camel_value(&frame.replay),
+        "eventKinds": &frame.event_kinds,
+        "evidenceKeys": &frame.evidence_keys,
+    })
+}
+
+pub fn harness_component_adapter_result_camel_value(
+    result: &HarnessComponentAdapterResult,
+) -> Value {
+    json!({
+        "schemaVersion": &result.schema_version,
+        "invocationId": &result.invocation_id,
+        "actionFrame": harness_action_frame_camel_value(&result.action_frame),
+        "nodeAttempt": harness_node_attempt_record_camel_value(&result.node_attempt),
+        "slotIds": &result.slot_ids,
+        "resultHash": &result.result_hash,
+        "errorClass": &result.error_class,
+        "readiness": result.readiness.as_str(),
+        "receiptIds": &result.receipt_ids,
+        "replay": harness_replay_envelope_camel_value(&result.replay),
     })
 }
 

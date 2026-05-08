@@ -3,6 +3,7 @@ import type {
   WorkflowEdge,
   WorkflowHarnessCanaryExecutionBoundary,
   WorkflowHarnessClusterPromotionStatus,
+  WorkflowHarnessComponentAdapterResult,
   WorkflowHarnessComponentReadiness,
   WorkflowHarnessComponentKind,
   WorkflowHarnessComponentSpec,
@@ -2120,6 +2121,100 @@ export function makeHarnessRuntimeSelectorDecision(options: {
   };
 }
 
+const DEFAULT_COGNITION_ADAPTER_COMPONENTS: Array<{
+  kind: WorkflowHarnessComponentKind;
+  attemptSlug: string;
+  policyDecision: string;
+}> = [
+  {
+    kind: "planner",
+    attemptSlug: "planner_envelope",
+    policyDecision: "accept_workflow_planner_objective_envelope",
+  },
+  {
+    kind: "prompt_assembler",
+    attemptSlug: "prompt_assembler_envelope",
+    policyDecision: "accept_workflow_prompt_assembly_hash_envelope",
+  },
+  {
+    kind: "task_state",
+    attemptSlug: "task_state_envelope",
+    policyDecision: "accept_workflow_task_state_envelope",
+  },
+];
+
+function makeDefaultCognitionAdapterResult(
+  kind: WorkflowHarnessComponentKind,
+  attemptSlug: string,
+  policyDecision: string,
+  attemptIndex: number,
+): WorkflowHarnessComponentAdapterResult {
+  const component = componentFor(kind);
+  const replay = {
+    ...replayEnvelopeFor(component),
+    fixtureRef: `harness-default-dispatch:fixture-${attemptSlug}`,
+  };
+  const actionFrame = {
+    workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    workflowVersion: DEFAULT_AGENT_HARNESS_VERSION,
+    workflowHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: "live" as WorkflowHarnessExecutionMode,
+    nodeId: `harness.${kind}`,
+    componentId: component.componentId,
+    componentVersion: component.version,
+    componentKind: kind,
+    readiness: component.readiness,
+    kernelRef: component.kernelRef,
+    slotIds: slotIdsFor(kind),
+    deterministicEnvelope: replay.deterministicEnvelope,
+    replay,
+    eventKinds: component.emittedEvents,
+    evidenceKeys: component.evidence,
+  };
+  const receiptId = `harness-default-dispatch:receipt-${attemptSlug}`;
+  const outputHash = `sha256:${attemptSlug}`;
+  return {
+    schemaVersion: "workflow.harness.component-adapter-result.v1",
+    invocationId: `default-dispatch:${attemptSlug}`,
+    actionFrame,
+    nodeAttempt: {
+      attemptId: `${actionFrame.nodeId}:default-dispatch:${attemptSlug}`,
+      harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+      harnessActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+      workflowNodeId: actionFrame.nodeId,
+      componentId: actionFrame.componentId,
+      componentKind: kind,
+      executionMode: "live",
+      readiness: component.readiness,
+      attemptIndex,
+      status: "live",
+      inputHash: `sha256:input-${attemptSlug}`,
+      outputHash,
+      policyDecision,
+      receiptIds: [receiptId],
+      evidenceRefs: [`runtime-evidence:default`, DEFAULT_AGENT_HARNESS_ACTIVATION_ID],
+      replay,
+    },
+    slotIds: actionFrame.slotIds,
+    resultHash: outputHash,
+    readiness: component.readiness,
+    receiptIds: [receiptId],
+    replay,
+  };
+}
+
+function makeDefaultCognitionAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_COGNITION_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultCognitionAdapterResult(
+      component.kind,
+      component.attemptSlug,
+      component.policyDecision,
+      index + 1,
+    ),
+  );
+}
+
 export function makeHarnessDefaultRuntimeDispatchProof(options: {
   dispatchId?: string;
   selectorDecisionId?: string;
@@ -2173,6 +2268,13 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "model-binding:default-agent-harness:workflow-default-model-route";
   const modelExecutionPromptHash = promptAssemblyPromptHash;
   const modelExecutionOutputHash = actualVisibleOutputHash;
+  const cognitionExecutionAdapterResults = makeDefaultCognitionAdapterResults();
+  const cognitionExecutionActionFrameIds = cognitionExecutionAdapterResults.map(
+    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+  );
+  const cognitionExecutionLiveReadyComponentKinds = cognitionExecutionAdapterResults.map(
+    (result) => result.actionFrame.componentKind,
+  );
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -2368,6 +2470,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       "harness-default-dispatch:fixture-prompt_assembler_envelope",
       "harness-default-dispatch:fixture-task_state_envelope",
     ],
+    cognitionExecutionAdapterMode: "workflow_component_adapter_live",
+    cognitionExecutionAdapterResults,
+    cognitionExecutionActionFrameIds,
+    cognitionExecutionLiveReadyComponentKinds,
     modelExecutionAttemptIds: [
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -2603,6 +2709,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     cognitionExecutionProof: {
       schemaVersion: "workflow.harness.cognition-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
+      adapterMode: "workflow_component_adapter_live",
+      adapterResultCount: cognitionExecutionAdapterResults.length,
+      actionFrameIds: cognitionExecutionActionFrameIds,
+      liveReadyComponentKinds: cognitionExecutionLiveReadyComponentKinds,
       promptAssemblyMode: "workflow_synchronous_envelope",
       promptHash: promptAssemblyPromptHash,
       promptHashMatches: true,
@@ -3309,10 +3419,12 @@ export function makeHarnessCanaryExecutionBoundaries(): WorkflowHarnessCanaryExe
 
 const DEFAULT_HARNESS_EXECUTION_MODE: WorkflowHarnessExecutionMode = "projection";
 const DEFAULT_HARNESS_COMPONENT_READINESS: WorkflowHarnessComponentReadiness = "projection_only";
-const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
+const LIVE_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "planner",
   "prompt_assembler",
   "task_state",
+]);
+const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "uncertainty_gate",
   "budget_gate",
   "capability_sequencer",
@@ -3391,6 +3503,9 @@ function componentId(kind: WorkflowHarnessComponentKind): string {
 }
 
 function defaultReadinessForKind(kind: WorkflowHarnessComponentKind): WorkflowHarnessComponentReadiness {
+  if (LIVE_READY_HARNESS_COMPONENTS.has(kind)) {
+    return "live_ready";
+  }
   return SHADOW_READY_HARNESS_COMPONENTS.has(kind)
     ? "shadow_ready"
     : DEFAULT_HARNESS_COMPONENT_READINESS;

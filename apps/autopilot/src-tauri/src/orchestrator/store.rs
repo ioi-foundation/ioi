@@ -10,12 +10,14 @@ use crate::models::{
 use ioi_api::runtime_harness::extract_user_request_from_contextualized_intent;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::{MemoryRuntime, StoredTranscriptMessage, TranscriptPrivacyMetadata};
+use ioi_services::agentic::runtime::harness::invoke_default_harness_component;
 use ioi_types::app::{
     compare_harness_live_shadow_attempts, default_harness_default_runtime_dispatch_proof,
     default_harness_gated_cluster_run_for_shadow_run, default_harness_shadow_run_for_attempts,
-    harness_gated_cluster_run_camel_value, harness_node_attempt_record_from_camel_value,
-    harness_promotion_cluster_components, harness_shadow_comparison_camel_value,
-    runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, HarnessExecutionMode,
+    harness_component_adapter_result_camel_value, harness_gated_cluster_run_camel_value,
+    harness_node_attempt_record_from_camel_value, harness_promotion_cluster_components,
+    harness_shadow_comparison_camel_value, runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
+    HarnessComponentInvocation, HarnessComponentKind, HarnessExecutionMode,
     HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
     HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS, DEFAULT_AGENT_HARNESS_HASH,
@@ -4607,6 +4609,9 @@ fn runtime_harness_default_runtime_dispatch(
     let mut cognition_execution_attempt_ids = Vec::<String>::new();
     let mut cognition_execution_receipt_ids = Vec::<String>::new();
     let mut cognition_execution_replay_fixture_refs = Vec::<String>::new();
+    let mut cognition_execution_adapter_results = Vec::<Value>::new();
+    let mut cognition_execution_action_frame_ids = Vec::<String>::new();
+    let mut cognition_execution_live_ready_component_kinds = Vec::<String>::new();
     let mut model_execution_attempt_ids = Vec::<String>::new();
     let mut model_execution_receipt_ids = Vec::<String>::new();
     let mut model_execution_replay_fixture_refs = Vec::<String>::new();
@@ -4812,7 +4817,7 @@ fn runtime_harness_default_runtime_dispatch(
         let mut previous_cognition_output = Value::Null;
         let cognition_execution_specs = vec![
             (
-                "planner",
+                HarnessComponentKind::Planner,
                 "decision",
                 "Planner workflow objective envelope",
                 "planner_envelope",
@@ -4826,7 +4831,7 @@ fn runtime_harness_default_runtime_dispatch(
                 }),
             ),
             (
-                "prompt_assembler",
+                HarnessComponentKind::PromptAssembler,
                 "decision",
                 "Prompt assembler workflow prompt hash envelope",
                 "prompt_assembler_envelope",
@@ -4841,7 +4846,7 @@ fn runtime_harness_default_runtime_dispatch(
                 }),
             ),
             (
-                "task_state",
+                HarnessComponentKind::TaskState,
                 "task_state",
                 "Task state workflow turn envelope",
                 "task_state_envelope",
@@ -4871,6 +4876,7 @@ fn runtime_harness_default_runtime_dispatch(
         for (component_kind, node_type, node_name, attempt_slug, policy_decision, logic) in
             cognition_execution_specs
         {
+            let component_kind_label = component_kind.as_str();
             let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
             let attempt_id = format!(
                 "harness-default-dispatch:{sid}:{turn_id}:{attempt_slug}:attempt-{attempt_index}"
@@ -4884,7 +4890,7 @@ fn runtime_harness_default_runtime_dispatch(
                 "turnId": turn_id,
                 "selectorDecisionId": selector_decision_id,
                 "sourceBoundaryIds": source_boundary_ids,
-                "componentKind": component_kind,
+                "componentKind": component_kind_label,
                 "selectedStrategy": selected_strategy,
                 "selectedAction": selected_action,
                 "latestUserTurnHash": runtime_prompt_hash(&[latest_user_turn]),
@@ -4921,6 +4927,59 @@ fn runtime_harness_default_runtime_dispatch(
             match execution {
                 Ok(output) => {
                     let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let evidence_refs = vec![
+                        format!("runtime-evidence:{sid}"),
+                        selector_decision_id.clone(),
+                        format!("harness-live-handoff:{sid}:{}", task.progress),
+                    ];
+                    let adapter_result_value = match invoke_default_harness_component(
+                        HarnessComponentInvocation {
+                            invocation_id: format!(
+                                "default-dispatch:{sid}:{turn_id}:{attempt_slug}"
+                            ),
+                            component_kind,
+                            execution_mode: HarnessExecutionMode::Live,
+                            attempt_index,
+                            input_hash: Some(input_hash.clone()),
+                            output_hash: Some(output_hash.clone()),
+                            policy_decision: Some(policy_decision.to_string()),
+                            receipt_ids: vec![receipt_id.clone()],
+                            evidence_refs: evidence_refs.clone(),
+                            replay_fixture_ref: Some(replay_fixture_ref.clone()),
+                            started_at_ms: Some(started_at_ms),
+                            duration_ms: Some(duration_ms),
+                        },
+                    ) {
+                        Ok(adapter_result) => {
+                            cognition_execution_action_frame_ids.push(format!(
+                                "{}:{}",
+                                adapter_result.action_frame.node_id,
+                                adapter_result.action_frame.component_id
+                            ));
+                            cognition_execution_live_ready_component_kinds.push(
+                                adapter_result
+                                    .action_frame
+                                    .component_kind
+                                    .as_str()
+                                    .to_string(),
+                            );
+                            let value =
+                                harness_component_adapter_result_camel_value(&adapter_result);
+                            cognition_execution_adapter_results.push(value.clone());
+                            value
+                        }
+                        Err(error) => {
+                            activation_blockers
+                                .push(format!("cognition_component_adapter_error:{attempt_slug}"));
+                            json!({
+                                "schemaVersion": "workflow.harness.component-adapter-result.v1",
+                                "invocationId": format!("default-dispatch:{sid}:{turn_id}:{attempt_slug}"),
+                                "errorClass": "harness_component_adapter_error",
+                                "error": format!("{error:?}"),
+                                "readiness": "blocked"
+                            })
+                        }
+                    };
                     previous_cognition_output = output.clone();
                     dispatch_node_attempts.push(json!({
                         "attemptId": attempt_id,
@@ -4929,8 +4988,8 @@ fn runtime_harness_default_runtime_dispatch(
                         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
                         "workflowNodeId": workflow_node_id,
                         "workflowNodeType": node_type,
-                        "componentId": format!("ioi.agent-harness.default_runtime_dispatch.{attempt_slug}.v1"),
-                        "componentKind": component_kind,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
                         "executionMode": "live",
                         "readiness": "live_ready",
                         "attemptIndex": attempt_index,
@@ -4944,11 +5003,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
-                        "evidenceRefs": [
-                            format!("runtime-evidence:{sid}"),
-                            selector_decision_id.clone(),
-                            format!("harness-live-handoff:{sid}:{}", task.progress)
-                        ],
+                        "evidenceRefs": evidence_refs,
                         "replay": {
                             "deterministicEnvelope": true,
                             "capturesInput": true,
@@ -4959,6 +5014,8 @@ fn runtime_harness_default_runtime_dispatch(
                             "nondeterminismReason": null,
                             "redactionPolicy": "autopilot-runtime-evidence-v1"
                         },
+                        "adapterMode": "workflow_component_adapter_live",
+                        "adapterResult": adapter_result_value,
                         "executorResult": output
                     }));
                 }
@@ -4973,8 +5030,8 @@ fn runtime_harness_default_runtime_dispatch(
                         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
                         "workflowNodeId": workflow_node_id,
                         "workflowNodeType": node_type,
-                        "componentId": format!("ioi.agent-harness.default_runtime_dispatch.{attempt_slug}.v1"),
-                        "componentKind": component_kind,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
                         "executionMode": "live",
                         "readiness": "live_ready",
                         "attemptIndex": attempt_index,
@@ -7662,6 +7719,10 @@ fn runtime_harness_default_runtime_dispatch(
     cognition_execution_receipt_ids.dedup();
     cognition_execution_replay_fixture_refs.sort();
     cognition_execution_replay_fixture_refs.dedup();
+    cognition_execution_action_frame_ids.sort();
+    cognition_execution_action_frame_ids.dedup();
+    cognition_execution_live_ready_component_kinds.sort();
+    cognition_execution_live_ready_component_kinds.dedup();
     model_execution_attempt_ids.sort();
     model_execution_attempt_ids.dedup();
     model_execution_receipt_ids.sort();
@@ -7814,6 +7875,10 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionAttemptIds": cognition_execution_attempt_ids.clone(),
         "cognitionExecutionReceiptIds": cognition_execution_receipt_ids.clone(),
         "cognitionExecutionReplayFixtureRefs": cognition_execution_replay_fixture_refs.clone(),
+        "cognitionExecutionAdapterMode": "workflow_component_adapter_live",
+        "cognitionExecutionAdapterResults": cognition_execution_adapter_results.clone(),
+        "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
+        "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
         "modelExecutionAttemptIds": model_execution_attempt_ids.clone(),
         "modelExecutionReceiptIds": model_execution_receipt_ids.clone(),
         "modelExecutionReplayFixtureRefs": model_execution_replay_fixture_refs.clone(),
@@ -7945,6 +8010,10 @@ fn runtime_harness_default_runtime_dispatch(
             "promptAssemblyMode": "workflow_synchronous_envelope",
             "promptAssemblyPromptHash": prompt_assembly_prompt_hash,
             "promptAssemblyPromptHashMatches": prompt_assembly_prompt_hash_matches,
+            "cognitionExecutionAdapterMode": "workflow_component_adapter_live",
+            "cognitionExecutionAdapterResultCount": cognition_execution_adapter_results.len(),
+            "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
+            "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
             "modelExecutionMode": "workflow_synchronous_envelope",
             "modelExecutionEnvelopeReady": model_execution_envelope_ready,
             "modelExecutionBindingId": model_execution_binding_id,
@@ -8086,9 +8155,17 @@ fn runtime_harness_default_runtime_dispatch(
         "promptAssemblyMode": "workflow_synchronous_envelope",
         "promptAssemblyPromptHash": prompt_assembly_prompt_hash,
         "promptAssemblyPromptHashMatches": prompt_assembly_prompt_hash_matches,
+        "cognitionExecutionAdapterMode": "workflow_component_adapter_live",
+        "cognitionExecutionAdapterResults": cognition_execution_adapter_results.clone(),
+        "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
+        "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
         "cognitionExecutionProof": {
             "schemaVersion": "workflow.harness.cognition-execution-envelope.v1",
             "mode": "workflow_synchronous_envelope",
+            "adapterMode": "workflow_component_adapter_live",
+            "adapterResultCount": cognition_execution_adapter_results.len(),
+            "actionFrameIds": cognition_execution_action_frame_ids,
+            "liveReadyComponentKinds": cognition_execution_live_ready_component_kinds,
             "promptAssemblyMode": "workflow_synchronous_envelope",
             "promptHash": prompt_assembly_prompt_hash,
             "promptHashMatches": prompt_assembly_prompt_hash_matches,
@@ -10884,6 +10961,60 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .get("cognitionExecutionReplayFixtureRefs")
                     .and_then(Value::as_array)
                     .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionAdapterMode")
+                    .and_then(Value::as_str)
+                    == Some("workflow_component_adapter_live")
+                && dispatch
+                    .get("cognitionExecutionAdapterResults")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds = items
+                            .iter()
+                            .filter_map(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("componentKind"))
+                                    .and_then(Value::as_str)
+                            })
+                            .collect::<Vec<_>>();
+                        items.len() >= 3
+                            && component_kinds.contains(&"planner")
+                            && component_kinds.contains(&"prompt_assembler")
+                            && component_kinds.contains(&"task_state")
+                            && items.iter().all(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("executionMode"))
+                                    .and_then(Value::as_str)
+                                    == Some("live")
+                                    && item
+                                        .get("actionFrame")
+                                        .and_then(|frame| frame.get("readiness"))
+                                        .and_then(Value::as_str)
+                                        == Some("live_ready")
+                                    && item
+                                        .get("nodeAttempt")
+                                        .and_then(|attempt| attempt.get("status"))
+                                        .and_then(Value::as_str)
+                                        == Some("live")
+                            })
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionActionFrameIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionLiveReadyComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"planner")
+                            && component_kinds.contains(&"prompt_assembler")
+                            && component_kinds.contains(&"task_state")
+                    })
                     .unwrap_or(false)
                 && dispatch
                     .get("modelExecutionAttemptIds")

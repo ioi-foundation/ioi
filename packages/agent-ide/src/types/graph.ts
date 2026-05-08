@@ -1472,6 +1472,10 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   cognitionExecutionAttemptIds: string[];
   cognitionExecutionReceiptIds: string[];
   cognitionExecutionReplayFixtureRefs: string[];
+  cognitionExecutionAdapterMode: "workflow_component_adapter_live" | string;
+  cognitionExecutionAdapterResults: WorkflowHarnessComponentAdapterResult[];
+  cognitionExecutionActionFrameIds: string[];
+  cognitionExecutionLiveReadyComponentKinds: WorkflowHarnessComponentKind[];
   modelExecutionAttemptIds: string[];
   modelExecutionReceiptIds: string[];
   modelExecutionReplayFixtureRefs: string[];

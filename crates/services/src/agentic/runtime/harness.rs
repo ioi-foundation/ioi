@@ -411,6 +411,54 @@ mod tests {
     }
 
     #[test]
+    fn default_component_adapter_invokes_live_cognition_authority_components() {
+        for (index, component_kind) in [
+            HarnessComponentKind::Planner,
+            HarnessComponentKind::PromptAssembler,
+            HarnessComponentKind::TaskState,
+        ]
+        .iter()
+        .enumerate()
+        {
+            let result = invoke_default_harness_component(HarnessComponentInvocation {
+                invocation_id: format!("live-cognition-adapter-{index}"),
+                component_kind: *component_kind,
+                execution_mode: HarnessExecutionMode::Live,
+                attempt_index: (index + 1) as u32,
+                input_hash: Some(format!("live-input:{index}")),
+                output_hash: Some(format!("live-output:{index}")),
+                policy_decision: Some("accept_workflow_cognition_envelope".to_string()),
+                receipt_ids: vec![format!("live-receipt:{index}")],
+                evidence_refs: vec![format!("live-evidence:{}", component_kind.as_str())],
+                replay_fixture_ref: Some(format!("live-fixture:{}", component_kind.as_str())),
+                started_at_ms: Some(10),
+                duration_ms: Some(2),
+            })
+            .expect("live cognition adapter invocation should be accepted");
+
+            assert_eq!(
+                result.action_frame.execution_mode,
+                HarnessExecutionMode::Live
+            );
+            assert_eq!(
+                result.action_frame.readiness,
+                HarnessComponentReadiness::LiveReady
+            );
+            assert_eq!(result.node_attempt.status, HarnessNodeAttemptStatus::Live);
+            assert_eq!(
+                result.node_attempt.output_hash,
+                Some(format!("live-output:{index}"))
+            );
+            assert_eq!(
+                result.node_attempt.replay.fixture_ref.as_deref(),
+                Some(format!("live-fixture:{}", component_kind.as_str()).as_str())
+            );
+            assert_eq!(result.readiness, HarnessComponentReadiness::LiveReady);
+            assert_eq!(result.receipt_ids, vec![format!("live-receipt:{index}")]);
+        }
+    }
+
+    #[test]
     fn default_component_adapter_blocks_unready_modes_without_side_effects() {
         let projection_only = invoke_default_harness_component(HarnessComponentInvocation {
             invocation_id: "projection-only-gated".to_string(),
@@ -439,11 +487,11 @@ mod tests {
         assert!(projection_only.result_hash.is_none());
 
         let live_before_ready = invoke_default_harness_component(HarnessComponentInvocation {
-            invocation_id: "planner-live".to_string(),
-            component_kind: HarnessComponentKind::Planner,
+            invocation_id: "model-router-live".to_string(),
+            component_kind: HarnessComponentKind::ModelRouter,
             execution_mode: HarnessExecutionMode::Live,
             attempt_index: 1,
-            input_hash: Some("input:planner".to_string()),
+            input_hash: Some("input:model-router".to_string()),
             output_hash: None,
             policy_decision: None,
             receipt_ids: vec![],

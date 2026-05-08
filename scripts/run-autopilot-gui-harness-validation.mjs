@@ -1012,6 +1012,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             typeof dispatch.promptAssemblyPromptHash === "string" &&
             dispatch.promptAssemblyPromptHash.length > 0 &&
             dispatch.promptAssemblyPromptHashMatches === true &&
+            dispatch.cognitionExecutionAdapterMode === "workflow_component_adapter_live" &&
+            Array.isArray(dispatch.cognitionExecutionAdapterResults) &&
+            dispatch.cognitionExecutionAdapterResults.length >= 3 &&
+            dispatch.cognitionExecutionAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "live" &&
+              result?.actionFrame?.readiness === "live_ready" &&
+              result?.nodeAttempt?.status === "live",
+            ) &&
+            Array.isArray(dispatch.cognitionExecutionActionFrameIds) &&
+            dispatch.cognitionExecutionActionFrameIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionLiveReadyComponentKinds) &&
+            ["planner", "prompt_assembler", "task_state"].every((kind) =>
+              dispatch.cognitionExecutionLiveReadyComponentKinds.includes(kind),
+            ) &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
             typeof dispatch.modelExecutionBindingId === "string" &&
@@ -1220,6 +1234,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.cognitionExecutionReceiptIds.length >= 3 &&
             Array.isArray(dispatch.cognitionExecutionReplayFixtureRefs) &&
             dispatch.cognitionExecutionReplayFixtureRefs.length >= 3 &&
+            dispatch.cognitionExecutionAdapterMode === "workflow_component_adapter_live" &&
+            Array.isArray(dispatch.cognitionExecutionAdapterResults) &&
+            dispatch.cognitionExecutionAdapterResults.length >= 3 &&
+            dispatch.cognitionExecutionAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "live" &&
+              result?.actionFrame?.readiness === "live_ready" &&
+              result?.nodeAttempt?.status === "live",
+            ) &&
+            Array.isArray(dispatch.cognitionExecutionActionFrameIds) &&
+            dispatch.cognitionExecutionActionFrameIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionLiveReadyComponentKinds) &&
+            ["planner", "prompt_assembler", "task_state"].every((kind) =>
+              dispatch.cognitionExecutionLiveReadyComponentKinds.includes(kind),
+            ) &&
             Array.isArray(dispatch.modelExecutionAttemptIds) &&
             dispatch.modelExecutionAttemptIds.length >= 5 &&
             Array.isArray(dispatch.modelExecutionReceiptIds) &&
