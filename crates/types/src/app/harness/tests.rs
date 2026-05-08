@@ -142,8 +142,18 @@ fn default_harness_components_have_complete_contracts() {
         assert!(component.timeout.timeout_ms > 0);
         assert!(component.retry.max_attempts >= 1);
     }
+    for live_ready in [
+        HarnessComponentKind::Planner,
+        HarnessComponentKind::PromptAssembler,
+        HarnessComponentKind::TaskState,
+    ] {
+        assert_eq!(
+            default_harness_component_spec(live_ready).readiness,
+            HarnessComponentReadiness::LiveReady
+        );
+    }
     assert_eq!(
-        default_harness_component_spec(HarnessComponentKind::TaskState).readiness,
+        default_harness_component_spec(HarnessComponentKind::UncertaintyGate).readiness,
         HarnessComponentReadiness::ShadowReady
     );
     assert_eq!(
@@ -182,7 +192,7 @@ fn default_harness_action_frames_are_workflow_addressable() {
     assert_eq!(task_state_frame.slot_ids, vec!["slot.state-policy"]);
     assert_eq!(
         task_state_frame.readiness,
-        HarnessComponentReadiness::ShadowReady
+        HarnessComponentReadiness::LiveReady
     );
     assert!(task_state_frame.deterministic_envelope);
 
@@ -265,6 +275,33 @@ fn component_adapter_contract_serializes_invocation_and_result_shape() {
     );
     assert_eq!(result.node_attempt.status, HarnessNodeAttemptStatus::Shadow);
     assert_eq!(result.receipt_ids, vec!["receipt:planner"]);
+
+    let result_value = harness_component_adapter_result_camel_value(&result);
+    assert_eq!(
+        result_value.get("invocationId").and_then(Value::as_str),
+        Some("invoke-planner-shadow")
+    );
+    assert_eq!(
+        result_value
+            .get("actionFrame")
+            .and_then(|frame| frame.get("executionMode"))
+            .and_then(Value::as_str),
+        Some("shadow")
+    );
+    assert_eq!(
+        result_value
+            .get("nodeAttempt")
+            .and_then(|attempt| attempt.get("status"))
+            .and_then(Value::as_str),
+        Some("shadow")
+    );
+    assert_eq!(
+        result_value
+            .get("replay")
+            .and_then(|replay| replay.get("determinism"))
+            .and_then(Value::as_str),
+        Some("deterministic")
+    );
 }
 
 #[test]

@@ -12,8 +12,8 @@ Companion documents:
 - `docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md`
 - `docs/specs/runtime/harness-change-workflow.md`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T08-40-44-212Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T08-47-27-651Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-12-40-928Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-20-04-629Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -63,9 +63,9 @@ As of 2026-05-08, the default live harness activation-id gate and default
 runtime dispatch proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T08-40-44-212Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-12-40-928Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T08-47-27-651Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-20-04-629Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the default runtime dispatch binding, live
@@ -74,6 +74,35 @@ actions, and runtime evidence in one retained-query evidence bundle. It also
 proves the blessed default dispatch is bound to
 `activation:default-agent-harness:blessed-readonly` while the fork activation
 wizard remains its own evidence object.
+
+### 2026-05-08 Cognition Live Adapter Slice
+
+The current implementation has started the first true component-promotion
+slice inside the default dispatch path:
+
+- Rust now treats `planner`, `prompt_assembler`, and `task_state` as
+  `live_ready` canonical harness components.
+- The shared adapter can invoke those components in `live` mode and still
+  blocks later clusters that remain `shadow_ready`.
+- The Autopilot default runtime dispatch proof now records
+  `cognitionExecutionAdapterMode: workflow_component_adapter_live`,
+  canonical adapter results, action frame ids, live-ready component kinds, and
+  live node attempts for the cognition triplet.
+- The TypeScript harness projection mirrors that readiness split so the GUI
+  workbench and runtime proof cannot drift from Rust.
+- Focused validation is green for the Rust harness contract, service adapter,
+  Autopilot default dispatch store test, TS type check, harness contract
+  consistency, shell wiring, and `test:autopilot-gui-harness`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-12-40-928Z/`,
+  with the copied workflow proof showing three live cognition adapter results
+  and `planner`, `prompt_assembler`, and `task_state` as live-ready.
+
+This is not the full target end state yet. It is the first production-shaped
+promotion wedge: the cognition envelope still uses the existing workflow node
+executor for the actual envelope execution, but its authority proof now flows
+through the canonical harness adapter result instead of only hand-assembled
+attempt ids.
 
 ## Current State
 
