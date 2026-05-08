@@ -1664,6 +1664,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const harnessWorkflowPath = "packages/agent-ide/src/runtime/harness-workflow.ts";
   const railModelPath = "packages/agent-ide/src/runtime/workflow-rail-model.ts";
   const controllerPath = "packages/agent-ide/src/WorkflowComposer/controller.tsx";
+  const viewPath = "packages/agent-ide/src/WorkflowComposer/view.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
@@ -1671,6 +1672,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const harnessWorkflow = readFileSync(resolve(repoRoot, harnessWorkflowPath), "utf8");
   const railModel = readFileSync(resolve(repoRoot, railModelPath), "utf8");
   const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
+  const view = readFileSync(resolve(repoRoot, viewPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
   const restoreCommand = readFileSync(resolve(repoRoot, restoreCommandPath), "utf8");
   const checks = {
@@ -1813,6 +1815,27 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /replayDrillBlockers/.test(validation) &&
       /replayGateBlockers/.test(validation) &&
       /promotionClusterReplayGateBlockers/.test(validation),
+    promotionTransitionControls:
+      /WorkflowHarnessPromotionTransitionEligibility/.test(graph) &&
+      /WorkflowHarnessPromotionTransitionAttempt/.test(graph) &&
+      /promotionStatus\?: WorkflowHarnessClusterPromotionStatus/.test(graph) &&
+      /promotionTransitions\?: WorkflowHarnessPromotionTransitionAttempt\[\]/.test(
+        graph,
+      ) &&
+      /workflowHarnessPromotionTransitionEligibility/.test(harnessWorkflow) &&
+      /executeWorkflowHarnessPromotionTransition/.test(harnessWorkflow) &&
+      /promotion_transition_blocked/.test(harnessWorkflow) &&
+      /promotion_transition_promoted/.test(harnessWorkflow) &&
+      /handleRunHarnessPromotionTransition/.test(controller) &&
+      /onRunHarnessPromotionTransition=\{\(targetExecutionMode\)/.test(view) &&
+      /onRunHarnessPromotionTransition/.test(rail) &&
+      /workflow-harness-group-promotion-actions/.test(rail) &&
+      /workflow-harness-promote-cluster-gated/.test(rail) &&
+      /workflow-harness-promote-cluster-live/.test(rail) &&
+      /workflow-harness-group-promotion-eligibility/.test(rail) &&
+      /workflow-harness-group-promotion-attempt/.test(rail) &&
+      /data-gated-blockers/.test(rail) &&
+      /data-live-blockers/.test(rail),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1852,6 +1875,10 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       replayGateReceiptRefs: "workflow-harness-replay-gate-receipt-refs",
       promotionClusterReplayGate: "workflow-harness-promotion-cluster-replay-gate",
       groupReplayGateProof: "workflow-harness-group-replay-gate-proof",
+      promoteClusterGated: "workflow-harness-promote-cluster-gated",
+      promoteClusterLive: "workflow-harness-promote-cluster-live",
+      groupPromotionEligibility: "workflow-harness-group-promotion-eligibility",
+      groupPromotionAttempt: "workflow-harness-group-promotion-attempt",
     },
     sourceRefs: [
       railPath,
@@ -1859,6 +1886,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       harnessWorkflowPath,
       railModelPath,
       controllerPath,
+      viewPath,
       graphPath,
       restoreCommandPath,
     ],

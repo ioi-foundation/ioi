@@ -7,15 +7,18 @@ import type {
 } from "../types/graph.ts";
 import {
   applyWorkflowHarnessActivationCandidate,
+  executeWorkflowHarnessPromotionTransition,
   executeWorkflowHarnessRollbackDrill,
   executeWorkflowHarnessReplayDrill,
   executeWorkflowHarnessReplayGate,
   executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
+  makeHarnessCanaryExecutionBoundaries,
   makeHarnessForkActivationRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
+  workflowHarnessPromotionTransitionEligibility,
   workflowRevisionBindingFor,
 } from "./harness-workflow.ts";
 import {
@@ -89,6 +92,43 @@ const withPassingPromotionClusterReplayGates = (
       ).workflow,
     workflow,
   );
+
+const withPassingCanaryBoundaries = (workflow: WorkflowProject): WorkflowProject => ({
+  ...workflow,
+  metadata: {
+    ...workflow.metadata,
+    harness: {
+      ...workflow.metadata.harness!,
+      canaryExecutionBoundaries: makeHarnessCanaryExecutionBoundaries(),
+    },
+  },
+});
+
+const withClusterReadiness = (
+  workflow: WorkflowProject,
+  clusterId: string,
+  readiness: "shadow_ready" | "live_ready",
+): WorkflowProject => {
+  const cluster = workflow.metadata.harness?.promotionClusters?.find(
+    (candidate) => String(candidate.clusterId) === clusterId,
+  );
+  const componentKinds = new Set(cluster?.componentKinds ?? []);
+  return {
+    ...workflow,
+    nodes: workflow.nodes.map((node) =>
+      node.runtimeBinding?.componentKind &&
+      componentKinds.has(node.runtimeBinding.componentKind)
+        ? {
+            ...node,
+            runtimeBinding: {
+              ...node.runtimeBinding,
+              readiness,
+            },
+          }
+        : node,
+    ),
+  };
+};
 
 {
   const fork = forkDefaultAgentHarnessWorkflow("Blocked Activation Fork", 1_000);
@@ -546,6 +586,91 @@ const withPassingPromotionClusterReplayGates = (
   assert.match(
     gateBlockedCandidate.gateResults.find((gate) => gate.gateId === "replay-fixtures")?.value ?? "",
     /gate blockers/,
+  );
+}
+
+{
+  const fork = forkDefaultAgentHarnessWorkflow("Promotion Transition Fork", 2_700);
+  const blockedEligibility = workflowHarnessPromotionTransitionEligibility(
+    fork.workflow,
+    "cognition",
+    "gated",
+    { nowMs: 2_710 },
+  );
+  assert.equal(blockedEligibility.eligible, false);
+  assert.ok(blockedEligibility.blockers.includes("promotion_replay_gate_not_passed"));
+  assert.ok(blockedEligibility.blockers.includes("promotion_canary_not_passed"));
+  const blocked = executeWorkflowHarnessPromotionTransition(
+    fork.workflow,
+    "cognition",
+    "gated",
+    { nowMs: 2_720 },
+  );
+  assert.equal(blocked.promoted, false);
+  assert.equal(blocked.attempt.attemptStatus, "blocked");
+  assert.equal(blocked.attempt.gateDecision, "block_promotion_transition");
+  assert.equal(blocked.attempt.nextStatus, "shadow_ready");
+  assert.equal(
+    blocked.workflow.metadata.harness?.promotionTransitions?.[0]?.attemptStatus,
+    "blocked",
+  );
+  assert.equal(
+    blocked.workflow.metadata.harness?.activationAudit?.slice(-1)[0]?.eventType,
+    "promotion_transition_blocked",
+  );
+
+  const promotableWorkflow = withClusterReadiness(
+    withPassingCanaryBoundaries(
+      withPassingPromotionClusterReplayGates(fork.workflow, 2_730),
+    ),
+    "cognition",
+    "live_ready",
+  );
+  const gatedEligibility = workflowHarnessPromotionTransitionEligibility(
+    promotableWorkflow,
+    "cognition",
+    "gated",
+    { nowMs: 2_740 },
+  );
+  assert.equal(gatedEligibility.eligible, true, gatedEligibility.blockers.join("\n"));
+  assert.equal(gatedEligibility.replayGateReady, true);
+  assert.equal(gatedEligibility.canaryReady, true);
+  assert.equal(gatedEligibility.rollbackReady, true);
+  const gated = executeWorkflowHarnessPromotionTransition(
+    promotableWorkflow,
+    "cognition",
+    "gated",
+    { nowMs: 2_750 },
+  );
+  assert.equal(gated.promoted, true);
+  assert.equal(gated.attempt.attemptStatus, "promoted");
+  assert.equal(gated.attempt.nextStatus, "gated");
+  assert.equal(
+    gated.workflow.metadata.harness?.promotionClusters?.find(
+      (cluster) => cluster.clusterId === "cognition",
+    )?.promotionStatus,
+    "gated",
+  );
+
+  const liveEligibility = workflowHarnessPromotionTransitionEligibility(
+    gated.workflow,
+    "cognition",
+    "live",
+    { nowMs: 2_760 },
+  );
+  assert.equal(liveEligibility.eligible, true, liveEligibility.blockers.join("\n"));
+  const live = executeWorkflowHarnessPromotionTransition(
+    gated.workflow,
+    "cognition",
+    "live",
+    { nowMs: 2_770 },
+  );
+  assert.equal(live.promoted, true);
+  assert.equal(live.attempt.previousStatus, "gated");
+  assert.equal(live.attempt.nextStatus, "live");
+  assert.deepEqual(
+    live.workflow.metadata.harness?.activationAudit?.slice(-2).map((event) => event.eventType),
+    ["promotion_transition_promoted", "promotion_transition_promoted"],
   );
 }
 

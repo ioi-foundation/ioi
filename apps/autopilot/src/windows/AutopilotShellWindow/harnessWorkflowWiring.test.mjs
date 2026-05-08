@@ -169,6 +169,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${harnessWorkflow}\n${workflowComposer}\n${workflowRailPanel}`,
+  /(?=[\s\S]*WorkflowHarnessPromotionTransitionEligibility)(?=[\s\S]*WorkflowHarnessPromotionTransitionAttempt)(?=[\s\S]*promotionStatus\?: WorkflowHarnessClusterPromotionStatus)(?=[\s\S]*promotionTransitions\?: WorkflowHarnessPromotionTransitionAttempt\[\])(?=[\s\S]*workflowHarnessPromotionTransitionEligibility)(?=[\s\S]*executeWorkflowHarnessPromotionTransition)(?=[\s\S]*promotion_transition_blocked)(?=[\s\S]*promotion_transition_promoted)(?=[\s\S]*handleRunHarnessPromotionTransition)(?=[\s\S]*onRunHarnessPromotionTransition)(?=[\s\S]*workflow-harness-group-promotion-actions)(?=[\s\S]*workflow-harness-promote-cluster-gated)(?=[\s\S]*workflow-harness-promote-cluster-live)(?=[\s\S]*workflow-harness-group-promotion-eligibility)(?=[\s\S]*workflow-harness-group-promotion-attempt)/,
+  "Cluster promotion transitions should have typed eligibility, audited attempts, disabled GUI controls with blockers, and promoted status persistence.",
+);
+
+assert.match(
   tauriProjectTypes,
   /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",

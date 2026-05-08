@@ -953,6 +953,7 @@ export interface WorkflowHarnessPromotionCluster {
   promotionRule: string;
   rollbackTarget: string;
   blocksLiveActivation: boolean;
+  promotionStatus?: WorkflowHarnessClusterPromotionStatus;
   replayGateProof?: WorkflowHarnessPromotionClusterReplayGateProof;
 }
 
@@ -977,6 +978,52 @@ export interface WorkflowHarnessGatedClusterRun {
   canaryStatus: string;
   promotionBlocked: boolean;
   evidenceRefs: string[];
+}
+
+export type WorkflowHarnessPromotionTransitionTarget = Extract<
+  WorkflowHarnessExecutionMode,
+  "gated" | "live"
+>;
+
+export interface WorkflowHarnessPromotionTransitionEligibility {
+  schemaVersion: "workflow.harness.promotion-transition-eligibility.v1" | string;
+  clusterId: WorkflowHarnessPromotionClusterId;
+  targetExecutionMode: WorkflowHarnessPromotionTransitionTarget;
+  currentStatus: WorkflowHarnessClusterPromotionStatus;
+  eligible: boolean;
+  readinessReady: boolean;
+  receiptReady: boolean;
+  replayGateReady: boolean;
+  canaryReady: boolean;
+  rollbackReady: boolean;
+  componentIds: string[];
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  canaryBoundaryId?: string;
+  rollbackTarget?: string;
+  blockers: string[];
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
+export interface WorkflowHarnessPromotionTransitionAttempt {
+  schemaVersion: "workflow.harness.promotion-transition-attempt.v1" | string;
+  transitionId: string;
+  workflowId: string;
+  activationId?: string;
+  clusterId: WorkflowHarnessPromotionClusterId;
+  clusterLabel: string;
+  targetExecutionMode: WorkflowHarnessPromotionTransitionTarget;
+  previousStatus: WorkflowHarnessClusterPromotionStatus;
+  nextStatus: WorkflowHarnessClusterPromotionStatus;
+  attemptStatus: "blocked" | "promoted";
+  gateDecision: "block_promotion_transition" | "allow_promotion_transition" | string;
+  eligibility: WorkflowHarnessPromotionTransitionEligibility;
+  blockers: string[];
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  evidenceRefs: string[];
+  createdAtMs: number;
 }
 
 export type WorkflowHarnessActivationState =
@@ -1092,6 +1139,8 @@ export type WorkflowHarnessActivationAuditEventType =
   | "dry_run_mintable"
   | "activation_mint_blocked"
   | "activation_minted"
+  | "promotion_transition_blocked"
+  | "promotion_transition_promoted"
   | "replay_drill_blocked"
   | "replay_drill_passed"
   | "replay_gate_blocked"
@@ -1928,6 +1977,7 @@ export interface WorkflowHarnessMetadata {
   activationAudit?: WorkflowHarnessActivationAuditEvent[];
   activationRollbackProof?: WorkflowHarnessActivationRollbackProof;
   activationRollbackExecution?: WorkflowHarnessActivationRollbackExecution;
+  promotionTransitions?: WorkflowHarnessPromotionTransitionAttempt[];
   replayDrills?: WorkflowHarnessReplayDrillResult[];
   replayGates?: WorkflowHarnessReplayGateResult[];
   revisionBinding?: WorkflowRevisionBinding;
