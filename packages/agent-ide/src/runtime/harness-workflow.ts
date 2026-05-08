@@ -1768,6 +1768,7 @@ export function applyWorkflowHarnessActivationCandidate(
 
 export function makeBlessedHarnessLiveHandoffProof(options: {
   selector?: WorkflowHarnessLiveHandoffProof["selector"];
+  productionDefaultSelector?: WorkflowHarnessLiveHandoffProof["productionDefaultSelector"];
   canaryStatus?: WorkflowHarnessLiveHandoffProof["canaryStatus"];
   canaryTurnRoutedThroughWorkflow?: boolean;
   defaultAuthorityTransferred?: boolean;
@@ -1775,6 +1776,10 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   fallbackSelector?: WorkflowHarnessLiveHandoffProof["fallbackSelector"];
   rollbackAvailable?: boolean;
   policyDecision?: string;
+  defaultPromotionGateEnabled?: boolean;
+  defaultPromotionGateEligible?: boolean;
+  defaultPromotionGateActivationBlockers?: string[];
+  defaultPromotionGatePolicyDecision?: string;
   gatedClusterIds?: WorkflowHarnessLiveHandoffProof["gatedClusterIds"];
   executionBoundaryIds?: string[];
   executionBoundaryClusterIds?: WorkflowHarnessPromotionClusterId[];
@@ -1784,16 +1789,33 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   activationBlockers?: string[];
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessLiveHandoffProof {
+  const selector = options.selector ?? "blessed_workflow_live_canary";
+  const defaultAuthorityTransferred = options.defaultAuthorityTransferred ?? false;
+  const productionDefaultSelector =
+    options.productionDefaultSelector ??
+    (defaultAuthorityTransferred ? "blessed_workflow_live_default" : "legacy_runtime");
+  const defaultPromotionGateEnabled =
+    options.defaultPromotionGateEnabled ?? defaultAuthorityTransferred;
+  const defaultPromotionGateEligible =
+    options.defaultPromotionGateEligible ?? defaultAuthorityTransferred;
+  const defaultPromotionGateActivationBlockers =
+    options.defaultPromotionGateActivationBlockers ??
+    (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"]);
+  const defaultPromotionGatePolicyDecision =
+    options.defaultPromotionGatePolicyDecision ??
+    (defaultPromotionGateEligible
+      ? "promote_blessed_workflow_default_for_non_mutating_turn"
+      : "retain_legacy_runtime_default");
   return {
     schemaVersion: "workflow.harness.live-handoff.v1",
-    selector: options.selector ?? "blessed_workflow_live_canary",
+    selector,
     availableSelectors: [
       "legacy_runtime",
       "blessed_workflow_gated",
       "blessed_workflow_live_canary",
       "blessed_workflow_live_default",
     ],
-    productionDefaultSelector: "legacy_runtime",
+    productionDefaultSelector,
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
@@ -1818,12 +1840,20 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
       ],
     executionBoundaryStatus: "passed",
     executionBoundaryExecutor: "crate::project::execute_workflow_harness_canary_node",
-    defaultAuthorityTransferred: options.defaultAuthorityTransferred ?? false,
-    runtimeAuthority: options.runtimeAuthority ?? "blessed_workflow_activation_canary",
+    defaultAuthorityTransferred,
+    runtimeAuthority:
+      options.runtimeAuthority ??
+      (defaultAuthorityTransferred
+        ? "blessed_workflow_activation_default"
+        : "blessed_workflow_activation_canary"),
     fallbackSelector: options.fallbackSelector ?? "legacy_runtime",
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: options.rollbackAvailable ?? true,
-    policyDecision: options.policyDecision ?? "allow_blessed_workflow_live_canary",
+    policyDecision:
+      options.policyDecision ??
+      (defaultAuthorityTransferred
+        ? "promote_blessed_workflow_default_for_non_mutating_turn"
+        : "allow_blessed_workflow_live_canary"),
     gatedClusterIds:
       options.gatedClusterIds ?? [
         "cognition",
@@ -1837,15 +1867,15 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
     activationBlockers: options.activationBlockers ?? [],
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
-      enabled: false,
-      eligible: false,
+      enabled: defaultPromotionGateEnabled,
+      eligible: defaultPromotionGateEligible,
       nonMutatingOnly: true,
-      selector: options.selector ?? "blessed_workflow_live_canary",
-      productionDefaultSelector: "legacy_runtime",
-      defaultAuthorityTransferred: options.defaultAuthorityTransferred ?? false,
+      selector,
+      productionDefaultSelector,
+      defaultAuthorityTransferred,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-      activationBlockers: ["promotion_gate_disabled"],
-      policyDecision: "retain_legacy_runtime_default",
+      activationBlockers: defaultPromotionGateActivationBlockers,
+      policyDecision: defaultPromotionGatePolicyDecision,
     },
     evidenceRefs: options.evidenceRefs ?? [],
   };
@@ -1853,56 +1883,91 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
 
 export function makeHarnessRuntimeSelectorDecision(options: {
   decisionId?: string;
+  requestedSelector?: WorkflowHarnessRuntimeSelectorDecision["requestedSelector"];
   selectedSelector?: WorkflowHarnessRuntimeSelectorDecision["selectedSelector"];
+  productionDefaultSelector?: WorkflowHarnessRuntimeSelectorDecision["productionDefaultSelector"];
   canaryEligible?: boolean;
   canaryBlockers?: string[];
   executionMode?: WorkflowHarnessExecutionMode;
   actualRuntimeAuthority?: WorkflowHarnessRuntimeSelectorDecision["actualRuntimeAuthority"];
   policyDecision?: string;
   routeReason?: string;
+  defaultPromotionGateEnabled?: boolean;
+  defaultPromotionGateEligible?: boolean;
+  defaultPromotionGateAuthorityTransferred?: boolean;
+  defaultPromotionGateActivationBlockers?: string[];
+  defaultPromotionGatePolicyDecision?: string;
   evidenceRefs?: string[];
 } = {}): WorkflowHarnessRuntimeSelectorDecision {
   const selectedSelector = options.selectedSelector ?? "blessed_workflow_live_canary";
-  const canarySelected = selectedSelector === "blessed_workflow_live_canary";
+  const workflowSelected =
+    selectedSelector === "blessed_workflow_live_canary" ||
+    selectedSelector === "blessed_workflow_live_default";
+  const defaultSelected = selectedSelector === "blessed_workflow_live_default";
+  const productionDefaultSelector =
+    options.productionDefaultSelector ??
+    (defaultSelected ? "blessed_workflow_live_default" : "legacy_runtime");
+  const defaultPromotionGateEnabled =
+    options.defaultPromotionGateEnabled ?? defaultSelected;
+  const defaultPromotionGateEligible =
+    options.defaultPromotionGateEligible ?? defaultSelected;
+  const defaultPromotionGateAuthorityTransferred =
+    options.defaultPromotionGateAuthorityTransferred ?? defaultSelected;
+  const defaultPromotionGateActivationBlockers =
+    options.defaultPromotionGateActivationBlockers ??
+    (defaultPromotionGateEligible ? [] : ["promotion_gate_disabled"]);
+  const defaultPromotionGatePolicyDecision =
+    options.defaultPromotionGatePolicyDecision ??
+    (defaultPromotionGateEligible
+      ? "promote_blessed_workflow_default_for_non_mutating_turn"
+      : "retain_legacy_runtime_default");
   return {
     schemaVersion: "workflow.harness.runtime-selector.v1",
     decisionId: options.decisionId ?? "harness-selector:default-agent-harness:canary",
-    requestedSelector: "auto_canary",
+    requestedSelector: options.requestedSelector ?? "auto_canary",
     selectedSelector,
-    productionDefaultSelector: "legacy_runtime",
-    canaryEligible: options.canaryEligible ?? canarySelected,
+    productionDefaultSelector,
+    canaryEligible: options.canaryEligible ?? workflowSelected,
     canaryBlockers: options.canaryBlockers ?? [],
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
-    executionMode: options.executionMode ?? (canarySelected ? "live" : "gated"),
+    executionMode: options.executionMode ?? (workflowSelected ? "live" : "gated"),
     actualRuntimeAuthority:
       options.actualRuntimeAuthority ??
-      (canarySelected ? "blessed_workflow_activation_canary" : "existing_runtime_service"),
+      (defaultSelected
+        ? "blessed_workflow_activation_default"
+        : workflowSelected
+          ? "blessed_workflow_activation_canary"
+          : "existing_runtime_service"),
     fallbackSelector: "legacy_runtime",
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: true,
     policyDecision:
       options.policyDecision ??
-      (canarySelected
+      (defaultSelected
+        ? "promote_blessed_workflow_default_for_non_mutating_turn"
+        : workflowSelected
         ? "allow_blessed_workflow_live_canary"
         : "retain_legacy_runtime_default"),
     routeReason:
       options.routeReason ??
-      (canarySelected
+      (defaultSelected
+        ? "Blessed workflow activation is promoted to the default runtime selector for a non-mutating turn."
+        : workflowSelected
         ? "Turn is non-mutating and eligible for blessed workflow canary routing."
         : "Turn remains on the legacy runtime selector."),
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
-      enabled: false,
-      eligible: false,
+      enabled: defaultPromotionGateEnabled,
+      eligible: defaultPromotionGateEligible,
       nonMutatingOnly: true,
       selector: selectedSelector,
-      productionDefaultSelector: "legacy_runtime",
-      defaultAuthorityTransferred: false,
+      productionDefaultSelector,
+      defaultAuthorityTransferred: defaultPromotionGateAuthorityTransferred,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-      activationBlockers: ["promotion_gate_disabled"],
-      policyDecision: "retain_legacy_runtime_default",
+      activationBlockers: defaultPromotionGateActivationBlockers,
+      policyDecision: defaultPromotionGatePolicyDecision,
     },
     evidenceRefs: options.evidenceRefs ?? [],
   };

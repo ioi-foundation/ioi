@@ -13,8 +13,11 @@ import {
   executeWorkflowHarnessReplayGate,
   executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
+  makeBlessedHarnessLiveHandoffProof,
+  makeHarnessDefaultRuntimeDispatchProof,
   makeHarnessCanaryExecutionBoundaries,
   makeHarnessForkActivationRecord,
+  makeHarnessRuntimeSelectorDecision,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
@@ -672,6 +675,67 @@ const withClusterReadiness = (
     live.workflow.metadata.harness?.activationAudit?.slice(-2).map((event) => event.eventType),
     ["promotion_transition_promoted", "promotion_transition_promoted"],
   );
+}
+
+{
+  const selector = makeHarnessRuntimeSelectorDecision({
+    decisionId: "harness-selector:default-agent-harness:live-default-test",
+    selectedSelector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    canaryEligible: true,
+    canaryBlockers: [],
+    executionMode: "live",
+    actualRuntimeAuthority: "blessed_workflow_activation_default",
+    defaultPromotionGateEnabled: true,
+    defaultPromotionGateEligible: true,
+    defaultPromotionGateAuthorityTransferred: true,
+    defaultPromotionGateActivationBlockers: [],
+  });
+  const handoff = makeBlessedHarnessLiveHandoffProof({
+    selector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    defaultAuthorityTransferred: true,
+    runtimeAuthority: "blessed_workflow_activation_default",
+    defaultPromotionGateEnabled: true,
+    defaultPromotionGateEligible: true,
+    defaultPromotionGateActivationBlockers: [],
+    nodeTimelineAttemptIds: ["attempt-planner", "attempt-model-router"],
+    receiptIds: ["receipt-planner", "receipt-model-router"],
+    replayFixtureRefs: ["fixture-planner", "fixture-model-router"],
+  });
+  const dispatch = makeHarnessDefaultRuntimeDispatchProof({
+    selectorDecisionId: selector.decisionId,
+    acceptedClusterIds: [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling",
+    ],
+    acceptedNodeAttemptIds: handoff.nodeTimelineAttemptIds,
+    receiptIds: handoff.receiptIds,
+    replayFixtureRefs: handoff.replayFixtureRefs,
+  });
+
+  assert.equal(selector.selectedSelector, "blessed_workflow_live_default");
+  assert.equal(selector.productionDefaultSelector, "blessed_workflow_live_default");
+  assert.equal(selector.executionMode, "live");
+  assert.equal(selector.actualRuntimeAuthority, "blessed_workflow_activation_default");
+  assert.equal(selector.defaultPromotionGate?.enabled, true);
+  assert.equal(selector.defaultPromotionGate?.eligible, true);
+  assert.equal(selector.defaultPromotionGate?.defaultAuthorityTransferred, true);
+  assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, []);
+  assert.equal(handoff.selector, "blessed_workflow_live_default");
+  assert.equal(handoff.productionDefaultSelector, "blessed_workflow_live_default");
+  assert.equal(handoff.defaultAuthorityTransferred, true);
+  assert.equal(handoff.runtimeAuthority, "blessed_workflow_activation_default");
+  assert.equal(handoff.defaultPromotionGate?.eligible, true);
+  assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, []);
+  assert.equal(dispatch.selectorDecisionId, selector.decisionId);
+  assert.equal(dispatch.selectedSelector, "blessed_workflow_live_default");
+  assert.equal(dispatch.productionDefaultSelector, "blessed_workflow_live_default");
+  assert.equal(dispatch.executionMode, "live");
+  assert.equal(dispatch.runtimeAuthority, "blessed_workflow_activation_default");
+  assert.equal(dispatch.acceptedClusterIds.length, 4);
 }
 
 {

@@ -2569,34 +2569,77 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         "utf8",
       );
     }
-    const cluster =
-      workflow?.metadata?.harness?.promotionClusters?.find(
-        (candidate) => candidate.clusterId === "cognition",
-      ) ?? null;
+    const clusterIds = [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling",
+    ];
+    const clusters = workflow?.metadata?.harness?.promotionClusters ?? [];
+    const clusterById = new Map(
+      clusters.map((candidate) => [candidate.clusterId, candidate]),
+    );
     const transitions = workflow?.metadata?.harness?.promotionTransitions ?? [];
     const audit = workflow?.metadata?.harness?.activationAudit ?? [];
+    const selector = workflow?.metadata?.harness?.runtimeSelectorDecision ?? null;
+    const liveHandoff = workflow?.metadata?.harness?.liveHandoffProof ?? null;
+    const defaultDispatch =
+      workflow?.metadata?.harness?.defaultRuntimeDispatchProof ?? null;
+    const activationRecord = workflow?.metadata?.harness?.activationRecord ?? null;
+    const workerBinding = workflow?.metadata?.workerHarnessBinding ?? null;
+    const transitionFor = (clusterId, targetExecutionMode, attemptStatus) =>
+      transitions.some(
+        (attempt) =>
+          attempt.clusterId === clusterId &&
+          attempt.targetExecutionMode === targetExecutionMode &&
+          attempt.attemptStatus === attemptStatus,
+      );
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
-      blockedAttemptPresent: transitions.some(
-        (attempt) =>
-          attempt.clusterId === "cognition" &&
-          attempt.targetExecutionMode === "gated" &&
-          attempt.attemptStatus === "blocked",
+      blockedAttemptPresent: clusterIds.every((clusterId) =>
+        transitionFor(clusterId, "gated", "blocked"),
       ),
-      gatedAttemptPromoted: transitions.some(
-        (attempt) =>
-          attempt.clusterId === "cognition" &&
-          attempt.targetExecutionMode === "gated" &&
-          attempt.attemptStatus === "promoted",
+      gatedAttemptPromoted: clusterIds.every((clusterId) =>
+        transitionFor(clusterId, "gated", "promoted"),
       ),
-      liveAttemptPromoted: transitions.some(
-        (attempt) =>
-          attempt.clusterId === "cognition" &&
-          attempt.targetExecutionMode === "live" &&
-          attempt.attemptStatus === "promoted",
+      liveAttemptPromoted: clusterIds.every((clusterId) =>
+        transitionFor(clusterId, "live", "promoted"),
       ),
-      clusterPromotedLive: cluster?.promotionStatus === "live",
+      clusterPromotedLive: clusterIds.every(
+        (clusterId) => clusterById.get(clusterId)?.promotionStatus === "live",
+      ),
+      runtimeSelectorDefaultPromoted:
+        selector?.selectedSelector === "blessed_workflow_live_default" &&
+        selector?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        selector?.actualRuntimeAuthority === "blessed_workflow_activation_default" &&
+        selector?.executionMode === "live" &&
+        selector?.defaultPromotionGate?.enabled === true &&
+        selector?.defaultPromotionGate?.eligible === true &&
+        selector?.defaultPromotionGate?.defaultAuthorityTransferred === true &&
+        (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0,
+      liveHandoffTransferred:
+        liveHandoff?.selector === "blessed_workflow_live_default" &&
+        liveHandoff?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        liveHandoff?.defaultAuthorityTransferred === true &&
+        liveHandoff?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        liveHandoff?.rollbackAvailable === true &&
+        (liveHandoff?.activationBlockers ?? []).length === 0,
+      defaultDispatchBound:
+        defaultDispatch?.selectedSelector === "blessed_workflow_live_default" &&
+        defaultDispatch?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        defaultDispatch?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        defaultDispatch?.executionMode === "live" &&
+        clusterIds.every((clusterId) =>
+          (defaultDispatch?.acceptedClusterIds ?? []).includes(clusterId),
+        ),
+      activeWorkerBinding:
+        activationRecord?.activationState === "active" &&
+        activationRecord?.liveAuthorityTransferred === true &&
+        activationRecord?.policyPosture === "live" &&
+        workerBinding?.harnessActivationId === selector?.activationId &&
+        workerBinding?.executionMode === "live" &&
+        workerBinding?.source === "default",
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -2614,16 +2657,48 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       screenshot: screenshot.path,
       screenshotError: screenshot.stderr || null,
       liveWorkflowError: liveWorkflow.error ?? null,
-      cluster: cluster
+      clusters: clusterIds.map((clusterId) => {
+        const cluster = clusterById.get(clusterId);
+        return {
+          clusterId,
+          promotionStatus: cluster?.promotionStatus ?? null,
+          label: cluster?.label ?? null,
+        };
+      }),
+      runtimeSelector: selector
         ? {
-            clusterId: cluster.clusterId,
-            promotionStatus: cluster.promotionStatus,
-            label: cluster.label,
+            decisionId: selector.decisionId,
+            selectedSelector: selector.selectedSelector,
+            productionDefaultSelector: selector.productionDefaultSelector,
+            executionMode: selector.executionMode,
+            actualRuntimeAuthority: selector.actualRuntimeAuthority,
+            rollbackAvailable: selector.rollbackAvailable,
+          }
+        : null,
+      liveHandoff: liveHandoff
+        ? {
+            selector: liveHandoff.selector,
+            productionDefaultSelector: liveHandoff.productionDefaultSelector,
+            defaultAuthorityTransferred: liveHandoff.defaultAuthorityTransferred,
+            runtimeAuthority: liveHandoff.runtimeAuthority,
+            rollbackAvailable: liveHandoff.rollbackAvailable,
+            activationBlockerCount: liveHandoff.activationBlockers?.length ?? 0,
+          }
+        : null,
+      defaultDispatch: defaultDispatch
+        ? {
+            dispatchId: defaultDispatch.dispatchId,
+            selectedSelector: defaultDispatch.selectedSelector,
+            productionDefaultSelector: defaultDispatch.productionDefaultSelector,
+            executionMode: defaultDispatch.executionMode,
+            runtimeAuthority: defaultDispatch.runtimeAuthority,
+            acceptedClusterIds: defaultDispatch.acceptedClusterIds,
           }
         : null,
       attempts: transitions
-        .filter((attempt) => attempt.clusterId === "cognition")
+        .filter((attempt) => clusterIds.includes(attempt.clusterId))
         .map((attempt) => ({
+          clusterId: attempt.clusterId,
           targetExecutionMode: attempt.targetExecutionMode,
           attemptStatus: attempt.attemptStatus,
           previousStatus: attempt.previousStatus,
@@ -2639,6 +2714,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         promoteClusterGated: "workflow-harness-promote-cluster-gated",
         promoteClusterLive: "workflow-harness-promote-cluster-live",
         promotionAttempt: "workflow-harness-group-promotion-attempt",
+        runtimeSelectorBadge: "workflow-harness-runtime-selector",
+        defaultDispatchPanel: "workflow-harness-default-runtime-dispatch",
       },
       sourceRefs: [
         "packages/agent-ide/src/WorkflowComposer/controller.tsx",

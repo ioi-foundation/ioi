@@ -823,8 +823,8 @@ assert.match(
 
 assert.match(
   `${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
-  /(?=[\s\S]*VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_SCRIPT)(?=[\s\S]*__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT)(?=[\s\S]*handleHarnessPromotionLiveGuiProbe)(?=[\s\S]*default-agent-harness-live-gui-promotion-proof\.workflow\.json)(?=[\s\S]*collectPromotionTransitionLiveGuiInteractionProof)(?=[\s\S]*promotion-transition-live-gui-interaction-proof\.json)(?=[\s\S]*harness_promotion_transition_live_gui_interaction)(?=[\s\S]*harness_promotion_transition_live_gui_interaction_present)(?=[\s\S]*promotionTransitionLiveGui)/,
-  "Retained GUI validation should require a live Workflows desktop promotion interaction with saved workflow state and screenshot proof.",
+  /(?=[\s\S]*VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_SCRIPT)(?=[\s\S]*__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT)(?=[\s\S]*handleHarnessPromotionLiveGuiProbe)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS)(?=[\s\S]*workflowWithBlessedDefaultRuntimeActivationProof)(?=[\s\S]*makeHarnessRuntimeSelectorDecision)(?=[\s\S]*makeBlessedHarnessLiveHandoffProof)(?=[\s\S]*makeHarnessDefaultRuntimeDispatchProof)(?=[\s\S]*default-agent-harness-live-gui-promotion-proof\.workflow\.json)(?=[\s\S]*runtimeSelectorDefaultPromoted)(?=[\s\S]*liveHandoffTransferred)(?=[\s\S]*defaultDispatchBound)(?=[\s\S]*activeWorkerBinding)(?=[\s\S]*collectPromotionTransitionLiveGuiInteractionProof)(?=[\s\S]*promotion-transition-live-gui-interaction-proof\.json)(?=[\s\S]*harness_promotion_transition_live_gui_interaction)(?=[\s\S]*harness_promotion_transition_live_gui_interaction_present)(?=[\s\S]*promotionTransitionLiveGui)/,
+  "Retained GUI validation should require a live Workflows desktop promotion interaction that promotes every P0 cluster, saves blessed default selector state, and captures screenshot proof.",
 );
 
 assert.match(

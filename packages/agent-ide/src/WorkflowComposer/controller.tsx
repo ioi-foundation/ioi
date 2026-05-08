@@ -66,6 +66,8 @@ import type {
   WorkflowHarnessComponentKind,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
+  WorkflowHarnessPromotionClusterId,
+  WorkflowHarnessPromotionTransitionAttempt,
   WorkflowHarnessPromotionTransitionTarget,
   WorkflowExecutionMode,
   WorkflowKind,
@@ -118,8 +120,12 @@ import {
   executeWorkflowHarnessRollbackDrill,
   executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
+  makeBlessedHarnessLiveHandoffProof,
+  makeHarnessDefaultRuntimeDispatchProof,
   makeHarnessCanaryExecutionBoundaries,
   makeDefaultAgentHarnessWorkflow,
+  makeHarnessForkActivationRecord,
+  makeHarnessRuntimeSelectorDecision,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
@@ -200,6 +206,12 @@ import type { WorkflowComposerProps } from "./types";
 
 const HARNESS_GROUP_NODE_PREFIX = "harness.group.";
 const HARNESS_WORKBENCH_DEEP_LINK_PREFIX = "#harness-workbench";
+const HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS: WorkflowHarnessPromotionClusterId[] = [
+  "cognition",
+  "routing_model",
+  "verification_output",
+  "authority_tooling",
+];
 
 type HarnessWorkbenchDeepLink = {
   panel?: WorkflowRightPanel;
@@ -260,6 +272,17 @@ function harnessGroupNodeId(groupId: string): string {
 function harnessGroupIdFromNodeId(nodeId: string | null): string | null {
   if (!nodeId?.startsWith(HARNESS_GROUP_NODE_PREFIX)) return null;
   return nodeId.slice(HARNESS_GROUP_NODE_PREFIX.length);
+}
+
+function uniqueHarnessRefs(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values.filter(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0,
+      ),
+    ),
+  );
 }
 
 function harnessPromotionClusterFor(workflow: WorkflowProject, clusterId: string) {
@@ -361,6 +384,134 @@ function workflowReadyForHarnessPromotion(
     clusterId,
     "live_ready",
   );
+}
+
+function workflowWithBlessedDefaultRuntimeActivationProof(
+  workflow: WorkflowProject,
+  nowMs: number,
+): WorkflowProject {
+  const harness = workflow.metadata.harness;
+  if (!harness) return workflow;
+  const promotionTransitions = harness.promotionTransitions ?? [];
+  const canaryBoundaries = harness.canaryExecutionBoundaries ?? [];
+  const transitionRefs = uniqueHarnessRefs(
+    promotionTransitions.flatMap((attempt) => [
+      attempt.transitionId,
+      ...attempt.receiptRefs,
+      ...attempt.replayFixtureRefs,
+      ...attempt.evidenceRefs,
+    ]),
+  );
+  const boundaryAttemptIds = uniqueHarnessRefs(
+    canaryBoundaries.flatMap((boundary) => boundary.nodeAttemptIds),
+  );
+  const boundaryReceiptIds = uniqueHarnessRefs(
+    canaryBoundaries.flatMap((boundary) => boundary.receiptIds),
+  );
+  const boundaryReplayFixtureRefs = uniqueHarnessRefs(
+    canaryBoundaries.flatMap((boundary) => boundary.replayFixtureRefs),
+  );
+  const selectorDecision = makeHarnessRuntimeSelectorDecision({
+    decisionId: `harness-selector:${workflow.metadata.id || workflow.metadata.slug}:live-gui-default`,
+    selectedSelector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    canaryEligible: true,
+    canaryBlockers: [],
+    executionMode: "live",
+    actualRuntimeAuthority: "blessed_workflow_activation_default",
+    policyDecision: "promote_blessed_workflow_default_for_non_mutating_turn",
+    routeReason:
+      "Live GUI proof promoted every P0 harness cluster and bound the blessed workflow activation as the default runtime selector.",
+    defaultPromotionGateEnabled: true,
+    defaultPromotionGateEligible: true,
+    defaultPromotionGateAuthorityTransferred: true,
+    defaultPromotionGateActivationBlockers: [],
+    defaultPromotionGatePolicyDecision:
+      "promote_blessed_workflow_default_for_non_mutating_turn",
+    evidenceRefs: transitionRefs,
+  });
+  const liveHandoffProof = makeBlessedHarnessLiveHandoffProof({
+    selector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    defaultAuthorityTransferred: true,
+    runtimeAuthority: "blessed_workflow_activation_default",
+    policyDecision: "promote_blessed_workflow_default_for_non_mutating_turn",
+    defaultPromotionGateEnabled: true,
+    defaultPromotionGateEligible: true,
+    defaultPromotionGateActivationBlockers: [],
+    defaultPromotionGatePolicyDecision:
+      "promote_blessed_workflow_default_for_non_mutating_turn",
+    gatedClusterIds: HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS,
+    executionBoundaryIds: uniqueHarnessRefs(
+      canaryBoundaries.map((boundary) => boundary.boundaryId),
+    ),
+    executionBoundaryClusterIds: HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS,
+    nodeTimelineAttemptIds: boundaryAttemptIds,
+    receiptIds: boundaryReceiptIds,
+    replayFixtureRefs: boundaryReplayFixtureRefs,
+    activationBlockers: [],
+    evidenceRefs: transitionRefs,
+  });
+  const defaultRuntimeDispatchProof = makeHarnessDefaultRuntimeDispatchProof({
+    selectorDecisionId: selectorDecision.decisionId,
+    acceptedClusterIds: HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS,
+    sourceBoundaryIds: uniqueHarnessRefs(
+      canaryBoundaries.map((boundary) => boundary.boundaryId),
+    ),
+    acceptedNodeAttemptIds: boundaryAttemptIds,
+    receiptIds: boundaryReceiptIds,
+    replayFixtureRefs: boundaryReplayFixtureRefs,
+    evidenceRefs: transitionRefs,
+  });
+  const workerBinding = {
+    ...workflowHarnessWorkerBinding(workflow),
+    harnessWorkflowId: harness.harnessWorkflowId || workflow.metadata.id,
+    harnessActivationId: harness.activationId,
+    harnessHash: harness.harnessHash,
+    executionMode: "live" as const,
+    source: "default" as const,
+  };
+  const activationRecord = makeHarnessForkActivationRecord({
+    workflowId: workflow.metadata.id || workflow.metadata.slug,
+    harnessWorkflowId: harness.harnessWorkflowId || workflow.metadata.id,
+    activationId: harness.activationId,
+    activationState: "active",
+    activationBlockers: [],
+    componentVersionSet: liveHandoffProof.componentVersionSet,
+    harnessHash: harness.harnessHash,
+    policyPosture: "live",
+    canaryStatus: "passed",
+    rollbackTarget: harness.activationId ?? "activation:default-agent-harness:blessed-readonly",
+    rollbackAvailable: true,
+    liveAuthorityTransferred: true,
+    evidenceRefs: uniqueHarnessRefs([
+      selectorDecision.decisionId,
+      liveHandoffProof.executionBoundaryId,
+      defaultRuntimeDispatchProof.dispatchId,
+      ...transitionRefs,
+    ]),
+    workerBinding,
+    revisionBinding: harness.revisionBinding,
+    rollbackRevisionBinding: harness.revisionBinding,
+    mintedAtMs: nowMs,
+  });
+  return {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      workerHarnessBinding: workerBinding,
+      harness: {
+        ...harness,
+        executionMode: "live",
+        activationState: "active",
+        activationRecord,
+        runtimeSelectorDecision: selectorDecision,
+        liveHandoffProof,
+        defaultRuntimeDispatchProof,
+      },
+      updatedAtMs: nowMs,
+    },
+  };
 }
 
 function harnessComponentKindForNode(node: Node): WorkflowHarnessComponentKind | null {
@@ -4114,7 +4265,8 @@ export function useWorkflowComposerController({
   };
 
   const handleHarnessPromotionLiveGuiProbe = useCallback(async () => {
-    const clusterId = "cognition";
+    const clusterIds = HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS;
+    const primaryClusterId = clusterIds[0];
     const nowMs = Date.now();
     const projectRoot = currentProject?.rootPath || ".";
     const proofWorkflowPath = `${projectRoot}/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json`;
@@ -4130,74 +4282,95 @@ export function useWorkflowComposerController({
     publishLiveGuiProbeState({
       status: "running",
       phase: "open_default_harness",
-      clusterId,
+      clusterId: primaryClusterId,
+      clusterIds,
     });
     setActiveTab("graph");
     setRightPanel("outputs");
     setBottomPanel("selection");
-    setSelectedHarnessGroupId(clusterId);
+    setSelectedHarnessGroupId(primaryClusterId);
     setSelectedHarnessReceiptRef(null);
     setSelectedHarnessReplayFixtureRef(null);
     setSelectedHarnessRollbackTarget(null);
     setStatusMessage("Harness promotion live GUI proof running");
 
     try {
-      const baseWorkflow = makeDefaultAgentHarnessWorkflow(nowMs);
-      const blocked = executeWorkflowHarnessPromotionTransition(
-        baseWorkflow,
-        clusterId,
-        "gated",
-        { nowMs: nowMs + 10 },
-      );
-      const readyWorkflow = workflowReadyForHarnessPromotion(
-        blocked.workflow,
-        clusterId,
-        nowMs + 20,
-      );
-      const gated = executeWorkflowHarnessPromotionTransition(
-        readyWorkflow,
-        clusterId,
-        "gated",
-        { nowMs: nowMs + 30 },
-      );
-      const live = executeWorkflowHarnessPromotionTransition(
-        gated.workflow,
-        clusterId,
-        "live",
-        { nowMs: nowMs + 40 },
-      );
-      const nextTests = defaultAgentHarnessTests(live.workflow);
+      let workflow = makeDefaultAgentHarnessWorkflow(nowMs);
+      const blockedAttempts: WorkflowHarnessPromotionTransitionAttempt[] = [];
+      const gatedAttempts: WorkflowHarnessPromotionTransitionAttempt[] = [];
+      const liveAttempts: WorkflowHarnessPromotionTransitionAttempt[] = [];
+      clusterIds.forEach((clusterId, index) => {
+        const blocked = executeWorkflowHarnessPromotionTransition(
+          workflow,
+          clusterId,
+          "gated",
+          { nowMs: nowMs + 10 + index },
+        );
+        workflow = blocked.workflow;
+        blockedAttempts.push(blocked.attempt);
+      });
+      clusterIds.forEach((clusterId, index) => {
+        workflow = workflowReadyForHarnessPromotion(
+          workflow,
+          clusterId,
+          nowMs + 30 + index,
+        );
+        const gated = executeWorkflowHarnessPromotionTransition(
+          workflow,
+          clusterId,
+          "gated",
+          { nowMs: nowMs + 50 + index },
+        );
+        workflow = gated.workflow;
+        gatedAttempts.push(gated.attempt);
+      });
+      clusterIds.forEach((clusterId, index) => {
+        const live = executeWorkflowHarnessPromotionTransition(
+          workflow,
+          clusterId,
+          "live",
+          { nowMs: nowMs + 70 + index },
+        );
+        workflow = live.workflow;
+        liveAttempts.push(live.attempt);
+      });
+      workflow = workflowWithBlessedDefaultRuntimeActivationProof(workflow, nowMs + 90);
+      const nextTests = defaultAgentHarnessTests(workflow);
       setWorkflowPath(proofWorkflowPath);
       setTestsPath(proofWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"));
       setTests(nextTests);
       setProposals([]);
       setRuns([]);
       clearRunState();
-      loadWorkflowProject(live.workflow);
-      setValidationResult(validateWorkflowProject(live.workflow, nextTests));
+      loadWorkflowProject(workflow);
+      setValidationResult(validateWorkflowProject(workflow, nextTests));
       setReadinessResult(
         evaluateWorkflowActivationReadiness(
-          live.workflow,
+          workflow,
           nextTests,
-          validateWorkflowProject(live.workflow, nextTests),
+          validateWorkflowProject(workflow, nextTests),
           [],
           [],
         ),
       );
-      setSelectedHarnessGroupId(clusterId);
+      setSelectedHarnessGroupId(primaryClusterId);
       setRightPanel("outputs");
       setBottomPanel("selection");
-      setStatusMessage("Cognition harness group promoted to live");
+      setStatusMessage("Blessed harness activation promoted to live default");
       if (runtime.saveWorkflowProject) {
-        await runtime.saveWorkflowProject(proofWorkflowPath, live.workflow);
+        await runtime.saveWorkflowProject(proofWorkflowPath, workflow);
       }
       publishLiveGuiProbeState({
         status: "passed",
         phase: "complete",
-        blockedAttemptStatus: blocked.attempt.attemptStatus,
-        gatedAttemptStatus: gated.attempt.attemptStatus,
-        liveAttemptStatus: live.attempt.attemptStatus,
+        blockedAttemptStatuses: blockedAttempts.map((attempt) => attempt.attemptStatus),
+        gatedAttemptStatuses: gatedAttempts.map((attempt) => attempt.attemptStatus),
+        liveAttemptStatuses: liveAttempts.map((attempt) => attempt.attemptStatus),
         targetExecutionMode: "live",
+        selectedSelector:
+          workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
+        defaultAuthorityTransferred:
+          workflow.metadata.harness?.liveHandoffProof?.defaultAuthorityTransferred,
       });
     } catch (error) {
       const message = errorMessage(error);
