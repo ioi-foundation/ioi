@@ -2043,6 +2043,7 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "activation-audit"
     | "activation-gate"
     | "activation-gate-evidence"
+    | "activation-gate-node-attempt"
     | "activation-gate-receipt"
     | "activation-gate-replay"
     | string;
@@ -2237,6 +2238,13 @@ export interface WorkflowHarnessActivationIdGateClickProof {
     latestAuditStatus: string | null;
     receiptRefs: string[];
     evidenceRefs: string[];
+    workerHandoffReceiptIds?: string[];
+    workerHandoffNodeAttemptIds?: string[];
+    workerHandoffReplayFixtureRefs?: string[];
+    workerHandoffDeepLink?: string | null;
+    workerHandoffDeepLinkState?: Record<string, string>;
+    workerHandoffTimelineVisible?: boolean;
+    workerHandoffTimelineAttemptId?: string | null;
   };
   passed: boolean;
   blockers: string[];

@@ -178,10 +178,12 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedHarnessActivationBlockerRef,
     selectedHarnessActivationGateEvidenceRef,
     selectedHarnessActivationGateId,
+    selectedHarnessActivationGateNodeAttemptId,
     selectedHarnessActivationGateReceiptRef,
     selectedHarnessActivationGateReplayFixtureRef,
     selectedHarnessReceiptRef,
     selectedHarnessReplayFixtureRef,
+    selectedHarnessNodeAttemptId,
     selectedHarnessRevisionBindingKind,
     selectedHarnessRevisionBindingRef,
     selectedHarnessRollbackTarget,
@@ -1294,12 +1296,16 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                       selectedHarnessActivationGateEvidenceRef
                     }
                     selectedHarnessActivationGateId={selectedHarnessActivationGateId}
+                    selectedHarnessActivationGateNodeAttemptId={
+                      selectedHarnessActivationGateNodeAttemptId
+                    }
                     selectedHarnessActivationGateReceiptRef={
                       selectedHarnessActivationGateReceiptRef
                     }
                     selectedHarnessActivationGateReplayFixtureRef={
                       selectedHarnessActivationGateReplayFixtureRef
                     }
+                    selectedHarnessNodeAttemptId={selectedHarnessNodeAttemptId}
                     selectedHarnessReceiptRef={selectedHarnessReceiptRef}
                     selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
                     selectedHarnessRevisionBindingKind={selectedHarnessRevisionBindingKind}

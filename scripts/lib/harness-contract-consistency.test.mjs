@@ -290,7 +290,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   assert.match(
     workflow,
-    /workflowHarnessActivationIdGateClickProofBlockers[\s\S]*activation_id_gate_click_proof_missing[\s\S]*activation_id_gate_mint_worker_binding_mismatch/,
+    /workflowHarnessActivationIdGateClickProofBlockers[\s\S]*activation_id_gate_click_proof_missing[\s\S]*activation_id_gate_mint_worker_binding_mismatch[\s\S]*activation_id_gate_mint_handoff_timeline_missing/,
   );
   assert.match(
     workflow,

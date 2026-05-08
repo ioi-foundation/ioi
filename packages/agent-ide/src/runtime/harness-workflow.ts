@@ -206,6 +206,55 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
   if (minted.evidenceRefs.length === 0) {
     blockers.push("activation_id_gate_mint_evidence_missing");
   }
+  if ((minted.workerHandoffReceiptIds ?? []).length === 0) {
+    blockers.push("activation_id_gate_mint_worker_handoff_receipts_missing");
+  }
+  if ((minted.workerHandoffNodeAttemptIds ?? []).length === 0) {
+    blockers.push("activation_id_gate_mint_worker_handoff_attempts_missing");
+  }
+  if ((minted.workerHandoffReplayFixtureRefs ?? []).length === 0) {
+    blockers.push("activation_id_gate_mint_worker_handoff_replay_missing");
+  }
+  const workerHandoffAttemptId = minted.workerHandoffNodeAttemptIds?.[0] ?? null;
+  if (
+    workerHandoffAttemptId &&
+    minted.workerHandoffDeepLink?.includes("activationGateNodeAttemptId=") !==
+      true
+  ) {
+    blockers.push("activation_id_gate_mint_handoff_node_link_missing");
+  }
+  if (
+    workerHandoffAttemptId &&
+    minted.workerHandoffDeepLinkState?.[
+      "data-selected-activation-gate-id"
+    ] !== "worker-handoff"
+  ) {
+    blockers.push("activation_id_gate_mint_handoff_gate_not_restored");
+  }
+  if (
+    workerHandoffAttemptId &&
+    minted.workerHandoffDeepLinkState?.[
+      "data-selected-activation-gate-node-attempt-id"
+    ] !== workerHandoffAttemptId
+  ) {
+    blockers.push("activation_id_gate_mint_handoff_attempt_not_selected");
+  }
+  if (
+    workerHandoffAttemptId &&
+    minted.workerHandoffDeepLinkState?.["data-selected-node-attempt-id"] !==
+      workerHandoffAttemptId
+  ) {
+    blockers.push("activation_id_gate_mint_global_attempt_not_selected");
+  }
+  if (workerHandoffAttemptId && minted.workerHandoffTimelineVisible !== true) {
+    blockers.push("activation_id_gate_mint_handoff_timeline_missing");
+  }
+  if (
+    workerHandoffAttemptId &&
+    minted.workerHandoffTimelineAttemptId !== workerHandoffAttemptId
+  ) {
+    blockers.push("activation_id_gate_mint_handoff_timeline_attempt_missing");
+  }
   return uniqueStrings(blockers);
 }
 
