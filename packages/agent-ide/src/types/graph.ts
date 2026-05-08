@@ -2291,6 +2291,75 @@ export interface WorkflowHarnessPackageImportActivationHandoffProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessPackageImportActivationApplyProof {
+  schemaVersion:
+    | "workflow.harness.package-import-activation-apply-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  review: WorkflowPackageImportReview | null;
+  clicked: boolean;
+  beforeState: Record<string, string>;
+  afterState: Record<string, string>;
+  activationAction: {
+    present: boolean;
+    disabled: boolean;
+    evidenceReady: boolean;
+    blockerCount: number;
+    handoffPresent: boolean;
+    handoffDecision: string | null;
+    activationIdPreview: string | null;
+    canaryStatus: string | null;
+    rollbackTarget: string | null;
+    workerBindingId: string | null;
+    mintable: boolean;
+  };
+  activationResult: {
+    applied: boolean;
+    activationId: string | null;
+    blockers: string[];
+    workflowActivationId: string | null;
+    workflowActivationState: string | null;
+    workerBindingActivationId: string | null;
+    activationRecordWorkerBindingActivationId: string | null;
+    rollbackTarget: string | null;
+    revisionBindingActivationId: string | null;
+    activationRecordRevisionBindingHash: string | null;
+    rollbackRevisionBindingHash: string | null;
+    activationAuditEventCount: number;
+    latestAuditEventId: string | null;
+    latestAuditEventType: string | null;
+    latestAuditStatus: string | null;
+    receiptRefs: string[];
+    evidenceRefs: string[];
+    workerHandoffReceiptIds: string[];
+    workerHandoffNodeAttemptIds: string[];
+    workerHandoffReplayFixtureRefs: string[];
+    statusMessage: string;
+  } | null;
+  workerHandoff: {
+    deepLinkHash: string | null;
+    selectedState: Record<string, string>;
+    timelineVisible: boolean;
+    selectedAttemptId: string | null;
+  };
+  incompleteAction: {
+    present: boolean;
+    disabled: boolean;
+    evidenceReady: boolean;
+    blockerCount: number;
+    handoffPresent: boolean;
+    handoffDecision: string | null;
+    activationIdPreview: string | null;
+    canaryStatus: string | null;
+    rollbackTarget: string | null;
+    workerBindingId: string | null;
+    mintable: boolean;
+  };
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
   schemaVersion:
     | "workflow.harness.activation-gate-collect-evidence-click-proof.v1"
@@ -2687,6 +2756,7 @@ export interface WorkflowHarnessMetadata {
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
   packageImportReviewProof?: WorkflowHarnessPackageImportReviewProof;
   packageImportActivationHandoffProof?: WorkflowHarnessPackageImportActivationHandoffProof;
+  packageImportActivationApplyProof?: WorkflowHarnessPackageImportActivationApplyProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;
