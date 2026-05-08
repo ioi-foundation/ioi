@@ -824,6 +824,31 @@ const withClusterReadiness = (
     [],
   );
   assert.deepEqual(dispatch.activationBlockers, []);
+  assert.equal(
+    dispatch.livePromotionReadinessProof.schemaVersion,
+    "workflow.harness.live-promotion-readiness.v1",
+  );
+  assert.equal(dispatch.livePromotionReadinessProof.targetExecutionMode, "live");
+  assert.equal(dispatch.livePromotionReadinessProof.allClustersReady, true);
+  assert.equal(dispatch.livePromotionReadinessProof.promotionEligible, true);
+  assert.equal(
+    dispatch.livePromotionReadinessProof.defaultLiveActivationReady,
+    true,
+  );
+  assert.equal(
+    dispatch.livePromotionReadinessProof.invalidForkLiveActivationBlocked,
+    true,
+  );
+  assert.equal(dispatch.livePromotionReadinessProof.clusterReadiness.length, 4);
+  assert.ok(
+    dispatch.livePromotionReadinessProof.clusterReadiness.every(
+      (cluster) =>
+        cluster.targetExecutionMode === "live" &&
+        cluster.blockers.length === 0 &&
+        cluster.receiptRefs.length > 0 &&
+        cluster.replayFixtureRefs.length > 0,
+    ),
+  );
   assert.equal(dispatch.acceptedClusterIds.length, 4);
 }
 
@@ -874,6 +899,18 @@ const withClusterReadiness = (
   assert.equal(missingProofDispatch.drivesRuntimeDecision, false);
   assert.equal(missingProofDispatch.executionMode, "gated");
   assert.equal(missingProofDispatch.runtimeAuthority, "existing_runtime_service");
+  assert.equal(
+    missingProofDispatch.livePromotionReadinessProof.allClustersReady,
+    true,
+  );
+  assert.equal(
+    missingProofDispatch.livePromotionReadinessProof.promotionEligible,
+    false,
+  );
+  assert.deepEqual(
+    missingProofDispatch.livePromotionReadinessProof.activationBlockers,
+    ["activation_id_gate_click_proof_missing"],
+  );
 
   const dryRunOnlyProof = makeActivationIdGateClickProof({
     passed: false,

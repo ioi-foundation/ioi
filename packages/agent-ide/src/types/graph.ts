@@ -1026,6 +1026,51 @@ export interface WorkflowHarnessPromotionTransitionAttempt {
   createdAtMs: number;
 }
 
+export interface WorkflowHarnessLivePromotionClusterReadiness {
+  clusterId: WorkflowHarnessPromotionClusterId;
+  label: string;
+  currentStatus: WorkflowHarnessClusterPromotionStatus;
+  targetExecutionMode: Extract<WorkflowHarnessExecutionMode, "live">;
+  componentKinds: WorkflowHarnessComponentKind[];
+  readinessReady: boolean;
+  receiptReady: boolean;
+  replayGateReady: boolean;
+  canaryReady: boolean;
+  rollbackReady: boolean;
+  divergenceReady: boolean;
+  blockingDivergenceCount: number;
+  unclassifiedDivergenceCount: number;
+  attemptIds: string[];
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  actionFrameIds: string[];
+  divergenceClasses: WorkflowHarnessDivergenceClass[];
+  rollbackTarget: string;
+  blockers: string[];
+  decision: string;
+}
+
+export interface WorkflowHarnessLivePromotionReadinessProof {
+  schemaVersion: "workflow.harness.live-promotion-readiness.v1" | string;
+  proofId: string;
+  dispatchId: string;
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  targetExecutionMode: Extract<WorkflowHarnessExecutionMode, "live">;
+  requiredClusterIds: WorkflowHarnessPromotionClusterId[];
+  clusterReadiness: WorkflowHarnessLivePromotionClusterReadiness[];
+  allClustersReady: boolean;
+  promotionEligible: boolean;
+  defaultLiveActivationReady: boolean;
+  invalidForkLiveActivationBlocked: boolean;
+  rollbackAvailable: boolean;
+  rollbackTarget: string;
+  activationBlockers: string[];
+  policyDecision: string;
+  evidenceRefs: string[];
+}
+
 export type WorkflowHarnessActivationState =
   | "read_only"
   | "draft"
@@ -1683,6 +1728,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   readOnlyCapabilityRoutingProof?: Record<string, unknown>;
   verificationOutputProof?: Record<string, unknown>;
   authorityToolingAdapterProof?: Record<string, unknown>;
+  livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof;
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;

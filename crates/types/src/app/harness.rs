@@ -408,6 +408,53 @@ pub struct HarnessPromotionTransitionAttempt {
     pub created_at_ms: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessLivePromotionClusterReadiness {
+    pub cluster_id: HarnessPromotionClusterId,
+    pub label: String,
+    pub current_status: HarnessClusterPromotionStatus,
+    pub target_execution_mode: HarnessExecutionMode,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub readiness_ready: bool,
+    pub receipt_ready: bool,
+    pub replay_gate_ready: bool,
+    pub canary_ready: bool,
+    pub rollback_ready: bool,
+    pub divergence_ready: bool,
+    pub blocking_divergence_count: u32,
+    pub unclassified_divergence_count: u32,
+    pub attempt_ids: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub action_frame_ids: Vec<String>,
+    pub divergence_classes: Vec<HarnessDivergenceClass>,
+    pub rollback_target: String,
+    pub blockers: Vec<String>,
+    pub decision: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessLivePromotionReadinessProof {
+    pub schema_version: String,
+    pub proof_id: String,
+    pub dispatch_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub target_execution_mode: HarnessExecutionMode,
+    pub required_cluster_ids: Vec<HarnessPromotionClusterId>,
+    pub cluster_readiness: Vec<HarnessLivePromotionClusterReadiness>,
+    pub all_clusters_ready: bool,
+    pub promotion_eligible: bool,
+    pub default_live_activation_ready: bool,
+    pub invalid_fork_live_activation_blocked: bool,
+    pub rollback_available: bool,
+    pub rollback_target: String,
+    pub activation_blockers: Vec<String>,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
+}
+
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
@@ -981,6 +1028,7 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub read_only_capability_routing_source_material_ready: bool,
     pub read_only_capability_routing_no_mutation_ready: bool,
     pub read_only_capability_routing_workflow_owned_node_kinds: Vec<HarnessComponentKind>,
+    pub live_promotion_readiness_proof: HarnessLivePromotionReadinessProof,
     pub output_authority: String,
     pub output_writer_deferred: bool,
     pub output_writer_status: String,
@@ -2033,10 +2081,198 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
     }
 }
 
+fn default_live_promotion_cluster_readiness(
+    cluster_id: HarnessPromotionClusterId,
+    component_kinds: Vec<HarnessComponentKind>,
+    attempt_slugs: &[&str],
+    rollback_target: &str,
+) -> HarnessLivePromotionClusterReadiness {
+    let attempt_ids = attempt_slugs
+        .iter()
+        .map(|slug| format!("harness-default-dispatch:attempt-{slug}"))
+        .collect::<Vec<_>>();
+    let receipt_refs = attempt_slugs
+        .iter()
+        .map(|slug| format!("harness-default-dispatch:receipt-{slug}"))
+        .collect::<Vec<_>>();
+    let replay_fixture_refs = attempt_slugs
+        .iter()
+        .map(|slug| format!("harness-default-dispatch:fixture-{slug}"))
+        .collect::<Vec<_>>();
+    let action_frame_ids = component_kinds
+        .iter()
+        .map(|kind| format!("harness.{}:{}", kind.as_str(), kind.component_id()))
+        .collect::<Vec<_>>();
+
+    HarnessLivePromotionClusterReadiness {
+        cluster_id,
+        label: cluster_id.label().to_string(),
+        current_status: HarnessClusterPromotionStatus::Gated,
+        target_execution_mode: HarnessExecutionMode::Live,
+        component_kinds,
+        readiness_ready: true,
+        receipt_ready: !receipt_refs.is_empty(),
+        replay_gate_ready: !replay_fixture_refs.is_empty(),
+        canary_ready: true,
+        rollback_ready: true,
+        divergence_ready: true,
+        blocking_divergence_count: 0,
+        unclassified_divergence_count: 0,
+        attempt_ids,
+        receipt_refs,
+        replay_fixture_refs,
+        action_frame_ids,
+        divergence_classes: vec![HarnessDivergenceClass::None],
+        rollback_target: rollback_target.to_string(),
+        blockers: Vec::new(),
+        decision: "allow_default_harness_live_cluster_promotion".to_string(),
+    }
+}
+
+pub fn default_harness_live_promotion_readiness_proof(
+    dispatch_id: impl Into<String>,
+    activation_blockers: Vec<String>,
+) -> HarnessLivePromotionReadinessProof {
+    let dispatch_id = dispatch_id.into();
+    let required_cluster_ids = vec![
+        HarnessPromotionClusterId::Cognition,
+        HarnessPromotionClusterId::RoutingModel,
+        HarnessPromotionClusterId::VerificationOutput,
+        HarnessPromotionClusterId::AuthorityTooling,
+    ];
+    let cluster_readiness = vec![
+        default_live_promotion_cluster_readiness(
+            HarnessPromotionClusterId::Cognition,
+            vec![
+                HarnessComponentKind::Planner,
+                HarnessComponentKind::PromptAssembler,
+                HarnessComponentKind::TaskState,
+                HarnessComponentKind::UncertaintyGate,
+                HarnessComponentKind::BudgetGate,
+                HarnessComponentKind::CapabilitySequencer,
+            ],
+            &[
+                "planner_envelope",
+                "prompt_assembler_envelope",
+                "task_state_envelope",
+                "uncertainty_gate_envelope",
+                "budget_gate_envelope",
+                "capability_sequencer_envelope",
+            ],
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        ),
+        default_live_promotion_cluster_readiness(
+            HarnessPromotionClusterId::RoutingModel,
+            vec![
+                HarnessComponentKind::ModelRouter,
+                HarnessComponentKind::ModelCall,
+                HarnessComponentKind::ToolRouter,
+            ],
+            &[
+                "routing_model_model_router_envelope",
+                "routing_model_model_call_envelope",
+                "routing_model_tool_router_envelope",
+                "model_provider_call_canary",
+                "model_provider_gated_visible_output",
+                "model_provider_gated_visible_output_rollback_drill",
+            ],
+            "legacy_runtime_model_invocation",
+        ),
+        default_live_promotion_cluster_readiness(
+            HarnessPromotionClusterId::VerificationOutput,
+            vec![
+                HarnessComponentKind::PostconditionSynthesizer,
+                HarnessComponentKind::Verifier,
+                HarnessComponentKind::CompletionGate,
+                HarnessComponentKind::ReceiptWriter,
+                HarnessComponentKind::QualityLedger,
+                HarnessComponentKind::OutputWriter,
+            ],
+            &[
+                "verification_output_postcondition_synthesizer_envelope",
+                "verification_output_verifier_envelope",
+                "verification_output_completion_gate_envelope",
+                "verification_output_receipt_writer_envelope",
+                "verification_output_quality_ledger_envelope",
+                "verification_output_output_writer_envelope",
+            ],
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        ),
+        default_live_promotion_cluster_readiness(
+            HarnessPromotionClusterId::AuthorityTooling,
+            vec![
+                HarnessComponentKind::PolicyGate,
+                HarnessComponentKind::ApprovalGate,
+                HarnessComponentKind::DryRunSimulator,
+                HarnessComponentKind::McpProvider,
+                HarnessComponentKind::McpToolCall,
+                HarnessComponentKind::ToolCall,
+                HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::WalletCapability,
+            ],
+            &[
+                "authority_tooling_policy_gate_envelope",
+                "authority_tooling_approval_gate_envelope",
+                "authority_tooling_dry_run_simulator_envelope",
+                "authority_tooling_mcp_provider_envelope",
+                "authority_tooling_mcp_tool_call_envelope",
+                "authority_tooling_tool_call_envelope",
+                "authority_tooling_connector_call_envelope",
+                "authority_tooling_wallet_capability_envelope",
+            ],
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        ),
+    ];
+    let all_clusters_ready = cluster_readiness
+        .iter()
+        .all(|cluster| cluster.blockers.is_empty());
+    let rollback_available = true;
+    let invalid_fork_live_activation_blocked = true;
+    let promotion_eligible = all_clusters_ready
+        && activation_blockers.is_empty()
+        && rollback_available
+        && invalid_fork_live_activation_blocked;
+
+    HarnessLivePromotionReadinessProof {
+        schema_version: "workflow.harness.live-promotion-readiness.v1".to_string(),
+        proof_id: format!(
+            "harness-live-promotion-readiness:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        ),
+        dispatch_id: dispatch_id.clone(),
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        target_execution_mode: HarnessExecutionMode::Live,
+        required_cluster_ids,
+        cluster_readiness,
+        all_clusters_ready,
+        promotion_eligible,
+        default_live_activation_ready: promotion_eligible,
+        invalid_fork_live_activation_blocked,
+        rollback_available,
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        activation_blockers,
+        policy_decision: if promotion_eligible {
+            "allow_default_harness_live_promotion_readiness".to_string()
+        } else {
+            "block_default_harness_live_promotion_readiness".to_string()
+        },
+        evidence_refs: vec![
+            dispatch_id,
+            format!(
+                "harness-live-promotion-readiness:{}",
+                DEFAULT_AGENT_HARNESS_WORKFLOW_ID
+            ),
+        ],
+    }
+}
+
 pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntimeDispatchProof {
+    let dispatch_id = "harness-default-dispatch:default-agent-harness:readonly".to_string();
     HarnessDefaultRuntimeDispatchProof {
         schema_version: "workflow.harness.default-runtime-dispatch.v1".to_string(),
-        dispatch_id: "harness-default-dispatch:default-agent-harness:readonly".to_string(),
+        dispatch_id: dispatch_id.clone(),
         selector_decision_id: "harness-selector:default-agent-harness:default".to_string(),
         selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
         production_default_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
@@ -2478,6 +2714,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             HarnessComponentKind::ToolRouter,
             HarnessComponentKind::DryRunSimulator,
         ],
+        live_promotion_readiness_proof: default_harness_live_promotion_readiness_proof(
+            dispatch_id,
+            Vec::new(),
+        ),
         output_authority: "blessed_workflow_activation_default".to_string(),
         output_writer_deferred: false,
         output_writer_status: "visible_write_committed".to_string(),

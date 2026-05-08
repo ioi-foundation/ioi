@@ -18,6 +18,8 @@ import type {
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessForkActivationRecord,
   WorkflowHarnessLiveHandoffProof,
+  WorkflowHarnessLivePromotionClusterReadiness,
+  WorkflowHarnessLivePromotionReadinessProof,
   WorkflowHarnessMetadata,
   WorkflowHarnessNodeBinding,
   WorkflowHarnessPromotionCluster,
@@ -2393,6 +2395,165 @@ function makeDefaultAuthorityToolingGateAdapterResults(): WorkflowHarnessCompone
   );
 }
 
+function makeHarnessLivePromotionClusterReadiness(options: {
+  clusterId: WorkflowHarnessPromotionClusterId;
+  currentStatus?: WorkflowHarnessClusterPromotionStatus;
+  componentKinds: WorkflowHarnessComponentKind[];
+  readinessReady: boolean;
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  actionFrameIds: string[];
+  attemptIds: string[];
+  divergenceClasses: WorkflowHarnessLivePromotionClusterReadiness["divergenceClasses"];
+  canaryReady: boolean;
+  rollbackReady: boolean;
+  rollbackTarget: string;
+  blockers?: string[];
+}): WorkflowHarnessLivePromotionClusterReadiness {
+  const receiptRefs = uniqueStrings(options.receiptRefs);
+  const replayFixtureRefs = uniqueStrings(options.replayFixtureRefs);
+  const attemptIds = uniqueStrings(options.attemptIds);
+  const actionFrameIds = uniqueStrings(options.actionFrameIds);
+  const blockingDivergenceCount = options.divergenceClasses.filter(
+    (divergenceClass) =>
+      divergenceClass !== "none" && divergenceClass !== "harmless_metadata",
+  ).length;
+  const unclassifiedDivergenceCount = options.divergenceClasses.filter(
+    (divergenceClass) => divergenceClass === "unclassified",
+  ).length;
+  const receiptReady = receiptRefs.length > 0;
+  const replayGateReady = replayFixtureRefs.length > 0 && blockingDivergenceCount === 0;
+  const divergenceReady =
+    blockingDivergenceCount === 0 && unclassifiedDivergenceCount === 0;
+  const blockers = uniqueStrings([
+    ...(options.blockers ?? []),
+    ...(options.readinessReady ? [] : [`${options.clusterId}_readiness_not_ready`]),
+    ...(receiptReady ? [] : [`${options.clusterId}_receipts_missing`]),
+    ...(replayGateReady ? [] : [`${options.clusterId}_replay_gate_not_ready`]),
+    ...(options.canaryReady ? [] : [`${options.clusterId}_canary_not_ready`]),
+    ...(options.rollbackReady ? [] : [`${options.clusterId}_rollback_not_ready`]),
+    ...(divergenceReady ? [] : [`${options.clusterId}_divergence_not_ready`]),
+  ]);
+
+  return {
+    clusterId: options.clusterId,
+    label: HARNESS_PROMOTION_CLUSTER_LABELS[options.clusterId],
+    currentStatus: options.currentStatus ?? "gated",
+    targetExecutionMode: "live",
+    componentKinds: options.componentKinds,
+    readinessReady: options.readinessReady,
+    receiptReady,
+    replayGateReady,
+    canaryReady: options.canaryReady,
+    rollbackReady: options.rollbackReady,
+    divergenceReady,
+    blockingDivergenceCount,
+    unclassifiedDivergenceCount,
+    attemptIds,
+    receiptRefs,
+    replayFixtureRefs,
+    actionFrameIds,
+    divergenceClasses: options.divergenceClasses,
+    rollbackTarget: options.rollbackTarget,
+    blockers,
+    decision:
+      blockers.length === 0
+        ? "allow_default_harness_live_cluster_promotion"
+        : "block_default_harness_live_cluster_promotion",
+  };
+}
+
+export function makeHarnessLivePromotionReadinessProof(options: {
+  proofId?: string;
+  dispatchId: string;
+  workflowId?: string;
+  activationId?: string;
+  harnessHash?: string;
+  clusterReadiness: WorkflowHarnessLivePromotionClusterReadiness[];
+  activationBlockers?: string[];
+  invalidForkLiveActivationBlocked?: boolean;
+  rollbackAvailable?: boolean;
+  rollbackTarget?: string;
+  evidenceRefs?: string[];
+}): WorkflowHarnessLivePromotionReadinessProof {
+  const workflowId = options.workflowId ?? DEFAULT_AGENT_HARNESS_WORKFLOW_ID;
+  const activationId = options.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const harnessHash = options.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH;
+  const requiredClusterIds: WorkflowHarnessPromotionClusterId[] = [
+    "cognition",
+    "routing_model",
+    "verification_output",
+    "authority_tooling",
+  ];
+  const clusterReadiness = requiredClusterIds.map(
+    (clusterId) =>
+      options.clusterReadiness.find((cluster) => cluster.clusterId === clusterId) ??
+      makeHarnessLivePromotionClusterReadiness({
+        clusterId,
+        currentStatus: "blocked",
+        componentKinds: HARNESS_PROMOTION_CLUSTER_COMPONENTS[clusterId],
+        readinessReady: false,
+        receiptRefs: [],
+        replayFixtureRefs: [],
+        actionFrameIds: [],
+        attemptIds: [],
+        divergenceClasses: ["unclassified"],
+        canaryReady: false,
+        rollbackReady: false,
+        rollbackTarget: options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        blockers: [`${clusterId}_readiness_record_missing`],
+      }),
+  );
+  const activationBlockers = uniqueStrings(options.activationBlockers ?? []);
+  const allClustersReady = clusterReadiness.every(
+    (cluster) => cluster.blockers.length === 0,
+  );
+  const invalidForkLiveActivationBlocked =
+    options.invalidForkLiveActivationBlocked ?? true;
+  const rollbackAvailable = options.rollbackAvailable ?? true;
+  const rollbackTarget = options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const promotionEligible =
+    allClustersReady &&
+    activationBlockers.length === 0 &&
+    invalidForkLiveActivationBlocked &&
+    rollbackAvailable &&
+    Boolean(rollbackTarget);
+
+  return {
+    schemaVersion: "workflow.harness.live-promotion-readiness.v1",
+    proofId:
+      options.proofId ??
+      `harness-live-promotion-readiness:${workflowId}:${activationId}`,
+    dispatchId: options.dispatchId,
+    workflowId,
+    activationId,
+    harnessHash,
+    targetExecutionMode: "live",
+    requiredClusterIds,
+    clusterReadiness,
+    allClustersReady,
+    promotionEligible,
+    defaultLiveActivationReady: promotionEligible,
+    invalidForkLiveActivationBlocked,
+    rollbackAvailable,
+    rollbackTarget,
+    activationBlockers,
+    policyDecision: promotionEligible
+      ? "allow_default_harness_live_promotion_readiness"
+      : "block_default_harness_live_promotion_readiness",
+    evidenceRefs: uniqueStrings([
+      options.dispatchId,
+      `harness-live-promotion-readiness:${workflowId}`,
+      ...clusterReadiness.flatMap((cluster) => [
+        ...cluster.attemptIds,
+        ...cluster.receiptRefs,
+        ...cluster.replayFixtureRefs,
+      ]),
+      ...(options.evidenceRefs ?? []),
+    ]),
+  };
+}
+
 export function makeHarnessDefaultRuntimeDispatchProof(options: {
   dispatchId?: string;
   selectorDecisionId?: string;
@@ -2575,6 +2736,125 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ? options.activationIdGateWorkerBindingActivationId ??
         DEFAULT_AGENT_HARNESS_ACTIVATION_ID
       : "";
+  const dispatchId =
+    options.dispatchId ?? "harness-default-dispatch:default-agent-harness:readonly";
+  const sourceBoundaryIds =
+    options.sourceBoundaryIds ??
+    acceptedClusterIds.map(
+      (clusterId) => `harness-canary-boundary:default-agent-harness:${clusterId}`,
+    );
+  const livePromotionReadinessProof = makeHarnessLivePromotionReadinessProof({
+    dispatchId,
+    activationBlockers,
+    invalidForkLiveActivationBlocked: true,
+    rollbackAvailable: true,
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    evidenceRefs: uniqueStrings([
+      ...(options.evidenceRefs ?? []),
+      ...sourceBoundaryIds,
+    ]),
+    clusterReadiness: [
+      makeHarnessLivePromotionClusterReadiness({
+        clusterId: "cognition",
+        componentKinds: cognitionExecutionLiveReadyComponentKinds,
+        readinessReady:
+          cognitionExecutionAdapterResults.length >= 3 &&
+          cognitionExecutionGateAdapterResults.length >= 3,
+        receiptRefs: [
+          "harness-default-dispatch:receipt-planner_envelope",
+          "harness-default-dispatch:receipt-prompt_assembler_envelope",
+          "harness-default-dispatch:receipt-task_state_envelope",
+          ...cognitionExecutionGateReceiptIds,
+        ],
+        replayFixtureRefs: [
+          "harness-default-dispatch:fixture-planner_envelope",
+          "harness-default-dispatch:fixture-prompt_assembler_envelope",
+          "harness-default-dispatch:fixture-task_state_envelope",
+          ...cognitionExecutionGateReplayFixtureRefs,
+        ],
+        actionFrameIds: [
+          ...cognitionExecutionActionFrameIds,
+          ...cognitionExecutionGateActionFrameIds,
+        ],
+        attemptIds: [
+          "harness-default-dispatch:attempt-planner_envelope",
+          "harness-default-dispatch:attempt-prompt_assembler_envelope",
+          "harness-default-dispatch:attempt-task_state_envelope",
+          ...cognitionExecutionGateAttemptIds,
+        ],
+        divergenceClasses: cognitionExecutionGateDivergenceClasses,
+        canaryReady: true,
+        rollbackReady: true,
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      }),
+      makeHarnessLivePromotionClusterReadiness({
+        clusterId: "routing_model",
+        componentKinds: routingModelComponentKinds,
+        readinessReady:
+          routingModelAdapterResults.length >= 3 &&
+          routingModelDivergenceClasses.every(
+            (divergenceClass) => divergenceClass === "none",
+          ),
+        receiptRefs: [
+          ...routingModelReceiptIds,
+          "harness-default-dispatch:receipt-model_provider_call_canary",
+          "harness-default-dispatch:receipt-model_provider_gated_visible_output",
+          "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
+        ],
+        replayFixtureRefs: [
+          ...routingModelReplayFixtureRefs,
+          "harness-default-dispatch:fixture-model_provider_call_canary",
+          "harness-default-dispatch:fixture-model_provider_gated_visible_output",
+          "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
+        ],
+        actionFrameIds: routingModelActionFrameIds,
+        attemptIds: [
+          ...routingModelAttemptIds,
+          "harness-default-dispatch:attempt-model_provider_call_canary",
+          "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+          "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+        ],
+        divergenceClasses: routingModelDivergenceClasses,
+        canaryReady: true,
+        rollbackReady: true,
+        rollbackTarget: "legacy_runtime_model_invocation",
+      }),
+      makeHarnessLivePromotionClusterReadiness({
+        clusterId: "verification_output",
+        componentKinds: verificationOutputComponentKinds,
+        readinessReady:
+          verificationOutputAdapterResults.length >= 6 &&
+          verificationOutputDivergenceClasses.every(
+            (divergenceClass) => divergenceClass === "none",
+          ),
+        receiptRefs: verificationOutputReceiptIds,
+        replayFixtureRefs: verificationOutputReplayFixtureRefs,
+        actionFrameIds: verificationOutputActionFrameIds,
+        attemptIds: verificationOutputAttemptIds,
+        divergenceClasses: verificationOutputDivergenceClasses,
+        canaryReady: true,
+        rollbackReady: true,
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      }),
+      makeHarnessLivePromotionClusterReadiness({
+        clusterId: "authority_tooling",
+        componentKinds: authorityToolingComponentKinds,
+        readinessReady:
+          authorityToolingAdapterResults.length >= 8 &&
+          authorityToolingDivergenceClasses.every(
+            (divergenceClass) => divergenceClass === "none",
+          ),
+        receiptRefs: authorityToolingReceiptIds,
+        replayFixtureRefs: authorityToolingReplayFixtureRefs,
+        actionFrameIds: authorityToolingActionFrameIds,
+        attemptIds: authorityToolingAttemptIds,
+        divergenceClasses: authorityToolingDivergenceClasses,
+        canaryReady: true,
+        rollbackReady: true,
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      }),
+    ],
+  });
   const workflowTranscriptWriteCandidate = {
     target: "checkpoint_transcript_messages",
     role: "agent",
@@ -2671,8 +2951,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
   };
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
-    dispatchId:
-      options.dispatchId ?? "harness-default-dispatch:default-agent-harness:readonly",
+    dispatchId,
     selectorDecisionId:
       options.selectorDecisionId ?? "harness-selector:default-agent-harness:default",
     selectedSelector: "blessed_workflow_live_default",
@@ -2692,11 +2971,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     deferredComponentKinds,
     handoffValidatedComponentKinds: ["output_writer"],
     materializationCanaryComponentKinds: ["output_writer"],
-    sourceBoundaryIds:
-      options.sourceBoundaryIds ??
-      acceptedClusterIds.map(
-        (clusterId) => `harness-canary-boundary:default-agent-harness:${clusterId}`,
-      ),
+    sourceBoundaryIds,
     dispatchNodeAttemptIds:
       options.dispatchNodeAttemptIds ?? [
         ...acceptedClusterIds.map(
@@ -3338,6 +3613,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ready: true,
       policyDecision: "accept_workflow_authority_tooling_adapter_envelope",
     },
+    livePromotionReadinessProof,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",

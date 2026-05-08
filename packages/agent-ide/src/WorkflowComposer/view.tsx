@@ -335,6 +335,29 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               {workflow.metadata.harness.defaultRuntimeDispatchProof
                 .authorityToolingGateLiveReady
                 ? "live"
+              : "blocked"}
+            </span>
+          ) : null}
+          {workflow.metadata.harness?.defaultRuntimeDispatchProof
+            ?.livePromotionReadinessProof ? (
+            <span
+              className="workflow-composer-harness-badge"
+              data-testid="workflow-harness-live-promotion-readiness-badge"
+              data-readiness={
+                workflow.metadata.harness.defaultRuntimeDispatchProof
+                  .livePromotionReadinessProof.defaultLiveActivationReady
+                  ? "live_ready"
+                  : "blocked"
+              }
+              title={
+                workflow.metadata.harness.defaultRuntimeDispatchProof
+                  .livePromotionReadinessProof.policyDecision
+              }
+            >
+              Live readiness{" "}
+              {workflow.metadata.harness.defaultRuntimeDispatchProof
+                .livePromotionReadinessProof.defaultLiveActivationReady
+                ? "ready"
                 : "blocked"}
             </span>
           ) : null}

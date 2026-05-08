@@ -451,6 +451,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveHandoffDefaultPromotedCount: 0,
     harnessLiveHandoffRollbackCount: 0,
     harnessDefaultRuntimeDispatchReadonlyCount: 0,
+    harnessLivePromotionReadinessCount: 0,
     harnessActivationIdGateClickProofRuntimeCount: 0,
     harnessActivationIdGateClickProofRuntimeBlockedCount: 0,
     harnessDefaultRuntimeBindingCount: 0,
@@ -965,8 +966,45 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.activationIdGate?.proofPassed === true &&
             dispatch.activationIdGate?.workerBindingActivationId ===
               DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+          const dispatchLivePromotionReadinessReady =
+            dispatch.livePromotionReadinessProof?.schemaVersion ===
+              "workflow.harness.live-promotion-readiness.v1" &&
+            dispatch.livePromotionReadinessProof?.targetExecutionMode === "live" &&
+            dispatch.livePromotionReadinessProof?.allClustersReady === true &&
+            dispatch.livePromotionReadinessProof?.promotionEligible === true &&
+            dispatch.livePromotionReadinessProof?.defaultLiveActivationReady === true &&
+            dispatch.livePromotionReadinessProof?.invalidForkLiveActivationBlocked === true &&
+            dispatch.livePromotionReadinessProof?.rollbackAvailable === true &&
+            dispatch.livePromotionReadinessProof?.policyDecision ===
+              "allow_default_harness_live_promotion_readiness" &&
+            Array.isArray(dispatch.livePromotionReadinessProof?.requiredClusterIds) &&
+            [
+              "cognition",
+              "routing_model",
+              "verification_output",
+              "authority_tooling",
+            ].every((clusterId) =>
+              dispatch.livePromotionReadinessProof.requiredClusterIds.includes(clusterId),
+            ) &&
+            Array.isArray(dispatch.livePromotionReadinessProof?.clusterReadiness) &&
+            dispatch.livePromotionReadinessProof.clusterReadiness.length >= 4 &&
+            dispatch.livePromotionReadinessProof.clusterReadiness.every(
+              (cluster) =>
+                cluster.targetExecutionMode === "live" &&
+                Array.isArray(cluster.blockers) &&
+                cluster.blockers.length === 0 &&
+                Array.isArray(cluster.receiptRefs) &&
+                cluster.receiptRefs.length > 0 &&
+                Array.isArray(cluster.replayFixtureRefs) &&
+                cluster.replayFixtureRefs.length > 0 &&
+                cluster.blockingDivergenceCount === 0 &&
+                cluster.unclassifiedDivergenceCount === 0,
+            );
           if (dispatchActivationIdGateReady) {
             summary.harnessActivationIdGateClickProofRuntimeCount += 1;
+          }
+          if (dispatchLivePromotionReadinessReady) {
+            summary.harnessLivePromotionReadinessCount += 1;
           }
           if (
             Array.isArray(dispatch.activationIdGateClickProofBlockers) &&
@@ -1121,6 +1159,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingAdapterProof?.ready === true &&
             dispatch.authorityToolingAdapterProof?.policyDecision ===
               "accept_workflow_authority_tooling_adapter_envelope" &&
+            dispatchLivePromotionReadinessReady &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
             typeof dispatch.modelExecutionBindingId === "string" &&
@@ -1663,6 +1702,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_default_runtime_dispatch_readonly === true) {
           summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
         }
+        if (digest.harness_live_promotion_readiness === true) {
+          summary.harnessLivePromotionReadinessCount += 1;
+        }
         if (digest.harness_default_runtime_binding_matched === true) {
           summary.harnessDefaultRuntimeBindingMatchedCount += 1;
         }
@@ -1887,6 +1929,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
           if (metadata.harness_default_runtime_dispatch_readonly === true) {
             summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+          }
+          if (metadata.harness_live_promotion_readiness === true) {
+            summary.harnessLivePromotionReadinessCount += 1;
           }
           if (metadata.harness_authority_tooling_read_only_canary === true) {
             summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
@@ -2199,6 +2244,11 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
     promotionTransitionControls:
       /WorkflowHarnessPromotionTransitionEligibility/.test(graph) &&
       /WorkflowHarnessPromotionTransitionAttempt/.test(graph) &&
+      /WorkflowHarnessLivePromotionReadinessProof/.test(graph) &&
+      /livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof/.test(
+        graph,
+      ) &&
+      /makeHarnessLivePromotionReadinessProof/.test(harnessWorkflow) &&
       /promotionStatus\?: WorkflowHarnessClusterPromotionStatus/.test(graph) &&
       /promotionTransitions\?: WorkflowHarnessPromotionTransitionAttempt\[\]/.test(
         graph,
@@ -2215,6 +2265,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-promote-cluster-live/.test(rail) &&
       /workflow-harness-group-promotion-eligibility/.test(rail) &&
       /workflow-harness-group-promotion-attempt/.test(rail) &&
+      /workflow-harness-live-promotion-readiness/.test(rail) &&
+      /workflow-harness-live-promotion-readiness-clusters/.test(rail) &&
       /data-gated-blockers/.test(rail) &&
       /data-live-blockers/.test(rail),
     rollbackCanaryContract:
@@ -2486,6 +2538,7 @@ function buildGuiEvidenceAssessment({
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
+    summary.harnessLivePromotionReadinessCount > 0 &&
     summary.harnessActivationIdGateClickProofRuntimeCount > 0 &&
     summary.harnessAuthorityToolingGateLiveCount > 0 &&
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
@@ -2530,6 +2583,11 @@ function buildGuiEvidenceAssessment({
     summary.harnessDefaultRuntimeBindingCount > 0 &&
     summary.harnessDefaultRuntimeBindingMatchedCount > 0 &&
     chatRuntimeBindingMatchesWorkflowProof;
+  const hasHarnessLivePromotionReadiness =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessLivePromotionReadinessCount > 0 &&
+    workflowProofDefaultDispatch?.livePromotionReadinessProof
+      ?.defaultLiveActivationReady === true;
   const hasHarnessAuthorityToolingGateLive =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingGateLiveCount > 0;
@@ -2649,6 +2707,7 @@ function buildGuiEvidenceAssessment({
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
       harness_default_runtime_dispatch_present: hasHarnessDefaultRuntimeDispatch,
+      harness_live_promotion_readiness_present: hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
         hasHarnessChatRuntimeBinding,
       harness_authority_tooling_gate_live_present: hasHarnessAuthorityToolingGateLive,
@@ -2721,6 +2780,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
       hasHarnessDefaultRuntimeDispatch,
+      hasHarnessLivePromotionReadiness,
       hasHarnessChatRuntimeBinding,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
@@ -2749,6 +2809,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessReadOnlyCapabilityRoutingScenarios,
       harnessReadOnlyCapabilityRoutingNoMutationScenarios:
         summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
+      harnessLivePromotionReadinessCount:
+        summary.harnessLivePromotionReadinessCount,
       harnessWorkerBindingCount: summary.harnessWorkerBindingCount,
       harnessShadowRunCount: summary.harnessShadowRunCount,
       harnessNodeAttemptCount: summary.harnessNodeAttemptCount,
@@ -3351,6 +3413,40 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         clusterIds.every((clusterId) =>
           (defaultDispatch?.acceptedClusterIds ?? []).includes(clusterId),
         ),
+      livePromotionReadinessBound:
+        defaultDispatch?.livePromotionReadinessProof?.schemaVersion ===
+          "workflow.harness.live-promotion-readiness.v1" &&
+        defaultDispatch?.livePromotionReadinessProof?.targetExecutionMode === "live" &&
+        defaultDispatch?.livePromotionReadinessProof?.allClustersReady === true &&
+        defaultDispatch?.livePromotionReadinessProof?.promotionEligible === true &&
+        defaultDispatch?.livePromotionReadinessProof?.defaultLiveActivationReady === true &&
+        defaultDispatch?.livePromotionReadinessProof?.invalidForkLiveActivationBlocked ===
+          true &&
+        defaultDispatch?.livePromotionReadinessProof?.rollbackAvailable === true &&
+        defaultDispatch?.livePromotionReadinessProof?.policyDecision ===
+          "allow_default_harness_live_promotion_readiness" &&
+        clusterIds.every((clusterId) =>
+          (defaultDispatch?.livePromotionReadinessProof?.requiredClusterIds ?? []).includes(
+            clusterId,
+          ),
+        ) &&
+        (defaultDispatch?.livePromotionReadinessProof?.clusterReadiness ?? []).length >=
+          clusterIds.length &&
+        clusterIds.every((clusterId) => {
+          const cluster =
+            defaultDispatch?.livePromotionReadinessProof?.clusterReadiness?.find(
+              (candidate) => candidate.clusterId === clusterId,
+            ) ?? null;
+          return (
+            cluster?.targetExecutionMode === "live" &&
+            cluster?.blockers?.length === 0 &&
+            cluster?.receiptRefs?.length > 0 &&
+            cluster?.replayFixtureRefs?.length > 0 &&
+            cluster?.blockingDivergenceCount === 0 &&
+            cluster?.unclassifiedDivergenceCount === 0 &&
+            cluster?.decision === "allow_default_harness_live_cluster_promotion"
+          );
+        }),
       activeWorkerBinding:
         activationRecord?.activationState === "active" &&
         activationRecord?.liveAuthorityTransferred === true &&
@@ -3649,6 +3745,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             defaultDispatchActivationBlockers:
               defaultDispatch.defaultDispatchActivationBlockers ?? [],
             activationIdGate: defaultDispatch.activationIdGate ?? null,
+            livePromotionReadinessProof:
+              defaultDispatch.livePromotionReadinessProof ?? null,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
@@ -4037,6 +4135,12 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
             ? runtimeArtifacts.path
+            : false,
+        harness_live_promotion_readiness:
+          runtimeArtifacts.summary.harnessLivePromotionReadinessCount > 0 &&
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.livePromotionReadinessBound === true
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_chat_runtime_binding:
           runtimeArtifacts.summary.harnessDefaultRuntimeBindingMatchedCount > 0

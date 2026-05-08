@@ -20,6 +20,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T12-22-46-391Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T12-28-29-887Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -230,11 +232,54 @@ as cognition, routing/model, and verification/output:
   `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`.
 
 This completes the P0 staged adapter proof across cognition, routing/model,
-verification/output, and authority/tooling. The next chronological slice should
-turn this from "all P0 clusters have gated canonical adapter evidence" into
-"the GUI and retained evidence explicitly prove gated-to-live promotion
-readiness for the full default harness activation, with rollback and divergence
-classification attached to every promoted cluster."
+verification/output, and authority/tooling.
+
+### 2026-05-08 P0 Live Promotion Readiness Slice
+
+The blessed default harness activation now has one activation-level promotion
+readiness proof instead of requiring reviewers to infer readiness from many
+separate cluster artifacts:
+
+- Rust canonical harness contracts now include
+  `HarnessLivePromotionClusterReadiness` and
+  `HarnessLivePromotionReadinessProof`, and the default dispatch proof carries
+  `live_promotion_readiness_proof`.
+- TypeScript graph/runtime contracts mirror this as
+  `WorkflowHarnessLivePromotionReadinessProof` and
+  `livePromotionReadinessProof` on
+  `WorkflowHarnessDefaultRuntimeDispatchProof`.
+- The proof aggregates all four P0 clusters: cognition, routing/model,
+  verification/output, and authority/tooling. Each cluster exposes target
+  `live` mode, current status, component kinds, attempt ids, receipt refs,
+  replay fixture refs, action frame ids, divergence classes, blockers,
+  rollback target, and promotion decision.
+- The activation-level rollup exposes `allClustersReady`,
+  `promotionEligible`, `defaultLiveActivationReady`,
+  `invalidForkLiveActivationBlocked`, `rollbackAvailable`, activation blockers,
+  and the policy decision
+  `allow_default_harness_live_promotion_readiness`.
+- The Autopilot GUI now shows a live-promotion readiness badge in the workflow
+  header and a right-rail readiness panel with per-cluster status, receipt
+  count, replay count, divergence counts, rollback posture, and blocker data.
+- The retained GUI validator now requires
+  `harness_live_promotion_readiness_present` and a concrete
+  `harness_live_promotion_readiness` artifact, tied to both runtime evidence
+  and the promotion-transition GUI proof.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T12-22-46-391Z/`;
+  the promotion workflow artifact contains `livePromotionReadinessProof` with
+  all four clusters ready for live activation.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T12-28-29-887Z/dashboard-index.json`.
+
+This turns "all P0 clusters have gated canonical adapter evidence" into "the
+GUI and retained evidence explicitly prove gated-to-live readiness for the full
+default harness activation, with rollback and divergence classification attached
+to every promoted cluster." The next chronological slice should make that proof
+drive the actual activation selector/canary path more directly: the selector
+should consume the readiness object as its primary gate input, and invalid fork
+live activation should be proven through the same object rather than through
+parallel validation counters.
 
 ## Current State
 

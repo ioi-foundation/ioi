@@ -9270,6 +9270,173 @@ fn runtime_harness_default_runtime_dispatch(
         "ready": authority_tooling_adapter_ready,
         "policyDecision": "accept_workflow_authority_tooling_adapter_envelope"
     });
+    let live_promotion_cognition_ready = cognition_execution_ready
+        && cognition_execution_adapter_results.len() >= 3
+        && cognition_execution_gate_adapter_results.len() >= 3
+        && cognition_execution_gate_divergence_classes
+            .iter()
+            .all(|value| value == "none");
+    let live_promotion_routing_model_ready = routing_model_adapter_results.len() >= 3
+        && routing_model_divergence_classes
+            .iter()
+            .all(|value| value == "none")
+        && model_provider_canary_ready
+        && model_provider_gated_visible_output_ready
+        && model_provider_gated_visible_output_rollback_drill_ready;
+    let live_promotion_verification_output_ready = verification_output_ready
+        && output_writer_visible_write_ready
+        && output_writer_visible_write_committed
+        && output_writer_visible_write_identity_checkpoint_persisted;
+    let live_promotion_authority_tooling_ready = authority_tooling_adapter_ready
+        && authority_tooling_gate_live_ready
+        && authority_tooling_read_only_authority_canary_ready
+        && authority_tooling_provider_catalog_live_ready
+        && authority_tooling_mcp_tool_catalog_live_ready
+        && authority_tooling_native_tool_catalog_live_ready
+        && authority_tooling_connector_catalog_live_ready
+        && authority_tooling_wallet_capability_live_dry_run_ready;
+    let mut live_promotion_cognition_action_frame_ids =
+        cognition_execution_action_frame_ids.clone();
+    live_promotion_cognition_action_frame_ids
+        .extend(cognition_execution_gate_action_frame_ids.clone());
+    let live_promotion_cluster_readiness = json!([
+        {
+            "clusterId": "cognition",
+            "label": "Cognition",
+            "currentStatus": "gated",
+            "targetExecutionMode": "live",
+            "componentKinds": cognition_execution_live_ready_component_kinds.clone(),
+            "readinessReady": live_promotion_cognition_ready,
+            "receiptReady": !cognition_execution_receipt_ids.is_empty(),
+            "replayGateReady": !cognition_execution_replay_fixture_refs.is_empty()
+                && cognition_execution_gate_divergence_classes.iter().all(|value| value == "none"),
+            "canaryReady": true,
+            "rollbackReady": true,
+            "divergenceReady": cognition_execution_gate_divergence_classes.iter().all(|value| value == "none"),
+            "blockingDivergenceCount": cognition_execution_gate_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
+            "unclassifiedDivergenceCount": cognition_execution_gate_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
+            "attemptIds": cognition_execution_attempt_ids.clone(),
+            "receiptRefs": cognition_execution_receipt_ids.clone(),
+            "replayFixtureRefs": cognition_execution_replay_fixture_refs.clone(),
+            "actionFrameIds": live_promotion_cognition_action_frame_ids,
+            "divergenceClasses": cognition_execution_gate_divergence_classes.clone(),
+            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "blockers": if live_promotion_cognition_ready { Vec::<&str>::new() } else { vec!["cognition_live_promotion_not_ready"] },
+            "decision": if live_promotion_cognition_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
+        },
+        {
+            "clusterId": "routing_model",
+            "label": "Routing and model",
+            "currentStatus": "gated",
+            "targetExecutionMode": "live",
+            "componentKinds": routing_model_component_kinds.clone(),
+            "readinessReady": live_promotion_routing_model_ready,
+            "receiptReady": !routing_model_receipt_ids.is_empty(),
+            "replayGateReady": !routing_model_replay_fixture_refs.is_empty()
+                && routing_model_divergence_classes.iter().all(|value| value == "none"),
+            "canaryReady": model_provider_canary_ready && model_provider_gated_visible_output_ready,
+            "rollbackReady": model_provider_canary_rollback_available
+                && model_provider_gated_visible_output_rollback_drill_ready,
+            "divergenceReady": routing_model_divergence_classes.iter().all(|value| value == "none"),
+            "blockingDivergenceCount": routing_model_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
+            "unclassifiedDivergenceCount": routing_model_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
+            "attemptIds": routing_model_attempt_ids.clone(),
+            "receiptRefs": routing_model_receipt_ids.clone(),
+            "replayFixtureRefs": routing_model_replay_fixture_refs.clone(),
+            "actionFrameIds": routing_model_action_frame_ids.clone(),
+            "divergenceClasses": routing_model_divergence_classes.clone(),
+            "rollbackTarget": "legacy_runtime_model_invocation",
+            "blockers": if live_promotion_routing_model_ready { Vec::<&str>::new() } else { vec!["routing_model_live_promotion_not_ready"] },
+            "decision": if live_promotion_routing_model_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
+        },
+        {
+            "clusterId": "verification_output",
+            "label": "Verification and output",
+            "currentStatus": "gated",
+            "targetExecutionMode": "live",
+            "componentKinds": verification_output_component_kinds.clone(),
+            "readinessReady": live_promotion_verification_output_ready,
+            "receiptReady": !verification_output_receipt_ids.is_empty(),
+            "replayGateReady": !verification_output_replay_fixture_refs.is_empty()
+                && verification_output_divergence_classes.iter().all(|value| value == "none"),
+            "canaryReady": output_writer_visible_write_ready,
+            "rollbackReady": output_writer_staged_write_rollback_verified,
+            "divergenceReady": verification_output_divergence_classes.iter().all(|value| value == "none"),
+            "blockingDivergenceCount": verification_output_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
+            "unclassifiedDivergenceCount": verification_output_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
+            "attemptIds": verification_output_attempt_ids.clone(),
+            "receiptRefs": verification_output_receipt_ids.clone(),
+            "replayFixtureRefs": verification_output_replay_fixture_refs.clone(),
+            "actionFrameIds": verification_output_action_frame_ids.clone(),
+            "divergenceClasses": verification_output_divergence_classes.clone(),
+            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "blockers": if live_promotion_verification_output_ready { Vec::<&str>::new() } else { vec!["verification_output_live_promotion_not_ready"] },
+            "decision": if live_promotion_verification_output_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
+        },
+        {
+            "clusterId": "authority_tooling",
+            "label": "Authority and tooling",
+            "currentStatus": "gated",
+            "targetExecutionMode": "live",
+            "componentKinds": authority_tooling_component_kinds.clone(),
+            "readinessReady": live_promotion_authority_tooling_ready,
+            "receiptReady": !authority_tooling_receipt_ids.is_empty(),
+            "replayGateReady": !authority_tooling_replay_fixture_refs.is_empty()
+                && authority_tooling_divergence_classes.iter().all(|value| value == "none"),
+            "canaryReady": authority_tooling_gate_live_ready
+                && authority_tooling_read_only_authority_canary_ready,
+            "rollbackReady": authority_tooling_rollback_available,
+            "divergenceReady": authority_tooling_divergence_classes.iter().all(|value| value == "none"),
+            "blockingDivergenceCount": authority_tooling_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
+            "unclassifiedDivergenceCount": authority_tooling_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
+            "attemptIds": authority_tooling_attempt_ids.clone(),
+            "receiptRefs": authority_tooling_receipt_ids.clone(),
+            "replayFixtureRefs": authority_tooling_replay_fixture_refs.clone(),
+            "actionFrameIds": authority_tooling_action_frame_ids.clone(),
+            "divergenceClasses": authority_tooling_divergence_classes.clone(),
+            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "blockers": if live_promotion_authority_tooling_ready { Vec::<&str>::new() } else { vec!["authority_tooling_live_promotion_not_ready"] },
+            "decision": if live_promotion_authority_tooling_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
+        }
+    ]);
+    let live_promotion_all_clusters_ready = live_promotion_cognition_ready
+        && live_promotion_routing_model_ready
+        && live_promotion_verification_output_ready
+        && live_promotion_authority_tooling_ready;
+    let live_promotion_invalid_fork_live_activation_blocked = true;
+    let live_promotion_readiness_promotion_eligible = live_promotion_all_clusters_ready
+        && activation_blockers.is_empty()
+        && live_promotion_invalid_fork_live_activation_blocked
+        && authority_tooling_rollback_available
+        && model_provider_canary_rollback_available;
+    let live_promotion_readiness_proof = json!({
+        "schemaVersion": "workflow.harness.live-promotion-readiness.v1",
+        "proofId": format!("harness-live-promotion-readiness:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}"),
+        "dispatchId": format!("harness-default-dispatch:{sid}:{turn_id}:read-only"),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "targetExecutionMode": "live",
+        "requiredClusterIds": ["cognition", "routing_model", "verification_output", "authority_tooling"],
+        "clusterReadiness": live_promotion_cluster_readiness,
+        "allClustersReady": live_promotion_all_clusters_ready,
+        "promotionEligible": live_promotion_readiness_promotion_eligible,
+        "defaultLiveActivationReady": live_promotion_readiness_promotion_eligible,
+        "invalidForkLiveActivationBlocked": live_promotion_invalid_fork_live_activation_blocked,
+        "rollbackAvailable": authority_tooling_rollback_available && model_provider_canary_rollback_available,
+        "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "activationBlockers": activation_blockers.clone(),
+        "policyDecision": if live_promotion_readiness_promotion_eligible {
+            "allow_default_harness_live_promotion_readiness"
+        } else {
+            "block_default_harness_live_promotion_readiness"
+        },
+        "evidenceRefs": [
+            format!("harness-default-dispatch:{sid}:{turn_id}:read-only"),
+            format!("harness-live-promotion-readiness:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}"),
+            format!("runtime-evidence:{sid}")
+        ]
+    });
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -9687,6 +9854,7 @@ fn runtime_harness_default_runtime_dispatch(
         },
         "verificationOutputProof": verification_output_proof,
         "authorityToolingAdapterProof": authority_tooling_adapter_proof,
+        "livePromotionReadinessProof": live_promotion_readiness_proof,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,
@@ -13181,6 +13349,94 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
         })
         .unwrap_or(false);
+    let harness_live_promotion_readiness = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            let proof = dispatch.get("livePromotionReadinessProof");
+            proof
+                .and_then(|value| value.get("schemaVersion"))
+                .and_then(Value::as_str)
+                == Some("workflow.harness.live-promotion-readiness.v1")
+                && proof
+                    .and_then(|value| value.get("targetExecutionMode"))
+                    .and_then(Value::as_str)
+                    == Some("live")
+                && proof
+                    .and_then(|value| value.get("allClustersReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && proof
+                    .and_then(|value| value.get("promotionEligible"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && proof
+                    .and_then(|value| value.get("defaultLiveActivationReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && proof
+                    .and_then(|value| value.get("invalidForkLiveActivationBlocked"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && proof
+                    .and_then(|value| value.get("rollbackAvailable"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && proof
+                    .and_then(|value| value.get("policyDecision"))
+                    .and_then(Value::as_str)
+                    == Some("allow_default_harness_live_promotion_readiness")
+                && proof
+                    .and_then(|value| value.get("requiredClusterIds"))
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let cluster_ids =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        [
+                            "cognition",
+                            "routing_model",
+                            "verification_output",
+                            "authority_tooling",
+                        ]
+                        .iter()
+                        .all(|cluster_id| cluster_ids.contains(cluster_id))
+                    })
+                    .unwrap_or(false)
+                && proof
+                    .and_then(|value| value.get("clusterReadiness"))
+                    .and_then(Value::as_array)
+                    .map(|clusters| {
+                        clusters.len() >= 4
+                            && clusters.iter().all(|cluster| {
+                                cluster.get("targetExecutionMode").and_then(Value::as_str)
+                                    == Some("live")
+                                    && cluster
+                                        .get("blockers")
+                                        .and_then(Value::as_array)
+                                        .map(|items| items.is_empty())
+                                        .unwrap_or(false)
+                                    && cluster
+                                        .get("receiptRefs")
+                                        .and_then(Value::as_array)
+                                        .map(|items| !items.is_empty())
+                                        .unwrap_or(false)
+                                    && cluster
+                                        .get("replayFixtureRefs")
+                                        .and_then(Value::as_array)
+                                        .map(|items| !items.is_empty())
+                                        .unwrap_or(false)
+                                    && cluster
+                                        .get("blockingDivergenceCount")
+                                        .and_then(Value::as_u64)
+                                        == Some(0)
+                                    && cluster
+                                        .get("unclassifiedDivergenceCount")
+                                        .and_then(Value::as_u64)
+                                        == Some(0)
+                            })
+                    })
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
     let harness_default_runtime_binding = projection.get("HarnessDefaultRuntimeBinding").cloned();
     let harness_default_runtime_binding_matched = harness_default_runtime_binding
         .as_ref()
@@ -14070,6 +14326,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch": harness_default_runtime_dispatch,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_live_promotion_readiness": harness_live_promotion_readiness,
             "harness_default_runtime_binding": harness_default_runtime_binding,
             "harness_default_runtime_binding_matched": harness_default_runtime_binding_matched,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
@@ -14157,6 +14414,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_default_promoted": harness_live_handoff_default_promoted,
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_live_promotion_readiness": harness_live_promotion_readiness,
             "harness_default_runtime_binding_matched": harness_default_runtime_binding_matched,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_authority_tooling_gate_live": harness_authority_tooling_gate_live,
@@ -14225,6 +14483,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 "HarnessCanaryExecutionBoundary",
                 "HarnessLiveHandoff",
                 "HarnessDefaultRuntimeDispatch",
+                "HarnessLivePromotionReadinessProof",
                 "HarnessDefaultRuntimeBinding"
             ],
         }),
@@ -14239,7 +14498,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_live_promotion_readiness={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -14259,6 +14518,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_live_handoff_default_promoted,
         harness_live_handoff_rollback,
         harness_default_runtime_dispatch_readonly,
+        harness_live_promotion_readiness,
         harness_default_runtime_binding_matched,
         harness_authority_tooling_read_only_canary,
         harness_authority_tooling_gate_live,
