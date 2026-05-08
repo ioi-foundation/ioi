@@ -231,6 +231,7 @@ type HarnessWorkbenchDeepLink = {
   activationBlockerIndex?: string;
   activationBlockerRef?: string;
   activationAuditEventId?: string;
+  activationGateId?: string;
 };
 
 type HarnessWorkbenchDeepLinkProbeCase = {
@@ -586,6 +587,7 @@ function encodeHarnessWorkbenchDeepLink(link: HarnessWorkbenchDeepLink): string 
   setParam("activationBlockerIndex");
   setParam("activationBlockerRef");
   setParam("activationAuditEventId");
+  setParam("activationGateId");
   const query = params.toString();
   return query
     ? `${HARNESS_WORKBENCH_DEEP_LINK_PREFIX}?${query}`
@@ -616,6 +618,7 @@ function parseHarnessWorkbenchDeepLink(hash: string): HarnessWorkbenchDeepLink |
   link.activationBlockerIndex = params.get("activationBlockerIndex") ?? undefined;
   link.activationBlockerRef = params.get("activationBlockerRef") ?? undefined;
   link.activationAuditEventId = params.get("activationAuditEventId") ?? undefined;
+  link.activationGateId = params.get("activationGateId") ?? undefined;
   return link;
 }
 
@@ -666,6 +669,7 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-selected-activation-blocker-index",
     "data-selected-activation-blocker-ref",
     "data-selected-activation-audit-event-id",
+    "data-selected-activation-gate-id",
   ];
   return Object.fromEntries(
     selectedAttributes.map((attribute) => [attribute, target.getAttribute(attribute) ?? ""]),
@@ -692,6 +696,7 @@ function harnessDeepLinkProbeCasesForWorkflow(
   const activationAuditEventId =
     workflow.metadata.harness?.activationAudit?.find((event) => event.eventId)?.eventId ??
     null;
+  const activationGateId = workflow.metadata.harness?.forkedFrom ? "slots" : null;
   const cases: Array<HarnessWorkbenchDeepLinkProbeCase | null> = [
     selector?.decisionId
       ? {
@@ -806,6 +811,19 @@ function harnessDeepLinkProbeCasesForWorkflow(
           expectedParsedKey: "activationAuditEventId",
         }
       : null,
+    activationGateId
+      ? {
+          id: "activation-gate",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            activationGateId,
+          },
+          expectedAttribute: "data-selected-activation-gate-id",
+          expectedValue: activationGateId,
+          selectedRailTestId: "workflow-harness-activation-steps",
+          expectedParsedKey: "activationGateId",
+        }
+      : null,
   ];
   return cases.filter((item): item is HarnessWorkbenchDeepLinkProbeCase => item !== null);
 }
@@ -907,6 +925,10 @@ export function useWorkflowComposerController({
   const [
     selectedHarnessActivationAuditEventId,
     setSelectedHarnessActivationAuditEventId,
+  ] = useState<string | null>(null);
+  const [
+    selectedHarnessActivationGateId,
+    setSelectedHarnessActivationGateId,
   ] = useState<string | null>(null);
   const [harnessActivationCandidate, setHarnessActivationCandidate] =
     useState<WorkflowHarnessForkActivationCandidate | null>(null);
@@ -1396,6 +1418,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationBlockerIndex(null);
       setSelectedHarnessActivationBlockerRef(null);
       setSelectedHarnessActivationAuditEventId(null);
+      setSelectedHarnessActivationGateId(null);
       setHarnessActivationCandidate(null);
       restoredHarnessDeepLinkWorkflowRef.current = null;
       replaceGraph(next);
@@ -1687,7 +1710,8 @@ export function useWorkflowComposerController({
       selectedHarnessRevisionBindingRef ||
       selectedHarnessActivationBlockerIndex ||
       selectedHarnessActivationBlockerRef ||
-      selectedHarnessActivationAuditEventId;
+      selectedHarnessActivationAuditEventId ||
+      selectedHarnessActivationGateId;
     if (!hasDeepLinkScope) return null;
     return {
       panel: rightPanel,
@@ -1705,6 +1729,7 @@ export function useWorkflowComposerController({
       activationBlockerIndex: selectedHarnessActivationBlockerIndex ?? undefined,
       activationBlockerRef: selectedHarnessActivationBlockerRef ?? undefined,
       activationAuditEventId: selectedHarnessActivationAuditEventId ?? undefined,
+      activationGateId: selectedHarnessActivationGateId ?? undefined,
     };
   }, [
     isHarnessWorkflow,
@@ -1719,6 +1744,7 @@ export function useWorkflowComposerController({
     selectedHarnessActivationBlockerIndex,
     selectedHarnessActivationBlockerRef,
     selectedHarnessActivationAuditEventId,
+    selectedHarnessActivationGateId,
     selectedHarnessRevisionBindingKind,
     selectedHarnessRevisionBindingRef,
     selectedHarnessSelectorDecisionId,
@@ -1758,6 +1784,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationBlockerIndex(link.activationBlockerIndex ?? null);
       setSelectedHarnessActivationBlockerRef(link.activationBlockerRef ?? null);
       setSelectedHarnessActivationAuditEventId(link.activationAuditEventId ?? null);
+      setSelectedHarnessActivationGateId(link.activationGateId ?? null);
 
       const componentNode = link.componentId
         ? nodes.find((flowNode) => {
@@ -1818,6 +1845,7 @@ export function useWorkflowComposerController({
         link.activationBlockerRef ??
         link.activationBlockerIndex ??
         link.activationAuditEventId ??
+        link.activationGateId ??
         null;
       if (activeBindingTarget) {
         setSelectedHarnessGroupId(null);
@@ -1871,6 +1899,8 @@ export function useWorkflowComposerController({
           writeHarnessWorkbenchDeepLink(hash);
           applyHarnessWorkbenchDeepLink(parsed);
         }
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
         await nextHarnessWorkbenchFrame();
         const observedSelectedState = readHarnessRailSelectedState(
           replayCase.selectedRailTestId,
@@ -1954,6 +1984,7 @@ export function useWorkflowComposerController({
         setSelectedHarnessActivationBlockerIndex(null);
         setSelectedHarnessActivationBlockerRef(null);
         setSelectedHarnessActivationAuditEventId(null);
+        setSelectedHarnessActivationGateId(null);
         handleNodeSelect(null);
         await nextHarnessWorkbenchFrame();
         for (const [index, replayCase] of replayCases.entries()) {
@@ -2059,6 +2090,8 @@ export function useWorkflowComposerController({
             applyHarnessWorkbenchDeepLink(parsed);
           }
           await nextHarnessWorkbenchFrame();
+          writeHarnessWorkbenchDeepLink(hash);
+          await nextHarnessWorkbenchFrame();
           const observedSelectedState = readHarnessRailSelectedState(
             replayCase.selectedRailTestId,
           );
@@ -2105,6 +2138,81 @@ export function useWorkflowComposerController({
         schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
         method:
           "same-session Workflows bridge restores a blocked fork activation blocker hash into right-rail selected state",
+        generatedAtMs,
+        cases,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessActivationGateDeepLinkProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
+      const replayCases = harnessDeepLinkProbeCasesForWorkflow(workflow).filter(
+        (replayCase) => replayCase.id === "activation-gate",
+      );
+      const cases = [];
+      const originalHash = typeof window === "undefined" ? "" : window.location.hash;
+      try {
+        for (const replayCase of replayCases) {
+          const hash = encodeHarnessWorkbenchDeepLink(replayCase.link);
+          const parsed = parseHarnessWorkbenchDeepLink(hash);
+          if (parsed) {
+            writeHarnessWorkbenchDeepLink(hash);
+            applyHarnessWorkbenchDeepLink(parsed);
+          }
+          await nextHarnessWorkbenchFrame();
+          writeHarnessWorkbenchDeepLink(hash);
+          await nextHarnessWorkbenchFrame();
+          const observedSelectedState = readHarnessRailSelectedState(
+            replayCase.selectedRailTestId,
+          );
+          const observedValue =
+            observedSelectedState[replayCase.expectedAttribute] ?? null;
+          cases.push({
+            id: replayCase.id,
+            hash,
+            expectedPanel: replayCase.link.panel ?? "outputs",
+            expectedAttribute: replayCase.expectedAttribute,
+            expectedValue: replayCase.expectedValue,
+            selectedRailTestId: replayCase.selectedRailTestId,
+            openedHash: typeof window === "undefined" ? "" : window.location.hash,
+            parsedMatches:
+              parsed?.[
+                replayCase.expectedParsedKey ??
+                  (Object.keys(replayCase.link).find(
+                    (key) => key !== "panel",
+                  ) as keyof HarnessWorkbenchDeepLink)
+              ] === replayCase.expectedValue,
+            historyMatches:
+              typeof window !== "undefined" && window.location.hash === hash,
+            observedValue,
+            observedSelectedState,
+            passed:
+              Boolean(parsed) &&
+              observedValue === replayCase.expectedValue &&
+              (typeof window === "undefined" || window.location.hash === hash),
+          });
+        }
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      const presentCaseIds = new Set(cases.map((replayCase) => replayCase.id));
+      const blockers = [
+        ...(!presentCaseIds.has("activation-gate")
+          ? ["missing_activation_gate_deep_link_replay"]
+          : []),
+        ...cases
+          .filter((replayCase) => !replayCase.passed)
+          .map((replayCase) => `${replayCase.id}_deep_link_replay_failed`),
+      ];
+      return {
+        schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+        method:
+          "same-session Workflows bridge restores a fork activation wizard gate hash into right-rail selected state",
         generatedAtMs,
         cases,
         passed: blockers.length === 0,
@@ -3048,6 +3156,7 @@ export function useWorkflowComposerController({
         setSelectedHarnessActivationBlockerIndex(null);
         setSelectedHarnessActivationBlockerRef(null);
         setSelectedHarnessActivationAuditEventId(null);
+        setSelectedHarnessActivationGateId(null);
         handleNodeSelect(null);
         setRightPanel("outputs");
         setBottomPanel("selection");
@@ -3066,6 +3175,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationBlockerIndex(null);
       setSelectedHarnessActivationBlockerRef(null);
       setSelectedHarnessActivationAuditEventId(null);
+      setSelectedHarnessActivationGateId(null);
       if (nodeId && connectFromNodeId && connectFromNodeId !== nodeId) {
         if (connectWorkflowNodes(connectFromNodeId, nodeId)) {
           setConnectFromNodeId(null);
@@ -3095,6 +3205,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationBlockerIndex(null);
       setSelectedHarnessActivationBlockerRef(null);
       setSelectedHarnessActivationAuditEventId(null);
+      setSelectedHarnessActivationGateId(null);
       handleNodeSelect(nodeId);
       setRightPanel("outputs");
       setBottomPanel("selection");
@@ -3113,6 +3224,7 @@ export function useWorkflowComposerController({
     setSelectedHarnessActivationBlockerIndex(null);
     setSelectedHarnessActivationBlockerRef(null);
     setSelectedHarnessActivationAuditEventId(null);
+    setSelectedHarnessActivationGateId(null);
     setRightPanel("outputs");
     setStatusMessage(`Pinned harness receipt ${receiptRef}`);
   }, []);
@@ -3127,6 +3239,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationBlockerIndex(null);
       setSelectedHarnessActivationBlockerRef(null);
       setSelectedHarnessActivationAuditEventId(null);
+      setSelectedHarnessActivationGateId(null);
       setRightPanel("outputs");
       setStatusMessage(`Pinned replay fixture ${replayFixtureRef}`);
     },
@@ -3305,6 +3418,7 @@ export function useWorkflowComposerController({
     setSelectedHarnessActivationBlockerIndex(null);
     setSelectedHarnessActivationBlockerRef(null);
     setSelectedHarnessActivationAuditEventId(null);
+    setSelectedHarnessActivationGateId(null);
     if (!isReadOnlyWorkflow) {
       setWorkflow(recordWorkflowHarnessRollbackTargetSelection(currentProjectFile, rollbackTarget));
     }
@@ -4925,6 +5039,7 @@ export function useWorkflowComposerController({
     setSelectedHarnessActivationBlockerIndex(null);
     setSelectedHarnessActivationBlockerRef(null);
     setSelectedHarnessActivationAuditEventId(null);
+    setSelectedHarnessActivationGateId(null);
     setStatusMessage("Harness promotion live GUI proof running");
 
     try {
@@ -5031,6 +5146,11 @@ export function useWorkflowComposerController({
           activationBlockerFork.workflow,
           nowMs + 120,
         );
+      const activationGateDeepLinkProof =
+        await runHarnessActivationGateDeepLinkProbe(
+          activationBlockerFork.workflow,
+          nowMs + 125,
+        );
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
@@ -5044,6 +5164,7 @@ export function useWorkflowComposerController({
             deepLinkReplayProof,
             coldStartDeepLinkRestoreProof,
             activationBlockerDeepLinkProof,
+            activationGateDeepLinkProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -5072,6 +5193,9 @@ export function useWorkflowComposerController({
         activationBlockerDeepLinkPassed: activationBlockerDeepLinkProof.passed,
         activationBlockerDeepLinkCaseIds:
           activationBlockerDeepLinkProof.cases.map((restoreCase) => restoreCase.id),
+        activationGateDeepLinkPassed: activationGateDeepLinkProof.passed,
+        activationGateDeepLinkCaseIds:
+          activationGateDeepLinkProof.cases.map((restoreCase) => restoreCase.id),
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -5091,6 +5215,7 @@ export function useWorkflowComposerController({
     currentProject?.rootPath,
     loadWorkflowProject,
     runHarnessActivationBlockerDeepLinkProbe,
+    runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
     runtime,
@@ -5203,5 +5328,5 @@ export function useWorkflowComposerController({
   );
 
 
-  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyHarnessActivationCandidate, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCopyHarnessDeepLink, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExecuteHarnessRollback, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleInspectHarnessGroupNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunHarnessActivationDryRun, handleRunHarnessPromotionTransition, handleRunHarnessReplayDrill, handleRunHarnessReplayGate, handleRunHarnessRollbackDrill, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectHarnessReceiptRef, handleSelectHarnessReplayFixtureRef, handleSelectHarnessRollbackTarget, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessActivationCandidate, harnessGroupSummary, harnessGroupViews, harnessWorkbenchDeepLinkUrl, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, selectedHarnessActivationAuditEventId, selectedHarnessActivationBlockerIndex, selectedHarnessActivationBlockerRef, selectedHarnessDefaultDispatchId, selectedHarnessGroup, selectedHarnessReceiptRef, selectedHarnessReplayFixtureRef, selectedHarnessRevisionBindingKind, selectedHarnessRevisionBindingRef, selectedHarnessRollbackTarget, selectedHarnessSelectorDecisionId, selectedHarnessWorkerBindingId, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
+  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyHarnessActivationCandidate, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCopyHarnessDeepLink, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExecuteHarnessRollback, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleInspectHarnessGroupNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunHarnessActivationDryRun, handleRunHarnessPromotionTransition, handleRunHarnessReplayDrill, handleRunHarnessReplayGate, handleRunHarnessRollbackDrill, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectHarnessReceiptRef, handleSelectHarnessReplayFixtureRef, handleSelectHarnessRollbackTarget, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessActivationCandidate, harnessGroupSummary, harnessGroupViews, harnessWorkbenchDeepLinkUrl, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, selectedHarnessActivationAuditEventId, selectedHarnessActivationBlockerIndex, selectedHarnessActivationBlockerRef, selectedHarnessActivationGateId, selectedHarnessDefaultDispatchId, selectedHarnessGroup, selectedHarnessReceiptRef, selectedHarnessReplayFixtureRef, selectedHarnessRevisionBindingKind, selectedHarnessRevisionBindingRef, selectedHarnessRollbackTarget, selectedHarnessSelectorDecisionId, selectedHarnessWorkerBindingId, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
 }
