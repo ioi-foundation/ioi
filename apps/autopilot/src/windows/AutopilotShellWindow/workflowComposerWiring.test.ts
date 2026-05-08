@@ -888,6 +888,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceImportRoundTripProof)(?=[\s\S]*runHarnessPackageEvidenceImportRoundTripProbe)(?=[\s\S]*packageEvidenceImportRoundTripProof)(?=[\s\S]*exportWorkflowPackage)(?=[\s\S]*importWorkflowPackage)(?=[\s\S]*packageEvidenceImportRoundTripPassed)(?=[\s\S]*packageEvidenceImportRoundTripMissingRows)(?=[\s\S]*harness_package_evidence_import_roundtrip)(?=[\s\S]*harness_package_evidence_import_roundtrip_present)/,
+  "Live promotion GUI validation should prove package-evidence export/import round-trip preservation and incomplete imported-package blockers.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",

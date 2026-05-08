@@ -102,12 +102,13 @@ verification/output adapter proof, gated authority/tooling adapter proof, fork
 activation handoff timeline proof, fork handoff deep-link proof,
 canary/rollback route-state proof, fork package evidence manifest proof,
 package evidence activation gate proof, and live package-evidence click-through
-proof have a green end-to-end checkpoint:
+proof, plus package evidence export/import round-trip proof, have a green
+end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T21-56-57-375Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T22-14-36-970Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-03-10-391Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-20-45-009Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -155,7 +156,10 @@ deep links in `harness-package-evidence.json`; the retained GUI evidence marks
 `harness_package_evidence_gate_click_proof_present: true`. The package-evidence
 activation gate now restores in the right rail, shows manifest/category rows,
 and deep-links to preserved receipt, replay, worker handoff, and package proof
-refs.
+refs. The GUI proof also exports a validated fork package, imports it into a
+fresh root, verifies the imported package-evidence gate remains ready, then
+loads an intentionally incomplete imported package state and proves actionable
+missing rows plus `harness_package_manifest_incomplete`.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -995,6 +999,49 @@ to "operator-clickable proof rows with route-restorable evidence." The next
 chronological slice should prove the same review state survives export/import
 into a new root and that intentionally incomplete imported packages show
 actionable missing-row blockers before activation.
+
+### 2026-05-08 Package Evidence Export/Import Round-Trip Slice
+
+Portable package evidence now survives real GUI-driven export/import:
+
+- The live GUI probe saves a validated harness fork to a scratch `target/` root,
+  exports it with the real Tauri `exportWorkflowPackage` API, and imports it into
+  a fresh root with the real `importWorkflowPackage` API.
+- The imported workflow rehydrates
+  `workflow.harness.package-evidence-manifest.v1` into
+  `metadata.harness.packageManifest` and remains selectable through the
+  `package-evidence` activation gate.
+- The imported valid package click proof restores receipt, replay fixture,
+  worker handoff node attempt, and preserved package deep-link state from the
+  gate inspector.
+- The same probe then loads an intentionally incomplete imported package state
+  with missing receipts, replay fixtures, rollback-restore refs, handoff
+  attempts, handoff receipts, and deep links.
+- The incomplete import shows six blocked package evidence rows and activation
+  readiness includes `harness_package_manifest_incomplete`.
+- The retained GUI contract now requires
+  `harness_package_evidence_import_roundtrip`, and runtime consistency requires
+  `harness_package_evidence_import_roundtrip_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T22-14-36-970Z/`;
+  all eight retained queries passed and
+  `promotion-transition-live-gui-interaction-proof.json` reports
+  `packageEvidenceImportRoundTripProof.passed: true` with zero blockers.
+- The valid imported package proof has 31 receipt refs, 30 replay fixture refs,
+  three worker handoff attempts, three worker handoff receipts, and a ready
+  package-evidence gate.
+- The incomplete imported package proof records missing rows for `receipts`,
+  `replay-fixtures`, `rollback-restore`, `worker-handoff-attempts`,
+  `worker-handoff-receipts`, and `deep-links`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-20-45-009Z/dashboard-index.json`.
+
+This changes portable package evidence from "present in a sidecar" to "proven
+portable across real export/import and failure-explainable when incomplete."
+The next chronological slice should turn this into a user-facing import review
+mode: imported fork packages should open directly into package evidence review,
+show side-by-side source/import identity, and offer activation only after the
+round-trip package evidence gate passes.
 
 ## Current State
 

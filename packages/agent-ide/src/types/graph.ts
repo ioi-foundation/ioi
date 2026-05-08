@@ -2183,6 +2183,39 @@ export interface WorkflowHarnessPackageEvidenceGateClickProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessPackageEvidenceImportRoundTripProof {
+  schemaVersion:
+    | "workflow.harness.package-evidence-import-roundtrip-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  exportedPackagePath: string | null;
+  exportedManifestPath: string | null;
+  importedWorkflowPath: string | null;
+  validImport: {
+    workflowId: string | null;
+    workflowSlug: string | null;
+    gateId: string | null;
+    activationReadinessStatus: string | null;
+    manifest: WorkflowHarnessPackageEvidenceGateClickProof["manifest"];
+    rowStatuses: Record<string, string>;
+    selectedRefs: WorkflowHarnessPackageEvidenceGateClickProof["selectedRefs"];
+    restored: WorkflowHarnessPackageEvidenceGateClickProof["restored"];
+    clicked: boolean;
+  };
+  incompleteImport: {
+    workflowId: string | null;
+    gateId: string | null;
+    activationReadinessStatus: string | null;
+    readinessBlockerCodes: string[];
+    manifest: WorkflowHarnessPackageEvidenceGateClickProof["manifest"];
+    rowStatuses: Record<string, string>;
+    missingRows: string[];
+  };
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
   schemaVersion:
     | "workflow.harness.activation-gate-collect-evidence-click-proof.v1"
@@ -2576,6 +2609,7 @@ export interface WorkflowHarnessMetadata {
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
+  packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;

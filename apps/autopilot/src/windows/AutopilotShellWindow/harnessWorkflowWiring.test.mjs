@@ -220,6 +220,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceImportRoundTripProof)(?=[\s\S]*runHarnessPackageEvidenceImportRoundTripProbe)(?=[\s\S]*packageEvidenceImportRoundTripProof)(?=[\s\S]*exportWorkflowPackage)(?=[\s\S]*importWorkflowPackage)(?=[\s\S]*packageEvidenceImportRoundTripPassed)(?=[\s\S]*packageEvidenceImportRoundTripMissingRows)(?=[\s\S]*harness_package_evidence_import_roundtrip)(?=[\s\S]*harness_package_evidence_import_roundtrip_present)/,
+  "Package evidence should prove export/import round-trip preservation and incomplete imported-package blockers in retained GUI evidence.",
+);
+
+assert.match(
   workflowComposer,
   /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
   "Selecting a harness receipt should update the workbench deep link state.",
