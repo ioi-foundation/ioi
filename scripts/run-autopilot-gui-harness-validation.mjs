@@ -1818,7 +1818,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateAction/.test(rail) &&
       /gateAction: WorkflowHarnessActivationGateAction/.test(rail) &&
       /WorkflowHarnessActivationGateActionClickProof/.test(controller) &&
+      /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(controller) &&
       /runHarnessActivationGateActionClickProbe/.test(controller) &&
+      /runHarnessActivationGateCollectEvidenceClickProbe/.test(controller) &&
       /selectedHarnessActivationGateInspection/.test(rail) &&
       /workflow-harness-activation-gate-inspector/.test(rail) &&
       /workflow-harness-activation-gate-summary/.test(rail) &&
@@ -1850,10 +1852,12 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationGateReplayFixtureRef/.test(controller) &&
       /data-gate-action-command/.test(controller) &&
       /activationGateActionClickProof/.test(controller) &&
+      /activationGateCollectEvidenceClickProof/.test(controller) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
       /WorkflowHarnessActivationGateActionClickProof/.test(graph) &&
+      /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(graph) &&
       /gateResults:[\s\S]*evidenceRefs/.test(validation),
     interactiveReceiptSelection:
       /data-selected-receipt-ref/.test(rail) &&
@@ -2204,6 +2208,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessActivationGateActionWorkbench &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.activationGateActionClickProof === true;
+  const hasHarnessActivationGateCollectEvidenceClickProof =
+    hasHarnessActivationGateActionWorkbench &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activationGateCollectEvidenceClickProof === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2369,6 +2377,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationGateActionWorkbench,
       harness_activation_gate_action_click_proof_present:
         hasHarnessActivationGateActionClickProof,
+      harness_activation_gate_collect_evidence_click_proof_present:
+        hasHarnessActivationGateCollectEvidenceClickProof,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2438,6 +2448,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessActivationGateReferenceDeepLinkRestore,
       hasHarnessActivationGateActionWorkbench,
       hasHarnessActivationGateActionClickProof,
+      hasHarnessActivationGateCollectEvidenceClickProof,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2848,6 +2859,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       workflow?.metadata?.harness?.activationGateDeepLinkProof ?? null;
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
+    const activationGateCollectEvidenceClickProof =
+      workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ?? null;
     const revisionBinding =
       workflow?.metadata?.harness?.revisionBinding ??
       workflow?.metadata?.harness?.activationRecord?.revisionBinding ??
@@ -3150,6 +3163,26 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
           "workflow-right-rail-readiness" &&
         activationGateActionClickProof.after?.readinessPanelVisible === true &&
         activationGateActionClickProof.after?.readinessSummaryVisible === true,
+      activationGateCollectEvidenceClickProof:
+        activationGateCollectEvidenceClickProof?.passed === true &&
+        activationGateCollectEvidenceClickProof.clicked === true &&
+        activationGateCollectEvidenceClickProof.gateId === "replay-fixtures" &&
+        activationGateCollectEvidenceClickProof.action?.kind === "run_replay_gate" &&
+        activationGateCollectEvidenceClickProof.action?.impact ===
+          "collect_evidence" &&
+        activationGateCollectEvidenceClickProof.action?.command ===
+          "workflow-harness-gate-action-replay-fixtures" &&
+        activationGateCollectEvidenceClickProof.replayGate?.gateId?.startsWith(
+          "harness-replay-gate:",
+        ) === true &&
+        activationGateCollectEvidenceClickProof.replayGate?.totalFixtures > 0 &&
+        activationGateCollectEvidenceClickProof.replayGate
+          ?.persistedReplayGateCount > 0 &&
+        Number(
+          activationGateCollectEvidenceClickProof.after?.inspectorState?.[
+            "data-evidence-ref-count"
+          ] ?? 0,
+        ) > 0,
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -3259,6 +3292,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       activationBlockerDeepLinkProof,
       activationGateDeepLinkProof,
       activationGateActionClickProof,
+      activationGateCollectEvidenceClickProof,
       activationGateEvidenceInspector: activationGateDeepLinkCase
         ? {
             selectedRailTestId: activationGateDeepLinkCase.selectedRailTestId,
@@ -3561,6 +3595,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_activation_gate_action_click_proof:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.activationGateActionClickProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_gate_collect_evidence_click_proof:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activationGateCollectEvidenceClickProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:
