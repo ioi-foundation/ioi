@@ -474,6 +474,18 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "latestAgentDuplicateSuppressed": true,
         "idempotencyGuard": "role_timestamp_content_hash"
     });
+    let live_handoff = json!({
+        "schemaVersion": "workflow.harness.live-handoff.v1",
+        "selector": "blessed_workflow_live_default",
+        "productionDefaultSelector": "blessed_workflow_live_default",
+        "workflowId": ioi_types::app::DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": ioi_types::app::DEFAULT_AGENT_HARNESS_HASH,
+        "defaultAuthorityTransferred": true,
+        "runtimeAuthority": "blessed_workflow_activation_default",
+        "rollbackTarget": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "rollbackAvailable": true
+    });
     let dispatch = super::runtime_harness_default_runtime_dispatch(
         sid,
         &task,
@@ -482,14 +494,18 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         latest_agent_turn,
         "sha256:prompt",
         &selector,
-        &json!({
-            "defaultAuthorityTransferred": true,
-            "runtimeAuthority": "blessed_workflow_activation_default"
-        }),
+        &live_handoff,
         &[cognition, routing, verification, authority_tooling],
         Some(&staged_proof),
         Some(&visible_proof),
         Some(&legacy_fallback),
+    );
+    let binding = super::runtime_harness_default_runtime_binding(
+        sid,
+        &task,
+        &selector,
+        &live_handoff,
+        &dispatch,
     );
 
     assert_eq!(
@@ -516,6 +532,42 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     assert_eq!(
         dispatch
             .get("drivesRuntimeDecision")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("schemaVersion")
+            .and_then(|value| value.as_str()),
+        Some("workflow.harness.default-runtime-binding.v1")
+    );
+    assert_eq!(
+        binding.get("workflowId").and_then(|value| value.as_str()),
+        Some(ioi_types::app::DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
+    );
+    assert_eq!(
+        binding.get("activationId").and_then(|value| value.as_str()),
+        Some(ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    );
+    assert_eq!(
+        binding.get("harnessHash").and_then(|value| value.as_str()),
+        Some(ioi_types::app::DEFAULT_AGENT_HARNESS_HASH)
+    );
+    assert_eq!(
+        binding
+            .get("selectorDecisionId")
+            .and_then(|value| value.as_str()),
+        selector.get("decisionId").and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        binding
+            .get("defaultDispatchId")
+            .and_then(|value| value.as_str()),
+        dispatch.get("dispatchId").and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        binding
+            .get("bindingMatched")
             .and_then(|value| value.as_bool()),
         Some(true)
     );

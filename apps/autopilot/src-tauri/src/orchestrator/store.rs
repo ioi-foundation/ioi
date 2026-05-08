@@ -1067,6 +1067,158 @@ fn runtime_harness_workflow_selector_selected(selected_selector: &str) -> bool {
     )
 }
 
+fn runtime_harness_default_runtime_binding(
+    sid: &str,
+    task: &AgentTask,
+    selector_decision: &Value,
+    live_handoff: &Value,
+    default_dispatch: &Value,
+) -> Value {
+    let turn_id = format!("turn-{}", task.progress);
+    let selector_decision_id = selector_decision
+        .get("decisionId")
+        .and_then(Value::as_str)
+        .unwrap_or("harness-selector:unknown");
+    let default_dispatch_id = default_dispatch
+        .get("dispatchId")
+        .and_then(Value::as_str)
+        .unwrap_or("harness-default-dispatch:unknown");
+    let selected_selector = selector_decision
+        .get("selectedSelector")
+        .and_then(Value::as_str)
+        .unwrap_or("legacy_runtime");
+    let production_default_selector = selector_decision
+        .get("productionDefaultSelector")
+        .and_then(Value::as_str)
+        .unwrap_or("legacy_runtime");
+    let execution_mode = selector_decision
+        .get("executionMode")
+        .and_then(Value::as_str)
+        .unwrap_or("gated");
+    let runtime_authority = default_dispatch
+        .get("runtimeAuthority")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            selector_decision
+                .get("actualRuntimeAuthority")
+                .and_then(Value::as_str)
+        })
+        .unwrap_or("existing_runtime_service");
+    let rollback_target = selector_decision
+        .get("rollbackTarget")
+        .and_then(Value::as_str)
+        .or_else(|| live_handoff.get("rollbackTarget").and_then(Value::as_str))
+        .or_else(|| {
+            default_dispatch
+                .get("rollbackTarget")
+                .and_then(Value::as_str)
+        })
+        .unwrap_or(DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    let workflow_identity_matches = selector_decision.get("workflowId").and_then(Value::as_str)
+        == Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
+        && live_handoff.get("workflowId").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
+        && default_dispatch.get("workflowId").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID);
+    let activation_identity_matches = selector_decision
+        .get("activationId")
+        .and_then(Value::as_str)
+        == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+        && live_handoff.get("activationId").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+        && default_dispatch.get("activationId").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    let harness_hash_matches = selector_decision.get("harnessHash").and_then(Value::as_str)
+        == Some(DEFAULT_AGENT_HARNESS_HASH)
+        && live_handoff.get("harnessHash").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_HASH)
+        && default_dispatch.get("harnessHash").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_HASH);
+    let selector_decision_links_dispatch = default_dispatch
+        .get("selectorDecisionId")
+        .and_then(Value::as_str)
+        == Some(selector_decision_id);
+    let rollback_target_matches = rollback_target == DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        && live_handoff.get("rollbackTarget").and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+        && default_dispatch
+            .get("rollbackTarget")
+            .and_then(Value::as_str)
+            == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    let authority_transferred = selector_decision
+        .get("actualRuntimeAuthority")
+        .and_then(Value::as_str)
+        == Some("blessed_workflow_activation_default")
+        && live_handoff
+            .get("defaultAuthorityTransferred")
+            .and_then(Value::as_bool)
+            == Some(true)
+        && default_dispatch
+            .get("runtimeAuthority")
+            .and_then(Value::as_str)
+            == Some("blessed_workflow_activation_default");
+    let drives_runtime_decision = default_dispatch
+        .get("drivesRuntimeDecision")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && default_dispatch
+            .get("readOnlyDispatchAccepted")
+            .and_then(Value::as_bool)
+            == Some(true);
+
+    json!({
+        "schemaVersion": "workflow.harness.default-runtime-binding.v1",
+        "bindingId": format!("harness-default-runtime-binding:{sid}:{turn_id}"),
+        "sessionId": sid,
+        "turnId": turn_id,
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "selectorDecisionId": selector_decision_id,
+        "defaultDispatchId": default_dispatch_id,
+        "selectedSelector": selected_selector,
+        "productionDefaultSelector": production_default_selector,
+        "executionMode": execution_mode,
+        "runtimeAuthority": runtime_authority,
+        "rollbackTarget": rollback_target,
+        "rollbackAvailable": selector_decision.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+            && live_handoff.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+            && default_dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true),
+        "workerBinding": {
+            "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+            "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+            "executionMode": execution_mode,
+            "source": if selected_selector == "blessed_workflow_live_default" {
+                "autopilot_runtime_selector_default_v1"
+            } else if selected_selector == "blessed_workflow_live_canary" {
+                "autopilot_runtime_selector_canary_v1"
+            } else {
+                "autopilot_runtime_selector_legacy_default_v1"
+            }
+        },
+        "workflowIdentityMatches": workflow_identity_matches,
+        "activationIdentityMatches": activation_identity_matches,
+        "harnessHashMatches": harness_hash_matches,
+        "selectorDecisionLinksDispatch": selector_decision_links_dispatch,
+        "rollbackTargetMatches": rollback_target_matches,
+        "authorityTransferred": authority_transferred,
+        "drivesRuntimeDecision": drives_runtime_decision,
+        "bindingMatched": workflow_identity_matches
+            && activation_identity_matches
+            && harness_hash_matches
+            && selector_decision_links_dispatch
+            && rollback_target_matches
+            && authority_transferred
+            && drives_runtime_decision,
+        "sourceRefs": [
+            "HarnessRuntimeSelectorDecision",
+            "HarnessLiveHandoff",
+            "HarnessDefaultRuntimeDispatch"
+        ]
+    })
+}
+
 fn runtime_harness_selector_decision(
     sid: &str,
     task: &AgentTask,
@@ -8275,6 +8427,13 @@ fn runtime_evidence_projection(
         visible_output_writer_write,
         legacy_transcript_fallback,
     );
+    let harness_default_runtime_binding = runtime_harness_default_runtime_binding(
+        sid,
+        task,
+        &harness_selector_decision,
+        &harness_live_handoff,
+        &harness_default_runtime_dispatch,
+    );
     let harness_selector_execution_mode = harness_selector_decision
         .get("executionMode")
         .and_then(Value::as_str)
@@ -8305,6 +8464,7 @@ fn runtime_evidence_projection(
         "HarnessCanaryExecutionBoundary": harness_canary_execution_boundary,
         "HarnessLiveHandoff": harness_live_handoff,
         "HarnessDefaultRuntimeDispatch": harness_default_runtime_dispatch,
+        "HarnessDefaultRuntimeBinding": harness_default_runtime_binding,
         "RuntimeExecutionEnvelope": {
             "schemaVersion": RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
             "envelopeId": format!("autopilot-chat-{sid}"),
@@ -10805,6 +10965,66 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
         })
         .unwrap_or(false);
+    let harness_default_runtime_binding = projection.get("HarnessDefaultRuntimeBinding").cloned();
+    let harness_default_runtime_binding_matched = harness_default_runtime_binding
+        .as_ref()
+        .map(|binding| {
+            binding.get("schemaVersion").and_then(Value::as_str)
+                == Some("workflow.harness.default-runtime-binding.v1")
+                && binding.get("workflowId").and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
+                && binding.get("activationId").and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+                && binding.get("harnessHash").and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_HASH)
+                && binding.get("selectedSelector").and_then(Value::as_str)
+                    == Some("blessed_workflow_live_default")
+                && binding
+                    .get("productionDefaultSelector")
+                    .and_then(Value::as_str)
+                    == Some("blessed_workflow_live_default")
+                && binding.get("executionMode").and_then(Value::as_str) == Some("live")
+                && binding.get("runtimeAuthority").and_then(Value::as_str)
+                    == Some("blessed_workflow_activation_default")
+                && binding.get("rollbackTarget").and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+                && binding.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+                && binding.get("bindingMatched").and_then(Value::as_bool) == Some(true)
+                && binding
+                    .get("selectorDecisionLinksDispatch")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("drivesRuntimeDecision")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("selectorDecisionId")
+                    .and_then(Value::as_str)
+                    .map(|value| value.starts_with("harness-selector:"))
+                    .unwrap_or(false)
+                && binding
+                    .get("defaultDispatchId")
+                    .and_then(Value::as_str)
+                    .map(|value| value.starts_with("harness-default-dispatch:"))
+                    .unwrap_or(false)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("harnessWorkflowId"))
+                    .and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("harnessActivationId"))
+                    .and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("harnessHash"))
+                    .and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_HASH)
+        })
+        .unwrap_or(false);
     let harness_authority_tooling_gate_live = harness_default_runtime_dispatch
         .as_ref()
         .map(|dispatch| {
@@ -11634,6 +11854,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch": harness_default_runtime_dispatch,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_default_runtime_binding": harness_default_runtime_binding,
+            "harness_default_runtime_binding_matched": harness_default_runtime_binding_matched,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_authority_tooling_gate_live": harness_authority_tooling_gate_live,
             "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
@@ -11719,6 +11941,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_default_promoted": harness_live_handoff_default_promoted,
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_default_runtime_binding_matched": harness_default_runtime_binding_matched,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_authority_tooling_gate_live": harness_authority_tooling_gate_live,
             "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
@@ -11785,7 +12008,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 "HarnessForkActivation",
                 "HarnessCanaryExecutionBoundary",
                 "HarnessLiveHandoff",
-                "HarnessDefaultRuntimeDispatch"
+                "HarnessDefaultRuntimeDispatch",
+                "HarnessDefaultRuntimeBinding"
             ],
         }),
         artifact_refs: vec![crate::models::ArtifactRef {
@@ -11799,7 +12023,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -11819,6 +12043,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_live_handoff_default_promoted,
         harness_live_handoff_rollback,
         harness_default_runtime_dispatch_readonly,
+        harness_default_runtime_binding_matched,
         harness_authority_tooling_read_only_canary,
         harness_authority_tooling_gate_live,
         harness_authority_tooling_provider_catalog_live,

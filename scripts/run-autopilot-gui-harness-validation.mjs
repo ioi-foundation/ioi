@@ -15,6 +15,11 @@ import {
 } from "./lib/autopilot-gui-harness-contract.mjs";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
+const DEFAULT_AGENT_HARNESS_WORKFLOW_ID = "default-agent-harness";
+const DEFAULT_AGENT_HARNESS_ACTIVATION_ID =
+  "activation:default-agent-harness:blessed-readonly";
+const DEFAULT_AGENT_HARNESS_HASH =
+  "sha256:default-agent-harness-component-projection-v1";
 
 function parseArgs(argv) {
   const args = {
@@ -446,6 +451,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveHandoffDefaultPromotedCount: 0,
     harnessLiveHandoffRollbackCount: 0,
     harnessDefaultRuntimeDispatchReadonlyCount: 0,
+    harnessDefaultRuntimeBindingCount: 0,
+    harnessDefaultRuntimeBindingMatchedCount: 0,
+    harnessDefaultRuntimeBindingSamples: [],
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessAuthorityToolingGateLiveCount: 0,
     harnessAuthorityToolingProviderCatalogLiveCount: 0,
@@ -477,6 +485,71 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     ) {
       items.push(scenario);
       items.sort();
+    }
+  };
+  const noteHarnessDefaultRuntimeBinding = (binding) => {
+    if (!binding || typeof binding !== "object") return;
+    if (binding.schemaVersion !== "workflow.harness.default-runtime-binding.v1") return;
+    summary.harnessDefaultRuntimeBindingCount += 1;
+    const sample = {
+      bindingId: binding.bindingId ?? null,
+      workflowId: binding.workflowId ?? null,
+      activationId: binding.activationId ?? null,
+      harnessHash: binding.harnessHash ?? null,
+      selectorDecisionId: binding.selectorDecisionId ?? null,
+      defaultDispatchId: binding.defaultDispatchId ?? null,
+      selectedSelector: binding.selectedSelector ?? null,
+      productionDefaultSelector: binding.productionDefaultSelector ?? null,
+      executionMode: binding.executionMode ?? null,
+      runtimeAuthority: binding.runtimeAuthority ?? null,
+      rollbackTarget: binding.rollbackTarget ?? null,
+      rollbackAvailable: binding.rollbackAvailable ?? null,
+      bindingMatched: binding.bindingMatched ?? null,
+      selectorDecisionLinksDispatch: binding.selectorDecisionLinksDispatch ?? null,
+      drivesRuntimeDecision: binding.drivesRuntimeDecision ?? null,
+      workerBinding:
+        binding.workerBinding && typeof binding.workerBinding === "object"
+          ? {
+              harnessWorkflowId: binding.workerBinding.harnessWorkflowId ?? null,
+              harnessActivationId: binding.workerBinding.harnessActivationId ?? null,
+              harnessHash: binding.workerBinding.harnessHash ?? null,
+              executionMode: binding.workerBinding.executionMode ?? null,
+              source: binding.workerBinding.source ?? null,
+            }
+          : null,
+    };
+    const bindingMatched =
+      binding.bindingMatched === true &&
+      binding.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+      binding.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
+      binding.selectedSelector === "blessed_workflow_live_default" &&
+      binding.productionDefaultSelector === "blessed_workflow_live_default" &&
+      binding.executionMode === "live" &&
+      binding.runtimeAuthority === "blessed_workflow_activation_default" &&
+      binding.rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.rollbackAvailable === true &&
+      binding.selectorDecisionLinksDispatch === true &&
+      binding.drivesRuntimeDecision === true &&
+      typeof binding.selectorDecisionId === "string" &&
+      binding.selectorDecisionId.startsWith("harness-selector:") &&
+      typeof binding.defaultDispatchId === "string" &&
+      binding.defaultDispatchId.startsWith("harness-default-dispatch:") &&
+      binding.workerBinding?.harnessWorkflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+      binding.workerBinding?.harnessActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.workerBinding?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
+      binding.workerBinding?.executionMode === "live";
+    if (bindingMatched) {
+      summary.harnessDefaultRuntimeBindingMatchedCount += 1;
+    }
+    if (summary.harnessDefaultRuntimeBindingSamples.length < 12) {
+      summary.harnessDefaultRuntimeBindingSamples.push(sample);
+    } else if (
+      bindingMatched &&
+      !summary.harnessDefaultRuntimeBindingSamples.some((candidate) => candidate?.bindingMatched)
+    ) {
+      summary.harnessDefaultRuntimeBindingSamples.shift();
+      summary.harnessDefaultRuntimeBindingSamples.push(sample);
     }
   };
   const noteProviderGatedVisibleOutputCoverage = (coverage) => {
@@ -646,6 +719,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (projection.HarnessWorkerBinding) {
           summary.harnessWorkerBindingCount += 1;
         }
+        noteHarnessDefaultRuntimeBinding(projection.HarnessDefaultRuntimeBinding);
         if (projection.HarnessRuntimeSelectorDecision) {
           const decision = projection.HarnessRuntimeSelectorDecision;
           if (
@@ -1348,6 +1422,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_default_runtime_dispatch_readonly === true) {
           summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
         }
+        if (digest.harness_default_runtime_binding_matched === true) {
+          summary.harnessDefaultRuntimeBindingMatchedCount += 1;
+        }
         if (digest.harness_authority_tooling_read_only_canary === true) {
           summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
         }
@@ -1486,6 +1563,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
           if (metadata.harness_worker_binding) {
             summary.harnessWorkerBindingCount += 1;
+          }
+          noteHarnessDefaultRuntimeBinding(metadata.harness_default_runtime_binding);
+          if (
+            metadata.harness_default_runtime_binding_matched === true &&
+            !metadata.harness_default_runtime_binding
+          ) {
+            summary.harnessDefaultRuntimeBindingMatchedCount += 1;
           }
           if (metadata.harness_shadow_run) {
             summary.harnessShadowRunCount += 1;
@@ -2051,6 +2135,43 @@ function buildGuiEvidenceAssessment({
     summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0;
+  const workflowProofRuntimeSelector =
+    promotionTransitionLiveGuiInteractionProof?.proof?.runtimeSelector ?? null;
+  const workflowProofDefaultDispatch =
+    promotionTransitionLiveGuiInteractionProof?.proof?.defaultDispatch ?? null;
+  const chatRuntimeBindingMatchesWorkflowProof =
+    hasHarnessDefaultRuntimeDispatch &&
+    Boolean(workflowProofRuntimeSelector) &&
+    Boolean(workflowProofDefaultDispatch) &&
+    summary.harnessDefaultRuntimeBindingSamples.some(
+      (binding) =>
+        binding?.bindingMatched === true &&
+        binding.workflowId === workflowProofRuntimeSelector.workflowId &&
+        binding.activationId === workflowProofRuntimeSelector.activationId &&
+        binding.harnessHash === workflowProofRuntimeSelector.harnessHash &&
+        binding.rollbackTarget === workflowProofRuntimeSelector.rollbackTarget &&
+        binding.selectedSelector === workflowProofRuntimeSelector.selectedSelector &&
+        binding.productionDefaultSelector ===
+          workflowProofRuntimeSelector.productionDefaultSelector &&
+        binding.runtimeAuthority === workflowProofDefaultDispatch.runtimeAuthority &&
+        binding.executionMode === workflowProofDefaultDispatch.executionMode &&
+        binding.selectorDecisionLinksDispatch === true &&
+        binding.drivesRuntimeDecision === true &&
+        typeof binding.selectorDecisionId === "string" &&
+        binding.selectorDecisionId.startsWith("harness-selector:") &&
+        typeof binding.defaultDispatchId === "string" &&
+        binding.defaultDispatchId.startsWith("harness-default-dispatch:") &&
+        binding.workerBinding?.harnessWorkflowId === workflowProofRuntimeSelector.workflowId &&
+        binding.workerBinding?.harnessActivationId ===
+          workflowProofRuntimeSelector.activationId &&
+        binding.workerBinding?.harnessHash === workflowProofRuntimeSelector.harnessHash &&
+        binding.workerBinding?.executionMode === workflowProofDefaultDispatch.executionMode,
+    );
+  const hasHarnessChatRuntimeBinding =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessDefaultRuntimeBindingCount > 0 &&
+    summary.harnessDefaultRuntimeBindingMatchedCount > 0 &&
+    chatRuntimeBindingMatchesWorkflowProof;
   const hasHarnessAuthorityToolingGateLive =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingGateLiveCount > 0;
@@ -2142,6 +2263,8 @@ function buildGuiEvidenceAssessment({
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
       harness_default_runtime_dispatch_present: hasHarnessDefaultRuntimeDispatch,
+      harness_chat_runtime_binding_matches_workflow_activation:
+        hasHarnessChatRuntimeBinding,
       harness_authority_tooling_gate_live_present: hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
         hasHarnessAuthorityToolingProviderCatalogLive,
@@ -2199,6 +2322,8 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
       hasHarnessDefaultRuntimeDispatch,
+      hasHarnessChatRuntimeBinding,
+      chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
       hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
@@ -2264,6 +2389,12 @@ function buildGuiEvidenceAssessment({
       harnessLiveHandoffRollbackCount: summary.harnessLiveHandoffRollbackCount,
       harnessDefaultRuntimeDispatchReadonlyCount:
         summary.harnessDefaultRuntimeDispatchReadonlyCount,
+      harnessDefaultRuntimeBindingCount:
+        summary.harnessDefaultRuntimeBindingCount,
+      harnessDefaultRuntimeBindingMatchedCount:
+        summary.harnessDefaultRuntimeBindingMatchedCount,
+      harnessDefaultRuntimeBindingSamples:
+        summary.harnessDefaultRuntimeBindingSamples,
       harnessAuthorityToolingReadOnlyCanaryCount:
         summary.harnessAuthorityToolingReadOnlyCanaryCount,
       harnessAuthorityToolingGateLiveCount:
@@ -2612,24 +2743,38 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       runtimeSelectorDefaultPromoted:
         selector?.selectedSelector === "blessed_workflow_live_default" &&
         selector?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        selector?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+        selector?.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        selector?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
         selector?.actualRuntimeAuthority === "blessed_workflow_activation_default" &&
         selector?.executionMode === "live" &&
         selector?.defaultPromotionGate?.enabled === true &&
         selector?.defaultPromotionGate?.eligible === true &&
         selector?.defaultPromotionGate?.defaultAuthorityTransferred === true &&
+        selector?.rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        selector?.rollbackAvailable === true &&
         (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0,
       liveHandoffTransferred:
         liveHandoff?.selector === "blessed_workflow_live_default" &&
         liveHandoff?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        liveHandoff?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+        liveHandoff?.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        liveHandoff?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
         liveHandoff?.defaultAuthorityTransferred === true &&
         liveHandoff?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        liveHandoff?.rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         liveHandoff?.rollbackAvailable === true &&
         (liveHandoff?.activationBlockers ?? []).length === 0,
       defaultDispatchBound:
         defaultDispatch?.selectedSelector === "blessed_workflow_live_default" &&
         defaultDispatch?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        defaultDispatch?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+        defaultDispatch?.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        defaultDispatch?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
         defaultDispatch?.runtimeAuthority === "blessed_workflow_activation_default" &&
         defaultDispatch?.executionMode === "live" &&
+        defaultDispatch?.rollbackAvailable === true &&
+        defaultDispatch?.drivesRuntimeDecision === true &&
         clusterIds.every((clusterId) =>
           (defaultDispatch?.acceptedClusterIds ?? []).includes(clusterId),
         ),
@@ -2668,19 +2813,28 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       runtimeSelector: selector
         ? {
             decisionId: selector.decisionId,
+            workflowId: selector.workflowId,
+            activationId: selector.activationId,
+            harnessHash: selector.harnessHash,
             selectedSelector: selector.selectedSelector,
             productionDefaultSelector: selector.productionDefaultSelector,
             executionMode: selector.executionMode,
             actualRuntimeAuthority: selector.actualRuntimeAuthority,
+            rollbackTarget: selector.rollbackTarget,
             rollbackAvailable: selector.rollbackAvailable,
+            defaultPromotionGate: selector.defaultPromotionGate,
           }
         : null,
       liveHandoff: liveHandoff
         ? {
+            workflowId: liveHandoff.workflowId,
+            activationId: liveHandoff.activationId,
+            harnessHash: liveHandoff.harnessHash,
             selector: liveHandoff.selector,
             productionDefaultSelector: liveHandoff.productionDefaultSelector,
             defaultAuthorityTransferred: liveHandoff.defaultAuthorityTransferred,
             runtimeAuthority: liveHandoff.runtimeAuthority,
+            rollbackTarget: liveHandoff.rollbackTarget,
             rollbackAvailable: liveHandoff.rollbackAvailable,
             activationBlockerCount: liveHandoff.activationBlockers?.length ?? 0,
           }
@@ -2688,10 +2842,17 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       defaultDispatch: defaultDispatch
         ? {
             dispatchId: defaultDispatch.dispatchId,
+            selectorDecisionId: defaultDispatch.selectorDecisionId,
+            workflowId: defaultDispatch.workflowId,
+            activationId: defaultDispatch.activationId,
+            harnessHash: defaultDispatch.harnessHash,
             selectedSelector: defaultDispatch.selectedSelector,
             productionDefaultSelector: defaultDispatch.productionDefaultSelector,
             executionMode: defaultDispatch.executionMode,
             runtimeAuthority: defaultDispatch.runtimeAuthority,
+            rollbackTarget: defaultDispatch.rollbackTarget,
+            rollbackAvailable: defaultDispatch.rollbackAvailable,
+            drivesRuntimeDecision: defaultDispatch.drivesRuntimeDecision,
             acceptedClusterIds: defaultDispatch.acceptedClusterIds,
           }
         : null,
@@ -2925,6 +3086,10 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_chat_runtime_binding:
+          runtimeArtifacts.summary.harnessDefaultRuntimeBindingMatchedCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_gate_live:
