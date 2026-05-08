@@ -202,6 +202,11 @@ const group = {
     warningCount: 0,
     receiptKindCount: 1,
     replayFixtureCount: 1,
+    replayGateStatus: "passed",
+    replayGateImpact: "passed",
+    replayGateTotalFixtures: 1,
+    replayGateBlockingFixtureCount: 0,
+    replayGateId: "gate-authority",
     divergenceCount: 0,
   },
   deepLinks: {

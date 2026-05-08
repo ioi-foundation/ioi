@@ -1784,11 +1784,14 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
     replayDrillExecution:
       /WorkflowHarnessReplayDrillResult/.test(graph) &&
       /WorkflowHarnessReplayGateResult/.test(graph) &&
+      /WorkflowHarnessPromotionClusterReplayGateProof/.test(graph) &&
       /WorkflowHarnessReplayDrillDivergenceClass/.test(graph) &&
+      /replayGateProof\?: WorkflowHarnessPromotionClusterReplayGateProof/.test(graph) &&
       /replayDrills\?: WorkflowHarnessReplayDrillResult\[\]/.test(graph) &&
       /replayGates\?: WorkflowHarnessReplayGateResult\[\]/.test(graph) &&
       /executeWorkflowHarnessReplayDrill/.test(harnessWorkflow) &&
       /executeWorkflowHarnessReplayGate/.test(harnessWorkflow) &&
+      /workflowHarnessPromotionClustersWithReplayGateProof/.test(harnessWorkflow) &&
       /replay_drill_passed/.test(harnessWorkflow) &&
       /replay_drill_blocked/.test(harnessWorkflow) &&
       /replay_gate_passed/.test(harnessWorkflow) &&
@@ -1801,12 +1804,15 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-run-replay-gate/.test(rail) &&
       /workflow-harness-replay-drill-result/.test(rail) &&
       /workflow-harness-replay-gate-result/.test(rail) &&
+      /workflow-harness-promotion-cluster-replay-gate/.test(rail) &&
+      /workflow-harness-group-replay-gate-proof/.test(rail) &&
       /data-replay-divergence-class/.test(rail) &&
       /data-activation-gate-impact/.test(rail) &&
       /workflow-harness-replay-drill-receipt-refs/.test(rail) &&
       /workflow-harness-replay-gate-receipt-refs/.test(rail) &&
       /replayDrillBlockers/.test(validation) &&
-      /replayGateBlockers/.test(validation),
+      /replayGateBlockers/.test(validation) &&
+      /promotionClusterReplayGateBlockers/.test(validation),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1844,6 +1850,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       runReplayGate: "workflow-harness-run-replay-gate",
       replayGateResult: "workflow-harness-replay-gate-result",
       replayGateReceiptRefs: "workflow-harness-replay-gate-receipt-refs",
+      promotionClusterReplayGate: "workflow-harness-promotion-cluster-replay-gate",
+      groupReplayGateProof: "workflow-harness-group-replay-gate-proof",
     },
     sourceRefs: [
       railPath,

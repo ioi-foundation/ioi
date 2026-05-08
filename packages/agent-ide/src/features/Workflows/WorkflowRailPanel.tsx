@@ -2841,18 +2841,41 @@ export function WorkflowRailPanel({
               })}
             </div>
             <div className="workflow-rail-list" data-testid="workflow-harness-promotion-clusters">
-              {harnessPromotionClusters.map((cluster) => (
-                <article
-                  key={cluster.clusterId}
-                  className={`workflow-test-row is-${cluster.clusterId === "cognition" ? "passed" : "idle"}`}
-                >
-                  <strong>{cluster.label}</strong>
-                  <span>
-                    {cluster.requiredExecutionMode} · order {cluster.activationOrder}
-                  </span>
-                  <small>{cluster.componentKinds.length} components · rollback {cluster.rollbackTarget}</small>
-                </article>
-              ))}
+              {harnessPromotionClusters.map((cluster) => {
+                const replayGateProof = cluster.replayGateProof;
+                const replayGateStatus = replayGateProof?.gateStatus ?? "not_run";
+                const replayGateReady =
+                  replayGateStatus === "passed" &&
+                  replayGateProof?.activationGateImpact === "passed";
+                return (
+                  <article
+                    key={cluster.clusterId}
+                    className={`workflow-test-row is-${
+                      replayGateReady
+                        ? "passed"
+                        : replayGateStatus === "blocked" || replayGateStatus === "failed"
+                          ? "blocked"
+                          : "idle"
+                    }`}
+                    data-testid={`workflow-harness-promotion-cluster-replay-gate-${cluster.clusterId}`}
+                    data-replay-gate-status={replayGateStatus}
+                    data-activation-gate-impact={
+                      replayGateProof?.activationGateImpact ?? "pending"
+                    }
+                    data-replay-gate-id={replayGateProof?.gateId ?? ""}
+                  >
+                    <strong>{cluster.label}</strong>
+                    <span>
+                      {cluster.requiredExecutionMode} · replay gate {replayGateStatus}
+                    </span>
+                    <small>
+                      {cluster.componentKinds.length} components ·{" "}
+                      {replayGateProof?.totalFixtures ?? 0} fixtures · rollback{" "}
+                      {cluster.rollbackTarget}
+                    </small>
+                  </article>
+                );
+              })}
             </div>
             {harnessForkWorkflow ? (
               <article className="workflow-output-row" data-testid="workflow-harness-activation-blockers">
@@ -3317,6 +3340,13 @@ export function WorkflowRailPanel({
         (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
       ) ?? null
     : null;
+  const selectedHarnessGroupPromotionCluster = selectedHarnessGroup
+    ? harnessPromotionClusters.find(
+        (cluster) => String(cluster.clusterId) === String(selectedHarnessGroup.groupId),
+      ) ?? null
+    : null;
+  const selectedHarnessGroupReplayGateProof =
+    selectedHarnessGroupPromotionCluster?.replayGateProof ?? null;
   const selectedHarnessGroupIssues = selectedHarnessGroup
     ? [
         ...(validationResult?.errors ?? []),
@@ -3876,6 +3906,10 @@ export function WorkflowRailPanel({
               <dd>{selectedHarnessGroup.statusRollup.replayFixtureCount}</dd>
             </div>
             <div>
+              <dt>Replay gate</dt>
+              <dd>{selectedHarnessGroup.statusRollup.replayGateStatus}</dd>
+            </div>
+            <div>
               <dt>Divergence</dt>
               <dd>{selectedHarnessGroup.statusRollup.divergenceCount}</dd>
             </div>
@@ -3945,6 +3979,40 @@ export function WorkflowRailPanel({
                 </small>
               </article>
             ) : null}
+            <article
+              className={`workflow-test-row is-${
+                selectedHarnessGroupReplayGateProof?.gateStatus === "passed" &&
+                selectedHarnessGroupReplayGateProof.activationGateImpact === "passed"
+                  ? "passed"
+                  : selectedHarnessGroupReplayGateProof?.gateStatus === "blocked" ||
+                      selectedHarnessGroupReplayGateProof?.gateStatus === "failed"
+                    ? "blocked"
+                    : "idle"
+              }`}
+              data-testid="workflow-harness-group-replay-gate-proof"
+              data-replay-gate-status={
+                selectedHarnessGroupReplayGateProof?.gateStatus ?? "not_run"
+              }
+              data-activation-gate-impact={
+                selectedHarnessGroupReplayGateProof?.activationGateImpact ?? "pending"
+              }
+              data-replay-gate-id={selectedHarnessGroupReplayGateProof?.gateId ?? ""}
+              data-blocking-replay-fixture-refs={
+                selectedHarnessGroupReplayGateProof?.blockingReplayFixtureRefs.join("|") ?? ""
+              }
+            >
+              <strong>Replay gate</strong>
+              <span>
+                {selectedHarnessGroupReplayGateProof?.gateStatus ?? "not_run"}
+                {" · "}
+                impact {selectedHarnessGroupReplayGateProof?.activationGateImpact ?? "pending"}
+              </span>
+              <small>
+                {selectedHarnessGroupReplayGateProof
+                  ? `${selectedHarnessGroupReplayGateProof.totalFixtures} fixtures · ${selectedHarnessGroupReplayGateProof.receiptRefs.length} receipts`
+                  : "Run replay gate for this promotion cluster before gated or live promotion."}
+              </small>
+            </article>
           </section>
           <section
             className="workflow-rail-section"

@@ -3,6 +3,8 @@ import type {
   WorkflowConnectionClass,
   WorkflowHarnessActivationCandidateGateResult,
   WorkflowHarnessForkActivationCandidate,
+  WorkflowHarnessMetadata,
+  WorkflowHarnessPromotionCluster,
   WorkflowHarnessRollbackRestoreCanary,
   WorkflowNodeFixture,
   WorkflowProject,
@@ -47,6 +49,29 @@ export function defaultTestsForWorkflow(workflow: WorkflowProject): WorkflowTest
       status: "idle",
     },
   ];
+}
+
+function workflowHarnessPromotionClusterReplayGateBlocksActivation(
+  cluster: WorkflowHarnessPromotionCluster,
+): boolean {
+  if (!cluster.blocksLiveActivation) return false;
+  const proof = cluster.replayGateProof;
+  if (!proof) return true;
+  return (
+    proof.gateStatus !== "passed" ||
+    proof.activationGateImpact !== "passed" ||
+    proof.totalFixtures <= 0 ||
+    proof.blockingDivergenceCount > 0 ||
+    proof.blockingReplayFixtureRefs.length > 0
+  );
+}
+
+function workflowHarnessPromotionClusterReplayGateBlockers(
+  harness: Pick<WorkflowHarnessMetadata, "promotionClusters"> | null | undefined,
+): WorkflowHarnessPromotionCluster[] {
+  return (harness?.promotionClusters ?? []).filter(
+    workflowHarnessPromotionClusterReplayGateBlocksActivation,
+  );
 }
 
 const WORKFLOW_REPAIR_BY_CODE: Record<
@@ -340,6 +365,11 @@ const WORKFLOW_REPAIR_BY_CODE: Record<
     configSection: "advanced",
     repairActionId: "open-harness-slots",
     repairLabel: "Bind harness slot",
+  },
+  harness_promotion_cluster_replay_gate_not_passed: {
+    configSection: "advanced",
+    repairActionId: "open-harness-replay-gate",
+    repairLabel: "Run cluster replay gate",
   },
   harness_self_mutation_not_proposal_only: {
     configSection: "policy",
@@ -1155,6 +1185,16 @@ export function evaluateWorkflowActivationReadiness(
           message: `${slot.label} must be bound before this harness fork can activate. ${slot.validation.reason}`,
         });
       });
+    workflowHarnessPromotionClusterReplayGateBlockers(harness).forEach((cluster) => {
+      const proof = cluster.replayGateProof;
+      addReadinessIssue({
+        code: "harness_promotion_cluster_replay_gate_not_passed",
+        message:
+          proof?.gateStatus === "blocked" || proof?.gateStatus === "failed"
+            ? `${cluster.label} replay gate is ${proof.gateStatus}; resolve blocking divergence before gated or live promotion.`
+            : `${cluster.label} needs a passing replay gate before gated or live promotion.`,
+      });
+    });
     if (harness?.aiMutationMode !== "proposal_only") {
       addReadinessIssue({
         code: "harness_self_mutation_not_proposal_only",
@@ -1471,10 +1511,13 @@ export function createWorkflowHarnessActivationCandidate(
   const replayGateBlockers = (harness?.replayGates ?? []).filter(
     (gate) => gate.activationGateImpact !== "passed" || gate.gateStatus !== "passed",
   );
+  const promotionClusterReplayGateBlockers =
+    workflowHarnessPromotionClusterReplayGateBlockers(harness);
   const replayReady =
     !issueCodes.has("missing_replay_fixture") &&
     replayDrillBlockers.length === 0 &&
-    replayGateBlockers.length === 0;
+    replayGateBlockers.length === 0 &&
+    promotionClusterReplayGateBlockers.length === 0;
   const workerBindingReady =
     Boolean(workerBindingPreview.harnessWorkflowId) &&
     workerBindingPreview.harnessActivationId === activationIdPreview &&
@@ -1506,15 +1549,20 @@ export function createWorkflowHarnessActivationCandidate(
           ? `${replayDrillBlockers.length} drill blockers`
           : replayGateBlockers.length > 0
             ? `${replayGateBlockers.length} gate blockers`
+            : promotionClusterReplayGateBlockers.length > 0
+              ? `${promotionClusterReplayGateBlockers.length} cluster gate blockers`
           : "missing",
       detail:
-        "Required replay fixtures must be present and any replay drills must pass without blocking divergence.",
+        "Required replay fixtures, replay drills, and promotion cluster replay gates must pass without blocking divergence.",
       evidenceRefs: [
         ...uniqueIssues
           .filter((issue) => issue.code === "missing_replay_fixture")
           .map((issue) => issue.nodeId ?? issue.code),
         ...replayDrillBlockers.map((drill) => drill.drillId),
         ...replayGateBlockers.map((gate) => gate.gateId),
+        ...promotionClusterReplayGateBlockers.map(
+          (cluster) => cluster.replayGateProof?.gateId ?? `cluster:${cluster.clusterId}:replay-gate`,
+        ),
       ],
     },
     {

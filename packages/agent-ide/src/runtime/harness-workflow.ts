@@ -19,6 +19,7 @@ import type {
   WorkflowHarnessNodeBinding,
   WorkflowHarnessPromotionCluster,
   WorkflowHarnessPromotionClusterId,
+  WorkflowHarnessPromotionClusterReplayGateProof,
   WorkflowHarnessReplayEnvelope,
   WorkflowHarnessRuntimeSelectorDecision,
   WorkflowHarnessReplayDrillDivergenceClass,
@@ -263,6 +264,50 @@ export function workflowRevisionBindingFor(
     rollbackRevision: options.rollbackRevision,
     revisionSource,
     createdAtMs: options.nowMs ?? Date.now(),
+  };
+}
+
+function workflowWithRefreshedHarnessRevisionBinding(
+  workflow: WorkflowProject,
+  createdAtMs: number,
+): WorkflowProject {
+  const harness = workflow.metadata.harness;
+  if (!harness) return workflow;
+  const current = harness.revisionBinding;
+  const rollbackRevisionBinding = harness.activationRecord?.rollbackRevisionBinding;
+  const revisionBinding = workflowRevisionBindingFor(workflow, {
+    workflowPath: current?.workflowPath,
+    repoRoot: current?.repoRoot,
+    branch: current?.branch,
+    baseRevision: current?.baseRevision,
+    activatedRevision:
+      current?.revisionSource === "git" ? current.activatedRevision : undefined,
+    proposalId: current?.proposalId,
+    activationId: current?.activationId ?? harness.activationId,
+    rollbackActivationId:
+      current?.rollbackActivationId ?? harness.activationRecord?.rollbackTarget,
+    rollbackRevision:
+      current?.rollbackRevision ??
+      rollbackRevisionBinding?.activatedRevision ??
+      rollbackRevisionBinding?.workflowContentHash,
+    revisionSource: current?.revisionSource,
+    nowMs: createdAtMs,
+  });
+  return {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      harness: {
+        ...harness,
+        revisionBinding,
+        activationRecord: harness.activationRecord
+          ? {
+              ...harness.activationRecord,
+              revisionBinding,
+            }
+          : harness.activationRecord,
+      },
+    },
   };
 }
 
@@ -1092,6 +1137,51 @@ function replayDrillBlocksPromotion(drill: WorkflowHarnessReplayDrillResult): bo
   );
 }
 
+function workflowHarnessPromotionClusterReplayGateProofFor(
+  clusterId: WorkflowHarnessPromotionClusterId,
+  gate: WorkflowHarnessReplayGateResult,
+): WorkflowHarnessPromotionClusterReplayGateProof {
+  return {
+    schemaVersion: "workflow.harness.promotion-cluster-replay-gate-proof.v1",
+    clusterId,
+    gateId: gate.gateId,
+    gateStatus: gate.gateStatus,
+    activationGateImpact: gate.activationGateImpact,
+    totalFixtures: gate.totalFixtures,
+    passedCount: gate.passedCount,
+    blockedCount: gate.blockedCount,
+    failedCount: gate.failedCount,
+    blockingDivergenceCount:
+      gate.blockedCount + gate.failedCount + gate.blockingReplayFixtureRefs.length,
+    replayFixtureRefs: gate.replayFixtureRefs,
+    blockingReplayFixtureRefs: gate.blockingReplayFixtureRefs,
+    receiptRefs: gate.receiptRefs,
+    evidenceRefs: gate.evidenceRefs,
+    blockers: gate.blockers,
+    verifiedAtMs: gate.createdAtMs,
+  };
+}
+
+function workflowHarnessPromotionClustersWithReplayGateProof(
+  workflow: WorkflowProject,
+  gate: WorkflowHarnessReplayGateResult,
+): WorkflowHarnessPromotionCluster[] | undefined {
+  if (gate.scopeKind !== "harness_group") return workflow.metadata.harness?.promotionClusters;
+  const clusters = workflow.metadata.harness?.promotionClusters;
+  if (!clusters) return clusters;
+  const cluster = clusters.find((candidate) => candidate.clusterId === gate.targetId);
+  if (!cluster) return clusters;
+  const proof = workflowHarnessPromotionClusterReplayGateProofFor(
+    cluster.clusterId,
+    gate,
+  );
+  return clusters.map((candidate) =>
+    candidate.clusterId === cluster.clusterId
+      ? { ...candidate, replayGateProof: proof }
+      : candidate,
+  );
+}
+
 export function executeWorkflowHarnessReplayDrill(
   workflow: WorkflowProject,
   replay: WorkflowHarnessReplayDrillInput | null | undefined,
@@ -1205,36 +1295,42 @@ export function executeWorkflowHarnessReplayGate(
     blockers,
     createdAtMs,
   };
+  const promotionClusters = workflowHarnessPromotionClustersWithReplayGateProof(
+    workflow,
+    gate,
+  );
+  const workflowWithAudit = appendWorkflowHarnessActivationAudit(
+    workflow,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType:
+        blockers.length === 0 ? "replay_gate_passed" : "replay_gate_blocked",
+      status: blockers.length === 0 ? "passed" : "blocked",
+      activationId: workflow.metadata.harness?.activationId,
+      blockers,
+      evidenceRefs: gate.evidenceRefs,
+      receiptRefs: gate.receiptRefs,
+      summary:
+        blockers.length === 0
+          ? `Replay gate passed: ${gate.totalFixtures} fixtures`
+          : `Replay gate blocked by ${blockingDrills.length} fixtures`,
+      createdAtMs,
+    }),
+    {
+      replayDrills: [
+        ...(workflow.metadata.harness?.replayDrills ?? []),
+        ...drills,
+      ],
+      replayGates: [
+        ...(workflow.metadata.harness?.replayGates ?? []),
+        gate,
+      ],
+      promotionClusters,
+    },
+  );
   return {
     executed: blockers.length === 0,
-    workflow: appendWorkflowHarnessActivationAudit(
-      workflow,
-      makeWorkflowHarnessActivationAuditEvent({
-        workflow,
-        eventType:
-          blockers.length === 0 ? "replay_gate_passed" : "replay_gate_blocked",
-        status: blockers.length === 0 ? "passed" : "blocked",
-        activationId: workflow.metadata.harness?.activationId,
-        blockers,
-        evidenceRefs: gate.evidenceRefs,
-        receiptRefs: gate.receiptRefs,
-        summary:
-          blockers.length === 0
-            ? `Replay gate passed: ${gate.totalFixtures} fixtures`
-            : `Replay gate blocked by ${blockingDrills.length} fixtures`,
-        createdAtMs,
-      }),
-      {
-        replayDrills: [
-          ...(workflow.metadata.harness?.replayDrills ?? []),
-          ...drills,
-        ],
-        replayGates: [
-          ...(workflow.metadata.harness?.replayGates ?? []),
-          gate,
-        ],
-      },
-    ),
+    workflow: workflowWithRefreshedHarnessRevisionBinding(workflowWithAudit, createdAtMs),
     gate,
     drills,
     blockers,
@@ -3813,6 +3909,22 @@ export function defaultHarnessPromotionClusters(): WorkflowHarnessPromotionClust
       "Requires zero blocking divergence, receipt coverage, replay fixture coverage, canary pass, and rollback target.",
     rollbackTarget: "shadow",
     blocksLiveActivation: true,
+    replayGateProof: {
+      schemaVersion: "workflow.harness.promotion-cluster-replay-gate-proof.v1",
+      clusterId,
+      gateStatus: "not_run",
+      activationGateImpact: "pending",
+      totalFixtures: 0,
+      passedCount: 0,
+      blockedCount: 0,
+      failedCount: 0,
+      blockingDivergenceCount: 0,
+      replayFixtureRefs: [],
+      blockingReplayFixtureRefs: [],
+      receiptRefs: [],
+      evidenceRefs: [],
+      blockers: ["replay_gate_not_run"],
+    },
   }));
 }
 

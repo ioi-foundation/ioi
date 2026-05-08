@@ -35,6 +35,11 @@ export interface WorkflowHarnessGroupView {
     warningCount: number;
     receiptKindCount: number;
     replayFixtureCount: number;
+    replayGateStatus: WorkflowHarnessPromotionClusterReplayGateStatus;
+    replayGateImpact: "pending" | "passed" | "blocked";
+    replayGateTotalFixtures: number;
+    replayGateBlockingFixtureCount: number;
+    replayGateId?: string;
     divergenceCount: number;
     activationState?: WorkflowHarnessActivationState;
   };
@@ -948,6 +953,7 @@ export interface WorkflowHarnessPromotionCluster {
   promotionRule: string;
   rollbackTarget: string;
   blocksLiveActivation: boolean;
+  replayGateProof?: WorkflowHarnessPromotionClusterReplayGateProof;
 }
 
 export interface WorkflowHarnessGatedClusterRun {
@@ -1249,6 +1255,32 @@ export interface WorkflowHarnessReplayGateResult {
   activationGateImpact: "passed" | "blocked";
   blockers: string[];
   createdAtMs: number;
+}
+
+export type WorkflowHarnessPromotionClusterReplayGateStatus =
+  | "not_run"
+  | "passed"
+  | "blocked"
+  | "failed"
+  | string;
+
+export interface WorkflowHarnessPromotionClusterReplayGateProof {
+  schemaVersion: "workflow.harness.promotion-cluster-replay-gate-proof.v1" | string;
+  clusterId: WorkflowHarnessPromotionClusterId;
+  gateId?: string;
+  gateStatus: WorkflowHarnessPromotionClusterReplayGateStatus;
+  activationGateImpact: "pending" | "passed" | "blocked";
+  totalFixtures: number;
+  passedCount: number;
+  blockedCount: number;
+  failedCount: number;
+  blockingDivergenceCount: number;
+  replayFixtureRefs: string[];
+  blockingReplayFixtureRefs: string[];
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  blockers: string[];
+  verifiedAtMs?: number;
 }
 
 export type WorkflowHarnessActivationCandidateDecision =
