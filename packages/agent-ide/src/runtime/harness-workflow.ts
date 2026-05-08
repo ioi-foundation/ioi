@@ -2187,6 +2187,43 @@ const DEFAULT_ROUTING_MODEL_GATE_ADAPTER_COMPONENTS: Array<{
   },
 ];
 
+const DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS: Array<{
+  kind: WorkflowHarnessComponentKind;
+  attemptSlug: string;
+  policyDecision: string;
+}> = [
+  {
+    kind: "postcondition_synthesizer",
+    attemptSlug: "verification_output_postcondition_synthesizer_envelope",
+    policyDecision: "accept_verification_output_postcondition_envelope",
+  },
+  {
+    kind: "verifier",
+    attemptSlug: "verification_output_verifier_envelope",
+    policyDecision: "accept_verification_output_verifier_envelope",
+  },
+  {
+    kind: "completion_gate",
+    attemptSlug: "verification_output_completion_gate_envelope",
+    policyDecision: "accept_verification_output_completion_gate_envelope",
+  },
+  {
+    kind: "receipt_writer",
+    attemptSlug: "verification_output_receipt_writer_envelope",
+    policyDecision: "accept_verification_output_receipt_writer_envelope",
+  },
+  {
+    kind: "quality_ledger",
+    attemptSlug: "verification_output_quality_ledger_envelope",
+    policyDecision: "accept_verification_output_quality_ledger_envelope",
+  },
+  {
+    kind: "output_writer",
+    attemptSlug: "verification_output_output_writer_envelope",
+    policyDecision: "accept_verification_output_output_writer_envelope",
+  },
+];
+
 function makeDefaultHarnessAdapterResult(
   kind: WorkflowHarnessComponentKind,
   attemptSlug: string,
@@ -2280,6 +2317,18 @@ function makeDefaultRoutingModelGateAdapterResults(): WorkflowHarnessComponentAd
       component.attemptSlug,
       component.policyDecision,
       index + 7,
+      "gated",
+    ),
+  );
+}
+
+function makeDefaultVerificationOutputGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultHarnessAdapterResult(
+      component.kind,
+      component.attemptSlug,
+      component.policyDecision,
+      index + 10,
       "gated",
     ),
   );
@@ -2391,6 +2440,38 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "harness-default-dispatch:fixture-routing_model_tool_router_envelope",
   ];
   const routingModelDivergenceClasses = ["none" as const];
+  const verificationOutputAdapterResults = makeDefaultVerificationOutputGateAdapterResults();
+  const verificationOutputActionFrameIds = verificationOutputAdapterResults.map(
+    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+  );
+  const verificationOutputComponentKinds = verificationOutputAdapterResults.map(
+    (result) => result.actionFrame.componentKind,
+  );
+  const verificationOutputAttemptIds = [
+    "harness-default-dispatch:attempt-verification_output_postcondition_synthesizer_envelope",
+    "harness-default-dispatch:attempt-verification_output_verifier_envelope",
+    "harness-default-dispatch:attempt-verification_output_completion_gate_envelope",
+    "harness-default-dispatch:attempt-verification_output_receipt_writer_envelope",
+    "harness-default-dispatch:attempt-verification_output_quality_ledger_envelope",
+    "harness-default-dispatch:attempt-verification_output_output_writer_envelope",
+  ];
+  const verificationOutputReceiptIds = [
+    "harness-default-dispatch:receipt-verification_output_postcondition_synthesizer_envelope",
+    "harness-default-dispatch:receipt-verification_output_verifier_envelope",
+    "harness-default-dispatch:receipt-verification_output_completion_gate_envelope",
+    "harness-default-dispatch:receipt-verification_output_receipt_writer_envelope",
+    "harness-default-dispatch:receipt-verification_output_quality_ledger_envelope",
+    "harness-default-dispatch:receipt-verification_output_output_writer_envelope",
+  ];
+  const verificationOutputReplayFixtureRefs = [
+    "harness-default-dispatch:fixture-verification_output_postcondition_synthesizer_envelope",
+    "harness-default-dispatch:fixture-verification_output_verifier_envelope",
+    "harness-default-dispatch:fixture-verification_output_completion_gate_envelope",
+    "harness-default-dispatch:fixture-verification_output_receipt_writer_envelope",
+    "harness-default-dispatch:fixture-verification_output_quality_ledger_envelope",
+    "harness-default-dispatch:fixture-verification_output_output_writer_envelope",
+  ];
+  const verificationOutputDivergenceClasses = ["none" as const];
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -2551,6 +2632,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
         "harness-default-dispatch:attempt-model_router_envelope",
         "harness-default-dispatch:attempt-model_call_envelope",
         ...routingModelAttemptIds,
+        ...verificationOutputAttemptIds,
         "harness-default-dispatch:attempt-model_provider_call_canary",
         "harness-default-dispatch:attempt-model_provider_gated_visible_output",
         "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
@@ -2611,6 +2693,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     routingModelActionFrameIds,
     routingModelComponentKinds,
     routingModelDivergenceClasses,
+    verificationOutputAdapterMode: "workflow_component_adapter_gated",
+    verificationOutputAttemptIds,
+    verificationOutputReceiptIds,
+    verificationOutputReplayFixtureRefs,
+    verificationOutputAdapterResults,
+    verificationOutputActionFrameIds,
+    verificationOutputComponentKinds,
+    verificationOutputDivergenceClasses,
     modelExecutionAttemptIds: [
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -3117,6 +3207,27 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ],
       policyDecision:
         "accept_workflow_read_only_capability_routing_without_side_effects",
+    },
+    verificationOutputProof: {
+      schemaVersion: "workflow.harness.verification-output-envelope.v1",
+      mode: "workflow_synchronous_envelope",
+      adapterMode: "workflow_component_adapter_gated",
+      adapterResultCount: verificationOutputAdapterResults.length,
+      attemptIds: verificationOutputAttemptIds,
+      receiptIds: verificationOutputReceiptIds,
+      replayFixtureRefs: verificationOutputReplayFixtureRefs,
+      actionFrameIds: verificationOutputActionFrameIds,
+      componentKinds: verificationOutputComponentKinds,
+      divergenceClasses: verificationOutputDivergenceClasses,
+      completionDecision: "objective_satisfied",
+      receiptProjectionAuthority: "blessed_workflow_activation_default",
+      qualityLedgerAuthority: "blessed_workflow_activation_default",
+      outputWriterAuthority: "blessed_workflow_activation_default",
+      selectedVisibleOutputAuthority: "workflow_model_provider_call",
+      selectedVisibleOutputHash: actualVisibleOutputHash,
+      outputHashMatches: true,
+      ready: true,
+      policyDecision: "accept_workflow_verification_output_adapter_envelope",
     },
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",

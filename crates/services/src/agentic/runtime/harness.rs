@@ -464,6 +464,75 @@ mod tests {
     }
 
     #[test]
+    fn default_component_adapter_invokes_gated_verification_output_components() {
+        let cluster = default_harness_promotion_clusters()
+            .into_iter()
+            .find(|cluster| cluster.cluster_id == HarnessPromotionClusterId::VerificationOutput)
+            .expect("verification output cluster");
+
+        assert_eq!(
+            cluster.component_kinds,
+            vec![
+                HarnessComponentKind::PostconditionSynthesizer,
+                HarnessComponentKind::Verifier,
+                HarnessComponentKind::CompletionGate,
+                HarnessComponentKind::ReceiptWriter,
+                HarnessComponentKind::QualityLedger,
+                HarnessComponentKind::OutputWriter
+            ]
+        );
+
+        for (index, component_kind) in cluster.component_kinds.iter().enumerate() {
+            let result = invoke_default_harness_component(HarnessComponentInvocation {
+                invocation_id: format!("verification-output-adapter-{index}"),
+                component_kind: *component_kind,
+                execution_mode: HarnessExecutionMode::Gated,
+                attempt_index: (index + 1) as u32,
+                input_hash: Some(format!("verification-input:{index}")),
+                output_hash: Some(format!("verification-output:{index}")),
+                policy_decision: Some("allow_verification_output_gated_component".to_string()),
+                receipt_ids: vec![format!("verification-receipt:{index}")],
+                evidence_refs: vec![format!("verification-evidence:{}", component_kind.as_str())],
+                replay_fixture_ref: Some(format!(
+                    "verification-fixture:{}",
+                    component_kind.as_str()
+                )),
+                started_at_ms: Some(30),
+                duration_ms: Some(4),
+            })
+            .expect("verification output adapter invocation should be accepted");
+
+            assert_eq!(
+                result.action_frame.execution_mode,
+                HarnessExecutionMode::Gated
+            );
+            assert_eq!(result.action_frame.component_kind, *component_kind);
+            assert_eq!(
+                result.node_attempt.workflow_node_id,
+                component_kind.workflow_node_id()
+            );
+            assert_eq!(result.node_attempt.status, HarnessNodeAttemptStatus::Gated);
+            assert_eq!(
+                result.node_attempt.policy_decision.as_deref(),
+                Some("allow_verification_output_gated_component")
+            );
+            assert_eq!(result.readiness, HarnessComponentReadiness::ShadowReady);
+            assert_eq!(
+                result.node_attempt.replay.fixture_ref.as_deref(),
+                Some(format!("verification-fixture:{}", component_kind.as_str()).as_str())
+            );
+            assert_eq!(
+                result.node_attempt.output_hash,
+                Some(format!("verification-output:{index}"))
+            );
+            assert_eq!(
+                result.receipt_ids,
+                vec![format!("verification-receipt:{index}")]
+            );
+        }
+    }
+
+    #[test]
     fn default_component_adapter_invokes_live_cognition_authority_components() {
         for (index, component_kind) in [
             HarnessComponentKind::Planner,

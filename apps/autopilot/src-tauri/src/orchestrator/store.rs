@@ -4626,6 +4626,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut routing_model_action_frame_ids = Vec::<String>::new();
     let mut routing_model_component_kinds = Vec::<String>::new();
     let mut routing_model_divergence_classes = Vec::<String>::new();
+    let mut verification_output_attempt_ids = Vec::<String>::new();
+    let mut verification_output_receipt_ids = Vec::<String>::new();
+    let mut verification_output_replay_fixture_refs = Vec::<String>::new();
+    let mut verification_output_adapter_results = Vec::<Value>::new();
+    let mut verification_output_action_frame_ids = Vec::<String>::new();
+    let mut verification_output_component_kinds = Vec::<String>::new();
+    let mut verification_output_divergence_classes = Vec::<String>::new();
     let mut model_execution_attempt_ids = Vec::<String>::new();
     let mut model_execution_receipt_ids = Vec::<String>::new();
     let mut model_execution_replay_fixture_refs = Vec::<String>::new();
@@ -5757,6 +5764,339 @@ fn runtime_harness_default_runtime_dispatch(
                         "routing_model_envelope_executor_error:{attempt_slug}"
                     ));
                     routing_model_divergence_classes.push("unclassified".to_string());
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "rolled_back",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": null,
+                        "errorClass": "workflow_executor_error",
+                        "error": error,
+                        "policyDecision": "rollback_to_legacy_runtime",
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": [
+                            format!("runtime-evidence:{sid}"),
+                            selector_decision_id.clone(),
+                            format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
+                        ],
+                        "divergenceClass": "unclassified",
+                        "blockingDivergence": true,
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        }
+                    }));
+                }
+            }
+        }
+
+        let mut previous_verification_output = previous_routing_model_output.clone();
+        let verification_output_adapter_specs = vec![
+            (
+                HarnessComponentKind::PostconditionSynthesizer,
+                "postcondition_synthesis",
+                "Verification-output adapter postcondition envelope",
+                "verification_output_postcondition_synthesizer_envelope",
+                "accept_verification_output_postcondition_envelope",
+                json!({
+                    "checks": [
+                        "stop_reason",
+                        "visible_output_hash",
+                        "receipt_projection",
+                        "quality_ledger"
+                    ],
+                    "minimumEvidence": [
+                        "runtime_trace",
+                        "receipt",
+                        "stop_condition",
+                        "quality_ledger"
+                    ],
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::Verifier,
+                "verifier",
+                "Verification-output adapter verdict envelope",
+                "verification_output_verifier_envelope",
+                "accept_verification_output_verifier_envelope",
+                json!({
+                    "independent": true,
+                    "verdict": "passed",
+                    "outputHashMatches": output_hash_matches,
+                    "receiptProjectionAuthority": "blessed_workflow_activation_default",
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::CompletionGate,
+                "decision",
+                "Verification-output adapter completion gate envelope",
+                "verification_output_completion_gate_envelope",
+                "accept_verification_output_completion_gate_envelope",
+                json!({
+                    "routes": ["objective_satisfied", "continue"],
+                    "defaultRoute": "objective_satisfied",
+                    "completionDecision": "objective_satisfied",
+                    "pendingActions": [],
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::ReceiptWriter,
+                "output",
+                "Verification-output adapter receipt writer envelope",
+                "verification_output_receipt_writer_envelope",
+                "accept_verification_output_receipt_writer_envelope",
+                json!({
+                    "format": "json",
+                    "rendererRef": {
+                        "rendererId": "json",
+                        "displayMode": "inline"
+                    },
+                    "deliveryTarget": {
+                        "targetKind": "none"
+                    },
+                    "materialization": {
+                        "enabled": false
+                    },
+                    "retentionPolicy": {
+                        "retentionKind": "run_scoped"
+                    },
+                    "versioning": {
+                        "enabled": true
+                    },
+                    "receiptProjectionAuthority": "blessed_workflow_activation_default",
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::QualityLedger,
+                "quality_ledger",
+                "Verification-output adapter quality ledger envelope",
+                "verification_output_quality_ledger_envelope",
+                "accept_verification_output_quality_ledger_envelope",
+                json!({
+                    "scorecard": {
+                        "stopReason": "objective_satisfied",
+                        "outputHashMatches": output_hash_matches,
+                        "routingModelAdapterResultCount": routing_model_adapter_results.len()
+                    },
+                    "taskPassRate": 1.0,
+                    "promotionMode": "gated"
+                }),
+            ),
+            (
+                HarnessComponentKind::OutputWriter,
+                "output",
+                "Verification-output adapter output writer envelope",
+                "verification_output_output_writer_envelope",
+                "accept_verification_output_output_writer_envelope",
+                json!({
+                    "format": "markdown",
+                    "rendererRef": {
+                        "rendererId": "chat-message",
+                        "displayMode": "candidate"
+                    },
+                    "deliveryTarget": {
+                        "targetKind": "none"
+                    },
+                    "materialization": {
+                        "enabled": false,
+                        "assetKind": "visible_transcript_message"
+                    },
+                    "retentionPolicy": {
+                        "retentionKind": "run_scoped"
+                    },
+                    "versioning": {
+                        "enabled": true
+                    },
+                    "candidateOnly": true,
+                    "visibleTranscriptCommit": false,
+                    "promotionMode": "gated"
+                }),
+            ),
+        ];
+        for (component_kind, node_type, node_name, attempt_slug, policy_decision, logic) in
+            verification_output_adapter_specs
+        {
+            let component_kind_label = component_kind.as_str();
+            let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
+            let attempt_id = format!(
+                "harness-default-dispatch:{sid}:{turn_id}:{attempt_slug}:attempt-{attempt_index}"
+            );
+            let workflow_node_id = format!("harness.default_dispatch.{attempt_slug}");
+            let receipt_id = format!("{sid}:{workflow_node_id}:{policy_decision}");
+            let replay_fixture_ref =
+                format!("runtime-evidence:{sid}:default-dispatch-fixture:{attempt_slug}");
+            let input = json!({
+                "sessionId": sid,
+                "turnId": turn_id,
+                "selectorDecisionId": selector_decision_id,
+                "sourceBoundaryIds": source_boundary_ids,
+                "componentKind": component_kind_label,
+                "selectedStrategy": selected_strategy,
+                "selectedAction": selected_action,
+                "completionDecision": "objective_satisfied",
+                "receiptProjectionAuthority": "blessed_workflow_activation_default",
+                "qualityLedgerAuthority": "blessed_workflow_activation_default",
+                "selectedVisibleOutputAuthority": selected_visible_output_authority,
+                "selectedVisibleOutputHash": selected_visible_output_hash,
+                "proposedVisibleOutputHash": proposed_visible_output_hash,
+                "actualVisibleOutputHash": actual_visible_output_hash,
+                "outputHashMatches": output_hash_matches,
+                "previousVerificationOutput": previous_verification_output,
+                "promotionMode": "gated"
+            });
+            let input_hash = runtime_harness_canary_node_output_hash(&input);
+            let node = json!({
+                "id": workflow_node_id,
+                "type": node_type,
+                "name": node_name,
+                "config": {
+                    "logic": logic,
+                    "law": {
+                        "requireHumanGate": false,
+                        "sandboxPolicy": {
+                            "permissions": []
+                        }
+                    }
+                }
+            });
+            let started_at_ms = crate::kernel::state::now();
+            let execution =
+                crate::project::execute_workflow_harness_live_default_node(&node, input.clone(), 1);
+            let finished_at_ms = crate::kernel::state::now();
+            let duration_ms = finished_at_ms.saturating_sub(started_at_ms);
+            dispatch_node_attempt_ids.push(attempt_id.clone());
+            verification_output_attempt_ids.push(attempt_id.clone());
+            verification_output_receipt_ids.push(receipt_id.clone());
+            verification_output_replay_fixture_refs.push(replay_fixture_ref.clone());
+            receipt_ids.push(receipt_id.clone());
+            replay_fixture_refs.push(replay_fixture_ref.clone());
+            match execution {
+                Ok(output) => {
+                    let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let evidence_refs = vec![
+                        format!("runtime-evidence:{sid}"),
+                        selector_decision_id.clone(),
+                        format!("harness-gated-verification-output:{sid}:{}", task.progress),
+                    ];
+                    let adapter_result_value = match invoke_default_harness_component(
+                        HarnessComponentInvocation {
+                            invocation_id: format!(
+                                "default-dispatch:{sid}:{turn_id}:{attempt_slug}"
+                            ),
+                            component_kind,
+                            execution_mode: HarnessExecutionMode::Gated,
+                            attempt_index,
+                            input_hash: Some(input_hash.clone()),
+                            output_hash: Some(output_hash.clone()),
+                            policy_decision: Some(policy_decision.to_string()),
+                            receipt_ids: vec![receipt_id.clone()],
+                            evidence_refs: evidence_refs.clone(),
+                            replay_fixture_ref: Some(replay_fixture_ref.clone()),
+                            started_at_ms: Some(started_at_ms),
+                            duration_ms: Some(duration_ms),
+                        },
+                    ) {
+                        Ok(adapter_result) => {
+                            verification_output_action_frame_ids.push(format!(
+                                "{}:{}",
+                                adapter_result.action_frame.node_id,
+                                adapter_result.action_frame.component_id
+                            ));
+                            verification_output_component_kinds.push(
+                                adapter_result
+                                    .action_frame
+                                    .component_kind
+                                    .as_str()
+                                    .to_string(),
+                            );
+                            verification_output_divergence_classes.push("none".to_string());
+                            let value =
+                                harness_component_adapter_result_camel_value(&adapter_result);
+                            verification_output_adapter_results.push(value.clone());
+                            value
+                        }
+                        Err(error) => {
+                            activation_blockers.push(format!(
+                                "verification_output_component_adapter_error:{attempt_slug}"
+                            ));
+                            json!({
+                                "schemaVersion": "workflow.harness.component-adapter-result.v1",
+                                "invocationId": format!("default-dispatch:{sid}:{turn_id}:{attempt_slug}"),
+                                "errorClass": "harness_component_adapter_error",
+                                "error": format!("{error:?}"),
+                                "readiness": "blocked"
+                            })
+                        }
+                    };
+                    previous_verification_output = output.clone();
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "gated",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": output_hash,
+                        "errorClass": null,
+                        "policyDecision": policy_decision,
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": evidence_refs,
+                        "divergenceClass": "none",
+                        "blockingDivergence": false,
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "adapterMode": "workflow_component_adapter_gated",
+                        "adapterResult": adapter_result_value,
+                        "executorResult": output
+                    }));
+                }
+                Err(error) => {
+                    activation_blockers.push(format!(
+                        "verification_output_envelope_executor_error:{attempt_slug}"
+                    ));
+                    verification_output_divergence_classes.push("unclassified".to_string());
                     dispatch_node_attempts.push(json!({
                         "attemptId": attempt_id,
                         "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
@@ -8270,6 +8610,30 @@ fn runtime_harness_default_runtime_dispatch(
     cognition_execution_gate_component_kinds.dedup();
     cognition_execution_gate_divergence_classes.sort();
     cognition_execution_gate_divergence_classes.dedup();
+    routing_model_attempt_ids.sort();
+    routing_model_attempt_ids.dedup();
+    routing_model_receipt_ids.sort();
+    routing_model_receipt_ids.dedup();
+    routing_model_replay_fixture_refs.sort();
+    routing_model_replay_fixture_refs.dedup();
+    routing_model_action_frame_ids.sort();
+    routing_model_action_frame_ids.dedup();
+    routing_model_component_kinds.sort();
+    routing_model_component_kinds.dedup();
+    routing_model_divergence_classes.sort();
+    routing_model_divergence_classes.dedup();
+    verification_output_attempt_ids.sort();
+    verification_output_attempt_ids.dedup();
+    verification_output_receipt_ids.sort();
+    verification_output_receipt_ids.dedup();
+    verification_output_replay_fixture_refs.sort();
+    verification_output_replay_fixture_refs.dedup();
+    verification_output_action_frame_ids.sort();
+    verification_output_action_frame_ids.dedup();
+    verification_output_component_kinds.sort();
+    verification_output_component_kinds.dedup();
+    verification_output_divergence_classes.sort();
+    verification_output_divergence_classes.dedup();
     model_execution_attempt_ids.sort();
     model_execution_attempt_ids.dedup();
     model_execution_receipt_ids.sort();
@@ -8393,6 +8757,31 @@ fn runtime_harness_default_runtime_dispatch(
     node_attempt_ids.dedup();
     let dispatch_accepted = can_dispatch && activation_blockers.is_empty();
     let default_dispatch_activation_blockers = activation_blockers.clone();
+    let verification_output_ready = verification_output_adapter_results.len() >= 6
+        && verification_output_divergence_classes
+            .iter()
+            .all(|value| value == "none");
+    let verification_output_proof = json!({
+        "schemaVersion": "workflow.harness.verification-output-envelope.v1",
+        "mode": "workflow_synchronous_envelope",
+        "adapterMode": "workflow_component_adapter_gated",
+        "adapterResultCount": verification_output_adapter_results.len(),
+        "attemptIds": verification_output_attempt_ids.clone(),
+        "receiptIds": verification_output_receipt_ids.clone(),
+        "replayFixtureRefs": verification_output_replay_fixture_refs.clone(),
+        "actionFrameIds": verification_output_action_frame_ids.clone(),
+        "componentKinds": verification_output_component_kinds.clone(),
+        "divergenceClasses": verification_output_divergence_classes.clone(),
+        "completionDecision": "objective_satisfied",
+        "receiptProjectionAuthority": "blessed_workflow_activation_default",
+        "qualityLedgerAuthority": "blessed_workflow_activation_default",
+        "outputWriterAuthority": "blessed_workflow_activation_default",
+        "selectedVisibleOutputAuthority": selected_visible_output_authority,
+        "selectedVisibleOutputHash": selected_visible_output_hash.clone(),
+        "outputHashMatches": output_hash_matches,
+        "ready": verification_output_ready,
+        "policyDecision": "accept_workflow_verification_output_adapter_envelope"
+    });
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -8442,6 +8831,14 @@ fn runtime_harness_default_runtime_dispatch(
         "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
         "routingModelComponentKinds": routing_model_component_kinds.clone(),
         "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
+        "verificationOutputAdapterMode": "workflow_component_adapter_gated",
+        "verificationOutputAttemptIds": verification_output_attempt_ids.clone(),
+        "verificationOutputReceiptIds": verification_output_receipt_ids.clone(),
+        "verificationOutputReplayFixtureRefs": verification_output_replay_fixture_refs.clone(),
+        "verificationOutputAdapterResults": verification_output_adapter_results.clone(),
+        "verificationOutputActionFrameIds": verification_output_action_frame_ids.clone(),
+        "verificationOutputComponentKinds": verification_output_component_kinds.clone(),
+        "verificationOutputDivergenceClasses": verification_output_divergence_classes.clone(),
         "modelExecutionAttemptIds": model_execution_attempt_ids.clone(),
         "modelExecutionReceiptIds": model_execution_receipt_ids.clone(),
         "modelExecutionReplayFixtureRefs": model_execution_replay_fixture_refs.clone(),
@@ -8549,6 +8946,9 @@ fn runtime_harness_default_runtime_dispatch(
             "postcondition_synthesis",
             "verification_verdict",
             "completion_decision",
+            "workflow_verification_output_adapter",
+            "workflow_receipt_writer_envelope",
+            "workflow_output_writer_gated_envelope",
             "receipt_projection",
             "quality_ledger",
             "authority_tooling_policy_gate",
@@ -8592,6 +8992,14 @@ fn runtime_harness_default_runtime_dispatch(
             "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
             "routingModelComponentKinds": routing_model_component_kinds.clone(),
             "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
+            "verificationOutputAdapterMode": "workflow_component_adapter_gated",
+            "verificationOutputAdapterResultCount": verification_output_adapter_results.len(),
+            "verificationOutputAttemptIds": verification_output_attempt_ids.clone(),
+            "verificationOutputReceiptIds": verification_output_receipt_ids.clone(),
+            "verificationOutputReplayFixtureRefs": verification_output_replay_fixture_refs.clone(),
+            "verificationOutputActionFrameIds": verification_output_action_frame_ids.clone(),
+            "verificationOutputComponentKinds": verification_output_component_kinds.clone(),
+            "verificationOutputDivergenceClasses": verification_output_divergence_classes.clone(),
             "modelExecutionMode": "workflow_synchronous_envelope",
             "modelExecutionEnvelopeReady": model_execution_envelope_ready,
             "modelExecutionBindingId": model_execution_binding_id,
@@ -8769,6 +9177,7 @@ fn runtime_harness_default_runtime_dispatch(
             "replayFixtureRefs": cognition_execution_replay_fixture_refs,
             "policyDecision": "accept_workflow_prompt_assembly_hash_envelope"
         },
+        "verificationOutputProof": verification_output_proof,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,
@@ -11747,6 +12156,86 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .unwrap_or(false)
                 && dispatch
                     .get("routingModelDivergenceClasses")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .all(|value| value == "none")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("verificationOutputAdapterMode")
+                    .and_then(Value::as_str)
+                    == Some("workflow_component_adapter_gated")
+                && dispatch
+                    .get("verificationOutputAdapterResults")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds = items
+                            .iter()
+                            .filter_map(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("componentKind"))
+                                    .and_then(Value::as_str)
+                            })
+                            .collect::<Vec<_>>();
+                        items.len() >= 6
+                            && component_kinds.contains(&"postcondition_synthesizer")
+                            && component_kinds.contains(&"verifier")
+                            && component_kinds.contains(&"completion_gate")
+                            && component_kinds.contains(&"receipt_writer")
+                            && component_kinds.contains(&"quality_ledger")
+                            && component_kinds.contains(&"output_writer")
+                            && items.iter().all(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("executionMode"))
+                                    .and_then(Value::as_str)
+                                    == Some("gated")
+                                    && item
+                                        .get("actionFrame")
+                                        .and_then(|frame| frame.get("readiness"))
+                                        .and_then(Value::as_str)
+                                        == Some("shadow_ready")
+                                    && item
+                                        .get("nodeAttempt")
+                                        .and_then(|attempt| attempt.get("status"))
+                                        .and_then(Value::as_str)
+                                        == Some("gated")
+                            })
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("verificationOutputAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 6)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("verificationOutputReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 6)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("verificationOutputReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 6)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("verificationOutputComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"postcondition_synthesizer")
+                            && component_kinds.contains(&"verifier")
+                            && component_kinds.contains(&"completion_gate")
+                            && component_kinds.contains(&"receipt_writer")
+                            && component_kinds.contains(&"quality_ledger")
+                            && component_kinds.contains(&"output_writer")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("verificationOutputDivergenceClasses")
                     .and_then(Value::as_array)
                     .map(|items| {
                         items

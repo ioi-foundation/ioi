@@ -16,6 +16,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -61,13 +63,14 @@ through a workflow-backed harness.
 
 ## Latest Validated Checkpoint
 
-As of 2026-05-08, the default live harness activation-id gate and default
-runtime dispatch proof have a green end-to-end checkpoint:
+As of 2026-05-08, the default live harness activation-id gate, default runtime
+dispatch proof, and gated verification/output adapter proof have a green
+end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the default runtime dispatch binding, live
@@ -161,6 +164,40 @@ This promotes routing/model proof visibility without handing over live model or
 tool authority yet. The existing runtime path remains the user-visible authority
 while the routing-model cluster accumulates retained-query evidence for later
 gated-to-live promotion.
+
+### 2026-05-08 Verification-Output Gate Adapter Slice
+
+The latest slice extends the canonical adapter proof through the end-of-turn
+verification/output cluster:
+
+- `postcondition_synthesizer`, `verifier`, `completion_gate`,
+  `receipt_writer`, `quality_ledger`, and `output_writer` now run as staged
+  default dispatch workflow envelopes in `gated` mode.
+- Their canonical adapter invocations remain `shadow_ready` and emit typed
+  adapter results, action frame ids, node attempts, receipt refs, replay
+  fixture refs, and `none` divergence classifications.
+- The default dispatch proof now exposes `verificationOutputAdapterMode`,
+  `verificationOutputAdapterResults`, `verificationOutputComponentKinds`,
+  `verificationOutputAttemptIds`, `verificationOutputReceiptIds`,
+  `verificationOutputReplayFixtureRefs`, `verificationOutputDivergenceClasses`,
+  and `verificationOutputProof`.
+- The TypeScript harness projection and GUI/P3 validators require all six
+  verification/output components to appear with `gated` execution,
+  `shadow_ready` readiness, `gated` node-attempt status, durable receipt and
+  replay refs, and zero divergence.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/`;
+  the promotion workflow artifact contains `verificationOutputAdapterMode:
+  workflow_component_adapter_gated`, six adapter results, and
+  `verificationOutputProof`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`.
+
+This completes the staged proof shape for the verification/output cluster while
+preserving user-visible runtime authority. The next chronological promotion
+slice should turn the authority/tooling cluster into the same canonical
+adapter-proof shape for policy, approval, read-only provider/tool catalogs, and
+dry-run wallet capability envelopes before any broader live authority handoff.
 
 ## Current State
 
