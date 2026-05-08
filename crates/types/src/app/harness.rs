@@ -975,6 +975,12 @@ pub struct HarnessWorkerSessionRecord {
     pub blockers: Vec<String>,
     pub policy_decision: String,
     pub evidence_refs: Vec<String>,
+    pub persistence_key: String,
+    pub record_persistence_key: String,
+    pub persisted_in_runtime_checkpoint: bool,
+    pub restored_from_persisted_session: bool,
+    pub runtime_checkpoint_source: String,
+    pub persistence_blockers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
@@ -2616,12 +2622,24 @@ pub fn default_harness_worker_session_record(
     evidence_refs.sort();
     evidence_refs.dedup();
 
+    let session_record_id = format!(
+        "harness-worker-session:{}:{}:{}:{}:{}",
+        record.workflow_id, record.activation_id, record.activation_hash, worker_id, session_id
+    );
+    let persistence_key = format!("agent::harness_worker_session::{}", session_id);
+    let record_persistence_key = format!(
+        "agent::harness_worker_session_record::{}",
+        session_record_id
+    );
+    let persistence_blockers = if accepted {
+        Vec::new()
+    } else {
+        blockers.clone()
+    };
+
     HarnessWorkerSessionRecord {
         schema_version: "workflow.harness.worker-session.v1".to_string(),
-        session_record_id: format!(
-            "harness-worker-session:{}:{}:{}:{}:{}",
-            record.workflow_id, record.activation_id, record.activation_hash, worker_id, session_id
-        ),
+        session_record_id,
         session_id,
         worker_id,
         workflow_id: record.workflow_id.clone(),
@@ -2654,6 +2672,12 @@ pub fn default_harness_worker_session_record(
             "block_harness_worker_session".to_string()
         },
         evidence_refs,
+        persistence_key,
+        record_persistence_key,
+        persisted_in_runtime_checkpoint: false,
+        restored_from_persisted_session: false,
+        runtime_checkpoint_source: "runtime_state_access_harness_worker_session_record".to_string(),
+        persistence_blockers,
     }
 }
 

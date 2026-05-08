@@ -1007,6 +1007,26 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .unwrap_or(false));
     assert_eq!(
         binding
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("persistedInRuntimeCheckpoint"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("restoredFromPersistedSession"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert!(binding
+        .get("workerSessionRecord")
+        .and_then(|value| value.get("persistenceBlockers"))
+        .and_then(|value| value.as_array())
+        .map(|items| items.is_empty())
+        .unwrap_or(false));
+    assert_eq!(
+        binding
             .get("invalidWorkerAttachReceipt")
             .and_then(|value| value.get("accepted"))
             .and_then(|value| value.as_bool()),
@@ -1591,6 +1611,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|value| value.get("currentStatus"))
             .and_then(|value| value.as_str()),
         Some("rollback_ready")
+    );
+    assert_eq!(
+        dispatch
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("persistedInRuntimeCheckpoint"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("restoredFromPersistedSession"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
     );
     assert!(dispatch
         .get("workerSessionRecord")

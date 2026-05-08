@@ -6,17 +6,19 @@ use super::merge::{materialize_worker_result, merged_worker_output};
 use super::{
     await_child_worker_result as await_child_worker_result_impl, build_parent_playbook_run,
     execution_evidence_value, inject_parent_playbook_context, latest_failed_goal_command_step,
-    load_child_state, load_parent_playbook_run, load_worker_session_result,
-    patch_build_verify_post_edit_followup_due, persist_parent_playbook_run,
-    persist_worker_assignment, persist_worker_session_result, resolve_worker_assignment,
-    resolve_worker_goal, retry_blocked_pause_reason,
-    synthesize_observed_patch_build_verify_completion, LIVE_RESEARCH_AWAIT_BURST_STEPS,
-    MAX_AWAIT_CHILD_BURST_STEPS, PARENT_PLAYBOOK_CONTEXT_MARKER,
+    load_child_state, load_harness_worker_session_record, load_parent_playbook_run,
+    load_worker_session_result, patch_build_verify_post_edit_followup_due,
+    persist_parent_playbook_run, persist_worker_assignment, persist_worker_session_result,
+    resolve_worker_assignment, resolve_worker_goal, restore_harness_worker_session_record,
+    retry_blocked_pause_reason, synthesize_observed_patch_build_verify_completion,
+    LIVE_RESEARCH_AWAIT_BURST_STEPS, MAX_AWAIT_CHILD_BURST_STEPS, PARENT_PLAYBOOK_CONTEXT_MARKER,
     PATCH_BUILD_VERIFY_POST_EDIT_BURST_GRACE_STEPS,
 };
 use crate::agentic::rules::{ActionRules, DefaultPolicy};
 use crate::agentic::runtime::agent_playbooks::builtin_agent_playbook;
-use crate::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::runtime::keys::{
+    get_harness_worker_session_record_key, get_state_key, AGENT_POLICY_PREFIX,
+};
 use crate::agentic::runtime::service::lifecycle::delegation::spawn_delegated_child_session;
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{
@@ -44,7 +46,8 @@ use ioi_types::app::agentic::{
     AgentMacro, LlmToolDefinition, SkillLifecycleState, SkillRecord, SkillSourceType,
 };
 use ioi_types::app::{
-    AccountId, ActionContext, ActionRequest, ActionTarget, ChainId, CodingVerificationScorecard,
+    bound_default_harness_worker_binding_registry_record, AccountId, ActionContext, ActionRequest,
+    ActionTarget, ChainId, CodingVerificationScorecard, HarnessWorkerSessionStatus,
 };
 use ioi_types::app::{ContextSlice, KernelEvent, WorkloadReceipt};
 use ioi_types::codec;

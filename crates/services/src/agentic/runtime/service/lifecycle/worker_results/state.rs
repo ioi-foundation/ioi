@@ -521,6 +521,202 @@ pub(crate) fn load_worker_assignment(
         })
 }
 
+fn harness_worker_session_key_label(child_session_id: [u8; 32]) -> String {
+    format!(
+        "agent::harness_worker_session::{}",
+        hex::encode(child_session_id)
+    )
+}
+
+fn harness_worker_session_record_key_label(session_record_id: &str) -> String {
+    format!(
+        "agent::harness_worker_session_record::{}",
+        session_record_id
+    )
+}
+
+pub(crate) fn harness_worker_session_record_for_assignment(
+    service: &RuntimeAgentService,
+    child_session_id: [u8; 32],
+    assignment: &WorkerAssignment,
+) -> HarnessWorkerSessionRecord {
+    let mut record = service.harness_worker_session_record().clone();
+    let session_id = hex::encode(child_session_id);
+    record.session_id = session_id.clone();
+    record.worker_id = format!(
+        "harness-worker:{}:{}:{}",
+        record.workflow_id, record.activation_id, session_id
+    );
+    record.session_record_id = format!(
+        "harness-worker-session:{}:{}:{}:{}:{}",
+        record.workflow_id,
+        record.activation_id,
+        record.activation_hash,
+        record.worker_id,
+        record.session_id
+    );
+    record.persistence_key = harness_worker_session_key_label(child_session_id);
+    record.record_persistence_key =
+        harness_worker_session_record_key_label(&record.session_record_id);
+    record.persisted_in_runtime_checkpoint = false;
+    record.restored_from_persisted_session = false;
+    record.runtime_checkpoint_source =
+        "runtime_state_access_harness_worker_session_record".to_string();
+    record.persistence_blockers = if record.accepted {
+        Vec::new()
+    } else {
+        record.blockers.clone()
+    };
+    record.evidence_refs.push(session_id);
+    record.evidence_refs.push(assignment.step_key.clone());
+    if let Some(workflow_id) = assignment.workflow_id.as_ref() {
+        record.evidence_refs.push(workflow_id.clone());
+    }
+    if let Some(playbook_id) = assignment.playbook_id.as_ref() {
+        record.evidence_refs.push(playbook_id.clone());
+    }
+    if let Some(template_id) = assignment.template_id.as_ref() {
+        record.evidence_refs.push(template_id.clone());
+    }
+    record.evidence_refs.sort();
+    record.evidence_refs.dedup();
+    record
+}
+
+pub(crate) fn persist_harness_worker_session_record(
+    state: &mut dyn StateAccess,
+    child_session_id: [u8; 32],
+    record: &HarnessWorkerSessionRecord,
+) -> Result<HarnessWorkerSessionRecord, String> {
+    let mut persisted = record.clone();
+    persisted.persistence_key = harness_worker_session_key_label(child_session_id);
+    persisted.record_persistence_key =
+        harness_worker_session_record_key_label(&persisted.session_record_id);
+    persisted.persisted_in_runtime_checkpoint = true;
+    persisted.restored_from_persisted_session = false;
+    persisted.runtime_checkpoint_source =
+        "runtime_state_access_harness_worker_session_record".to_string();
+    persisted.persistence_blockers = if persisted.accepted {
+        Vec::new()
+    } else {
+        persisted.blockers.clone()
+    };
+    let bytes = codec::to_bytes_canonical(&persisted).map_err(|error| {
+        format!(
+            "ERROR_CLASS=UnexpectedState Failed to encode harness worker session record: {}",
+            error
+        )
+    })?;
+    state
+        .insert(&get_harness_worker_session_key(&child_session_id), &bytes)
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist harness worker session record: {}",
+                error
+            )
+        })?;
+    state
+        .insert(
+            &get_harness_worker_session_record_key(&persisted.session_record_id),
+            &bytes,
+        )
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist harness worker session record index: {}",
+                error
+            )
+        })?;
+    Ok(persisted)
+}
+
+pub(crate) fn load_harness_worker_session_record(
+    state: &dyn StateAccess,
+    child_session_id: [u8; 32],
+) -> Result<Option<HarnessWorkerSessionRecord>, String> {
+    let Some(bytes) = state
+        .get(&get_harness_worker_session_key(&child_session_id))
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to read harness worker session record: {}",
+                error
+            )
+        })?
+    else {
+        return Ok(None);
+    };
+    let mut record =
+        codec::from_bytes_canonical::<HarnessWorkerSessionRecord>(&bytes).map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to decode harness worker session record: {}",
+                error
+            )
+        })?;
+    record.persistence_key = harness_worker_session_key_label(child_session_id);
+    record.record_persistence_key =
+        harness_worker_session_record_key_label(&record.session_record_id);
+    record.persisted_in_runtime_checkpoint = true;
+    record.restored_from_persisted_session = true;
+    record.runtime_checkpoint_source =
+        "runtime_state_access_harness_worker_session_record".to_string();
+    record.persistence_blockers = if record.accepted {
+        Vec::new()
+    } else {
+        record.blockers.clone()
+    };
+    Ok(Some(record))
+}
+
+pub(crate) fn ensure_harness_worker_session_record(
+    service: &RuntimeAgentService,
+    state: &mut dyn StateAccess,
+    child_session_id: [u8; 32],
+    assignment: &WorkerAssignment,
+) -> Result<(HarnessWorkerSessionRecord, bool), String> {
+    if let Some(record) = load_harness_worker_session_record(state, child_session_id)? {
+        return Ok((record, true));
+    }
+    let record =
+        harness_worker_session_record_for_assignment(service, child_session_id, assignment);
+    let persisted = persist_harness_worker_session_record(state, child_session_id, &record)?;
+    Ok((persisted, false))
+}
+
+pub(crate) fn restore_harness_worker_session_record(
+    state: &mut dyn StateAccess,
+    child_session_id: [u8; 32],
+) -> Result<Option<HarnessWorkerSessionRecord>, String> {
+    let Some(mut record) = load_harness_worker_session_record(state, child_session_id)? else {
+        return Ok(None);
+    };
+    record.restored_from_persisted_session = true;
+    let bytes = codec::to_bytes_canonical(&record).map_err(|error| {
+        format!(
+            "ERROR_CLASS=UnexpectedState Failed to encode restored harness worker session record: {}",
+            error
+        )
+    })?;
+    state
+        .insert(&get_harness_worker_session_key(&child_session_id), &bytes)
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist restored harness worker session record: {}",
+                error
+            )
+        })?;
+    state
+        .insert(
+            &get_harness_worker_session_record_key(&record.session_record_id),
+            &bytes,
+        )
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist restored harness worker session record index: {}",
+                error
+            )
+        })?;
+    Ok(Some(record))
+}
+
 pub(crate) fn load_worker_session_result(
     state: &dyn StateAccess,
     child_session_id: [u8; 32],

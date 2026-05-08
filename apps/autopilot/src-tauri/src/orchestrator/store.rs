@@ -1787,10 +1787,21 @@ fn runtime_harness_worker_session_record(
     evidence_refs.extend(receipt_ids.clone());
     evidence_refs.sort();
     evidence_refs.dedup();
+    let session_record_id = format!(
+        "harness-worker-session:{workflow_id}:{activation_id}:{activation_hash}:{worker_id}:{sid}"
+    );
+    let persistence_key = format!("agent::harness_worker_session::{sid}");
+    let record_persistence_key =
+        format!("agent::harness_worker_session_record::{session_record_id}");
+    let persistence_blockers = if accepted {
+        Vec::<String>::new()
+    } else {
+        blockers.clone()
+    };
 
     json!({
         "schemaVersion": "workflow.harness.worker-session.v1",
-        "sessionRecordId": format!("harness-worker-session:{workflow_id}:{activation_id}:{activation_hash}:{worker_id}:{sid}"),
+        "sessionRecordId": session_record_id,
         "sessionId": sid,
         "turnId": turn_id,
         "workerId": worker_id,
@@ -1819,7 +1830,13 @@ fn runtime_harness_worker_session_record(
         "accepted": accepted,
         "blockers": blockers,
         "policyDecision": if accepted { "allow_harness_worker_session" } else { "block_harness_worker_session" },
-        "evidenceRefs": evidence_refs
+        "evidenceRefs": evidence_refs,
+        "persistenceKey": persistence_key,
+        "recordPersistenceKey": record_persistence_key,
+        "persistedInRuntimeCheckpoint": accepted,
+        "restoredFromPersistedSession": accepted,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": persistence_blockers
     })
 }
 

@@ -692,12 +692,14 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     attachEvent?.receipt.workerId ??
     lifecycle[0]?.receipt.workerId ??
     makeWorkflowHarnessWorkerAttachRequest(record).workerId;
+  const sessionRecordId = `harness-worker-session:${record.workflowId}:${record.activationId}:${record.activationHash}:${workerId}:${sessionId}`;
   const lifecycleEventIds = lifecycle.map((event) => event.eventId);
   const lifecycleAttemptIds = lifecycle.map((event) => event.attemptId);
   const receiptIds = lifecycle.map((event) => event.receiptId);
+  const persistenceBlockers = accepted ? [] : blockers;
   return {
     schemaVersion: "workflow.harness.worker-session.v1",
-    sessionRecordId: `harness-worker-session:${record.workflowId}:${record.activationId}:${record.activationHash}:${workerId}:${sessionId}`,
+    sessionRecordId,
     sessionId,
     workerId,
     workflowId: record.workflowId,
@@ -733,6 +735,13 @@ export function makeWorkflowHarnessWorkerSessionRecord(
       ...lifecycleEventIds,
       ...receiptIds,
     ]),
+    persistenceKey: `agent::harness_worker_session::${sessionId}`,
+    recordPersistenceKey: `agent::harness_worker_session_record::${sessionRecordId}`,
+    persistedInRuntimeCheckpoint: accepted,
+    restoredFromPersistedSession: accepted,
+    runtimeCheckpointSource:
+      "runtime_state_access_harness_worker_session_record",
+    persistenceBlockers,
     createdAtMs: options.createdAtMs ?? record.createdAtMs,
   };
 }
@@ -759,6 +768,15 @@ export function workflowHarnessWorkerSessionBlockers(
   }
   if ((session.lifecycleEventIds ?? []).length < 3) {
     blockers.push("worker_session_lifecycle_events_missing");
+  }
+  if (session.persistedInRuntimeCheckpoint !== true) {
+    blockers.push("worker_session_not_persisted");
+  }
+  if (session.restoredFromPersistedSession !== true) {
+    blockers.push("worker_session_not_restored");
+  }
+  if ((session.persistenceBlockers ?? []).length > 0) {
+    blockers.push("worker_session_persistence_blocked");
   }
   return uniqueStrings(blockers);
 }

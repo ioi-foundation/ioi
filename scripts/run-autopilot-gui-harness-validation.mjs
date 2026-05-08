@@ -754,6 +754,23 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               blockers: Array.isArray(binding.workerSessionRecord.blockers)
                 ? binding.workerSessionRecord.blockers
                 : null,
+              persistenceKey:
+                binding.workerSessionRecord.persistenceKey ?? null,
+              recordPersistenceKey:
+                binding.workerSessionRecord.recordPersistenceKey ?? null,
+              persistedInRuntimeCheckpoint:
+                binding.workerSessionRecord.persistedInRuntimeCheckpoint ??
+                null,
+              restoredFromPersistedSession:
+                binding.workerSessionRecord.restoredFromPersistedSession ??
+                null,
+              runtimeCheckpointSource:
+                binding.workerSessionRecord.runtimeCheckpointSource ?? null,
+              persistenceBlockers: Array.isArray(
+                binding.workerSessionRecord.persistenceBlockers,
+              )
+                ? binding.workerSessionRecord.persistenceBlockers
+                : null,
             }
           : null,
       invalidWorkerAttachReceipt:
@@ -837,6 +854,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         binding.workerBindingRegistryRecord?.registryRecordId &&
       binding.workerSessionRecord?.workerId ===
         binding.workerAttachReceipt?.workerId &&
+      typeof binding.workerSessionRecord?.persistenceKey === "string" &&
+      binding.workerSessionRecord.persistenceKey.startsWith(
+        "agent::harness_worker_session::",
+      ) &&
+      typeof binding.workerSessionRecord?.recordPersistenceKey === "string" &&
+      binding.workerSessionRecord.recordPersistenceKey.startsWith(
+        "agent::harness_worker_session_record::",
+      ) &&
+      binding.workerSessionRecord?.persistedInRuntimeCheckpoint === true &&
+      binding.workerSessionRecord?.restoredFromPersistedSession === true &&
+      binding.workerSessionRecord?.runtimeCheckpointSource ===
+        "runtime_state_access_harness_worker_session_record" &&
+      Array.isArray(binding.workerSessionRecord?.persistenceBlockers) &&
+      binding.workerSessionRecord.persistenceBlockers.length === 0 &&
       binding.invalidWorkerAttachBlocked === true &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
@@ -2795,6 +2826,17 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-activation-audit-receipt-\$\{event\.eventId\}-\$\{index\}/.test(
         rail,
       ),
+    workerSessionCheckpointUi:
+      /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\]/.test(
+        graph,
+      ) &&
+      /data-worker-session-persistence-key/.test(rail) &&
+      /data-worker-session-record-persistence-key/.test(rail) &&
+      /data-worker-session-persisted/.test(rail) &&
+      /data-worker-session-restored/.test(rail) &&
+      /data-worker-session-checkpoint-source/.test(rail) &&
+      /worker_session_not_persisted/.test(harnessWorkflow) &&
+      /worker_session_not_restored/.test(harnessWorkflow),
     rollbackExecutionReceiptRefs:
       /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(
         graph,
@@ -3351,6 +3393,20 @@ function buildGuiEvidenceAssessment({
         binding.workerSessionRecord?.rollbackTargetReady === true &&
         binding.workerSessionRecord?.workerId ===
           binding.workerAttachReceipt?.workerId &&
+        typeof binding.workerSessionRecord?.persistenceKey === "string" &&
+        binding.workerSessionRecord.persistenceKey.startsWith(
+          "agent::harness_worker_session::",
+        ) &&
+        typeof binding.workerSessionRecord?.recordPersistenceKey === "string" &&
+        binding.workerSessionRecord.recordPersistenceKey.startsWith(
+          "agent::harness_worker_session_record::",
+        ) &&
+        binding.workerSessionRecord?.persistedInRuntimeCheckpoint === true &&
+        binding.workerSessionRecord?.restoredFromPersistedSession === true &&
+        binding.workerSessionRecord?.runtimeCheckpointSource ===
+          "runtime_state_access_harness_worker_session_record" &&
+        Array.isArray(binding.workerSessionRecord?.persistenceBlockers) &&
+        binding.workerSessionRecord.persistenceBlockers.length === 0 &&
         binding.invalidWorkerAttachBlocked === true &&
         binding.selectorLivePromotionReadinessProofId ===
           workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
@@ -4407,6 +4463,20 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerSessionRecord?.activationHash === DEFAULT_AGENT_HARNESS_HASH &&
       Array.isArray(workerSessionRecord?.blockers) &&
       workerSessionRecord.blockers.length === 0 &&
+      typeof workerSessionRecord?.persistenceKey === "string" &&
+      workerSessionRecord.persistenceKey.startsWith(
+        "agent::harness_worker_session::",
+      ) &&
+      typeof workerSessionRecord?.recordPersistenceKey === "string" &&
+      workerSessionRecord.recordPersistenceKey.startsWith(
+        "agent::harness_worker_session_record::",
+      ) &&
+      workerSessionRecord?.persistedInRuntimeCheckpoint === true &&
+      workerSessionRecord?.restoredFromPersistedSession === true &&
+      workerSessionRecord?.runtimeCheckpointSource ===
+        "runtime_state_access_harness_worker_session_record" &&
+      Array.isArray(workerSessionRecord?.persistenceBlockers) &&
+      workerSessionRecord.persistenceBlockers.length === 0 &&
       Array.isArray(workerSessionRecord?.lifecycleAttemptIds) &&
       workerSessionRecord.lifecycleAttemptIds.length >= 3 &&
       workerSessionRecord.lifecycleAttemptIds.every(
@@ -4922,6 +4992,25 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
                   )
                     ? defaultDispatch.workerSessionRecord.blockers
                     : [],
+                  persistenceKey:
+                    defaultDispatch.workerSessionRecord.persistenceKey ?? null,
+                  recordPersistenceKey:
+                    defaultDispatch.workerSessionRecord.recordPersistenceKey ??
+                    null,
+                  persistedInRuntimeCheckpoint:
+                    defaultDispatch.workerSessionRecord
+                      .persistedInRuntimeCheckpoint ?? null,
+                  restoredFromPersistedSession:
+                    defaultDispatch.workerSessionRecord
+                      .restoredFromPersistedSession ?? null,
+                  runtimeCheckpointSource:
+                    defaultDispatch.workerSessionRecord
+                      .runtimeCheckpointSource ?? null,
+                  persistenceBlockers: Array.isArray(
+                    defaultDispatch.workerSessionRecord.persistenceBlockers,
+                  )
+                    ? defaultDispatch.workerSessionRecord.persistenceBlockers
+                    : [],
                 }
               : null,
             workerSessionRecordBound,
@@ -4993,6 +5082,20 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             accepted: workerSessionRecord.accepted ?? null,
             blockers: Array.isArray(workerSessionRecord.blockers)
               ? workerSessionRecord.blockers
+              : [],
+            persistenceKey: workerSessionRecord.persistenceKey ?? null,
+            recordPersistenceKey:
+              workerSessionRecord.recordPersistenceKey ?? null,
+            persistedInRuntimeCheckpoint:
+              workerSessionRecord.persistedInRuntimeCheckpoint ?? null,
+            restoredFromPersistedSession:
+              workerSessionRecord.restoredFromPersistedSession ?? null,
+            runtimeCheckpointSource:
+              workerSessionRecord.runtimeCheckpointSource ?? null,
+            persistenceBlockers: Array.isArray(
+              workerSessionRecord.persistenceBlockers,
+            )
+              ? workerSessionRecord.persistenceBlockers
               : [],
             evidenceRefs: workerSessionRecord.evidenceRefs ?? [],
           }

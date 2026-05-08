@@ -1,5 +1,6 @@
 use crate::agentic::runtime::agent_playbooks::builtin_agent_playbook;
 use crate::agentic::runtime::keys::{
+    get_harness_worker_session_key, get_harness_worker_session_record_key,
     get_parent_playbook_run_key, get_session_result_key, get_state_key, get_worker_assignment_key,
 };
 use crate::agentic::runtime::service::decision_loop::handle_step;
@@ -30,9 +31,9 @@ use ioi_memory::MemoryRuntime;
 use ioi_types::app::{
     ArtifactGenerationSummary, ArtifactQualityScorecard, ArtifactRepairSummary,
     CodingVerificationScorecard, ComputerUsePerceptionSummary, ComputerUseRecoverySummary,
-    ComputerUseVerificationScorecard, KernelEvent, PatchSynthesisSummary,
-    ResearchVerificationScorecard, WorkloadParentPlaybookReceipt, WorkloadReceipt,
-    WorkloadReceiptEvent, WorkloadWorkerReceipt,
+    ComputerUseVerificationScorecard, HarnessWorkerSessionRecord, KernelEvent,
+    PatchSynthesisSummary, ResearchVerificationScorecard, WorkloadParentPlaybookReceipt,
+    WorkloadReceipt, WorkloadReceiptEvent, WorkloadWorkerReceipt,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;

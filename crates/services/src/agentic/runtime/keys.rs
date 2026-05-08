@@ -21,6 +21,8 @@ pub const APPROVAL_GRANT_PREFIX: &[u8] = b"agent::approval_grant::";
 pub const APPROVAL_AUTHORITY_PREFIX: &[u8] = b"agent::approval_authority::";
 pub const APPROVAL_POLICY_HASH_PREFIX: &[u8] = b"agent::approval_policy_hash::";
 pub const WORKER_ASSIGNMENT_PREFIX: &[u8] = b"agent::worker_assignment::";
+pub const HARNESS_WORKER_SESSION_PREFIX: &[u8] = b"agent::harness_worker_session::";
+pub const HARNESS_WORKER_SESSION_RECORD_PREFIX: &[u8] = b"agent::harness_worker_session_record::";
 pub const PARENT_PLAYBOOK_RUN_PREFIX: &[u8] = b"agent::parent_playbook_run::";
 
 // [NEW] Prefix for storing results of completed child sessions
@@ -85,6 +87,18 @@ pub fn get_session_result_key(session_id: &[u8; 32]) -> Vec<u8> {
 
 pub fn get_worker_assignment_key(session_id: &[u8; 32]) -> Vec<u8> {
     [WORKER_ASSIGNMENT_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_harness_worker_session_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [HARNESS_WORKER_SESSION_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_harness_worker_session_record_key(session_record_id: &str) -> Vec<u8> {
+    [
+        HARNESS_WORKER_SESSION_RECORD_PREFIX,
+        session_record_id.as_bytes(),
+    ]
+    .concat()
 }
 
 pub fn get_parent_playbook_run_key(session_id: &[u8; 32], playbook_id: &str) -> Vec<u8> {
