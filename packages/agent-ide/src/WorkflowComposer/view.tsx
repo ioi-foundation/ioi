@@ -175,6 +175,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedHarnessDefaultDispatchId,
     selectedHarnessReceiptRef,
     selectedHarnessReplayFixtureRef,
+    selectedHarnessRevisionBindingKind,
+    selectedHarnessRevisionBindingRef,
     selectedHarnessRollbackTarget,
     selectedHarnessSelectorDecisionId,
     selectedHarnessWorkerBindingId,
@@ -1251,6 +1253,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     harnessActivationCandidate={harnessActivationCandidate}
                     selectedHarnessReceiptRef={selectedHarnessReceiptRef}
                     selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
+                    selectedHarnessRevisionBindingKind={selectedHarnessRevisionBindingKind}
+                    selectedHarnessRevisionBindingRef={selectedHarnessRevisionBindingRef}
                     selectedHarnessRollbackTarget={selectedHarnessRollbackTarget}
                     selectedHarnessSelectorDecisionId={selectedHarnessSelectorDecisionId}
                     selectedHarnessDefaultDispatchId={selectedHarnessDefaultDispatchId}
