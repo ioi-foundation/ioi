@@ -61,6 +61,34 @@ async fn delegated_child_persists_harness_worker_session_record_for_launch_and_r
     assert!(record
         .record_persistence_key
         .contains(&record.session_record_id));
+    let launch_envelope = load_harness_worker_launch_envelope(
+        &state,
+        spawned.child_session_id,
+        HarnessWorkerLaunchPhase::Launch,
+    )
+    .expect("launch envelope lookup should succeed")
+    .expect("launch envelope should persist beside authoritative session record");
+    assert_eq!(launch_envelope.phase, HarnessWorkerLaunchPhase::Launch);
+    assert_eq!(launch_envelope.session_record_id, record.session_record_id);
+    assert!(launch_envelope.accepted);
+    assert!(launch_envelope.blockers.is_empty());
+    assert_eq!(launch_envelope.persistence_key, record.persistence_key);
+    assert_eq!(
+        launch_envelope.launch_authority_source,
+        "persisted_harness_worker_session_record"
+    );
+    let launch_receipt_id = format!(
+        "harness-worker-handoff-receipt:{}:{}",
+        HarnessWorkerLaunchPhase::Launch.as_str(),
+        record.session_record_id
+    );
+    let launch_receipt = load_harness_worker_handoff_receipt(&state, &launch_receipt_id)
+        .expect("launch handoff receipt lookup should succeed")
+        .expect("launch handoff receipt should persist");
+    assert_eq!(launch_receipt.envelope_id, launch_envelope.envelope_id);
+    assert!(launch_receipt.accepted);
+    assert_eq!(launch_receipt.handoff_status, "launched");
+    assert!(launch_receipt.receipt_refs.len() >= 3);
 
     let indexed_record_bytes = state
         .get(&get_harness_worker_session_record_key(
@@ -74,10 +102,40 @@ async fn delegated_child_persists_harness_worker_session_record_for_launch_and_r
     assert_eq!(indexed_record.session_record_id, record.session_record_id);
     assert!(indexed_record.persisted_in_runtime_checkpoint);
 
-    let restored = restore_harness_worker_session_record(&mut state, spawned.child_session_id)
-        .expect("harness worker session restore should succeed")
-        .expect("harness worker session restore should find record");
+    let restored = restore_harness_worker_session_record_with_authority(
+        &service,
+        &mut state,
+        spawned.child_session_id,
+    )
+    .expect("harness worker session restore should succeed")
+    .expect("harness worker session restore should find record");
     assert!(restored.restored_from_persisted_session);
+    let resume_envelope = load_harness_worker_launch_envelope(
+        &state,
+        spawned.child_session_id,
+        HarnessWorkerLaunchPhase::Resume,
+    )
+    .expect("resume envelope lookup should succeed")
+    .expect("resume envelope should persist");
+    assert!(resume_envelope.accepted);
+    let rollback_envelope = load_harness_worker_launch_envelope(
+        &state,
+        spawned.child_session_id,
+        HarnessWorkerLaunchPhase::Rollback,
+    )
+    .expect("rollback envelope lookup should succeed")
+    .expect("rollback envelope should persist");
+    assert!(rollback_envelope.accepted);
+    let rollback_receipt_id = format!(
+        "harness-worker-handoff-receipt:{}:{}",
+        HarnessWorkerLaunchPhase::Rollback.as_str(),
+        restored.session_record_id
+    );
+    let rollback_receipt = load_harness_worker_handoff_receipt(&state, &rollback_receipt_id)
+        .expect("rollback handoff receipt lookup should succeed")
+        .expect("rollback handoff receipt should persist");
+    assert_eq!(rollback_receipt.handoff_status, "rollback_handoff_ready");
+    assert!(rollback_receipt.accepted);
 }
 
 #[tokio::test(flavor = "current_thread")]

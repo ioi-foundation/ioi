@@ -798,6 +798,51 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerSessionRecord.rollbackHandoffTarget ?? null,
             }
           : null,
+      workerLaunchEnvelopes: Array.isArray(binding.workerLaunchEnvelopes)
+        ? binding.workerLaunchEnvelopes.map((envelope) => ({
+            schemaVersion: envelope?.schemaVersion ?? null,
+            envelopeId: envelope?.envelopeId ?? null,
+            phase: envelope?.phase ?? null,
+            sessionRecordId: envelope?.sessionRecordId ?? null,
+            workerId: envelope?.workerId ?? null,
+            launchAuthorityReady: envelope?.launchAuthorityReady ?? null,
+            rollbackHandoffReady: envelope?.rollbackHandoffReady ?? null,
+            accepted: envelope?.accepted ?? null,
+            blockers: Array.isArray(envelope?.blockers)
+              ? envelope.blockers
+              : null,
+            policyDecision: envelope?.policyDecision ?? null,
+          }))
+        : null,
+      workerHandoffReceipts: Array.isArray(binding.workerHandoffReceipts)
+        ? binding.workerHandoffReceipts.map((receipt) => ({
+            schemaVersion: receipt?.schemaVersion ?? null,
+            receiptId: receipt?.receiptId ?? null,
+            envelopeId: receipt?.envelopeId ?? null,
+            phase: receipt?.phase ?? null,
+            sessionRecordId: receipt?.sessionRecordId ?? null,
+            workerId: receipt?.workerId ?? null,
+            accepted: receipt?.accepted ?? null,
+            handoffStatus: receipt?.handoffStatus ?? null,
+            blockers: Array.isArray(receipt?.blockers)
+              ? receipt.blockers
+              : null,
+            receiptRefs: Array.isArray(receipt?.receiptRefs)
+              ? receipt.receiptRefs
+              : null,
+            policyDecision: receipt?.policyDecision ?? null,
+          }))
+        : null,
+      workerLaunchEnvelopeIds: Array.isArray(binding.workerLaunchEnvelopeIds)
+        ? binding.workerLaunchEnvelopeIds
+        : null,
+      workerHandoffReceiptIds: Array.isArray(binding.workerHandoffReceiptIds)
+        ? binding.workerHandoffReceiptIds
+        : null,
+      workerLaunchEnvelopesAccepted:
+        binding.workerLaunchEnvelopesAccepted ?? null,
+      workerHandoffReceiptsAccepted:
+        binding.workerHandoffReceiptsAccepted ?? null,
       invalidWorkerAttachReceipt:
         binding.invalidWorkerAttachReceipt &&
         typeof binding.invalidWorkerAttachReceipt === "object"
@@ -903,6 +948,53 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.workerSessionRecord.rollbackHandoffBlockers.length === 0 &&
       binding.workerSessionRecord?.rollbackHandoffTarget ===
         binding.workerSessionRecord?.rollbackTarget &&
+      binding.workerLaunchEnvelopesAccepted === true &&
+      Array.isArray(binding.workerLaunchEnvelopes) &&
+      binding.workerLaunchEnvelopes.length >= 3 &&
+      Array.isArray(binding.workerLaunchEnvelopeIds) &&
+      binding.workerLaunchEnvelopeIds.length >= 3 &&
+      ["launch", "resume", "rollback"].every((phase) =>
+        binding.workerLaunchEnvelopes.some(
+          (envelope) =>
+            envelope?.schemaVersion ===
+              "workflow.harness.worker-launch-envelope.v1" &&
+            envelope?.phase === phase &&
+            envelope?.sessionRecordId ===
+              binding.workerSessionRecord?.sessionRecordId &&
+            envelope?.workerId === binding.workerSessionRecord?.workerId &&
+            envelope?.accepted === true &&
+            Array.isArray(envelope?.blockers) &&
+            envelope.blockers.length === 0 &&
+            envelope?.launchAuthorityReady === true &&
+            (phase !== "rollback" || envelope?.rollbackHandoffReady === true),
+        ),
+      ) &&
+      binding.workerHandoffReceiptsAccepted === true &&
+      Array.isArray(binding.workerHandoffReceipts) &&
+      binding.workerHandoffReceipts.length >= 3 &&
+      Array.isArray(binding.workerHandoffReceiptIds) &&
+      binding.workerHandoffReceiptIds.length >= 3 &&
+      [
+        ["launch", "launched"],
+        ["resume", "resumed"],
+        ["rollback", "rollback_handoff_ready"],
+      ].every(([phase, status]) =>
+        binding.workerHandoffReceipts.some(
+          (receipt) =>
+            receipt?.schemaVersion ===
+              "workflow.harness.worker-handoff-receipt.v1" &&
+            receipt?.phase === phase &&
+            receipt?.handoffStatus === status &&
+            receipt?.sessionRecordId ===
+              binding.workerSessionRecord?.sessionRecordId &&
+            receipt?.workerId === binding.workerSessionRecord?.workerId &&
+            receipt?.accepted === true &&
+            Array.isArray(receipt?.blockers) &&
+            receipt.blockers.length === 0 &&
+            Array.isArray(receipt?.receiptRefs) &&
+            receipt.receiptRefs.length >= 4,
+        ),
+      ) &&
       binding.invalidWorkerAttachBlocked === true &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
@@ -2865,6 +2957,12 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\][\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityBlockers: string\[\][\s\S]*launchAuthoritySource: string[\s\S]*rollbackHandoffReady: boolean[\s\S]*rollbackHandoffBlockers: string\[\][\s\S]*rollbackHandoffTarget: string/.test(
         graph,
       ) &&
+      /WorkflowHarnessWorkerLaunchEnvelope[\s\S]*schemaVersion: "workflow\.harness\.worker-launch-envelope\.v1"[\s\S]*phase: WorkflowHarnessWorkerLaunchPhase[\s\S]*launchAuthorityReady: boolean/.test(
+        graph,
+      ) &&
+      /WorkflowHarnessWorkerHandoffReceipt[\s\S]*schemaVersion: "workflow\.harness\.worker-handoff-receipt\.v1"[\s\S]*handoffStatus: "launched" \| "resumed" \| "rollback_handoff_ready" \| "blocked"/.test(
+        graph,
+      ) &&
       /data-worker-session-persistence-key/.test(rail) &&
       /data-worker-session-record-persistence-key/.test(rail) &&
       /data-worker-session-persisted/.test(rail) &&
@@ -2872,10 +2970,15 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-worker-session-checkpoint-source/.test(rail) &&
       /data-worker-session-launch-authority-ready/.test(rail) &&
       /data-worker-session-rollback-handoff-ready/.test(rail) &&
+      /data-worker-launch-envelope-count/.test(rail) &&
+      /data-worker-handoff-receipt-count/.test(rail) &&
+      /data-worker-rollback-handoff-receipt-status/.test(rail) &&
       /worker_session_not_persisted/.test(harnessWorkflow) &&
       /worker_session_not_restored/.test(harnessWorkflow) &&
       /worker_session_launch_authority_not_ready/.test(harnessWorkflow) &&
-      /worker_session_rollback_handoff_not_ready/.test(harnessWorkflow),
+      /worker_session_rollback_handoff_not_ready/.test(harnessWorkflow) &&
+      /worker_launch_session_not_persisted/.test(harnessWorkflow) &&
+      /worker_handoff_envelope_schema_mismatch/.test(harnessWorkflow),
     rollbackExecutionReceiptRefs:
       /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(
         graph,
@@ -3456,6 +3559,51 @@ function buildGuiEvidenceAssessment({
         binding.workerSessionRecord.rollbackHandoffBlockers.length === 0 &&
         binding.workerSessionRecord?.rollbackHandoffTarget ===
           binding.workerSessionRecord?.rollbackTarget &&
+        binding.workerLaunchEnvelopesAccepted === true &&
+        Array.isArray(binding.workerLaunchEnvelopes) &&
+        binding.workerLaunchEnvelopes.length >= 3 &&
+        Array.isArray(binding.workerLaunchEnvelopeIds) &&
+        binding.workerLaunchEnvelopeIds.length >= 3 &&
+        ["launch", "resume", "rollback"].every((phase) =>
+          binding.workerLaunchEnvelopes.some(
+            (envelope) =>
+              envelope?.schemaVersion ===
+                "workflow.harness.worker-launch-envelope.v1" &&
+              envelope?.phase === phase &&
+              envelope?.sessionRecordId ===
+                binding.workerSessionRecord?.sessionRecordId &&
+              envelope?.workerId === binding.workerSessionRecord?.workerId &&
+              envelope?.accepted === true &&
+              Array.isArray(envelope?.blockers) &&
+              envelope.blockers.length === 0,
+          ),
+        ) &&
+        binding.workerHandoffReceiptsAccepted === true &&
+        Array.isArray(binding.workerHandoffReceipts) &&
+        binding.workerHandoffReceipts.length >= 3 &&
+        Array.isArray(binding.workerHandoffReceiptIds) &&
+        binding.workerHandoffReceiptIds.length >= 3 &&
+        [
+          ["launch", "launched"],
+          ["resume", "resumed"],
+          ["rollback", "rollback_handoff_ready"],
+        ].every(([phase, status]) =>
+          binding.workerHandoffReceipts.some(
+            (receipt) =>
+              receipt?.schemaVersion ===
+                "workflow.harness.worker-handoff-receipt.v1" &&
+              receipt?.phase === phase &&
+              receipt?.handoffStatus === status &&
+              receipt?.sessionRecordId ===
+                binding.workerSessionRecord?.sessionRecordId &&
+              receipt?.workerId === binding.workerSessionRecord?.workerId &&
+              receipt?.accepted === true &&
+              Array.isArray(receipt?.blockers) &&
+              receipt.blockers.length === 0 &&
+              Array.isArray(receipt?.receiptRefs) &&
+              receipt.receiptRefs.length >= 4,
+          ),
+        ) &&
         binding.invalidWorkerAttachBlocked === true &&
         binding.selectorLivePromotionReadinessProofId ===
           workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
@@ -4232,6 +4380,30 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.workerSessionRecord ??
       activationRecord?.workerSessionRecord ??
       null;
+    const workerLaunchEnvelopes =
+      defaultDispatch?.workerLaunchEnvelopes ??
+      workflow?.metadata?.harness?.workerLaunchEnvelopes ??
+      activationRecord?.workerLaunchEnvelopes ??
+      [];
+    const workerHandoffReceipts =
+      defaultDispatch?.workerHandoffReceipts ??
+      workflow?.metadata?.harness?.workerHandoffReceipts ??
+      activationRecord?.workerHandoffReceipts ??
+      [];
+    const workerLaunchEnvelopeIds = Array.isArray(
+      defaultDispatch?.workerLaunchEnvelopeIds,
+    )
+      ? defaultDispatch.workerLaunchEnvelopeIds
+      : workerLaunchEnvelopes
+          .map((envelope) => envelope?.envelopeId)
+          .filter((envelopeId) => typeof envelopeId === "string");
+    const workerHandoffReceiptIds = Array.isArray(
+      defaultDispatch?.workerHandoffReceiptIds,
+    )
+      ? defaultDispatch.workerHandoffReceiptIds
+      : workerHandoffReceipts
+          .map((receipt) => receipt?.receiptId)
+          .filter((receiptId) => typeof receiptId === "string");
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
     const coldStartDeepLinkRestoreProof =
@@ -4542,6 +4714,53 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         (attemptId) =>
           defaultDispatch?.dispatchNodeAttemptIds?.includes(attemptId) === true,
       );
+    const workerLaunchHandoffBound =
+      Array.isArray(workerLaunchEnvelopes) &&
+      workerLaunchEnvelopes.length >= 3 &&
+      Array.isArray(workerLaunchEnvelopeIds) &&
+      workerLaunchEnvelopeIds.length >= 3 &&
+      ["launch", "resume", "rollback"].every((phase) =>
+        workerLaunchEnvelopes.some(
+          (envelope) =>
+            envelope?.schemaVersion ===
+              "workflow.harness.worker-launch-envelope.v1" &&
+            envelope?.phase === phase &&
+            envelope?.sessionRecordId ===
+              workerSessionRecord?.sessionRecordId &&
+            envelope?.workerId === workerSessionRecord?.workerId &&
+            envelope?.accepted === true &&
+            Array.isArray(envelope?.blockers) &&
+            envelope.blockers.length === 0 &&
+            envelope?.launchAuthorityReady === true &&
+            (phase !== "rollback" || envelope?.rollbackHandoffReady === true) &&
+            workerLaunchEnvelopeIds.includes(envelope.envelopeId),
+        ),
+      ) &&
+      Array.isArray(workerHandoffReceipts) &&
+      workerHandoffReceipts.length >= 3 &&
+      Array.isArray(workerHandoffReceiptIds) &&
+      workerHandoffReceiptIds.length >= 3 &&
+      [
+        ["launch", "launched"],
+        ["resume", "resumed"],
+        ["rollback", "rollback_handoff_ready"],
+      ].every(([phase, status]) =>
+        workerHandoffReceipts.some(
+          (receipt) =>
+            receipt?.schemaVersion ===
+              "workflow.harness.worker-handoff-receipt.v1" &&
+            receipt?.phase === phase &&
+            receipt?.handoffStatus === status &&
+            receipt?.sessionRecordId === workerSessionRecord?.sessionRecordId &&
+            receipt?.workerId === workerSessionRecord?.workerId &&
+            receipt?.accepted === true &&
+            Array.isArray(receipt?.blockers) &&
+            receipt.blockers.length === 0 &&
+            Array.isArray(receipt?.receiptRefs) &&
+            receipt.receiptRefs.length >= 4 &&
+            workerHandoffReceiptIds.includes(receipt.receiptId),
+        ),
+      );
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -4683,6 +4902,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerAttachBound,
       workerAttachLifecycleComplete,
       workerSessionRecordBound,
+      workerLaunchHandoffBound,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -5097,6 +5317,40 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
                 }
               : null,
             workerSessionRecordBound,
+            workerLaunchEnvelopes: workerLaunchEnvelopes.map((envelope) => ({
+              envelopeId: envelope?.envelopeId ?? null,
+              phase: envelope?.phase ?? null,
+              sessionRecordId: envelope?.sessionRecordId ?? null,
+              sessionId: envelope?.sessionId ?? null,
+              workerId: envelope?.workerId ?? null,
+              accepted: envelope?.accepted ?? null,
+              blockers: Array.isArray(envelope?.blockers)
+                ? envelope.blockers
+                : [],
+              launchAuthorityReady: envelope?.launchAuthorityReady ?? null,
+              rollbackHandoffReady: envelope?.rollbackHandoffReady ?? null,
+              policyDecision: envelope?.policyDecision ?? null,
+            })),
+            workerHandoffReceipts: workerHandoffReceipts.map((receipt) => ({
+              receiptId: receipt?.receiptId ?? null,
+              envelopeId: receipt?.envelopeId ?? null,
+              phase: receipt?.phase ?? null,
+              handoffStatus: receipt?.handoffStatus ?? null,
+              sessionRecordId: receipt?.sessionRecordId ?? null,
+              sessionId: receipt?.sessionId ?? null,
+              workerId: receipt?.workerId ?? null,
+              accepted: receipt?.accepted ?? null,
+              blockers: Array.isArray(receipt?.blockers)
+                ? receipt.blockers
+                : [],
+              receiptRefs: Array.isArray(receipt?.receiptRefs)
+                ? receipt.receiptRefs
+                : [],
+              policyDecision: receipt?.policyDecision ?? null,
+            })),
+            workerLaunchEnvelopeIds,
+            workerHandoffReceiptIds,
+            workerLaunchHandoffBound,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
@@ -5202,6 +5456,36 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           }
         : null,
       workerSessionRecordBound,
+      workerLaunchEnvelopes: workerLaunchEnvelopes.map((envelope) => ({
+        envelopeId: envelope?.envelopeId ?? null,
+        phase: envelope?.phase ?? null,
+        sessionRecordId: envelope?.sessionRecordId ?? null,
+        sessionId: envelope?.sessionId ?? null,
+        workerId: envelope?.workerId ?? null,
+        accepted: envelope?.accepted ?? null,
+        blockers: Array.isArray(envelope?.blockers) ? envelope.blockers : [],
+        launchAuthorityReady: envelope?.launchAuthorityReady ?? null,
+        rollbackHandoffReady: envelope?.rollbackHandoffReady ?? null,
+        policyDecision: envelope?.policyDecision ?? null,
+      })),
+      workerHandoffReceipts: workerHandoffReceipts.map((receipt) => ({
+        receiptId: receipt?.receiptId ?? null,
+        envelopeId: receipt?.envelopeId ?? null,
+        phase: receipt?.phase ?? null,
+        handoffStatus: receipt?.handoffStatus ?? null,
+        sessionRecordId: receipt?.sessionRecordId ?? null,
+        sessionId: receipt?.sessionId ?? null,
+        workerId: receipt?.workerId ?? null,
+        accepted: receipt?.accepted ?? null,
+        blockers: Array.isArray(receipt?.blockers) ? receipt.blockers : [],
+        receiptRefs: Array.isArray(receipt?.receiptRefs)
+          ? receipt.receiptRefs
+          : [],
+        policyDecision: receipt?.policyDecision ?? null,
+      })),
+      workerLaunchEnvelopeIds,
+      workerHandoffReceiptIds,
+      workerLaunchHandoffBound,
       attempts: transitions
         .filter((attempt) => clusterIds.includes(attempt.clusterId))
         .map((attempt) => ({

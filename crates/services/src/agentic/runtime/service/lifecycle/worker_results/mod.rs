@@ -1,5 +1,6 @@
 use crate::agentic::runtime::agent_playbooks::builtin_agent_playbook;
 use crate::agentic::runtime::keys::{
+    get_harness_worker_handoff_receipt_key, get_harness_worker_launch_envelope_key,
     get_harness_worker_session_key, get_harness_worker_session_record_key,
     get_parent_playbook_run_key, get_session_result_key, get_state_key, get_worker_assignment_key,
 };
@@ -29,9 +30,11 @@ use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::{
+    default_harness_worker_launch_envelope, resolve_harness_worker_handoff_receipt,
     ArtifactGenerationSummary, ArtifactQualityScorecard, ArtifactRepairSummary,
     CodingVerificationScorecard, ComputerUsePerceptionSummary, ComputerUseRecoverySummary,
     ComputerUseVerificationScorecard, HarnessExecutionMode, HarnessWorkerBindingStatus,
+    HarnessWorkerHandoffReceipt, HarnessWorkerLaunchEnvelope, HarnessWorkerLaunchPhase,
     HarnessWorkerSessionRecord, HarnessWorkerSessionStatus, KernelEvent, PatchSynthesisSummary,
     ResearchVerificationScorecard, WorkloadParentPlaybookReceipt, WorkloadReceipt,
     WorkloadReceiptEvent, WorkloadWorkerReceipt,

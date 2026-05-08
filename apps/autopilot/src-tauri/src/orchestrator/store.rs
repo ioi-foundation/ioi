@@ -1856,6 +1856,312 @@ fn runtime_harness_worker_session_record(
     })
 }
 
+fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: &str) -> Value {
+    let mut blockers = Vec::<String>::new();
+    let session_record_id = worker_session_record
+        .get("sessionRecordId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let session_id = worker_session_record
+        .get("sessionId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let worker_id = worker_session_record
+        .get("workerId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if worker_session_record
+        .get("schemaVersion")
+        .and_then(Value::as_str)
+        != Some("workflow.harness.worker-session.v1")
+    {
+        blockers.push("worker_launch_session_schema_mismatch".to_string());
+    }
+    if session_record_id.is_empty() {
+        blockers.push("worker_launch_session_record_missing".to_string());
+    }
+    if session_id.is_empty() {
+        blockers.push("worker_launch_session_id_missing".to_string());
+    }
+    if worker_id.is_empty() {
+        blockers.push("worker_launch_worker_id_missing".to_string());
+    }
+    if worker_session_record
+        .get("accepted")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_launch_session_not_accepted".to_string());
+    }
+    if let Some(items) = worker_session_record
+        .get("blockers")
+        .and_then(Value::as_array)
+    {
+        blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+    }
+    if worker_session_record
+        .get("persistedInRuntimeCheckpoint")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_launch_session_not_persisted".to_string());
+    }
+    if worker_session_record
+        .get("restoredFromPersistedSession")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_launch_session_not_restored".to_string());
+    }
+    if let Some(items) = worker_session_record
+        .get("persistenceBlockers")
+        .and_then(Value::as_array)
+    {
+        blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+    }
+    if worker_session_record
+        .get("launchAuthorityReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_launch_authority_not_ready".to_string());
+    }
+    if let Some(items) = worker_session_record
+        .get("launchAuthorityBlockers")
+        .and_then(Value::as_array)
+    {
+        blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+    }
+    if worker_session_record
+        .get("launchAuthoritySource")
+        .and_then(Value::as_str)
+        != Some("persisted_harness_worker_session_record")
+    {
+        blockers.push("worker_launch_authority_source_invalid".to_string());
+    }
+    if phase == "resume"
+        && worker_session_record
+            .get("resumed")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_launch_resume_not_resolved".to_string());
+    }
+    if phase == "rollback"
+        && worker_session_record
+            .get("rollbackAvailable")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_launch_rollback_not_available".to_string());
+    }
+    if phase == "rollback"
+        && worker_session_record
+            .get("rollbackTargetReady")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_launch_rollback_target_not_ready".to_string());
+    }
+    if phase == "rollback"
+        && worker_session_record
+            .get("rollbackHandoffReady")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_launch_rollback_handoff_not_ready".to_string());
+    }
+    if phase == "rollback"
+        && worker_session_record
+            .get("rollbackHandoffTarget")
+            .and_then(Value::as_str)
+            != worker_session_record
+                .get("rollbackTarget")
+                .and_then(Value::as_str)
+    {
+        blockers.push("worker_launch_rollback_target_mismatch".to_string());
+    }
+    if phase == "rollback" {
+        if let Some(items) = worker_session_record
+            .get("rollbackHandoffBlockers")
+            .and_then(Value::as_array)
+        {
+            blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+        }
+    }
+    blockers.sort();
+    blockers.dedup();
+    let accepted = blockers.is_empty();
+    let lifecycle_event_ids = worker_session_record
+        .get("lifecycleEventIds")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let receipt_ids = worker_session_record
+        .get("receiptIds")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut evidence_refs = vec![
+        json!(session_record_id),
+        worker_session_record
+            .get("registryRecordId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+        worker_session_record
+            .get("readinessProofId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    ];
+    evidence_refs.extend(lifecycle_event_ids);
+    evidence_refs.extend(receipt_ids);
+
+    json!({
+        "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+        "envelopeId": format!("harness-worker-launch-envelope:{phase}:{session_record_id}"),
+        "phase": phase,
+        "workflowNodeId": "harness.handoff_bridge",
+        "componentKind": "handoff_bridge",
+        "sessionRecordId": session_record_id,
+        "sessionId": session_id,
+        "workerId": worker_id,
+        "workflowId": worker_session_record.get("workflowId").and_then(Value::as_str).unwrap_or_default(),
+        "activationId": worker_session_record.get("activationId").and_then(Value::as_str).unwrap_or_default(),
+        "activationHash": worker_session_record.get("activationHash").and_then(Value::as_str).unwrap_or_default(),
+        "harnessHash": worker_session_record.get("harnessHash").and_then(Value::as_str).unwrap_or_default(),
+        "componentVersionSet": worker_session_record.get("componentVersionSet").cloned().unwrap_or_else(|| json!({})),
+        "registryRecordId": worker_session_record.get("registryRecordId").and_then(Value::as_str).unwrap_or_default(),
+        "readinessProofId": worker_session_record.get("readinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackTarget": worker_session_record.get("rollbackTarget").and_then(Value::as_str).unwrap_or_default(),
+        "persistenceKey": worker_session_record.get("persistenceKey").and_then(Value::as_str).unwrap_or_default(),
+        "recordPersistenceKey": worker_session_record.get("recordPersistenceKey").and_then(Value::as_str).unwrap_or_default(),
+        "launchAuthoritySource": worker_session_record.get("launchAuthoritySource").and_then(Value::as_str).unwrap_or_default(),
+        "launchAuthorityReady": worker_session_record.get("launchAuthorityReady").and_then(Value::as_bool) == Some(true),
+        "rollbackHandoffReady": worker_session_record.get("rollbackHandoffReady").and_then(Value::as_bool) == Some(true),
+        "accepted": accepted,
+        "blockers": blockers,
+        "policyDecision": if accepted { "allow_harness_worker_launch_envelope" } else { "block_harness_worker_launch_envelope" },
+        "evidenceRefs": evidence_refs
+    })
+}
+
+fn runtime_harness_worker_handoff_receipt(
+    worker_session_record: &Value,
+    launch_envelope: &Value,
+) -> Value {
+    let mut blockers = Vec::<String>::new();
+    let phase = launch_envelope
+        .get("phase")
+        .and_then(Value::as_str)
+        .unwrap_or("launch");
+    if launch_envelope.get("schemaVersion").and_then(Value::as_str)
+        != Some("workflow.harness.worker-launch-envelope.v1")
+    {
+        blockers.push("worker_handoff_envelope_schema_mismatch".to_string());
+    }
+    if launch_envelope.get("accepted").and_then(Value::as_bool) != Some(true) {
+        blockers.push("worker_handoff_envelope_not_accepted".to_string());
+    }
+    if let Some(items) = launch_envelope.get("blockers").and_then(Value::as_array) {
+        blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+    }
+    for (field, blocker) in [
+        ("sessionRecordId", "worker_handoff_session_record_mismatch"),
+        ("sessionId", "worker_handoff_session_id_mismatch"),
+        ("workerId", "worker_handoff_worker_id_mismatch"),
+        ("workflowId", "worker_handoff_workflow_mismatch"),
+        ("activationId", "worker_handoff_activation_mismatch"),
+        ("harnessHash", "worker_handoff_harness_hash_mismatch"),
+    ] {
+        if launch_envelope.get(field).and_then(Value::as_str)
+            != worker_session_record.get(field).and_then(Value::as_str)
+        {
+            blockers.push(blocker.to_string());
+        }
+    }
+    if launch_envelope
+        .get("launchAuthorityReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_handoff_launch_authority_not_ready".to_string());
+    }
+    if phase == "rollback"
+        && launch_envelope
+            .get("rollbackHandoffReady")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_handoff_rollback_not_ready".to_string());
+    }
+    blockers.sort();
+    blockers.dedup();
+    let accepted = blockers.is_empty();
+    let handoff_status = if !accepted {
+        "blocked"
+    } else if phase == "rollback" {
+        "rollback_handoff_ready"
+    } else if phase == "resume" {
+        "resumed"
+    } else {
+        "launched"
+    };
+    let session_record_id = worker_session_record
+        .get("sessionRecordId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let mut receipt_refs = worker_session_record
+        .get("receiptIds")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    receipt_refs.push(
+        launch_envelope
+            .get("envelopeId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    );
+    let mut evidence_refs = worker_session_record
+        .get("evidenceRefs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    evidence_refs.push(
+        launch_envelope
+            .get("envelopeId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    );
+    evidence_refs.push(json!(session_record_id));
+
+    json!({
+        "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+        "receiptId": format!("harness-worker-handoff-receipt:{phase}:{session_record_id}"),
+        "envelopeId": launch_envelope.get("envelopeId").and_then(Value::as_str).unwrap_or_default(),
+        "phase": phase,
+        "workflowNodeId": launch_envelope.get("workflowNodeId").and_then(Value::as_str).unwrap_or_default(),
+        "componentKind": launch_envelope.get("componentKind").and_then(Value::as_str).unwrap_or_default(),
+        "sessionRecordId": session_record_id,
+        "sessionId": worker_session_record.get("sessionId").and_then(Value::as_str).unwrap_or_default(),
+        "workerId": worker_session_record.get("workerId").and_then(Value::as_str).unwrap_or_default(),
+        "workflowId": worker_session_record.get("workflowId").and_then(Value::as_str).unwrap_or_default(),
+        "activationId": worker_session_record.get("activationId").and_then(Value::as_str).unwrap_or_default(),
+        "activationHash": worker_session_record.get("activationHash").and_then(Value::as_str).unwrap_or_default(),
+        "harnessHash": worker_session_record.get("harnessHash").and_then(Value::as_str).unwrap_or_default(),
+        "registryRecordId": worker_session_record.get("registryRecordId").and_then(Value::as_str).unwrap_or_default(),
+        "readinessProofId": worker_session_record.get("readinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackTarget": worker_session_record.get("rollbackTarget").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackAvailable": worker_session_record.get("rollbackAvailable").and_then(Value::as_bool) == Some(true),
+        "launchAuthoritySource": worker_session_record.get("launchAuthoritySource").and_then(Value::as_str).unwrap_or_default(),
+        "accepted": accepted,
+        "handoffStatus": handoff_status,
+        "blockers": blockers,
+        "policyDecision": if accepted { "allow_harness_worker_handoff" } else { "block_harness_worker_handoff" },
+        "receiptRefs": receipt_refs,
+        "evidenceRefs": evidence_refs
+    })
+}
+
 fn runtime_harness_default_runtime_binding(
     sid: &str,
     task: &AgentTask,
@@ -2238,6 +2544,59 @@ fn runtime_harness_default_runtime_binding(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    let worker_launch_envelopes = ["launch", "resume", "rollback"]
+        .iter()
+        .map(|phase| runtime_harness_worker_launch_envelope(&worker_session_record, phase))
+        .collect::<Vec<_>>();
+    let worker_handoff_receipts = worker_launch_envelopes
+        .iter()
+        .map(|envelope| runtime_harness_worker_handoff_receipt(&worker_session_record, envelope))
+        .collect::<Vec<_>>();
+    let worker_launch_envelope_ids = worker_launch_envelopes
+        .iter()
+        .filter_map(|envelope| {
+            envelope
+                .get("envelopeId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let worker_handoff_receipt_ids = worker_handoff_receipts
+        .iter()
+        .filter_map(|receipt| {
+            receipt
+                .get("receiptId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let worker_launch_envelopes_accepted = worker_launch_envelopes.len() == 3
+        && worker_launch_envelopes.iter().all(|envelope| {
+            envelope.get("accepted").and_then(Value::as_bool) == Some(true)
+                && envelope
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+        });
+    let worker_handoff_receipts_accepted = worker_handoff_receipts.len() == 3
+        && worker_handoff_receipts.iter().all(|receipt| {
+            receipt.get("accepted").and_then(Value::as_bool) == Some(true)
+                && receipt
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+        })
+        && worker_handoff_receipts.iter().any(|receipt| {
+            receipt.get("handoffStatus").and_then(Value::as_str) == Some("launched")
+        })
+        && worker_handoff_receipts
+            .iter()
+            .any(|receipt| receipt.get("handoffStatus").and_then(Value::as_str) == Some("resumed"))
+        && worker_handoff_receipts.iter().any(|receipt| {
+            receipt.get("handoffStatus").and_then(Value::as_str) == Some("rollback_handoff_ready")
+        });
     let worker_attach_status = worker_attach_receipt
         .get("attachStatus")
         .and_then(Value::as_str)
@@ -2303,7 +2662,9 @@ fn runtime_harness_default_runtime_binding(
         && worker_attach_lifecycle_complete
         && worker_session_accepted
         && worker_session_status == "rollback_ready"
-        && worker_session_blockers.is_empty();
+        && worker_session_blockers.is_empty()
+        && worker_launch_envelopes_accepted
+        && worker_handoff_receipts_accepted;
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-binding.v1",
@@ -2352,6 +2713,12 @@ fn runtime_harness_default_runtime_binding(
         "workerSessionStatus": worker_session_status,
         "workerSessionAccepted": worker_session_accepted,
         "workerSessionBlockers": worker_session_blockers,
+        "workerLaunchEnvelopes": worker_launch_envelopes,
+        "workerHandoffReceipts": worker_handoff_receipts,
+        "workerLaunchEnvelopeIds": worker_launch_envelope_ids,
+        "workerHandoffReceiptIds": worker_handoff_receipt_ids,
+        "workerLaunchEnvelopesAccepted": worker_launch_envelopes_accepted,
+        "workerHandoffReceiptsAccepted": worker_handoff_receipts_accepted,
         "workerAttachAccepted": worker_attach_accepted,
         "workerAttachResumeAccepted": worker_attach_resume_accepted,
         "workerAttachRollbackAccepted": worker_attach_rollback_accepted,
@@ -10759,6 +11126,32 @@ fn runtime_harness_default_runtime_dispatch(
         &worker_binding_registry_record,
         &worker_attach_lifecycle,
     );
+    let worker_launch_envelopes = ["launch", "resume", "rollback"]
+        .iter()
+        .map(|phase| runtime_harness_worker_launch_envelope(&worker_session_record, phase))
+        .collect::<Vec<_>>();
+    let worker_handoff_receipts = worker_launch_envelopes
+        .iter()
+        .map(|envelope| runtime_harness_worker_handoff_receipt(&worker_session_record, envelope))
+        .collect::<Vec<_>>();
+    let worker_launch_envelope_ids = worker_launch_envelopes
+        .iter()
+        .filter_map(|envelope| {
+            envelope
+                .get("envelopeId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let worker_handoff_receipt_ids = worker_handoff_receipts
+        .iter()
+        .filter_map(|receipt| {
+            receipt
+                .get("receiptId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
     dispatch_node_attempt_ids.extend(worker_attach_lifecycle_attempt_ids.clone());
     dispatch_node_attempt_ids.sort();
     dispatch_node_attempt_ids.dedup();
@@ -11192,6 +11585,10 @@ fn runtime_harness_default_runtime_dispatch(
         "workerAttachLifecycleStatuses": worker_attach_lifecycle_statuses,
         "workerAttachLifecycleComplete": worker_attach_lifecycle_complete,
         "workerSessionRecord": worker_session_record,
+        "workerLaunchEnvelopes": worker_launch_envelopes,
+        "workerHandoffReceipts": worker_handoff_receipts,
+        "workerLaunchEnvelopeIds": worker_launch_envelope_ids,
+        "workerHandoffReceiptIds": worker_handoff_receipt_ids,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,

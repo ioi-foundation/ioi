@@ -1262,6 +1262,8 @@ export interface WorkflowHarnessForkActivationRecord {
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
+  workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
@@ -1853,6 +1855,10 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   workerAttachLifecycleStatuses: WorkflowHarnessWorkerAttachStatus[];
   workerAttachLifecycleComplete: boolean;
   workerSessionRecord: WorkflowHarnessWorkerSessionRecord;
+  workerLaunchEnvelopes: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts: WorkflowHarnessWorkerHandoffReceipt[];
+  workerLaunchEnvelopeIds: string[];
+  workerHandoffReceiptIds: string[];
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;
@@ -2457,6 +2463,8 @@ export interface WorkflowHarnessMetadata {
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
+  workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
@@ -2638,6 +2646,69 @@ export interface WorkflowHarnessWorkerSessionRecord {
   rollbackHandoffReady: boolean;
   rollbackHandoffBlockers: string[];
   rollbackHandoffTarget: string;
+  createdAtMs?: number;
+}
+
+export type WorkflowHarnessWorkerLaunchPhase =
+  | "launch"
+  | "resume"
+  | "rollback"
+  | string;
+
+export interface WorkflowHarnessWorkerLaunchEnvelope {
+  schemaVersion: "workflow.harness.worker-launch-envelope.v1" | string;
+  envelopeId: string;
+  phase: WorkflowHarnessWorkerLaunchPhase;
+  workflowNodeId: string;
+  componentKind: WorkflowHarnessComponentKind;
+  sessionRecordId: string;
+  sessionId: string;
+  workerId: string;
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  componentVersionSet: Record<string, string>;
+  registryRecordId: string;
+  readinessProofId: string;
+  rollbackTarget: string;
+  persistenceKey: string;
+  recordPersistenceKey: string;
+  launchAuthoritySource: string;
+  launchAuthorityReady: boolean;
+  rollbackHandoffReady: boolean;
+  accepted: boolean;
+  blockers: string[];
+  policyDecision: string;
+  evidenceRefs: string[];
+  createdAtMs?: number;
+}
+
+export interface WorkflowHarnessWorkerHandoffReceipt {
+  schemaVersion: "workflow.harness.worker-handoff-receipt.v1" | string;
+  receiptId: string;
+  envelopeId: string;
+  phase: WorkflowHarnessWorkerLaunchPhase;
+  workflowNodeId: string;
+  componentKind: WorkflowHarnessComponentKind;
+  sessionRecordId: string;
+  sessionId: string;
+  workerId: string;
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  registryRecordId: string;
+  readinessProofId: string;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  launchAuthoritySource: string;
+  accepted: boolean;
+  handoffStatus: "launched" | "resumed" | "rollback_handoff_ready" | "blocked" | string;
+  blockers: string[];
+  policyDecision: string;
+  receiptRefs: string[];
+  evidenceRefs: string[];
   createdAtMs?: number;
 }
 

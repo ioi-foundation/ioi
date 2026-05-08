@@ -136,9 +136,11 @@ import {
   makeHarnessRuntimeSelectorDecision,
   makeWorkflowHarnessWorkerAttachLifecycle,
   makeWorkflowHarnessWorkerBindingRegistryRecord,
+  makeWorkflowHarnessWorkerLaunchEnvelope,
   makeWorkflowHarnessWorkerSessionRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
+  resolveWorkflowHarnessWorkerHandoffReceipt,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
   workflowHarnessWorkerAttachLifecycleComplete,
   workflowHarnessWorkerBinding,
@@ -668,6 +670,23 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       createdAtMs: nowMs,
     },
   );
+  const workerLaunchEnvelopes = (["launch", "resume", "rollback"] as const).map(
+    (phase) =>
+      makeWorkflowHarnessWorkerLaunchEnvelope(workerSessionRecord, phase, {
+        createdAtMs: nowMs,
+      }),
+  );
+  const workerHandoffReceipts = workerLaunchEnvelopes.map((envelope) =>
+    resolveWorkflowHarnessWorkerHandoffReceipt(workerSessionRecord, envelope, {
+      createdAtMs: nowMs,
+    }),
+  );
+  const workerLaunchEnvelopeIds = workerLaunchEnvelopes.map(
+    (envelope) => envelope.envelopeId,
+  );
+  const workerHandoffReceiptIds = workerHandoffReceipts.map(
+    (receipt) => receipt.receiptId,
+  );
   const defaultRuntimeDispatchProofWithRegistry = {
     ...defaultRuntimeDispatchProof,
     workerBindingRegistryRecord,
@@ -679,6 +698,10 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     workerAttachLifecycleStatuses,
     workerAttachLifecycleComplete,
     workerSessionRecord,
+    workerLaunchEnvelopes,
+    workerHandoffReceipts,
+    workerLaunchEnvelopeIds,
+    workerHandoffReceiptIds,
     dispatchNodeAttemptIds: uniqueHarnessRefs([
       ...defaultRuntimeDispatchProof.dispatchNodeAttemptIds,
       ...workerAttachLifecycleAttemptIds,
@@ -710,6 +733,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     workerAttachReceipt,
     workerAttachLifecycle,
     workerSessionRecord,
+    workerLaunchEnvelopes,
+    workerHandoffReceipts,
     revisionBinding: harness.revisionBinding,
     rollbackRevisionBinding: harness.revisionBinding,
     mintedAtMs: nowMs,
@@ -731,6 +756,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
         workerAttachReceipt,
         workerAttachLifecycle,
         workerSessionRecord,
+        workerLaunchEnvelopes,
+        workerHandoffReceipts,
       },
       updatedAtMs: nowMs,
     },
