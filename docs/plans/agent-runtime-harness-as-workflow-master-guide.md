@@ -40,6 +40,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-29-45-194Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T19-36-51-457Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -93,12 +95,13 @@ persistence, persisted worker-session launch authority, typed worker
 launch/resume/rollback envelopes, durable worker handoff receipts, rollback
 handoff authority, worker handoff node timeline/replay fixture binding, gated
 verification/output adapter proof, gated authority/tooling adapter proof, and
-fork activation handoff timeline proof have a green end-to-end checkpoint:
+fork activation handoff timeline proof, and fork handoff deep-link proof have
+a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-29-45-194Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T19-36-51-457Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -130,7 +133,10 @@ proves the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation
 carrying a worker session, launch envelopes, handoff receipts, gated
-`handoff_bridge` node attempts, replay refs, and rollback target.
+`handoff_bridge` node attempts, replay refs, and rollback target. The fork
+activation wizard can also deep-link from its `worker-handoff` gate to the
+exact node attempt, handoff receipt, replay fixture, and timeline row that
+prove the canary worker handoff.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -790,6 +796,42 @@ The next chronological slice should make these fork handoff refs deep-linkable
 from the activation wizard into the receipt inspector, replay inspector, and
 node timeline so operators can jump directly from a fork activation blocker or
 canary proof to the exact handoff attempt that proves or blocks it.
+
+### 2026-05-08 Fork Handoff Deep-Link Slice
+
+The fork activation handoff timeline is now route-stateful and inspectable
+from the activation wizard:
+
+- The harness workbench deep-link contract now accepts
+  `nodeAttemptId` and `activationGateNodeAttemptId`, so a fork activation gate
+  can restore the selected handoff attempt as both a global timeline focus and
+  an activation-gate focus.
+- The `worker-handoff` activation gate now renders node-attempt reference
+  buttons and a compact node timeline with receipt refs, replay fixture refs,
+  component kind, status, and duration.
+- The receipt and replay inspectors resolve fork activation handoff receipts
+  and replay fixtures as `activation_worker_handoff` sources tied to the
+  `handoff_bridge` component.
+- The activation-id mint click proof now captures minted worker handoff
+  receipt ids, node attempt ids, replay fixture refs, a handoff deep link, the
+  restored selected-state attributes, and timeline row visibility.
+- The retained GUI validator now requires
+  `activationGateNodeTimelineDeepLink: true`, plus activation-id proof fields
+  showing the worker handoff gate restored the selected attempt and timeline.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-29-45-194Z/`;
+  all eight retained queries passed, `routeStatefulDeepLinkReplay: true`,
+  `coldStartDeepLinkRestore: true`, `activationIdGateClickProof: true`, and
+  `activationGateNodeTimelineDeepLink: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T19-36-51-457Z/dashboard-index.json`.
+
+This changes fork activation from "the wizard lists handoff evidence" to "the
+wizard can carry an operator directly to the exact handoff receipt, replay
+fixture, and node-attempt timeline row that proves the activation." The next
+chronological slice should use the same route-stateful inspector pattern for
+rollback/canary comparison panels and then tighten package export/import around
+those evidence refs.
 
 ## Current State
 

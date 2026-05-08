@@ -3086,15 +3086,20 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         rail,
       ) &&
       /workflow-harness-activation-gate-evidence-refs/.test(rail) &&
+      /workflow-harness-activation-gate-node-attempt-refs/.test(rail) &&
+      /workflow-harness-activation-gate-node-timeline/.test(rail) &&
       /data-evidence-ref-count/.test(rail) &&
+      /data-node-attempt-ref-count/.test(rail) &&
       /data-gate-action-id/.test(rail) &&
       /data-gate-action-kind/.test(rail) &&
       /data-gate-action-impact/.test(rail) &&
       /data-gate-action-command/.test(rail) &&
       /data-selected-activation-gate-evidence-ref/.test(rail) &&
+      /data-selected-activation-gate-node-attempt-id/.test(rail) &&
       /data-selected-activation-gate-receipt-ref/.test(rail) &&
       /data-selected-activation-gate-replay-fixture-ref/.test(rail) &&
       /data-activation-gate-evidence-ref/.test(rail) &&
+      /data-activation-gate-node-attempt-id/.test(rail) &&
       /data-activation-gate-receipt-ref/.test(rail) &&
       /data-activation-gate-replay-fixture-ref/.test(rail) &&
       /workflow-harness-activation-gate-receipt-refs/.test(rail) &&
@@ -3103,6 +3108,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         controller,
       ) &&
       /activationGateEvidenceRef/.test(controller) &&
+      /activationGateNodeAttemptId/.test(controller) &&
       /activationGateReceiptRef/.test(controller) &&
       /activationGateReplayFixtureRef/.test(controller) &&
       /data-gate-action-command/.test(controller) &&
@@ -3117,6 +3123,10 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(graph) &&
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(graph) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(graph) &&
+      /workerHandoffDeepLink/.test(graph) &&
+      /activation_id_gate_mint_handoff_timeline_missing/.test(
+        harnessWorkflow,
+      ) &&
       /gateResults:[\s\S]*evidenceRefs/.test(validation),
     interactiveReceiptSelection:
       /data-selected-receipt-ref/.test(rail) &&
@@ -3139,6 +3149,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /selectedHarnessReceiptInspection/.test(rail) &&
       /sourceKind: "node_attempt"/.test(railModel) &&
       /sourceKind: "activation_audit"/.test(railModel) &&
+      /sourceKind: "activation_worker_handoff"/.test(railModel) &&
       /sourceKind: "rollback_execution"/.test(railModel) &&
       /sourceKind: "default_runtime_dispatch"/.test(railModel) &&
       /workflow-harness-receipt-inspector/.test(rail) &&
@@ -3161,6 +3172,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /sourceKind: "node_attempt"/.test(railModel) &&
       /sourceKind: "gated_cluster"/.test(railModel) &&
       /sourceKind: "runtime_binding"/.test(railModel) &&
+      /sourceKind: "activation_worker_handoff"/.test(railModel) &&
       /sourceKind: "default_runtime_dispatch"/.test(railModel) &&
       /sourceKind: "read_only_routing_proof"/.test(railModel) &&
       /sourceKind: "authority_gate_proof"/.test(railModel) &&
@@ -3275,6 +3287,10 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       replayInspector: "workflow-harness-replay-inspector",
       replayPayloadPreview: "workflow-harness-replay-payload-preview",
       replayEvidenceRefs: "workflow-harness-replay-evidence-refs",
+      activationGateNodeAttemptRefs:
+        "workflow-harness-activation-gate-node-attempt-refs",
+      activationGateNodeTimeline:
+        "workflow-harness-activation-gate-node-timeline",
       runReplayDrill: "workflow-harness-run-replay-drill",
       replayDrillResult: "workflow-harness-replay-drill-result",
       replayDrillReceiptRefs: "workflow-harness-replay-drill-receipt-refs",
@@ -4583,6 +4599,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "activation-gate-replay",
       ) ?? null;
+    const activationGateNodeAttemptDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "activation-gate-node-attempt",
+      ) ?? null;
     const activationGateEvidenceRefCount = Number(
       activationGateDeepLinkCase?.observedSelectedState?.[
         "data-evidence-ref-count"
@@ -4651,6 +4671,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         )?.hash ?? null,
       activationGate: activationGateDeepLinkCase?.hash ?? null,
       activationGateEvidence: activationGateEvidenceDeepLinkCase?.hash ?? null,
+      activationGateNodeAttempt:
+        activationGateNodeAttemptDeepLinkCase?.hash ??
+        activationIdGateClickProof?.mintedActivation?.workerHandoffDeepLink ??
+        null,
       activationGateReceipt: activationGateReceiptDeepLinkCase?.hash ?? null,
       activationGateReplay: activationGateReplayDeepLinkCase?.hash ?? null,
       activationAudit: audit[0]?.eventId
@@ -5068,7 +5092,27 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           activationGateReplayDeepLinkCase,
           "activationGateReplayFixtureRef",
           "data-selected-activation-gate-replay-fixture-ref",
-        ),
+        ) &&
+        (activationGateReferenceDeepLinkRestored(
+          activationGateNodeAttemptDeepLinkCase,
+          "activationGateNodeAttemptId",
+          "data-selected-activation-gate-node-attempt-id",
+        ) ||
+          (activationIdGateClickProof?.mintedActivation
+            ?.workerHandoffTimelineVisible === true &&
+            routeStatefulDeepLinks.activationGateNodeAttempt?.includes(
+              "activationGateNodeAttemptId=",
+            ) === true)),
+      activationGateNodeTimelineDeepLink:
+        activationIdGateClickProof?.mintedActivation
+          ?.workerHandoffTimelineVisible === true &&
+        activationIdGateClickProof?.mintedActivation
+          ?.workerHandoffTimelineAttemptId ===
+          activationIdGateClickProof?.mintedActivation
+            ?.workerHandoffNodeAttemptIds?.[0] &&
+        routeStatefulDeepLinks.activationGateNodeAttempt?.includes(
+          "activationGateNodeAttemptId=",
+        ) === true,
       activationGateEvidenceInspectable:
         activationGateDeepLinkProof?.passed === true &&
         activationGateDeepLinkCase?.selectedRailTestId ===
@@ -5731,6 +5775,13 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               activationGateEvidenceDeepLinkCase?.observedSelectedState?.[
                 "data-selected-activation-gate-evidence-ref"
               ] ?? null,
+            selectedNodeAttemptId:
+              activationGateNodeAttemptDeepLinkCase?.observedSelectedState?.[
+                "data-selected-activation-gate-node-attempt-id"
+              ] ??
+              activationIdGateClickProof?.mintedActivation
+                ?.workerHandoffTimelineAttemptId ??
+              null,
             selectedReceiptRef:
               activationGateReceiptDeepLinkCase?.observedSelectedState?.[
                 "data-selected-activation-gate-receipt-ref"
@@ -5999,6 +6050,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_activation_gate_ref_deep_link_restore:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.routeStatefulActivationGateReferenceDeepLinks === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_gate_node_timeline_deep_link:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activationGateNodeTimelineDeepLink === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_activation_gate_action_workbench:

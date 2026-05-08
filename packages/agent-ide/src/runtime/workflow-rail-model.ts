@@ -282,6 +282,14 @@ export function resolveWorkflowHarnessReceiptInspection({
     workflow.metadata.harness?.activationRollbackExecution ?? null;
   const harnessDefaultRuntimeDispatchProof =
     workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const activationWorkerHandoffReceipts =
+    harnessActivationRecord?.workerHandoffReceipts ??
+    workflow.metadata.harness?.workerHandoffReceipts ??
+    [];
+  const activationWorkerHandoffAttempts =
+    harnessActivationRecord?.workerHandoffNodeAttempts ??
+    workflow.metadata.harness?.workerHandoffNodeAttempts ??
+    [];
   const selectedHarnessGroupGatedRun = selectedHarnessGroup
     ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
         (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
@@ -495,6 +503,56 @@ export function resolveWorkflowHarnessReceiptInspection({
     });
   }
 
+  const activationWorkerHandoffReceipt =
+    activationWorkerHandoffReceipts.find(
+      (receipt) =>
+        receipt.receiptId === receiptRef ||
+        receipt.envelopeId === receiptRef ||
+        receipt.receiptRefs.includes(receiptRef),
+    ) ?? null;
+  if (activationWorkerHandoffReceipt) {
+    const activationWorkerHandoffAttempt =
+      activationWorkerHandoffAttempts.find((attempt) =>
+        attempt.receiptIds.includes(receiptRef),
+      ) ??
+      activationWorkerHandoffAttempts.find((attempt) =>
+        attempt.receiptIds.includes(activationWorkerHandoffReceipt.receiptId),
+      ) ??
+      null;
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "activation_worker_handoff",
+      sourceLabel: `${activationWorkerHandoffReceipt.phase} worker handoff receipt`,
+      status: activationWorkerHandoffReceipt.handoffStatus,
+      producerComponent: "handoff_bridge",
+      policyDecision: activationWorkerHandoffReceipt.policyDecision,
+      attemptId:
+        activationWorkerHandoffAttempt?.attemptId ??
+        `handoff:${activationWorkerHandoffReceipt.phase}`,
+      replayFixtureRef:
+        activationWorkerHandoffAttempt?.replay.fixtureRef ??
+        "worker handoff replay pending",
+      nodeId: activationWorkerHandoffReceipt.workflowNodeId,
+      nodeLabel: workflowNodeName(
+        workflow,
+        activationWorkerHandoffReceipt.workflowNodeId,
+      ),
+      runId:
+        activationWorkerHandoffReceipt.activationId ??
+        selectedRunId ??
+        activationWorkerHandoffReceipt.sessionRecordId,
+      inputHash:
+        activationWorkerHandoffAttempt?.inputHash ??
+        activationWorkerHandoffReceipt.sessionRecordId,
+      outputHash:
+        activationWorkerHandoffAttempt?.outputHash ??
+        activationWorkerHandoffReceipt.handoffStatus,
+      createdAtMs: activationWorkerHandoffReceipt.createdAtMs ?? null,
+      evidenceRefs: activationWorkerHandoffReceipt.evidenceRefs,
+      payload: activationWorkerHandoffReceipt,
+    });
+  }
+
   const dispatchReceiptGroups = harnessDefaultRuntimeDispatchProof
     ? [
         {
@@ -648,8 +706,17 @@ export function resolveWorkflowHarnessReplayInspection({
 }: ResolveWorkflowHarnessReplayInspectionOptions): WorkflowHarnessReplayInspection | null {
   if (!replayFixtureRef) return null;
 
+  const harnessActivationRecord = workflow.metadata.harness?.activationRecord;
   const harnessDefaultRuntimeDispatchProof =
     workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const activationWorkerHandoffReceipts =
+    harnessActivationRecord?.workerHandoffReceipts ??
+    workflow.metadata.harness?.workerHandoffReceipts ??
+    [];
+  const activationWorkerHandoffAttempts =
+    harnessActivationRecord?.workerHandoffNodeAttempts ??
+    workflow.metadata.harness?.workerHandoffNodeAttempts ??
+    [];
   const selectedHarnessGroupGatedRun = selectedHarnessGroup
     ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
         (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
@@ -796,6 +863,51 @@ export function resolveWorkflowHarnessReplayInspection({
       ),
       evidenceRefs: runtimeBindingNode.runtimeBinding.evidenceEventKinds ?? [],
       payload: runtimeBindingNode.runtimeBinding,
+    });
+  }
+
+  const activationWorkerHandoffAttempt =
+    activationWorkerHandoffAttempts.find(
+      (attempt) => attempt.replay.fixtureRef === replayFixtureRef,
+    ) ?? null;
+  if (activationWorkerHandoffAttempt) {
+    const activationWorkerHandoffReceipt =
+      activationWorkerHandoffReceipts.find((receipt) =>
+        activationWorkerHandoffAttempt.receiptIds.includes(receipt.receiptId),
+      ) ?? null;
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: "activation_worker_handoff",
+      sourceLabel: "Worker handoff replay fixture",
+      status: activationWorkerHandoffAttempt.status,
+      producerComponent: activationWorkerHandoffAttempt.componentId,
+      policyDecision:
+        activationWorkerHandoffAttempt.policyDecision ??
+        activationWorkerHandoffReceipt?.policyDecision ??
+        "allow_harness_worker_handoff",
+      attemptId: activationWorkerHandoffAttempt.attemptId,
+      receiptRef:
+        activationWorkerHandoffReceipt?.receiptId ??
+        activationWorkerHandoffAttempt.receiptIds[0] ??
+        "receipt pending",
+      nodeId: activationWorkerHandoffAttempt.workflowNodeId,
+      nodeLabel: workflowNodeName(
+        workflow,
+        activationWorkerHandoffAttempt.workflowNodeId,
+      ),
+      runId:
+        activationWorkerHandoffReceipt?.activationId ??
+        selectedRunId ??
+        activationWorkerHandoffAttempt.harnessActivationId,
+      executionMode: activationWorkerHandoffAttempt.executionMode,
+      readiness: activationWorkerHandoffAttempt.readiness,
+      inputHash:
+        activationWorkerHandoffAttempt.inputHash ?? "input hash pending",
+      outputHash:
+        activationWorkerHandoffAttempt.outputHash ?? "output hash pending",
+      ...makeReplayEnvelopeDetails(activationWorkerHandoffAttempt.replay),
+      evidenceRefs: activationWorkerHandoffAttempt.evidenceRefs,
+      payload: activationWorkerHandoffAttempt,
     });
   }
 

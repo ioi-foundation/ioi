@@ -233,6 +233,7 @@ type HarnessWorkbenchDeepLink = {
   selectorDecisionId?: string;
   dispatchId?: string;
   workerBindingId?: string;
+  nodeAttemptId?: string;
   receiptRef?: string;
   replayFixtureRef?: string;
   rollbackTarget?: string;
@@ -243,6 +244,7 @@ type HarnessWorkbenchDeepLink = {
   activationAuditEventId?: string;
   activationGateId?: string;
   activationGateEvidenceRef?: string;
+  activationGateNodeAttemptId?: string;
   activationGateReceiptRef?: string;
   activationGateReplayFixtureRef?: string;
 };
@@ -872,6 +874,7 @@ function encodeHarnessWorkbenchDeepLink(
   setParam("selectorDecisionId");
   setParam("dispatchId");
   setParam("workerBindingId");
+  setParam("nodeAttemptId");
   setParam("receiptRef");
   setParam("replayFixtureRef");
   setParam("rollbackTarget");
@@ -882,6 +885,7 @@ function encodeHarnessWorkbenchDeepLink(
   setParam("activationAuditEventId");
   setParam("activationGateId");
   setParam("activationGateEvidenceRef");
+  setParam("activationGateNodeAttemptId");
   setParam("activationGateReceiptRef");
   setParam("activationGateReplayFixtureRef");
   const query = params.toString();
@@ -908,6 +912,7 @@ function parseHarnessWorkbenchDeepLink(
   link.selectorDecisionId = params.get("selectorDecisionId") ?? undefined;
   link.dispatchId = params.get("dispatchId") ?? undefined;
   link.workerBindingId = params.get("workerBindingId") ?? undefined;
+  link.nodeAttemptId = params.get("nodeAttemptId") ?? undefined;
   link.receiptRef = params.get("receiptRef") ?? undefined;
   link.replayFixtureRef = params.get("replayFixtureRef") ?? undefined;
   link.rollbackTarget = params.get("rollbackTarget") ?? undefined;
@@ -921,6 +926,8 @@ function parseHarnessWorkbenchDeepLink(
   link.activationGateId = params.get("activationGateId") ?? undefined;
   link.activationGateEvidenceRef =
     params.get("activationGateEvidenceRef") ?? undefined;
+  link.activationGateNodeAttemptId =
+    params.get("activationGateNodeAttemptId") ?? undefined;
   link.activationGateReceiptRef =
     params.get("activationGateReceiptRef") ?? undefined;
   link.activationGateReplayFixtureRef =
@@ -977,11 +984,14 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-selected-activation-audit-event-id",
     "data-selected-activation-gate-id",
     "data-selected-activation-gate-evidence-ref",
+    "data-selected-node-attempt-id",
+    "data-selected-activation-gate-node-attempt-id",
     "data-selected-activation-gate-receipt-ref",
     "data-selected-activation-gate-replay-fixture-ref",
     "data-gate-source-kind",
     "data-gate-status",
     "data-evidence-ref-count",
+    "data-node-attempt-ref-count",
     "data-receipt-ref-count",
     "data-replay-fixture-ref-count",
     "data-gate-action-id",
@@ -1089,6 +1099,9 @@ type HarnessActivationMintClickResult = {
   latestAuditStatus: string | null;
   receiptRefs: string[];
   evidenceRefs: string[];
+  workerHandoffReceiptIds: string[];
+  workerHandoffNodeAttemptIds: string[];
+  workerHandoffReplayFixtureRefs: string[];
   statusMessage: string;
 };
 
@@ -1150,6 +1163,18 @@ function harnessDeepLinkProbeCasesForWorkflow(
     : activationGateReplayFixtureRef
       ? "replay-fixtures"
       : null;
+  const activationGateWorkerHandoffAttemptId = isHarnessFork
+    ? (workflow.metadata.harness?.activationRecord
+        ?.workerHandoffNodeAttemptIds?.[0] ?? null)
+    : null;
+  const activationGateWorkerHandoffReceiptRef = isHarnessFork
+    ? (workflow.metadata.harness?.activationRecord?.workerHandoffReceipts?.[0]
+        ?.receiptId ?? null)
+    : null;
+  const activationGateWorkerHandoffReplayFixtureRef = isHarnessFork
+    ? (workflow.metadata.harness?.activationRecord
+        ?.workerHandoffReplayFixtureRefs?.[0] ?? null)
+    : null;
   const cases: Array<HarnessWorkbenchDeepLinkProbeCase | null> = [
     selector?.decisionId
       ? {
@@ -1321,6 +1346,29 @@ function harnessDeepLinkProbeCasesForWorkflow(
           expectedParsedKey: "activationGateReplayFixtureRef",
         }
       : null,
+    activationGateWorkerHandoffAttemptId
+      ? {
+          id: "activation-gate-node-attempt",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            activationGateId: "worker-handoff",
+            activationGateNodeAttemptId: activationGateWorkerHandoffAttemptId,
+            nodeAttemptId: activationGateWorkerHandoffAttemptId,
+            activationGateReceiptRef:
+              activationGateWorkerHandoffReceiptRef ?? undefined,
+            receiptRef: activationGateWorkerHandoffReceiptRef ?? undefined,
+            activationGateReplayFixtureRef:
+              activationGateWorkerHandoffReplayFixtureRef ?? undefined,
+            replayFixtureRef:
+              activationGateWorkerHandoffReplayFixtureRef ?? undefined,
+          },
+          expectedAttribute:
+            "data-selected-activation-gate-node-attempt-id",
+          expectedValue: activationGateWorkerHandoffAttemptId,
+          selectedRailTestId: "workflow-harness-activation-gate-inspector",
+          expectedParsedKey: "activationGateNodeAttemptId",
+        }
+      : null,
   ];
   return cases.filter(
     (item): item is HarnessWorkbenchDeepLinkProbeCase => item !== null,
@@ -1409,6 +1457,8 @@ export function useWorkflowComposerController({
   ] = useState<string | null>(null);
   const [selectedHarnessWorkerBindingId, setSelectedHarnessWorkerBindingId] =
     useState<string | null>(null);
+  const [selectedHarnessNodeAttemptId, setSelectedHarnessNodeAttemptId] =
+    useState<string | null>(null);
   const [
     selectedHarnessRevisionBindingKind,
     setSelectedHarnessRevisionBindingKind,
@@ -1438,6 +1488,10 @@ export function useWorkflowComposerController({
   const [
     selectedHarnessActivationGateReceiptRef,
     setSelectedHarnessActivationGateReceiptRef,
+  ] = useState<string | null>(null);
+  const [
+    selectedHarnessActivationGateNodeAttemptId,
+    setSelectedHarnessActivationGateNodeAttemptId,
   ] = useState<string | null>(null);
   const [
     selectedHarnessActivationGateReplayFixtureRef,
@@ -1924,6 +1978,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessSelectorDecisionId(null);
       setSelectedHarnessDefaultDispatchId(null);
       setSelectedHarnessWorkerBindingId(null);
+      setSelectedHarnessNodeAttemptId(null);
       setSelectedHarnessRevisionBindingKind(null);
       setSelectedHarnessRevisionBindingRef(null);
       setSelectedHarnessActivationBlockerIndex(null);
@@ -1931,6 +1986,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationAuditEventId(null);
       setSelectedHarnessActivationGateId(null);
       setSelectedHarnessActivationGateEvidenceRef(null);
+      setSelectedHarnessActivationGateNodeAttemptId(null);
       setSelectedHarnessActivationGateReceiptRef(null);
       setSelectedHarnessActivationGateReplayFixtureRef(null);
       setHarnessActivationCandidate(null);
@@ -2230,6 +2286,7 @@ export function useWorkflowComposerController({
         selectedHarnessSelectorDecisionId ||
         selectedHarnessDefaultDispatchId ||
         selectedHarnessWorkerBindingId ||
+        selectedHarnessNodeAttemptId ||
         selectedHarnessReceiptRef ||
         selectedHarnessReplayFixtureRef ||
         selectedHarnessRollbackTarget ||
@@ -2240,6 +2297,7 @@ export function useWorkflowComposerController({
         selectedHarnessActivationAuditEventId ||
         selectedHarnessActivationGateId ||
         selectedHarnessActivationGateEvidenceRef ||
+        selectedHarnessActivationGateNodeAttemptId ||
         selectedHarnessActivationGateReceiptRef ||
         selectedHarnessActivationGateReplayFixtureRef;
       if (!hasDeepLinkScope) return null;
@@ -2251,6 +2309,7 @@ export function useWorkflowComposerController({
         selectorDecisionId: selectedHarnessSelectorDecisionId ?? undefined,
         dispatchId: selectedHarnessDefaultDispatchId ?? undefined,
         workerBindingId: selectedHarnessWorkerBindingId ?? undefined,
+        nodeAttemptId: selectedHarnessNodeAttemptId ?? undefined,
         receiptRef: selectedHarnessReceiptRef ?? undefined,
         replayFixtureRef: selectedHarnessReplayFixtureRef ?? undefined,
         rollbackTarget: selectedHarnessRollbackTarget ?? undefined,
@@ -2264,6 +2323,8 @@ export function useWorkflowComposerController({
         activationGateId: selectedHarnessActivationGateId ?? undefined,
         activationGateEvidenceRef:
           selectedHarnessActivationGateEvidenceRef ?? undefined,
+        activationGateNodeAttemptId:
+          selectedHarnessActivationGateNodeAttemptId ?? undefined,
         activationGateReceiptRef:
           selectedHarnessActivationGateReceiptRef ?? undefined,
         activationGateReplayFixtureRef:
@@ -2276,6 +2337,7 @@ export function useWorkflowComposerController({
       selectedHarnessDefaultDispatchId,
       selectedHarnessComponentId,
       selectedHarnessGroup,
+      selectedHarnessNodeAttemptId,
       selectedHarnessReceiptRef,
       selectedHarnessReplayFixtureRef,
       selectedHarnessRollbackTarget,
@@ -2284,6 +2346,7 @@ export function useWorkflowComposerController({
       selectedHarnessActivationAuditEventId,
       selectedHarnessActivationGateId,
       selectedHarnessActivationGateEvidenceRef,
+      selectedHarnessActivationGateNodeAttemptId,
       selectedHarnessActivationGateReceiptRef,
       selectedHarnessActivationGateReplayFixtureRef,
       selectedHarnessRevisionBindingKind,
@@ -2320,6 +2383,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessSelectorDecisionId(link.selectorDecisionId ?? null);
       setSelectedHarnessDefaultDispatchId(link.dispatchId ?? null);
       setSelectedHarnessWorkerBindingId(link.workerBindingId ?? null);
+      setSelectedHarnessNodeAttemptId(link.nodeAttemptId ?? null);
       setSelectedHarnessRevisionBindingKind(link.revisionBindingKind ?? null);
       setSelectedHarnessRevisionBindingRef(link.revisionBindingRef ?? null);
       setSelectedHarnessActivationBlockerIndex(
@@ -2332,6 +2396,9 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationGateId(link.activationGateId ?? null);
       setSelectedHarnessActivationGateEvidenceRef(
         link.activationGateEvidenceRef ?? null,
+      );
+      setSelectedHarnessActivationGateNodeAttemptId(
+        link.activationGateNodeAttemptId ?? null,
       );
       setSelectedHarnessActivationGateReceiptRef(
         link.activationGateReceiptRef ?? null,
@@ -2391,6 +2458,7 @@ export function useWorkflowComposerController({
         link.selectorDecisionId ??
         link.dispatchId ??
         link.workerBindingId ??
+        link.nodeAttemptId ??
         link.rollbackTarget ??
         link.receiptRef ??
         link.replayFixtureRef ??
@@ -2401,6 +2469,7 @@ export function useWorkflowComposerController({
         link.activationAuditEventId ??
         link.activationGateId ??
         link.activationGateEvidenceRef ??
+        link.activationGateNodeAttemptId ??
         link.activationGateReceiptRef ??
         link.activationGateReplayFixtureRef ??
         null;
@@ -2538,6 +2607,7 @@ export function useWorkflowComposerController({
         setSelectedHarnessSelectorDecisionId(null);
         setSelectedHarnessDefaultDispatchId(null);
         setSelectedHarnessWorkerBindingId(null);
+        setSelectedHarnessNodeAttemptId(null);
         setSelectedHarnessRevisionBindingKind(null);
         setSelectedHarnessRevisionBindingRef(null);
         setSelectedHarnessActivationBlockerIndex(null);
@@ -2545,6 +2615,7 @@ export function useWorkflowComposerController({
         setSelectedHarnessActivationAuditEventId(null);
         setSelectedHarnessActivationGateId(null);
         setSelectedHarnessActivationGateEvidenceRef(null);
+        setSelectedHarnessActivationGateNodeAttemptId(null);
         setSelectedHarnessActivationGateReceiptRef(null);
         setSelectedHarnessActivationGateReplayFixtureRef(null);
         handleNodeSelect(null);
@@ -3400,6 +3471,10 @@ export function useWorkflowComposerController({
       let mintedAction = emptyAction();
       let mintedClicked = false;
       let mintResult: HarnessActivationMintClickResult | null = null;
+      let mintedHandoffDeepLinkHash: string | null = null;
+      let mintedHandoffState: Record<string, string> = {};
+      let mintedHandoffTimelineVisible = false;
+      let mintedHandoffTimelineAttemptId: string | null = null;
 
       try {
         if (typeof window !== "undefined") {
@@ -3493,6 +3568,48 @@ export function useWorkflowComposerController({
           }
           await applyActivationIdDeepLink();
           mintedAfterState = readHarnessRailSelectedState(selectedRailTestId);
+          const workerHandoffNodeAttemptId =
+            mintResult?.workerHandoffNodeAttemptIds[0] ?? null;
+          if (workerHandoffNodeAttemptId) {
+            const workerHandoffLink = {
+              panel: "settings" as WorkflowRightPanel,
+              activationGateId: "worker-handoff",
+              activationGateNodeAttemptId: workerHandoffNodeAttemptId,
+              nodeAttemptId: workerHandoffNodeAttemptId,
+              activationGateReceiptRef:
+                mintResult?.workerHandoffReceiptIds[0] ?? undefined,
+              receiptRef: mintResult?.workerHandoffReceiptIds[0] ?? undefined,
+              activationGateReplayFixtureRef:
+                mintResult?.workerHandoffReplayFixtureRefs[0] ?? undefined,
+              replayFixtureRef:
+                mintResult?.workerHandoffReplayFixtureRefs[0] ?? undefined,
+            };
+            mintedHandoffDeepLinkHash =
+              encodeHarnessWorkbenchDeepLink(workerHandoffLink);
+            const workerHandoffParsed = parseHarnessWorkbenchDeepLink(
+              mintedHandoffDeepLinkHash,
+            );
+            if (workerHandoffParsed) {
+              writeHarnessWorkbenchDeepLink(mintedHandoffDeepLinkHash);
+              applyHarnessWorkbenchDeepLink(workerHandoffParsed);
+              await nextHarnessWorkbenchFrame();
+              writeHarnessWorkbenchDeepLink(mintedHandoffDeepLinkHash);
+              await nextHarnessWorkbenchFrame();
+              mintedHandoffState =
+                readHarnessRailSelectedState(selectedRailTestId);
+              const timeline =
+                document.querySelector<HTMLElement>(
+                  '[data-testid="workflow-harness-activation-gate-node-timeline"]',
+                );
+              const selectedTimelineAttempt =
+                document.querySelector<HTMLElement>(
+                  `[data-node-attempt-id="${workerHandoffNodeAttemptId}"]`,
+                );
+              mintedHandoffTimelineVisible = Boolean(timeline);
+              mintedHandoffTimelineAttemptId =
+                selectedTimelineAttempt?.dataset.nodeAttemptId ?? null;
+            }
+          }
         }
       } catch (error) {
         blockers.push(`activation_id_gate_click_failed:${errorMessage(error)}`);
@@ -3617,6 +3734,59 @@ export function useWorkflowComposerController({
       if ((mintResult?.evidenceRefs.length ?? 0) <= 0) {
         blockers.push("activation_id_gate_mint_evidence_missing");
       }
+      if ((mintResult?.workerHandoffReceiptIds.length ?? 0) <= 0) {
+        blockers.push("activation_id_gate_mint_worker_handoff_receipts_missing");
+      }
+      if ((mintResult?.workerHandoffNodeAttemptIds.length ?? 0) <= 0) {
+        blockers.push("activation_id_gate_mint_worker_handoff_attempts_missing");
+      }
+      if ((mintResult?.workerHandoffReplayFixtureRefs.length ?? 0) <= 0) {
+        blockers.push("activation_id_gate_mint_worker_handoff_replay_missing");
+      }
+      const expectedHandoffAttempt =
+        mintResult?.workerHandoffNodeAttemptIds[0] ?? null;
+      if (
+        expectedHandoffAttempt &&
+        !mintedHandoffDeepLinkHash?.includes("activationGateNodeAttemptId=")
+      ) {
+        blockers.push("activation_id_gate_mint_handoff_node_link_missing");
+      }
+      if (
+        expectedHandoffAttempt &&
+        mintedHandoffState["data-selected-activation-gate-id"] !==
+          "worker-handoff"
+      ) {
+        blockers.push("activation_id_gate_mint_handoff_gate_not_restored");
+      }
+      if (
+        expectedHandoffAttempt &&
+        mintedHandoffState["data-selected-activation-gate-node-attempt-id"] !==
+          expectedHandoffAttempt
+      ) {
+        blockers.push("activation_id_gate_mint_handoff_attempt_not_selected");
+      }
+      if (
+        expectedHandoffAttempt &&
+        mintedHandoffState["data-selected-node-attempt-id"] !==
+          expectedHandoffAttempt
+      ) {
+        blockers.push("activation_id_gate_mint_global_attempt_not_selected");
+      }
+      if (
+        expectedHandoffAttempt &&
+        Number(mintedHandoffState["data-node-attempt-ref-count"] ?? 0) <= 0
+      ) {
+        blockers.push("activation_id_gate_mint_handoff_attempt_refs_missing");
+      }
+      if (expectedHandoffAttempt && !mintedHandoffTimelineVisible) {
+        blockers.push("activation_id_gate_mint_handoff_timeline_missing");
+      }
+      if (
+        expectedHandoffAttempt &&
+        mintedHandoffTimelineAttemptId !== expectedHandoffAttempt
+      ) {
+        blockers.push("activation_id_gate_mint_handoff_timeline_attempt_missing");
+      }
       if (
         mintedAfterState["data-selected-activation-gate-id"] !== "activation-id"
       ) {
@@ -3674,6 +3844,15 @@ export function useWorkflowComposerController({
           latestAuditStatus: mintResult?.latestAuditStatus ?? null,
           receiptRefs: mintResult?.receiptRefs ?? [],
           evidenceRefs: mintResult?.evidenceRefs ?? [],
+          workerHandoffReceiptIds: mintResult?.workerHandoffReceiptIds ?? [],
+          workerHandoffNodeAttemptIds:
+            mintResult?.workerHandoffNodeAttemptIds ?? [],
+          workerHandoffReplayFixtureRefs:
+            mintResult?.workerHandoffReplayFixtureRefs ?? [],
+          workerHandoffDeepLink: mintedHandoffDeepLinkHash,
+          workerHandoffDeepLinkState: mintedHandoffState,
+          workerHandoffTimelineVisible: mintedHandoffTimelineVisible,
+          workerHandoffTimelineAttemptId: mintedHandoffTimelineAttemptId,
         },
         passed: blockers.length === 0,
         blockers,
@@ -4640,6 +4819,7 @@ export function useWorkflowComposerController({
         setSelectedHarnessSelectorDecisionId(null);
         setSelectedHarnessDefaultDispatchId(null);
         setSelectedHarnessWorkerBindingId(null);
+        setSelectedHarnessNodeAttemptId(null);
         setSelectedHarnessRevisionBindingKind(null);
         setSelectedHarnessRevisionBindingRef(null);
         setSelectedHarnessActivationBlockerIndex(null);
@@ -4647,6 +4827,7 @@ export function useWorkflowComposerController({
         setSelectedHarnessActivationAuditEventId(null);
         setSelectedHarnessActivationGateId(null);
         setSelectedHarnessActivationGateEvidenceRef(null);
+        setSelectedHarnessActivationGateNodeAttemptId(null);
         setSelectedHarnessActivationGateReceiptRef(null);
         setSelectedHarnessActivationGateReplayFixtureRef(null);
         handleNodeSelect(null);
@@ -4662,6 +4843,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessSelectorDecisionId(null);
       setSelectedHarnessDefaultDispatchId(null);
       setSelectedHarnessWorkerBindingId(null);
+      setSelectedHarnessNodeAttemptId(null);
       setSelectedHarnessRevisionBindingKind(null);
       setSelectedHarnessRevisionBindingRef(null);
       setSelectedHarnessActivationBlockerIndex(null);
@@ -4669,6 +4851,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationAuditEventId(null);
       setSelectedHarnessActivationGateId(null);
       setSelectedHarnessActivationGateEvidenceRef(null);
+      setSelectedHarnessActivationGateNodeAttemptId(null);
       setSelectedHarnessActivationGateReceiptRef(null);
       setSelectedHarnessActivationGateReplayFixtureRef(null);
       if (nodeId && connectFromNodeId && connectFromNodeId !== nodeId) {
@@ -4694,6 +4877,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessSelectorDecisionId(null);
       setSelectedHarnessDefaultDispatchId(null);
       setSelectedHarnessWorkerBindingId(null);
+      setSelectedHarnessNodeAttemptId(null);
       setSelectedHarnessRevisionBindingKind(null);
       setSelectedHarnessRevisionBindingRef(null);
       setSelectedHarnessActivationBlockerIndex(null);
@@ -4701,6 +4885,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationAuditEventId(null);
       setSelectedHarnessActivationGateId(null);
       setSelectedHarnessActivationGateEvidenceRef(null);
+      setSelectedHarnessActivationGateNodeAttemptId(null);
       setSelectedHarnessActivationGateReceiptRef(null);
       setSelectedHarnessActivationGateReplayFixtureRef(null);
       handleNodeSelect(nodeId);
@@ -4716,6 +4901,7 @@ export function useWorkflowComposerController({
     setSelectedHarnessSelectorDecisionId(null);
     setSelectedHarnessDefaultDispatchId(null);
     setSelectedHarnessWorkerBindingId(null);
+    setSelectedHarnessNodeAttemptId(null);
     setSelectedHarnessRevisionBindingKind(null);
     setSelectedHarnessRevisionBindingRef(null);
     setSelectedHarnessActivationBlockerIndex(null);
@@ -4723,6 +4909,7 @@ export function useWorkflowComposerController({
     setSelectedHarnessActivationAuditEventId(null);
     setSelectedHarnessActivationGateId(null);
     setSelectedHarnessActivationGateEvidenceRef(null);
+    setSelectedHarnessActivationGateNodeAttemptId(null);
     setSelectedHarnessActivationGateReceiptRef(null);
     setSelectedHarnessActivationGateReplayFixtureRef(null);
     setRightPanel("outputs");
@@ -4734,6 +4921,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessSelectorDecisionId(null);
       setSelectedHarnessDefaultDispatchId(null);
       setSelectedHarnessWorkerBindingId(null);
+      setSelectedHarnessNodeAttemptId(null);
       setSelectedHarnessRevisionBindingKind(null);
       setSelectedHarnessRevisionBindingRef(null);
       setSelectedHarnessActivationBlockerIndex(null);
@@ -4741,6 +4929,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationAuditEventId(null);
       setSelectedHarnessActivationGateId(null);
       setSelectedHarnessActivationGateEvidenceRef(null);
+      setSelectedHarnessActivationGateNodeAttemptId(null);
       setSelectedHarnessActivationGateReceiptRef(null);
       setSelectedHarnessActivationGateReplayFixtureRef(null);
       setRightPanel("outputs");
@@ -4983,6 +5172,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessSelectorDecisionId(null);
       setSelectedHarnessDefaultDispatchId(null);
       setSelectedHarnessWorkerBindingId(null);
+      setSelectedHarnessNodeAttemptId(null);
       setSelectedHarnessRevisionBindingKind(null);
       setSelectedHarnessRevisionBindingRef(null);
       setSelectedHarnessActivationBlockerIndex(null);
@@ -4990,6 +5180,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationAuditEventId(null);
       setSelectedHarnessActivationGateId(null);
       setSelectedHarnessActivationGateEvidenceRef(null);
+      setSelectedHarnessActivationGateNodeAttemptId(null);
       setSelectedHarnessActivationGateReceiptRef(null);
       setSelectedHarnessActivationGateReplayFixtureRef(null);
       if (!isReadOnlyWorkflow) {
@@ -5583,6 +5774,9 @@ export function useWorkflowComposerController({
           latestAuditStatus: latestAuditEvent?.status ?? null,
           receiptRefs: latestAuditEvent?.receiptRefs ?? [],
           evidenceRefs: latestAuditEvent?.evidenceRefs ?? [],
+          workerHandoffReceiptIds: [],
+          workerHandoffNodeAttemptIds: [],
+          workerHandoffReplayFixtureRefs: [],
           statusMessage: blockedStatusMessage,
         } satisfies HarnessActivationMintClickResult;
       }
@@ -5641,6 +5835,16 @@ export function useWorkflowComposerController({
         latestAuditStatus: latestAuditEvent?.status ?? null,
         receiptRefs: latestAuditEvent?.receiptRefs ?? [],
         evidenceRefs: latestAuditEvent?.evidenceRefs ?? [],
+        workerHandoffReceiptIds:
+          result.workflow.metadata.harness?.activationRecord?.workerHandoffReceipts?.map(
+            (receipt) => receipt.receiptId,
+          ) ?? [],
+        workerHandoffNodeAttemptIds:
+          result.workflow.metadata.harness?.activationRecord
+            ?.workerHandoffNodeAttemptIds ?? [],
+        workerHandoffReplayFixtureRefs:
+          result.workflow.metadata.harness?.activationRecord
+            ?.workerHandoffReplayFixtureRefs ?? [],
         statusMessage: mintedStatusMessage,
       } satisfies HarnessActivationMintClickResult;
     }
@@ -6779,6 +6983,7 @@ export function useWorkflowComposerController({
     setSelectedHarnessActivationAuditEventId(null);
     setSelectedHarnessActivationGateId(null);
     setSelectedHarnessActivationGateEvidenceRef(null);
+    setSelectedHarnessActivationGateNodeAttemptId(null);
     setSelectedHarnessActivationGateReceiptRef(null);
     setSelectedHarnessActivationGateReplayFixtureRef(null);
     setStatusMessage("Harness promotion live GUI proof running");
@@ -7312,10 +7517,12 @@ export function useWorkflowComposerController({
     selectedHarnessActivationBlockerRef,
     selectedHarnessActivationGateEvidenceRef,
     selectedHarnessActivationGateId,
+    selectedHarnessActivationGateNodeAttemptId,
     selectedHarnessActivationGateReceiptRef,
     selectedHarnessActivationGateReplayFixtureRef,
     selectedHarnessDefaultDispatchId,
     selectedHarnessGroup,
+    selectedHarnessNodeAttemptId,
     selectedHarnessReceiptRef,
     selectedHarnessReplayFixtureRef,
     selectedHarnessRevisionBindingKind,
