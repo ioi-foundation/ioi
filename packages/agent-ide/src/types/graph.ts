@@ -1890,6 +1890,53 @@ export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessActivationGateRollbackRestoreClickProof {
+  schemaVersion:
+    | "workflow.harness.activation-gate-rollback-restore-click-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  gateId: string | null;
+  action: {
+    id: string | null;
+    kind: string | null;
+    impact: string | null;
+    command: string | null;
+    disabled: boolean;
+  };
+  before: {
+    hash: string | null;
+    railTestId: string | null;
+    selectedState: Record<string, string>;
+  };
+  dryRun: {
+    candidateId: string | null;
+    decision: string | null;
+    activationBlockerCount: number;
+    rollbackRestoreCanaryId: string | null;
+    rollbackRestoreStatus: string | null;
+    rollbackRestoreRevisionSource: string | null;
+    rollbackRestoreStrategy: string | null;
+    rollbackRestoreHashVerified: boolean;
+    rollbackRestoreReceiptBindingRef: string | null;
+    rollbackRestoreEvidenceRefs: string[];
+    rollbackRestoreBlockers: string[];
+    rollbackRestoreGateStatus: string | null;
+    persistedActivationAuditEventCount: number;
+    latestAuditEventId: string | null;
+    latestAuditEventType: string | null;
+    latestAuditStatus: string | null;
+  };
+  after: {
+    railTestId: string | null;
+    statusMessage: string | null;
+    inspectorState: Record<string, string>;
+  };
+  clicked: boolean;
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessColdStartDeepLinkRestoreCase
   extends WorkflowHarnessDeepLinkReplayCase {
   initialHash: string;
@@ -2118,6 +2165,7 @@ export interface WorkflowHarnessMetadata {
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
+  activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];

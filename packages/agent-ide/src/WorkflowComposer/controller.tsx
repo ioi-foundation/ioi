@@ -65,6 +65,7 @@ import type {
   WorkflowConnectionClass,
   WorkflowHarnessActivationGateActionClickProof,
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
+  WorkflowHarnessActivationGateRollbackRestoreClickProof,
   WorkflowHarnessComponentKind,
   WorkflowHarnessColdStartDeepLinkRestoreProof,
   WorkflowHarnessForkActivationCandidate,
@@ -743,6 +744,36 @@ function readHarnessReplayGateClickResult(): HarnessReplayGateClickResult | null
   const result = (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessReplayGateClickResult)
+    : null;
+}
+
+type HarnessActivationDryRunClickResult = {
+  candidateId: string;
+  decision: string;
+  activationBlockerCount: number;
+  rollbackRestoreCanaryId: string;
+  rollbackRestoreStatus: string;
+  rollbackRestoreRevisionSource: string;
+  rollbackRestoreStrategy: string;
+  rollbackRestoreHashVerified: boolean;
+  rollbackRestoreReceiptBindingRef: string | null;
+  rollbackRestoreEvidenceRefs: string[];
+  rollbackRestoreBlockers: string[];
+  rollbackRestoreGateStatus: string | null;
+  activationAuditEventCount: number;
+  latestAuditEventId: string | null;
+  latestAuditEventType: string | null;
+  latestAuditStatus: string | null;
+  statusMessage: string;
+};
+
+function readHarnessActivationDryRunClickResult():
+  | HarnessActivationDryRunClickResult
+  | null {
+  if (typeof window === "undefined") return null;
+  const result = (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT;
+  return result && typeof result === "object"
+    ? (result as HarnessActivationDryRunClickResult)
     : null;
 }
 
@@ -2694,6 +2725,199 @@ export function useWorkflowComposerController({
     },
     [applyHarnessWorkbenchDeepLink],
   );
+  const runHarnessActivationGateRollbackRestoreClickProbe = useCallback(
+    async (
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessActivationGateRollbackRestoreClickProof> => {
+      const selectedRailTestId = "workflow-harness-activation-gate-inspector";
+      const blockers: string[] = [];
+      const originalHash = typeof window === "undefined" ? "" : window.location.hash;
+      const link = {
+        panel: "settings" as WorkflowRightPanel,
+        activationGateId: "rollback-restore",
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      let beforeSelectedState: Record<string, string> = {};
+      let gateId: string | null = null;
+      let actionId: string | null = null;
+      let actionKind: string | null = null;
+      let actionImpact: string | null = null;
+      let actionCommand: string | null = null;
+      let actionDisabled = false;
+      let clicked = false;
+      let dryRunResult: HarnessActivationDryRunClickResult | null = null;
+      let afterRailTestId: string | null = null;
+      let afterStatusMessage: string | null = null;
+      let afterInspectorState: Record<string, string> = {};
+      try {
+        if (typeof window !== "undefined") {
+          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT = null;
+        }
+        if (!parsed) {
+          blockers.push("activation_gate_rollback_restore_hash_parse_failed");
+        } else {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+        beforeSelectedState = readHarnessRailSelectedState(selectedRailTestId);
+        gateId = beforeSelectedState["data-selected-activation-gate-id"] || null;
+        actionId = beforeSelectedState["data-gate-action-id"] || null;
+        actionKind = beforeSelectedState["data-gate-action-kind"] || null;
+        actionImpact = beforeSelectedState["data-gate-action-impact"] || null;
+        actionCommand = beforeSelectedState["data-gate-action-command"] || null;
+        actionDisabled = beforeSelectedState["data-gate-action-disabled"] === "true";
+        const actionButton = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-activation-gate-action"]',
+        );
+        if (!actionButton) {
+          blockers.push("activation_gate_rollback_restore_button_missing");
+        } else if (actionButton.disabled || actionDisabled) {
+          blockers.push("activation_gate_rollback_restore_button_disabled");
+        } else {
+          actionButton.click();
+          clicked = true;
+          for (let attempt = 0; attempt < 80; attempt += 1) {
+            await nextHarnessWorkbenchFrame();
+            dryRunResult = readHarnessActivationDryRunClickResult();
+            if (dryRunResult?.candidateId) break;
+          }
+          if (parsed) {
+            applyHarnessWorkbenchDeepLink(parsed);
+            writeHarnessWorkbenchDeepLink(hash);
+            await nextHarnessWorkbenchFrame();
+            await nextHarnessWorkbenchFrame();
+            afterInspectorState = readHarnessRailSelectedState(selectedRailTestId);
+          }
+        }
+      } catch (error) {
+        blockers.push(
+          `activation_gate_rollback_restore_click_failed:${errorMessage(error)}`,
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      afterRailTestId = readWorkflowRightRailTestId();
+      afterStatusMessage = readWorkflowStatusMessage();
+      if (gateId !== "rollback-restore") {
+        blockers.push("activation_gate_rollback_restore_gate_not_selected");
+      }
+      if (!actionId?.startsWith("activation-gate-action:rollback-restore:")) {
+        blockers.push("activation_gate_rollback_restore_action_id_missing");
+      }
+      if (actionKind !== "run_activation_dry_run") {
+        blockers.push("activation_gate_rollback_restore_kind_not_dry_run");
+      }
+      if (actionImpact !== "collect_evidence") {
+        blockers.push("activation_gate_rollback_restore_impact_not_collect");
+      }
+      if (actionCommand !== "workflow-harness-gate-action-rollback-restore") {
+        blockers.push("activation_gate_rollback_restore_command_mismatch");
+      }
+      if (!clicked) blockers.push("activation_gate_rollback_restore_not_dispatched");
+      if (!dryRunResult?.candidateId) {
+        blockers.push("activation_gate_rollback_restore_result_missing");
+      }
+      if (
+        !["passed", "not_required"].includes(
+          dryRunResult?.rollbackRestoreStatus ?? "",
+        )
+      ) {
+        blockers.push("activation_gate_rollback_restore_canary_not_ready");
+      }
+      if (dryRunResult?.rollbackRestoreHashVerified !== true) {
+        blockers.push("activation_gate_rollback_restore_hash_not_verified");
+      }
+      if (
+        !dryRunResult?.rollbackRestoreReceiptBindingRef?.startsWith(
+          "workflow_restore_canary:",
+        )
+      ) {
+        blockers.push("activation_gate_rollback_restore_receipt_missing");
+      }
+      if ((dryRunResult?.rollbackRestoreEvidenceRefs.length ?? 0) <= 0) {
+        blockers.push("activation_gate_rollback_restore_evidence_missing");
+      }
+      if ((dryRunResult?.activationAuditEventCount ?? 0) <= 0) {
+        blockers.push("activation_gate_rollback_restore_audit_not_persisted");
+      }
+      if (dryRunResult?.rollbackRestoreGateStatus !== "passed") {
+        blockers.push("activation_gate_rollback_restore_gate_not_passed");
+      }
+      if (
+        afterInspectorState["data-selected-activation-gate-id"] !==
+        "rollback-restore"
+      ) {
+        blockers.push("activation_gate_rollback_restore_inspector_not_restored");
+      }
+      if (Number(afterInspectorState["data-evidence-ref-count"] ?? 0) <= 0) {
+        blockers.push("activation_gate_rollback_restore_refs_not_visible");
+      }
+      if (Number(afterInspectorState["data-receipt-ref-count"] ?? 0) <= 0) {
+        blockers.push("activation_gate_rollback_restore_receipt_refs_not_visible");
+      }
+      return {
+        schemaVersion:
+          "workflow.harness.activation-gate-rollback-restore-click-proof.v1",
+        method:
+          "same-session Workflows bridge restores the rollback restore activation gate, clicks its dry-run action, and verifies rollback restore canary evidence, receipt binding, and activation audit persistence",
+        generatedAtMs,
+        gateId,
+        action: {
+          id: actionId,
+          kind: actionKind,
+          impact: actionImpact,
+          command: actionCommand,
+          disabled: actionDisabled,
+        },
+        before: {
+          hash,
+          railTestId: selectedRailTestId,
+          selectedState: beforeSelectedState,
+        },
+        dryRun: {
+          candidateId: dryRunResult?.candidateId ?? null,
+          decision: dryRunResult?.decision ?? null,
+          activationBlockerCount: dryRunResult?.activationBlockerCount ?? 0,
+          rollbackRestoreCanaryId:
+            dryRunResult?.rollbackRestoreCanaryId ?? null,
+          rollbackRestoreStatus:
+            dryRunResult?.rollbackRestoreStatus ?? null,
+          rollbackRestoreRevisionSource:
+            dryRunResult?.rollbackRestoreRevisionSource ?? null,
+          rollbackRestoreStrategy:
+            dryRunResult?.rollbackRestoreStrategy ?? null,
+          rollbackRestoreHashVerified:
+            dryRunResult?.rollbackRestoreHashVerified === true,
+          rollbackRestoreReceiptBindingRef:
+            dryRunResult?.rollbackRestoreReceiptBindingRef ?? null,
+          rollbackRestoreEvidenceRefs:
+            dryRunResult?.rollbackRestoreEvidenceRefs ?? [],
+          rollbackRestoreBlockers:
+            dryRunResult?.rollbackRestoreBlockers ?? [],
+          rollbackRestoreGateStatus:
+            dryRunResult?.rollbackRestoreGateStatus ?? null,
+          persistedActivationAuditEventCount:
+            dryRunResult?.activationAuditEventCount ?? 0,
+          latestAuditEventId: dryRunResult?.latestAuditEventId ?? null,
+          latestAuditEventType: dryRunResult?.latestAuditEventType ?? null,
+          latestAuditStatus: dryRunResult?.latestAuditStatus ?? null,
+        },
+        after: {
+          railTestId: afterRailTestId,
+          statusMessage: afterStatusMessage,
+          inspectorState: afterInspectorState,
+        },
+        clicked,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
       const issue = canvasEdgeIssues.get(sourceEdgeId);
@@ -4392,19 +4616,52 @@ export function useWorkflowComposerController({
         rollbackRestoreBlockers,
       },
     );
+    const workflowWithDryRun = recordWorkflowHarnessActivationDryRun(
+      currentProjectFile,
+      candidate,
+    );
     setValidationResult(base);
     setReadinessResult(readiness);
     setHarnessActivationCandidate(candidate);
-    setWorkflow(recordWorkflowHarnessActivationDryRun(currentProjectFile, candidate));
+    setWorkflow(workflowWithDryRun);
     setRightPanel("settings");
     setBottomPanel("selection");
-    setStatusMessage(
+    const dryRunStatusMessage =
       candidate.decision === "mintable"
         ? `Activation dry run mintable: ${candidate.activationIdPreview}`
         : `Activation dry run blocked by ${candidate.activationBlockers.length} blocker${
             candidate.activationBlockers.length === 1 ? "" : "s"
-          }`,
-    );
+          }`;
+    if (HARNESS_PROMOTION_LIVE_GUI_SCRIPT && typeof window !== "undefined") {
+      const activationAudit =
+        workflowWithDryRun.metadata.harness?.activationAudit ?? [];
+      const latestAuditEvent =
+        activationAudit.length > 0 ? activationAudit[activationAudit.length - 1] : null;
+      const rollbackRestoreGate =
+        candidate.gateResults.find((gate) => gate.gateId === "rollback-restore") ??
+        null;
+      (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT = {
+        candidateId: candidate.candidateId,
+        decision: candidate.decision,
+        activationBlockerCount: candidate.activationBlockers.length,
+        rollbackRestoreCanaryId: candidate.rollbackRestoreCanary.canaryId,
+        rollbackRestoreStatus: candidate.rollbackRestoreCanary.status,
+        rollbackRestoreRevisionSource: candidate.rollbackRestoreCanary.revisionSource,
+        rollbackRestoreStrategy: candidate.rollbackRestoreCanary.restoreStrategy,
+        rollbackRestoreHashVerified: candidate.rollbackRestoreCanary.hashVerified,
+        rollbackRestoreReceiptBindingRef:
+          candidate.rollbackRestoreCanary.receiptBindingRef ?? null,
+        rollbackRestoreEvidenceRefs: candidate.rollbackRestoreCanary.evidenceRefs,
+        rollbackRestoreBlockers: candidate.rollbackRestoreCanary.blockers,
+        rollbackRestoreGateStatus: rollbackRestoreGate?.status ?? null,
+        activationAuditEventCount: activationAudit.length,
+        latestAuditEventId: latestAuditEvent?.eventId ?? null,
+        latestAuditEventType: latestAuditEvent?.eventType ?? null,
+        latestAuditStatus: latestAuditEvent?.status ?? null,
+        statusMessage: dryRunStatusMessage,
+      } satisfies HarnessActivationDryRunClickResult;
+    }
+    setStatusMessage(dryRunStatusMessage);
   }, [currentProjectFile, nodeFixturesById, proposals, runtime, tests, workflowPath]);
 
   const handleApplyHarnessActivationCandidate = useCallback(async () => {
@@ -5707,6 +5964,8 @@ export function useWorkflowComposerController({
         );
       const activationGateCollectEvidenceClickProof =
         await runHarnessActivationGateCollectEvidenceClickProbe(nowMs + 135);
+      const activationGateRollbackRestoreClickProof =
+        await runHarnessActivationGateRollbackRestoreClickProbe(nowMs + 140);
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
@@ -5723,6 +5982,7 @@ export function useWorkflowComposerController({
             activationGateDeepLinkProof,
             activationGateActionClickProof,
             activationGateCollectEvidenceClickProof,
+            activationGateRollbackRestoreClickProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -5762,6 +6022,15 @@ export function useWorkflowComposerController({
           activationGateCollectEvidenceClickProof.action.command,
         activationGateCollectEvidenceReplayGateId:
           activationGateCollectEvidenceClickProof.replayGate.gateId,
+        activationGateRollbackRestoreClickPassed:
+          activationGateRollbackRestoreClickProof.passed,
+        activationGateRollbackRestoreCommand:
+          activationGateRollbackRestoreClickProof.action.command,
+        activationGateRollbackRestoreCanaryStatus:
+          activationGateRollbackRestoreClickProof.dryRun.rollbackRestoreStatus,
+        activationGateRollbackRestoreReceiptBindingRef:
+          activationGateRollbackRestoreClickProof.dryRun
+            .rollbackRestoreReceiptBindingRef,
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -5783,6 +6052,7 @@ export function useWorkflowComposerController({
     runHarnessActivationBlockerDeepLinkProbe,
     runHarnessActivationGateActionClickProbe,
     runHarnessActivationGateCollectEvidenceClickProbe,
+    runHarnessActivationGateRollbackRestoreClickProbe,
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
