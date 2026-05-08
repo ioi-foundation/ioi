@@ -321,6 +321,109 @@ export function WorkflowRailPanel({
     workflow.metadata.harness?.canaryExecutionBoundaries ??
     (harnessCanaryExecutionBoundary ? [harnessCanaryExecutionBoundary] : []);
   const harnessDefaultRuntimeDispatchProof = workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const harnessActiveRuntimeBindingReceiptRefs = workflowUniqueReceiptRefs([
+    ...(harnessDefaultRuntimeDispatchProof?.receiptIds ?? []),
+    ...(harnessLiveHandoffProof?.receiptIds ?? []),
+  ]);
+  const harnessActiveRuntimeBindingReplayFixtureRefs = workflowUniqueReceiptRefs([
+    ...(harnessDefaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
+    ...(harnessLiveHandoffProof?.replayFixtureRefs ?? []),
+  ]);
+  const harnessActiveRuntimeBinding =
+    harnessRuntimeSelectorDecision && harnessDefaultRuntimeDispatchProof
+      ? (() => {
+          const workflowId =
+            harnessRuntimeSelectorDecision.workflowId ??
+            harnessDefaultRuntimeDispatchProof.workflowId ??
+            workflow.metadata.harness?.harnessWorkflowId ??
+            workflow.metadata.id;
+          const activationId =
+            harnessRuntimeSelectorDecision.activationId ??
+            harnessDefaultRuntimeDispatchProof.activationId ??
+            harnessWorkerBinding?.harnessActivationId ??
+            workflow.metadata.harness?.activationId ??
+            "";
+          const harnessHash =
+            harnessRuntimeSelectorDecision.harnessHash ??
+            harnessDefaultRuntimeDispatchProof.harnessHash ??
+            harnessWorkerBinding?.harnessHash ??
+            workflow.metadata.harness?.harnessHash ??
+            "";
+          const workflowIdentityMatches =
+            harnessRuntimeSelectorDecision.workflowId === workflowId &&
+            harnessDefaultRuntimeDispatchProof.workflowId === workflowId &&
+            (!harnessLiveHandoffProof || harnessLiveHandoffProof.workflowId === workflowId) &&
+            (!harnessWorkerBinding || harnessWorkerBinding.harnessWorkflowId === workflowId);
+          const activationIdentityMatches =
+            harnessRuntimeSelectorDecision.activationId === activationId &&
+            harnessDefaultRuntimeDispatchProof.activationId === activationId &&
+            (!harnessLiveHandoffProof || harnessLiveHandoffProof.activationId === activationId) &&
+            (!harnessWorkerBinding?.harnessActivationId ||
+              harnessWorkerBinding.harnessActivationId === activationId);
+          const harnessHashMatches =
+            harnessRuntimeSelectorDecision.harnessHash === harnessHash &&
+            harnessDefaultRuntimeDispatchProof.harnessHash === harnessHash &&
+            (!harnessLiveHandoffProof || harnessLiveHandoffProof.harnessHash === harnessHash) &&
+            (!harnessWorkerBinding || harnessWorkerBinding.harnessHash === harnessHash);
+          const selectorDecisionLinksDispatch =
+            harnessDefaultRuntimeDispatchProof.selectorDecisionId ===
+            harnessRuntimeSelectorDecision.decisionId;
+          const rollbackTarget =
+            harnessRuntimeSelectorDecision.rollbackTarget ??
+            harnessLiveHandoffProof?.rollbackTarget ??
+            harnessDefaultRuntimeDispatchProof.rollbackTarget ??
+            "not set";
+          const rollbackTargetMatches =
+            Boolean(rollbackTarget) &&
+            harnessRuntimeSelectorDecision.rollbackTarget === rollbackTarget &&
+            (!harnessLiveHandoffProof || harnessLiveHandoffProof.rollbackTarget === rollbackTarget) &&
+            (!harnessDefaultRuntimeDispatchProof.rollbackTarget ||
+              harnessDefaultRuntimeDispatchProof.rollbackTarget === rollbackTarget);
+          const authorityTransferred =
+            harnessRuntimeSelectorDecision.actualRuntimeAuthority ===
+              "blessed_workflow_activation_default" &&
+            harnessLiveHandoffProof?.defaultAuthorityTransferred === true &&
+            harnessDefaultRuntimeDispatchProof.runtimeAuthority ===
+              "blessed_workflow_activation_default";
+          const drivesRuntimeDecision =
+            harnessDefaultRuntimeDispatchProof.drivesRuntimeDecision === true;
+          const rollbackAvailable =
+            harnessRuntimeSelectorDecision.rollbackAvailable === true &&
+            (harnessLiveHandoffProof?.rollbackAvailable ?? true) === true &&
+            harnessDefaultRuntimeDispatchProof.rollbackAvailable === true;
+          const blockers = [
+            ...(workflowIdentityMatches ? [] : ["workflow_identity_mismatch"]),
+            ...(activationIdentityMatches ? [] : ["activation_identity_mismatch"]),
+            ...(harnessHashMatches ? [] : ["harness_hash_mismatch"]),
+            ...(selectorDecisionLinksDispatch ? [] : ["selector_dispatch_not_linked"]),
+            ...(rollbackTargetMatches ? [] : ["rollback_target_mismatch"]),
+            ...(authorityTransferred ? [] : ["default_authority_not_transferred"]),
+            ...(drivesRuntimeDecision ? [] : ["dispatch_not_driving_runtime"]),
+            ...(rollbackAvailable ? [] : ["rollback_not_available"]),
+          ];
+          return {
+            workflowId,
+            activationId,
+            harnessHash,
+            selectorDecisionId: harnessRuntimeSelectorDecision.decisionId,
+            defaultDispatchId: harnessDefaultRuntimeDispatchProof.dispatchId,
+            selectedSelector: harnessRuntimeSelectorDecision.selectedSelector,
+            productionDefaultSelector:
+              harnessRuntimeSelectorDecision.productionDefaultSelector,
+            executionMode: harnessDefaultRuntimeDispatchProof.executionMode,
+            runtimeAuthority: harnessDefaultRuntimeDispatchProof.runtimeAuthority,
+            rollbackTarget,
+            rollbackAvailable,
+            workerBinding: harnessWorkerBinding,
+            bindingMatched: blockers.length === 0,
+            selectorDecisionLinksDispatch,
+            drivesRuntimeDecision,
+            receiptRefs: harnessActiveRuntimeBindingReceiptRefs,
+            replayFixtureRefs: harnessActiveRuntimeBindingReplayFixtureRefs,
+            blockers,
+          };
+        })()
+      : null;
   const harnessReadOnlyRoutingProof =
     harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingProof ?? null;
   const harnessReadOnlyRoutingNodeKinds =
@@ -1695,6 +1798,184 @@ export function WorkflowRailPanel({
                   rollback {harnessActivationRecord.rollbackAvailable ? "ready" : "blocked"} · {harnessActivationRecord.rollbackTarget}
                 </small>
               </article>
+            ) : null}
+            {harnessActiveRuntimeBinding ? (
+              <section
+                className="workflow-rail-section workflow-harness-active-runtime-binding"
+                data-testid="workflow-harness-active-runtime-binding"
+                data-binding-matched={
+                  harnessActiveRuntimeBinding.bindingMatched ? "true" : "false"
+                }
+                data-workflow-id={harnessActiveRuntimeBinding.workflowId}
+                data-activation-id={harnessActiveRuntimeBinding.activationId}
+                data-harness-hash={harnessActiveRuntimeBinding.harnessHash}
+                data-selector-decision-id={harnessActiveRuntimeBinding.selectorDecisionId}
+                data-default-dispatch-id={harnessActiveRuntimeBinding.defaultDispatchId}
+                data-rollback-target={harnessActiveRuntimeBinding.rollbackTarget}
+              >
+                <h4>Active runtime binding</h4>
+                <dl
+                  className="workflow-rail-stats"
+                  data-testid="workflow-harness-active-runtime-binding-summary"
+                >
+                  <div>
+                    <dt>Mode</dt>
+                    <dd>{harnessActiveRuntimeBinding.executionMode}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>
+                      {harnessActiveRuntimeBinding.bindingMatched ? "matched" : "blocked"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Receipts</dt>
+                    <dd>{harnessActiveRuntimeBinding.receiptRefs.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Replay</dt>
+                    <dd>{harnessActiveRuntimeBinding.replayFixtureRefs.length}</dd>
+                  </div>
+                </dl>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessActiveRuntimeBinding.bindingMatched ? "ready" : "blocked"
+                  }`}
+                  data-testid="workflow-harness-active-runtime-binding-rollup"
+                  data-runtime-authority={harnessActiveRuntimeBinding.runtimeAuthority}
+                  data-selected-selector={harnessActiveRuntimeBinding.selectedSelector}
+                  data-production-default-selector={
+                    harnessActiveRuntimeBinding.productionDefaultSelector
+                  }
+                >
+                  <strong>{harnessActiveRuntimeBinding.activationId}</strong>
+                  <span>
+                    {harnessActiveRuntimeBinding.workflowId} ·{" "}
+                    {harnessActiveRuntimeBinding.executionMode}
+                  </span>
+                  <small>
+                    {harnessActiveRuntimeBinding.runtimeAuthority} · rollback{" "}
+                    {harnessActiveRuntimeBinding.rollbackAvailable
+                      ? harnessActiveRuntimeBinding.rollbackTarget
+                      : "blocked"}
+                  </small>
+                </article>
+                <div
+                  className="workflow-harness-authority-gate-actions"
+                  data-testid="workflow-harness-active-runtime-binding-deep-links"
+                >
+                  <button
+                    type="button"
+                    className="workflow-harness-ref-button"
+                    data-testid="workflow-harness-active-runtime-binding-selector-link"
+                    data-deep-link-kind="selector_decision"
+                    data-deep-link-target={harnessActiveRuntimeBinding.selectorDecisionId}
+                    disabled={!onCopyHarnessDeepLink}
+                    onClick={onCopyHarnessDeepLink}
+                  >
+                    <code>{harnessActiveRuntimeBinding.selectorDecisionId}</code>
+                  </button>
+                  <button
+                    type="button"
+                    className="workflow-harness-ref-button"
+                    data-testid="workflow-harness-active-runtime-binding-dispatch-link"
+                    data-deep-link-kind="default_dispatch"
+                    data-deep-link-target={harnessActiveRuntimeBinding.defaultDispatchId}
+                    disabled={!onCopyHarnessDeepLink}
+                    onClick={onCopyHarnessDeepLink}
+                  >
+                    <code>{harnessActiveRuntimeBinding.defaultDispatchId}</code>
+                  </button>
+                  <button
+                    type="button"
+                    className="workflow-harness-ref-button"
+                    data-testid="workflow-harness-active-runtime-binding-worker-link"
+                    data-deep-link-kind="worker_binding"
+                    data-deep-link-target={
+                      harnessActiveRuntimeBinding.workerBinding?.harnessActivationId ??
+                      harnessActiveRuntimeBinding.activationId
+                    }
+                    disabled={!onCopyHarnessDeepLink}
+                    onClick={onCopyHarnessDeepLink}
+                  >
+                    <code>
+                      {harnessActiveRuntimeBinding.workerBinding?.source ?? "worker"}
+                      {" · "}
+                      {harnessActiveRuntimeBinding.workerBinding?.harnessActivationId ??
+                        harnessActiveRuntimeBinding.activationId}
+                    </code>
+                  </button>
+                  <button
+                    type="button"
+                    className={`workflow-harness-ref-button ${
+                      selectedHarnessRollbackTarget ===
+                      harnessActiveRuntimeBinding.rollbackTarget
+                        ? "is-active"
+                        : ""
+                    }`}
+                    data-testid="workflow-harness-active-runtime-binding-rollback-link"
+                    data-deep-link-kind="rollback_target"
+                    data-rollback-target={harnessActiveRuntimeBinding.rollbackTarget}
+                    onClick={() =>
+                      onSelectHarnessRollbackTarget?.(
+                        harnessActiveRuntimeBinding.rollbackTarget,
+                      )
+                    }
+                  >
+                    <code>{harnessActiveRuntimeBinding.rollbackTarget}</code>
+                  </button>
+                  {harnessActiveRuntimeBinding.receiptRefs.slice(0, 4).map((receiptRef, index) => (
+                    <button
+                      key={receiptRef}
+                      type="button"
+                      className={`workflow-harness-ref-button ${
+                        selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                      }`}
+                      data-testid={`workflow-harness-active-runtime-binding-receipt-${index}`}
+                      data-deep-link-kind="receipt"
+                      data-receipt-ref={receiptRef}
+                      onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                    >
+                      <code>{receiptRef}</code>
+                    </button>
+                  ))}
+                  {harnessActiveRuntimeBinding.replayFixtureRefs
+                    .slice(0, 4)
+                    .map((replayFixtureRef, index) => (
+                      <button
+                        key={replayFixtureRef}
+                        type="button"
+                        className={`workflow-harness-ref-button ${
+                          selectedHarnessReplayFixtureRef === replayFixtureRef
+                            ? "is-active"
+                            : ""
+                        }`}
+                        data-testid={`workflow-harness-active-runtime-binding-replay-${index}`}
+                        data-deep-link-kind="replay_fixture"
+                        data-replay-fixture-ref={replayFixtureRef}
+                        onClick={() =>
+                          onSelectHarnessReplayFixtureRef?.(replayFixtureRef)
+                        }
+                      >
+                        <code>{replayFixtureRef}</code>
+                      </button>
+                    ))}
+                </div>
+                {harnessActiveRuntimeBinding.blockers.length > 0 ? (
+                  <div
+                    className="workflow-rail-list"
+                    data-testid="workflow-harness-active-runtime-binding-blockers"
+                    data-activation-blockers={harnessActiveRuntimeBinding.blockers.join("|")}
+                  >
+                    {harnessActiveRuntimeBinding.blockers.map((blocker) => (
+                      <article key={blocker} className="workflow-test-row is-blocked">
+                        <strong>Blocked</strong>
+                        <span>{blocker}</span>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
             ) : null}
             <section
               className="workflow-rail-section"

@@ -184,6 +184,12 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*workflow-harness-active-runtime-binding)(?=[\s\S]*data-binding-matched)(?=[\s\S]*workflow-harness-active-runtime-binding-selector-link)(?=[\s\S]*workflow-harness-active-runtime-binding-dispatch-link)(?=[\s\S]*workflow-harness-active-runtime-binding-worker-link)(?=[\s\S]*workflow-harness-active-runtime-binding-rollback-link)(?=[\s\S]*workflow-harness-active-runtime-binding-receipt-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-replay-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-blockers)/,
+  "The harness rail should expose active runtime binding identity, links, receipts, replay fixtures, and activation blockers.",
+);
+
+assert.match(
   `${graphTypes}\n${harnessWorkflow}\n${workflowComposer}\n${workflowRailPanel}\n${workflowValidation}`,
   /(?=[\s\S]*WorkflowHarnessReplayDrillResult)(?=[\s\S]*WorkflowHarnessReplayGateResult)(?=[\s\S]*WorkflowHarnessPromotionClusterReplayGateProof)(?=[\s\S]*WorkflowHarnessReplayDrillDivergenceClass)(?=[\s\S]*replayGateProof\?: WorkflowHarnessPromotionClusterReplayGateProof)(?=[\s\S]*replayDrills\?: WorkflowHarnessReplayDrillResult\[\])(?=[\s\S]*replayGates\?: WorkflowHarnessReplayGateResult\[\])(?=[\s\S]*executeWorkflowHarnessReplayDrill)(?=[\s\S]*executeWorkflowHarnessReplayGate)(?=[\s\S]*workflowHarnessPromotionClustersWithReplayGateProof)(?=[\s\S]*replay_drill_passed)(?=[\s\S]*replay_gate_passed)(?=[\s\S]*replay_gate_blocked)(?=[\s\S]*handleRunHarnessReplayDrill)(?=[\s\S]*handleRunHarnessReplayGate)(?=[\s\S]*onRunHarnessReplayGate)(?=[\s\S]*workflow-harness-run-replay-drill)(?=[\s\S]*workflow-harness-run-replay-gate)(?=[\s\S]*workflow-harness-replay-gate-result)(?=[\s\S]*workflow-harness-promotion-cluster-replay-gate)(?=[\s\S]*workflow-harness-group-replay-gate-proof)(?=[\s\S]*data-replay-divergence-class)(?=[\s\S]*data-activation-gate-impact)(?=[\s\S]*replayDrillBlockers)(?=[\s\S]*replayGateBlockers)(?=[\s\S]*promotionClusterReplayGateBlockers)/,
   "Selected harness replay fixtures should run replay drills and batch replay gates, classify divergence, persist cluster replay gate proofs, surface receipt refs, and feed activation readiness.",

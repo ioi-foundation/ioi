@@ -781,6 +781,12 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
+  /(?=[\s\S]*workflow-harness-active-runtime-binding)(?=[\s\S]*data-binding-matched)(?=[\s\S]*data-selector-decision-id)(?=[\s\S]*data-default-dispatch-id)(?=[\s\S]*workflow-harness-active-runtime-binding-selector-link)(?=[\s\S]*workflow-harness-active-runtime-binding-dispatch-link)(?=[\s\S]*workflow-harness-active-runtime-binding-worker-link)(?=[\s\S]*workflow-harness-active-runtime-binding-rollback-link)(?=[\s\S]*workflow-harness-active-runtime-binding-receipt-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-replay-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-blockers)/,
+  "The harness rail should surface active runtime binding identity with selector, dispatch, worker, rollback, receipt, replay, and blocker deep links.",
+);
+
+assert.match(
+  workflowRailPanel,
   /(?=[\s\S]*data-selected-receipt-ref)(?=[\s\S]*workflow-harness-activation-audit-summary-receipt-\$\{index\})(?=[\s\S]*workflow-harness-activation-audit-receipt-\$\{event\.eventId\}-\$\{index\})(?=[\s\S]*workflow-harness-rollback-drill-receipt-\$\{index\})(?=[\s\S]*workflow-harness-rollback-execution-receipt-\$\{index\})(?=[\s\S]*selectedHarnessReceiptRef === receiptRef)(?=[\s\S]*onSelectHarnessReceiptRef\?\.\(receiptRef\))/,
   "Activation receipt refs should be clickable deep-link controls across audit, drill, and rollback execution panels.",
 );
