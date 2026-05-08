@@ -1,0 +1,245 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-harness.promotion-transition-live-gui-interaction.v1",
+  "passed": true,
+  "method": "launch live Workflows desktop surface, run dev-only harness promotion interaction bridge, verify saved workflow state and screenshot",
+  "checks": {
+    "desktopWindowOpened": true,
+    "proofWorkflowSaved": true,
+    "blockedAttemptPresent": true,
+    "gatedAttemptPromoted": true,
+    "liveAttemptPromoted": true,
+    "clusterPromotedLive": true,
+    "runtimeSelectorDefaultPromoted": true,
+    "liveHandoffTransferred": true,
+    "defaultDispatchBound": true,
+    "activeWorkerBinding": true,
+    "auditRecordedBlockedAndPromoted": true,
+    "screenshotCaptured": true
+  },
+  "proofWorkflowPath": "/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json",
+  "proofWorkflowEvidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-gui-harness-validation/2026-05-08T01-46-47-489Z/promotion-transition-live-gui-workflow.json",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-gui-harness-validation/2026-05-08T01-46-47-489Z/promotion_transition_live_gui_interaction.png",
+  "screenshotError": null,
+  "liveWorkflowError": null,
+  "clusters": [
+    {
+      "clusterId": "cognition",
+      "promotionStatus": "live",
+      "label": "Cognition"
+    },
+    {
+      "clusterId": "routing_model",
+      "promotionStatus": "live",
+      "label": "Routing and model"
+    },
+    {
+      "clusterId": "verification_output",
+      "promotionStatus": "live",
+      "label": "Verification and output"
+    },
+    {
+      "clusterId": "authority_tooling",
+      "promotionStatus": "live",
+      "label": "Authority and tooling"
+    }
+  ],
+  "runtimeSelector": {
+    "decisionId": "harness-selector:default-agent-harness:live-gui-default",
+    "selectedSelector": "blessed_workflow_live_default",
+    "productionDefaultSelector": "blessed_workflow_live_default",
+    "executionMode": "live",
+    "actualRuntimeAuthority": "blessed_workflow_activation_default",
+    "rollbackAvailable": true
+  },
+  "liveHandoff": {
+    "selector": "blessed_workflow_live_default",
+    "productionDefaultSelector": "blessed_workflow_live_default",
+    "defaultAuthorityTransferred": true,
+    "runtimeAuthority": "blessed_workflow_activation_default",
+    "rollbackAvailable": true,
+    "activationBlockerCount": 0
+  },
+  "defaultDispatch": {
+    "dispatchId": "harness-default-dispatch:default-agent-harness:readonly",
+    "selectedSelector": "blessed_workflow_live_default",
+    "productionDefaultSelector": "blessed_workflow_live_default",
+    "executionMode": "live",
+    "runtimeAuthority": "blessed_workflow_activation_default",
+    "acceptedClusterIds": [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling"
+    ]
+  },
+  "attempts": [
+    {
+      "clusterId": "cognition",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "routing_model",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "verification_output",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "authority_tooling",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_readiness_below_shadow_ready",
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "clusterId": "cognition",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "routing_model",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 4,
+      "replayFixtureRefCount": 4
+    },
+    {
+      "clusterId": "verification_output",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "authority_tooling",
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 9,
+      "replayFixtureRefCount": 9
+    },
+    {
+      "clusterId": "cognition",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "routing_model",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 4,
+      "replayFixtureRefCount": 4
+    },
+    {
+      "clusterId": "verification_output",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "clusterId": "authority_tooling",
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 9,
+      "replayFixtureRefCount": 9
+    }
+  ],
+  "uiSelectors": {
+    "groupInspector": "workflow-harness-group-inspector",
+    "promotionActions": "workflow-harness-group-promotion-actions",
+    "promoteClusterGated": "workflow-harness-promote-cluster-gated",
+    "promoteClusterLive": "workflow-harness-promote-cluster-live",
+    "promotionAttempt": "workflow-harness-group-promotion-attempt",
+    "runtimeSelectorBadge": "workflow-harness-runtime-selector",
+    "defaultDispatchPanel": "workflow-harness-default-runtime-dispatch"
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/WorkflowComposer/support.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+    "packages/agent-ide/src/runtime/harness-workflow.ts"
+  ]
+}
