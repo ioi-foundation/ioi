@@ -67,6 +67,7 @@ import type {
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
   WorkflowHarnessActivationIdGateClickProof,
+  WorkflowHarnessPackageImportReviewProof,
   WorkflowHarnessPackageEvidenceGateClickProof,
   WorkflowHarnessPackageEvidenceImportRoundTripProof,
   WorkflowHarnessComponentKind,
@@ -88,6 +89,7 @@ import type {
   WorkflowDogfoodRun,
   WorkflowNodeFixture,
   WorkflowNodeRun,
+  WorkflowPackageImportReview,
   WorkflowPortablePackage,
   WorkflowResumeRequest,
   WorkflowRunResult,
@@ -98,6 +100,7 @@ import type {
   WorkflowTestRunResult,
   WorkflowValidationIssue,
   WorkflowValidationResult,
+  WorkflowWorkbenchBundle,
   WorkflowWorkbenchTab,
 } from "../types/graph";
 import {
@@ -1061,6 +1064,135 @@ function readHarnessPackageEvidenceMissingRows(): string[] {
     .map(([rowId]) => rowId);
 }
 
+function readHarnessPackageImportReviewState(): Record<string, string> {
+  if (typeof document === "undefined") return {};
+  const review = document.querySelector<HTMLElement>(
+    '[data-testid="workflow-harness-package-import-review"]',
+  );
+  if (!review) return {};
+  return Object.fromEntries(
+    [
+      "data-package-import-review-open",
+      "data-package-import-source-workflow-path",
+      "data-package-import-source-workflow-id",
+      "data-package-import-source-activation-id",
+      "data-package-import-imported-workflow-path",
+      "data-package-import-imported-workflow-id",
+      "data-package-import-readiness-status",
+      "data-package-import-evidence-ready",
+      "data-package-import-evidence-blocker-count",
+      "data-package-import-activation-enabled",
+    ].map((name) => [name, review.getAttribute(name) ?? ""]),
+  );
+}
+
+function workflowPackageImportMissingRows(options: {
+  manifestPresent: boolean;
+  receiptRefCount: number;
+  replayFixtureRefCount: number;
+  rollbackRestoreReceiptRefCount: number;
+  workerHandoffNodeAttemptCount: number;
+  workerHandoffReceiptCount: number;
+  deepLinkCount: number;
+}): string[] {
+  const missing: string[] = [];
+  if (!options.manifestPresent) missing.push("manifest");
+  if (options.receiptRefCount <= 0) missing.push("receipts");
+  if (options.replayFixtureRefCount <= 0) missing.push("replay-fixtures");
+  if (options.rollbackRestoreReceiptRefCount <= 0) {
+    missing.push("rollback-restore");
+  }
+  if (options.workerHandoffNodeAttemptCount <= 0) {
+    missing.push("worker-handoff-attempts");
+  }
+  if (options.workerHandoffReceiptCount <= 0) {
+    missing.push("worker-handoff-receipts");
+  }
+  if (options.deepLinkCount <= 0) missing.push("deep-links");
+  return missing;
+}
+
+function createWorkflowPackageImportReview(options: {
+  bundle: WorkflowWorkbenchBundle;
+  packagePath: string;
+  projectRoot: string;
+  readinessStatus: WorkflowValidationResult["status"] | null;
+  importedAtMs: number;
+}): WorkflowPackageImportReview {
+  const portableManifest = options.bundle.importedPackage?.manifest ?? null;
+  const harnessPackageManifest =
+    portableManifest?.harnessPackageManifest ??
+    options.bundle.workflow.metadata.harness?.packageManifest ??
+    options.bundle.workflow.metadata.harness?.activationRecord?.packageManifest ??
+    null;
+  const evidenceRefCount = harnessPackageManifest?.evidenceRefs?.length ?? 0;
+  const receiptRefCount = harnessPackageManifest?.receiptRefs?.length ?? 0;
+  const replayFixtureRefCount =
+    harnessPackageManifest?.replayFixtureRefs?.length ?? 0;
+  const rollbackRestoreReceiptRefCount =
+    harnessPackageManifest?.rollbackRestoreReceiptRefs?.length ?? 0;
+  const workerHandoffNodeAttemptCount =
+    harnessPackageManifest?.workerHandoffNodeAttemptIds?.length ?? 0;
+  const workerHandoffReceiptCount =
+    harnessPackageManifest?.workerHandoffReceiptIds?.length ?? 0;
+  const deepLinkCount = harnessPackageManifest?.deepLinks?.length ?? 0;
+  const manifestPresent =
+    harnessPackageManifest?.schemaVersion ===
+    "workflow.harness.package-evidence-manifest.v1";
+  const missingRows = workflowPackageImportMissingRows({
+    manifestPresent,
+    receiptRefCount,
+    replayFixtureRefCount,
+    rollbackRestoreReceiptRefCount,
+    workerHandoffNodeAttemptCount,
+    workerHandoffReceiptCount,
+    deepLinkCount,
+  });
+  return {
+    schemaVersion: "workflow.package-import-review.v1",
+    packagePath: options.bundle.importedPackage?.packagePath ?? options.packagePath,
+    manifestPath: options.bundle.importedPackage?.manifestPath ?? null,
+    importedAtMs: options.importedAtMs,
+    source: {
+      workflowName:
+        portableManifest?.workflowName ?? harnessPackageManifest?.packageName ?? null,
+      workflowSlug: portableManifest?.workflowSlug ?? null,
+      workflowId: harnessPackageManifest?.workflowId ?? null,
+      sourceWorkflowPath: portableManifest?.sourceWorkflowPath ?? null,
+      workflowContentHash: harnessPackageManifest?.workflowContentHash ?? null,
+      activationId: harnessPackageManifest?.activationId ?? null,
+      harnessWorkflowId: harnessPackageManifest?.harnessWorkflowId ?? null,
+      rollbackTarget: harnessPackageManifest?.rollbackTarget ?? null,
+      portable: portableManifest?.portable ?? missingRows.length === 0,
+      readinessStatus: portableManifest?.readinessStatus ?? null,
+      fileCount: portableManifest?.files?.length ?? 0,
+      blockerCount: portableManifest?.blockers?.length ?? 0,
+    },
+    imported: {
+      workflowId: options.bundle.workflow.metadata.id,
+      workflowName: options.bundle.workflow.metadata.name,
+      workflowSlug: options.bundle.workflow.metadata.slug,
+      workflowPath: options.bundle.workflowPath,
+      testsPath: options.bundle.testsPath,
+      projectRoot: options.projectRoot,
+      activationReadinessStatus: options.readinessStatus,
+    },
+    evidence: {
+      harnessPackageManifestPresent: manifestPresent,
+      packageEvidenceReady: missingRows.length === 0,
+      blockerCount: missingRows.length,
+      evidenceRefCount,
+      receiptRefCount,
+      replayFixtureRefCount,
+      rollbackRestoreReceiptRefCount,
+      workerHandoffNodeAttemptCount,
+      workerHandoffReceiptCount,
+      deepLinkCount,
+      missingRows,
+    },
+  };
+}
+
 function readWorkflowRightRailTestId(): string | null {
   if (typeof document === "undefined") return null;
   return (
@@ -1643,6 +1775,8 @@ export function useWorkflowComposerController({
   const [dogfoodRun, setDogfoodRun] = useState<WorkflowDogfoodRun | null>(null);
   const [portablePackage, setPortablePackage] =
     useState<WorkflowPortablePackage | null>(null);
+  const [packageImportReview, setPackageImportReview] =
+    useState<WorkflowPackageImportReview | null>(null);
   const [bindingManifest, setBindingManifest] =
     useState<WorkflowBindingManifest | null>(null);
   const [importPackageOpen, setImportPackageOpen] = useState(false);
@@ -2085,6 +2219,7 @@ export function useWorkflowComposerController({
       setSelectedHarnessActivationGateReceiptRef(null);
       setSelectedHarnessActivationGateReplayFixtureRef(null);
       setHarnessActivationCandidate(null);
+      setPackageImportReview(null);
       restoredHarnessDeepLinkWorkflowRef.current = null;
       replaceGraph(next);
       requestAnimationFrame(() => fitView({ padding: 0.22 }));
@@ -3453,7 +3588,10 @@ export function useWorkflowComposerController({
   const runHarnessPackageEvidenceImportRoundTripProbe = useCallback(
     async (
       generatedAtMs: number,
-    ): Promise<WorkflowHarnessPackageEvidenceImportRoundTripProof> => {
+    ): Promise<{
+      packageEvidenceImportRoundTripProof: WorkflowHarnessPackageEvidenceImportRoundTripProof;
+      packageImportReviewProof: WorkflowHarnessPackageImportReviewProof;
+    }> => {
       const selectedRailTestId = "workflow-harness-activation-gate-inspector";
       const projectRoot = currentProject?.rootPath || ".";
       const sourceRoot = `${projectRoot}/target/harness-package-roundtrip-source-${generatedAtMs}`;
@@ -3490,6 +3628,33 @@ export function useWorkflowComposerController({
       let exportedPackagePath: string | null = null;
       let exportedManifestPath: string | null = null;
       let importedWorkflowPath: string | null = null;
+      let packageImportReviewProof: WorkflowHarnessPackageImportReviewProof = {
+        schemaVersion: "workflow.harness.package-import-review-proof.v1",
+        method:
+          "same-session Workflows bridge imports a portable harness package and opens source/import package evidence review before activation",
+        generatedAtMs,
+        review: null,
+        railState: {},
+        gateId: null,
+        activationAction: {
+          valid: {
+            present: false,
+            disabled: true,
+            evidenceReady: false,
+            blockerCount: 0,
+          },
+          incomplete: {
+            present: false,
+            disabled: true,
+            evidenceReady: false,
+            blockerCount: 0,
+          },
+        },
+        sourceWorkflowPath: null,
+        importedWorkflowPath: null,
+        passed: false,
+        blockers: ["package_import_review_not_exercised"],
+      };
       let validImport: WorkflowHarnessPackageEvidenceImportRoundTripProof["validImport"] =
         {
           workflowId: null,
@@ -3621,6 +3786,19 @@ export function useWorkflowComposerController({
         await nextHarnessWorkbenchFrame();
         await nextHarnessWorkbenchFrame();
         return true;
+      };
+      const readImportActivationAction = (
+        review: WorkflowPackageImportReview | null,
+      ) => {
+        const button = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-package-import-activate"]',
+        );
+        return {
+          present: Boolean(button),
+          disabled: button?.disabled ?? true,
+          evidenceReady: review?.evidence.packageEvidenceReady ?? false,
+          blockerCount: review?.evidence.blockerCount ?? 0,
+        };
       };
       const exercisePackageEvidenceReview = async (
         manifest:
@@ -3796,6 +3974,15 @@ export function useWorkflowComposerController({
         loadWorkflowProject(importedBundle.workflow);
         setValidationResult(importedValidation);
         setReadinessResult(importedReadiness);
+        setPortablePackage(importedBundle.importedPackage ?? null);
+        const validImportReview = createWorkflowPackageImportReview({
+          bundle: importedBundle,
+          packagePath: exported.packagePath,
+          projectRoot: importRoot,
+          readinessStatus: importedReadiness.status,
+          importedAtMs: generatedAtMs + 60,
+        });
+        setPackageImportReview(validImportReview);
         setHarnessActivationCandidate(null);
         setRightPanel("settings");
         setBottomPanel("selection");
@@ -3815,6 +4002,10 @@ export function useWorkflowComposerController({
           activationReadinessStatus: importedReadiness.status,
           ...validReview,
         };
+        await restorePackageGate();
+        const validImportReviewState = readHarnessPackageImportReviewState();
+        const validImportActivationAction =
+          readImportActivationAction(validImportReview);
 
         const incompleteWorkflow: WorkflowProject = JSON.parse(
           JSON.stringify(importedBundle.workflow),
@@ -3854,13 +4045,36 @@ export function useWorkflowComposerController({
           importedBundle.proposals,
           [],
         );
+        const incompleteBundle = {
+          ...importedBundle,
+          workflow: incompleteWorkflow,
+          importedPackage: importedBundle.importedPackage
+            ? {
+                ...importedBundle.importedPackage,
+                manifest: {
+                  ...importedBundle.importedPackage.manifest,
+                  harnessPackageManifest: incompleteManifest ?? undefined,
+                },
+              }
+            : importedBundle.importedPackage,
+        };
+        const incompleteImportReview = createWorkflowPackageImportReview({
+          bundle: incompleteBundle,
+          packagePath: exported.packagePath,
+          projectRoot: importRoot,
+          readinessStatus: incompleteReadiness.status,
+          importedAtMs: generatedAtMs + 70,
+        });
         loadWorkflowProject(incompleteWorkflow);
         setValidationResult(incompleteValidation);
         setReadinessResult(incompleteReadiness);
+        setPackageImportReview(incompleteImportReview);
         setRightPanel("settings");
         setBottomPanel("selection");
         await nextHarnessWorkbenchFrame();
         await restorePackageGate();
+        const incompleteImportActivationAction =
+          readImportActivationAction(incompleteImportReview);
         const incompleteReviewState = readHarnessPackageEvidenceReviewState();
         const incompleteRowStatuses = readHarnessPackageEvidenceRowStatuses();
         const readinessBlockerCodes = [
@@ -3880,10 +4094,74 @@ export function useWorkflowComposerController({
           rowStatuses: incompleteRowStatuses,
           missingRows: readHarnessPackageEvidenceMissingRows(),
         };
+        const packageImportReviewBlockers: string[] = [];
+        if (
+          validImportReviewState["data-package-import-review-open"] !== "true"
+        ) {
+          packageImportReviewBlockers.push("package_import_review_not_open");
+        }
+        if (
+          validImportReviewState["data-package-import-source-workflow-path"] !==
+          (validImportReview.source.sourceWorkflowPath ?? "")
+        ) {
+          packageImportReviewBlockers.push("package_import_source_path_mismatch");
+        }
+        if (
+          validImportReviewState["data-package-import-imported-workflow-path"] !==
+          validImportReview.imported.workflowPath
+        ) {
+          packageImportReviewBlockers.push(
+            "package_import_imported_path_mismatch",
+          );
+        }
+        if (!validImportReview.evidence.packageEvidenceReady) {
+          packageImportReviewBlockers.push(
+            "package_import_valid_evidence_not_ready",
+          );
+        }
+        if (validImportActivationAction.disabled) {
+          packageImportReviewBlockers.push(
+            "package_import_valid_activation_disabled",
+          );
+        }
+        if (!incompleteImportActivationAction.disabled) {
+          packageImportReviewBlockers.push(
+            "package_import_incomplete_activation_enabled",
+          );
+        }
+        if (incompleteImportReview.evidence.packageEvidenceReady) {
+          packageImportReviewBlockers.push(
+            "package_import_incomplete_evidence_ready",
+          );
+        }
+        packageImportReviewProof = {
+          schemaVersion: "workflow.harness.package-import-review-proof.v1",
+          method:
+            "same-session Workflows bridge imports a portable harness package, opens source/import package evidence review, and proves activation is gated by package evidence",
+          generatedAtMs,
+          review: validImportReview,
+          railState: validImportReviewState,
+          gateId: validReview.gateId,
+          activationAction: {
+            valid: validImportActivationAction,
+            incomplete: incompleteImportActivationAction,
+          },
+          sourceWorkflowPath: validImportReview.source.sourceWorkflowPath,
+          importedWorkflowPath: validImportReview.imported.workflowPath,
+          passed: packageImportReviewBlockers.length === 0,
+          blockers: packageImportReviewBlockers,
+        };
       } catch (error) {
         blockers.push(
           `package_evidence_import_roundtrip_failed:${errorMessage(error)}`,
         );
+        packageImportReviewProof = {
+          ...packageImportReviewProof,
+          blockers: [
+            ...packageImportReviewProof.blockers,
+            `package_import_review_failed:${errorMessage(error)}`,
+          ],
+        };
       } finally {
         writeHarnessWorkbenchDeepLink(originalHash);
       }
@@ -3983,18 +4261,21 @@ export function useWorkflowComposerController({
       });
 
       return {
-        schemaVersion:
-          "workflow.harness.package-evidence-import-roundtrip-proof.v1",
-        method:
-          "same-session Workflows bridge saves a validated harness fork, exports a portable package, imports it into a fresh target root, clicks package-evidence refs, and verifies incomplete imported package blockers",
-        generatedAtMs,
-        exportedPackagePath,
-        exportedManifestPath,
-        importedWorkflowPath,
-        validImport,
-        incompleteImport,
-        passed: blockers.length === 0,
-        blockers,
+        packageEvidenceImportRoundTripProof: {
+          schemaVersion:
+            "workflow.harness.package-evidence-import-roundtrip-proof.v1",
+          method:
+            "same-session Workflows bridge saves a validated harness fork, exports a portable package, imports it into a fresh target root, clicks package-evidence refs, and verifies incomplete imported package blockers",
+          generatedAtMs,
+          exportedPackagePath,
+          exportedManifestPath,
+          importedWorkflowPath,
+          validImport,
+          incompleteImport,
+          passed: blockers.length === 0,
+          blockers,
+        },
+        packageImportReviewProof,
       };
     },
     [
@@ -7056,20 +7337,52 @@ export function useWorkflowComposerController({
     };
     try {
       const bundle = await runtime.importWorkflowPackage(request);
+      const importedFixtures = runtime.listWorkflowNodeFixtures
+        ? await runtime.listWorkflowNodeFixtures(bundle.workflowPath)
+        : [];
+      const validation = validateWorkflowProject(bundle.workflow, bundle.tests);
+      const readiness = evaluateWorkflowActivationReadiness(
+        bundle.workflow,
+        bundle.tests,
+        validation,
+        bundle.proposals,
+        importedFixtures,
+      );
+      const review = createWorkflowPackageImportReview({
+        bundle,
+        packagePath,
+        projectRoot: request.projectRoot,
+        readinessStatus: readiness.status,
+        importedAtMs: Date.now(),
+      });
       setWorkflowPath(bundle.workflowPath);
       setTestsPath(bundle.testsPath);
       setTests(bundle.tests);
       setProposals(bundle.proposals);
       setRuns(bundle.runs);
       clearRunState();
-      setValidationResult(null);
-      setReadinessResult(null);
-      setPortablePackage(null);
       loadWorkflowProject(bundle.workflow);
+      setValidationResult(validation);
+      setReadinessResult(readiness);
+      setNodeFixturesById(groupFixturesByNodeId(importedFixtures));
+      setPortablePackage(bundle.importedPackage ?? null);
+      setPackageImportReview(review);
       await loadRuntimeSidecars(bundle.workflowPath);
-      setRightPanel("files");
+      setSelectedHarnessActivationGateId("package-evidence");
+      setSelectedHarnessActivationGateEvidenceRef(null);
+      setSelectedHarnessActivationGateNodeAttemptId(null);
+      setSelectedHarnessActivationGateReceiptRef(null);
+      setSelectedHarnessActivationGateReplayFixtureRef(null);
+      setRightPanel("settings");
+      setBottomPanel("selection");
       setImportPackageOpen(false);
-      setStatusMessage("Package imported");
+      setStatusMessage(
+        review.evidence.packageEvidenceReady
+          ? "Package imported for activation review"
+          : `Package imported with ${review.evidence.blockerCount} package evidence blocker${
+              review.evidence.blockerCount === 1 ? "" : "s"
+            }`,
+      );
     } catch (error) {
       setStatusMessage(`Package import failed: ${errorMessage(error)}`);
     }
@@ -8129,7 +8442,10 @@ export function useWorkflowComposerController({
         );
       const packageEvidenceGateClickProof =
         await runHarnessPackageEvidenceGateClickProbe(nowMs + 132);
-      const packageEvidenceImportRoundTripProof =
+      const {
+        packageEvidenceImportRoundTripProof,
+        packageImportReviewProof,
+      } =
         await runHarnessPackageEvidenceImportRoundTripProbe(nowMs + 134);
       const activationGateCollectEvidenceClickProof =
         await runHarnessActivationGateCollectEvidenceClickProbe(nowMs + 135);
@@ -8197,6 +8513,7 @@ export function useWorkflowComposerController({
             activationGateActionClickProof,
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
+            packageImportReviewProof,
             activationGateCollectEvidenceClickProof,
             activationGateRollbackRestoreClickProof,
             activationIdGateClickProof,
@@ -8259,6 +8576,13 @@ export function useWorkflowComposerController({
           packageEvidenceImportRoundTripProof.passed,
         packageEvidenceImportRoundTripMissingRows:
           packageEvidenceImportRoundTripProof.incompleteImport.missingRows,
+        packageImportReviewPassed: packageImportReviewProof.passed,
+        packageImportReviewSourcePath:
+          packageImportReviewProof.sourceWorkflowPath,
+        packageImportReviewImportedPath:
+          packageImportReviewProof.importedWorkflowPath,
+        packageImportReviewActivationDisabledWhenIncomplete:
+          packageImportReviewProof.activationAction.incomplete.disabled,
         activationGateCollectEvidenceClickPassed:
           activationGateCollectEvidenceClickProof.passed,
         activationGateCollectEvidenceCommand:
@@ -8559,6 +8883,7 @@ export function useWorkflowComposerController({
     PanelRightOpen,
     Play,
     Plus,
+    packageImportReview,
     portablePackage,
     proposalBoundedTargetCount,
     ProposalPreviewModal,

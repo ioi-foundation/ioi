@@ -166,6 +166,7 @@ fn load_workflow_bundle_from_path(workflow_path: &Path) -> Result<WorkflowWorkbe
         tests,
         proposals,
         runs,
+        imported_package: None,
     })
 }
 

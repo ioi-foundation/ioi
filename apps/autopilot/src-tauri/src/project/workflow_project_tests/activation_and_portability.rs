@@ -635,8 +635,9 @@ fn workflow_portable_package_exports_and_imports_bundle_sidecars() {
         .all(|file| file.sha256.len() == 64));
 
     let import_root = temp_root("portable-package-import");
+    let package_path = package.package_path.clone();
     let imported = import_workflow_package(ImportWorkflowPackageRequest {
-        package_path: package.package_path,
+        package_path: package_path.clone(),
         project_root: import_root.display().to_string(),
         name: Some("Imported Media Transform".to_string()),
     })
@@ -655,6 +656,19 @@ fn workflow_portable_package_exports_and_imports_bundle_sidecars() {
     assert_eq!(
         imported_binding_manifest.workflow_slug,
         "imported-media-transform"
+    );
+    let imported_package = imported
+        .imported_package
+        .as_ref()
+        .expect("imported package manifest should round-trip to workbench");
+    assert_eq!(imported_package.package_path, package_path);
+    assert_eq!(
+        imported_package.imported_workflow_path.as_deref(),
+        Some(imported.workflow_path.as_str())
+    );
+    assert_eq!(
+        imported_package.manifest.source_workflow_path,
+        bundle.workflow_path
     );
     let evidence = list_workflow_evidence(imported.workflow_path).expect("evidence should load");
     assert!(evidence.iter().any(|item| item.kind == "package"));
@@ -799,12 +813,27 @@ fn workflow_portable_package_preserves_harness_lineage_metadata() {
         .exists());
 
     let import_root = temp_root("portable-harness-import");
+    let package_path = package.package_path.clone();
     let imported = import_workflow_package(ImportWorkflowPackageRequest {
-        package_path: package.package_path,
+        package_path: package_path.clone(),
         project_root: import_root.display().to_string(),
         name: Some("Imported Harness Fork".to_string()),
     })
     .expect("harness package should import");
+    let imported_package = imported
+        .imported_package
+        .as_ref()
+        .expect("harness package manifest should be returned for import review");
+    assert_eq!(imported_package.package_path, package_path);
+    assert_eq!(
+        imported_package
+            .manifest
+            .harness_package_manifest
+            .as_ref()
+            .and_then(|value| value.get("schemaVersion"))
+            .and_then(Value::as_str),
+        Some("workflow.harness.package-evidence-manifest.v1")
+    );
     assert_eq!(
         imported
             .workflow

@@ -71,6 +71,7 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(contract.requiredArtifacts.includes("harness_package_evidence_gate"));
   assert.ok(contract.requiredArtifacts.includes("harness_package_evidence_gate_click_proof"));
   assert.ok(contract.requiredArtifacts.includes("harness_package_evidence_import_roundtrip"));
+  assert.ok(contract.requiredArtifacts.includes("harness_package_import_review_mode"));
   assert.ok(contract.requiredArtifacts.includes("harness_promotion_transition_gui_behavior"));
   assert.ok(
     contract.requiredArtifacts.includes(
@@ -192,6 +193,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
       "harness_package_evidence_import_roundtrip_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_package_import_review_mode_present",
     ),
   );
   assert.ok(

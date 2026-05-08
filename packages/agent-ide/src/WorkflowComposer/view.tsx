@@ -145,6 +145,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     PanelRightOpen,
     Play,
     Plus,
+    packageImportReview,
     portablePackage,
     proposalBoundedTargetCount,
     ProposalPreviewModal,
@@ -1327,6 +1328,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     compareRunId={compareRunId}
                     runEvents={runEvents}
                     dogfoodRun={dogfoodRun}
+                    packageImportReview={packageImportReview}
                     portablePackage={portablePackage}
                     bindingManifest={bindingManifest}
                     selectedNodeFixtures={selectedFixtures}

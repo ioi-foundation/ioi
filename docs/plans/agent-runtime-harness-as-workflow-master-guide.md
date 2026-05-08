@@ -102,13 +102,13 @@ verification/output adapter proof, gated authority/tooling adapter proof, fork
 activation handoff timeline proof, fork handoff deep-link proof,
 canary/rollback route-state proof, fork package evidence manifest proof,
 package evidence activation gate proof, and live package-evidence click-through
-proof, plus package evidence export/import round-trip proof, have a green
-end-to-end checkpoint:
+proof, package evidence export/import round-trip proof, and user-facing import
+review mode proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T22-14-36-970Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T22-40-31-318Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-20-45-009Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-46-52-663Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -159,7 +159,11 @@ and deep-links to preserved receipt, replay, worker handoff, and package proof
 refs. The GUI proof also exports a validated fork package, imports it into a
 fresh root, verifies the imported package-evidence gate remains ready, then
 loads an intentionally incomplete imported package state and proves actionable
-missing rows plus `harness_package_manifest_incomplete`.
+missing rows plus `harness_package_manifest_incomplete`. Imported packages now
+open into a source/import package review surface, return the portable manifest
+from the Tauri import API, and expose activation only when package evidence is
+green; the retained GUI evidence marks
+`harness_package_import_review_mode_present: true`.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -1038,10 +1042,47 @@ Portable package evidence now survives real GUI-driven export/import:
 
 This changes portable package evidence from "present in a sidecar" to "proven
 portable across real export/import and failure-explainable when incomplete."
-The next chronological slice should turn this into a user-facing import review
-mode: imported fork packages should open directly into package evidence review,
-show side-by-side source/import identity, and offer activation only after the
-round-trip package evidence gate passes.
+
+### 2026-05-08 Package Import Review Mode Slice
+
+Imported harness fork packages now open into a real review mode instead of
+landing as a generic file import:
+
+- `import_workflow_package` returns the imported `WorkflowPortablePackage`
+  alongside the loaded workbench bundle, including `manifest.json`, source
+  workflow path, file count, portable status, harness package manifest, and the
+  imported workflow path.
+- The Workflow Composer creates a `workflow.package-import-review.v1` state model
+  after import, evaluates activation readiness immediately, and focuses the
+  `package-evidence` gate in the right rail.
+- The package-evidence inspector renders
+  `workflow-harness-package-import-review` with source workflow identity,
+  imported workflow identity, package evidence readiness, blocker count, and a
+  guarded `workflow-harness-package-import-activate` action.
+- The activation action is enabled only for a valid imported package with green
+  package evidence and disabled for intentionally incomplete imported package
+  evidence.
+- The live GUI proof records
+  `workflow.harness.package-import-review-proof.v1`; the valid import action has
+  `present: true`, `disabled: false`, `evidenceReady: true`, and zero blockers,
+  while the incomplete import action has `present: true`, `disabled: true`,
+  `evidenceReady: false`, and six blockers.
+- The retained GUI contract now requires
+  `harness_package_import_review_mode`, and runtime consistency requires
+  `harness_package_import_review_mode_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T22-40-31-318Z/`;
+  all eight retained queries passed and
+  `promotion-transition-live-gui-interaction-proof.json` reports
+  `packageImportReviewProof.passed: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-46-52-663Z/dashboard-index.json`.
+
+This completes the first user-facing package import loop: package evidence is
+portable, reviewable, and activation-gated in the GUI. The next chronological
+slice should connect reviewed imports to a clearer activation handoff: show the
+candidate activation id, canary status, rollback target, and worker binding that
+will be minted from the reviewed imported fork before the user commits it.
 
 ## Current State
 

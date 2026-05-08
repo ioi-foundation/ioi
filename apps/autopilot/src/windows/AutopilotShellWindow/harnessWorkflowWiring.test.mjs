@@ -220,9 +220,9 @@ assert.match(
 );
 
 assert.match(
-  `${graphTypes}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
-  /(?=[\s\S]*WorkflowHarnessPackageEvidenceImportRoundTripProof)(?=[\s\S]*runHarnessPackageEvidenceImportRoundTripProbe)(?=[\s\S]*packageEvidenceImportRoundTripProof)(?=[\s\S]*exportWorkflowPackage)(?=[\s\S]*importWorkflowPackage)(?=[\s\S]*packageEvidenceImportRoundTripPassed)(?=[\s\S]*packageEvidenceImportRoundTripMissingRows)(?=[\s\S]*harness_package_evidence_import_roundtrip)(?=[\s\S]*harness_package_evidence_import_roundtrip_present)/,
-  "Package evidence should prove export/import round-trip preservation and incomplete imported-package blockers in retained GUI evidence.",
+  `${graphTypes}\n${workflowRailPanel}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceImportRoundTripProof)(?=[\s\S]*WorkflowHarnessPackageImportReviewProof)(?=[\s\S]*WorkflowPackageImportReview)(?=[\s\S]*runHarnessPackageEvidenceImportRoundTripProbe)(?=[\s\S]*packageEvidenceImportRoundTripProof)(?=[\s\S]*packageImportReviewProof)(?=[\s\S]*exportWorkflowPackage)(?=[\s\S]*importWorkflowPackage)(?=[\s\S]*workflow-harness-package-import-review)(?=[\s\S]*workflow-harness-package-import-activate)(?=[\s\S]*data-package-import-source-workflow-path)(?=[\s\S]*data-package-import-imported-workflow-path)(?=[\s\S]*packageEvidenceImportRoundTripPassed)(?=[\s\S]*packageImportReviewPassed)(?=[\s\S]*harness_package_evidence_import_roundtrip)(?=[\s\S]*harness_package_import_review_mode)(?=[\s\S]*harness_package_import_review_mode_present)/,
+  "Package evidence should prove export/import round-trip preservation and open imported packages into source/import activation review.",
 );
 
 assert.match(

@@ -13,6 +13,7 @@ import type {
   WorkflowHarnessGroupView,
   WorkflowHarnessPromotionTransitionTarget,
   WorkflowNodeFixture,
+  WorkflowPackageImportReview,
   WorkflowPortablePackage,
   WorkflowProject,
   WorkflowProposal,
@@ -277,6 +278,7 @@ export function WorkflowRailPanel({
   compareRunId,
   runEvents,
   dogfoodRun,
+  packageImportReview,
   portablePackage,
   bindingManifest,
   selectedNodeFixtures,
@@ -349,6 +351,7 @@ export function WorkflowRailPanel({
   compareRunId: string | null;
   runEvents: WorkflowStreamEvent[];
   dogfoodRun: WorkflowDogfoodRun | null;
+  packageImportReview: WorkflowPackageImportReview | null;
   portablePackage: WorkflowPortablePackage | null;
   bindingManifest: WorkflowBindingManifest | null;
   selectedNodeFixtures: WorkflowNodeFixture[];
@@ -1474,6 +1477,12 @@ export function WorkflowRailPanel({
   ];
   const harnessPackageEvidenceBlockerCount =
     harnessPackageEvidenceReviewRows.filter((row) => !row.ready).length;
+  const packageImportActivationEnabled =
+    Boolean(packageImportReview) &&
+    harnessPackageEvidenceReady &&
+    harnessPackageEvidenceBlockerCount === 0 &&
+    readinessResult?.status !== "blocked" &&
+    Boolean(onApplyHarnessActivationCandidate);
   const replayFixtureBlockers = harnessActivationBlockers.filter(
     (issue) => issue.code === "missing_replay_fixture",
   );
@@ -5239,6 +5248,103 @@ export function WorkflowRailPanel({
                           harnessPackageDeepLinks.length
                         }
                       >
+                        {packageImportReview ? (
+                          <article
+                            className={`workflow-test-row is-${
+                              packageImportReview.evidence.packageEvidenceReady
+                                ? "passed"
+                                : "blocked"
+                            }`}
+                            data-testid="workflow-harness-package-import-review"
+                            data-package-import-review-open="true"
+                            data-package-import-source-workflow-path={
+                              packageImportReview.source.sourceWorkflowPath ?? ""
+                            }
+                            data-package-import-source-workflow-id={
+                              packageImportReview.source.workflowId ?? ""
+                            }
+                            data-package-import-source-activation-id={
+                              packageImportReview.source.activationId ?? ""
+                            }
+                            data-package-import-imported-workflow-path={
+                              packageImportReview.imported.workflowPath
+                            }
+                            data-package-import-imported-workflow-id={
+                              packageImportReview.imported.workflowId
+                            }
+                            data-package-import-readiness-status={
+                              packageImportReview.imported
+                                .activationReadinessStatus ?? ""
+                            }
+                            data-package-import-evidence-ready={
+                              packageImportReview.evidence.packageEvidenceReady
+                                ? "true"
+                                : "false"
+                            }
+                            data-package-import-evidence-blocker-count={
+                              packageImportReview.evidence.blockerCount
+                            }
+                            data-package-import-activation-enabled={
+                              packageImportActivationEnabled ? "true" : "false"
+                            }
+                          >
+                            <strong>Import review</strong>
+                            <span>
+                              {packageImportReview.source.workflowName ??
+                                packageImportReview.source.workflowId ??
+                                "source package"}{" "}
+                              to {packageImportReview.imported.workflowName}
+                            </span>
+                            <small>
+                              {packageImportReview.evidence.packageEvidenceReady
+                                ? "package evidence ready for activation"
+                                : `${packageImportReview.evidence.blockerCount} package evidence blocker${
+                                    packageImportReview.evidence.blockerCount ===
+                                    1
+                                      ? ""
+                                      : "s"
+                                  }`}
+                            </small>
+                            <div
+                              className="workflow-harness-authority-gate-actions"
+                              data-testid="workflow-harness-package-import-identity"
+                            >
+                              <div>
+                                <strong>Source</strong>
+                                <span>
+                                  {packageImportReview.source.workflowSlug ??
+                                    packageImportReview.source.workflowId ??
+                                    "unknown"}
+                                </span>
+                                <small>
+                                  {packageImportReview.source.sourceWorkflowPath ??
+                                    packageImportReview.packagePath}
+                                </small>
+                              </div>
+                              <div>
+                                <strong>Imported</strong>
+                                <span>
+                                  {packageImportReview.imported.workflowSlug}
+                                </span>
+                                <small>
+                                  {packageImportReview.imported.workflowPath}
+                                </small>
+                              </div>
+                            </div>
+                            <div className="workflow-harness-authority-gate-actions">
+                              <button
+                                type="button"
+                                data-testid="workflow-harness-package-import-activate"
+                                disabled={!packageImportActivationEnabled}
+                                onClick={onApplyHarnessActivationCandidate}
+                              >
+                                {packageImportActivationEnabled
+                                  ? "Activate reviewed import"
+                                  : "Activation locked"}
+                              </button>
+                            </div>
+                          </article>
+                        ) : null}
                         <h4>Package evidence</h4>
                         {harnessPackageEvidenceReviewRows.map((row) => {
                           const rowRefs = workflowUniqueReceiptRefs(row.refs);

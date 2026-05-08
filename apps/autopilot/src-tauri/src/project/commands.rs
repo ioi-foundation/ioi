@@ -185,6 +185,7 @@ pub fn create_workflow_project(
         tests,
         proposals: Vec::new(),
         runs: Vec::new(),
+        imported_package: None,
     })
 }
 
@@ -688,6 +689,7 @@ pub fn restore_workflow_revision(
                 tests: Vec::new(),
                 proposals: Vec::new(),
                 runs: Vec::new(),
+                imported_package: None,
             }),
         });
     }
@@ -717,6 +719,7 @@ pub fn restore_workflow_revision(
                 tests: Vec::new(),
                 proposals: Vec::new(),
                 runs: Vec::new(),
+                imported_package: None,
             }),
         });
     }
@@ -2297,7 +2300,14 @@ pub fn import_workflow_package(
             path: Some(package_dir.display().to_string()),
         },
     )?;
-    load_workflow_bundle_from_path(&workflow_path)
+    let mut imported_bundle = load_workflow_bundle_from_path(&workflow_path)?;
+    imported_bundle.imported_package = Some(WorkflowPortablePackage {
+        package_path: package_dir.display().to_string(),
+        manifest_path: manifest_path.display().to_string(),
+        manifest,
+        imported_workflow_path: Some(workflow_path.display().to_string()),
+    });
+    Ok(imported_bundle)
 }
 
 #[tauri::command]
