@@ -28,6 +28,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-18-42-111Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-56-37-565Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-03-01-399Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -75,14 +77,14 @@ through a workflow-backed harness.
 
 As of 2026-05-08, the default live harness activation-id gate, runtime selector
 readiness gate, live handoff, default runtime dispatch proof, durable worker
-binding authority proof, worker binding registry proof, gated
-verification/output adapter proof, and gated authority/tooling adapter proof
-have a green end-to-end checkpoint:
+binding authority proof, worker binding registry proof, worker attach lifecycle
+timeline, worker session record, gated verification/output adapter proof, and
+gated authority/tooling adapter proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-18-42-111Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-56-37-565Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-03-01-399Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -93,7 +95,9 @@ retained-query evidence bundle. It also proves the blessed default dispatch is
 bound to `activation:default-agent-harness:blessed-readonly`, the active worker
 binding matches the selector/default-dispatch proof ids and rollback target,
 the registry record is bound with no blockers and a matching readiness proof
-id, and the fork activation wizard remains its own evidence object.
+id, the worker attach/resume/rollback lifecycle is complete, the worker session
+record is accepted and `rollback_ready`, and the fork activation wizard remains
+its own evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -501,6 +505,50 @@ workflow-node evidence." The next chronological slice should bind these
 lifecycle events to an explicit persisted worker session record so the GUI can
 show which worker instance is currently running, which instance was resumed,
 and which rollback target would receive control if the live activation fails.
+
+### 2026-05-08 Worker Session Record Slice
+
+Worker attach lifecycle events now resolve into a durable session-level record
+that the runtime and GUI can use as the worker-instance handle for the blessed
+default activation:
+
+- Rust canonical harness contracts now define `HarnessWorkerSessionStatus`,
+  `HarnessWorkerSessionRecord`, and
+  `default_harness_worker_session_record`, with `rollback_ready` as the
+  accepted steady state for the live default session.
+- `RuntimeAgentService` now stores the current
+  `harness_worker_session_record`, derived from the registry-bound attach,
+  resume, and rollback lifecycle.
+- The TS harness runtime mirrors the contract with
+  `makeWorkflowHarnessWorkerSessionRecord` and
+  `workflowHarnessWorkerSessionBlockers`, and the contract consistency test now
+  checks the Rust/TS session-status union.
+- Default runtime dispatch and Autopilot runtime evidence now carry
+  `workerSessionRecord`, `workerSessionRecordId`, `workerSessionStatus`,
+  `workerSessionAccepted`, and `workerSessionBlockers`.
+- The Workflows right rail exposes the worker session id, current status,
+  worker id, rollback target, current attempt id, and blocker state on the
+  active runtime binding and default dispatch proof.
+- Full retained GUI validation now requires `workerSessionRecordBound: true`
+  and proves the accepted session is `rollback_ready`, resumed, rollback
+  target ready, linked to the same registry record, and backed by lifecycle
+  attempts in the default dispatch.
+- Focused validation is green for Rust canonical session coverage, Autopilot
+  store evidence, services crate compilation, TS contract consistency, TS
+  activation contracts, IDE build, harness wiring, and the GUI harness
+  contract.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-56-37-565Z/`;
+  the live GUI proof explicitly reports `workerSessionRecordBound: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-03-01-399Z/dashboard-index.json`.
+
+This changes the promotion boundary from "a lifecycle is visible" to "the
+current worker instance is a workflow-addressable session record with a known
+resume state and rollback target." The next chronological slice should persist
+that session record into the runtime checkpoint/worker registry path used for
+actual worker launch and resume, so the proof object becomes the operational
+source of truth instead of only the validation projection.
 
 ## Current State
 

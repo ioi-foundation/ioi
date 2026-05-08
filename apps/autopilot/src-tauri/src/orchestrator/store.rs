@@ -1632,6 +1632,197 @@ fn runtime_harness_worker_attach_lifecycle_complete(lifecycle: &[Value]) -> bool
         && statuses.iter().any(|status| status == "rolled_back")
 }
 
+fn runtime_harness_worker_session_record(
+    sid: &str,
+    turn_id: &str,
+    registry_record: &Value,
+    lifecycle: &[Value],
+) -> Value {
+    let event_for = |phase: &str| {
+        lifecycle
+            .iter()
+            .find(|event| event.get("phase").and_then(Value::as_str) == Some(phase))
+    };
+    let attach_event = event_for("attach");
+    let resume_event = event_for("resume");
+    let rollback_event = event_for("rollback");
+    let mut blockers = Vec::<String>::new();
+    if lifecycle.len() < 3 {
+        blockers.push("worker_session_lifecycle_incomplete".to_string());
+    }
+    if attach_event.map(|event| {
+        event.get("accepted").and_then(Value::as_bool) == Some(true)
+            && event.get("attachStatus").and_then(Value::as_str) == Some("bound")
+            && event
+                .get("blockers")
+                .and_then(Value::as_array)
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }) != Some(true)
+    {
+        blockers.push("worker_session_attach_not_bound".to_string());
+    }
+    if resume_event.map(|event| {
+        event.get("accepted").and_then(Value::as_bool) == Some(true)
+            && event.get("attachStatus").and_then(Value::as_str) == Some("resumed")
+            && event
+                .get("blockers")
+                .and_then(Value::as_array)
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }) != Some(true)
+    {
+        blockers.push("worker_session_resume_not_resolved".to_string());
+    }
+    if rollback_event.map(|event| {
+        event.get("accepted").and_then(Value::as_bool) == Some(true)
+            && event.get("attachStatus").and_then(Value::as_str) == Some("rolled_back")
+            && event.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+            && event
+                .get("blockers")
+                .and_then(Value::as_array)
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }) != Some(true)
+    {
+        blockers.push("worker_session_rollback_not_ready".to_string());
+    }
+    let registry_record_id = registry_record
+        .get("registryRecordId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    for event in lifecycle {
+        if event.get("registryRecordId").and_then(Value::as_str) != Some(registry_record_id) {
+            blockers.push("worker_session_registry_record_mismatch".to_string());
+        }
+        if event.get("accepted").and_then(Value::as_bool) != Some(true) {
+            blockers.push("worker_session_lifecycle_event_blocked".to_string());
+        }
+        if let Some(items) = event.get("blockers").and_then(Value::as_array) {
+            blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+        }
+    }
+    blockers.sort();
+    blockers.dedup();
+    let accepted = blockers.is_empty();
+    let lifecycle_statuses = runtime_harness_worker_attach_lifecycle_statuses(lifecycle);
+    let lifecycle_event_ids = lifecycle
+        .iter()
+        .filter_map(|event| {
+            event
+                .get("eventId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let lifecycle_attempt_ids = runtime_harness_worker_attach_lifecycle_attempt_ids(lifecycle);
+    let receipt_ids = lifecycle
+        .iter()
+        .filter_map(|event| {
+            event
+                .get("receiptId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let resumed = lifecycle_statuses.iter().any(|status| status == "resumed");
+    let rollback_available = rollback_event
+        .and_then(|event| event.get("rollbackAvailable"))
+        .and_then(Value::as_bool)
+        == Some(true);
+    let rollback_target = registry_record
+        .get("rollbackTarget")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let rollback_target_ready = rollback_available && !rollback_target.is_empty();
+    let current_status = if !accepted {
+        "blocked"
+    } else if rollback_target_ready {
+        "rollback_ready"
+    } else if resumed {
+        "resumed"
+    } else {
+        "attached"
+    };
+    let current_event = if rollback_target_ready {
+        rollback_event
+    } else if resumed {
+        resume_event
+    } else {
+        attach_event
+    };
+    let worker_id = attach_event
+        .and_then(|event| event.get("receipt"))
+        .and_then(|receipt| receipt.get("workerId"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| {
+            lifecycle
+                .first()
+                .and_then(|event| event.get("receipt"))
+                .and_then(|receipt| receipt.get("workerId"))
+                .and_then(Value::as_str)
+                .unwrap_or("harness-worker:unknown")
+        });
+    let workflow_id = registry_record
+        .get("workflowId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let activation_id = registry_record
+        .get("activationId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let activation_hash = registry_record
+        .get("activationHash")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let readiness_proof_id = registry_record
+        .get("readinessProofId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let mut evidence_refs = vec![
+        registry_record_id.to_string(),
+        readiness_proof_id.to_string(),
+    ];
+    evidence_refs.extend(lifecycle_event_ids.clone());
+    evidence_refs.extend(receipt_ids.clone());
+    evidence_refs.sort();
+    evidence_refs.dedup();
+
+    json!({
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": format!("harness-worker-session:{workflow_id}:{activation_id}:{activation_hash}:{worker_id}:{sid}"),
+        "sessionId": sid,
+        "turnId": turn_id,
+        "workerId": worker_id,
+        "workflowId": workflow_id,
+        "activationId": activation_id,
+        "activationHash": activation_hash,
+        "harnessHash": registry_record.get("harnessHash").and_then(Value::as_str).unwrap_or_default(),
+        "componentVersionSet": registry_record.get("componentVersionSet").cloned().unwrap_or_else(|| json!({})),
+        "rollbackTarget": rollback_target,
+        "readinessProofId": readiness_proof_id,
+        "registryRecordId": registry_record_id,
+        "currentStatus": current_status,
+        "currentEventId": current_event.and_then(|event| event.get("eventId")).and_then(Value::as_str).unwrap_or_default(),
+        "currentAttemptId": current_event.and_then(|event| event.get("attemptId")).and_then(Value::as_str).unwrap_or_default(),
+        "currentReceiptId": current_event.and_then(|event| event.get("receiptId")).and_then(Value::as_str).unwrap_or_default(),
+        "attachEventId": attach_event.and_then(|event| event.get("eventId")).and_then(Value::as_str).unwrap_or_default(),
+        "resumeEventId": resume_event.and_then(|event| event.get("eventId")).and_then(Value::as_str).unwrap_or_default(),
+        "rollbackEventId": rollback_event.and_then(|event| event.get("eventId")).and_then(Value::as_str).unwrap_or_default(),
+        "lifecycleEventIds": lifecycle_event_ids,
+        "lifecycleAttemptIds": lifecycle_attempt_ids,
+        "receiptIds": receipt_ids,
+        "lifecycleStatuses": lifecycle_statuses,
+        "resumed": resumed,
+        "rollbackAvailable": rollback_available,
+        "rollbackTargetReady": rollback_target_ready,
+        "accepted": accepted,
+        "blockers": blockers,
+        "policyDecision": if accepted { "allow_harness_worker_session" } else { "block_harness_worker_session" },
+        "evidenceRefs": evidence_refs
+    })
+}
+
 fn runtime_harness_default_runtime_binding(
     sid: &str,
     task: &AgentTask,
@@ -1989,6 +2180,31 @@ fn runtime_harness_default_runtime_binding(
         runtime_harness_worker_attach_lifecycle_statuses(&worker_attach_lifecycle);
     let worker_attach_lifecycle_complete =
         runtime_harness_worker_attach_lifecycle_complete(&worker_attach_lifecycle);
+    let worker_session_record = runtime_harness_worker_session_record(
+        sid,
+        &turn_id,
+        &worker_binding_registry_record,
+        &worker_attach_lifecycle,
+    );
+    let worker_session_accepted = worker_session_record
+        .get("accepted")
+        .and_then(Value::as_bool)
+        == Some(true);
+    let worker_session_status = worker_session_record
+        .get("currentStatus")
+        .and_then(Value::as_str)
+        .unwrap_or("blocked")
+        .to_string();
+    let worker_session_blockers = worker_session_record
+        .get("blockers")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let worker_session_record_id = worker_session_record
+        .get("sessionRecordId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     let worker_attach_status = worker_attach_receipt
         .get("attachStatus")
         .and_then(Value::as_str)
@@ -2051,7 +2267,10 @@ fn runtime_harness_default_runtime_binding(
         && worker_attach_accepted
         && worker_attach_resume_accepted
         && worker_attach_rollback_accepted
-        && worker_attach_lifecycle_complete;
+        && worker_attach_lifecycle_complete
+        && worker_session_accepted
+        && worker_session_status == "rollback_ready"
+        && worker_session_blockers.is_empty();
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-binding.v1",
@@ -2095,6 +2314,11 @@ fn runtime_harness_default_runtime_binding(
         "workerAttachLifecycleAttemptIds": worker_attach_lifecycle_attempt_ids,
         "workerAttachLifecycleStatuses": worker_attach_lifecycle_statuses,
         "workerAttachLifecycleComplete": worker_attach_lifecycle_complete,
+        "workerSessionRecord": worker_session_record,
+        "workerSessionRecordId": worker_session_record_id,
+        "workerSessionStatus": worker_session_status,
+        "workerSessionAccepted": worker_session_accepted,
+        "workerSessionBlockers": worker_session_blockers,
         "workerAttachAccepted": worker_attach_accepted,
         "workerAttachResumeAccepted": worker_attach_resume_accepted,
         "workerAttachRollbackAccepted": worker_attach_rollback_accepted,
@@ -10496,6 +10720,12 @@ fn runtime_harness_default_runtime_dispatch(
         runtime_harness_worker_attach_lifecycle_statuses(&worker_attach_lifecycle);
     let worker_attach_lifecycle_complete =
         runtime_harness_worker_attach_lifecycle_complete(&worker_attach_lifecycle);
+    let worker_session_record = runtime_harness_worker_session_record(
+        sid,
+        &turn_id,
+        &worker_binding_registry_record,
+        &worker_attach_lifecycle,
+    );
     dispatch_node_attempt_ids.extend(worker_attach_lifecycle_attempt_ids.clone());
     dispatch_node_attempt_ids.sort();
     dispatch_node_attempt_ids.dedup();
@@ -10928,6 +11158,7 @@ fn runtime_harness_default_runtime_dispatch(
         "workerAttachLifecycleAttemptIds": worker_attach_lifecycle_attempt_ids,
         "workerAttachLifecycleStatuses": worker_attach_lifecycle_statuses,
         "workerAttachLifecycleComplete": worker_attach_lifecycle_complete,
+        "workerSessionRecord": worker_session_record,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,
@@ -11616,6 +11847,21 @@ fn runtime_evidence_projection(
             )
             .into()
         });
+    let harness_worker_session_record = harness_default_runtime_binding
+        .get("workerSessionRecord")
+        .cloned()
+        .unwrap_or_else(|| {
+            let lifecycle = harness_worker_attach_lifecycle
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            runtime_harness_worker_session_record(
+                sid,
+                &format!("turn-{}", task.progress),
+                &harness_worker_binding_registry_record,
+                lifecycle.as_slice(),
+            )
+        });
 
     json!({
         "schemaVersion": RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
@@ -11624,6 +11870,7 @@ fn runtime_evidence_projection(
         "HarnessWorkerBindingRegistryRecord": harness_worker_binding_registry_record,
         "HarnessWorkerAttachReceipt": harness_worker_attach_receipt,
         "HarnessWorkerAttachLifecycle": harness_worker_attach_lifecycle,
+        "HarnessWorkerSessionRecord": harness_worker_session_record,
         "HarnessShadowRun": harness_shadow_run,
         "HarnessGatedClusterRuns": harness_gated_cluster_runs,
         "HarnessForkActivation": harness_fork_activation,
@@ -13444,6 +13691,37 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     })
                     .unwrap_or(false)
                 && dispatch
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("schemaVersion"))
+                    .and_then(Value::as_str)
+                    == Some("workflow.harness.worker-session.v1")
+                && dispatch
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("currentStatus"))
+                    .and_then(Value::as_str)
+                    == Some("rollback_ready")
+                && dispatch
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("resumed"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("rollbackTargetReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("lifecycleAttemptIds"))
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
                     .get("outputWriterDeferred")
                     .and_then(Value::as_bool)
                     == Some(false)
@@ -14781,6 +15059,58 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .get("workerAttachRollbackAccepted")
                     .and_then(Value::as_bool)
                     == Some(true)
+                && binding
+                    .get("workerSessionAccepted")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding.get("workerSessionStatus").and_then(Value::as_str)
+                    == Some("rollback_ready")
+                && binding
+                    .get("workerSessionBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("schemaVersion"))
+                    .and_then(Value::as_str)
+                    == Some("workflow.harness.worker-session.v1")
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("currentStatus"))
+                    .and_then(Value::as_str)
+                    == Some("rollback_ready")
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("resumed"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("rollbackTargetReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("registryRecordId"))
+                    .and_then(Value::as_str)
+                    == binding
+                        .get("workerBindingRegistryRecord")
+                        .and_then(|record| record.get("registryRecordId"))
+                        .and_then(Value::as_str)
+                && binding
+                    .get("workerSessionRecord")
+                    .and_then(|record| record.get("workerId"))
+                    .and_then(Value::as_str)
+                    == binding
+                        .get("workerAttachReceipt")
+                        .and_then(|receipt| receipt.get("workerId"))
+                        .and_then(Value::as_str)
                 && binding
                     .get("invalidWorkerAttachBlocked")
                     .and_then(Value::as_bool)

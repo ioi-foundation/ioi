@@ -136,6 +136,7 @@ import {
   makeHarnessRuntimeSelectorDecision,
   makeWorkflowHarnessWorkerAttachLifecycle,
   makeWorkflowHarnessWorkerBindingRegistryRecord,
+  makeWorkflowHarnessWorkerSessionRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
@@ -659,6 +660,14 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
   );
   const workerAttachLifecycleComplete =
     workflowHarnessWorkerAttachLifecycleComplete(workerAttachLifecycle);
+  const workerSessionRecord = makeWorkflowHarnessWorkerSessionRecord(
+    workerBindingRegistryRecord,
+    workerAttachLifecycle,
+    {
+      sessionId: workflow.metadata.id || workflow.metadata.slug,
+      createdAtMs: nowMs,
+    },
+  );
   const defaultRuntimeDispatchProofWithRegistry = {
     ...defaultRuntimeDispatchProof,
     workerBindingRegistryRecord,
@@ -669,6 +678,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     workerAttachLifecycleAttemptIds,
     workerAttachLifecycleStatuses,
     workerAttachLifecycleComplete,
+    workerSessionRecord,
     dispatchNodeAttemptIds: uniqueHarnessRefs([
       ...defaultRuntimeDispatchProof.dispatchNodeAttemptIds,
       ...workerAttachLifecycleAttemptIds,
@@ -699,6 +709,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     workerBindingRegistryRecord,
     workerAttachReceipt,
     workerAttachLifecycle,
+    workerSessionRecord,
     revisionBinding: harness.revisionBinding,
     rollbackRevisionBinding: harness.revisionBinding,
     mintedAtMs: nowMs,
@@ -719,6 +730,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
         workerBindingRegistryRecord,
         workerAttachReceipt,
         workerAttachLifecycle,
+        workerSessionRecord,
       },
       updatedAtMs: nowMs,
     },

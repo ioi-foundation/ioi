@@ -39,6 +39,7 @@ import type {
   WorkflowHarnessWorkerAttachRequest,
   WorkflowHarnessWorkerAttachStatus,
   WorkflowHarnessWorkerAttachLifecycleEvent,
+  WorkflowHarnessWorkerSessionRecord,
   WorkflowHarnessWorkerBinding,
   WorkflowHarnessWorkerBindingRegistryRecord,
   WorkflowRevisionBinding,
@@ -633,6 +634,135 @@ export function workflowHarnessWorkerAttachLifecycleComplete(
   );
 }
 
+export function makeWorkflowHarnessWorkerSessionRecord(
+  record: WorkflowHarnessWorkerBindingRegistryRecord,
+  lifecycle: Array<WorkflowHarnessWorkerAttachLifecycleEvent>,
+  options: { sessionId?: string; createdAtMs?: number } = {},
+): WorkflowHarnessWorkerSessionRecord {
+  const sessionId = options.sessionId ?? "workflow-harness-session";
+  const attachEvent = lifecycle.find((event) => event.phase === "attach");
+  const resumeEvent = lifecycle.find((event) => event.phase === "resume");
+  const rollbackEvent = lifecycle.find((event) => event.phase === "rollback");
+  const blockers = uniqueStrings([
+    ...(lifecycle.length >= 3 ? [] : ["worker_session_lifecycle_incomplete"]),
+    ...(attachEvent?.accepted === true &&
+    attachEvent.blockers.length === 0 &&
+    attachEvent.attachStatus === "bound"
+      ? []
+      : ["worker_session_attach_not_bound"]),
+    ...(resumeEvent?.accepted === true &&
+    resumeEvent.blockers.length === 0 &&
+    resumeEvent.attachStatus === "resumed"
+      ? []
+      : ["worker_session_resume_not_resolved"]),
+    ...(rollbackEvent?.accepted === true &&
+    rollbackEvent.blockers.length === 0 &&
+    rollbackEvent.attachStatus === "rolled_back" &&
+    rollbackEvent.rollbackAvailable === true
+      ? []
+      : ["worker_session_rollback_not_ready"]),
+    ...lifecycle.flatMap((event) => [
+      ...(event.registryRecordId === record.registryRecordId
+        ? []
+        : ["worker_session_registry_record_mismatch"]),
+      ...(event.accepted ? [] : ["worker_session_lifecycle_event_blocked"]),
+      ...(event.blockers ?? []),
+    ]),
+  ]).sort();
+  const accepted = blockers.length === 0;
+  const resumed =
+    resumeEvent?.attachStatus === "resumed" && resumeEvent.accepted;
+  const rollbackAvailable =
+    rollbackEvent?.accepted === true &&
+    rollbackEvent.rollbackAvailable === true;
+  const rollbackTargetReady = rollbackAvailable && !!record.rollbackTarget;
+  const currentStatus = !accepted
+    ? "blocked"
+    : rollbackTargetReady
+      ? "rollback_ready"
+      : resumed
+        ? "resumed"
+        : "attached";
+  const currentEvent = rollbackTargetReady
+    ? rollbackEvent
+    : resumed
+      ? resumeEvent
+      : attachEvent;
+  const workerId =
+    attachEvent?.receipt.workerId ??
+    lifecycle[0]?.receipt.workerId ??
+    makeWorkflowHarnessWorkerAttachRequest(record).workerId;
+  const lifecycleEventIds = lifecycle.map((event) => event.eventId);
+  const lifecycleAttemptIds = lifecycle.map((event) => event.attemptId);
+  const receiptIds = lifecycle.map((event) => event.receiptId);
+  return {
+    schemaVersion: "workflow.harness.worker-session.v1",
+    sessionRecordId: `harness-worker-session:${record.workflowId}:${record.activationId}:${record.activationHash}:${workerId}:${sessionId}`,
+    sessionId,
+    workerId,
+    workflowId: record.workflowId,
+    activationId: record.activationId,
+    activationHash: record.activationHash,
+    harnessHash: record.harnessHash,
+    componentVersionSet: record.componentVersionSet,
+    rollbackTarget: record.rollbackTarget,
+    readinessProofId: record.readinessProofId,
+    registryRecordId: record.registryRecordId,
+    currentStatus,
+    currentEventId: currentEvent?.eventId,
+    currentAttemptId: currentEvent?.attemptId,
+    currentReceiptId: currentEvent?.receiptId,
+    attachEventId: attachEvent?.eventId,
+    resumeEventId: resumeEvent?.eventId,
+    rollbackEventId: rollbackEvent?.eventId,
+    lifecycleEventIds,
+    lifecycleAttemptIds,
+    receiptIds,
+    lifecycleStatuses: lifecycle.map((event) => event.attachStatus),
+    resumed,
+    rollbackAvailable,
+    rollbackTargetReady,
+    accepted,
+    blockers,
+    policyDecision: accepted
+      ? "allow_harness_worker_session"
+      : "block_harness_worker_session",
+    evidenceRefs: uniqueStrings([
+      record.registryRecordId,
+      record.readinessProofId,
+      ...lifecycleEventIds,
+      ...receiptIds,
+    ]),
+    createdAtMs: options.createdAtMs ?? record.createdAtMs,
+  };
+}
+
+export function workflowHarnessWorkerSessionBlockers(
+  session: WorkflowHarnessWorkerSessionRecord | null | undefined,
+): string[] {
+  if (!session) return ["worker_session_record_missing"];
+  const blockers = uniqueStrings(session.blockers ?? []);
+  if (session.schemaVersion !== "workflow.harness.worker-session.v1") {
+    blockers.push("worker_session_schema_mismatch");
+  }
+  if (session.accepted !== true) {
+    blockers.push("worker_session_not_accepted");
+  }
+  if (session.currentStatus !== "rollback_ready") {
+    blockers.push("worker_session_not_rollback_ready");
+  }
+  if (session.resumed !== true) {
+    blockers.push("worker_session_not_resumed");
+  }
+  if (session.rollbackTargetReady !== true) {
+    blockers.push("worker_session_rollback_target_not_ready");
+  }
+  if ((session.lifecycleEventIds ?? []).length < 3) {
+    blockers.push("worker_session_lifecycle_events_missing");
+  }
+  return uniqueStrings(blockers);
+}
+
 function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
@@ -840,6 +970,7 @@ export function makeHarnessForkActivationRecord(options: {
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
@@ -890,6 +1021,7 @@ export function makeHarnessForkActivationRecord(options: {
     workerBindingRegistryRecord: options.workerBindingRegistryRecord,
     workerAttachReceipt: options.workerAttachReceipt,
     workerAttachLifecycle: options.workerAttachLifecycle,
+    workerSessionRecord: options.workerSessionRecord,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
     rollbackRestoreCanary: options.rollbackRestoreCanary,
@@ -3829,6 +3961,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(
   );
   const workerAttachLifecycleComplete =
     workflowHarnessWorkerAttachLifecycleComplete(workerAttachLifecycle);
+  const workerSessionRecord = makeWorkflowHarnessWorkerSessionRecord(
+    workerBindingRegistryRecord,
+    workerAttachLifecycle,
+  );
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
@@ -4507,6 +4643,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     workerAttachLifecycleAttemptIds,
     workerAttachLifecycleStatuses,
     workerAttachLifecycleComplete,
+    workerSessionRecord,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
@@ -6283,6 +6420,7 @@ function harnessMetadata(options: {
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
@@ -6306,6 +6444,7 @@ function harnessMetadata(options: {
     workerBindingRegistryRecord: options.workerBindingRegistryRecord,
     workerAttachReceipt: options.workerAttachReceipt,
     workerAttachLifecycle: options.workerAttachLifecycle,
+    workerSessionRecord: options.workerSessionRecord,
     canaryExecutionBoundary: options.canaryExecutionBoundary,
     canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [
