@@ -440,6 +440,59 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
             .map(|blockers| blockers.is_empty()),
         Some(true)
     );
+    let valid_fork = activation.get("validFork").expect("valid fork");
+    assert_eq!(
+        valid_fork
+            .get("workerHandoffNodeTimelineBound")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    let handoff_attempts = valid_fork
+        .get("workerHandoffNodeAttempts")
+        .and_then(|value| value.as_array())
+        .expect("fork handoff node attempts");
+    assert_eq!(handoff_attempts.len(), 3);
+    let handoff_receipt_ids = valid_fork
+        .get("workerHandoffReceiptIds")
+        .and_then(|value| value.as_array())
+        .expect("fork handoff receipt ids");
+    let handoff_attempt_ids = valid_fork
+        .get("workerHandoffNodeAttemptIds")
+        .and_then(|value| value.as_array())
+        .expect("fork handoff attempt ids");
+    let handoff_replay_refs = valid_fork
+        .get("workerHandoffReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .expect("fork handoff replay refs");
+    assert_eq!(handoff_receipt_ids.len(), 3);
+    assert_eq!(handoff_attempt_ids.len(), 3);
+    assert_eq!(handoff_replay_refs.len(), 3);
+    assert!(handoff_attempts.iter().all(|attempt| {
+        attempt.get("workflowNodeId").and_then(|value| value.as_str())
+            == Some("harness.handoff_bridge")
+            && attempt.get("componentKind").and_then(|value| value.as_str())
+                == Some("handoff_bridge")
+            && attempt.get("executionMode").and_then(|value| value.as_str())
+                == Some("gated")
+            && attempt.get("status").and_then(|value| value.as_str()) == Some("gated")
+            && attempt
+                .get("receiptIds")
+                .and_then(|value| value.as_array())
+                .map(|refs| {
+                    refs.iter().any(|reference| {
+                        handoff_receipt_ids
+                            .iter()
+                            .any(|receipt_id| receipt_id == reference)
+                    })
+                })
+                .unwrap_or(false)
+            && attempt
+                .get("replay")
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(|value| value.as_str())
+                .map(|fixture_ref| fixture_ref.starts_with("harness-worker-handoff:fixture:"))
+                .unwrap_or(false)
+    }));
 }
 
 #[test]

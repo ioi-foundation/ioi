@@ -117,6 +117,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
   const guiValidation = read(
     "scripts/run-autopilot-gui-harness-validation.mjs",
   );
+  const rail = read(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+  );
   const rust = read("crates/types/src/app/harness.rs");
   const serviceHarness = read("crates/services/src/agentic/runtime/harness.rs");
 
@@ -176,6 +179,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(
     graph,
     /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/,
+  );
+  assert.match(
+    graph,
+    /WorkflowHarnessForkActivationRecord[\s\S]*workerHandoffNodeAttemptIds\?: string\[\][\s\S]*workerHandoffNodeAttempts\?: WorkflowHarnessNodeAttemptRecord\[\][\s\S]*workerHandoffReplayFixtureRefs\?: string\[\]/,
   );
   assert.match(
     graph,
@@ -401,6 +408,8 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /workflow_node_executor/,
     /rollbackDrill/,
     /makeHarnessCanaryExecutionBoundaries/,
+    /makeWorkflowHarnessForkActivationHandoffProof/,
+    /allow_fork_harness_canary_worker_binding/,
   ].forEach((pattern) => assert.match(workflow, pattern));
   assert.match(workflow, /DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET/);
   [
@@ -442,6 +451,8 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /workerHandoffNodeAttempts/,
     /workerHandoffNodeAttemptIds/,
     /workerHandoffReplayFixtureRefs/,
+    /harnessForkHandoffTimelineBoundCount/,
+    /forkHandoffTimelineBound/,
     /livePromotionReadinessProofIdsMatch/,
     /invalidForkLiveActivationBlocked/,
     /activeWorkerBinding:/,
@@ -475,6 +486,11 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /gateId: "worker-binding"/,
     /gateId: "activation-id"/,
   ].forEach((pattern) => assert.match(validation, pattern));
+  [
+    /gateId: "worker-handoff"/,
+    /harnessActivationWorkerHandoffTimelineReady/,
+    /data-worker-handoff-node-timeline-bound/,
+  ].forEach((pattern) => assert.match(rail, pattern));
   assert.match(
     rust,
     /pub struct HarnessComponentInvocation[\s\S]*pub component_kind: HarnessComponentKind[\s\S]*pub execution_mode: HarnessExecutionMode[\s\S]*pub receipt_ids: Vec<String>/,

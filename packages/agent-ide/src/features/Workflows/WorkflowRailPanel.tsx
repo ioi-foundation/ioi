@@ -1150,6 +1150,71 @@ export function WorkflowRailPanel({
       })}
     </div>
   );
+  const harnessActivationWorkerLaunchEnvelopes =
+    harnessActivationRecord?.workerLaunchEnvelopes ??
+    workflow.metadata.harness?.workerLaunchEnvelopes ??
+    [];
+  const harnessActivationWorkerHandoffReceipts =
+    harnessActivationRecord?.workerHandoffReceipts ??
+    workflow.metadata.harness?.workerHandoffReceipts ??
+    [];
+  const harnessActivationWorkerHandoffNodeAttempts =
+    harnessActivationRecord?.workerHandoffNodeAttempts ??
+    workflow.metadata.harness?.workerHandoffNodeAttempts ??
+    [];
+  const harnessActivationWorkerHandoffNodeAttemptIds =
+    harnessActivationRecord?.workerHandoffNodeAttemptIds ??
+    workflow.metadata.harness?.workerHandoffNodeAttemptIds ??
+    harnessActivationWorkerHandoffNodeAttempts.map(
+      (attempt) => attempt.attemptId,
+    );
+  const harnessActivationWorkerHandoffReplayFixtureRefs =
+    harnessActivationRecord?.workerHandoffReplayFixtureRefs ??
+    workflow.metadata.harness?.workerHandoffReplayFixtureRefs ??
+    harnessActivationWorkerHandoffNodeAttempts
+      .map((attempt) => attempt.replay.fixtureRef)
+      .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const harnessActivationWorkerLaunchEnvelopePhases = new Set(
+    harnessActivationWorkerLaunchEnvelopes.map((envelope) => envelope.phase),
+  );
+  const harnessActivationWorkerHandoffReceiptStatuses = new Set(
+    harnessActivationWorkerHandoffReceipts.map(
+      (receipt) => receipt.handoffStatus,
+    ),
+  );
+  const harnessActivationWorkerHandoffReceiptIds =
+    harnessActivationWorkerHandoffReceipts.map((receipt) => receipt.receiptId);
+  const harnessActivationWorkerLaunchHandoffReady =
+    harnessActivationWorkerLaunchEnvelopes.length >= 3 &&
+    harnessActivationWorkerLaunchEnvelopes.every(
+      (envelope) =>
+        envelope.accepted === true && (envelope.blockers ?? []).length === 0,
+    ) &&
+    harnessActivationWorkerLaunchEnvelopePhases.has("launch") &&
+    harnessActivationWorkerLaunchEnvelopePhases.has("resume") &&
+    harnessActivationWorkerLaunchEnvelopePhases.has("rollback") &&
+    harnessActivationWorkerHandoffReceipts.length >= 3 &&
+    harnessActivationWorkerHandoffReceipts.every(
+      (receipt) =>
+        receipt.accepted === true && (receipt.blockers ?? []).length === 0,
+    ) &&
+    harnessActivationWorkerHandoffReceiptStatuses.has("launched") &&
+    harnessActivationWorkerHandoffReceiptStatuses.has("resumed") &&
+    harnessActivationWorkerHandoffReceiptStatuses.has("rollback_handoff_ready");
+  const harnessActivationWorkerHandoffTimelineReady =
+    harnessActivationWorkerLaunchHandoffReady &&
+    harnessActivationWorkerHandoffNodeAttempts.length >= 3 &&
+    harnessActivationWorkerHandoffNodeAttemptIds.length >= 3 &&
+    harnessActivationWorkerHandoffReplayFixtureRefs.length >= 3 &&
+    harnessActivationWorkerHandoffNodeAttempts.every(
+      (attempt) =>
+        attempt.workflowNodeId === "harness.handoff_bridge" &&
+        attempt.componentKind === "handoff_bridge" &&
+        attempt.receiptIds.some((receiptId) =>
+          harnessActivationWorkerHandoffReceiptIds.includes(receiptId),
+        ) &&
+        Boolean(attempt.replay.fixtureRef),
+    );
   const harnessActivationReady =
     !harnessForkWorkflow ||
     Boolean(
@@ -1158,7 +1223,8 @@ export function WorkflowRailPanel({
       harnessActivationRecord?.activationState === "validated" &&
       harnessActivationRecord.canaryStatus === "passed" &&
       harnessActivationRecord.rollbackAvailable === true &&
-      harnessActivationRecord.liveAuthorityTransferred === false,
+      harnessActivationRecord.liveAuthorityTransferred === false &&
+      harnessActivationWorkerHandoffTimelineReady,
     );
   const harnessActivationIssues = [
     ...(readinessResult?.errors ?? []),
@@ -1470,6 +1536,13 @@ export function WorkflowRailPanel({
         "Re-run worker binding readiness against workflow id, activation id, and hash.",
       blocker: activationValidationBlocker,
     }),
+    "worker-handoff": makeReadinessGateAction({
+      gateId: "worker-handoff",
+      label: "Check handoff",
+      detail:
+        "Re-run worker handoff timeline readiness against launch, replay, and rollback refs.",
+      blocker: activationValidationBlocker,
+    }),
   };
   const harnessActivationWizardSteps: WorkflowHarnessActivationWizardStep[] = [
     {
@@ -1599,6 +1672,26 @@ export function WorkflowRailPanel({
         harnessWorkerBinding?.harnessHash,
       ]),
       gateAction: harnessActivationGateActions["worker-binding"],
+    },
+    {
+      id: "worker-handoff",
+      label: "Worker handoff",
+      ready: harnessActivationWorkerHandoffTimelineReady,
+      value: harnessActivationWorkerHandoffTimelineReady
+        ? "timeline"
+        : "blocked",
+      detail: "launch, resume, rollback handoff attempts bound to replay refs",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        ...harnessActivationWorkerHandoffNodeAttemptIds,
+        ...harnessActivationWorkerHandoffReplayFixtureRefs,
+      ]),
+      receiptRefs: workflowUniqueReceiptRefs([
+        ...harnessActivationWorkerHandoffReceiptIds,
+      ]),
+      replayFixtureRefs: workflowUniqueReplayFixtureRefs([
+        ...harnessActivationWorkerHandoffReplayFixtureRefs,
+      ]),
+      gateAction: harnessActivationGateActions["worker-handoff"],
     },
   ];
   const selectedHarnessCandidateGate = selectedHarnessActivationGateId
@@ -4388,6 +4481,14 @@ export function WorkflowRailPanel({
                     <dt>Rollback</dt>
                     <dd>{rollbackReady ? "ready" : "blocked"}</dd>
                   </div>
+                  <div>
+                    <dt>Handoff</dt>
+                    <dd>
+                      {harnessActivationWorkerHandoffTimelineReady
+                        ? "timeline"
+                        : "blocked"}
+                    </dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${harnessActivationReady ? "ready" : "blocked"}`}
@@ -4396,6 +4497,20 @@ export function WorkflowRailPanel({
                       ? "workflow-harness-activation-minted-proof"
                       : "workflow-harness-activation-blocked-proof"
                   }
+                  data-worker-handoff-node-timeline-bound={
+                    harnessActivationWorkerHandoffTimelineReady
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-handoff-node-attempt-count={
+                    harnessActivationWorkerHandoffNodeAttempts.length
+                  }
+                  data-worker-handoff-node-attempt-ids={harnessActivationWorkerHandoffNodeAttemptIds.join(
+                    ",",
+                  )}
+                  data-worker-handoff-replay-fixture-refs={harnessActivationWorkerHandoffReplayFixtureRefs.join(
+                    ",",
+                  )}
                 >
                   <strong>
                     {harnessActivationReady
@@ -4413,7 +4528,9 @@ export function WorkflowRailPanel({
                     rollback{" "}
                     {harnessActivationRecord?.rollbackTarget ?? "not set"} ·
                     worker{" "}
-                    {harnessWorkerBinding?.harnessWorkflowId ?? "unbound"}
+                    {harnessWorkerBinding?.harnessWorkflowId ?? "unbound"} ·
+                    handoff{" "}
+                    {harnessActivationWorkerHandoffNodeAttempts.length}
                   </small>
                 </article>
                 {harnessActivationCandidate ? (

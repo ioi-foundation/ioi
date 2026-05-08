@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "ioi.agent-runtime.p3-exhaustive-validation.v1.diagnostic_bundle",
+  "generatedAt": "2026-05-08T18:43:28.881Z",
+  "status": "Complete",
+  "counts": {
+    "p3": 10,
+    "exhaustiveWorkflowSuites": 15,
+    "betterAgentValidations": 31,
+    "scorecardDimensions": 33,
+    "scorecardSchemaCategories": 9,
+    "incomplete": 0
+  },
+  "masterGuide": {
+    "path": "docs/plans/architectural-improvements-broad-master-guide.md",
+    "present": true,
+    "guideHash": "9d1dcb6f367d70ed6de2f749d9fad372cdf65505fe2c254bc0e0139da58175bc",
+    "p3Lines": [
+      2396,
+      2416
+    ],
+    "exhaustiveWorkflowLines": [
+      1354,
+      1378
+    ],
+    "betterAgentLines": [
+      2106,
+      2193
+    ],
+    "finalBeatLines": [
+      2520,
+      2570
+    ]
+  },
+  "guiEvidence": {
+    "resultPath": "docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/result.json",
+    "runtimeArtifactsPath": "docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/runtime-artifacts.json",
+    "queryCount": 8,
+    "screenshotCount": 8,
+    "chatUx": {
+      "final_answer_primary": true,
+      "markdown_rendered": true,
+      "mermaid_rendered": true,
+      "collapsible_thinking": true,
+      "collapsible_explored_files": true,
+      "source_pills_reserved_for_search": true,
+      "no_raw_receipt_dump": true,
+      "no_default_facts_dashboard": true,
+      "no_default_evidence_drawer": true,
+      "no_overlapping_text": true
+    },
+    "runtimeConsistency": {
+      "visible_output_matches_trace": true,
+      "visible_sources_match_selected_sources": true,
+      "policy_blocks_match_receipts": true,
+      "task_state_matches_transcript": true,
+      "scorecard_matches_stop_reason": true,
+      "harness_shadow_attempts_present": true,
+      "harness_gated_cognition_present": true,
+      "harness_gated_routing_model_present": true,
+      "harness_gated_verification_output_present": true,
+      "harness_gated_authority_tooling_present": true,
+      "harness_fork_activation_present": true,
+      "harness_fork_handoff_timeline_present": true,
+      "harness_rollback_restore_canary_present": true,
+      "harness_rollback_restore_canary_receipts_present": true,
+      "harness_activation_audit_receipts_present": true,
+      "harness_rollback_execution_receipts_present": true,
+      "harness_rollback_restore_canary_ui_present": true,
+      "harness_promotion_transition_gui_behavior_present": true,
+      "harness_promotion_transition_live_gui_interaction_present": true,
+      "harness_route_stateful_deep_link_replay_present": true,
+      "harness_cold_start_deep_link_restore_present": true,
+      "harness_revision_binding_deep_link_restore_present": true,
+      "harness_activation_blocker_deep_link_restore_present": true,
+      "harness_activation_audit_deep_link_restore_present": true,
+      "harness_activation_gate_deep_link_restore_present": true,
+      "harness_activation_gate_evidence_inspector_present": true,
+      "harness_activation_gate_ref_deep_link_restore_present": true,
+      "harness_activation_gate_action_workbench_present": true,
+      "harness_activation_gate_action_click_proof_present": true,
+      "harness_activation_gate_collect_evidence_click_proof_present": true,
+      "harness_activation_gate_rollback_restore_click_proof_present": true,
+      "harness_activation_id_gate_click_proof_present": true,
+      "harness_activation_id_gate_click_proof_runtime_present": true,
+      "harness_canary_execution_boundary_present": true,
+      "harness_live_handoff_present": true,
+      "harness_selector_default_promoted": true,
+      "harness_selector_live_promotion_readiness_gated": true,
+      "harness_default_runtime_dispatch_present": true,
+      "harness_live_promotion_readiness_present": true,
+      "harness_chat_runtime_binding_matches_workflow_activation": true,
+      "harness_authority_tooling_gate_live_present": true,
+      "harness_authority_tooling_provider_catalog_live_present": true,
+      "harness_authority_tooling_mcp_tool_catalog_live_present": true,
+      "harness_authority_tooling_native_tool_catalog_live_present": true,
+      "harness_authority_tooling_connector_catalog_live_present": true,
+      "harness_authority_tooling_wallet_capability_live_dry_run_present": true,
+      "harness_model_provider_gated_visible_output_present": true,
+      "harness_model_provider_gated_visible_output_rollback_drill_present": true,
+      "harness_read_only_capability_routing_present": true,
+      "better_agent_artifacts_present": true
+    }
+  },
+  "importBoundary": {
+    "status": "Complete",
+    "findings": []
+  },
+  "failures": []
+}

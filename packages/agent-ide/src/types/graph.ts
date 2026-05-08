@@ -1264,6 +1264,9 @@ export interface WorkflowHarnessForkActivationRecord {
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
   workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
+  workerHandoffNodeAttemptIds?: string[];
+  workerHandoffNodeAttempts?: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffReplayFixtureRefs?: string[];
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
@@ -2469,6 +2472,9 @@ export interface WorkflowHarnessMetadata {
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
   workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
+  workerHandoffNodeAttemptIds?: string[];
+  workerHandoffNodeAttempts?: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffReplayFixtureRefs?: string[];
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;

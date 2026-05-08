@@ -327,6 +327,52 @@ const withClusterReadiness = (
     result.workflow.metadata.harness?.activationRecord?.workerBinding?.harnessActivationId,
     candidate.activationIdPreview,
   );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.workerBinding
+      ?.authorityBindingReady,
+    true,
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.workerBindingRegistryRecord
+      ?.bindingStatus,
+    "bound",
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.workerSessionRecord
+      ?.currentStatus,
+    "rollback_ready",
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.workerLaunchEnvelopes
+      ?.length,
+    3,
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.workerHandoffReceipts
+      ?.length,
+    3,
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord
+      ?.workerHandoffNodeAttempts?.length,
+    3,
+  );
+  assert.ok(
+    result.workflow.metadata.harness?.activationRecord?.workerHandoffNodeAttempts?.every(
+      (attempt) =>
+        attempt.workflowNodeId === "harness.handoff_bridge" &&
+        attempt.componentKind === "handoff_bridge" &&
+        attempt.executionMode === "gated" &&
+        attempt.status === "gated" &&
+        Boolean(attempt.replay.fixtureRef) &&
+        attempt.receiptIds.some((receiptId) =>
+          result.workflow.metadata.harness?.activationRecord
+            ?.workerHandoffReceipts?.some(
+              (receipt) => receipt.receiptId === receiptId,
+            ),
+        ),
+    ),
+  );
   assert.equal(result.workflow.metadata.harness?.activationRecord?.rollbackTarget, "legacy_runtime");
   assert.equal(
     result.workflow.metadata.harness?.activationRecord?.rollbackRestoreCanary?.status,
