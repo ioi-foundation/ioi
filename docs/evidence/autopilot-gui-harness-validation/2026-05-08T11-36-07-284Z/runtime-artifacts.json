@@ -1,0 +1,391 @@
+{
+  "profileRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+  "chatDbPath": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/chat-memory.db",
+  "transcriptCount": 17,
+  "threadEventCount": 3,
+  "artifactRecordCount": 31,
+  "runtimeEvidenceReportCount": 9,
+  "runBundleCount": 1,
+  "selectedSourceCount": 8,
+  "promptAssemblyCount": 3,
+  "turnStateCount": 3,
+  "decisionLoopCount": 3,
+  "traceBundleCount": 3,
+  "modelRoutingCount": 3,
+  "toolSelectionQualityCount": 3,
+  "scorecardCount": 12,
+  "stopReasonCount": 9,
+  "qualityLedgerCount": 9,
+  "harnessWorkerBindingCount": 6,
+  "harnessShadowRunCount": 9,
+  "harnessNodeAttemptCount": 207,
+  "harnessShadowComparisonCount": 207,
+  "harnessBlockingDivergenceCount": 0,
+  "harnessGatedClusterCount": 36,
+  "harnessGatedCognitionCount": 9,
+  "harnessGatedRoutingModelCount": 9,
+  "harnessGatedVerificationOutputCount": 9,
+  "harnessGatedAuthorityToolingCount": 9,
+  "harnessForkActivationBlockedCount": 9,
+  "harnessForkActivationMintedCount": 9,
+  "harnessRollbackRestoreCanaryBlockedCount": 12,
+  "harnessRollbackRestoreCanaryReadyCount": 12,
+  "harnessRollbackRestoreCanaryReceiptCount": 24,
+  "harnessRollbackRestoreCanaryStatuses": [
+    "blocked",
+    "not_required",
+    "ready"
+  ],
+  "harnessActivationAuditReceiptCount": 42,
+  "harnessRollbackExecutionReceiptCount": 18,
+  "harnessCanaryBoundaryExecutedCount": 5,
+  "harnessCanaryBoundaryRollbackDrillCount": 5,
+  "harnessSelectorCanaryRoutedCount": 0,
+  "harnessSelectorLegacyDefaultCount": 4,
+  "harnessSelectorDefaultPromotedCount": 5,
+  "harnessLiveHandoffCanaryCount": 0,
+  "harnessLiveHandoffDefaultPromotedCount": 5,
+  "harnessLiveHandoffRollbackCount": 5,
+  "harnessDefaultRuntimeDispatchReadonlyCount": 5,
+  "harnessActivationIdGateClickProofRuntimeCount": 2,
+  "harnessActivationIdGateClickProofRuntimeBlockedCount": 0,
+  "harnessDefaultRuntimeBindingCount": 6,
+  "harnessDefaultRuntimeBindingMatchedCount": 5,
+  "harnessDefaultRuntimeBindingSamples": [
+    {
+      "bindingId": "harness-default-runtime-binding:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:20",
+      "defaultDispatchId": "harness-default-dispatch:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1"
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-0",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:0",
+      "defaultDispatchId": "harness-default-dispatch:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-0:read-only",
+      "selectedSelector": "legacy_runtime",
+      "productionDefaultSelector": "legacy_runtime",
+      "executionMode": "gated",
+      "runtimeAuthority": "existing_runtime_service",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": false,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": false,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "gated",
+        "source": "autopilot_runtime_selector_legacy_default_v1"
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:20",
+      "defaultDispatchId": "harness-default-dispatch:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1"
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:20",
+      "defaultDispatchId": "harness-default-dispatch:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1"
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-0",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:0",
+      "defaultDispatchId": "harness-default-dispatch:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-0:read-only",
+      "selectedSelector": "legacy_runtime",
+      "productionDefaultSelector": "legacy_runtime",
+      "executionMode": "gated",
+      "runtimeAuthority": "existing_runtime_service",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": false,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": false,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "gated",
+        "source": "autopilot_runtime_selector_legacy_default_v1"
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:20",
+      "defaultDispatchId": "harness-default-dispatch:56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1"
+      }
+    }
+  ],
+  "harnessAuthorityToolingReadOnlyCanaryCount": 5,
+  "harnessAuthorityToolingGateLiveCount": 5,
+  "harnessAuthorityToolingProviderCatalogLiveCount": 5,
+  "harnessAuthorityToolingMcpToolCatalogLiveCount": 5,
+  "harnessAuthorityToolingNativeToolCatalogLiveCount": 5,
+  "harnessAuthorityToolingConnectorCatalogLiveCount": 5,
+  "harnessAuthorityToolingWalletCapabilityLiveDryRunCount": 5,
+  "harnessModelProviderGatedVisibleOutputCount": 5,
+  "harnessModelProviderGatedVisibleOutputRollbackDrillCount": 5,
+  "harnessModelProviderGatedVisibleOutputScenarios": [
+    "retained_harness_dogfooding",
+    "retained_mermaid_rendering",
+    "retained_no_tool_answer",
+    "retained_planning_without_mutation",
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessModelProviderGatedVisibleOutputRollbackDrillScenarios": [
+    "retained_harness_dogfooding",
+    "retained_mermaid_rendering",
+    "retained_no_tool_answer",
+    "retained_planning_without_mutation",
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessReadOnlyCapabilityRoutingCount": 0,
+  "harnessReadOnlyCapabilityRoutingNoMutationCount": 0,
+  "harnessReadOnlyCapabilityRoutingScenarios": [
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessReadOnlyCapabilityRoutingNoMutationScenarios": [
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "recentArtifacts": [
+    {
+      "artifactId": "230cb742-433e-481e-91c2-f66a8d7de9f5",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240479326
+    },
+    {
+      "artifactId": "d6fd3958-5bd4-43ac-8705-92978750e652",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240479159
+    },
+    {
+      "artifactId": "afe7339b-c7ec-4e52-938d-0db09bc4c145",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240478996
+    },
+    {
+      "artifactId": "dc96bede-3504-48d6-99e5-8fe9506d3303",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240451224
+    },
+    {
+      "artifactId": "57f6b9a6-7a6b-40d0-a68a-c10ecc59887d",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240451192
+    },
+    {
+      "artifactId": "99183f85-e525-47fa-8cda-12485ea527bf",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240451166
+    },
+    {
+      "artifactId": "febfa7ed-93be-4fbe-a582-3f224dbfe6e8",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240411382
+    },
+    {
+      "artifactId": "b45cc59b-4020-4dcb-be4a-9abcdcfd0bea",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240411223
+    },
+    {
+      "artifactId": "9bb6bc67-7e32-4e25-9900-47c01d6efa0a",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240411064
+    },
+    {
+      "artifactId": "3591f066-ebe6-44d8-88fd-095adfc51c4b",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240382379
+    },
+    {
+      "artifactId": "6b9ad432-4b85-41ff-a2fe-293899c841d8",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240382221
+    },
+    {
+      "artifactId": "cc125540-5d6b-405a-9710-44c7fc02477c",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240382058
+    },
+    {
+      "artifactId": "cdf16c28-fc2e-4f00-bafc-a2b7b7ea9e73",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240355226
+    },
+    {
+      "artifactId": "84c52379-9cdd-4e66-8b8d-89952bd0be7c",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240355064
+    },
+    {
+      "artifactId": "ce266fc9-34bf-4bfa-a44d-e3d3286c83eb",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240354908
+    },
+    {
+      "artifactId": "1e1e55f4-2575-46be-adf0-5ae155a9e1bf",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240312307
+    },
+    {
+      "artifactId": "3d6e5d08-7625-4c69-9bad-cce7b96ec62a",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240312146
+    },
+    {
+      "artifactId": "0842f922-672b-4f07-ad80-dfdb394505d4",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240311979
+    },
+    {
+      "artifactId": "1c2a24dd-8c70-4b8e-ab7e-a3d7e17b630a",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240286110
+    },
+    {
+      "artifactId": "74ca3db5-1961-4c09-b5ed-f6eda001fb41",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240285953
+    },
+    {
+      "artifactId": "d5b4ed49-359f-4025-b7a2-24d009232ec8",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240285796
+    },
+    {
+      "artifactId": "7c5c7e5c-f6e4-4a42-8d01-86764c32f8e7",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/walkthrough.md",
+      "createdAtMs": 1778240263690
+    },
+    {
+      "artifactId": "4df460d2-bf24-44b6-a826-06ce49d1e9af",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/task.md",
+      "createdAtMs": 1778240263527
+    },
+    {
+      "artifactId": "5ba96da9-720c-4656-b8b8-6ab4aaaeb694",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/56b27a15b94f49dd9ac8804eb61e8e6be2cb6fddd49f44b684f55c4048121c91/planning/implementation_plan.md",
+      "createdAtMs": 1778240263346
+    }
+  ],
+  "logSignals": {
+    "kernelEvents": 5074,
+    "chatProofTrace": 33,
+    "sessionProjectionRefreshes": 32
+  },
+  "collectionErrors": []
+}

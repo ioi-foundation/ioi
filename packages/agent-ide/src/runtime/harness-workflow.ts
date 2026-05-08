@@ -2224,6 +2224,53 @@ const DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS: Array<{
   },
 ];
 
+const DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS: Array<{
+  kind: WorkflowHarnessComponentKind;
+  attemptSlug: string;
+  policyDecision: string;
+}> = [
+  {
+    kind: "policy_gate",
+    attemptSlug: "authority_tooling_policy_gate_envelope",
+    policyDecision: "accept_authority_tooling_policy_gate_adapter_envelope",
+  },
+  {
+    kind: "approval_gate",
+    attemptSlug: "authority_tooling_approval_gate_envelope",
+    policyDecision: "accept_authority_tooling_approval_gate_adapter_envelope",
+  },
+  {
+    kind: "dry_run_simulator",
+    attemptSlug: "authority_tooling_dry_run_simulator_envelope",
+    policyDecision: "accept_authority_tooling_dry_run_adapter_envelope",
+  },
+  {
+    kind: "mcp_provider",
+    attemptSlug: "authority_tooling_mcp_provider_envelope",
+    policyDecision: "accept_authority_tooling_mcp_provider_adapter_envelope",
+  },
+  {
+    kind: "mcp_tool_call",
+    attemptSlug: "authority_tooling_mcp_tool_call_envelope",
+    policyDecision: "accept_authority_tooling_mcp_tool_call_adapter_envelope",
+  },
+  {
+    kind: "tool_call",
+    attemptSlug: "authority_tooling_tool_call_envelope",
+    policyDecision: "accept_authority_tooling_tool_call_adapter_envelope",
+  },
+  {
+    kind: "connector_call",
+    attemptSlug: "authority_tooling_connector_call_envelope",
+    policyDecision: "accept_authority_tooling_connector_call_adapter_envelope",
+  },
+  {
+    kind: "wallet_capability",
+    attemptSlug: "authority_tooling_wallet_capability_envelope",
+    policyDecision: "retain_authority_tooling_wallet_capability_adapter_without_grant",
+  },
+];
+
 function makeDefaultHarnessAdapterResult(
   kind: WorkflowHarnessComponentKind,
   attemptSlug: string,
@@ -2329,6 +2376,18 @@ function makeDefaultVerificationOutputGateAdapterResults(): WorkflowHarnessCompo
       component.attemptSlug,
       component.policyDecision,
       index + 10,
+      "gated",
+    ),
+  );
+}
+
+function makeDefaultAuthorityToolingGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultHarnessAdapterResult(
+      component.kind,
+      component.attemptSlug,
+      component.policyDecision,
+      index + 16,
       "gated",
     ),
   );
@@ -2472,6 +2531,24 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "harness-default-dispatch:fixture-verification_output_output_writer_envelope",
   ];
   const verificationOutputDivergenceClasses = ["none" as const];
+  const authorityToolingAdapterResults = makeDefaultAuthorityToolingGateAdapterResults();
+  const authorityToolingActionFrameIds = authorityToolingAdapterResults.map(
+    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+  );
+  const authorityToolingComponentKinds = authorityToolingAdapterResults.map(
+    (result) => result.actionFrame.componentKind,
+  );
+  const authorityToolingAttemptIds = DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+    (component) => `harness-default-dispatch:attempt-${component.attemptSlug}`,
+  );
+  const authorityToolingReceiptIds = DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+    (component) => `harness-default-dispatch:receipt-${component.attemptSlug}`,
+  );
+  const authorityToolingReplayFixtureRefs =
+    DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+      (component) => `harness-default-dispatch:fixture-${component.attemptSlug}`,
+    );
+  const authorityToolingDivergenceClasses = ["none" as const];
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -2633,6 +2710,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
         "harness-default-dispatch:attempt-model_call_envelope",
         ...routingModelAttemptIds,
         ...verificationOutputAttemptIds,
+        ...authorityToolingAttemptIds,
         "harness-default-dispatch:attempt-model_provider_call_canary",
         "harness-default-dispatch:attempt-model_provider_gated_visible_output",
         "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
@@ -2701,6 +2779,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     verificationOutputActionFrameIds,
     verificationOutputComponentKinds,
     verificationOutputDivergenceClasses,
+    authorityToolingAdapterMode: "workflow_component_adapter_gated",
+    authorityToolingAttemptIds,
+    authorityToolingReceiptIds,
+    authorityToolingReplayFixtureRefs,
+    authorityToolingAdapterResults,
+    authorityToolingActionFrameIds,
+    authorityToolingComponentKinds,
+    authorityToolingDivergenceClasses,
     modelExecutionAttemptIds: [
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -3228,6 +3314,29 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       outputHashMatches: true,
       ready: true,
       policyDecision: "accept_workflow_verification_output_adapter_envelope",
+    },
+    authorityToolingAdapterProof: {
+      schemaVersion: "workflow.harness.authority-tooling-adapter-envelope.v1",
+      mode: "workflow_synchronous_envelope",
+      adapterMode: "workflow_component_adapter_gated",
+      adapterResultCount: authorityToolingAdapterResults.length,
+      attemptIds: authorityToolingAttemptIds,
+      receiptIds: authorityToolingReceiptIds,
+      replayFixtureRefs: authorityToolingReplayFixtureRefs,
+      actionFrameIds: authorityToolingActionFrameIds,
+      componentKinds: authorityToolingComponentKinds,
+      divergenceClasses: authorityToolingDivergenceClasses,
+      readOnlyRouteAccepted: true,
+      destructiveRouteDenied: true,
+      mutatingToolCallsBlocked: true,
+      sideEffectsExecuted: false,
+      mutationExecuted: false,
+      authorityTransferred: false,
+      readOnlyCatalogReady: true,
+      mutationDeferredComponentKinds: authorityToolingMutationDeferredComponentKinds,
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      ready: true,
+      policyDecision: "accept_workflow_authority_tooling_adapter_envelope",
     },
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",

@@ -4633,6 +4633,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut verification_output_action_frame_ids = Vec::<String>::new();
     let mut verification_output_component_kinds = Vec::<String>::new();
     let mut verification_output_divergence_classes = Vec::<String>::new();
+    let mut authority_tooling_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_adapter_results = Vec::<Value>::new();
+    let mut authority_tooling_action_frame_ids = Vec::<String>::new();
+    let mut authority_tooling_component_kinds = Vec::<String>::new();
+    let mut authority_tooling_divergence_classes = Vec::<String>::new();
     let mut model_execution_attempt_ids = Vec::<String>::new();
     let mut model_execution_receipt_ids = Vec::<String>::new();
     let mut model_execution_replay_fixture_refs = Vec::<String>::new();
@@ -6884,6 +6891,448 @@ fn runtime_harness_default_runtime_dispatch(
             }
         }
 
+        let mut previous_authority_tooling_adapter_output = json!({
+            "componentKind": "verification_output",
+            "outputHash": runtime_harness_canary_node_output_hash(&previous_verification_output)
+        });
+        let mut previous_authority_tooling_provider_catalog = Value::Null;
+        let mut previous_authority_tooling_mcp_tool_catalog = Value::Null;
+        let authority_tooling_adapter_specs = vec![
+            (
+                HarnessComponentKind::PolicyGate,
+                "decision",
+                "Authority-tooling adapter policy gate envelope",
+                "authority_tooling_policy_gate_envelope",
+                "accept_authority_tooling_policy_gate_adapter_envelope",
+                false,
+                json!({
+                    "authorityGateKind": "policy_gate",
+                    "routes": ["allow_read_only_route", "deny_mutation"],
+                    "defaultRoute": "allow_read_only_route",
+                    "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+                    "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+                    "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "policyDecision": "accept_authority_tooling_policy_gate_adapter_envelope",
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::ApprovalGate,
+                "human_gate",
+                "Authority-tooling adapter approval gate envelope",
+                "authority_tooling_approval_gate_envelope",
+                "accept_authority_tooling_approval_gate_adapter_envelope",
+                true,
+                json!({
+                    "authorityGateKind": "approval_gate",
+                    "text": "Mutating authority remains blocked until a validated workflow activation and governed approval allow it.",
+                    "approvalMode": "workflow_gated_adapter_required",
+                    "requiresApproval": true,
+                    "syntheticApprovalGranted": false,
+                    "authorityTransferred": false,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::DryRunSimulator,
+                "dry_run",
+                "Authority-tooling adapter dry-run simulator envelope",
+                "authority_tooling_dry_run_simulator_envelope",
+                "accept_authority_tooling_dry_run_adapter_envelope",
+                false,
+                json!({
+                    "dryRun": true,
+                    "sideEffectPreview": true,
+                    "simulatedToolRef": "agent.runtime.noop.read",
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::McpProvider,
+                "adapter",
+                "Authority-tooling adapter MCP provider envelope",
+                "authority_tooling_mcp_provider_envelope",
+                "accept_authority_tooling_mcp_provider_adapter_envelope",
+                false,
+                json!({
+                    "connectorBinding": {
+                        "connectorRef": "mcp.capability-provider",
+                        "mockBinding": false,
+                        "credentialReady": true,
+                        "capabilityScope": ["mcp.provider.read", "mcp.catalog.read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "operation": "catalog"
+                    },
+                    "providerCatalogLiveExecution": false,
+                    "toolExecutionEnabled": false,
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::McpToolCall,
+                "plugin_tool",
+                "Authority-tooling adapter MCP tool call envelope",
+                "authority_tooling_mcp_tool_call_envelope",
+                "accept_authority_tooling_mcp_tool_call_adapter_envelope",
+                false,
+                json!({
+                    "toolBinding": {
+                        "bindingKind": "mcp_tool",
+                        "toolRef": "mcp.tool.catalog.read",
+                        "mockBinding": false,
+                        "credentialReady": true,
+                        "capabilityScope": ["mcp.tool.catalog.read", "mcp.provider.read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "arguments": {
+                            "mode": "catalog_preview",
+                            "mutation": false
+                        }
+                    },
+                    "toolExecutionEnabled": false,
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::ToolCall,
+                "plugin_tool",
+                "Authority-tooling adapter native tool call envelope",
+                "authority_tooling_tool_call_envelope",
+                "accept_authority_tooling_tool_call_adapter_envelope",
+                false,
+                json!({
+                    "toolBinding": {
+                        "bindingKind": "native_tool",
+                        "toolRef": "agent.runtime.native-tool.catalog.read",
+                        "mockBinding": false,
+                        "credentialReady": true,
+                        "capabilityScope": ["native.tool.catalog.read", "mcp.tool.catalog.read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "arguments": {
+                            "mode": "native_catalog_preview",
+                            "mutation": false
+                        }
+                    },
+                    "toolExecutionEnabled": false,
+                    "nativeToolExecutionEnabled": false,
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::ConnectorCall,
+                "adapter",
+                "Authority-tooling adapter connector call envelope",
+                "authority_tooling_connector_call_envelope",
+                "accept_authority_tooling_connector_call_adapter_envelope",
+                false,
+                json!({
+                    "connectorBinding": {
+                        "connectorRef": "agent.connector.catalog",
+                        "mockBinding": false,
+                        "credentialReady": true,
+                        "capabilityScope": ["connector.catalog.read", "mcp.tool.catalog.read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "operation": "describe"
+                    },
+                    "connectorExecutionEnabled": false,
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                HarnessComponentKind::WalletCapability,
+                "human_gate",
+                "Authority-tooling adapter wallet capability envelope",
+                "authority_tooling_wallet_capability_envelope",
+                "retain_authority_tooling_wallet_capability_adapter_without_grant",
+                true,
+                json!({
+                    "text": "Wallet and spending authority remain unavailable during gated default harness dispatch.",
+                    "approvalMode": "wallet_capability_gated_adapter",
+                    "capabilityScope": ["wallet.request", "capability.grant"],
+                    "readOnlyAuthority": true,
+                    "requiresApproval": true,
+                    "syntheticApprovalGranted": false,
+                    "capabilityGranted": false,
+                    "grantMaterialized": false,
+                    "authorityTransferred": false,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+        ];
+        for (
+            component_kind,
+            node_type,
+            node_name,
+            attempt_slug,
+            policy_decision,
+            require_human_gate,
+            logic,
+        ) in authority_tooling_adapter_specs
+        {
+            let component_kind_label = component_kind.as_str();
+            let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
+            let attempt_id = format!(
+                "harness-default-dispatch:{sid}:{turn_id}:{attempt_slug}:attempt-{attempt_index}"
+            );
+            let workflow_node_id = format!("harness.default_dispatch.{attempt_slug}");
+            let receipt_id = format!("{sid}:{workflow_node_id}:{policy_decision}");
+            let replay_fixture_ref =
+                format!("runtime-evidence:{sid}:default-dispatch-fixture:{attempt_slug}");
+            let previous_authority_tooling_catalogs = json!({
+                "providerCatalog": previous_authority_tooling_provider_catalog.clone(),
+                "mcpToolCatalog": previous_authority_tooling_mcp_tool_catalog.clone()
+            });
+            let input = json!({
+                "sessionId": sid,
+                "turnId": turn_id,
+                "selectorDecisionId": selector_decision_id,
+                "sourceBoundaryIds": source_boundary_ids,
+                "componentKind": component_kind_label,
+                "mode": "workflow_component_adapter_gated",
+                "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+                "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+                "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+                "readOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
+                "mutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
+                "previousAuthorityOutput": previous_authority_tooling_catalogs.clone(),
+                "previousOutput": previous_authority_tooling_catalogs,
+                "mcpToolCatalog": previous_authority_tooling_mcp_tool_catalog.clone(),
+                "previousAuthorityToolingAdapterOutput": previous_authority_tooling_adapter_output.clone(),
+                "promotionMode": "gated",
+                "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+            });
+            let input_hash = runtime_harness_canary_node_output_hash(&input);
+            let node = json!({
+                "id": workflow_node_id,
+                "type": node_type,
+                "name": node_name,
+                "config": {
+                    "logic": logic,
+                    "law": {
+                        "requireHumanGate": require_human_gate,
+                        "sandboxPolicy": {
+                            "permissions": []
+                        }
+                    }
+                }
+            });
+            let started_at_ms = crate::kernel::state::now();
+            let execution =
+                crate::project::execute_workflow_harness_live_default_node(&node, input.clone(), 1);
+            let finished_at_ms = crate::kernel::state::now();
+            let duration_ms = finished_at_ms.saturating_sub(started_at_ms);
+            dispatch_node_attempt_ids.push(attempt_id.clone());
+            authority_tooling_attempt_ids.push(attempt_id.clone());
+            authority_tooling_receipt_ids.push(receipt_id.clone());
+            authority_tooling_replay_fixture_refs.push(replay_fixture_ref.clone());
+            receipt_ids.push(receipt_id.clone());
+            replay_fixture_refs.push(replay_fixture_ref.clone());
+            match execution {
+                Ok(output) => {
+                    let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let evidence_refs = vec![
+                        format!("runtime-evidence:{sid}"),
+                        selector_decision_id.clone(),
+                        format!("harness-gated-authority-tooling:{sid}:{}", task.progress),
+                    ];
+                    let adapter_result_value = match invoke_default_harness_component(
+                        HarnessComponentInvocation {
+                            invocation_id: format!(
+                                "default-dispatch:{sid}:{turn_id}:{attempt_slug}"
+                            ),
+                            component_kind,
+                            execution_mode: HarnessExecutionMode::Gated,
+                            attempt_index,
+                            input_hash: Some(input_hash.clone()),
+                            output_hash: Some(output_hash.clone()),
+                            policy_decision: Some(policy_decision.to_string()),
+                            receipt_ids: vec![receipt_id.clone()],
+                            evidence_refs: evidence_refs.clone(),
+                            replay_fixture_ref: Some(replay_fixture_ref.clone()),
+                            started_at_ms: Some(started_at_ms),
+                            duration_ms: Some(duration_ms),
+                        },
+                    ) {
+                        Ok(adapter_result) => {
+                            authority_tooling_action_frame_ids.push(format!(
+                                "{}:{}",
+                                adapter_result.action_frame.node_id,
+                                adapter_result.action_frame.component_id
+                            ));
+                            authority_tooling_component_kinds.push(
+                                adapter_result
+                                    .action_frame
+                                    .component_kind
+                                    .as_str()
+                                    .to_string(),
+                            );
+                            authority_tooling_divergence_classes.push("none".to_string());
+                            let value =
+                                harness_component_adapter_result_camel_value(&adapter_result);
+                            authority_tooling_adapter_results.push(value.clone());
+                            value
+                        }
+                        Err(error) => {
+                            activation_blockers.push(format!(
+                                "authority_tooling_component_adapter_error:{attempt_slug}"
+                            ));
+                            json!({
+                                "schemaVersion": "workflow.harness.component-adapter-result.v1",
+                                "invocationId": format!("default-dispatch:{sid}:{turn_id}:{attempt_slug}"),
+                                "errorClass": "harness_component_adapter_error",
+                                "error": format!("{error:?}"),
+                                "readiness": "blocked"
+                            })
+                        }
+                    };
+                    if let Some(catalog) = output
+                        .get("providerCatalog")
+                        .filter(|value| value.is_object())
+                    {
+                        previous_authority_tooling_provider_catalog = catalog.clone();
+                    }
+                    if let Some(catalog) = output
+                        .get("mcpToolCatalog")
+                        .filter(|value| value.is_object())
+                    {
+                        previous_authority_tooling_mcp_tool_catalog = catalog.clone();
+                    }
+                    previous_authority_tooling_adapter_output = json!({
+                        "componentKind": component_kind_label,
+                        "attemptId": attempt_id,
+                        "outputHash": output_hash
+                    });
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "gated",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": output_hash,
+                        "errorClass": null,
+                        "policyDecision": policy_decision,
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": evidence_refs,
+                        "divergenceClass": "none",
+                        "blockingDivergence": false,
+                        "authority": {
+                            "adapterMode": "workflow_component_adapter_gated",
+                            "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+                            "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+                            "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+                            "sideEffectsExecuted": false,
+                            "mutationExecuted": false,
+                            "authorityTransferred": false,
+                            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                        },
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "adapterResult": adapter_result_value,
+                        "executorResult": output
+                    }));
+                }
+                Err(error) => {
+                    activation_blockers.push(format!(
+                        "authority_tooling_component_adapter_executor_error:{attempt_slug}"
+                    ));
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "rolled_back",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": null,
+                        "errorClass": "workflow_executor_error",
+                        "error": error,
+                        "policyDecision": "rollback_to_legacy_runtime",
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": [
+                            format!("runtime-evidence:{sid}"),
+                            selector_decision_id.clone(),
+                            format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
+                        ],
+                        "divergenceClass": "behavioral_regression",
+                        "blockingDivergence": true,
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        }
+                    }));
+                }
+            }
+        }
+
         let mut previous_authority_output = Value::Null;
         let mut previous_mcp_tool_catalog = Value::Null;
         let authority_tooling_specs = vec![
@@ -8634,6 +9083,18 @@ fn runtime_harness_default_runtime_dispatch(
     verification_output_component_kinds.dedup();
     verification_output_divergence_classes.sort();
     verification_output_divergence_classes.dedup();
+    authority_tooling_attempt_ids.sort();
+    authority_tooling_attempt_ids.dedup();
+    authority_tooling_receipt_ids.sort();
+    authority_tooling_receipt_ids.dedup();
+    authority_tooling_replay_fixture_refs.sort();
+    authority_tooling_replay_fixture_refs.dedup();
+    authority_tooling_action_frame_ids.sort();
+    authority_tooling_action_frame_ids.dedup();
+    authority_tooling_component_kinds.sort();
+    authority_tooling_component_kinds.dedup();
+    authority_tooling_divergence_classes.sort();
+    authority_tooling_divergence_classes.dedup();
     model_execution_attempt_ids.sort();
     model_execution_attempt_ids.dedup();
     model_execution_receipt_ids.sort();
@@ -8782,6 +9243,33 @@ fn runtime_harness_default_runtime_dispatch(
         "ready": verification_output_ready,
         "policyDecision": "accept_workflow_verification_output_adapter_envelope"
     });
+    let authority_tooling_adapter_ready = authority_tooling_adapter_results.len() >= 8
+        && authority_tooling_divergence_classes
+            .iter()
+            .all(|value| value == "none");
+    let authority_tooling_adapter_proof = json!({
+        "schemaVersion": "workflow.harness.authority-tooling-adapter-envelope.v1",
+        "mode": "workflow_synchronous_envelope",
+        "adapterMode": "workflow_component_adapter_gated",
+        "adapterResultCount": authority_tooling_adapter_results.len(),
+        "attemptIds": authority_tooling_attempt_ids.clone(),
+        "receiptIds": authority_tooling_receipt_ids.clone(),
+        "replayFixtureRefs": authority_tooling_replay_fixture_refs.clone(),
+        "actionFrameIds": authority_tooling_action_frame_ids.clone(),
+        "componentKinds": authority_tooling_component_kinds.clone(),
+        "divergenceClasses": authority_tooling_divergence_classes.clone(),
+        "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+        "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+        "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "authorityTransferred": false,
+        "readOnlyCatalogReady": authority_tooling_read_only_authority_canary_ready,
+        "mutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
+        "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "ready": authority_tooling_adapter_ready,
+        "policyDecision": "accept_workflow_authority_tooling_adapter_envelope"
+    });
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -8839,6 +9327,14 @@ fn runtime_harness_default_runtime_dispatch(
         "verificationOutputActionFrameIds": verification_output_action_frame_ids.clone(),
         "verificationOutputComponentKinds": verification_output_component_kinds.clone(),
         "verificationOutputDivergenceClasses": verification_output_divergence_classes.clone(),
+        "authorityToolingAdapterMode": "workflow_component_adapter_gated",
+        "authorityToolingAttemptIds": authority_tooling_attempt_ids.clone(),
+        "authorityToolingReceiptIds": authority_tooling_receipt_ids.clone(),
+        "authorityToolingReplayFixtureRefs": authority_tooling_replay_fixture_refs.clone(),
+        "authorityToolingAdapterResults": authority_tooling_adapter_results.clone(),
+        "authorityToolingActionFrameIds": authority_tooling_action_frame_ids.clone(),
+        "authorityToolingComponentKinds": authority_tooling_component_kinds.clone(),
+        "authorityToolingDivergenceClasses": authority_tooling_divergence_classes.clone(),
         "modelExecutionAttemptIds": model_execution_attempt_ids.clone(),
         "modelExecutionReceiptIds": model_execution_receipt_ids.clone(),
         "modelExecutionReplayFixtureRefs": model_execution_replay_fixture_refs.clone(),
@@ -8949,6 +9445,10 @@ fn runtime_harness_default_runtime_dispatch(
             "workflow_verification_output_adapter",
             "workflow_receipt_writer_envelope",
             "workflow_output_writer_gated_envelope",
+            "workflow_authority_tooling_adapter",
+            "workflow_authority_policy_gate_adapter",
+            "workflow_authority_approval_gate_adapter",
+            "workflow_authority_read_only_catalog_adapter",
             "receipt_projection",
             "quality_ledger",
             "authority_tooling_policy_gate",
@@ -9000,6 +9500,14 @@ fn runtime_harness_default_runtime_dispatch(
             "verificationOutputActionFrameIds": verification_output_action_frame_ids.clone(),
             "verificationOutputComponentKinds": verification_output_component_kinds.clone(),
             "verificationOutputDivergenceClasses": verification_output_divergence_classes.clone(),
+            "authorityToolingAdapterMode": "workflow_component_adapter_gated",
+            "authorityToolingAdapterResultCount": authority_tooling_adapter_results.len(),
+            "authorityToolingAttemptIds": authority_tooling_attempt_ids.clone(),
+            "authorityToolingReceiptIds": authority_tooling_receipt_ids.clone(),
+            "authorityToolingReplayFixtureRefs": authority_tooling_replay_fixture_refs.clone(),
+            "authorityToolingActionFrameIds": authority_tooling_action_frame_ids.clone(),
+            "authorityToolingComponentKinds": authority_tooling_component_kinds.clone(),
+            "authorityToolingDivergenceClasses": authority_tooling_divergence_classes.clone(),
             "modelExecutionMode": "workflow_synchronous_envelope",
             "modelExecutionEnvelopeReady": model_execution_envelope_ready,
             "modelExecutionBindingId": model_execution_binding_id,
@@ -9178,6 +9686,7 @@ fn runtime_harness_default_runtime_dispatch(
             "policyDecision": "accept_workflow_prompt_assembly_hash_envelope"
         },
         "verificationOutputProof": verification_output_proof,
+        "authorityToolingAdapterProof": authority_tooling_adapter_proof,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,
@@ -12244,6 +12753,84 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                             .all(|value| value == "none")
                     })
                     .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingAdapterMode")
+                    .and_then(Value::as_str)
+                    == Some("workflow_component_adapter_gated")
+                && dispatch
+                    .get("authorityToolingAdapterResults")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items.len() >= 8
+                            && items.iter().all(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("executionMode"))
+                                    .and_then(Value::as_str)
+                                    == Some("gated")
+                                    && item
+                                        .get("actionFrame")
+                                        .and_then(|frame| frame.get("readiness"))
+                                        .and_then(Value::as_str)
+                                        == Some("shadow_ready")
+                                    && item
+                                        .get("nodeAttempt")
+                                        .and_then(|attempt| attempt.get("status"))
+                                        .and_then(Value::as_str)
+                                        == Some("gated")
+                            })
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 8)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 8)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 8)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"policy_gate")
+                            && component_kinds.contains(&"approval_gate")
+                            && component_kinds.contains(&"dry_run_simulator")
+                            && component_kinds.contains(&"mcp_provider")
+                            && component_kinds.contains(&"mcp_tool_call")
+                            && component_kinds.contains(&"tool_call")
+                            && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"wallet_capability")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingDivergenceClasses")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .all(|value| value == "none")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingAdapterProof")
+                    .and_then(|proof| proof.get("ready"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingAdapterProof")
+                    .and_then(|proof| proof.get("policyDecision"))
+                    .and_then(Value::as_str)
+                    == Some("accept_workflow_authority_tooling_adapter_envelope")
                 && dispatch
                     .get("modelExecutionAttemptIds")
                     .and_then(Value::as_array)

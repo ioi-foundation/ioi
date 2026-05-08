@@ -1091,6 +1091,36 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ].every((kind) => dispatch.verificationOutputComponentKinds.includes(kind)) &&
             Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
             dispatch.verificationOutputDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.authorityToolingAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.authorityToolingAdapterResults) &&
+            dispatch.authorityToolingAdapterResults.length >= 8 &&
+            dispatch.authorityToolingAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.authorityToolingAttemptIds) &&
+            dispatch.authorityToolingAttemptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingReceiptIds) &&
+            dispatch.authorityToolingReceiptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingReplayFixtureRefs) &&
+            dispatch.authorityToolingReplayFixtureRefs.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingComponentKinds) &&
+            [
+              "policy_gate",
+              "approval_gate",
+              "dry_run_simulator",
+              "mcp_provider",
+              "mcp_tool_call",
+              "tool_call",
+              "connector_call",
+              "wallet_capability",
+            ].every((kind) => dispatch.authorityToolingComponentKinds.includes(kind)) &&
+            Array.isArray(dispatch.authorityToolingDivergenceClasses) &&
+            dispatch.authorityToolingDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.authorityToolingAdapterProof?.ready === true &&
+            dispatch.authorityToolingAdapterProof?.policyDecision ===
+              "accept_workflow_authority_tooling_adapter_envelope" &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
             typeof dispatch.modelExecutionBindingId === "string" &&
@@ -1378,6 +1408,36 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ].every((kind) => dispatch.verificationOutputComponentKinds.includes(kind)) &&
             Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
             dispatch.verificationOutputDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.authorityToolingAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.authorityToolingAdapterResults) &&
+            dispatch.authorityToolingAdapterResults.length >= 8 &&
+            dispatch.authorityToolingAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.authorityToolingAttemptIds) &&
+            dispatch.authorityToolingAttemptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingReceiptIds) &&
+            dispatch.authorityToolingReceiptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingReplayFixtureRefs) &&
+            dispatch.authorityToolingReplayFixtureRefs.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingComponentKinds) &&
+            [
+              "policy_gate",
+              "approval_gate",
+              "dry_run_simulator",
+              "mcp_provider",
+              "mcp_tool_call",
+              "tool_call",
+              "connector_call",
+              "wallet_capability",
+            ].every((kind) => dispatch.authorityToolingComponentKinds.includes(kind)) &&
+            Array.isArray(dispatch.authorityToolingDivergenceClasses) &&
+            dispatch.authorityToolingDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.authorityToolingAdapterProof?.ready === true &&
+            dispatch.authorityToolingAdapterProof?.policyDecision ===
+              "accept_workflow_authority_tooling_adapter_envelope" &&
             Array.isArray(dispatch.modelExecutionAttemptIds) &&
             dispatch.modelExecutionAttemptIds.length >= 5 &&
             Array.isArray(dispatch.modelExecutionReceiptIds) &&
