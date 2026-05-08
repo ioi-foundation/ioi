@@ -18,6 +18,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -64,13 +66,13 @@ through a workflow-backed harness.
 ## Latest Validated Checkpoint
 
 As of 2026-05-08, the default live harness activation-id gate, default runtime
-dispatch proof, and gated verification/output adapter proof have a green
-end-to-end checkpoint:
+dispatch proof, gated verification/output adapter proof, and gated
+authority/tooling adapter proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the default runtime dispatch binding, live
@@ -194,10 +196,45 @@ verification/output cluster:
   `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`.
 
 This completes the staged proof shape for the verification/output cluster while
-preserving user-visible runtime authority. The next chronological promotion
-slice should turn the authority/tooling cluster into the same canonical
-adapter-proof shape for policy, approval, read-only provider/tool catalogs, and
-dry-run wallet capability envelopes before any broader live authority handoff.
+preserving user-visible runtime authority.
+
+### 2026-05-08 Authority-Tooling Gate Adapter Slice
+
+The authority/tooling cluster now uses the same canonical adapter proof shape
+as cognition, routing/model, and verification/output:
+
+- `policy_gate`, `approval_gate`, `dry_run_simulator`, `mcp_provider`,
+  `mcp_tool_call`, `tool_call`, `connector_call`, and `wallet_capability` now
+  run as staged default dispatch workflow envelopes in `gated` mode.
+- Their canonical adapter invocations remain `shadow_ready` and emit typed
+  adapter results, action frame ids, node attempts, receipt refs, replay
+  fixture refs, and `none` divergence classifications.
+- The default dispatch proof now exposes `authorityToolingAdapterMode`,
+  `authorityToolingAdapterResults`, `authorityToolingComponentKinds`,
+  `authorityToolingAttemptIds`, `authorityToolingReceiptIds`,
+  `authorityToolingReplayFixtureRefs`, `authorityToolingDivergenceClasses`, and
+  `authorityToolingAdapterProof`.
+- The adapter proof uses compact catalog refs between MCP-provider, MCP-tool,
+  native-tool, and connector envelopes so the proof remains replayable without
+  recursively embedding full prior executor payloads.
+- The existing live dry-run and read-only authority canaries remain intact as
+  supporting proof for policy gates, destructive denial, approval blocking,
+  provider catalog, MCP tool catalog, native tool catalog, connector describe,
+  and wallet capability dry-run behavior.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/`;
+  the promotion workflow artifact contains `authorityToolingAdapterMode:
+  workflow_component_adapter_gated`, eight adapter results, and
+  `authorityToolingAdapterProof`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`.
+
+This completes the P0 staged adapter proof across cognition, routing/model,
+verification/output, and authority/tooling. The next chronological slice should
+turn this from "all P0 clusters have gated canonical adapter evidence" into
+"the GUI and retained evidence explicitly prove gated-to-live promotion
+readiness for the full default harness activation, with rollback and divergence
+classification attached to every promoted cluster."
 
 ## Current State
 
