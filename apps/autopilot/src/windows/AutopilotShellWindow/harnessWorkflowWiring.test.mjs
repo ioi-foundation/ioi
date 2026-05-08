@@ -172,6 +172,12 @@ assert.match(
 );
 
 assert.match(
+  `${workflowRailPanel}\n${workflowComposer}\n${guiHarnessValidation}`,
+  /(?=[\s\S]*workflow-harness-canary-execution-boundaries)(?=[\s\S]*data-selected-canary-boundary-id)(?=[\s\S]*data-selected-rollback-drill-id)(?=[\s\S]*data-canary-boundary-id)(?=[\s\S]*data-rollback-drill-id)(?=[\s\S]*activation-gate-canary-boundary)(?=[\s\S]*activation-gate-canary-rollback-drill)(?=[\s\S]*routeStatefulActivationGateReferenceDeepLinks)/,
+  "Canary boundary and rollback drill rows should be route-stateful activation gate deep-link targets.",
+);
+
+assert.match(
   `${graphTypes}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
   /(?=[\s\S]*WorkflowHarnessActivationGateCollectEvidenceClickProof)(?=[\s\S]*runHarnessActivationGateCollectEvidenceClickProbe)(?=[\s\S]*activationGateCollectEvidenceClickProof)(?=[\s\S]*activationGateReplayFixtureRefs)(?=[\s\S]*selectedHarnessActivationGateId === "replay-fixtures")(?=[\s\S]*__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-replay-fixtures)(?=[\s\S]*harness_activation_gate_collect_evidence_click_proof)(?=[\s\S]*harness_activation_gate_collect_evidence_click_proof_present)/,
   "Activation replay fixture gate actions should have live click proof that collects persisted replay-gate evidence.",
@@ -179,7 +185,7 @@ assert.match(
 
 assert.match(
   `${graphTypes}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
-  /(?=[\s\S]*WorkflowHarnessActivationGateRollbackRestoreClickProof)(?=[\s\S]*runHarnessActivationGateRollbackRestoreClickProbe)(?=[\s\S]*activationGateRollbackRestoreClickProof)(?=[\s\S]*__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-rollback-restore)(?=[\s\S]*rollbackRestoreReceiptBindingRef)(?=[\s\S]*harness_activation_gate_rollback_restore_click_proof)(?=[\s\S]*harness_activation_gate_rollback_restore_click_proof_present)/,
+  /(?=[\s\S]*WorkflowHarnessActivationGateRollbackRestoreClickProof)(?=[\s\S]*runHarnessActivationGateRollbackRestoreClickProbe)(?=[\s\S]*activationGateRollbackRestoreClickProof)(?=[\s\S]*__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-rollback-restore)(?=[\s\S]*rollbackRestoreReceiptBindingRef)(?=[\s\S]*rollbackRestoreDeepLink)(?=[\s\S]*data-selected-rollback-restore-canary-id)(?=[\s\S]*harness_activation_gate_rollback_restore_click_proof)(?=[\s\S]*harness_activation_gate_rollback_restore_click_proof_present)/,
   "Rollback restore activation gate actions should have live click proof that collects restore canary receipt evidence.",
 );
 

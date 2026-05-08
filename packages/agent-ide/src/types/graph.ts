@@ -2043,6 +2043,8 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "activation-audit"
     | "activation-gate"
     | "activation-gate-evidence"
+    | "activation-gate-canary-boundary"
+    | "activation-gate-canary-rollback-drill"
     | "activation-gate-node-attempt"
     | "activation-gate-receipt"
     | "activation-gate-replay"
@@ -2183,6 +2185,8 @@ export interface WorkflowHarnessActivationGateRollbackRestoreClickProof {
     statusMessage: string | null;
     inspectorState: Record<string, string>;
   };
+  rollbackRestoreDeepLink?: string | null;
+  rollbackRestoreDeepLinkState?: Record<string, string>;
   clicked: boolean;
   passed: boolean;
   blockers: string[];

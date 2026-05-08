@@ -1615,9 +1615,14 @@ export function WorkflowRailPanel({
       ready: canaryReady,
       value: harnessActivationRecord?.canaryStatus ?? "not_run",
       detail: "workflow canary boundary and retained scenario proof",
-      evidenceRefs: harnessCanaryExecutionBoundaries.map(
-        (boundary) => boundary.boundaryId,
-      ),
+      evidenceRefs: workflowUniqueReceiptRefs([
+        ...harnessCanaryExecutionBoundaries.map(
+          (boundary) => boundary.boundaryId,
+        ),
+        ...harnessCanaryExecutionBoundaries.map(
+          (boundary) => boundary.rollbackDrill.drillId,
+        ),
+      ]),
       receiptRefs: harnessCanaryExecutionBoundaries.flatMap(
         (boundary) => boundary.receiptIds,
       ),
@@ -1768,6 +1773,61 @@ export function WorkflowRailPanel({
           : "wizard_step",
       }
     : null;
+  const selectedHarnessCanaryBoundary =
+    selectedHarnessActivationGateId === "canary"
+      ? (harnessCanaryExecutionBoundaries.find(
+          (boundary) =>
+            selectedHarnessActivationGateEvidenceRef ===
+              boundary.boundaryId ||
+            selectedHarnessActivationGateEvidenceRef ===
+              boundary.rollbackDrill.drillId ||
+            (selectedHarnessActivationGateReceiptRef
+              ? boundary.receiptIds.includes(
+                  selectedHarnessActivationGateReceiptRef,
+                )
+              : false) ||
+            (selectedHarnessReceiptRef
+              ? boundary.receiptIds.includes(selectedHarnessReceiptRef)
+              : false) ||
+            (selectedHarnessActivationGateReplayFixtureRef
+              ? boundary.replayFixtureRefs.includes(
+                  selectedHarnessActivationGateReplayFixtureRef,
+                )
+              : false) ||
+            (selectedHarnessReplayFixtureRef
+              ? boundary.replayFixtureRefs.includes(
+                  selectedHarnessReplayFixtureRef,
+                )
+              : false),
+        ) ?? null)
+      : null;
+  const selectedHarnessRollbackDrillId =
+    selectedHarnessCanaryBoundary &&
+    (selectedHarnessActivationGateEvidenceRef ===
+      selectedHarnessCanaryBoundary.rollbackDrill.drillId ||
+      selectedHarnessActivationGateEvidenceRef ===
+        selectedHarnessCanaryBoundary.boundaryId ||
+      Boolean(selectedHarnessActivationGateReceiptRef) ||
+      Boolean(selectedHarnessActivationGateReplayFixtureRef))
+      ? selectedHarnessCanaryBoundary.rollbackDrill.drillId
+      : "";
+  const selectedHarnessRollbackRestoreCanaryId =
+    selectedHarnessActivationGateId === "rollback-restore" &&
+    rollbackRestoreCanary &&
+    (selectedHarnessActivationGateEvidenceRef ===
+      rollbackRestoreCanary.canaryId ||
+      rollbackRestoreCanary.evidenceRefs.includes(
+        selectedHarnessActivationGateEvidenceRef ?? "",
+      ) ||
+      selectedHarnessActivationGateReceiptRef ===
+        rollbackRestoreCanary.receiptBindingRef ||
+      selectedHarnessReceiptRef === rollbackRestoreCanary.receiptBindingRef)
+      ? rollbackRestoreCanary.canaryId
+      : "";
+  const selectedHarnessRollbackRestoreReceiptRef =
+    selectedHarnessRollbackRestoreCanaryId
+      ? (rollbackRestoreCanary?.receiptBindingRef ?? "")
+      : "";
   const harnessComponentReadiness = workflow.nodes
     .map((node) => node.runtimeBinding?.readiness)
     .filter((readiness): readiness is NonNullable<typeof readiness> =>
@@ -4816,6 +4876,18 @@ export function WorkflowRailPanel({
                     data-selected-activation-gate-replay-fixture-ref={
                       selectedHarnessActivationGateReplayFixtureRef ?? ""
                     }
+                    data-selected-canary-boundary-id={
+                      selectedHarnessCanaryBoundary?.boundaryId ?? ""
+                    }
+                    data-selected-rollback-drill-id={
+                      selectedHarnessRollbackDrillId
+                    }
+                    data-selected-rollback-restore-canary-id={
+                      selectedHarnessRollbackRestoreCanaryId
+                    }
+                    data-selected-rollback-restore-receipt-ref={
+                      selectedHarnessRollbackRestoreReceiptRef
+                    }
                     data-gate-source-kind={
                       selectedHarnessActivationGateInspection.sourceKind
                     }
@@ -5673,12 +5745,55 @@ export function WorkflowRailPanel({
               <div
                 className="workflow-rail-list"
                 data-testid="workflow-harness-canary-execution-boundaries"
+                data-selected-canary-boundary-id={
+                  selectedHarnessCanaryBoundary?.boundaryId ?? ""
+                }
+                data-selected-rollback-drill-id={
+                  selectedHarnessRollbackDrillId
+                }
+                data-selected-canary-receipt-ref={
+                  selectedHarnessActivationGateReceiptRef ??
+                  selectedHarnessReceiptRef ??
+                  ""
+                }
+                data-selected-canary-replay-fixture-ref={
+                  selectedHarnessActivationGateReplayFixtureRef ??
+                  selectedHarnessReplayFixtureRef ??
+                  ""
+                }
+                data-canary-boundary-count={
+                  harnessCanaryExecutionBoundaries.length
+                }
+                data-rollback-drill-count={
+                  harnessCanaryExecutionBoundaries.filter(
+                    (boundary) => boundary.rollbackDrill.drillStatus,
+                  ).length
+                }
               >
                 {harnessCanaryExecutionBoundaries.map((boundary) => (
                   <article
                     key={boundary.boundaryId}
-                    className="workflow-output-row"
+                    className={`workflow-output-row ${
+                      selectedHarnessCanaryBoundary?.boundaryId ===
+                      boundary.boundaryId
+                        ? "is-active"
+                        : ""
+                    }`}
                     data-testid="workflow-harness-canary-execution-boundary"
+                    data-canary-boundary-id={boundary.boundaryId}
+                    data-rollback-drill-id={boundary.rollbackDrill.drillId}
+                    data-receipt-refs={boundary.receiptIds.join("|")}
+                    data-replay-fixture-refs={boundary.replayFixtureRefs.join(
+                      "|",
+                    )}
+                    data-rollback-target={boundary.rollbackTarget}
+                    data-canary-status={boundary.status}
+                    data-rollback-drill-status={
+                      boundary.rollbackDrill.drillStatus
+                    }
+                    data-canary-eligible={
+                      boundary.canaryEligible ? "true" : "false"
+                    }
                   >
                     <strong>{boundary.clusterLabel}</strong>
                     <span>
@@ -5688,6 +5803,51 @@ export function WorkflowRailPanel({
                       rollback drill {boundary.rollbackDrill.drillStatus} ·{" "}
                       {boundary.executedComponentKinds.length} nodes
                     </small>
+                    {onCopyHarnessDeepLink ? (
+                      <div className="workflow-harness-authority-gate-actions">
+                        <button
+                          type="button"
+                          data-testid={`workflow-harness-canary-boundary-link-${boundary.clusterId}`}
+                          onClick={() =>
+                            onCopyHarnessDeepLink({
+                              panel: "settings",
+                              activationGateId: "canary",
+                              activationGateEvidenceRef: boundary.boundaryId,
+                              activationGateReceiptRef:
+                                boundary.receiptIds[0],
+                              receiptRef: boundary.receiptIds[0],
+                              activationGateReplayFixtureRef:
+                                boundary.replayFixtureRefs[0],
+                              replayFixtureRef:
+                                boundary.replayFixtureRefs[0],
+                            })
+                          }
+                        >
+                          Boundary
+                        </button>
+                        <button
+                          type="button"
+                          data-testid={`workflow-harness-canary-rollback-drill-link-${boundary.clusterId}`}
+                          onClick={() =>
+                            onCopyHarnessDeepLink({
+                              panel: "settings",
+                              activationGateId: "canary",
+                              activationGateEvidenceRef:
+                                boundary.rollbackDrill.drillId,
+                              activationGateReceiptRef:
+                                boundary.receiptIds[0],
+                              receiptRef: boundary.receiptIds[0],
+                              activationGateReplayFixtureRef:
+                                boundary.replayFixtureRefs[0],
+                              replayFixtureRef:
+                                boundary.replayFixtureRefs[0],
+                            })
+                          }
+                        >
+                          Drill
+                        </button>
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
