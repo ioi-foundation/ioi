@@ -28,8 +28,8 @@ use self::prep::build_delegated_child_prep_bundle;
 pub(crate) use self::prep::DelegatedChildPrepBundle;
 
 use super::{
-    load_worker_assignment, persist_worker_assignment, register_parent_playbook_step_spawn,
-    resolve_worker_assignment,
+    ensure_harness_worker_session_record, load_worker_assignment, persist_worker_assignment,
+    register_parent_playbook_step_spawn, resolve_worker_assignment,
 };
 
 #[derive(Debug, Clone)]
@@ -75,6 +75,8 @@ pub async fn spawn_delegated_child_session(
                         hex::encode(child_session_id)
                     ))
                 })?;
+            ensure_harness_worker_session_record(service, state, child_session_id, &assignment)
+                .map_err(TransactionError::Invalid)?;
             return Ok(DelegatedChildSpawnOutcome {
                 child_session_id,
                 assignment,
@@ -201,6 +203,8 @@ pub async fn spawn_delegated_child_session(
         state.insert(&child_policy_key, &policy_bytes)?;
     }
     persist_worker_assignment(state, child_session_id, &assignment)?;
+    ensure_harness_worker_session_record(service, state, child_session_id, &assignment)
+        .map_err(TransactionError::Invalid)?;
 
     // Update session history if present; best-effort to avoid blocking delegation on history corruption.
     let history_key = b"agent::history".to_vec();

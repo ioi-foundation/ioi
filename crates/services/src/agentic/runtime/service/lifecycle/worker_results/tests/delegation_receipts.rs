@@ -1,6 +1,77 @@
 use super::*;
 
 #[tokio::test(flavor = "current_thread")]
+async fn delegated_child_persists_harness_worker_session_record_for_launch_and_resume() {
+    let (tx, _rx) = tokio::sync::broadcast::channel(16);
+    let (service, _temp_dir) = build_test_service(tx);
+    let service = service.with_harness_worker_binding_registry_record(
+        bound_default_harness_worker_binding_registry_record(
+            "harness-selector:test-worker-session",
+            "harness-default-dispatch:test-worker-session:read-only",
+            "harness-live-promotion-readiness:test-worker-session",
+            "promote_blessed_workflow_default_for_non_mutating_turn",
+        ),
+    );
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let mut parent_state = build_parent_state();
+
+    let spawned = spawn_delegated_child_session(
+        &service,
+        &mut state,
+        &mut parent_state,
+        [0x58; 32],
+        "Inspect the repo and return a bounded context brief.",
+        8,
+        None,
+        Some("context_worker"),
+        Some("repo_context_brief"),
+        None,
+        None,
+        None,
+        None,
+        3,
+        0,
+    )
+    .await
+    .expect("delegated child should spawn");
+    let child_hex = hex::encode(spawned.child_session_id);
+    let record = load_harness_worker_session_record(&state, spawned.child_session_id)
+        .expect("harness worker session lookup should succeed")
+        .expect("harness worker session should persist beside worker assignment");
+
+    assert_eq!(record.session_id, child_hex);
+    assert_eq!(
+        record.current_status,
+        HarnessWorkerSessionStatus::RollbackReady
+    );
+    assert!(record.accepted);
+    assert!(record.persisted_in_runtime_checkpoint);
+    assert!(record.restored_from_persisted_session);
+    assert!(record.persistence_blockers.is_empty());
+    assert!(record.worker_id.ends_with(&record.session_id));
+    assert!(record
+        .record_persistence_key
+        .contains(&record.session_record_id));
+
+    let indexed_record_bytes = state
+        .get(&get_harness_worker_session_record_key(
+            &record.session_record_id,
+        ))
+        .expect("indexed harness worker session lookup should succeed")
+        .expect("record-id index should exist");
+    let indexed_record: ioi_types::app::HarnessWorkerSessionRecord =
+        codec::from_bytes_canonical(&indexed_record_bytes)
+            .expect("indexed harness worker session should decode");
+    assert_eq!(indexed_record.session_record_id, record.session_record_id);
+    assert!(indexed_record.persisted_in_runtime_checkpoint);
+
+    let restored = restore_harness_worker_session_record(&mut state, spawned.child_session_id)
+        .expect("harness worker session restore should succeed")
+        .expect("harness worker session restore should find record");
+    assert!(restored.restored_from_persisted_session);
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn delegated_verifier_playbook_flows_through_result_artifact_and_merge_receipts() {
     let (tx, mut rx) = tokio::sync::broadcast::channel(16);
     let (service, _temp_dir) = build_test_service(tx);

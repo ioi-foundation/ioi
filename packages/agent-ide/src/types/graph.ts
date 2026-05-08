@@ -2626,6 +2626,12 @@ export interface WorkflowHarnessWorkerSessionRecord {
   blockers: string[];
   policyDecision: string;
   evidenceRefs: string[];
+  persistenceKey: string;
+  recordPersistenceKey: string;
+  persistedInRuntimeCheckpoint: boolean;
+  restoredFromPersistedSession: boolean;
+  runtimeCheckpointSource: string;
+  persistenceBlockers: string[];
   createdAtMs?: number;
 }
 

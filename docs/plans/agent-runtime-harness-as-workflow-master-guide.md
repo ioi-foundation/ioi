@@ -30,6 +30,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-56-37-565Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-03-01-399Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-22-36-710Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-30-23-659Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -78,13 +80,14 @@ through a workflow-backed harness.
 As of 2026-05-08, the default live harness activation-id gate, runtime selector
 readiness gate, live handoff, default runtime dispatch proof, durable worker
 binding authority proof, worker binding registry proof, worker attach lifecycle
-timeline, worker session record, gated verification/output adapter proof, and
-gated authority/tooling adapter proof have a green end-to-end checkpoint:
+timeline, worker session record, runtime-checkpoint worker session
+persistence, gated verification/output adapter proof, and gated
+authority/tooling adapter proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-56-37-565Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-22-36-710Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-03-01-399Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-30-23-659Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -96,8 +99,10 @@ bound to `activation:default-agent-harness:blessed-readonly`, the active worker
 binding matches the selector/default-dispatch proof ids and rollback target,
 the registry record is bound with no blockers and a matching readiness proof
 id, the worker attach/resume/rollback lifecycle is complete, the worker session
-record is accepted and `rollback_ready`, and the fork activation wizard remains
-its own evidence object.
+record is accepted and `rollback_ready`, that worker session record is visible
+with runtime checkpoint keys, `persistedInRuntimeCheckpoint: true`,
+`restoredFromPersistedSession: true`, and no persistence blockers, and the fork
+activation wizard remains its own evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -549,6 +554,48 @@ resume state and rollback target." The next chronological slice should persist
 that session record into the runtime checkpoint/worker registry path used for
 actual worker launch and resume, so the proof object becomes the operational
 source of truth instead of only the validation projection.
+
+### 2026-05-08 Worker Session Runtime Persistence Slice
+
+The worker session record is now persisted through the runtime state path used
+by delegated worker launch, worker execution, and resume rather than existing
+only as a projection artifact:
+
+- Runtime checkpoint keys now include
+  `agent::harness_worker_session::<session id>` and
+  `agent::harness_worker_session_record::<session record id>`.
+- Rust canonical `HarnessWorkerSessionRecord` now carries `persistence_key`,
+  `record_persistence_key`, `persisted_in_runtime_checkpoint`,
+  `restored_from_persisted_session`, `runtime_checkpoint_source`, and
+  `persistence_blockers`.
+- Delegated worker spawn persists the record beside the worker assignment;
+  duplicate spawn restores the existing record; worker step execution ensures
+  a record exists before the step runs; resume marks an existing record as
+  restored and writes it back to both indexes.
+- The Autopilot projection, TS harness runtime, GUI rail, and retained GUI
+  validator all require and show the persistence fields. The active runtime
+  binding rollup and default dispatch row now expose checkpoint keys, persisted
+  state, restored state, and checkpoint source as DOM evidence.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-22-36-710Z/`;
+  all eight retained queries passed, the live GUI proof reports
+  `workerSessionRecordBound: true`, and the session record includes both
+  checkpoint keys, `persistedInRuntimeCheckpoint: true`,
+  `restoredFromPersistedSession: true`, checkpoint source
+  `runtime_state_access_harness_worker_session_record`, and empty
+  `persistenceBlockers`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-30-23-659Z/dashboard-index.json`.
+
+This changes the promotion boundary from "the current worker instance is
+workflow-addressable" to "the runtime checkpoint can recover the
+workflow-bound worker instance by session id or session-record id." The next
+chronological slice should make the persisted session record the authority for
+actual live worker launch and rollback handoff: launch should bind by
+workflow id, activation id, activation hash, component-version set, rollback
+target, worker id, session id, and record id, and rollback should prove it can
+route control through that persisted binding rather than through projection
+metadata alone.
 
 ## Current State
 

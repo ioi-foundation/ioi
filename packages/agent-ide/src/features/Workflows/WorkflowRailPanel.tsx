@@ -3148,6 +3148,30 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeBinding.workerSessionRecord
                       ?.currentAttemptId ?? ""
                   }
+                  data-worker-session-persistence-key={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.persistenceKey ?? ""
+                  }
+                  data-worker-session-record-persistence-key={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.recordPersistenceKey ?? ""
+                  }
+                  data-worker-session-persisted={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.persistedInRuntimeCheckpoint
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-session-restored={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.restoredFromPersistedSession
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-session-checkpoint-source={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.runtimeCheckpointSource ?? ""
+                  }
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -3186,6 +3210,18 @@ export function WorkflowRailPanel({
                     worker session{" "}
                     {harnessActiveRuntimeBinding.workerSessionRecord
                       ?.sessionRecordId ?? "missing"}
+                  </small>
+                  <small>
+                    checkpoint{" "}
+                    {harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.persistedInRuntimeCheckpoint
+                      ? "persisted"
+                      : "missing"}{" "}
+                    /{" "}
+                    {harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.restoredFromPersistedSession
+                      ? "restored"
+                      : "not restored"}
                   </small>
                 </article>
                 <div
@@ -4827,6 +4863,30 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerSessionRecord
                     ?.currentStatus ?? ""
                 }
+                data-worker-session-persistence-key={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.persistenceKey ?? ""
+                }
+                data-worker-session-record-persistence-key={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.recordPersistenceKey ?? ""
+                }
+                data-worker-session-persisted={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.persistedInRuntimeCheckpoint
+                    ? "true"
+                    : "false"
+                }
+                data-worker-session-restored={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.restoredFromPersistedSession
+                    ? "true"
+                    : "false"
+                }
+                data-worker-session-checkpoint-source={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.runtimeCheckpointSource ?? ""
+                }
               >
                 <strong>
                   {harnessDefaultRuntimeDispatchProof.selectedSelector}
@@ -4855,6 +4915,18 @@ export function WorkflowRailPanel({
                   worker session{" "}
                   {harnessDefaultRuntimeDispatchProof.workerSessionRecord
                     ?.currentStatus ?? "missing"}
+                </small>
+                <small>
+                  worker checkpoint{" "}
+                  {harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.persistedInRuntimeCheckpoint
+                    ? "persisted"
+                    : "missing"}{" "}
+                  /{" "}
+                  {harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.restoredFromPersistedSession
+                    ? "restored"
+                    : "not restored"}
                 </small>
               </article>
             ) : null}

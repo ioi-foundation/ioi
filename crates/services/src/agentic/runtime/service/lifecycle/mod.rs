@@ -19,7 +19,7 @@ pub use handlers::{
 };
 pub(crate) use runtime_locality::maybe_seed_runtime_locality_context;
 pub(crate) use worker_results::{
-    await_child_worker_result, load_child_state, load_worker_assignment,
-    parse_child_session_id_hex, persist_worker_assignment, register_parent_playbook_step_spawn,
-    resolve_worker_assignment,
+    await_child_worker_result, ensure_harness_worker_session_record, load_child_state,
+    load_worker_assignment, parse_child_session_id_hex, persist_worker_assignment,
+    register_parent_playbook_step_spawn, resolve_worker_assignment,
 };

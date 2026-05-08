@@ -1,7 +1,9 @@
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::middleware::canonical_deterministic_tool_name;
-use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
+use crate::agentic::runtime::service::lifecycle::{
+    ensure_harness_worker_session_record, load_worker_assignment,
+};
 use crate::agentic::runtime::service::recovery::anti_loop::{latest_failure_class, FailureClass};
 use crate::agentic::runtime::service::tool_execution::execution_evidence_value;
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
@@ -492,6 +494,10 @@ pub async fn execute_worker_step(
     let os_driver = service.os_driver.clone();
     let worker_assignment =
         load_worker_assignment(state, worker_session_id).map_err(TransactionError::Invalid)?;
+    if let Some(assignment) = worker_assignment.as_ref() {
+        ensure_harness_worker_session_record(service, state, worker_session_id, assignment)
+            .map_err(TransactionError::Invalid)?;
+    }
 
     let mut output: Option<String> = None;
     let mut error: Option<String> = None;
