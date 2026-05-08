@@ -134,6 +134,7 @@ import {
   makeDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
   makeHarnessRuntimeSelectorDecision,
+  makeWorkflowHarnessWorkerBindingRegistryRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
@@ -616,6 +617,29 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     livePromotionReadinessProofId: livePromotionReadinessProof.proofId,
     policyDecision: selectorDecision.policyDecision,
   };
+  const workerBindingRegistryRecord =
+    makeWorkflowHarnessWorkerBindingRegistryRecord({
+      workflowId: harness.harnessWorkflowId || workflow.metadata.id,
+      activationId: harness.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      activationHash: harness.harnessHash,
+      harnessHash: harness.harnessHash,
+      selectorDecisionId: selectorDecision.decisionId,
+      defaultDispatchId: defaultRuntimeDispatchProof.dispatchId,
+      componentVersionSet: liveHandoffProof.componentVersionSet,
+      rollbackTarget:
+        harness.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      readinessProofId: livePromotionReadinessProof.proofId,
+      canaryResultId: "harness-canary-result:default-agent-harness:passed",
+      policyDecision: selectorDecision.policyDecision,
+      bindingStatus: "bound",
+      blockers: [],
+      workerBinding,
+      createdAtMs: nowMs,
+    });
+  const defaultRuntimeDispatchProofWithRegistry = {
+    ...defaultRuntimeDispatchProof,
+    workerBindingRegistryRecord,
+  };
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId: workflow.metadata.id || workflow.metadata.slug,
     harnessWorkflowId: harness.harnessWorkflowId || workflow.metadata.id,
@@ -638,6 +662,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       ...transitionRefs,
     ]),
     workerBinding,
+    workerBindingRegistryRecord,
     revisionBinding: harness.revisionBinding,
     rollbackRevisionBinding: harness.revisionBinding,
     mintedAtMs: nowMs,
@@ -654,7 +679,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
         activationRecord,
         runtimeSelectorDecision: selectorDecision,
         liveHandoffProof,
-        defaultRuntimeDispatchProof,
+        defaultRuntimeDispatchProof: defaultRuntimeDispatchProofWithRegistry,
+        workerBindingRegistryRecord,
       },
       updatedAtMs: nowMs,
     },

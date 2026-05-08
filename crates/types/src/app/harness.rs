@@ -785,6 +785,44 @@ pub struct HarnessWorkerBinding {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+pub enum HarnessWorkerBindingStatus {
+    Projection,
+    Blocked,
+    Canary,
+    Bound,
+}
+
+impl HarnessWorkerBindingStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Projection => "projection",
+            Self::Blocked => "blocked",
+            Self::Canary => "canary",
+            Self::Bound => "bound",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerBindingRegistryRecord {
+    pub schema_version: String,
+    pub registry_record_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub activation_hash: String,
+    pub harness_hash: String,
+    pub component_version_set: Vec<HarnessComponentVersionBinding>,
+    pub rollback_target: String,
+    pub readiness_proof_id: String,
+    pub canary_result_id: String,
+    pub policy_decision: String,
+    pub binding_status: HarnessWorkerBindingStatus,
+    pub blockers: Vec<String>,
+    pub worker_binding: HarnessWorkerBinding,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum HarnessLiveHandoffSelector {
     LegacyRuntime,
     BlessedWorkflowGated,
@@ -1044,6 +1082,7 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub read_only_capability_routing_no_mutation_ready: bool,
     pub read_only_capability_routing_workflow_owned_node_kinds: Vec<HarnessComponentKind>,
     pub live_promotion_readiness_proof: HarnessLivePromotionReadinessProof,
+    pub worker_binding_registry_record: HarnessWorkerBindingRegistryRecord,
     pub output_authority: String,
     pub output_writer_deferred: bool,
     pub output_writer_status: String,
@@ -1195,6 +1234,12 @@ pub enum HarnessBindingError {
     MissingActivationId,
     #[error("harness hash is missing")]
     MissingHash,
+    #[error("harness activation hash is missing")]
+    MissingActivationHash,
+    #[error("harness worker binding registry record is blocked")]
+    RegistryBlocked,
+    #[error("harness worker binding registry identity does not match worker binding")]
+    RegistryWorkerBindingMismatch,
 }
 
 const DEFAULT_HARNESS_FLOW: &[HarnessComponentKind] = &[
@@ -1989,6 +2034,82 @@ pub fn default_harness_worker_binding() -> HarnessWorkerBinding {
     }
 }
 
+pub fn default_harness_component_version_set() -> Vec<HarnessComponentVersionBinding> {
+    DEFAULT_HARNESS_FLOW
+        .iter()
+        .copied()
+        .map(default_harness_component_spec)
+        .map(|component| HarnessComponentVersionBinding {
+            component_id: component.component_id,
+            component_version: component.version,
+        })
+        .collect()
+}
+
+pub fn default_harness_worker_binding_registry_record() -> HarnessWorkerBindingRegistryRecord {
+    let worker_binding = default_harness_worker_binding();
+    HarnessWorkerBindingRegistryRecord {
+        schema_version: "workflow.harness.worker-binding-registry.v1".to_string(),
+        registry_record_id: format!(
+            "harness-worker-binding-registry:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        ),
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        activation_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        component_version_set: default_harness_component_version_set(),
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        readiness_proof_id: String::new(),
+        canary_result_id: "harness-canary-result:default-agent-harness:not-run".to_string(),
+        policy_decision: "retain_legacy_runtime_default".to_string(),
+        binding_status: HarnessWorkerBindingStatus::Projection,
+        blockers: vec!["worker_binding_registry_not_live".to_string()],
+        worker_binding,
+    }
+}
+
+pub fn bound_default_harness_worker_binding_registry_record(
+    selector_decision_id: impl Into<String>,
+    default_dispatch_id: impl Into<String>,
+    readiness_proof_id: impl Into<String>,
+    policy_decision: impl Into<String>,
+) -> HarnessWorkerBindingRegistryRecord {
+    let selector_decision_id = selector_decision_id.into();
+    let default_dispatch_id = default_dispatch_id.into();
+    let readiness_proof_id = readiness_proof_id.into();
+    let policy_decision = policy_decision.into();
+    let mut worker_binding = default_harness_worker_binding();
+    worker_binding.execution_mode = HarnessExecutionMode::Live;
+    worker_binding.selector_decision_id = Some(selector_decision_id);
+    worker_binding.default_dispatch_id = Some(default_dispatch_id.clone());
+    worker_binding.authority_binding_ready = true;
+    worker_binding.authority_binding_blockers.clear();
+    worker_binding.live_promotion_readiness_proof_id = Some(readiness_proof_id.clone());
+    worker_binding.policy_decision = Some(policy_decision.clone());
+    HarnessWorkerBindingRegistryRecord {
+        schema_version: "workflow.harness.worker-binding-registry.v1".to_string(),
+        registry_record_id: format!(
+            "harness-worker-binding-registry:{}:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            default_dispatch_id
+        ),
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        activation_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        component_version_set: default_harness_component_version_set(),
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        readiness_proof_id,
+        canary_result_id: "harness-canary-result:default-agent-harness:passed".to_string(),
+        policy_decision,
+        binding_status: HarnessWorkerBindingStatus::Bound,
+        blockers: Vec::new(),
+        worker_binding,
+    }
+}
+
 pub fn default_blessed_live_handoff_proof(
     node_timeline_attempt_ids: Vec<String>,
     receipt_ids: Vec<String>,
@@ -2007,15 +2128,7 @@ pub fn default_blessed_live_handoff_proof(
         workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
         activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
-        component_version_set: DEFAULT_HARNESS_FLOW
-            .iter()
-            .copied()
-            .map(default_harness_component_spec)
-            .map(|component| HarnessComponentVersionBinding {
-                component_id: component.component_id,
-                component_version: component.version,
-            })
-            .collect(),
+        component_version_set: default_harness_component_version_set(),
         canary_status: "passed".to_string(),
         canary_turn_routed_through_workflow: true,
         execution_boundary_id: "harness-canary-boundary:default-agent-harness:verification_output"
@@ -2300,10 +2413,19 @@ pub fn default_harness_live_promotion_readiness_proof(
 
 pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntimeDispatchProof {
     let dispatch_id = "harness-default-dispatch:default-agent-harness:readonly".to_string();
+    let selector_decision_id = "harness-selector:default-agent-harness:default".to_string();
+    let live_promotion_readiness_proof =
+        default_harness_live_promotion_readiness_proof(dispatch_id.clone(), Vec::new());
+    let worker_binding_registry_record = bound_default_harness_worker_binding_registry_record(
+        selector_decision_id.clone(),
+        dispatch_id.clone(),
+        live_promotion_readiness_proof.proof_id.clone(),
+        "promote_blessed_workflow_default_for_non_mutating_turn",
+    );
     HarnessDefaultRuntimeDispatchProof {
         schema_version: "workflow.harness.default-runtime-dispatch.v1".to_string(),
         dispatch_id: dispatch_id.clone(),
-        selector_decision_id: "harness-selector:default-agent-harness:default".to_string(),
+        selector_decision_id,
         selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
         production_default_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
         workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
@@ -2744,10 +2866,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             HarnessComponentKind::ToolRouter,
             HarnessComponentKind::DryRunSimulator,
         ],
-        live_promotion_readiness_proof: default_harness_live_promotion_readiness_proof(
-            dispatch_id,
-            Vec::new(),
-        ),
+        live_promotion_readiness_proof,
+        worker_binding_registry_record,
         output_authority: "blessed_workflow_activation_default".to_string(),
         output_writer_deferred: false,
         output_writer_status: "visible_write_committed".to_string(),
@@ -2979,6 +3099,35 @@ pub fn validate_harness_worker_binding(
     }
     if binding.harness_hash.trim().is_empty() {
         return Err(HarnessBindingError::MissingHash);
+    }
+    Ok(())
+}
+
+pub fn validate_harness_worker_binding_registry_record(
+    record: &HarnessWorkerBindingRegistryRecord,
+) -> Result<(), HarnessBindingError> {
+    if record.workflow_id.trim().is_empty() {
+        return Err(HarnessBindingError::MissingWorkflowId);
+    }
+    if record.activation_id.trim().is_empty() {
+        return Err(HarnessBindingError::MissingActivationId);
+    }
+    if record.activation_hash.trim().is_empty() {
+        return Err(HarnessBindingError::MissingActivationHash);
+    }
+    if record.harness_hash.trim().is_empty() {
+        return Err(HarnessBindingError::MissingHash);
+    }
+    validate_harness_worker_binding(&record.worker_binding)?;
+    if record.worker_binding.harness_workflow_id != record.workflow_id
+        || record.worker_binding.harness_activation_id.as_deref()
+            != Some(record.activation_id.as_str())
+        || record.worker_binding.harness_hash != record.harness_hash
+    {
+        return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
+    }
+    if record.binding_status == HarnessWorkerBindingStatus::Bound && !record.blockers.is_empty() {
+        return Err(HarnessBindingError::RegistryBlocked);
     }
     Ok(())
 }

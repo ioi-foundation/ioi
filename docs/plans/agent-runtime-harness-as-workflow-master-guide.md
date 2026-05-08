@@ -26,6 +26,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-36-28-167Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-18-42-111Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -73,23 +75,25 @@ through a workflow-backed harness.
 
 As of 2026-05-08, the default live harness activation-id gate, runtime selector
 readiness gate, live handoff, default runtime dispatch proof, durable worker
-binding authority proof, gated verification/output adapter proof, and gated
-authority/tooling adapter proof have a green end-to-end checkpoint:
+binding authority proof, worker binding registry proof, gated
+verification/output adapter proof, and gated authority/tooling adapter proof
+have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-36-28-167Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-18-42-111Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
 gate, the default runtime dispatch binding, worker binding authority posture,
-live handoff, route-stateful deep links, activation audit links, rollback
-restore actions, and runtime evidence in one retained-query evidence bundle. It
-also proves the blessed default dispatch is bound to
-`activation:default-agent-harness:blessed-readonly`, the active worker binding
-matches the selector/default-dispatch proof ids and rollback target, and the
-fork activation wizard remains its own evidence object.
+worker binding registry status, live handoff, route-stateful deep links,
+activation audit links, rollback restore actions, and runtime evidence in one
+retained-query evidence bundle. It also proves the blessed default dispatch is
+bound to `activation:default-agent-harness:blessed-readonly`, the active worker
+binding matches the selector/default-dispatch proof ids and rollback target,
+the registry record is bound with no blockers and a matching readiness proof
+id, and the fork activation wizard remains its own evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -367,6 +371,50 @@ gating into the worker launch/bind registry itself: persistent workers should
 bind by workflow id, activation id, activation hash, component-version set,
 rollback target, and readiness proof id, with canary and rollback records
 checked before accepting any live default worker attachment.
+
+### 2026-05-08 Worker-Binding Registry Slice
+
+The worker binding authority proof now has a persistent registry record that
+the runtime, GUI, fork activation records, and validation evidence must agree
+on before any default live worker binding is accepted:
+
+- Rust canonical harness contracts now define
+  `HarnessWorkerBindingRegistryRecord`, `HarnessWorkerBindingStatus`,
+  default/bound registry constructors, and
+  `validate_harness_worker_binding_registry_record`.
+- The default runtime dispatch proof now carries
+  `workerBindingRegistryRecord`, including workflow id, activation id,
+  activation hash, harness hash, component version set, rollback target,
+  readiness proof id, canary result id, policy decision, binding status,
+  blockers, and the nested `HarnessWorkerBinding`.
+- The Autopilot runtime projection fails closed unless the registry is `bound`,
+  has no blockers, references the selector live-promotion readiness proof, and
+  carries a nested worker binding for
+  `activation:default-agent-harness:blessed-readonly`.
+- Fork activation readiness now requires validated canary activation records to
+  include a matching registry record, so fork packageability and future worker
+  attachment cannot silently skip activation hash, component version set,
+  canary result, policy posture, or nested binding identity.
+- The Workflows right rail surfaces registry status next to worker binding
+  authority and includes registry blockers in the active runtime binding
+  blocker rollup.
+- The retained GUI validator now requires `workerBindingRegistryBound`,
+  `workerBindingRegistryStatus: bound`, empty registry blockers, matching
+  readiness proof ids, matching activation/hash identity, and a matching nested
+  worker binding before accepting default runtime binding evidence.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-18-42-111Z/`;
+  the live GUI proof explicitly reports `workerBindingRegistryBound: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`.
+
+This changes the promotion boundary from "a live worker binding proves its
+authority fields" to "a live worker binding must be accepted by a durable
+activation registry record." The next chronological slice should use this
+registry as the worker launch surface: worker attach/resume should resolve by
+workflow id, activation id, activation hash, component-version set, rollback
+target, readiness proof id, and worker binding status before the worker can
+claim live default authority.
 
 ## Current State
 

@@ -743,6 +743,51 @@ fn worker_binding_requires_activation_identity() {
 }
 
 #[test]
+fn worker_binding_registry_requires_bound_identity_without_blockers() {
+    let mut record = default_harness_worker_binding_registry_record();
+    validate_harness_worker_binding_registry_record(&record)
+        .expect("projection registry record is structurally valid");
+    assert_eq!(
+        record.binding_status,
+        HarnessWorkerBindingStatus::Projection
+    );
+    assert_eq!(record.workflow_id, DEFAULT_AGENT_HARNESS_WORKFLOW_ID);
+    assert_eq!(record.activation_id, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    assert_eq!(record.activation_hash, DEFAULT_AGENT_HARNESS_HASH);
+    assert_eq!(record.rollback_target, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    assert!(!record.component_version_set.is_empty());
+    assert!(record
+        .blockers
+        .iter()
+        .any(|blocker| blocker == "worker_binding_registry_not_live"));
+
+    record.binding_status = HarnessWorkerBindingStatus::Bound;
+    record.blockers.clear();
+    record.readiness_proof_id =
+        "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly".to_string();
+    record.canary_result_id = "harness-canary-result:default-agent-harness:passed".to_string();
+    record.policy_decision = "promote_blessed_workflow_default_for_non_mutating_turn".to_string();
+    record.worker_binding.execution_mode = HarnessExecutionMode::Live;
+    record.worker_binding.selector_decision_id =
+        Some("harness-selector:default-agent-harness:default".to_string());
+    record.worker_binding.default_dispatch_id =
+        Some("harness-default-dispatch:default-agent-harness:readonly".to_string());
+    record.worker_binding.authority_binding_ready = true;
+    record.worker_binding.authority_binding_blockers.clear();
+    record.worker_binding.live_promotion_readiness_proof_id =
+        Some(record.readiness_proof_id.clone());
+    record.worker_binding.policy_decision = Some(record.policy_decision.clone());
+    validate_harness_worker_binding_registry_record(&record)
+        .expect("bound registry record accepts matching worker binding");
+
+    record.worker_binding.harness_hash = "sha256:mismatch".to_string();
+    assert_eq!(
+        validate_harness_worker_binding_registry_record(&record),
+        Err(HarnessBindingError::RegistryWorkerBindingMismatch)
+    );
+}
+
+#[test]
 fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
     let proof = default_blessed_live_handoff_proof(
         vec!["attempt-planner".to_string()],

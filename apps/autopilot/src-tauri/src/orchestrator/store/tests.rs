@@ -597,6 +597,17 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "workflowId": ioi_types::app::DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
         "activationId": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "harnessHash": ioi_types::app::DEFAULT_AGENT_HARNESS_HASH,
+        "componentVersionSet": {
+            "ioi.agent-harness.planner.v1": "1.0.0",
+            "ioi.agent-harness.prompt_assembler.v1": "1.0.0",
+            "ioi.agent-harness.task_state.v1": "1.0.0",
+            "ioi.agent-harness.model_router.v1": "1.0.0",
+            "ioi.agent-harness.model_call.v1": "1.0.0",
+            "ioi.agent-harness.policy_gate.v1": "1.0.0",
+            "ioi.agent-harness.verifier.v1": "1.0.0",
+            "ioi.agent-harness.output_writer.v1": "1.0.0"
+        },
+        "canaryStatus": "passed",
         "defaultAuthorityTransferred": true,
         "runtimeAuthority": "blessed_workflow_activation_default",
         "rollbackTarget": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -809,6 +820,25 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         binding
+            .get("workerBindingRegistryBound")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingRegistryStatus")
+            .and_then(|value| value.as_str()),
+        Some("bound")
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingRegistryBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    assert_eq!(
+        binding
             .get("livePromotionReadinessProofIdsMatch")
             .and_then(|value| value.as_bool()),
         Some(true)
@@ -839,6 +869,31 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|value| value.get("defaultDispatchId"))
             .and_then(|value| value.as_str()),
         dispatch.get("dispatchId").and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingRegistryRecord")
+            .and_then(|value| value.get("bindingStatus"))
+            .and_then(|value| value.as_str()),
+        Some("bound")
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingRegistryRecord")
+            .and_then(|value| value.get("readinessProofId"))
+            .and_then(|value| value.as_str()),
+        selector
+            .get("livePromotionReadinessProof")
+            .and_then(|value| value.get("proofId"))
+            .and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingRegistryRecord")
+            .and_then(|value| value.get("workerBinding"))
+            .and_then(|value| value.get("harnessActivationId"))
+            .and_then(|value| value.as_str()),
+        Some(ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
     );
     let clusters = dispatch
         .get("acceptedClusterIds")

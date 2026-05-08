@@ -183,6 +183,11 @@ test("TS harness fork activation contract records blocked and canary-validated p
     graph,
     /WorkflowHarnessWorkerBinding[\s\S]*selectorDecisionId\?: string[\s\S]*defaultDispatchId\?: string[\s\S]*authorityBindingReady\?: boolean[\s\S]*livePromotionReadinessProofId\?: string/,
   );
+  assert.match(graph, /WorkflowHarnessWorkerBindingRegistryRecord/);
+  assert.match(
+    graph,
+    /WorkflowHarnessWorkerBindingRegistryRecord[\s\S]*registryRecordId: string[\s\S]*activationHash: string[\s\S]*bindingStatus: WorkflowHarnessWorkerBindingStatus[\s\S]*workerBinding: WorkflowHarnessWorkerBinding/,
+  );
   assert.match(
     graph,
     /WorkflowHarnessLiveHandoffProof[\s\S]*livePromotionReadinessProof\?: WorkflowHarnessLivePromotionReadinessProof \| null[\s\S]*livePromotionReadinessReady: boolean[\s\S]*livePromotionReadinessBlockers: string\[\]/,
@@ -220,6 +225,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(
     graph,
     /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof/,
+  );
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*workerBindingRegistryRecord: WorkflowHarnessWorkerBindingRegistryRecord/,
   );
   assert.match(graph, /WorkflowHarnessCanaryExecutionBoundary/);
   assert.match(
@@ -372,6 +381,8 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   [
     /workerBindingAuthorityReady/,
+    /workerBindingRegistryBound/,
+    /workerBindingRegistryRecord/,
     /livePromotionReadinessProofIdsMatch/,
     /invalidForkLiveActivationBlocked/,
     /activeWorkerBinding:/,
