@@ -1937,6 +1937,63 @@ export interface WorkflowHarnessActivationGateRollbackRestoreClickProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessActivationIdGateClickProof {
+  schemaVersion:
+    | "workflow.harness.activation-id-gate-click-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  blockedDryRun: {
+    gateId: string | null;
+    action: {
+      id: string | null;
+      kind: string | null;
+      impact: string | null;
+      command: string | null;
+      disabled: boolean;
+    };
+    beforeState: Record<string, string>;
+    afterState: Record<string, string>;
+    clicked: boolean;
+    candidateId: string | null;
+    decision: string | null;
+    activationBlockerCount: number;
+    workflowActivationId: string | null;
+    workflowActivationState: string | null;
+    latestAuditEventType: string | null;
+    latestAuditStatus: string | null;
+  };
+  mintedActivation: {
+    gateId: string | null;
+    action: {
+      id: string | null;
+      kind: string | null;
+      impact: string | null;
+      command: string | null;
+      disabled: boolean;
+    };
+    beforeState: Record<string, string>;
+    afterState: Record<string, string>;
+    clicked: boolean;
+    applied: boolean;
+    activationId: string | null;
+    workflowActivationId: string | null;
+    workflowActivationState: string | null;
+    workerBindingActivationId: string | null;
+    activationRecordWorkerBindingActivationId: string | null;
+    rollbackTarget: string | null;
+    revisionBindingActivationId: string | null;
+    activationRecordRevisionBindingHash: string | null;
+    rollbackRevisionBindingHash: string | null;
+    latestAuditEventType: string | null;
+    latestAuditStatus: string | null;
+    receiptRefs: string[];
+    evidenceRefs: string[];
+  };
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessColdStartDeepLinkRestoreCase
   extends WorkflowHarnessDeepLinkReplayCase {
   initialHash: string;
@@ -2166,6 +2223,7 @@ export interface WorkflowHarnessMetadata {
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
+  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];

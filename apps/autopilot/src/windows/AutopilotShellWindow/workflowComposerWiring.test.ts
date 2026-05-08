@@ -792,6 +792,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessActivationIdGateClickProof)(?=[\s\S]*runHarnessActivationIdGateClickProbe)(?=[\s\S]*activationIdGateClickProof)(?=[\s\S]*__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-activation-id)(?=[\s\S]*activationIdBlockedDryRunDecision)(?=[\s\S]*activationIdMintedActivationId)(?=[\s\S]*harness_activation_id_gate_click_proof)(?=[\s\S]*harness_activation_id_gate_click_proof_present)/,
+  "Activation id gate actions should have live click proof for both blocked dry-run and minting paths.",
+);
+
+assert.match(
   workflowRailPanel,
   /(?=[\s\S]*workflow-harness-activation-audit[\s\S]*data-receipt-refs[\s\S]*data-audit-receipt-refs)(?=[\s\S]*workflow-harness-rollback-execution-proof[\s\S]*data-restore-receipt-binding-ref)/,
   "Activation rail should surface audit and rollback execution receipt refs.",
@@ -861,6 +867,12 @@ assert.match(
   `${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
   /(?=[\s\S]*activationGateRollbackRestoreClickProof)(?=[\s\S]*activationGateRollbackRestoreClickPassed)(?=[\s\S]*activationGateRollbackRestoreCommand)(?=[\s\S]*activationGateRollbackRestoreCanaryStatus)(?=[\s\S]*activationGateRollbackRestoreReceiptBindingRef)(?=[\s\S]*harness_activation_gate_rollback_restore_click_proof)(?=[\s\S]*harness_activation_gate_rollback_restore_click_proof_present)/,
   "Live promotion GUI validation should include rollback restore gate click proof in the retained evidence contract.",
+);
+
+assert.match(
+  `${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*activationIdGateClickProof)(?=[\s\S]*activationIdGateClickPassed)(?=[\s\S]*activationIdBlockedDryRunDecision)(?=[\s\S]*activationIdMintedActivationId)(?=[\s\S]*harness_activation_id_gate_click_proof)(?=[\s\S]*harness_activation_id_gate_click_proof_present)/,
+  "Live promotion GUI validation should include activation-id blocked and mint gate click proof in the retained evidence contract.",
 );
 
 assert.match(

@@ -1820,9 +1820,11 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateActionClickProof/.test(controller) &&
       /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(controller) &&
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(controller) &&
+      /WorkflowHarnessActivationIdGateClickProof/.test(controller) &&
       /runHarnessActivationGateActionClickProbe/.test(controller) &&
       /runHarnessActivationGateCollectEvidenceClickProbe/.test(controller) &&
       /runHarnessActivationGateRollbackRestoreClickProbe/.test(controller) &&
+      /runHarnessActivationIdGateClickProbe/.test(controller) &&
       /selectedHarnessActivationGateInspection/.test(rail) &&
       /workflow-harness-activation-gate-inspector/.test(rail) &&
       /workflow-harness-activation-gate-summary/.test(rail) &&
@@ -1856,12 +1858,14 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationGateActionClickProof/.test(controller) &&
       /activationGateCollectEvidenceClickProof/.test(controller) &&
       /activationGateRollbackRestoreClickProof/.test(controller) &&
+      /activationIdGateClickProof/.test(controller) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
       /WorkflowHarnessActivationGateActionClickProof/.test(graph) &&
       /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(graph) &&
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(graph) &&
+      /WorkflowHarnessActivationIdGateClickProof/.test(graph) &&
       /gateResults:[\s\S]*evidenceRefs/.test(validation),
     interactiveReceiptSelection:
       /data-selected-receipt-ref/.test(rail) &&
@@ -2220,6 +2224,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessActivationGateActionWorkbench &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.activationGateRollbackRestoreClickProof === true;
+  const hasHarnessActivationIdGateClickProof =
+    hasHarnessActivationGateActionWorkbench &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activationIdGateClickProof === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2389,6 +2397,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationGateCollectEvidenceClickProof,
       harness_activation_gate_rollback_restore_click_proof_present:
         hasHarnessActivationGateRollbackRestoreClickProof,
+      harness_activation_id_gate_click_proof_present:
+        hasHarnessActivationIdGateClickProof,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2460,6 +2470,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessActivationGateActionClickProof,
       hasHarnessActivationGateCollectEvidenceClickProof,
       hasHarnessActivationGateRollbackRestoreClickProof,
+      hasHarnessActivationIdGateClickProof,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2874,6 +2885,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ?? null;
     const activationGateRollbackRestoreClickProof =
       workflow?.metadata?.harness?.activationGateRollbackRestoreClickProof ?? null;
+    const activationIdGateClickProof =
+      workflow?.metadata?.harness?.activationIdGateClickProof ?? null;
     const revisionBinding =
       workflow?.metadata?.harness?.revisionBinding ??
       workflow?.metadata?.harness?.activationRecord?.revisionBinding ??
@@ -3233,6 +3246,77 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             "data-receipt-ref-count"
           ] ?? 0,
         ) > 0,
+      activationIdGateClickProof:
+        activationIdGateClickProof?.passed === true &&
+        activationIdGateClickProof.blockedDryRun?.clicked === true &&
+        activationIdGateClickProof.blockedDryRun?.gateId === "activation-id" &&
+        activationIdGateClickProof.blockedDryRun?.action?.kind ===
+          "run_activation_dry_run" &&
+        activationIdGateClickProof.blockedDryRun?.action?.impact ===
+          "collect_evidence" &&
+        activationIdGateClickProof.blockedDryRun?.action?.command ===
+          "workflow-harness-gate-action-activation-id" &&
+        activationIdGateClickProof.blockedDryRun?.decision === "blocked" &&
+        (activationIdGateClickProof.blockedDryRun?.activationBlockerCount ?? 0) >
+          0 &&
+        (activationIdGateClickProof.blockedDryRun?.workflowActivationId ?? null) ===
+          null &&
+        activationIdGateClickProof.blockedDryRun?.workflowActivationState ===
+          "blocked" &&
+        activationIdGateClickProof.blockedDryRun?.latestAuditEventType ===
+          "dry_run_blocked" &&
+        activationIdGateClickProof.blockedDryRun?.afterState?.[
+          "data-gate-status"
+        ] === "blocked" &&
+        activationIdGateClickProof.mintedActivation?.clicked === true &&
+        activationIdGateClickProof.mintedActivation?.gateId ===
+          "activation-id" &&
+        activationIdGateClickProof.mintedActivation?.action?.kind ===
+          "mint_activation" &&
+        activationIdGateClickProof.mintedActivation?.action?.impact ===
+          "mint_activation" &&
+        activationIdGateClickProof.mintedActivation?.action?.command ===
+          "workflow-harness-gate-action-activation-id" &&
+        activationIdGateClickProof.mintedActivation?.applied === true &&
+        typeof activationIdGateClickProof.mintedActivation?.activationId ===
+          "string" &&
+        activationIdGateClickProof.mintedActivation.activationId.startsWith(
+          "activation:",
+        ) &&
+        activationIdGateClickProof.mintedActivation?.workflowActivationId ===
+          activationIdGateClickProof.mintedActivation?.activationId &&
+        activationIdGateClickProof.mintedActivation?.workflowActivationState ===
+          "validated" &&
+        activationIdGateClickProof.mintedActivation
+          ?.workerBindingActivationId ===
+          activationIdGateClickProof.mintedActivation?.activationId &&
+        activationIdGateClickProof.mintedActivation
+          ?.activationRecordWorkerBindingActivationId ===
+          activationIdGateClickProof.mintedActivation?.activationId &&
+        activationIdGateClickProof.mintedActivation
+          ?.revisionBindingActivationId ===
+          activationIdGateClickProof.mintedActivation?.activationId &&
+        activationIdGateClickProof.mintedActivation?.rollbackTarget ===
+          DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        Boolean(
+          activationIdGateClickProof.mintedActivation
+            ?.activationRecordRevisionBindingHash,
+        ) &&
+        Boolean(
+          activationIdGateClickProof.mintedActivation
+            ?.rollbackRevisionBindingHash,
+        ) &&
+        activationIdGateClickProof.mintedActivation?.latestAuditEventType ===
+          "activation_minted" &&
+        activationIdGateClickProof.mintedActivation?.latestAuditStatus ===
+          "applied" &&
+        (activationIdGateClickProof.mintedActivation?.receiptRefs?.length ?? 0) >
+          0 &&
+        (activationIdGateClickProof.mintedActivation?.evidenceRefs?.length ?? 0) >
+          0 &&
+        activationIdGateClickProof.mintedActivation?.afterState?.[
+          "data-gate-status"
+        ] === "passed",
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -3344,6 +3428,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       activationGateActionClickProof,
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
+      activationIdGateClickProof,
       activationGateEvidenceInspector: activationGateDeepLinkCase
         ? {
             selectedRailTestId: activationGateDeepLinkCase.selectedRailTestId,
@@ -3656,6 +3741,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_activation_gate_rollback_restore_click_proof:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.activationGateRollbackRestoreClickProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_id_gate_click_proof:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activationIdGateClickProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:
