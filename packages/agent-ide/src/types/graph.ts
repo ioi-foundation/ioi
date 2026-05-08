@@ -1791,6 +1791,7 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "revision"
     | "activation-blocker"
     | "activation-audit"
+    | "activation-gate"
     | string;
   hash: string;
   expectedPanel: WorkflowRightPanel;
@@ -2039,6 +2040,7 @@ export interface WorkflowHarnessMetadata {
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
+  activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];

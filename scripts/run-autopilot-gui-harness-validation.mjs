@@ -2139,6 +2139,11 @@ function buildGuiEvidenceAssessment({
     hasHarnessColdStartDeepLinkRestore &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.routeStatefulActivationAuditDeepLink === true;
+  const hasHarnessActivationGateDeepLinkRestore =
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activationGateDeepLinkProof?.passed === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.routeStatefulActivationGateDeepLink === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2294,6 +2299,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationBlockerDeepLinkRestore,
       harness_activation_audit_deep_link_restore_present:
         hasHarnessActivationAuditDeepLinkRestore,
+      harness_activation_gate_deep_link_restore_present:
+        hasHarnessActivationGateDeepLinkRestore,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2358,6 +2365,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessRevisionBindingDeepLinkRestore,
       hasHarnessActivationBlockerDeepLinkRestore,
       hasHarnessActivationAuditDeepLinkRestore,
+      hasHarnessActivationGateDeepLinkRestore,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2764,6 +2772,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       workflow?.metadata?.harness?.coldStartDeepLinkRestoreProof ?? null;
     const activationBlockerDeepLinkProof =
       workflow?.metadata?.harness?.activationBlockerDeepLinkProof ?? null;
+    const activationGateDeepLinkProof =
+      workflow?.metadata?.harness?.activationGateDeepLinkProof ?? null;
     const revisionBinding =
       workflow?.metadata?.harness?.revisionBinding ??
       workflow?.metadata?.harness?.activationRecord?.revisionBinding ??
@@ -2872,6 +2882,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationBlockerDeepLinkProof?.cases?.find(
           (replayCase) => replayCase.id === "activation-blocker",
         )?.hash ?? null,
+      activationGate:
+        activationGateDeepLinkProof?.cases?.find(
+          (replayCase) => replayCase.id === "activation-gate",
+        )?.hash ?? null,
       activationAudit: audit[0]?.eventId
         ? `#harness-workbench?${new URLSearchParams({
             panel: "settings",
@@ -2965,6 +2979,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         routeStatefulDeepLinks.activationBlocker?.includes("activationBlockerRef="),
       routeStatefulActivationAuditDeepLink:
         routeStatefulDeepLinks.activationAudit?.includes("activationAuditEventId="),
+      routeStatefulActivationGateDeepLink:
+        activationGateDeepLinkProof?.passed === true &&
+        routeStatefulDeepLinks.activationGate?.includes("activationGateId="),
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -3072,6 +3089,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       deepLinkReplayProof,
       coldStartDeepLinkRestoreProof,
       activationBlockerDeepLinkProof,
+      activationGateDeepLinkProof,
       sourceRefs: [
         "packages/agent-ide/src/WorkflowComposer/controller.tsx",
         "packages/agent-ide/src/WorkflowComposer/support.tsx",
@@ -3280,6 +3298,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_activation_audit_deep_link_restore:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.routeStatefulActivationAuditDeepLink === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_gate_deep_link_restore:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.routeStatefulActivationGateDeepLink === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:

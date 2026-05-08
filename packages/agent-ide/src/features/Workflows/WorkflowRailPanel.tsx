@@ -135,6 +135,7 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   activationBlockerIndex?: string;
   activationBlockerRef?: string;
   activationAuditEventId?: string;
+  activationGateId?: string;
 };
 
 function workflowRevisionBindingDeepLinkRef(
@@ -163,6 +164,7 @@ export function WorkflowRailPanel({
   selectedHarnessActivationAuditEventId,
   selectedHarnessActivationBlockerIndex,
   selectedHarnessActivationBlockerRef,
+  selectedHarnessActivationGateId,
   selectedHarnessRevisionBindingKind,
   selectedHarnessRevisionBindingRef,
   tests,
@@ -229,6 +231,7 @@ export function WorkflowRailPanel({
   selectedHarnessActivationAuditEventId?: string | null;
   selectedHarnessActivationBlockerIndex?: string | null;
   selectedHarnessActivationBlockerRef?: string | null;
+  selectedHarnessActivationGateId?: string | null;
   selectedHarnessRevisionBindingKind?: string | null;
   selectedHarnessRevisionBindingRef?: string | null;
   tests: WorkflowTestCase[];
@@ -2886,16 +2889,46 @@ export function WorkflowRailPanel({
                     <div
                       className="workflow-harness-activation-candidate-gates"
                       data-testid="workflow-harness-activation-candidate-gates"
+                      data-selected-activation-gate-id={
+                        selectedHarnessActivationGateId ?? ""
+                      }
                     >
                       {harnessActivationCandidate.gateResults.map((gate) => (
                         <article
                           key={gate.gateId}
-                          className={`workflow-test-row is-${gate.status}`}
+                          className={`workflow-test-row is-${gate.status} ${
+                            selectedHarnessActivationGateId === gate.gateId
+                              ? "is-active"
+                              : ""
+                          }`}
                           data-testid={`workflow-harness-activation-candidate-gate-${gate.gateId}`}
+                          data-activation-gate-id={gate.gateId}
                         >
                           <strong>{gate.label}</strong>
                           <span>{gate.value}</span>
                           <small>{gate.detail}</small>
+                          {onCopyHarnessDeepLink ? (
+                            <div className="workflow-harness-authority-gate-actions">
+                              <button
+                                type="button"
+                                className={`workflow-harness-ref-button ${
+                                  selectedHarnessActivationGateId === gate.gateId
+                                    ? "is-active"
+                                    : ""
+                                }`}
+                                data-testid={`workflow-harness-activation-candidate-gate-link-${gate.gateId}`}
+                                data-activation-gate-id={gate.gateId}
+                                onClick={() =>
+                                  onCopyHarnessDeepLink?.({
+                                    panel: "settings",
+                                    activationGateId: gate.gateId,
+                                  })
+                                }
+                              >
+                                <code>{gate.gateId}</code>
+                              </button>
+                            </div>
+                          ) : null}
                         </article>
                       ))}
                     </div>
@@ -2931,16 +2964,44 @@ export function WorkflowRailPanel({
                 <div
                   className="workflow-harness-activation-steps"
                   data-testid="workflow-harness-activation-steps"
+                  data-selected-activation-gate-id={
+                    selectedHarnessActivationGateId ?? ""
+                  }
                 >
                   {harnessActivationWizardSteps.map((step) => (
                     <article
                       key={step.id}
-                      className={`workflow-test-row is-${step.ready ? "passed" : "blocked"}`}
+                      className={`workflow-test-row is-${step.ready ? "passed" : "blocked"} ${
+                        selectedHarnessActivationGateId === step.id ? "is-active" : ""
+                      }`}
                       data-testid={`workflow-harness-activation-step-${step.id}`}
+                      data-activation-gate-id={step.id}
                     >
                       <strong>{step.label}</strong>
                       <span>{step.value}</span>
                       <small>{step.detail}</small>
+                      {onCopyHarnessDeepLink ? (
+                        <div className="workflow-harness-authority-gate-actions">
+                          <button
+                            type="button"
+                            className={`workflow-harness-ref-button ${
+                              selectedHarnessActivationGateId === step.id
+                                ? "is-active"
+                                : ""
+                            }`}
+                            data-testid={`workflow-harness-activation-step-link-${step.id}`}
+                            data-activation-gate-id={step.id}
+                            onClick={() =>
+                              onCopyHarnessDeepLink?.({
+                                panel: "settings",
+                                activationGateId: step.id,
+                              })
+                            }
+                          >
+                            <code>{step.id}</code>
+                          </button>
+                        </div>
+                      ) : null}
                     </article>
                   ))}
                 </div>
@@ -3957,6 +4018,9 @@ export function WorkflowRailPanel({
           }
           data-selected-activation-audit-event-id={
             selectedHarnessActivationAuditEventId ?? ""
+          }
+          data-selected-activation-gate-id={
+            selectedHarnessActivationGateId ?? ""
           }
         >
           <h4>Deep link</h4>
