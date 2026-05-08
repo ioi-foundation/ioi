@@ -426,6 +426,8 @@ export function WorkflowRailPanel({
     workflow.metadata.harness?.canaryExecutionBoundaries ??
     (harnessCanaryExecutionBoundary ? [harnessCanaryExecutionBoundary] : []);
   const harnessDefaultRuntimeDispatchProof = workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const harnessLivePromotionReadinessProof =
+    harnessDefaultRuntimeDispatchProof?.livePromotionReadinessProof ?? null;
   const harnessActiveRuntimeBindingReceiptRefs = workflowUniqueReceiptRefs([
     ...(harnessDefaultRuntimeDispatchProof?.receiptIds ?? []),
     ...(harnessLiveHandoffProof?.receiptIds ?? []),
@@ -5027,6 +5029,123 @@ export function WorkflowRailPanel({
               ))}
             </div>
           ) : null}
+        </section>
+      ) : null}
+      {harnessLivePromotionReadinessProof ? (
+        <section
+          className="workflow-rail-section workflow-harness-live-promotion-readiness"
+          data-testid="workflow-harness-live-promotion-readiness"
+          data-proof-id={harnessLivePromotionReadinessProof.proofId}
+          data-default-live-activation-ready={
+            harnessLivePromotionReadinessProof.defaultLiveActivationReady
+          }
+          data-promotion-eligible={harnessLivePromotionReadinessProof.promotionEligible}
+          data-policy-decision={harnessLivePromotionReadinessProof.policyDecision}
+          data-cluster-count={harnessLivePromotionReadinessProof.clusterReadiness.length}
+          data-activation-blockers={
+            harnessLivePromotionReadinessProof.activationBlockers.join("|")
+          }
+        >
+          <h4>Live promotion readiness</h4>
+          <dl
+            className="workflow-rail-stats"
+            data-testid="workflow-harness-live-promotion-readiness-summary"
+          >
+            <div>
+              <dt>Clusters</dt>
+              <dd>
+                {
+                  harnessLivePromotionReadinessProof.clusterReadiness.filter(
+                    (cluster) => cluster.blockers.length === 0,
+                  ).length
+                }
+                /{harnessLivePromotionReadinessProof.requiredClusterIds.length}
+              </dd>
+            </div>
+            <div>
+              <dt>Receipts</dt>
+              <dd>
+                {harnessLivePromotionReadinessProof.clusterReadiness.reduce(
+                  (total, cluster) => total + cluster.receiptRefs.length,
+                  0,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Replay</dt>
+              <dd>
+                {harnessLivePromotionReadinessProof.clusterReadiness.reduce(
+                  (total, cluster) => total + cluster.replayFixtureRefs.length,
+                  0,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Rollback</dt>
+              <dd>
+                {harnessLivePromotionReadinessProof.rollbackAvailable
+                  ? "ready"
+                  : "blocked"}
+              </dd>
+            </div>
+          </dl>
+          <article
+            className={`workflow-output-row is-${
+              harnessLivePromotionReadinessProof.defaultLiveActivationReady
+                ? "ready"
+                : "blocked"
+            }`}
+            data-testid="workflow-harness-live-promotion-readiness-rollup"
+            data-invalid-fork-live-activation-blocked={
+              harnessLivePromotionReadinessProof.invalidForkLiveActivationBlocked
+            }
+            data-rollback-target={harnessLivePromotionReadinessProof.rollbackTarget}
+          >
+            <strong>{harnessLivePromotionReadinessProof.policyDecision}</strong>
+            <span>
+              target {harnessLivePromotionReadinessProof.targetExecutionMode}
+              {" · "}
+              invalid forks{" "}
+              {harnessLivePromotionReadinessProof.invalidForkLiveActivationBlocked
+                ? "blocked"
+                : "review"}
+            </span>
+            <small>
+              {harnessLivePromotionReadinessProof.activationBlockers.join(" | ") ||
+                harnessLivePromotionReadinessProof.rollbackTarget}
+            </small>
+          </article>
+          <div
+            className="workflow-harness-authority-gate-list"
+            data-testid="workflow-harness-live-promotion-readiness-clusters"
+          >
+            {harnessLivePromotionReadinessProof.clusterReadiness.map((cluster) => (
+              <article
+                key={cluster.clusterId}
+                className={`workflow-test-row is-${
+                  cluster.blockers.length === 0 ? "passed" : "blocked"
+                }`}
+                data-testid={`workflow-harness-live-promotion-cluster-${cluster.clusterId}`}
+                data-cluster-id={cluster.clusterId}
+                data-current-status={cluster.currentStatus}
+                data-blocking-divergence-count={cluster.blockingDivergenceCount}
+                data-unclassified-divergence-count={
+                  cluster.unclassifiedDivergenceCount
+                }
+                data-blockers={cluster.blockers.join("|")}
+              >
+                <strong>{cluster.label}</strong>
+                <span>
+                  {cluster.currentStatus} to {cluster.targetExecutionMode}
+                  {" · "}
+                  receipts {cluster.receiptRefs.length}
+                  {" · "}
+                  replay {cluster.replayFixtureRefs.length}
+                </span>
+                <small>{cluster.decision}</small>
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
       {harnessDefaultRuntimeDispatchProof ? (

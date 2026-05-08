@@ -2238,6 +2238,43 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         .and_then(|value| value.as_str())
         .map(|value| value == "workflow.harness.model-execution-envelope.v1")
         .unwrap_or(false));
+    let live_promotion_readiness = default_dispatch
+        .get("livePromotionReadinessProof")
+        .expect("live promotion readiness proof");
+    assert_eq!(
+        live_promotion_readiness
+            .get("schemaVersion")
+            .and_then(|value| value.as_str()),
+        Some("workflow.harness.live-promotion-readiness.v1")
+    );
+    assert_eq!(
+        live_promotion_readiness
+            .get("defaultLiveActivationReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        live_promotion_readiness
+            .get("policyDecision")
+            .and_then(|value| value.as_str()),
+        Some("allow_default_harness_live_promotion_readiness")
+    );
+    assert!(live_promotion_readiness
+        .get("clusterReadiness")
+        .and_then(|value| value.as_array())
+        .map(|clusters| clusters.len() >= 4
+            && clusters.iter().all(|cluster| {
+                cluster
+                    .get("targetExecutionMode")
+                    .and_then(|value| value.as_str())
+                    == Some("live")
+                    && cluster
+                        .get("blockers")
+                        .and_then(|value| value.as_array())
+                        .map(|items| items.is_empty())
+                        .unwrap_or(false)
+            }))
+        .unwrap_or(false));
     assert_eq!(
         default_dispatch
             .get("outputWriterStagedWriteMode")

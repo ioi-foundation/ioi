@@ -1234,6 +1234,47 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
         .read_only_capability_routing_workflow_owned_node_kinds
         .contains(&HarnessComponentKind::DryRunSimulator));
     assert_eq!(
+        dispatch.live_promotion_readiness_proof.schema_version,
+        "workflow.harness.live-promotion-readiness.v1"
+    );
+    assert_eq!(
+        dispatch
+            .live_promotion_readiness_proof
+            .target_execution_mode,
+        HarnessExecutionMode::Live
+    );
+    assert!(dispatch.live_promotion_readiness_proof.all_clusters_ready);
+    assert!(dispatch.live_promotion_readiness_proof.promotion_eligible);
+    assert!(
+        dispatch
+            .live_promotion_readiness_proof
+            .default_live_activation_ready
+    );
+    assert!(
+        dispatch
+            .live_promotion_readiness_proof
+            .invalid_fork_live_activation_blocked
+    );
+    assert_eq!(
+        dispatch
+            .live_promotion_readiness_proof
+            .required_cluster_ids
+            .len(),
+        4
+    );
+    assert!(dispatch
+        .live_promotion_readiness_proof
+        .cluster_readiness
+        .iter()
+        .all(
+            |cluster| cluster.target_execution_mode == HarnessExecutionMode::Live
+                && cluster.blockers.is_empty()
+                && !cluster.receipt_refs.is_empty()
+                && !cluster.replay_fixture_refs.is_empty()
+                && cluster.blocking_divergence_count == 0
+                && cluster.unclassified_divergence_count == 0
+        ));
+    assert_eq!(
         dispatch.output_authority,
         "blessed_workflow_activation_default"
     );
