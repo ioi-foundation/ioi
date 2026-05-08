@@ -1492,6 +1492,14 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   routingModelActionFrameIds: string[];
   routingModelComponentKinds: WorkflowHarnessComponentKind[];
   routingModelDivergenceClasses: WorkflowHarnessDivergenceClass[];
+  verificationOutputAdapterMode: "workflow_component_adapter_gated" | string;
+  verificationOutputAttemptIds: string[];
+  verificationOutputReceiptIds: string[];
+  verificationOutputReplayFixtureRefs: string[];
+  verificationOutputAdapterResults: WorkflowHarnessComponentAdapterResult[];
+  verificationOutputActionFrameIds: string[];
+  verificationOutputComponentKinds: WorkflowHarnessComponentKind[];
+  verificationOutputDivergenceClasses: WorkflowHarnessDivergenceClass[];
   modelExecutionAttemptIds: string[];
   modelExecutionReceiptIds: string[];
   modelExecutionReplayFixtureRefs: string[];
@@ -1665,6 +1673,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   readOnlyCapabilityRoutingNoMutationReady: boolean;
   readOnlyCapabilityRoutingWorkflowOwnedNodeKinds: WorkflowHarnessComponentKind[];
   readOnlyCapabilityRoutingProof?: Record<string, unknown>;
+  verificationOutputProof?: Record<string, unknown>;
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;

@@ -1,4 +1,4 @@
-#![recursion_limit = "1024"]
+#![recursion_limit = "2048"]
 
 use serde_json::json;
 use std::path::{Path, PathBuf};

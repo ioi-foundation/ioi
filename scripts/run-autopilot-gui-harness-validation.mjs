@@ -1066,6 +1066,31 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ) &&
             Array.isArray(dispatch.routingModelDivergenceClasses) &&
             dispatch.routingModelDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.verificationOutputAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.verificationOutputAdapterResults) &&
+            dispatch.verificationOutputAdapterResults.length >= 6 &&
+            dispatch.verificationOutputAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.verificationOutputAttemptIds) &&
+            dispatch.verificationOutputAttemptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputReceiptIds) &&
+            dispatch.verificationOutputReceiptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputReplayFixtureRefs) &&
+            dispatch.verificationOutputReplayFixtureRefs.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputComponentKinds) &&
+            [
+              "postcondition_synthesizer",
+              "verifier",
+              "completion_gate",
+              "receipt_writer",
+              "quality_ledger",
+              "output_writer",
+            ].every((kind) => dispatch.verificationOutputComponentKinds.includes(kind)) &&
+            Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
+            dispatch.verificationOutputDivergenceClasses.every((kind) => kind === "none") &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
             typeof dispatch.modelExecutionBindingId === "string" &&
@@ -1328,6 +1353,31 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ) &&
             Array.isArray(dispatch.routingModelDivergenceClasses) &&
             dispatch.routingModelDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.verificationOutputAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.verificationOutputAdapterResults) &&
+            dispatch.verificationOutputAdapterResults.length >= 6 &&
+            dispatch.verificationOutputAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.verificationOutputAttemptIds) &&
+            dispatch.verificationOutputAttemptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputReceiptIds) &&
+            dispatch.verificationOutputReceiptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputReplayFixtureRefs) &&
+            dispatch.verificationOutputReplayFixtureRefs.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputComponentKinds) &&
+            [
+              "postcondition_synthesizer",
+              "verifier",
+              "completion_gate",
+              "receipt_writer",
+              "quality_ledger",
+              "output_writer",
+            ].every((kind) => dispatch.verificationOutputComponentKinds.includes(kind)) &&
+            Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
+            dispatch.verificationOutputDivergenceClasses.every((kind) => kind === "none") &&
             Array.isArray(dispatch.modelExecutionAttemptIds) &&
             dispatch.modelExecutionAttemptIds.length >= 5 &&
             Array.isArray(dispatch.modelExecutionReceiptIds) &&
