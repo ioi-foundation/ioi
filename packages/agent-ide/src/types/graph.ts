@@ -2216,6 +2216,35 @@ export interface WorkflowHarnessPackageEvidenceImportRoundTripProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessPackageImportReviewProof {
+  schemaVersion:
+    | "workflow.harness.package-import-review-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  review: WorkflowPackageImportReview | null;
+  railState: Record<string, string>;
+  gateId: string | null;
+  activationAction: {
+    valid: {
+      present: boolean;
+      disabled: boolean;
+      evidenceReady: boolean;
+      blockerCount: number;
+    };
+    incomplete: {
+      present: boolean;
+      disabled: boolean;
+      evidenceReady: boolean;
+      blockerCount: number;
+    };
+  };
+  sourceWorkflowPath: string | null;
+  importedWorkflowPath: string | null;
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
   schemaVersion:
     | "workflow.harness.activation-gate-collect-evidence-click-proof.v1"
@@ -2610,6 +2639,7 @@ export interface WorkflowHarnessMetadata {
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
+  packageImportReviewProof?: WorkflowHarnessPackageImportReviewProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;
@@ -3216,6 +3246,7 @@ export interface WorkflowWorkbenchBundle {
   tests: WorkflowTestCase[];
   proposals: WorkflowProposal[];
   runs: WorkflowRunSummary[];
+  importedPackage?: WorkflowPortablePackage;
 }
 
 export interface CreateWorkflowProjectRequest {
@@ -3310,6 +3341,49 @@ export interface WorkflowPortablePackage {
   manifestPath: string;
   manifest: WorkflowPortablePackageManifest;
   importedWorkflowPath?: string;
+}
+
+export interface WorkflowPackageImportReview {
+  schemaVersion: "workflow.package-import-review.v1" | string;
+  packagePath: string;
+  manifestPath: string | null;
+  importedAtMs: number;
+  source: {
+    workflowName: string | null;
+    workflowSlug: string | null;
+    workflowId: string | null;
+    sourceWorkflowPath: string | null;
+    workflowContentHash: string | null;
+    activationId: string | null;
+    harnessWorkflowId: string | null;
+    rollbackTarget: string | null;
+    portable: boolean;
+    readinessStatus: WorkflowValidationResult["status"] | null;
+    fileCount: number;
+    blockerCount: number;
+  };
+  imported: {
+    workflowId: string;
+    workflowName: string;
+    workflowSlug: string;
+    workflowPath: string;
+    testsPath: string;
+    projectRoot: string;
+    activationReadinessStatus: WorkflowValidationResult["status"] | null;
+  };
+  evidence: {
+    harnessPackageManifestPresent: boolean;
+    packageEvidenceReady: boolean;
+    blockerCount: number;
+    evidenceRefCount: number;
+    receiptRefCount: number;
+    replayFixtureRefCount: number;
+    rollbackRestoreReceiptRefCount: number;
+    workerHandoffNodeAttemptCount: number;
+    workerHandoffReceiptCount: number;
+    deepLinkCount: number;
+    missingRows: string[];
+  };
 }
 
 export interface ImportWorkflowPackageRequest {

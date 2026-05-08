@@ -3108,6 +3108,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         controller,
       ) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(controller) &&
+      /WorkflowHarnessPackageImportReviewProof/.test(controller) &&
       /WorkflowHarnessPackageEvidenceGateClickProof/.test(controller) &&
       /WorkflowHarnessPackageEvidenceImportRoundTripProof/.test(controller) &&
       /workflowHarnessActivationIdGateClickProofBlockers/.test(
@@ -3120,6 +3121,11 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /runHarnessActivationIdGateClickProbe/.test(controller) &&
       /runHarnessPackageEvidenceGateClickProbe/.test(controller) &&
       /runHarnessPackageEvidenceImportRoundTripProbe/.test(controller) &&
+      /workflow-harness-package-import-review/.test(rail) &&
+      /workflow-harness-package-import-activate/.test(rail) &&
+      /data-package-import-source-workflow-path/.test(rail) &&
+      /data-package-import-imported-workflow-path/.test(rail) &&
+      /data-package-import-activation-enabled/.test(rail) &&
       /selectedHarnessActivationGateInspection/.test(rail) &&
       /workflow-harness-activation-gate-inspector/.test(rail) &&
       /workflow-harness-activation-gate-summary/.test(rail) &&
@@ -3170,6 +3176,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationIdGateClickProof/.test(controller) &&
       /packageEvidenceGateClickProof/.test(controller) &&
       /packageEvidenceImportRoundTripProof/.test(controller) &&
+      /packageImportReviewProof/.test(controller) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
@@ -3177,6 +3184,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(graph) &&
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(graph) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(graph) &&
+      /WorkflowHarnessPackageImportReviewProof/.test(graph) &&
+      /WorkflowPackageImportReview/.test(graph) &&
       /WorkflowHarnessPackageEvidenceGateClickProof/.test(graph) &&
       /WorkflowHarnessPackageEvidenceImportRoundTripProof/.test(graph) &&
       /workerHandoffDeepLink/.test(graph) &&
@@ -3538,6 +3547,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessPackageEvidenceGateClickProof &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.packageEvidenceImportRoundTripProof === true;
+  const hasHarnessPackageImportReviewMode =
+    hasHarnessPackageEvidenceImportRoundTrip &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.packageImportReviewProof === true;
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
@@ -3932,6 +3945,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessPackageEvidenceGateClickProof,
       harness_package_evidence_import_roundtrip_present:
         hasHarnessPackageEvidenceImportRoundTrip,
+      harness_package_import_review_mode_present:
+        hasHarnessPackageImportReviewMode,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -4035,6 +4050,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessPackageEvidenceGate,
       hasHarnessPackageEvidenceGateClickProof,
       hasHarnessPackageEvidenceImportRoundTrip,
+      hasHarnessPackageImportReviewMode,
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessRouteStatefulDeepLinkReplay,
@@ -4611,6 +4627,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.packageEvidenceGateClickProof ?? null;
     const packageEvidenceImportRoundTripProof =
       workflow?.metadata?.harness?.packageEvidenceImportRoundTripProof ?? null;
+    const packageImportReviewProof =
+      workflow?.metadata?.harness?.packageImportReviewProof ?? null;
     const activationGateCollectEvidenceClickProof =
       workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ??
       null;
@@ -5393,6 +5411,41 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             rowId,
           ),
         ),
+      packageImportReviewProof:
+        packageImportReviewProof?.passed === true &&
+        packageImportReviewProof.review?.schemaVersion ===
+          "workflow.package-import-review.v1" &&
+        packageImportReviewProof.gateId === "package-evidence" &&
+        typeof packageImportReviewProof.sourceWorkflowPath === "string" &&
+        typeof packageImportReviewProof.importedWorkflowPath === "string" &&
+        packageImportReviewProof.railState?.[
+          "data-package-import-review-open"
+        ] === "true" &&
+        packageImportReviewProof.railState?.[
+          "data-package-import-source-workflow-path"
+        ] === packageImportReviewProof.sourceWorkflowPath &&
+        packageImportReviewProof.railState?.[
+          "data-package-import-imported-workflow-path"
+        ] === packageImportReviewProof.importedWorkflowPath &&
+        packageImportReviewProof.railState?.[
+          "data-package-import-evidence-ready"
+        ] === "true" &&
+        packageImportReviewProof.railState?.[
+          "data-package-import-activation-enabled"
+        ] === "true" &&
+        packageImportReviewProof.activationAction?.valid?.present === true &&
+        packageImportReviewProof.activationAction?.valid?.disabled === false &&
+        packageImportReviewProof.activationAction?.valid?.evidenceReady ===
+          true &&
+        packageImportReviewProof.activationAction?.valid?.blockerCount === 0 &&
+        packageImportReviewProof.activationAction?.incomplete?.present ===
+          true &&
+        packageImportReviewProof.activationAction?.incomplete?.disabled ===
+          true &&
+        packageImportReviewProof.activationAction?.incomplete?.evidenceReady ===
+          false &&
+        packageImportReviewProof.activationAction?.incomplete?.blockerCount >
+          0,
       activationGateCollectEvidenceClickProof:
         activationGateCollectEvidenceClickProof?.passed === true &&
         activationGateCollectEvidenceClickProof.clicked === true &&
@@ -5972,6 +6025,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateActionClickProof,
       packageEvidenceGateClickProof,
       packageEvidenceImportRoundTripProof,
+      packageImportReviewProof,
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
       activationIdGateClickProof,
@@ -6272,6 +6326,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_package_evidence_import_roundtrip:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.packageEvidenceImportRoundTripProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_package_import_review_mode:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.packageImportReviewProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_promotion_transition_gui_behavior:

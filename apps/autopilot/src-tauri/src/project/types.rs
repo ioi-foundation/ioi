@@ -222,6 +222,8 @@ pub struct WorkflowWorkbenchBundle {
     pub tests: Vec<WorkflowTestCase>,
     pub proposals: Vec<WorkflowProposal>,
     pub runs: Vec<WorkflowRunSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported_package: Option<WorkflowPortablePackage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
