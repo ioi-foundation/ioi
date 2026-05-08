@@ -1759,6 +1759,62 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .get("handoffStatus")
             .and_then(|value| value.as_str())
             == Some("rollback_handoff_ready")));
+    let dispatch_worker_handoff_node_attempts = dispatch
+        .get("workerHandoffNodeAttempts")
+        .and_then(|value| value.as_array())
+        .expect("dispatch worker handoff node attempts");
+    assert_eq!(dispatch_worker_handoff_node_attempts.len(), 3);
+    let dispatch_worker_handoff_node_attempt_ids = dispatch
+        .get("workerHandoffNodeAttemptIds")
+        .and_then(|value| value.as_array())
+        .expect("dispatch worker handoff node attempt ids");
+    assert_eq!(dispatch_worker_handoff_node_attempt_ids.len(), 3);
+    let dispatch_worker_handoff_replay_fixture_refs = dispatch
+        .get("workerHandoffReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .expect("dispatch worker handoff replay fixture refs");
+    assert_eq!(dispatch_worker_handoff_replay_fixture_refs.len(), 3);
+    for attempt in dispatch_worker_handoff_node_attempts {
+        assert_eq!(
+            attempt
+                .get("workflowNodeId")
+                .and_then(|value| value.as_str()),
+            Some("harness.handoff_bridge")
+        );
+        assert_eq!(
+            attempt
+                .get("componentKind")
+                .and_then(|value| value.as_str()),
+            Some("handoff_bridge")
+        );
+        assert_eq!(
+            attempt.get("status").and_then(|value| value.as_str()),
+            Some("live")
+        );
+        assert!(attempt
+            .get("receiptIds")
+            .and_then(|value| value.as_array())
+            .map(|items| items.iter().any(|receipt_id| {
+                dispatch_worker_handoff_receipts
+                    .iter()
+                    .any(|receipt| receipt.get("receiptId") == Some(receipt_id))
+            }))
+            .unwrap_or(false));
+        assert!(attempt
+            .get("replay")
+            .and_then(|value| value.get("fixtureRef"))
+            .and_then(|value| value.as_str())
+            .map(|fixture_ref| fixture_ref.starts_with("harness-worker-handoff:fixture:"))
+            .unwrap_or(false));
+    }
+    for attempt_id in dispatch_worker_handoff_node_attempt_ids {
+        assert!(dispatch_node_attempt_ids.contains(attempt_id));
+        assert!(dispatch
+            .get("nodeAttemptIds")
+            .and_then(|value| value.as_array())
+            .map(|items| items.contains(attempt_id))
+            .unwrap_or(false));
+    }
     assert!(dispatch
         .get("workerSessionRecord")
         .and_then(|value| value.get("lifecycleAttemptIds"))

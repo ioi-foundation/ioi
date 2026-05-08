@@ -955,6 +955,58 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
     assert!(!handoff_receipt.accepted);
     assert_eq!(handoff_receipt.handoff_status, "blocked");
     assert_eq!(handoff_receipt.envelope_id, launch_envelope.envelope_id);
+    assert!(handoff_receipt
+        .receipt_refs
+        .contains(&launch_envelope.envelope_id));
+
+    let blocked_attempt =
+        default_harness_node_attempt_for_worker_handoff_receipt(&handoff_receipt, 1);
+    assert_eq!(blocked_attempt.workflow_node_id, "harness.handoff_bridge");
+    assert_eq!(
+        blocked_attempt.component_kind,
+        HarnessComponentKind::HandoffBridge
+    );
+    assert_eq!(blocked_attempt.status, HarnessNodeAttemptStatus::Blocked);
+    assert_eq!(
+        blocked_attempt.policy_decision.as_deref(),
+        Some("block_harness_worker_handoff")
+    );
+    assert!(blocked_attempt
+        .receipt_ids
+        .contains(&handoff_receipt.receipt_id));
+    let blocked_fixture_ref = format!(
+        "harness-worker-handoff:fixture:launch:{}",
+        session_record.session_record_id
+    );
+    assert_eq!(
+        blocked_attempt.replay.fixture_ref.as_deref(),
+        Some(blocked_fixture_ref.as_str())
+    );
+
+    let mut live_session_record = session_record.clone();
+    live_session_record.persisted_in_runtime_checkpoint = true;
+    live_session_record.restored_from_persisted_session = true;
+    live_session_record.persistence_blockers.clear();
+    live_session_record.launch_authority_ready = true;
+    live_session_record.launch_authority_blockers.clear();
+    live_session_record.rollback_handoff_ready = true;
+    live_session_record.rollback_handoff_blockers.clear();
+    let live_envelope = default_harness_worker_launch_envelope(
+        &live_session_record,
+        HarnessWorkerLaunchPhase::Launch,
+    );
+    let live_handoff_receipt =
+        resolve_harness_worker_handoff_receipt(&live_session_record, &live_envelope);
+    let live_attempt =
+        default_harness_node_attempt_for_worker_handoff_receipt(&live_handoff_receipt, 2);
+    assert!(live_handoff_receipt.accepted);
+    assert_eq!(live_attempt.status, HarnessNodeAttemptStatus::Live);
+    assert_eq!(live_attempt.execution_mode, HarnessExecutionMode::Live);
+    assert_eq!(
+        live_attempt.policy_decision.as_deref(),
+        Some("allow_harness_worker_handoff")
+    );
+    assert!(live_attempt.output_hash.is_some());
 }
 
 #[test]

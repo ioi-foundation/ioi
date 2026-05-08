@@ -2162,6 +2162,77 @@ fn runtime_harness_worker_handoff_receipt(
     })
 }
 
+fn runtime_harness_worker_handoff_node_attempt(
+    receipt: &Value,
+    attempt_index: usize,
+    execution_mode: &str,
+) -> Value {
+    let phase = receipt
+        .get("phase")
+        .and_then(Value::as_str)
+        .unwrap_or("launch");
+    let session_record_id = receipt
+        .get("sessionRecordId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let receipt_id = receipt
+        .get("receiptId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let envelope_id = receipt
+        .get("envelopeId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let accepted = receipt.get("accepted").and_then(Value::as_bool) == Some(true);
+    let mut receipt_ids = runtime_harness_value_string_array(receipt.get("receiptRefs"));
+    receipt_ids.push(receipt_id.clone());
+    receipt_ids.push(envelope_id.clone());
+    receipt_ids.sort();
+    receipt_ids.dedup();
+    let evidence_refs = runtime_harness_value_string_array(receipt.get("evidenceRefs"));
+    let fixture_ref = format!("harness-worker-handoff:fixture:{phase}:{session_record_id}");
+    json!({
+        "attemptId": format!("harness-worker-handoff:attempt:{phase}:{session_record_id}"),
+        "harnessWorkflowId": receipt.get("workflowId").and_then(Value::as_str).unwrap_or(DEFAULT_AGENT_HARNESS_WORKFLOW_ID),
+        "harnessActivationId": receipt.get("activationId").and_then(Value::as_str).unwrap_or(DEFAULT_AGENT_HARNESS_ACTIVATION_ID),
+        "harnessHash": receipt.get("harnessHash").and_then(Value::as_str).unwrap_or(DEFAULT_AGENT_HARNESS_HASH),
+        "workflowNodeId": receipt.get("workflowNodeId").and_then(Value::as_str).unwrap_or("harness.handoff_bridge"),
+        "workflowNodeType": "decision",
+        "componentId": "ioi.agent-harness.handoff_bridge.v1",
+        "componentKind": "handoff_bridge",
+        "executionMode": execution_mode,
+        "readiness": "live_ready",
+        "attemptIndex": attempt_index,
+        "status": if accepted { execution_mode } else { "blocked" },
+        "executor": "workflow_node_executor",
+        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+        "inputHash": format!("sha256:worker-handoff-input-{phase}-{session_record_id}"),
+        "outputHash": if accepted {
+            json!(format!("sha256:worker-handoff-output-{phase}-{session_record_id}"))
+        } else {
+            Value::Null
+        },
+        "errorClass": if accepted { Value::Null } else { json!("worker_handoff_blocked") },
+        "policyDecision": receipt.get("policyDecision").and_then(Value::as_str).unwrap_or("block_harness_worker_handoff"),
+        "startedAtMs": Value::Null,
+        "durationMs": Value::Null,
+        "receiptIds": receipt_ids,
+        "evidenceRefs": evidence_refs,
+        "replay": {
+            "deterministicEnvelope": true,
+            "capturesInput": true,
+            "capturesOutput": true,
+            "capturesPolicyDecision": true,
+            "fixtureRef": fixture_ref,
+            "determinism": "deterministic",
+            "nondeterminismReason": Value::Null,
+            "redactionPolicy": "autopilot-runtime-evidence-v1"
+        }
+    })
+}
+
 fn runtime_harness_default_runtime_binding(
     sid: &str,
     task: &AgentTask,
@@ -11152,12 +11223,51 @@ fn runtime_harness_default_runtime_dispatch(
                 .map(str::to_string)
         })
         .collect::<Vec<_>>();
+    let worker_handoff_node_attempts = worker_handoff_receipts
+        .iter()
+        .enumerate()
+        .map(|(index, receipt)| {
+            runtime_harness_worker_handoff_node_attempt(
+                receipt,
+                index + 1,
+                if dispatch_accepted { "live" } else { "gated" },
+            )
+        })
+        .collect::<Vec<_>>();
+    let worker_handoff_node_attempt_ids = worker_handoff_node_attempts
+        .iter()
+        .filter_map(|attempt| {
+            attempt
+                .get("attemptId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let worker_handoff_replay_fixture_refs = worker_handoff_node_attempts
+        .iter()
+        .filter_map(|attempt| {
+            attempt
+                .get("replay")
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
     dispatch_node_attempt_ids.extend(worker_attach_lifecycle_attempt_ids.clone());
+    dispatch_node_attempt_ids.extend(worker_handoff_node_attempt_ids.clone());
     dispatch_node_attempt_ids.sort();
     dispatch_node_attempt_ids.dedup();
     node_attempt_ids.extend(worker_attach_lifecycle_attempt_ids.clone());
+    node_attempt_ids.extend(worker_handoff_node_attempt_ids.clone());
     node_attempt_ids.sort();
     node_attempt_ids.dedup();
+    receipt_ids.extend(worker_handoff_receipt_ids.clone());
+    receipt_ids.sort();
+    receipt_ids.dedup();
+    replay_fixture_refs.extend(worker_handoff_replay_fixture_refs.clone());
+    replay_fixture_refs.sort();
+    replay_fixture_refs.dedup();
+    dispatch_node_attempts.extend(worker_handoff_node_attempts.clone());
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -11589,6 +11699,9 @@ fn runtime_harness_default_runtime_dispatch(
         "workerHandoffReceipts": worker_handoff_receipts,
         "workerLaunchEnvelopeIds": worker_launch_envelope_ids,
         "workerHandoffReceiptIds": worker_handoff_receipt_ids,
+        "workerHandoffNodeAttemptIds": worker_handoff_node_attempt_ids,
+        "workerHandoffNodeAttempts": worker_handoff_node_attempts,
+        "workerHandoffReplayFixtureRefs": worker_handoff_replay_fixture_refs,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,

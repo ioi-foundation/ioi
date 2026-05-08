@@ -1867,6 +1867,7 @@ fn replay_captures_policy_decision(kind: HarnessComponentKind) -> bool {
             | HarnessComponentKind::WalletCapability
             | HarnessComponentKind::RetryPolicy
             | HarnessComponentKind::CompletionGate
+            | HarnessComponentKind::HandoffBridge
     )
 }
 
@@ -2941,6 +2942,10 @@ pub fn resolve_harness_worker_handoff_receipt(
     evidence_refs.extend(record.receipt_ids.iter().cloned());
     evidence_refs.sort();
     evidence_refs.dedup();
+    let mut receipt_refs = record.receipt_ids.clone();
+    receipt_refs.push(envelope.envelope_id.clone());
+    receipt_refs.sort();
+    receipt_refs.dedup();
     HarnessWorkerHandoffReceipt {
         schema_version: "workflow.harness.worker-handoff-receipt.v1".to_string(),
         receipt_id: format!(
@@ -2972,8 +2977,67 @@ pub fn resolve_harness_worker_handoff_receipt(
         } else {
             "block_harness_worker_handoff".to_string()
         },
-        receipt_refs: record.receipt_ids.clone(),
+        receipt_refs,
         evidence_refs,
+    }
+}
+
+pub fn default_harness_node_attempt_for_worker_handoff_receipt(
+    receipt: &HarnessWorkerHandoffReceipt,
+    attempt_index: u32,
+) -> HarnessNodeAttemptRecord {
+    let component = default_harness_component_spec(HarnessComponentKind::HandoffBridge);
+    let mut receipt_ids = receipt.receipt_refs.clone();
+    receipt_ids.push(receipt.receipt_id.clone());
+    receipt_ids.push(receipt.envelope_id.clone());
+    receipt_ids.sort();
+    receipt_ids.dedup();
+    let mut replay = default_harness_replay_envelope(HarnessComponentKind::HandoffBridge);
+    replay.captures_policy_decision = true;
+    replay.fixture_ref = Some(format!(
+        "harness-worker-handoff:fixture:{}:{}",
+        receipt.phase.as_str(),
+        receipt.session_record_id
+    ));
+    HarnessNodeAttemptRecord {
+        attempt_id: format!(
+            "harness-worker-handoff:attempt:{}:{}",
+            receipt.phase.as_str(),
+            receipt.session_record_id
+        ),
+        harness_workflow_id: receipt.workflow_id.clone(),
+        harness_activation_id: receipt.activation_id.clone(),
+        harness_hash: receipt.harness_hash.clone(),
+        workflow_node_id: receipt.workflow_node_id.clone(),
+        component_id: component.component_id,
+        component_kind: HarnessComponentKind::HandoffBridge,
+        execution_mode: HarnessExecutionMode::Live,
+        readiness: component.readiness,
+        attempt_index,
+        status: if receipt.accepted {
+            HarnessNodeAttemptStatus::Live
+        } else {
+            HarnessNodeAttemptStatus::Blocked
+        },
+        input_hash: Some(format!(
+            "sha256:worker-handoff-input:{}:{}",
+            receipt.phase.as_str(),
+            receipt.session_record_id
+        )),
+        output_hash: receipt.accepted.then(|| {
+            format!(
+                "sha256:worker-handoff-output:{}:{}",
+                receipt.phase.as_str(),
+                receipt.session_record_id
+            )
+        }),
+        error_class: (!receipt.accepted).then(|| "worker_handoff_blocked".to_string()),
+        policy_decision: Some(receipt.policy_decision.clone()),
+        started_at_ms: None,
+        duration_ms: None,
+        receipt_ids,
+        evidence_refs: receipt.evidence_refs.clone(),
+        replay,
     }
 }
 

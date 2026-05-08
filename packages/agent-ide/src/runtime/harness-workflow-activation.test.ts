@@ -865,6 +865,38 @@ const withClusterReadiness = (
     ),
   );
   assert.equal(dispatch.acceptedClusterIds.length, 4);
+  assert.equal(dispatch.workerHandoffNodeAttempts.length, 3);
+  assert.equal(dispatch.workerHandoffNodeAttemptIds.length, 3);
+  assert.equal(dispatch.workerHandoffReplayFixtureRefs.length, 3);
+  assert.ok(
+    dispatch.workerHandoffNodeAttempts.every(
+      (attempt) =>
+        attempt.workflowNodeId === "harness.handoff_bridge" &&
+        attempt.componentKind === "handoff_bridge" &&
+        attempt.status === "live" &&
+        attempt.replay.fixtureRef?.startsWith(
+          "harness-worker-handoff:fixture:",
+        ) &&
+        attempt.receiptIds.some((receiptId) =>
+          dispatch.workerHandoffReceiptIds.includes(receiptId),
+        ),
+    ),
+  );
+  assert.ok(
+    dispatch.workerHandoffNodeAttemptIds.every((attemptId) =>
+      dispatch.dispatchNodeAttemptIds.includes(attemptId),
+    ),
+  );
+  assert.ok(
+    dispatch.workerHandoffNodeAttemptIds.every((attemptId) =>
+      dispatch.nodeAttemptIds.includes(attemptId),
+    ),
+  );
+  assert.ok(
+    dispatch.workerHandoffReplayFixtureRefs.every((fixtureRef) =>
+      dispatch.replayFixtureRefs.includes(fixtureRef),
+    ),
+  );
 }
 
 {

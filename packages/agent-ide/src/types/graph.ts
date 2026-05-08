@@ -1620,6 +1620,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   materializationCanaryComponentKinds: WorkflowHarnessComponentKind[];
   sourceBoundaryIds: string[];
   dispatchNodeAttemptIds: string[];
+  dispatchNodeAttempts?: WorkflowHarnessNodeAttemptRecord[];
   cognitionExecutionAttemptIds: string[];
   cognitionExecutionReceiptIds: string[];
   cognitionExecutionReplayFixtureRefs: string[];
@@ -1859,6 +1860,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   workerHandoffReceipts: WorkflowHarnessWorkerHandoffReceipt[];
   workerLaunchEnvelopeIds: string[];
   workerHandoffReceiptIds: string[];
+  workerHandoffNodeAttemptIds: string[];
+  workerHandoffNodeAttempts: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffReplayFixtureRefs: string[];
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;
