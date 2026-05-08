@@ -1792,6 +1792,9 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "activation-blocker"
     | "activation-audit"
     | "activation-gate"
+    | "activation-gate-evidence"
+    | "activation-gate-receipt"
+    | "activation-gate-replay"
     | string;
   hash: string;
   expectedPanel: WorkflowRightPanel;

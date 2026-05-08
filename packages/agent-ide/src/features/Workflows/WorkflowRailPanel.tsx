@@ -138,6 +138,9 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   activationBlockerRef?: string;
   activationAuditEventId?: string;
   activationGateId?: string;
+  activationGateEvidenceRef?: string;
+  activationGateReceiptRef?: string;
+  activationGateReplayFixtureRef?: string;
 };
 
 type WorkflowHarnessActivationWizardStep = {
@@ -177,7 +180,10 @@ export function WorkflowRailPanel({
   selectedHarnessActivationAuditEventId,
   selectedHarnessActivationBlockerIndex,
   selectedHarnessActivationBlockerRef,
+  selectedHarnessActivationGateEvidenceRef,
   selectedHarnessActivationGateId,
+  selectedHarnessActivationGateReceiptRef,
+  selectedHarnessActivationGateReplayFixtureRef,
   selectedHarnessRevisionBindingKind,
   selectedHarnessRevisionBindingRef,
   tests,
@@ -244,7 +250,10 @@ export function WorkflowRailPanel({
   selectedHarnessActivationAuditEventId?: string | null;
   selectedHarnessActivationBlockerIndex?: string | null;
   selectedHarnessActivationBlockerRef?: string | null;
+  selectedHarnessActivationGateEvidenceRef?: string | null;
   selectedHarnessActivationGateId?: string | null;
+  selectedHarnessActivationGateReceiptRef?: string | null;
+  selectedHarnessActivationGateReplayFixtureRef?: string | null;
   selectedHarnessRevisionBindingKind?: string | null;
   selectedHarnessRevisionBindingRef?: string | null;
   tests: WorkflowTestCase[];
@@ -3137,6 +3146,15 @@ export function WorkflowRailPanel({
                     data-selected-activation-gate-id={
                       selectedHarnessActivationGateInspection.gateId
                     }
+                    data-selected-activation-gate-evidence-ref={
+                      selectedHarnessActivationGateEvidenceRef ?? ""
+                    }
+                    data-selected-activation-gate-receipt-ref={
+                      selectedHarnessActivationGateReceiptRef ?? ""
+                    }
+                    data-selected-activation-gate-replay-fixture-ref={
+                      selectedHarnessActivationGateReplayFixtureRef ?? ""
+                    }
                     data-gate-source-kind={
                       selectedHarnessActivationGateInspection.sourceKind
                     }
@@ -3168,13 +3186,31 @@ export function WorkflowRailPanel({
                       {selectedHarnessActivationGateInspection.evidenceRefs
                         .slice(0, 8)
                         .map((evidenceRef, index) => (
-                          <span
+                          <button
+                            type="button"
                             key={`${evidenceRef}-${index}`}
-                            className="workflow-harness-ref-button"
+                            className={`workflow-harness-ref-button ${
+                              selectedHarnessActivationGateEvidenceRef === evidenceRef
+                                ? "is-active"
+                                : ""
+                            }`}
                             data-testid={`workflow-harness-activation-gate-evidence-${index}`}
+                            data-activation-gate-id={
+                              selectedHarnessActivationGateInspection.gateId
+                            }
+                            data-activation-gate-evidence-ref={evidenceRef}
+                            disabled={!onCopyHarnessDeepLink}
+                            onClick={() =>
+                              onCopyHarnessDeepLink?.({
+                                panel: "settings",
+                                activationGateId:
+                                  selectedHarnessActivationGateInspection.gateId,
+                                activationGateEvidenceRef: evidenceRef,
+                              })
+                            }
                           >
                             <code>{evidenceRef}</code>
-                          </span>
+                          </button>
                         ))}
                       {selectedHarnessActivationGateInspection.evidenceRefs.length === 0 ? (
                         <span>No evidence refs captured for this gate yet.</span>
@@ -3194,10 +3230,27 @@ export function WorkflowRailPanel({
                               type="button"
                               key={`${receiptRef}-${index}`}
                               className={`workflow-harness-ref-button ${
-                                selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                                selectedHarnessActivationGateReceiptRef === receiptRef ||
+                                selectedHarnessReceiptRef === receiptRef
+                                  ? "is-active"
+                                  : ""
                               }`}
                               data-testid={`workflow-harness-activation-gate-receipt-${index}`}
-                              onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                              data-activation-gate-id={
+                                selectedHarnessActivationGateInspection.gateId
+                              }
+                              data-activation-gate-receipt-ref={receiptRef}
+                              onClick={() =>
+                                onCopyHarnessDeepLink
+                                  ? onCopyHarnessDeepLink({
+                                      panel: "settings",
+                                      activationGateId:
+                                        selectedHarnessActivationGateInspection.gateId,
+                                      activationGateReceiptRef: receiptRef,
+                                      receiptRef,
+                                    })
+                                  : onSelectHarnessReceiptRef?.(receiptRef)
+                              }
                             >
                               <code>{receiptRef}</code>
                             </button>
@@ -3219,13 +3272,29 @@ export function WorkflowRailPanel({
                               type="button"
                               key={`${replayFixtureRef}-${index}`}
                               className={`workflow-harness-ref-button ${
+                                selectedHarnessActivationGateReplayFixtureRef ===
+                                  replayFixtureRef ||
                                 selectedHarnessReplayFixtureRef === replayFixtureRef
                                   ? "is-active"
                                   : ""
                               }`}
                               data-testid={`workflow-harness-activation-gate-replay-${index}`}
+                              data-activation-gate-id={
+                                selectedHarnessActivationGateInspection.gateId
+                              }
+                              data-activation-gate-replay-fixture-ref={
+                                replayFixtureRef
+                              }
                               onClick={() =>
-                                onSelectHarnessReplayFixtureRef?.(replayFixtureRef)
+                                onCopyHarnessDeepLink
+                                  ? onCopyHarnessDeepLink({
+                                      panel: "settings",
+                                      activationGateId:
+                                        selectedHarnessActivationGateInspection.gateId,
+                                      activationGateReplayFixtureRef: replayFixtureRef,
+                                      replayFixtureRef,
+                                    })
+                                  : onSelectHarnessReplayFixtureRef?.(replayFixtureRef)
                               }
                             >
                               <code>{replayFixtureRef}</code>
@@ -4252,6 +4321,15 @@ export function WorkflowRailPanel({
           }
           data-selected-activation-gate-id={
             selectedHarnessActivationGateId ?? ""
+          }
+          data-selected-activation-gate-evidence-ref={
+            selectedHarnessActivationGateEvidenceRef ?? ""
+          }
+          data-selected-activation-gate-receipt-ref={
+            selectedHarnessActivationGateReceiptRef ?? ""
+          }
+          data-selected-activation-gate-replay-fixture-ref={
+            selectedHarnessActivationGateReplayFixtureRef ?? ""
           }
         >
           <h4>Deep link</h4>
