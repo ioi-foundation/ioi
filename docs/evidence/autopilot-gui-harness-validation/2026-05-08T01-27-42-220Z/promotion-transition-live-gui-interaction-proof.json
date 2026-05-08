@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-harness.promotion-transition-live-gui-interaction.v1",
+  "passed": true,
+  "method": "launch live Workflows desktop surface, run dev-only harness promotion interaction bridge, verify saved workflow state and screenshot",
+  "checks": {
+    "desktopWindowOpened": true,
+    "proofWorkflowSaved": true,
+    "blockedAttemptPresent": true,
+    "gatedAttemptPromoted": true,
+    "liveAttemptPromoted": true,
+    "clusterPromotedLive": true,
+    "auditRecordedBlockedAndPromoted": true,
+    "screenshotCaptured": true
+  },
+  "proofWorkflowPath": "/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json",
+  "proofWorkflowEvidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-gui-harness-validation/2026-05-08T01-27-42-220Z/promotion-transition-live-gui-workflow.json",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-gui-harness-validation/2026-05-08T01-27-42-220Z/promotion_transition_live_gui_interaction.png",
+  "screenshotError": null,
+  "liveWorkflowError": null,
+  "cluster": {
+    "clusterId": "cognition",
+    "promotionStatus": "live",
+    "label": "Cognition"
+  },
+  "attempts": [
+    {
+      "targetExecutionMode": "gated",
+      "attemptStatus": "blocked",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    {
+      "targetExecutionMode": "gated",
+      "attemptStatus": "promoted",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    },
+    {
+      "targetExecutionMode": "live",
+      "attemptStatus": "promoted",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 7,
+      "replayFixtureRefCount": 7
+    }
+  ],
+  "uiSelectors": {
+    "groupInspector": "workflow-harness-group-inspector",
+    "promotionActions": "workflow-harness-group-promotion-actions",
+    "promoteClusterGated": "workflow-harness-promote-cluster-gated",
+    "promoteClusterLive": "workflow-harness-promote-cluster-live",
+    "promotionAttempt": "workflow-harness-group-promotion-attempt"
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/WorkflowComposer/support.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+    "packages/agent-ide/src/runtime/harness-workflow.ts"
+  ]
+}
