@@ -63,6 +63,7 @@ import type {
   WorkflowBindingManifest,
   WorkflowBottomPanel,
   WorkflowConnectionClass,
+  WorkflowHarnessActivationGateActionClickProof,
   WorkflowHarnessComponentKind,
   WorkflowHarnessColdStartDeepLinkRestoreProof,
   WorkflowHarnessForkActivationCandidate,
@@ -699,6 +700,24 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
   ];
   return Object.fromEntries(
     selectedAttributes.map((attribute) => [attribute, target.getAttribute(attribute) ?? ""]),
+  );
+}
+
+function readWorkflowRightRailTestId(): string | null {
+  if (typeof document === "undefined") return null;
+  return (
+    document
+      .querySelector('[data-testid^="workflow-right-rail-"]')
+      ?.getAttribute("data-testid") ?? null
+  );
+}
+
+function readWorkflowStatusMessage(): string | null {
+  if (typeof document === "undefined") return null;
+  return (
+    document
+      .querySelector('[data-testid="workflow-status-message"]')
+      ?.textContent?.trim() || null
   );
 }
 
@@ -2358,6 +2377,138 @@ export function useWorkflowComposerController({
           "same-session Workflows bridge restores a fork activation wizard gate hash into right-rail selected state",
         generatedAtMs,
         cases,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessActivationGateActionClickProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessActivationGateActionClickProof> => {
+      const replayCase =
+        harnessDeepLinkProbeCasesForWorkflow(workflow).find(
+          (candidate) => candidate.id === "activation-gate",
+        ) ?? null;
+      const selectedRailTestId =
+        replayCase?.selectedRailTestId ?? "workflow-harness-activation-gate-inspector";
+      const blockers: string[] = [];
+      const originalHash = typeof window === "undefined" ? "" : window.location.hash;
+      let beforeSelectedState: Record<string, string> = {};
+      let beforeHash: string | null = null;
+      let gateId: string | null = null;
+      let actionId: string | null = null;
+      let actionKind: string | null = null;
+      let actionImpact: string | null = null;
+      let actionCommand: string | null = null;
+      let actionDisabled = false;
+      let clicked = false;
+      let afterRailTestId: string | null = null;
+      let afterStatusMessage: string | null = null;
+      let readinessPanelVisible = false;
+      let readinessSummaryVisible = false;
+      try {
+        if (!replayCase) {
+          blockers.push("missing_activation_gate_action_click_replay_case");
+        } else {
+          const hash = encodeHarnessWorkbenchDeepLink(replayCase.link);
+          const parsed = parseHarnessWorkbenchDeepLink(hash);
+          beforeHash = hash;
+          if (!parsed) {
+            blockers.push("activation_gate_action_click_hash_parse_failed");
+          } else {
+            writeHarnessWorkbenchDeepLink(hash);
+            applyHarnessWorkbenchDeepLink(parsed);
+          }
+          await nextHarnessWorkbenchFrame();
+          writeHarnessWorkbenchDeepLink(hash);
+          await nextHarnessWorkbenchFrame();
+          beforeSelectedState = readHarnessRailSelectedState(selectedRailTestId);
+          gateId = beforeSelectedState["data-selected-activation-gate-id"] || null;
+          actionId = beforeSelectedState["data-gate-action-id"] || null;
+          actionKind = beforeSelectedState["data-gate-action-kind"] || null;
+          actionImpact = beforeSelectedState["data-gate-action-impact"] || null;
+          actionCommand = beforeSelectedState["data-gate-action-command"] || null;
+          actionDisabled =
+            beforeSelectedState["data-gate-action-disabled"] === "true";
+          const actionButton = document.querySelector<HTMLButtonElement>(
+            '[data-testid="workflow-harness-activation-gate-action"]',
+          );
+          if (!actionButton) {
+            blockers.push("activation_gate_action_button_missing");
+          } else if (actionButton.disabled || actionDisabled) {
+            blockers.push("activation_gate_action_button_disabled");
+          } else {
+            actionButton.click();
+            clicked = true;
+            for (let attempt = 0; attempt < 30; attempt += 1) {
+              await nextHarnessWorkbenchFrame();
+              readinessSummaryVisible = Boolean(
+                document.querySelector('[data-testid="workflow-readiness-summary"]'),
+              );
+              afterRailTestId = readWorkflowRightRailTestId();
+              if (
+                readinessSummaryVisible &&
+                afterRailTestId === "workflow-right-rail-readiness"
+              ) {
+                break;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        blockers.push(`activation_gate_action_click_failed:${errorMessage(error)}`);
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      afterRailTestId = afterRailTestId ?? readWorkflowRightRailTestId();
+      afterStatusMessage = readWorkflowStatusMessage();
+      readinessPanelVisible = afterRailTestId === "workflow-right-rail-readiness";
+      readinessSummaryVisible =
+        readinessSummaryVisible ||
+        Boolean(document.querySelector('[data-testid="workflow-readiness-summary"]'));
+      if (!gateId) blockers.push("activation_gate_action_click_gate_not_selected");
+      if (!actionId?.startsWith("activation-gate-action:")) {
+        blockers.push("activation_gate_action_click_action_id_missing");
+      }
+      if (!actionKind) blockers.push("activation_gate_action_click_kind_missing");
+      if (!actionCommand?.startsWith("workflow-harness-gate-action-")) {
+        blockers.push("activation_gate_action_click_command_missing");
+      }
+      if (!clicked) blockers.push("activation_gate_action_click_not_dispatched");
+      if (!readinessPanelVisible) {
+        blockers.push("activation_gate_action_click_readiness_panel_not_opened");
+      }
+      if (!readinessSummaryVisible) {
+        blockers.push("activation_gate_action_click_readiness_summary_missing");
+      }
+      return {
+        schemaVersion: "workflow.harness.activation-gate-action-click-proof.v1",
+        method:
+          "same-session Workflows bridge restores an activation gate, clicks the rendered gate action button, then requires the readiness rail and summary to appear",
+        generatedAtMs,
+        gateId,
+        action: {
+          id: actionId,
+          kind: actionKind,
+          impact: actionImpact,
+          command: actionCommand,
+          disabled: actionDisabled,
+        },
+        before: {
+          hash: beforeHash,
+          railTestId: selectedRailTestId,
+          selectedState: beforeSelectedState,
+        },
+        after: {
+          railTestId: afterRailTestId,
+          statusMessage: afterStatusMessage,
+          readinessPanelVisible,
+          readinessSummaryVisible,
+        },
+        clicked,
         passed: blockers.length === 0,
         blockers,
       };
@@ -5323,6 +5474,11 @@ export function useWorkflowComposerController({
           activationGateProofWorkflow,
           nowMs + 125,
         );
+      const activationGateActionClickProof =
+        await runHarnessActivationGateActionClickProbe(
+          activationGateProofWorkflow,
+          nowMs + 130,
+        );
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
@@ -5337,6 +5493,7 @@ export function useWorkflowComposerController({
             coldStartDeepLinkRestoreProof,
             activationBlockerDeepLinkProof,
             activationGateDeepLinkProof,
+            activationGateActionClickProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -5368,6 +5525,8 @@ export function useWorkflowComposerController({
         activationGateDeepLinkPassed: activationGateDeepLinkProof.passed,
         activationGateDeepLinkCaseIds:
           activationGateDeepLinkProof.cases.map((restoreCase) => restoreCase.id),
+        activationGateActionClickPassed: activationGateActionClickProof.passed,
+        activationGateActionCommand: activationGateActionClickProof.action.command,
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -5387,6 +5546,7 @@ export function useWorkflowComposerController({
     currentProject?.rootPath,
     loadWorkflowProject,
     runHarnessActivationBlockerDeepLinkProbe,
+    runHarnessActivationGateActionClickProbe,
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,

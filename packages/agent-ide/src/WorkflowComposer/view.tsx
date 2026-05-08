@@ -1822,7 +1822,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               {tab.label}
             </button>
           ))}
-          <span>{statusMessage}</span>
+          <span data-testid="workflow-status-message">{statusMessage}</span>
         </div>
         <WorkflowBottomShelf
           panel={bottomPanel}

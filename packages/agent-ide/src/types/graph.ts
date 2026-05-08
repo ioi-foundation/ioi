@@ -1818,6 +1818,36 @@ export interface WorkflowHarnessDeepLinkReplayProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessActivationGateActionClickProof {
+  schemaVersion:
+    | "workflow.harness.activation-gate-action-click-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  gateId: string | null;
+  action: {
+    id: string | null;
+    kind: string | null;
+    impact: string | null;
+    command: string | null;
+    disabled: boolean;
+  };
+  before: {
+    hash: string | null;
+    railTestId: string | null;
+    selectedState: Record<string, string>;
+  };
+  after: {
+    railTestId: string | null;
+    statusMessage: string | null;
+    readinessPanelVisible: boolean;
+    readinessSummaryVisible: boolean;
+  };
+  clicked: boolean;
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessColdStartDeepLinkRestoreCase
   extends WorkflowHarnessDeepLinkReplayCase {
   initialHash: string;
@@ -2044,6 +2074,7 @@ export interface WorkflowHarnessMetadata {
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
+  activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];
