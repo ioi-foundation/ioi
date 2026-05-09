@@ -6669,6 +6669,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut verification_output_action_frame_ids = Vec::<String>::new();
     let mut verification_output_component_kinds = Vec::<String>::new();
     let mut verification_output_divergence_classes = Vec::<String>::new();
+    let mut verification_output_shadow_attempt_ids = Vec::<String>::new();
+    let mut verification_output_shadow_receipt_ids = Vec::<String>::new();
+    let mut verification_output_shadow_replay_fixture_refs = Vec::<String>::new();
+    let mut verification_output_shadow_adapter_results = Vec::<Value>::new();
+    let mut verification_output_shadow_action_frame_ids = Vec::<String>::new();
+    let mut verification_output_shadow_component_kinds = Vec::<String>::new();
+    let mut verification_output_shadow_divergence_classes = Vec::<String>::new();
     let mut authority_tooling_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_replay_fixture_refs = Vec::<String>::new();
@@ -8203,13 +8210,14 @@ fn runtime_harness_default_runtime_dispatch(
                         },
                     ) {
                         Ok(adapter_result) => {
+                            let gated_adapter_result = adapter_result;
                             verification_output_action_frame_ids.push(format!(
                                 "{}:{}",
-                                adapter_result.action_frame.node_id,
-                                adapter_result.action_frame.component_id
+                                gated_adapter_result.action_frame.node_id,
+                                gated_adapter_result.action_frame.component_id
                             ));
                             verification_output_component_kinds.push(
-                                adapter_result
+                                gated_adapter_result
                                     .action_frame
                                     .component_kind
                                     .as_str()
@@ -8217,8 +8225,80 @@ fn runtime_harness_default_runtime_dispatch(
                             );
                             verification_output_divergence_classes.push("none".to_string());
                             let value =
-                                harness_component_adapter_result_camel_value(&adapter_result);
+                                harness_component_adapter_result_camel_value(&gated_adapter_result);
                             verification_output_adapter_results.push(value.clone());
+                            let shadow_receipt_id =
+                                format!("{sid}:{workflow_node_id}:{policy_decision}:shadow");
+                            let shadow_replay_fixture_ref = format!(
+                                "runtime-evidence:{sid}:default-dispatch-shadow-fixture:{attempt_slug}"
+                            );
+                            let shadow_evidence_refs = vec![
+                                format!("runtime-evidence:{sid}"),
+                                selector_decision_id.clone(),
+                                format!(
+                                    "harness-shadow-verification-output:{sid}:{}",
+                                    task.progress
+                                ),
+                            ];
+                            match invoke_default_harness_component(HarnessComponentInvocation {
+                                invocation_id: format!(
+                                    "default-dispatch:{sid}:{turn_id}:{attempt_slug}_shadow"
+                                ),
+                                component_kind,
+                                execution_mode: HarnessExecutionMode::Shadow,
+                                attempt_index,
+                                input_hash: Some(input_hash.clone()),
+                                output_hash: Some(output_hash.clone()),
+                                policy_decision: Some(policy_decision.to_string()),
+                                receipt_ids: vec![shadow_receipt_id.clone()],
+                                evidence_refs: shadow_evidence_refs,
+                                replay_fixture_ref: Some(shadow_replay_fixture_ref.clone()),
+                                started_at_ms: Some(started_at_ms),
+                                duration_ms: Some(0),
+                            }) {
+                                Ok(shadow_adapter_result) => {
+                                    let shadow_attempt_id =
+                                        shadow_adapter_result.node_attempt.attempt_id.clone();
+                                    dispatch_node_attempt_ids.push(shadow_attempt_id.clone());
+                                    verification_output_shadow_attempt_ids.push(shadow_attempt_id);
+                                    verification_output_shadow_receipt_ids
+                                        .push(shadow_receipt_id.clone());
+                                    verification_output_shadow_replay_fixture_refs
+                                        .push(shadow_replay_fixture_ref.clone());
+                                    receipt_ids.push(shadow_receipt_id);
+                                    replay_fixture_refs.push(shadow_replay_fixture_ref);
+                                    verification_output_shadow_action_frame_ids.push(format!(
+                                        "{}:{}",
+                                        shadow_adapter_result.action_frame.node_id,
+                                        shadow_adapter_result.action_frame.component_id
+                                    ));
+                                    verification_output_shadow_component_kinds.push(
+                                        shadow_adapter_result
+                                            .action_frame
+                                            .component_kind
+                                            .as_str()
+                                            .to_string(),
+                                    );
+                                    let comparison = compare_harness_live_shadow_attempts(
+                                        &gated_adapter_result.node_attempt,
+                                        &shadow_adapter_result.node_attempt,
+                                    );
+                                    verification_output_shadow_divergence_classes
+                                        .push(comparison.divergence.as_str().to_string());
+                                    live_shadow_comparisons
+                                        .push(harness_shadow_comparison_camel_value(&comparison));
+                                    verification_output_shadow_adapter_results.push(
+                                        harness_component_adapter_result_camel_value(
+                                            &shadow_adapter_result,
+                                        ),
+                                    );
+                                }
+                                Err(error) => {
+                                    activation_blockers.push(format!(
+                                        "verification_output_shadow_component_adapter_error:{attempt_slug}:{error:?}"
+                                    ));
+                                }
+                            }
                             value
                         }
                         Err(error) => {
@@ -11283,6 +11363,18 @@ fn runtime_harness_default_runtime_dispatch(
     verification_output_component_kinds.dedup();
     verification_output_divergence_classes.sort();
     verification_output_divergence_classes.dedup();
+    verification_output_shadow_attempt_ids.sort();
+    verification_output_shadow_attempt_ids.dedup();
+    verification_output_shadow_receipt_ids.sort();
+    verification_output_shadow_receipt_ids.dedup();
+    verification_output_shadow_replay_fixture_refs.sort();
+    verification_output_shadow_replay_fixture_refs.dedup();
+    verification_output_shadow_action_frame_ids.sort();
+    verification_output_shadow_action_frame_ids.dedup();
+    verification_output_shadow_component_kinds.sort();
+    verification_output_shadow_component_kinds.dedup();
+    verification_output_shadow_divergence_classes.sort();
+    verification_output_shadow_divergence_classes.dedup();
     authority_tooling_attempt_ids.sort();
     authority_tooling_attempt_ids.dedup();
     authority_tooling_receipt_ids.sort();
@@ -11419,7 +11511,11 @@ fn runtime_harness_default_runtime_dispatch(
     let dispatch_accepted = can_dispatch && activation_blockers.is_empty();
     let default_dispatch_activation_blockers = activation_blockers.clone();
     let verification_output_ready = verification_output_adapter_results.len() >= 6
+        && verification_output_shadow_adapter_results.len() >= 6
         && verification_output_divergence_classes
+            .iter()
+            .all(|value| value == "none")
+        && verification_output_shadow_divergence_classes
             .iter()
             .all(|value| value == "none");
     let verification_output_proof = json!({
@@ -11433,6 +11529,14 @@ fn runtime_harness_default_runtime_dispatch(
         "actionFrameIds": verification_output_action_frame_ids.clone(),
         "componentKinds": verification_output_component_kinds.clone(),
         "divergenceClasses": verification_output_divergence_classes.clone(),
+        "shadowAdapterMode": "workflow_component_adapter_shadow",
+        "shadowAdapterResultCount": verification_output_shadow_adapter_results.len(),
+        "shadowAttemptIds": verification_output_shadow_attempt_ids.clone(),
+        "shadowReceiptIds": verification_output_shadow_receipt_ids.clone(),
+        "shadowReplayFixtureRefs": verification_output_shadow_replay_fixture_refs.clone(),
+        "shadowActionFrameIds": verification_output_shadow_action_frame_ids.clone(),
+        "shadowComponentKinds": verification_output_shadow_component_kinds.clone(),
+        "shadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
         "completionDecision": "objective_satisfied",
         "receiptProjectionAuthority": "blessed_workflow_activation_default",
         "qualityLedgerAuthority": "blessed_workflow_activation_default",
@@ -11536,6 +11640,26 @@ fn runtime_harness_default_runtime_dispatch(
         routing_model_divergence_classes.clone();
     live_promotion_routing_model_divergence_classes
         .extend(routing_model_shadow_divergence_classes.clone());
+    let mut live_promotion_verification_output_action_frame_ids =
+        verification_output_action_frame_ids.clone();
+    live_promotion_verification_output_action_frame_ids
+        .extend(verification_output_shadow_action_frame_ids.clone());
+    let mut live_promotion_verification_output_attempt_ids =
+        verification_output_attempt_ids.clone();
+    live_promotion_verification_output_attempt_ids
+        .extend(verification_output_shadow_attempt_ids.clone());
+    let mut live_promotion_verification_output_receipt_refs =
+        verification_output_receipt_ids.clone();
+    live_promotion_verification_output_receipt_refs
+        .extend(verification_output_shadow_receipt_ids.clone());
+    let mut live_promotion_verification_output_replay_fixture_refs =
+        verification_output_replay_fixture_refs.clone();
+    live_promotion_verification_output_replay_fixture_refs
+        .extend(verification_output_shadow_replay_fixture_refs.clone());
+    let mut live_promotion_verification_output_divergence_classes =
+        verification_output_divergence_classes.clone();
+    live_promotion_verification_output_divergence_classes
+        .extend(verification_output_shadow_divergence_classes.clone());
     let live_promotion_cluster_readiness = json!([
         {
             "clusterId": "cognition",
@@ -11595,19 +11719,21 @@ fn runtime_harness_default_runtime_dispatch(
             "targetExecutionMode": "live",
             "componentKinds": verification_output_component_kinds.clone(),
             "readinessReady": live_promotion_verification_output_ready,
-            "receiptReady": !verification_output_receipt_ids.is_empty(),
+            "receiptReady": !verification_output_receipt_ids.is_empty()
+                && !verification_output_shadow_receipt_ids.is_empty(),
             "replayGateReady": !verification_output_replay_fixture_refs.is_empty()
-                && verification_output_divergence_classes.iter().all(|value| value == "none"),
+                && !verification_output_shadow_replay_fixture_refs.is_empty()
+                && live_promotion_verification_output_divergence_classes.iter().all(|value| value == "none"),
             "canaryReady": output_writer_visible_write_ready,
             "rollbackReady": output_writer_staged_write_rollback_verified,
-            "divergenceReady": verification_output_divergence_classes.iter().all(|value| value == "none"),
-            "blockingDivergenceCount": verification_output_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
-            "unclassifiedDivergenceCount": verification_output_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
-            "attemptIds": verification_output_attempt_ids.clone(),
-            "receiptRefs": verification_output_receipt_ids.clone(),
-            "replayFixtureRefs": verification_output_replay_fixture_refs.clone(),
-            "actionFrameIds": verification_output_action_frame_ids.clone(),
-            "divergenceClasses": verification_output_divergence_classes.clone(),
+            "divergenceReady": live_promotion_verification_output_divergence_classes.iter().all(|value| value == "none"),
+            "blockingDivergenceCount": live_promotion_verification_output_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
+            "unclassifiedDivergenceCount": live_promotion_verification_output_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
+            "attemptIds": live_promotion_verification_output_attempt_ids,
+            "receiptRefs": live_promotion_verification_output_receipt_refs,
+            "replayFixtureRefs": live_promotion_verification_output_replay_fixture_refs,
+            "actionFrameIds": live_promotion_verification_output_action_frame_ids,
+            "divergenceClasses": live_promotion_verification_output_divergence_classes,
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "blockers": if live_promotion_verification_output_ready { Vec::<&str>::new() } else { vec!["verification_output_live_promotion_not_ready"] },
             "decision": if live_promotion_verification_output_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
@@ -11946,6 +12072,14 @@ fn runtime_harness_default_runtime_dispatch(
         "verificationOutputActionFrameIds": verification_output_action_frame_ids.clone(),
         "verificationOutputComponentKinds": verification_output_component_kinds.clone(),
         "verificationOutputDivergenceClasses": verification_output_divergence_classes.clone(),
+        "verificationOutputShadowAdapterMode": "workflow_component_adapter_shadow",
+        "verificationOutputShadowAttemptIds": verification_output_shadow_attempt_ids.clone(),
+        "verificationOutputShadowReceiptIds": verification_output_shadow_receipt_ids.clone(),
+        "verificationOutputShadowReplayFixtureRefs": verification_output_shadow_replay_fixture_refs.clone(),
+        "verificationOutputShadowAdapterResults": verification_output_shadow_adapter_results.clone(),
+        "verificationOutputShadowActionFrameIds": verification_output_shadow_action_frame_ids.clone(),
+        "verificationOutputShadowComponentKinds": verification_output_shadow_component_kinds.clone(),
+        "verificationOutputShadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
         "authorityToolingAdapterMode": "workflow_component_adapter_gated",
         "authorityToolingAttemptIds": authority_tooling_attempt_ids.clone(),
         "authorityToolingReceiptIds": authority_tooling_receipt_ids.clone(),
@@ -12168,6 +12302,14 @@ fn runtime_harness_default_runtime_dispatch(
             "verificationOutputActionFrameIds": verification_output_action_frame_ids.clone(),
             "verificationOutputComponentKinds": verification_output_component_kinds.clone(),
             "verificationOutputDivergenceClasses": verification_output_divergence_classes.clone(),
+            "verificationOutputShadowAdapterMode": "workflow_component_adapter_shadow",
+            "verificationOutputShadowAdapterResultCount": verification_output_shadow_adapter_results.len(),
+            "verificationOutputShadowAttemptIds": verification_output_shadow_attempt_ids.clone(),
+            "verificationOutputShadowReceiptIds": verification_output_shadow_receipt_ids.clone(),
+            "verificationOutputShadowReplayFixtureRefs": verification_output_shadow_replay_fixture_refs.clone(),
+            "verificationOutputShadowActionFrameIds": verification_output_shadow_action_frame_ids.clone(),
+            "verificationOutputShadowComponentKinds": verification_output_shadow_component_kinds.clone(),
+            "verificationOutputShadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
             "authorityToolingAdapterMode": "workflow_component_adapter_gated",
             "authorityToolingAdapterResultCount": authority_tooling_adapter_results.len(),
             "authorityToolingAttemptIds": authority_tooling_attempt_ids.clone(),

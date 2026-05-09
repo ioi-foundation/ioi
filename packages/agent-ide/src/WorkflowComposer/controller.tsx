@@ -1898,6 +1898,7 @@ function harnessLiveTurnNodeInspectorAttemptForWorkflow(
     ...(dispatch.routingModelAdapterResults ?? []),
     ...(dispatch.routingModelShadowAdapterResults ?? []),
     ...(dispatch.verificationOutputAdapterResults ?? []),
+    ...(dispatch.verificationOutputShadowAdapterResults ?? []),
     ...(dispatch.authorityToolingAdapterResults ?? []),
   ].map((result) => result.nodeAttempt);
   const attempts = [
@@ -1950,6 +1951,7 @@ function harnessLiveShadowComparisonForWorkflow(
     ...(dispatch.routingModelAdapterResults ?? []),
     ...(dispatch.routingModelShadowAdapterResults ?? []),
     ...(dispatch.verificationOutputAdapterResults ?? []),
+    ...(dispatch.verificationOutputShadowAdapterResults ?? []),
     ...(dispatch.authorityToolingAdapterResults ?? []),
   ]
     .map((result) => result.nodeAttempt)
