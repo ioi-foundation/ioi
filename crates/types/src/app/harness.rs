@@ -810,6 +810,9 @@ pub struct HarnessWorkerBinding {
     pub authority_binding_ready: bool,
     pub authority_binding_blockers: Vec<String>,
     pub live_promotion_readiness_proof_id: Option<String>,
+    pub live_shadow_comparison_gate_id: Option<String>,
+    pub live_shadow_comparison_gate_ready: bool,
+    pub rollback_policy_decision: Option<String>,
     pub policy_decision: Option<String>,
     pub required_invariant_ids: Vec<String>,
     pub invariant_blockers: Vec<String>,
@@ -846,6 +849,12 @@ pub struct HarnessWorkerBindingRegistryRecord {
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub readiness_proof_id: String,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub canary_result_id: String,
     pub policy_decision: String,
     pub binding_status: HarnessWorkerBindingStatus,
@@ -891,6 +900,12 @@ pub struct HarnessWorkerAttachRequest {
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub readiness_proof_id: String,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub required_invariant_ids: Vec<String>,
     pub requested_status: HarnessWorkerAttachStatus,
 }
@@ -908,6 +923,12 @@ pub struct HarnessWorkerAttachReceipt {
     pub rollback_target: String,
     pub rollback_available: bool,
     pub readiness_proof_id: String,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub registry_record_id: String,
     pub binding_status: HarnessWorkerBindingStatus,
     pub attach_status: HarnessWorkerAttachStatus,
@@ -953,6 +974,12 @@ pub struct HarnessWorkerAttachLifecycleEvent {
     pub registry_record_id: String,
     pub accepted: bool,
     pub rollback_available: bool,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub policy_decision: String,
     pub blockers: Vec<String>,
     pub required_invariant_ids: Vec<String>,
@@ -995,6 +1022,12 @@ pub struct HarnessWorkerSessionRecord {
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub readiness_proof_id: String,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub registry_record_id: String,
     pub current_status: HarnessWorkerSessionStatus,
     pub current_event_id: Option<String>,
@@ -1067,6 +1100,12 @@ pub struct HarnessWorkerLaunchEnvelope {
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub registry_record_id: String,
     pub readiness_proof_id: String,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub rollback_target: String,
     pub persistence_key: String,
     pub record_persistence_key: String,
@@ -1098,6 +1137,12 @@ pub struct HarnessWorkerHandoffReceipt {
     pub harness_hash: String,
     pub registry_record_id: String,
     pub readiness_proof_id: String,
+    pub rollback_readiness_proof_id: String,
+    pub rollback_live_shadow_comparison_gate_id: String,
+    pub rollback_live_shadow_comparison_gate_ready: bool,
+    pub rollback_activation_id: String,
+    pub rollback_harness_hash: String,
+    pub rollback_policy_decision: String,
     pub rollback_target: String,
     pub rollback_available: bool,
     pub launch_authority_source: String,
@@ -2383,6 +2428,11 @@ pub fn default_harness_worker_binding() -> HarnessWorkerBinding {
         authority_binding_ready: false,
         authority_binding_blockers: vec!["worker_binding_authority_not_live".to_string()],
         live_promotion_readiness_proof_id: None,
+        live_shadow_comparison_gate_id: None,
+        live_shadow_comparison_gate_ready: false,
+        rollback_policy_decision: Some(
+            "block_default_harness_worker_rollback_from_live_shadow_gate".to_string(),
+        ),
         policy_decision: None,
         required_invariant_ids: vec![
             DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string(),
@@ -2418,6 +2468,13 @@ pub fn default_harness_worker_binding_registry_record() -> HarnessWorkerBindingR
         component_version_set: default_harness_component_version_set(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         readiness_proof_id: String::new(),
+        rollback_readiness_proof_id: String::new(),
+        rollback_live_shadow_comparison_gate_id: String::new(),
+        rollback_live_shadow_comparison_gate_ready: false,
+        rollback_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        rollback_policy_decision:
+            "block_default_harness_worker_rollback_from_live_shadow_gate".to_string(),
         canary_result_id: "harness-canary-result:default-agent-harness:not-run".to_string(),
         policy_decision: "retain_legacy_runtime_default".to_string(),
         binding_status: HarnessWorkerBindingStatus::Projection,
@@ -2447,6 +2504,11 @@ pub fn bound_default_harness_worker_binding_registry_record(
     worker_binding.authority_binding_ready = true;
     worker_binding.authority_binding_blockers.clear();
     worker_binding.live_promotion_readiness_proof_id = Some(readiness_proof_id.clone());
+    worker_binding.live_shadow_comparison_gate_id =
+        Some("p0-live-shadow-comparison-gate".to_string());
+    worker_binding.live_shadow_comparison_gate_ready = true;
+    worker_binding.rollback_policy_decision =
+        Some("allow_default_harness_worker_rollback_from_live_shadow_gate".to_string());
     worker_binding.policy_decision = Some(policy_decision.clone());
     worker_binding.required_invariant_ids =
         vec![DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string()];
@@ -2465,6 +2527,13 @@ pub fn bound_default_harness_worker_binding_registry_record(
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
         component_version_set: default_harness_component_version_set(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_readiness_proof_id: readiness_proof_id.clone(),
+        rollback_live_shadow_comparison_gate_id: "p0-live-shadow-comparison-gate".to_string(),
+        rollback_live_shadow_comparison_gate_ready: true,
+        rollback_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        rollback_policy_decision:
+            "allow_default_harness_worker_rollback_from_live_shadow_gate".to_string(),
         readiness_proof_id,
         canary_result_id: "harness-canary-result:default-agent-harness:passed".to_string(),
         policy_decision,
@@ -2501,6 +2570,15 @@ pub fn default_harness_worker_attach_request(
         component_version_set: record.component_version_set.clone(),
         rollback_target: record.rollback_target.clone(),
         readiness_proof_id: record.readiness_proof_id.clone(),
+        rollback_readiness_proof_id: record.rollback_readiness_proof_id.clone(),
+        rollback_live_shadow_comparison_gate_id: record
+            .rollback_live_shadow_comparison_gate_id
+            .clone(),
+        rollback_live_shadow_comparison_gate_ready: record
+            .rollback_live_shadow_comparison_gate_ready,
+        rollback_activation_id: record.rollback_activation_id.clone(),
+        rollback_harness_hash: record.rollback_harness_hash.clone(),
+        rollback_policy_decision: record.rollback_policy_decision.clone(),
         required_invariant_ids: record.required_invariant_ids.clone(),
         requested_status,
     }
@@ -2585,6 +2663,50 @@ pub fn resolve_harness_worker_binding(
     }
     if request.readiness_proof_id != record.readiness_proof_id {
         blockers.push("worker_attach_readiness_proof_mismatch".to_string());
+    }
+    if request.rollback_readiness_proof_id.trim().is_empty() {
+        blockers.push("worker_attach_rollback_readiness_proof_missing".to_string());
+    }
+    if request.rollback_readiness_proof_id != record.readiness_proof_id
+        || record.rollback_readiness_proof_id != record.readiness_proof_id
+    {
+        blockers.push("worker_attach_rollback_readiness_proof_mismatch".to_string());
+    }
+    if request.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+        || record.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+    {
+        blockers.push("worker_attach_rollback_live_shadow_gate_missing".to_string());
+    }
+    if request.rollback_live_shadow_comparison_gate_id
+        != record.rollback_live_shadow_comparison_gate_id
+        || record.worker_binding.live_shadow_comparison_gate_id.as_deref()
+            != Some(record.rollback_live_shadow_comparison_gate_id.as_str())
+    {
+        blockers.push("worker_attach_rollback_live_shadow_gate_mismatch".to_string());
+    }
+    if !request.rollback_live_shadow_comparison_gate_ready
+        || !record.rollback_live_shadow_comparison_gate_ready
+        || !record.worker_binding.live_shadow_comparison_gate_ready
+    {
+        blockers.push("worker_attach_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if request.rollback_activation_id != record.activation_id
+        || record.rollback_activation_id != record.activation_id
+    {
+        blockers.push("worker_attach_rollback_activation_mismatch".to_string());
+    }
+    if request.rollback_harness_hash != record.harness_hash
+        || record.rollback_harness_hash != record.harness_hash
+    {
+        blockers.push("worker_attach_rollback_harness_hash_mismatch".to_string());
+    }
+    if request.rollback_policy_decision != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        || record.rollback_policy_decision
+            != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        || record.worker_binding.rollback_policy_decision.as_deref()
+            != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+    {
+        blockers.push("worker_attach_rollback_policy_not_allowed".to_string());
     }
     if !harness_invariant_sets_match(
         &request.required_invariant_ids,
@@ -2675,6 +2797,16 @@ pub fn resolve_harness_worker_binding(
         rollback_available: request.rollback_target == record.rollback_target
             && !record.rollback_target.trim().is_empty(),
         readiness_proof_id: request.readiness_proof_id.clone(),
+        rollback_readiness_proof_id: request.rollback_readiness_proof_id.clone(),
+        rollback_live_shadow_comparison_gate_id: request
+            .rollback_live_shadow_comparison_gate_id
+            .clone(),
+        rollback_live_shadow_comparison_gate_ready: request
+            .rollback_live_shadow_comparison_gate_ready
+            && record.rollback_live_shadow_comparison_gate_ready,
+        rollback_activation_id: request.rollback_activation_id.clone(),
+        rollback_harness_hash: request.rollback_harness_hash.clone(),
+        rollback_policy_decision: request.rollback_policy_decision.clone(),
         registry_record_id: record.registry_record_id.clone(),
         binding_status: record.binding_status,
         attach_status,
@@ -2697,6 +2829,9 @@ pub fn resolve_harness_worker_binding(
         evidence_refs: vec![
             record.registry_record_id.clone(),
             record.readiness_proof_id.clone(),
+            record.rollback_live_shadow_comparison_gate_id.clone(),
+            record.rollback_activation_id.clone(),
+            record.rollback_harness_hash.clone(),
             record.canary_result_id.clone(),
         ],
     }
@@ -2750,6 +2885,15 @@ pub fn default_harness_worker_attach_lifecycle_events(
             registry_record_id: record.registry_record_id.clone(),
             accepted: receipt.accepted,
             rollback_available: receipt.rollback_available,
+            rollback_readiness_proof_id: receipt.rollback_readiness_proof_id.clone(),
+            rollback_live_shadow_comparison_gate_id: receipt
+                .rollback_live_shadow_comparison_gate_id
+                .clone(),
+            rollback_live_shadow_comparison_gate_ready: receipt
+                .rollback_live_shadow_comparison_gate_ready,
+            rollback_activation_id: receipt.rollback_activation_id.clone(),
+            rollback_harness_hash: receipt.rollback_harness_hash.clone(),
+            rollback_policy_decision: receipt.rollback_policy_decision.clone(),
             policy_decision: receipt.policy_decision.clone(),
             blockers: receipt.blockers.clone(),
             required_invariant_ids: receipt.required_invariant_ids.clone(),
@@ -2819,6 +2963,26 @@ pub fn default_harness_worker_session_record(
         blockers
             .push("worker_session_reviewed_import_activation_apply_invariant_missing".to_string());
     }
+    if record.rollback_readiness_proof_id != record.readiness_proof_id {
+        blockers.push("worker_session_rollback_readiness_proof_mismatch".to_string());
+    }
+    if record.rollback_live_shadow_comparison_gate_id.trim().is_empty() {
+        blockers.push("worker_session_rollback_live_shadow_gate_missing".to_string());
+    }
+    if !record.rollback_live_shadow_comparison_gate_ready {
+        blockers.push("worker_session_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if record.rollback_activation_id != record.activation_id {
+        blockers.push("worker_session_rollback_activation_mismatch".to_string());
+    }
+    if record.rollback_harness_hash != record.harness_hash {
+        blockers.push("worker_session_rollback_harness_hash_mismatch".to_string());
+    }
+    if record.rollback_policy_decision
+        != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+    {
+        blockers.push("worker_session_rollback_policy_not_allowed".to_string());
+    }
     blockers.extend(record.invariant_blockers.iter().cloned());
     blockers.extend(record.worker_binding.invariant_blockers.iter().cloned());
     blockers.sort();
@@ -2881,6 +3045,10 @@ pub fn default_harness_worker_session_record(
     let mut evidence_refs = vec![
         record.registry_record_id.clone(),
         record.readiness_proof_id.clone(),
+        record.rollback_readiness_proof_id.clone(),
+        record.rollback_live_shadow_comparison_gate_id.clone(),
+        record.rollback_activation_id.clone(),
+        record.rollback_harness_hash.clone(),
     ];
     evidence_refs.extend(lifecycle_event_ids.iter().cloned());
     evidence_refs.extend(receipt_ids.iter().cloned());
@@ -2924,6 +3092,15 @@ pub fn default_harness_worker_session_record(
         component_version_set: record.component_version_set.clone(),
         rollback_target: record.rollback_target.clone(),
         readiness_proof_id: record.readiness_proof_id.clone(),
+        rollback_readiness_proof_id: record.rollback_readiness_proof_id.clone(),
+        rollback_live_shadow_comparison_gate_id: record
+            .rollback_live_shadow_comparison_gate_id
+            .clone(),
+        rollback_live_shadow_comparison_gate_ready: record
+            .rollback_live_shadow_comparison_gate_ready,
+        rollback_activation_id: record.rollback_activation_id.clone(),
+        rollback_harness_hash: record.rollback_harness_hash.clone(),
+        rollback_policy_decision: record.rollback_policy_decision.clone(),
         registry_record_id: record.registry_record_id.clone(),
         current_status,
         current_event_id: current_event.map(|event| event.event_id.clone()),
@@ -3012,6 +3189,26 @@ pub fn default_harness_worker_launch_envelope(
     if record.launch_authority_source != "persisted_harness_worker_session_record" {
         blockers.push("worker_launch_authority_source_mismatch".to_string());
     }
+    if record.rollback_readiness_proof_id != record.readiness_proof_id {
+        blockers.push("worker_launch_rollback_readiness_proof_mismatch".to_string());
+    }
+    if record.rollback_live_shadow_comparison_gate_id.trim().is_empty() {
+        blockers.push("worker_launch_rollback_live_shadow_gate_missing".to_string());
+    }
+    if !record.rollback_live_shadow_comparison_gate_ready {
+        blockers.push("worker_launch_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if record.rollback_activation_id != record.activation_id {
+        blockers.push("worker_launch_rollback_activation_mismatch".to_string());
+    }
+    if record.rollback_harness_hash != record.harness_hash {
+        blockers.push("worker_launch_rollback_harness_hash_mismatch".to_string());
+    }
+    if record.rollback_policy_decision
+        != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+    {
+        blockers.push("worker_launch_rollback_policy_not_allowed".to_string());
+    }
     if matches!(
         phase,
         HarnessWorkerLaunchPhase::Resume | HarnessWorkerLaunchPhase::Rollback
@@ -3043,6 +3240,10 @@ pub fn default_harness_worker_launch_envelope(
     evidence_refs.push(record.session_record_id.clone());
     evidence_refs.push(record.persistence_key.clone());
     evidence_refs.push(record.record_persistence_key.clone());
+    evidence_refs.push(record.rollback_readiness_proof_id.clone());
+    evidence_refs.push(record.rollback_live_shadow_comparison_gate_id.clone());
+    evidence_refs.push(record.rollback_activation_id.clone());
+    evidence_refs.push(record.rollback_harness_hash.clone());
     evidence_refs.sort();
     evidence_refs.dedup();
     HarnessWorkerLaunchEnvelope {
@@ -3065,6 +3266,15 @@ pub fn default_harness_worker_launch_envelope(
         component_version_set: record.component_version_set.clone(),
         registry_record_id: record.registry_record_id.clone(),
         readiness_proof_id: record.readiness_proof_id.clone(),
+        rollback_readiness_proof_id: record.rollback_readiness_proof_id.clone(),
+        rollback_live_shadow_comparison_gate_id: record
+            .rollback_live_shadow_comparison_gate_id
+            .clone(),
+        rollback_live_shadow_comparison_gate_ready: record
+            .rollback_live_shadow_comparison_gate_ready,
+        rollback_activation_id: record.rollback_activation_id.clone(),
+        rollback_harness_hash: record.rollback_harness_hash.clone(),
+        rollback_policy_decision: record.rollback_policy_decision.clone(),
         rollback_target: record.rollback_target.clone(),
         persistence_key: record.persistence_key.clone(),
         record_persistence_key: record.record_persistence_key.clone(),
@@ -3107,6 +3317,38 @@ pub fn resolve_harness_worker_handoff_receipt(
     if envelope.readiness_proof_id != record.readiness_proof_id {
         blockers.push("worker_handoff_readiness_proof_mismatch".to_string());
     }
+    if envelope.rollback_readiness_proof_id != record.rollback_readiness_proof_id
+        || record.rollback_readiness_proof_id != record.readiness_proof_id
+    {
+        blockers.push("worker_handoff_rollback_readiness_proof_mismatch".to_string());
+    }
+    if envelope.rollback_live_shadow_comparison_gate_id
+        != record.rollback_live_shadow_comparison_gate_id
+        || record.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+    {
+        blockers.push("worker_handoff_rollback_live_shadow_gate_mismatch".to_string());
+    }
+    if !envelope.rollback_live_shadow_comparison_gate_ready
+        || !record.rollback_live_shadow_comparison_gate_ready
+    {
+        blockers.push("worker_handoff_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if envelope.rollback_activation_id != record.rollback_activation_id
+        || record.rollback_activation_id != record.activation_id
+    {
+        blockers.push("worker_handoff_rollback_activation_mismatch".to_string());
+    }
+    if envelope.rollback_harness_hash != record.rollback_harness_hash
+        || record.rollback_harness_hash != record.harness_hash
+    {
+        blockers.push("worker_handoff_rollback_harness_hash_mismatch".to_string());
+    }
+    if envelope.rollback_policy_decision != record.rollback_policy_decision
+        || record.rollback_policy_decision
+            != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+    {
+        blockers.push("worker_handoff_rollback_policy_not_allowed".to_string());
+    }
     if envelope.rollback_target != record.rollback_target {
         blockers.push("worker_handoff_rollback_target_mismatch".to_string());
     }
@@ -3138,6 +3380,10 @@ pub fn resolve_harness_worker_handoff_receipt(
     };
     let mut evidence_refs = envelope.evidence_refs.clone();
     evidence_refs.push(envelope.envelope_id.clone());
+    evidence_refs.push(envelope.rollback_readiness_proof_id.clone());
+    evidence_refs.push(envelope.rollback_live_shadow_comparison_gate_id.clone());
+    evidence_refs.push(envelope.rollback_activation_id.clone());
+    evidence_refs.push(envelope.rollback_harness_hash.clone());
     evidence_refs.extend(record.receipt_ids.iter().cloned());
     evidence_refs.sort();
     evidence_refs.dedup();
@@ -3165,6 +3411,15 @@ pub fn resolve_harness_worker_handoff_receipt(
         harness_hash: record.harness_hash.clone(),
         registry_record_id: record.registry_record_id.clone(),
         readiness_proof_id: record.readiness_proof_id.clone(),
+        rollback_readiness_proof_id: record.rollback_readiness_proof_id.clone(),
+        rollback_live_shadow_comparison_gate_id: record
+            .rollback_live_shadow_comparison_gate_id
+            .clone(),
+        rollback_live_shadow_comparison_gate_ready: record
+            .rollback_live_shadow_comparison_gate_ready,
+        rollback_activation_id: record.rollback_activation_id.clone(),
+        rollback_harness_hash: record.rollback_harness_hash.clone(),
+        rollback_policy_decision: record.rollback_policy_decision.clone(),
         rollback_target: record.rollback_target.clone(),
         rollback_available: record.rollback_available,
         launch_authority_source: record.launch_authority_source.clone(),
@@ -4337,6 +4592,23 @@ pub fn validate_harness_worker_binding_registry_record(
         || record.worker_binding.harness_activation_id.as_deref()
             != Some(record.activation_id.as_str())
         || record.worker_binding.harness_hash != record.harness_hash
+    {
+        return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
+    }
+    if record.binding_status == HarnessWorkerBindingStatus::Bound
+        && (record.readiness_proof_id.trim().is_empty()
+            || record.rollback_readiness_proof_id != record.readiness_proof_id
+            || record.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+            || !record.rollback_live_shadow_comparison_gate_ready
+            || record.worker_binding.live_shadow_comparison_gate_id.as_deref()
+                != Some(record.rollback_live_shadow_comparison_gate_id.as_str())
+            || !record.worker_binding.live_shadow_comparison_gate_ready
+            || record.rollback_activation_id != record.activation_id
+            || record.rollback_harness_hash != record.harness_hash
+            || record.rollback_policy_decision
+                != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+            || record.worker_binding.rollback_policy_decision.as_deref()
+                != Some("allow_default_harness_worker_rollback_from_live_shadow_gate"))
     {
         return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
     }

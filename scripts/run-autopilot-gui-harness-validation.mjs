@@ -538,6 +538,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessActivationIdGateClickProofRuntimeBlockedCount: 0,
     harnessDefaultRuntimeBindingCount: 0,
     harnessDefaultRuntimeBindingMatchedCount: 0,
+    harnessDefaultRuntimeRollbackLiveShadowGateBoundCount: 0,
     harnessWorkerLaunchReviewedImportActivationInvariantCount: 0,
     harnessDefaultRuntimeBindingSamples: [],
     harnessLiveTurnNodeTimelineCount: 0,
@@ -1008,6 +1009,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         binding.liveHandoffLiveShadowComparisonGateReady ?? null,
       dispatchLiveShadowComparisonGateReady:
         binding.dispatchLiveShadowComparisonGateReady ?? null,
+      selectorLiveShadowComparisonGateId:
+        binding.selectorLiveShadowComparisonGateId ?? null,
+      liveHandoffLiveShadowComparisonGateId:
+        binding.liveHandoffLiveShadowComparisonGateId ?? null,
+      dispatchLiveShadowComparisonGateId:
+        binding.dispatchLiveShadowComparisonGateId ?? null,
+      liveShadowComparisonGateIdsMatch:
+        binding.liveShadowComparisonGateIdsMatch ?? null,
       selectorLivePromotionReadinessProofId:
         binding.selectorLivePromotionReadinessProofId ?? null,
       liveHandoffLivePromotionReadinessProofId:
@@ -1078,6 +1087,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 : null,
               livePromotionReadinessProofId:
                 binding.workerBinding.livePromotionReadinessProofId ?? null,
+              liveShadowComparisonGateId:
+                binding.workerBinding.liveShadowComparisonGateId ?? null,
+              liveShadowComparisonGateReady:
+                binding.workerBinding.liveShadowComparisonGateReady ?? null,
+              rollbackPolicyDecision:
+                binding.workerBinding.rollbackPolicyDecision ?? null,
               policyDecision: binding.workerBinding.policyDecision ?? null,
               requiredInvariantIds: Array.isArray(
                 binding.workerBinding.requiredInvariantIds,
@@ -1109,6 +1124,23 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerBindingRegistryRecord.rollbackTarget ?? null,
               readinessProofId:
                 binding.workerBindingRegistryRecord.readinessProofId ?? null,
+              rollbackReadinessProofId:
+                binding.workerBindingRegistryRecord.rollbackReadinessProofId ??
+                null,
+              rollbackLiveShadowComparisonGateId:
+                binding.workerBindingRegistryRecord
+                  .rollbackLiveShadowComparisonGateId ?? null,
+              rollbackLiveShadowComparisonGateReady:
+                binding.workerBindingRegistryRecord
+                  .rollbackLiveShadowComparisonGateReady ?? null,
+              rollbackActivationId:
+                binding.workerBindingRegistryRecord.rollbackActivationId ??
+                null,
+              rollbackHarnessHash:
+                binding.workerBindingRegistryRecord.rollbackHarnessHash ?? null,
+              rollbackPolicyDecision:
+                binding.workerBindingRegistryRecord.rollbackPolicyDecision ??
+                null,
               canaryResultId:
                 binding.workerBindingRegistryRecord.canaryResultId ?? null,
               bindingStatus:
@@ -1147,6 +1179,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               accepted: binding.workerAttachReceipt.accepted ?? null,
               readinessProofId:
                 binding.workerAttachReceipt.readinessProofId ?? null,
+              rollbackReadinessProofId:
+                binding.workerAttachReceipt.rollbackReadinessProofId ?? null,
+              rollbackLiveShadowComparisonGateId:
+                binding.workerAttachReceipt
+                  .rollbackLiveShadowComparisonGateId ?? null,
+              rollbackLiveShadowComparisonGateReady:
+                binding.workerAttachReceipt
+                  .rollbackLiveShadowComparisonGateReady ?? null,
+              rollbackActivationId:
+                binding.workerAttachReceipt.rollbackActivationId ?? null,
+              rollbackHarnessHash:
+                binding.workerAttachReceipt.rollbackHarnessHash ?? null,
+              rollbackPolicyDecision:
+                binding.workerAttachReceipt.rollbackPolicyDecision ?? null,
               blockers: Array.isArray(binding.workerAttachReceipt.blockers)
                 ? binding.workerAttachReceipt.blockers
                 : null,
@@ -1170,6 +1216,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               attachStatus:
                 binding.workerAttachResumeReceipt.attachStatus ?? null,
               accepted: binding.workerAttachResumeReceipt.accepted ?? null,
+              rollbackReadinessProofId:
+                binding.workerAttachResumeReceipt.rollbackReadinessProofId ??
+                null,
+              rollbackLiveShadowComparisonGateId:
+                binding.workerAttachResumeReceipt
+                  .rollbackLiveShadowComparisonGateId ?? null,
+              rollbackLiveShadowComparisonGateReady:
+                binding.workerAttachResumeReceipt
+                  .rollbackLiveShadowComparisonGateReady ?? null,
               blockers: Array.isArray(
                 binding.workerAttachResumeReceipt.blockers,
               )
@@ -1185,6 +1240,23 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               attachStatus:
                 binding.workerAttachRollbackReceipt.attachStatus ?? null,
               accepted: binding.workerAttachRollbackReceipt.accepted ?? null,
+              rollbackReadinessProofId:
+                binding.workerAttachRollbackReceipt.rollbackReadinessProofId ??
+                null,
+              rollbackLiveShadowComparisonGateId:
+                binding.workerAttachRollbackReceipt
+                  .rollbackLiveShadowComparisonGateId ?? null,
+              rollbackLiveShadowComparisonGateReady:
+                binding.workerAttachRollbackReceipt
+                  .rollbackLiveShadowComparisonGateReady ?? null,
+              rollbackActivationId:
+                binding.workerAttachRollbackReceipt.rollbackActivationId ??
+                null,
+              rollbackHarnessHash:
+                binding.workerAttachRollbackReceipt.rollbackHarnessHash ?? null,
+              rollbackPolicyDecision:
+                binding.workerAttachRollbackReceipt.rollbackPolicyDecision ??
+                null,
               blockers: Array.isArray(
                 binding.workerAttachRollbackReceipt.blockers,
               )
@@ -1199,6 +1271,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             attachStatus: event?.attachStatus ?? null,
             accepted: event?.accepted ?? null,
             receiptId: event?.receiptId ?? null,
+            rollbackReadinessProofId:
+              event?.rollbackReadinessProofId ?? null,
+            rollbackLiveShadowComparisonGateId:
+              event?.rollbackLiveShadowComparisonGateId ?? null,
+            rollbackLiveShadowComparisonGateReady:
+              event?.rollbackLiveShadowComparisonGateReady ?? null,
+            rollbackActivationId: event?.rollbackActivationId ?? null,
+            rollbackHarnessHash: event?.rollbackHarnessHash ?? null,
+            rollbackPolicyDecision: event?.rollbackPolicyDecision ?? null,
             blockers: Array.isArray(event?.blockers) ? event.blockers : null,
             requiredInvariantIds: Array.isArray(event?.requiredInvariantIds)
               ? event.requiredInvariantIds
@@ -1232,6 +1313,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerSessionRecord.rollbackTarget ?? null,
               readinessProofId:
                 binding.workerSessionRecord.readinessProofId ?? null,
+              rollbackReadinessProofId:
+                binding.workerSessionRecord.rollbackReadinessProofId ?? null,
+              rollbackLiveShadowComparisonGateId:
+                binding.workerSessionRecord
+                  .rollbackLiveShadowComparisonGateId ?? null,
+              rollbackLiveShadowComparisonGateReady:
+                binding.workerSessionRecord
+                  .rollbackLiveShadowComparisonGateReady ?? null,
+              rollbackActivationId:
+                binding.workerSessionRecord.rollbackActivationId ?? null,
+              rollbackHarnessHash:
+                binding.workerSessionRecord.rollbackHarnessHash ?? null,
+              rollbackPolicyDecision:
+                binding.workerSessionRecord.rollbackPolicyDecision ?? null,
               registryRecordId:
                 binding.workerSessionRecord.registryRecordId ?? null,
               currentStatus: binding.workerSessionRecord.currentStatus ?? null,
@@ -1300,6 +1395,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             phase: envelope?.phase ?? null,
             sessionRecordId: envelope?.sessionRecordId ?? null,
             workerId: envelope?.workerId ?? null,
+            readinessProofId: envelope?.readinessProofId ?? null,
+            rollbackReadinessProofId: envelope?.rollbackReadinessProofId ?? null,
+            rollbackLiveShadowComparisonGateId:
+              envelope?.rollbackLiveShadowComparisonGateId ?? null,
+            rollbackLiveShadowComparisonGateReady:
+              envelope?.rollbackLiveShadowComparisonGateReady ?? null,
+            rollbackActivationId: envelope?.rollbackActivationId ?? null,
+            rollbackHarnessHash: envelope?.rollbackHarnessHash ?? null,
+            rollbackPolicyDecision: envelope?.rollbackPolicyDecision ?? null,
             launchAuthorityReady: envelope?.launchAuthorityReady ?? null,
             launchAuthorityInvariantIds: Array.isArray(
               envelope?.launchAuthorityInvariantIds,
@@ -1327,6 +1431,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             phase: receipt?.phase ?? null,
             sessionRecordId: receipt?.sessionRecordId ?? null,
             workerId: receipt?.workerId ?? null,
+            readinessProofId: receipt?.readinessProofId ?? null,
+            rollbackReadinessProofId: receipt?.rollbackReadinessProofId ?? null,
+            rollbackLiveShadowComparisonGateId:
+              receipt?.rollbackLiveShadowComparisonGateId ?? null,
+            rollbackLiveShadowComparisonGateReady:
+              receipt?.rollbackLiveShadowComparisonGateReady ?? null,
+            rollbackActivationId: receipt?.rollbackActivationId ?? null,
+            rollbackHarnessHash: receipt?.rollbackHarnessHash ?? null,
+            rollbackPolicyDecision: receipt?.rollbackPolicyDecision ?? null,
             accepted: receipt?.accepted ?? null,
             handoffStatus: receipt?.handoffStatus ?? null,
             blockers: Array.isArray(receipt?.blockers)
@@ -1423,6 +1536,67 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     if (workerLaunchReviewedImportActivationInvariantBound) {
       summary.harnessWorkerLaunchReviewedImportActivationInvariantCount += 1;
     }
+    const expectedRollbackGateId = "p0-live-shadow-comparison-gate";
+    const expectedRollbackPolicyDecision =
+      "allow_default_harness_worker_rollback_from_live_shadow_gate";
+    const rollbackArtifactBoundToLiveShadowGate = (artifact) => {
+      const readinessProofId =
+        artifact?.readinessProofId ?? artifact?.receipt?.readinessProofId;
+      return (
+        artifact &&
+        readinessProofId === binding.selectorLivePromotionReadinessProofId &&
+        artifact.rollbackReadinessProofId ===
+          binding.selectorLivePromotionReadinessProofId &&
+        artifact.rollbackLiveShadowComparisonGateId ===
+          expectedRollbackGateId &&
+        artifact.rollbackLiveShadowComparisonGateReady === true &&
+        artifact.rollbackActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        artifact.rollbackHarnessHash === DEFAULT_AGENT_HARNESS_HASH &&
+        artifact.rollbackPolicyDecision === expectedRollbackPolicyDecision
+      );
+    };
+    const rollbackFromLiveShadowGateBound =
+      binding.liveShadowComparisonGateIdsMatch === true &&
+      binding.selectorLiveShadowComparisonGateId === expectedRollbackGateId &&
+      binding.liveHandoffLiveShadowComparisonGateId === expectedRollbackGateId &&
+      binding.dispatchLiveShadowComparisonGateId === expectedRollbackGateId &&
+      binding.selectorLivePromotionReadinessProofId &&
+      binding.workerBinding?.liveShadowComparisonGateId ===
+        expectedRollbackGateId &&
+      binding.workerBinding?.liveShadowComparisonGateReady === true &&
+      binding.workerBinding?.rollbackPolicyDecision ===
+        expectedRollbackPolicyDecision &&
+      rollbackArtifactBoundToLiveShadowGate(
+        binding.workerBindingRegistryRecord,
+      ) &&
+      rollbackArtifactBoundToLiveShadowGate(binding.workerAttachReceipt) &&
+      rollbackArtifactBoundToLiveShadowGate(
+        binding.workerAttachResumeReceipt,
+      ) &&
+      rollbackArtifactBoundToLiveShadowGate(
+        binding.workerAttachRollbackReceipt,
+      ) &&
+      rollbackArtifactBoundToLiveShadowGate(binding.workerSessionRecord) &&
+      Array.isArray(binding.workerAttachLifecycle) &&
+      binding.workerAttachLifecycle.length >= 3 &&
+      binding.workerAttachLifecycle.every((event) =>
+        rollbackArtifactBoundToLiveShadowGate(event),
+      ) &&
+      Array.isArray(binding.workerLaunchEnvelopes) &&
+      binding.workerLaunchEnvelopes.length >= 3 &&
+      binding.workerLaunchEnvelopes.every((envelope) =>
+        rollbackArtifactBoundToLiveShadowGate(envelope),
+      ) &&
+      Array.isArray(binding.workerHandoffReceipts) &&
+      binding.workerHandoffReceipts.length >= 3 &&
+      binding.workerHandoffReceipts.every((receipt) =>
+        rollbackArtifactBoundToLiveShadowGate(receipt),
+      );
+    sample.rollbackFromLiveShadowGateBound =
+      rollbackFromLiveShadowGateBound;
+    if (rollbackFromLiveShadowGateBound) {
+      summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount += 1;
+    }
     const bindingMatched =
       binding.bindingMatched === true &&
       binding.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
@@ -1443,8 +1617,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.selectorLiveShadowComparisonGateReady === true &&
       binding.liveHandoffLiveShadowComparisonGateReady === true &&
       binding.dispatchLiveShadowComparisonGateReady === true &&
+      binding.liveShadowComparisonGateIdsMatch === true &&
       binding.livePromotionReadinessProofIdsMatch === true &&
       binding.invalidForkLiveActivationBlocked === true &&
+      rollbackFromLiveShadowGateBound &&
       workerLaunchReviewedImportActivationInvariantBound &&
       binding.workerBindingAuthorityReady === true &&
       Array.isArray(binding.workerBindingAuthorityBlockers) &&
@@ -4487,6 +4663,25 @@ function buildGuiEvidenceAssessment({
     promotionTransitionLiveGuiInteractionProof?.proof?.defaultDispatch ?? null;
   const runtimeBindingHasReviewedImportActivationInvariant = (binding) =>
     binding?.workerLaunchReviewedImportActivationInvariantBound === true;
+  const runtimeBindingHasRollbackLiveShadowGate = (binding) =>
+    binding?.rollbackFromLiveShadowGateBound === true &&
+    binding?.liveShadowComparisonGateIdsMatch === true &&
+    binding?.selectorLiveShadowComparisonGateId ===
+      "p0-live-shadow-comparison-gate" &&
+    binding?.workerBinding?.liveShadowComparisonGateId ===
+      "p0-live-shadow-comparison-gate" &&
+    binding?.workerBindingRegistryRecord?.rollbackReadinessProofId ===
+      binding?.selectorLivePromotionReadinessProofId &&
+    binding?.workerBindingRegistryRecord?.rollbackLiveShadowComparisonGateId ===
+      "p0-live-shadow-comparison-gate" &&
+    binding?.workerAttachRollbackReceipt?.rollbackReadinessProofId ===
+      binding?.selectorLivePromotionReadinessProofId &&
+    binding?.workerAttachRollbackReceipt?.rollbackLiveShadowComparisonGateId ===
+      "p0-live-shadow-comparison-gate" &&
+    binding?.workerSessionRecord?.rollbackReadinessProofId ===
+      binding?.selectorLivePromotionReadinessProofId &&
+    binding?.workerSessionRecord?.rollbackLiveShadowComparisonGateId ===
+      "p0-live-shadow-comparison-gate";
   const chatRuntimeBindingMatchesWorkflowProof =
     hasHarnessDefaultRuntimeDispatch &&
     Boolean(workflowProofRuntimeSelector) &&
@@ -4517,6 +4712,7 @@ function buildGuiEvidenceAssessment({
         binding.dispatchLiveShadowComparisonGateReady === true &&
         binding.livePromotionReadinessProofIdsMatch === true &&
         binding.invalidForkLiveActivationBlocked === true &&
+        runtimeBindingHasRollbackLiveShadowGate(binding) &&
         runtimeBindingHasReviewedImportActivationInvariant(binding) &&
         binding.workerBindingAuthorityReady === true &&
         Array.isArray(binding.workerBindingAuthorityBlockers) &&
@@ -4673,6 +4869,7 @@ function buildGuiEvidenceAssessment({
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessDefaultRuntimeBindingCount > 0 &&
     summary.harnessDefaultRuntimeBindingMatchedCount > 0 &&
+    summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount > 0 &&
     chatRuntimeBindingMatchesWorkflowProof;
   const hasHarnessLiveTurnNodeTimeline =
     hasHarnessChatRuntimeBinding &&
@@ -5027,6 +5224,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
         hasHarnessChatRuntimeBinding,
+      harness_default_runtime_rollback_live_shadow_gate_bound:
+        summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount > 0,
       harness_live_turn_node_timeline_present: hasHarnessLiveTurnNodeTimeline,
       harness_live_turn_node_inspector_present: hasHarnessLiveTurnNodeInspector,
       harness_live_turn_node_inspector_deep_link_present:
@@ -5256,6 +5455,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessDefaultRuntimeBindingCount,
       harnessDefaultRuntimeBindingMatchedCount:
         summary.harnessDefaultRuntimeBindingMatchedCount,
+      harnessDefaultRuntimeRollbackLiveShadowGateBoundCount:
+        summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount,
       harnessDefaultRuntimeBindingSamples:
         summary.harnessDefaultRuntimeBindingSamples,
       harnessAuthorityToolingReadOnlyCanaryCount:
@@ -6236,6 +6437,59 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           attempt.targetExecutionMode === targetExecutionMode &&
           attempt.attemptStatus === attemptStatus,
       );
+    const expectedRollbackGateId = "p0-live-shadow-comparison-gate";
+    const expectedRollbackReadinessProofId =
+      selector?.livePromotionReadinessProof?.proofId ??
+      defaultDispatch?.livePromotionReadinessProof?.proofId ??
+      null;
+    const expectedRollbackPolicyDecision =
+      "allow_default_harness_worker_rollback_from_live_shadow_gate";
+    const rollbackArtifactBoundToLiveShadowGate = (artifact) => {
+      const readinessProofId =
+        artifact?.readinessProofId ?? artifact?.receipt?.readinessProofId;
+      return (
+        artifact &&
+        readinessProofId === expectedRollbackReadinessProofId &&
+        artifact.rollbackReadinessProofId === expectedRollbackReadinessProofId &&
+        artifact.rollbackLiveShadowComparisonGateId ===
+          expectedRollbackGateId &&
+        artifact.rollbackLiveShadowComparisonGateReady === true &&
+        artifact.rollbackActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+        artifact.rollbackHarnessHash === DEFAULT_AGENT_HARNESS_HASH &&
+        artifact.rollbackPolicyDecision === expectedRollbackPolicyDecision
+      );
+    };
+    const workerRollbackLiveShadowGateBound =
+      defaultDispatch?.liveShadowComparisonGate?.gateId ===
+        expectedRollbackGateId &&
+      defaultDispatch?.liveShadowComparisonGateReady === true &&
+      expectedRollbackReadinessProofId &&
+      workerBindingRegistry?.workerBinding?.liveShadowComparisonGateId ===
+        expectedRollbackGateId &&
+      workerBindingRegistry?.workerBinding?.liveShadowComparisonGateReady ===
+        true &&
+      workerBindingRegistry?.workerBinding?.rollbackPolicyDecision ===
+        expectedRollbackPolicyDecision &&
+      rollbackArtifactBoundToLiveShadowGate(workerBindingRegistry) &&
+      rollbackArtifactBoundToLiveShadowGate(workerAttachReceipt) &&
+      rollbackArtifactBoundToLiveShadowGate(workerAttachResumeReceipt) &&
+      rollbackArtifactBoundToLiveShadowGate(workerAttachRollbackReceipt) &&
+      Array.isArray(workerAttachLifecycle) &&
+      workerAttachLifecycle.length >= 3 &&
+      workerAttachLifecycle.every((event) =>
+        rollbackArtifactBoundToLiveShadowGate(event),
+      ) &&
+      rollbackArtifactBoundToLiveShadowGate(workerSessionRecord) &&
+      Array.isArray(workerLaunchEnvelopes) &&
+      workerLaunchEnvelopes.length >= 3 &&
+      workerLaunchEnvelopes.every((envelope) =>
+        rollbackArtifactBoundToLiveShadowGate(envelope),
+      ) &&
+      Array.isArray(workerHandoffReceipts) &&
+      workerHandoffReceipts.length >= 3 &&
+      workerHandoffReceipts.every((receipt) =>
+        rollbackArtifactBoundToLiveShadowGate(receipt),
+      );
     const workerBindingRegistryBound =
       workerBindingRegistry?.schemaVersion ===
         "workflow.harness.worker-binding-registry.v1" &&
@@ -6276,7 +6530,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerBindingRegistry.workerBinding.authorityBindingBlockers.length ===
         0 &&
       workerBindingRegistry?.workerBinding?.livePromotionReadinessProofId ===
-        selector?.livePromotionReadinessProof?.proofId;
+        selector?.livePromotionReadinessProof?.proofId &&
+      workerRollbackLiveShadowGateBound;
     const workerAttachBound =
       workerAttachReceipt?.schemaVersion ===
         "workflow.harness.worker-attach-receipt.v1" &&
@@ -6678,8 +6933,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           selector?.livePromotionReadinessProof?.proofId &&
         workerBinding?.livePromotionReadinessProofId ===
           defaultDispatch?.livePromotionReadinessProof?.proofId &&
+        workerBinding?.liveShadowComparisonGateId ===
+          expectedRollbackGateId &&
+        workerBinding?.liveShadowComparisonGateReady === true &&
+        workerBinding?.rollbackPolicyDecision ===
+          expectedRollbackPolicyDecision &&
         workerBindingRegistryBound,
       workerBindingRegistryBound,
+      workerRollbackLiveShadowGateBound,
       workerAttachBound,
       workerAttachLifecycleComplete,
       workerSessionRecordBound,
@@ -7514,6 +7775,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             ),
             workerHandoffNodeAttemptIds,
             workerHandoffReplayFixtureRefs,
+            workerRollbackLiveShadowGateBound,
             workerLaunchHandoffBound,
             workerHandoffNodeTimelineBound,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
@@ -7528,6 +7790,19 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             harnessHash: workerBindingRegistry.harnessHash ?? null,
             rollbackTarget: workerBindingRegistry.rollbackTarget ?? null,
             readinessProofId: workerBindingRegistry.readinessProofId ?? null,
+            rollbackReadinessProofId:
+              workerBindingRegistry.rollbackReadinessProofId ?? null,
+            rollbackLiveShadowComparisonGateId:
+              workerBindingRegistry.rollbackLiveShadowComparisonGateId ?? null,
+            rollbackLiveShadowComparisonGateReady:
+              workerBindingRegistry.rollbackLiveShadowComparisonGateReady ??
+              null,
+            rollbackActivationId:
+              workerBindingRegistry.rollbackActivationId ?? null,
+            rollbackHarnessHash:
+              workerBindingRegistry.rollbackHarnessHash ?? null,
+            rollbackPolicyDecision:
+              workerBindingRegistry.rollbackPolicyDecision ?? null,
             canaryResultId: workerBindingRegistry.canaryResultId ?? null,
             policyDecision: workerBindingRegistry.policyDecision ?? null,
             bindingStatus: workerBindingRegistry.bindingStatus ?? null,
@@ -7547,6 +7822,19 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             blockers: workerAttachReceipt.blockers ?? [],
             rollbackAvailable: workerAttachReceipt.rollbackAvailable ?? null,
             readinessProofId: workerAttachReceipt.readinessProofId ?? null,
+            rollbackReadinessProofId:
+              workerAttachReceipt.rollbackReadinessProofId ?? null,
+            rollbackLiveShadowComparisonGateId:
+              workerAttachReceipt.rollbackLiveShadowComparisonGateId ?? null,
+            rollbackLiveShadowComparisonGateReady:
+              workerAttachReceipt.rollbackLiveShadowComparisonGateReady ??
+              null,
+            rollbackActivationId:
+              workerAttachReceipt.rollbackActivationId ?? null,
+            rollbackHarnessHash:
+              workerAttachReceipt.rollbackHarnessHash ?? null,
+            rollbackPolicyDecision:
+              workerAttachReceipt.rollbackPolicyDecision ?? null,
           }
         : null,
       workerAttachLifecycle: workerAttachLifecycle.map((event) => ({
@@ -7555,6 +7843,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         attachStatus: event?.attachStatus ?? null,
         accepted: event?.accepted ?? null,
         receiptId: event?.receiptId ?? null,
+        rollbackReadinessProofId: event?.rollbackReadinessProofId ?? null,
+        rollbackLiveShadowComparisonGateId:
+          event?.rollbackLiveShadowComparisonGateId ?? null,
+        rollbackLiveShadowComparisonGateReady:
+          event?.rollbackLiveShadowComparisonGateReady ?? null,
+        rollbackActivationId: event?.rollbackActivationId ?? null,
+        rollbackHarnessHash: event?.rollbackHarnessHash ?? null,
+        rollbackPolicyDecision: event?.rollbackPolicyDecision ?? null,
         blockers: event?.blockers ?? [],
       })),
       workerSessionRecord: workerSessionRecord
@@ -7577,6 +7873,18 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             receiptIds: workerSessionRecord.receiptIds ?? [],
             lifecycleStatuses: workerSessionRecord.lifecycleStatuses ?? [],
             rollbackTarget: workerSessionRecord.rollbackTarget ?? null,
+            readinessProofId: workerSessionRecord.readinessProofId ?? null,
+            rollbackReadinessProofId:
+              workerSessionRecord.rollbackReadinessProofId ?? null,
+            rollbackLiveShadowComparisonGateId:
+              workerSessionRecord.rollbackLiveShadowComparisonGateId ?? null,
+            rollbackLiveShadowComparisonGateReady:
+              workerSessionRecord.rollbackLiveShadowComparisonGateReady ??
+              null,
+            rollbackActivationId: workerSessionRecord.rollbackActivationId ?? null,
+            rollbackHarnessHash: workerSessionRecord.rollbackHarnessHash ?? null,
+            rollbackPolicyDecision:
+              workerSessionRecord.rollbackPolicyDecision ?? null,
             resumed: workerSessionRecord.resumed ?? null,
             rollbackAvailable: workerSessionRecord.rollbackAvailable ?? null,
             rollbackTargetReady:
@@ -7627,6 +7935,15 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         sessionRecordId: envelope?.sessionRecordId ?? null,
         sessionId: envelope?.sessionId ?? null,
         workerId: envelope?.workerId ?? null,
+        readinessProofId: envelope?.readinessProofId ?? null,
+        rollbackReadinessProofId: envelope?.rollbackReadinessProofId ?? null,
+        rollbackLiveShadowComparisonGateId:
+          envelope?.rollbackLiveShadowComparisonGateId ?? null,
+        rollbackLiveShadowComparisonGateReady:
+          envelope?.rollbackLiveShadowComparisonGateReady ?? null,
+        rollbackActivationId: envelope?.rollbackActivationId ?? null,
+        rollbackHarnessHash: envelope?.rollbackHarnessHash ?? null,
+        rollbackPolicyDecision: envelope?.rollbackPolicyDecision ?? null,
         accepted: envelope?.accepted ?? null,
         blockers: Array.isArray(envelope?.blockers) ? envelope.blockers : [],
         launchAuthorityReady: envelope?.launchAuthorityReady ?? null,
@@ -7641,6 +7958,15 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         sessionRecordId: receipt?.sessionRecordId ?? null,
         sessionId: receipt?.sessionId ?? null,
         workerId: receipt?.workerId ?? null,
+        readinessProofId: receipt?.readinessProofId ?? null,
+        rollbackReadinessProofId: receipt?.rollbackReadinessProofId ?? null,
+        rollbackLiveShadowComparisonGateId:
+          receipt?.rollbackLiveShadowComparisonGateId ?? null,
+        rollbackLiveShadowComparisonGateReady:
+          receipt?.rollbackLiveShadowComparisonGateReady ?? null,
+        rollbackActivationId: receipt?.rollbackActivationId ?? null,
+        rollbackHarnessHash: receipt?.rollbackHarnessHash ?? null,
+        rollbackPolicyDecision: receipt?.rollbackPolicyDecision ?? null,
         accepted: receipt?.accepted ?? null,
         blockers: Array.isArray(receipt?.blockers) ? receipt.blockers : [],
         receiptRefs: Array.isArray(receipt?.receiptRefs)
@@ -8312,6 +8638,13 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_chat_runtime_binding:
           runtimeArtifacts.summary.harnessDefaultRuntimeBindingMatchedCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_default_runtime_rollback_live_shadow_gate_bound:
+          runtimeArtifacts.summary
+            .harnessDefaultRuntimeRollbackLiveShadowGateBoundCount > 0 &&
+          guiEvidence.runtimeConsistency
+            .harness_default_runtime_rollback_live_shadow_gate_bound === true
             ? runtimeArtifacts.path
             : false,
         harness_live_turn_node_timeline:
