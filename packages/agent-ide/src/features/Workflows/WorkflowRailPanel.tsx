@@ -816,6 +816,143 @@ export function WorkflowRailPanel({
                 ) &&
                 Boolean(attempt.replay.fixtureRef),
             );
+          const workerRollbackExpectedLiveShadowGateId =
+            dispatchProof?.liveShadowComparisonGate?.gateId ??
+            harnessDefaultRuntimeDispatchProof.liveShadowComparisonGate
+              ?.gateId ??
+            "p0-live-shadow-comparison-gate";
+          const workerRollbackExpectedPolicyDecision =
+            "allow_default_harness_worker_rollback_from_live_shadow_gate";
+          const workerRollbackLaunchEnvelope =
+            workerLaunchEnvelopes.find(
+              (envelope) => envelope.phase === "rollback",
+            ) ?? null;
+          const workerRollbackHandoffReceipt =
+            workerHandoffReceipts.find(
+              (receipt) => receipt.phase === "rollback",
+            ) ?? null;
+          const workerRollbackNodeAttempt =
+            workerHandoffNodeAttempts.find(
+              (attempt) =>
+                Boolean(workerRollbackHandoffReceipt?.receiptId) &&
+                attempt.receiptIds.includes(
+                  workerRollbackHandoffReceipt?.receiptId ?? "",
+                ),
+            ) ??
+            workerHandoffNodeAttempts.find((attempt) =>
+              attempt.attemptId.includes(":rollback:"),
+            ) ??
+            null;
+          const workerRollbackReplayFixtureRef =
+            workerRollbackNodeAttempt?.replay.fixtureRef ??
+            workerHandoffReplayFixtureRefs.find((fixtureRef) =>
+              fixtureRef.includes(":rollback:"),
+            ) ??
+            "";
+          const workerRollbackReadinessProofId =
+            workerBindingRegistryRecord?.rollbackReadinessProofId ??
+            workerSessionRecord?.rollbackReadinessProofId ??
+            workerRollbackLaunchEnvelope?.rollbackReadinessProofId ??
+            workerRollbackHandoffReceipt?.rollbackReadinessProofId ??
+            "";
+          const workerRollbackLiveShadowComparisonGateId =
+            workerBindingRegistryRecord?.rollbackLiveShadowComparisonGateId ??
+            workerSessionRecord?.rollbackLiveShadowComparisonGateId ??
+            workerRollbackLaunchEnvelope?.rollbackLiveShadowComparisonGateId ??
+            workerRollbackHandoffReceipt
+              ?.rollbackLiveShadowComparisonGateId ??
+            "";
+          const workerRollbackLiveShadowComparisonGateReady =
+            (workerBindingRegistryRecord
+              ?.rollbackLiveShadowComparisonGateReady ??
+              workerSessionRecord?.rollbackLiveShadowComparisonGateReady ??
+              workerRollbackLaunchEnvelope
+                ?.rollbackLiveShadowComparisonGateReady ??
+              workerRollbackHandoffReceipt
+                ?.rollbackLiveShadowComparisonGateReady ??
+              false) === true;
+          const workerRollbackActivationId =
+            workerBindingRegistryRecord?.rollbackActivationId ??
+            workerSessionRecord?.rollbackActivationId ??
+            workerRollbackLaunchEnvelope?.rollbackActivationId ??
+            workerRollbackHandoffReceipt?.rollbackActivationId ??
+            "";
+          const workerRollbackHarnessHash =
+            workerBindingRegistryRecord?.rollbackHarnessHash ??
+            workerSessionRecord?.rollbackHarnessHash ??
+            workerRollbackLaunchEnvelope?.rollbackHarnessHash ??
+            workerRollbackHandoffReceipt?.rollbackHarnessHash ??
+            "";
+          const workerRollbackPolicyDecision =
+            workerBindingRegistryRecord?.rollbackPolicyDecision ??
+            workerSessionRecord?.rollbackPolicyDecision ??
+            workerRollbackLaunchEnvelope?.rollbackPolicyDecision ??
+            workerRollbackHandoffReceipt?.rollbackPolicyDecision ??
+            "";
+          const workerRollbackProofBlockers =
+            workflowHarnessUniqueStrings([
+              ...(workerRollbackReadinessProofId === selectorProofId
+                ? []
+                : ["rollback_readiness_proof_mismatch"]),
+              ...(workerRollbackLiveShadowComparisonGateId ===
+              workerRollbackExpectedLiveShadowGateId
+                ? []
+                : ["rollback_live_shadow_gate_mismatch"]),
+              ...(workerRollbackLiveShadowComparisonGateReady
+                ? []
+                : ["rollback_live_shadow_gate_not_ready"]),
+              ...(workerRollbackActivationId === activationId
+                ? []
+                : ["rollback_activation_mismatch"]),
+              ...(workerRollbackHarnessHash === harnessHash
+                ? []
+                : ["rollback_harness_hash_mismatch"]),
+              ...(workerRollbackPolicyDecision ===
+              workerRollbackExpectedPolicyDecision
+                ? []
+                : ["rollback_policy_decision_mismatch"]),
+              ...(workerRollbackLaunchEnvelope?.accepted === true &&
+              workerRollbackLaunchEnvelope.phase === "rollback" &&
+              workerRollbackLaunchEnvelope.rollbackHandoffReady === true &&
+              (workerRollbackLaunchEnvelope.blockers ?? []).length === 0
+                ? []
+                : ["rollback_launch_envelope_not_ready"]),
+              ...(workerRollbackHandoffReceipt?.accepted === true &&
+              workerRollbackHandoffReceipt.phase === "rollback" &&
+              workerRollbackHandoffReceipt.handoffStatus ===
+                "rollback_handoff_ready" &&
+              (workerRollbackHandoffReceipt.blockers ?? []).length === 0
+                ? []
+                : ["rollback_handoff_receipt_not_ready"]),
+              ...(workerRollbackNodeAttempt?.workflowNodeId ===
+                "harness.handoff_bridge" &&
+              workerRollbackNodeAttempt.componentKind === "handoff_bridge" &&
+              Boolean(workerRollbackReplayFixtureRef) &&
+              Boolean(workerRollbackHandoffReceipt?.receiptId) &&
+              workerRollbackNodeAttempt.receiptIds.includes(
+                workerRollbackHandoffReceipt?.receiptId ?? "",
+              )
+                ? []
+                : ["rollback_node_attempt_not_bound"]),
+            ]);
+          const workerRollbackProof = {
+            bound: workerRollbackProofBlockers.length === 0,
+            blockers: workerRollbackProofBlockers,
+            readinessProofId: workerRollbackReadinessProofId,
+            liveShadowComparisonGateId:
+              workerRollbackLiveShadowComparisonGateId,
+            liveShadowComparisonGateReady:
+              workerRollbackLiveShadowComparisonGateReady,
+            expectedLiveShadowComparisonGateId:
+              workerRollbackExpectedLiveShadowGateId,
+            activationId: workerRollbackActivationId,
+            harnessHash: workerRollbackHarnessHash,
+            policyDecision: workerRollbackPolicyDecision,
+            launchEnvelope: workerRollbackLaunchEnvelope,
+            handoffReceipt: workerRollbackHandoffReceipt,
+            nodeAttempt: workerRollbackNodeAttempt,
+            replayFixtureRef: workerRollbackReplayFixtureRef,
+          };
           const workerAttachBlockers =
             workflowHarnessWorkerAttachBlockers(workerAttachReceipt);
           const workerAttachAccepted =
@@ -1107,6 +1244,7 @@ export function WorkflowRailPanel({
             workerHandoffNodeAttemptIds,
             workerHandoffReplayFixtureRefs,
             workerHandoffNodeTimelineBound,
+            workerRollbackProof,
             workerLaunchEnvelopesAccepted,
             workerHandoffReceiptsAccepted,
             workerAttachAccepted,
@@ -3992,6 +4130,60 @@ export function WorkflowRailPanel({
                 data-selected-rollback-target={
                   selectedHarnessRollbackTarget ?? ""
                 }
+                data-selected-receipt-ref={selectedHarnessReceiptRef ?? ""}
+                data-selected-replay-fixture-ref={
+                  selectedHarnessReplayFixtureRef ?? ""
+                }
+                data-selected-node-attempt-id={
+                  selectedHarnessNodeAttemptId ?? ""
+                }
+                data-rollback-proof-bound={
+                  harnessActiveRuntimeBinding.workerRollbackProof.bound
+                    ? "true"
+                    : "false"
+                }
+                data-rollback-proof-blockers={harnessActiveRuntimeBinding.workerRollbackProof.blockers.join(
+                  ",",
+                )}
+                data-rollback-readiness-proof-id={
+                  harnessActiveRuntimeBinding.workerRollbackProof
+                    .readinessProofId
+                }
+                data-rollback-live-shadow-gate-id={
+                  harnessActiveRuntimeBinding.workerRollbackProof
+                    .liveShadowComparisonGateId
+                }
+                data-rollback-live-shadow-gate-ready={
+                  harnessActiveRuntimeBinding.workerRollbackProof
+                    .liveShadowComparisonGateReady
+                    ? "true"
+                    : "false"
+                }
+                data-rollback-activation-id={
+                  harnessActiveRuntimeBinding.workerRollbackProof.activationId
+                }
+                data-rollback-harness-hash={
+                  harnessActiveRuntimeBinding.workerRollbackProof.harnessHash
+                }
+                data-rollback-policy-decision={
+                  harnessActiveRuntimeBinding.workerRollbackProof.policyDecision
+                }
+                data-rollback-launch-envelope-id={
+                  harnessActiveRuntimeBinding.workerRollbackProof.launchEnvelope
+                    ?.envelopeId ?? ""
+                }
+                data-rollback-handoff-receipt-id={
+                  harnessActiveRuntimeBinding.workerRollbackProof.handoffReceipt
+                    ?.receiptId ?? ""
+                }
+                data-rollback-node-attempt-id={
+                  harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt
+                    ?.attemptId ?? ""
+                }
+                data-rollback-replay-fixture-ref={
+                  harnessActiveRuntimeBinding.workerRollbackProof
+                    .replayFixtureRef
+                }
               >
                 <h4>Active runtime binding</h4>
                 <dl
@@ -4387,6 +4579,118 @@ export function WorkflowRailPanel({
                     }
                   </small>
                 </article>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessActiveRuntimeBinding.workerRollbackProof.bound
+                      ? "ready"
+                      : "blocked"
+                  }`}
+                  data-testid="workflow-harness-active-runtime-rollback-proof"
+                  data-rollback-proof-bound={
+                    harnessActiveRuntimeBinding.workerRollbackProof.bound
+                      ? "true"
+                      : "false"
+                  }
+                  data-rollback-proof-blockers={harnessActiveRuntimeBinding.workerRollbackProof.blockers.join(
+                    ",",
+                  )}
+                  data-rollback-readiness-proof-id={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .readinessProofId
+                  }
+                  data-rollback-live-shadow-gate-id={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .liveShadowComparisonGateId
+                  }
+                  data-rollback-live-shadow-gate-ready={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .liveShadowComparisonGateReady
+                      ? "true"
+                      : "false"
+                  }
+                  data-rollback-activation-id={
+                    harnessActiveRuntimeBinding.workerRollbackProof.activationId
+                  }
+                  data-rollback-harness-hash={
+                    harnessActiveRuntimeBinding.workerRollbackProof.harnessHash
+                  }
+                  data-rollback-policy-decision={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .policyDecision
+                  }
+                  data-rollback-launch-envelope-id={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .launchEnvelope?.envelopeId ?? ""
+                  }
+                  data-rollback-handoff-receipt-id={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .handoffReceipt?.receiptId ?? ""
+                  }
+                  data-rollback-node-attempt-id={
+                    harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt
+                      ?.attemptId ?? ""
+                  }
+                  data-rollback-replay-fixture-ref={
+                    harnessActiveRuntimeBinding.workerRollbackProof
+                      .replayFixtureRef
+                  }
+                >
+                  <strong>Rollback proof</strong>
+                  <span>
+                    {harnessActiveRuntimeBinding.workerRollbackProof.bound
+                      ? "bound to live-shadow gate"
+                      : "blocked"}
+                  </span>
+                  <small>
+                    readiness{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .readinessProofId || "missing"}
+                  </small>
+                  <small>
+                    gate{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .liveShadowComparisonGateId || "missing"}{" "}
+                    ·{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .liveShadowComparisonGateReady
+                      ? "ready"
+                      : "blocked"}
+                  </small>
+                  <small>
+                    policy{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .policyDecision || "missing"}
+                  </small>
+                  <small>
+                    envelope{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .launchEnvelope?.envelopeId ?? "missing"}
+                  </small>
+                  <small>
+                    handoff{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .handoffReceipt?.receiptId ?? "missing"}
+                  </small>
+                  <small>
+                    attempt{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt
+                      ?.attemptId ?? "missing"}
+                  </small>
+                  <small>
+                    replay{" "}
+                    {harnessActiveRuntimeBinding.workerRollbackProof
+                      .replayFixtureRef || "missing"}
+                  </small>
+                  {harnessActiveRuntimeBinding.workerRollbackProof.blockers
+                    .length > 0 ? (
+                    <small>
+                      blockers{" "}
+                      {harnessActiveRuntimeBinding.workerRollbackProof.blockers.join(
+                        ", ",
+                      )}
+                    </small>
+                  ) : null}
+                </article>
                 <div
                   className="workflow-harness-authority-gate-actions"
                   data-testid="workflow-harness-active-runtime-binding-deep-links"
@@ -4499,6 +4803,156 @@ export function WorkflowRailPanel({
                   >
                     <code>{harnessActiveRuntimeBinding.rollbackTarget}</code>
                   </button>
+                  {harnessActiveRuntimeBinding.workerRollbackProof.launchEnvelope ? (
+                    <button
+                      type="button"
+                      className={`workflow-harness-ref-button ${
+                        selectedHarnessReceiptRef ===
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .launchEnvelope.envelopeId
+                          ? "is-active"
+                          : ""
+                      }`}
+                      data-testid="workflow-harness-active-runtime-rollback-proof-launch-envelope-link"
+                      data-deep-link-kind="rollback_launch_envelope"
+                      data-receipt-ref={
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .launchEnvelope.envelopeId
+                      }
+                      onClick={() => {
+                        const envelopeId =
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .launchEnvelope?.envelopeId;
+                        if (!envelopeId) return;
+                        onSelectHarnessReceiptRef?.(envelopeId);
+                        onCopyHarnessDeepLink?.({
+                          panel: "outputs",
+                          receiptRef: envelopeId,
+                        });
+                      }}
+                    >
+                      <code>
+                        {
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .launchEnvelope.envelopeId
+                        }
+                      </code>
+                    </button>
+                  ) : null}
+                  {harnessActiveRuntimeBinding.workerRollbackProof.handoffReceipt ? (
+                    <button
+                      type="button"
+                      className={`workflow-harness-ref-button ${
+                        selectedHarnessReceiptRef ===
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .handoffReceipt.receiptId
+                          ? "is-active"
+                          : ""
+                      }`}
+                      data-testid="workflow-harness-active-runtime-rollback-proof-handoff-receipt-link"
+                      data-deep-link-kind="rollback_handoff_receipt"
+                      data-receipt-ref={
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .handoffReceipt.receiptId
+                      }
+                      onClick={() => {
+                        const receiptId =
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .handoffReceipt?.receiptId;
+                        if (!receiptId) return;
+                        onSelectHarnessReceiptRef?.(receiptId);
+                        onCopyHarnessDeepLink?.({
+                          panel: "outputs",
+                          receiptRef: receiptId,
+                        });
+                      }}
+                    >
+                      <code>
+                        {
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .handoffReceipt.receiptId
+                        }
+                      </code>
+                    </button>
+                  ) : null}
+                  {harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt ? (
+                    <button
+                      type="button"
+                      className={`workflow-harness-ref-button ${
+                        selectedHarnessNodeAttemptId ===
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .nodeAttempt.attemptId
+                          ? "is-active"
+                          : ""
+                      }`}
+                      data-testid="workflow-harness-active-runtime-rollback-proof-node-attempt-link"
+                      data-deep-link-kind="rollback_node_attempt"
+                      data-node-attempt-id={
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .nodeAttempt.attemptId
+                      }
+                      onClick={() => {
+                        const rollbackAttempt =
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .nodeAttempt;
+                        if (!rollbackAttempt) return;
+                        onCopyHarnessDeepLink?.({
+                          panel: "outputs",
+                          nodeAttemptId: rollbackAttempt.attemptId,
+                          receiptRef:
+                            harnessActiveRuntimeBinding.workerRollbackProof
+                              .handoffReceipt?.receiptId,
+                          replayFixtureRef:
+                            harnessActiveRuntimeBinding.workerRollbackProof
+                              .replayFixtureRef || undefined,
+                        });
+                      }}
+                    >
+                      <code>
+                        {
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .nodeAttempt.attemptId
+                        }
+                      </code>
+                    </button>
+                  ) : null}
+                  {harnessActiveRuntimeBinding.workerRollbackProof
+                    .replayFixtureRef ? (
+                    <button
+                      type="button"
+                      className={`workflow-harness-ref-button ${
+                        selectedHarnessReplayFixtureRef ===
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .replayFixtureRef
+                          ? "is-active"
+                          : ""
+                      }`}
+                      data-testid="workflow-harness-active-runtime-rollback-proof-replay-link"
+                      data-deep-link-kind="rollback_replay_fixture"
+                      data-replay-fixture-ref={
+                        harnessActiveRuntimeBinding.workerRollbackProof
+                          .replayFixtureRef
+                      }
+                      onClick={() => {
+                        const replayFixtureRef =
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .replayFixtureRef;
+                        if (!replayFixtureRef) return;
+                        onSelectHarnessReplayFixtureRef?.(replayFixtureRef);
+                        onCopyHarnessDeepLink?.({
+                          panel: "outputs",
+                          replayFixtureRef,
+                        });
+                      }}
+                    >
+                      <code>
+                        {
+                          harnessActiveRuntimeBinding.workerRollbackProof
+                            .replayFixtureRef
+                        }
+                      </code>
+                    </button>
+                  ) : null}
                   {harnessActiveRuntimeBinding.receiptRefs
                     .slice(0, 4)
                     .map((receiptRef, index) => (

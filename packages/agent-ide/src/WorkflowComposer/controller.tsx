@@ -1028,6 +1028,18 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-selected-rollback-drill-id",
     "data-selected-rollback-restore-canary-id",
     "data-selected-rollback-restore-receipt-ref",
+    "data-rollback-proof-bound",
+    "data-rollback-proof-blockers",
+    "data-rollback-readiness-proof-id",
+    "data-rollback-live-shadow-gate-id",
+    "data-rollback-live-shadow-gate-ready",
+    "data-rollback-activation-id",
+    "data-rollback-harness-hash",
+    "data-rollback-policy-decision",
+    "data-rollback-launch-envelope-id",
+    "data-rollback-handoff-receipt-id",
+    "data-rollback-node-attempt-id",
+    "data-rollback-replay-fixture-ref",
     "data-node-attempt-id",
     "data-node-attempt-source-kind",
     "data-workflow-node-id",
@@ -3540,6 +3552,256 @@ export function useWorkflowComposerController({
         ],
         passed: casePassed,
         blockers: casePassed ? [] : blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessActiveRuntimeRollbackProofProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
+      const defaultDispatch =
+        workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+      const selector =
+        workflow.metadata.harness?.runtimeSelectorDecision ?? null;
+      const workerLaunchEnvelopes =
+        defaultDispatch?.workerLaunchEnvelopes ??
+        workflow.metadata.harness?.workerLaunchEnvelopes ??
+        workflow.metadata.harness?.activationRecord?.workerLaunchEnvelopes ??
+        [];
+      const workerHandoffReceipts =
+        defaultDispatch?.workerHandoffReceipts ??
+        workflow.metadata.harness?.workerHandoffReceipts ??
+        workflow.metadata.harness?.activationRecord?.workerHandoffReceipts ??
+        [];
+      const workerHandoffNodeAttempts =
+        defaultDispatch?.workerHandoffNodeAttempts ?? [];
+      const rollbackLaunchEnvelope =
+        workerLaunchEnvelopes.find(
+          (envelope) => envelope.phase === "rollback",
+        ) ?? null;
+      const rollbackHandoffReceipt =
+        workerHandoffReceipts.find((receipt) => receipt.phase === "rollback") ??
+        null;
+      const rollbackNodeAttempt =
+        workerHandoffNodeAttempts.find(
+          (attempt) =>
+            Boolean(rollbackHandoffReceipt?.receiptId) &&
+            attempt.receiptIds.includes(rollbackHandoffReceipt?.receiptId ?? ""),
+        ) ??
+        workerHandoffNodeAttempts.find((attempt) =>
+          attempt.attemptId.includes(":rollback:"),
+        ) ??
+        null;
+      const rollbackReplayFixtureRef =
+        rollbackNodeAttempt?.replay.fixtureRef ??
+        (defaultDispatch?.workerHandoffReplayFixtureRefs ?? []).find(
+          (fixtureRef) => fixtureRef.includes(":rollback:"),
+        ) ??
+        "";
+      const readinessProofId =
+        rollbackHandoffReceipt?.rollbackReadinessProofId ??
+        rollbackLaunchEnvelope?.rollbackReadinessProofId ??
+        selector?.livePromotionReadinessProof?.proofId ??
+        defaultDispatch?.livePromotionReadinessProof?.proofId ??
+        "";
+      const liveShadowGateId =
+        rollbackHandoffReceipt?.rollbackLiveShadowComparisonGateId ??
+        rollbackLaunchEnvelope?.rollbackLiveShadowComparisonGateId ??
+        defaultDispatch?.liveShadowComparisonGate?.gateId ??
+        defaultDispatch?.livePromotionReadinessProof?.liveShadowComparisonGate
+          ?.gateId ??
+        "";
+      const rollbackTarget =
+        defaultDispatch?.rollbackTarget ??
+        selector?.rollbackTarget ??
+        workflow.metadata.harness?.activationId ??
+        "";
+      if (
+        !defaultDispatch ||
+        !rollbackTarget ||
+        !rollbackLaunchEnvelope ||
+        !rollbackHandoffReceipt ||
+        !rollbackNodeAttempt ||
+        !rollbackReplayFixtureRef
+      ) {
+        return {
+          schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+          method:
+            "same-session Workflows bridge opens active runtime rollback proof deep links and reads the rollback workbench rail",
+          generatedAtMs,
+          cases: [],
+          passed: false,
+          blockers: [
+            ...(!defaultDispatch
+              ? ["missing_default_runtime_dispatch"]
+              : []),
+            ...(!rollbackTarget ? ["missing_rollback_target"] : []),
+            ...(!rollbackLaunchEnvelope
+              ? ["missing_rollback_launch_envelope"]
+              : []),
+            ...(!rollbackHandoffReceipt
+              ? ["missing_rollback_handoff_receipt"]
+              : []),
+            ...(!rollbackNodeAttempt
+              ? ["missing_rollback_node_attempt"]
+              : []),
+            ...(!rollbackReplayFixtureRef
+              ? ["missing_rollback_replay_fixture"]
+              : []),
+          ],
+        };
+      }
+      const replayCases: Array<{
+        id: string;
+        link: HarnessWorkbenchDeepLink;
+        expectedAttribute: string;
+        expectedValue: string;
+        expectedParsedKey?: keyof HarnessWorkbenchDeepLink;
+      }> = [
+        {
+          id: "active-runtime-rollback-target",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            rollbackTarget,
+          },
+          expectedAttribute: "data-selected-rollback-target",
+          expectedValue: rollbackTarget,
+          expectedParsedKey: "rollbackTarget",
+        },
+        {
+          id: "active-runtime-rollback-launch-envelope",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            receiptRef: rollbackLaunchEnvelope.envelopeId,
+          },
+          expectedAttribute: "data-selected-receipt-ref",
+          expectedValue: rollbackLaunchEnvelope.envelopeId,
+          expectedParsedKey: "receiptRef",
+        },
+        {
+          id: "active-runtime-rollback-handoff-receipt",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            receiptRef: rollbackHandoffReceipt.receiptId,
+          },
+          expectedAttribute: "data-selected-receipt-ref",
+          expectedValue: rollbackHandoffReceipt.receiptId,
+          expectedParsedKey: "receiptRef",
+        },
+        {
+          id: "active-runtime-rollback-node-attempt",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            nodeAttemptId: rollbackNodeAttempt.attemptId,
+            receiptRef: rollbackHandoffReceipt.receiptId,
+            replayFixtureRef: rollbackReplayFixtureRef,
+          },
+          expectedAttribute: "data-selected-node-attempt-id",
+          expectedValue: rollbackNodeAttempt.attemptId,
+          expectedParsedKey: "nodeAttemptId",
+        },
+        {
+          id: "active-runtime-rollback-replay",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            replayFixtureRef: rollbackReplayFixtureRef,
+          },
+          expectedAttribute: "data-selected-replay-fixture-ref",
+          expectedValue: rollbackReplayFixtureRef,
+          expectedParsedKey: "replayFixtureRef",
+        },
+      ];
+      const cases = [];
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      try {
+        for (const replayCase of replayCases) {
+          const hash = encodeHarnessWorkbenchDeepLink(replayCase.link);
+          const parsed = parseHarnessWorkbenchDeepLink(hash);
+          if (parsed) {
+            writeHarnessWorkbenchDeepLink(hash);
+            applyHarnessWorkbenchDeepLink(parsed);
+          }
+          await nextHarnessWorkbenchFrame();
+          writeHarnessWorkbenchDeepLink(hash);
+          await nextHarnessWorkbenchFrame();
+          const observedSelectedState = readHarnessRailSelectedState(
+            "workflow-harness-active-runtime-binding",
+          );
+          const observedValue =
+            observedSelectedState[replayCase.expectedAttribute] ?? null;
+          const proofBound =
+            observedSelectedState["data-rollback-proof-bound"] === "true";
+          const proofAttributesMatch =
+            proofBound &&
+            observedSelectedState["data-rollback-readiness-proof-id"] ===
+              readinessProofId &&
+            observedSelectedState["data-rollback-live-shadow-gate-id"] ===
+              liveShadowGateId &&
+            observedSelectedState["data-rollback-live-shadow-gate-ready"] ===
+              "true" &&
+            observedSelectedState["data-rollback-activation-id"] ===
+              rollbackHandoffReceipt.rollbackActivationId &&
+            observedSelectedState["data-rollback-harness-hash"] ===
+              rollbackHandoffReceipt.rollbackHarnessHash &&
+            observedSelectedState["data-rollback-policy-decision"] ===
+              rollbackHandoffReceipt.rollbackPolicyDecision &&
+            observedSelectedState["data-rollback-launch-envelope-id"] ===
+              rollbackLaunchEnvelope.envelopeId &&
+            observedSelectedState["data-rollback-handoff-receipt-id"] ===
+              rollbackHandoffReceipt.receiptId &&
+            observedSelectedState["data-rollback-node-attempt-id"] ===
+              rollbackNodeAttempt.attemptId &&
+            observedSelectedState["data-rollback-replay-fixture-ref"] ===
+              rollbackReplayFixtureRef;
+          cases.push({
+            id: replayCase.id,
+            hash,
+            expectedPanel: replayCase.link.panel ?? "outputs",
+            expectedAttribute: replayCase.expectedAttribute,
+            expectedValue: replayCase.expectedValue,
+            selectedRailTestId: "workflow-harness-active-runtime-binding",
+            openedHash:
+              typeof window === "undefined" ? "" : window.location.hash,
+            parsedMatches:
+              parsed?.[replayCase.expectedParsedKey ?? "rollbackTarget"] ===
+              replayCase.expectedValue,
+            historyMatches:
+              typeof window !== "undefined" && window.location.hash === hash,
+            observedValue,
+            observedSelectedState,
+            rollbackProofAttributesMatch: proofAttributesMatch,
+            passed:
+              Boolean(parsed) &&
+              observedValue === replayCase.expectedValue &&
+              (typeof window === "undefined" ||
+                window.location.hash === hash) &&
+              proofAttributesMatch,
+          });
+        }
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      const requiredCaseIds = replayCases.map((replayCase) => replayCase.id);
+      const presentCaseIds = new Set(cases.map((replayCase) => replayCase.id));
+      const blockers = [
+        ...requiredCaseIds
+          .filter((caseId) => !presentCaseIds.has(caseId))
+          .map((caseId) => `missing_${caseId.replace(/-/g, "_")}`),
+        ...cases
+          .filter((replayCase) => !replayCase.passed)
+          .map((replayCase) => `${replayCase.id}_deep_link_replay_failed`),
+      ];
+      return {
+        schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+        method:
+          "same-session Workflows bridge opens active runtime rollback proof deep links and reads the rollback workbench rail",
+        generatedAtMs,
+        cases,
+        passed: blockers.length === 0,
+        blockers,
       };
     },
     [applyHarnessWorkbenchDeepLink],
@@ -10255,6 +10517,8 @@ export function useWorkflowComposerController({
           workflow,
           nowMs + 158,
         );
+      const activeRuntimeRollbackProofWorkbenchProof =
+        await runHarnessActiveRuntimeRollbackProofProbe(workflow, nowMs + 159);
       const coldStartDeepLinkRestoreProof =
         await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 160);
       const harnessMetadata = workflow.metadata.harness;
@@ -10276,6 +10540,7 @@ export function useWorkflowComposerController({
             liveActivationGateDeepLinkProof,
             liveTurnNodeInspectorDeepLinkProof,
             liveShadowComparisonDeepLinkProof,
+            activeRuntimeRollbackProofWorkbenchProof,
             activationGateActionClickProof,
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
@@ -10348,6 +10613,12 @@ export function useWorkflowComposerController({
           liveShadowComparisonDeepLinkProof.passed,
         liveShadowComparisonDeepLinkCaseIds:
           liveShadowComparisonDeepLinkProof.cases.map(
+            (restoreCase) => restoreCase.id,
+          ),
+        activeRuntimeRollbackProofWorkbenchPassed:
+          activeRuntimeRollbackProofWorkbenchProof.passed,
+        activeRuntimeRollbackProofWorkbenchCaseIds:
+          activeRuntimeRollbackProofWorkbenchProof.cases.map(
             (restoreCase) => restoreCase.id,
           ),
         activationGateActionClickPassed: activationGateActionClickProof.passed,
@@ -10443,6 +10714,7 @@ export function useWorkflowComposerController({
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
+    runHarnessActiveRuntimeRollbackProofProbe,
     runHarnessLiveShadowComparisonDeepLinkProbe,
     runHarnessLiveTurnNodeInspectorDeepLinkProbe,
     runtime,

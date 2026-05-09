@@ -2915,6 +2915,7 @@ export interface WorkflowHarnessMetadata {
   liveActivationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   liveTurnNodeInspectorDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   liveShadowComparisonDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
+  activeRuntimeRollbackProofWorkbenchProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;

@@ -54,6 +54,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T03-51-29-908Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-11-07-040Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T04-17-19-806Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T11-45-40-808Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-09T11-51-57-558Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -1655,6 +1657,44 @@ surface a first-class rollback proof row from the runtime binding/workbench
 panel, show the matched readiness proof and live/shadow gate beside it, and
 preserve deep links for the rollback target, launch envelope, handoff receipt,
 and node timeline attempt.
+
+### Implemented: Operator-Actionable Rollback Proof Workbench
+
+The active runtime binding/workbench panel now turns the rollback drill into an
+operator-facing proof surface instead of a hidden validation invariant:
+
+- The active runtime binding row carries selected receipt, replay fixture, and
+  node attempt state so deep links can restore the same proof context.
+- The panel exposes a first-class rollback proof row with readiness proof id,
+  live/shadow gate id and readiness, activation id, harness hash, policy
+  decision, rollback target, launch envelope, handoff receipt, node attempt, and
+  replay fixture.
+- The rollback proof row includes route-stateful links for the rollback target,
+  launch envelope, handoff receipt, node attempt, and replay fixture. Each link
+  must reopen the workbench with the runtime binding proof still mounted and the
+  selected artifact restored.
+- GUI validation now requires
+  `harness_active_runtime_rollback_proof_workbench` and
+  `harness_active_runtime_rollback_proof_workbench_present`; the live GUI proof
+  fails if any route-restored rollback proof artifact is missing or detached from
+  the active runtime binding.
+
+Full retained GUI validation is green in
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T11-45-40-808Z/result.json`.
+That bundle reports all 8 retained queries passing with no missing artifacts,
+`activeRuntimeRollbackProofWorkbench: true`, and a passing promotion transition
+proof for the rollback target, launch envelope, handoff receipt, node attempt,
+and replay fixture cases.
+
+Runtime P3 with required GUI evidence is green at
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T11-51-57-558Z/dashboard-index.json`.
+
+This changes rollback from "bound to the exact default-live proof" to "visible,
+addressable, and reviewable from the operator workbench." The next chronological
+slice should wire that proof row into an execution workbench action: run a
+rollback dry-run from the bound proof, show the canary result inline, keep apply
+disabled until the proof row remains bound, and require GUI evidence that dry-run
+and apply readiness survive route restoration.
 
 ## Current State
 
