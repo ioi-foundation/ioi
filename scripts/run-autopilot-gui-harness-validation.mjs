@@ -3868,6 +3868,12 @@ function buildGuiEvidenceAssessment({
     hasHarnessWorkerLaunchReviewedImportActivationInvariantGuiVisible &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.activationGateWorkerInvariantDeepLink === true;
+  const hasHarnessWorkerLaunchReviewedImportActivationInvariantNegativeEnforcement =
+    hasHarnessWorkerLaunchReviewedImportActivationInvariantGateDeepLink &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.workerInvariantNegativeEnforcement === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.workerInvariantNegativeEnforcementProof?.passed === true;
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
@@ -4238,6 +4244,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessWorkerLaunchReviewedImportActivationInvariantGuiVisible,
       harness_worker_launch_reviewed_import_activation_apply_invariant_gate_deep_link_present:
         hasHarnessWorkerLaunchReviewedImportActivationInvariantGateDeepLink,
+      harness_worker_launch_reviewed_import_activation_apply_invariant_negative_enforcement_present:
+        hasHarnessWorkerLaunchReviewedImportActivationInvariantNegativeEnforcement,
       harness_default_runtime_dispatch_present:
         hasHarnessDefaultRuntimeDispatch,
       harness_live_promotion_readiness_present:
@@ -4902,6 +4910,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       null;
     const activationIdGateClickProof =
       workflow?.metadata?.harness?.activationIdGateClickProof ?? null;
+    const workerInvariantNegativeEnforcementProof =
+      workflow?.metadata?.harness?.workerInvariantNegativeEnforcementProof ??
+      null;
     const revisionBinding =
       workflow?.metadata?.harness?.revisionBinding ??
       workflow?.metadata?.harness?.activationRecord?.revisionBinding ??
@@ -5045,6 +5056,80 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       ).startsWith("activation-gate-action:worker-invariant:") &&
       activationGateWorkerInvariantState["data-gate-action-command"] ===
         "workflow-harness-gate-action-worker-invariant";
+    const workerInvariantNegativeDeepLink =
+      workerInvariantNegativeEnforcementProof?.deepLink ?? {};
+    const workerInvariantNegativeApply =
+      workerInvariantNegativeEnforcementProof?.activationApply ?? {};
+    const workerInvariantNegativeRequiredIds = Array.isArray(
+      workerInvariantNegativeDeepLink.requiredInvariantIds,
+    )
+      ? workerInvariantNegativeDeepLink.requiredInvariantIds
+      : [];
+    const workerInvariantNegativeBlockers = Array.isArray(
+      workerInvariantNegativeDeepLink.invariantBlockers,
+    )
+      ? workerInvariantNegativeDeepLink.invariantBlockers
+      : [];
+    const workerInvariantNegativeApplyBlockers = Array.isArray(
+      workerInvariantNegativeApply.blockers,
+    )
+      ? workerInvariantNegativeApply.blockers
+      : [];
+    const workerInvariantNegativeEnforcement =
+      workerInvariantNegativeEnforcementProof?.passed === true &&
+      workerInvariantNegativeEnforcementProof?.schemaVersion ===
+        "workflow.harness.worker-invariant-negative-enforcement-proof.v1" &&
+      workerInvariantNegativeEnforcementProof?.invalidCandidate?.decision ===
+        "blocked" &&
+      workerInvariantNegativeEnforcementProof.invalidCandidate.activationBlockers?.includes(
+        "worker_launch_reviewed_import_activation_apply_invariant_missing",
+      ) === true &&
+      typeof workerInvariantNegativeDeepLink.hash === "string" &&
+      workerInvariantNegativeDeepLink.hash.startsWith("#harness-workbench?") &&
+      workerInvariantNegativeDeepLink.hash.includes("panel=settings") &&
+      workerInvariantNegativeDeepLink.hash.includes(
+        "activationGateId=worker-invariant",
+      ) &&
+      workerInvariantNegativeDeepLink.selectedRailTestId ===
+        "workflow-harness-activation-gate-inspector" &&
+      workerInvariantNegativeDeepLink.gateId === "worker-invariant" &&
+      workerInvariantNegativeDeepLink.status === "blocked" &&
+      workerInvariantNegativeBlockers.includes(
+        "worker_launch_reviewed_import_activation_invariant_not_bound",
+      ) &&
+      (!workerInvariantNegativeRequiredIds.includes(
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+      ) ||
+        workerInvariantNegativeBlockers.includes(
+          "worker_launch_reviewed_import_activation_invariant_not_bound",
+        )) &&
+      Number(workerInvariantNegativeDeepLink.invariantBlockerCount ?? 0) > 0 &&
+      workerInvariantNegativeDeepLink.action?.id ===
+        "activation-gate-action:worker-invariant:check-readiness" &&
+      workerInvariantNegativeDeepLink.action?.kind === "check_readiness" &&
+      workerInvariantNegativeDeepLink.action?.impact === "inspect" &&
+      workerInvariantNegativeDeepLink.action?.command ===
+        "workflow-harness-gate-action-worker-invariant" &&
+      workerInvariantNegativeApply.attempted === true &&
+      workerInvariantNegativeApply.applied === false &&
+      workerInvariantNegativeApply.activationId === null &&
+      workerInvariantNegativeApply.workflowActivationId === null &&
+      workerInvariantNegativeApply.workflowActivationState === "blocked" &&
+      workerInvariantNegativeApplyBlockers.includes(
+        "worker_launch_reviewed_import_activation_apply_invariant_missing",
+      ) &&
+      workerInvariantNegativeApplyBlockers.includes("candidate_not_mintable") &&
+      workerInvariantNegativeApply.workerBindingAuthorityReady === false &&
+      workerInvariantNegativeApply.workerSessionLive === false &&
+      Number(workerInvariantNegativeApply.workerLaunchEnvelopeCount ?? 0) ===
+        0 &&
+      Number(workerInvariantNegativeApply.workerHandoffReceiptCount ?? 0) ===
+        0 &&
+      Number(workerInvariantNegativeApply.workerHandoffNodeAttemptCount ?? 0) ===
+        0 &&
+      workerInvariantNegativeApply.latestAuditEventType ===
+        "activation_mint_blocked" &&
+      workerInvariantNegativeApply.latestAuditStatus === "blocked";
     const activationGateReferenceDeepLinkRestored = (
       replayCase,
       paramName,
@@ -5109,6 +5194,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGate: activationGateDeepLinkCase?.hash ?? null,
       activationGateWorkerInvariant:
         activationGateWorkerInvariantDeepLinkCase?.hash ?? null,
+      workerInvariantNegative:
+        workerInvariantNegativeDeepLink.hash ?? null,
       activationGateEvidence: activationGateEvidenceDeepLinkCase?.hash ?? null,
       activationGateNodeAttempt:
         activationGateNodeAttemptDeepLinkCase?.hash ??
@@ -5635,6 +5722,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             ) === true)),
       activationGateWorkerInvariantDeepLink:
         activationGateWorkerInvariantDeepLinkRestored,
+      workerInvariantNegativeEnforcement,
       activationGateNodeTimelineDeepLink:
         activationIdGateClickProof?.mintedActivation
           ?.workerHandoffTimelineVisible === true &&
@@ -6588,6 +6676,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
       activationIdGateClickProof,
+      workerInvariantNegativeEnforcementProof,
       activationGateEvidenceInspector: activationGateDeepLinkCase
         ? {
             selectedRailTestId: activationGateDeepLinkCase.selectedRailTestId,
@@ -7083,6 +7172,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_worker_launch_reviewed_import_activation_apply_invariant_gate_deep_link:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.activationGateWorkerInvariantDeepLink === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_worker_launch_reviewed_import_activation_apply_invariant_negative_enforcement:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.workerInvariantNegativeEnforcement === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_default_runtime_dispatch:

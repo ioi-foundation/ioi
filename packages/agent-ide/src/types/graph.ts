@@ -2547,6 +2547,55 @@ export interface WorkflowHarnessActivationIdGateClickProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessWorkerInvariantNegativeEnforcementProof {
+  schemaVersion:
+    | "workflow.harness.worker-invariant-negative-enforcement-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  forkWorkflowId: string;
+  invalidCandidate: {
+    candidateId: string | null;
+    decision: string | null;
+    activationIdPreview: string | null;
+    activationBlockers: string[];
+  };
+  deepLink: {
+    hash: string | null;
+    selectedRailTestId: string;
+    gateId: string | null;
+    status: string | null;
+    requiredInvariantIds: string[];
+    invariantBlockers: string[];
+    invariantBlockerCount: number;
+    action: {
+      id: string | null;
+      kind: string | null;
+      impact: string | null;
+      command: string | null;
+      disabled: boolean;
+    };
+    inspectorState: Record<string, string>;
+  };
+  activationApply: {
+    attempted: boolean;
+    applied: boolean;
+    activationId: string | null;
+    blockers: string[];
+    workflowActivationId: string | null;
+    workflowActivationState: string | null;
+    workerBindingAuthorityReady: boolean;
+    workerSessionLive: boolean;
+    workerLaunchEnvelopeCount: number;
+    workerHandoffReceiptCount: number;
+    workerHandoffNodeAttemptCount: number;
+    latestAuditEventType: string | null;
+    latestAuditStatus: string | null;
+  };
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessColdStartDeepLinkRestoreCase extends WorkflowHarnessDeepLinkReplayCase {
   initialHash: string;
   workflowReloaded: boolean;
@@ -2795,6 +2844,7 @@ export interface WorkflowHarnessMetadata {
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;
+  workerInvariantNegativeEnforcementProof?: WorkflowHarnessWorkerInvariantNegativeEnforcementProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];
