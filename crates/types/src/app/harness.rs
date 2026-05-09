@@ -17,6 +17,10 @@ pub const DEFAULT_AGENT_HARNESS_HASH: &str = "sha256:default-agent-harness-compo
 pub const DEFAULT_AGENT_HARNESS_ACTIVATION_ID: &str =
     "activation:default-agent-harness:blessed-readonly";
 pub const DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS: u64 = 5 * 60 * 1000;
+pub const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT: &str =
+    "reviewed_import_activation_apply";
+pub const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS: u64 =
+    5 * 60 * 1000;
 
 pub const HARNESS_COMPONENT_VERSION_V1: &str = "1.0.0";
 pub const HARNESS_INPUT_SCHEMA_ID: &str = "ioi.agent-harness.input.v1";
@@ -1101,7 +1105,23 @@ pub struct HarnessDefaultPromotionGate {
     pub default_authority_transferred: bool,
     pub rollback_target: String,
     pub activation_blockers: Vec<String>,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
     pub policy_decision: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessReviewedImportActivationApplyGate {
+    pub schema_version: String,
+    pub gate_id: String,
+    pub invariant_id: String,
+    pub proof_present: bool,
+    pub proof_passed: bool,
+    pub proof_blockers: Vec<String>,
+    pub activation_id: Option<String>,
+    pub worker_binding_activation_id: Option<String>,
+    pub rollback_target: Option<String>,
+    pub default_dispatch_activation_blockers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -1135,6 +1155,12 @@ pub struct HarnessLiveHandoffProof {
     pub live_promotion_readiness_ready: bool,
     pub live_promotion_readiness_blockers: Vec<String>,
     pub live_promotion_readiness_policy_decision: String,
+    pub default_live_promotion_invariant_ids: Vec<String>,
+    pub default_live_promotion_invariant_blockers: Vec<String>,
+    pub reviewed_import_activation_apply_proof_present: bool,
+    pub reviewed_import_activation_apply_proof_passed: bool,
+    pub reviewed_import_activation_apply_proof_blockers: Vec<String>,
+    pub reviewed_import_activation_apply_activation_id: Option<String>,
     pub activation_blockers: Vec<String>,
     pub default_promotion_gate: HarnessDefaultPromotionGate,
     pub evidence_refs: Vec<String>,
@@ -1163,6 +1189,12 @@ pub struct HarnessRuntimeSelectorDecision {
     pub live_promotion_readiness_ready: bool,
     pub live_promotion_readiness_blockers: Vec<String>,
     pub live_promotion_readiness_policy_decision: String,
+    pub default_live_promotion_invariant_ids: Vec<String>,
+    pub default_live_promotion_invariant_blockers: Vec<String>,
+    pub reviewed_import_activation_apply_proof_present: bool,
+    pub reviewed_import_activation_apply_proof_passed: bool,
+    pub reviewed_import_activation_apply_proof_blockers: Vec<String>,
+    pub reviewed_import_activation_apply_activation_id: Option<String>,
     pub default_promotion_gate: HarnessDefaultPromotionGate,
     pub evidence_refs: Vec<String>,
 }
@@ -1255,6 +1287,13 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub activation_id_gate_click_proof_passed: bool,
     pub activation_id_gate_click_proof_blockers: Vec<String>,
     pub default_dispatch_activation_blockers: Vec<String>,
+    pub default_live_promotion_invariant_ids: Vec<String>,
+    pub default_live_promotion_invariant_blockers: Vec<String>,
+    pub reviewed_import_activation_apply_proof_present: bool,
+    pub reviewed_import_activation_apply_proof_passed: bool,
+    pub reviewed_import_activation_apply_proof_blockers: Vec<String>,
+    pub reviewed_import_activation_apply_activation_id: Option<String>,
+    pub reviewed_import_activation_apply_gate: HarnessReviewedImportActivationApplyGate,
     pub cognition_execution_mode: String,
     pub cognition_execution_ready: bool,
     pub prompt_assembly_mode: String,
@@ -3098,6 +3137,12 @@ pub fn default_blessed_live_handoff_proof(
         live_promotion_readiness_ready: false,
         live_promotion_readiness_blockers: Vec::new(),
         live_promotion_readiness_policy_decision: "not_required_for_canary_handoff".to_string(),
+        default_live_promotion_invariant_ids: Vec::new(),
+        default_live_promotion_invariant_blockers: Vec::new(),
+        reviewed_import_activation_apply_proof_present: false,
+        reviewed_import_activation_apply_proof_passed: false,
+        reviewed_import_activation_apply_proof_blockers: Vec::new(),
+        reviewed_import_activation_apply_activation_id: None,
         activation_blockers: Vec::new(),
         default_promotion_gate: HarnessDefaultPromotionGate {
             config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
@@ -3109,6 +3154,8 @@ pub fn default_blessed_live_handoff_proof(
             default_authority_transferred: false,
             rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
             activation_blockers: vec!["promotion_gate_disabled".to_string()],
+            required_invariant_ids: Vec::new(),
+            invariant_blockers: Vec::new(),
             policy_decision: "retain_legacy_runtime_default".to_string(),
         },
         evidence_refs: vec!["runtime-evidence:blessed-live-handoff-canary".to_string()],
@@ -3139,6 +3186,12 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
         live_promotion_readiness_ready: false,
         live_promotion_readiness_blockers: Vec::new(),
         live_promotion_readiness_policy_decision: "not_required_for_canary_selector".to_string(),
+        default_live_promotion_invariant_ids: Vec::new(),
+        default_live_promotion_invariant_blockers: Vec::new(),
+        reviewed_import_activation_apply_proof_present: false,
+        reviewed_import_activation_apply_proof_passed: false,
+        reviewed_import_activation_apply_proof_blockers: Vec::new(),
+        reviewed_import_activation_apply_activation_id: None,
         default_promotion_gate: HarnessDefaultPromotionGate {
             config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
             enabled: false,
@@ -3149,6 +3202,8 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
             default_authority_transferred: false,
             rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
             activation_blockers: vec!["promotion_gate_disabled".to_string()],
+            required_invariant_ids: Vec::new(),
+            invariant_blockers: Vec::new(),
             policy_decision: "retain_legacy_runtime_default".to_string(),
         },
         evidence_refs: vec!["runtime-evidence:selector-canary".to_string()],
@@ -3696,6 +3751,31 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         activation_id_gate_click_proof_passed: true,
         activation_id_gate_click_proof_blockers: Vec::new(),
         default_dispatch_activation_blockers: Vec::new(),
+        default_live_promotion_invariant_ids: vec![
+            DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string(),
+        ],
+        default_live_promotion_invariant_blockers: Vec::new(),
+        reviewed_import_activation_apply_proof_present: true,
+        reviewed_import_activation_apply_proof_passed: true,
+        reviewed_import_activation_apply_proof_blockers: Vec::new(),
+        reviewed_import_activation_apply_activation_id: Some(
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        ),
+        reviewed_import_activation_apply_gate: HarnessReviewedImportActivationApplyGate {
+            schema_version:
+                "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1"
+                    .to_string(),
+            gate_id: "reviewed-import-activation-apply".to_string(),
+            invariant_id: DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+                .to_string(),
+            proof_present: true,
+            proof_passed: true,
+            proof_blockers: Vec::new(),
+            activation_id: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+            worker_binding_activation_id: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+            rollback_target: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+            default_dispatch_activation_blockers: Vec::new(),
+        },
         cognition_execution_mode: "workflow_synchronous_envelope".to_string(),
         cognition_execution_ready: true,
         prompt_assembly_mode: "workflow_synchronous_envelope".to_string(),

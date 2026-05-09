@@ -1563,6 +1563,8 @@ export interface WorkflowHarnessDefaultPromotionGate {
   productionDefaultSelector: WorkflowHarnessLiveHandoffSelector;
   defaultAuthorityTransferred: boolean;
   rollbackTarget: string;
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   activationBlockers: string[];
   policyDecision: string;
 }
@@ -1600,6 +1602,12 @@ export interface WorkflowHarnessLiveHandoffProof {
   livePromotionReadinessReady: boolean;
   livePromotionReadinessBlockers: string[];
   livePromotionReadinessPolicyDecision: string;
+  defaultLivePromotionInvariantIds: string[];
+  defaultLivePromotionInvariantBlockers: string[];
+  reviewedImportActivationApplyProofPresent: boolean;
+  reviewedImportActivationApplyProofPassed: boolean;
+  reviewedImportActivationApplyProofBlockers: string[];
+  reviewedImportActivationApplyActivationId: string | null;
   activationBlockers: string[];
   defaultPromotionGate?: WorkflowHarnessDefaultPromotionGate;
   evidenceRefs: string[];
@@ -1630,6 +1638,12 @@ export interface WorkflowHarnessRuntimeSelectorDecision {
   livePromotionReadinessReady: boolean;
   livePromotionReadinessBlockers: string[];
   livePromotionReadinessPolicyDecision: string;
+  defaultLivePromotionInvariantIds: string[];
+  defaultLivePromotionInvariantBlockers: string[];
+  reviewedImportActivationApplyProofPresent: boolean;
+  reviewedImportActivationApplyProofPassed: boolean;
+  reviewedImportActivationApplyProofBlockers: string[];
+  reviewedImportActivationApplyActivationId: string | null;
   defaultPromotionGate?: WorkflowHarnessDefaultPromotionGate;
   evidenceRefs: string[];
 }
@@ -1766,6 +1780,12 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   activationIdGateClickProofPresent: boolean;
   activationIdGateClickProofPassed: boolean;
   activationIdGateClickProofBlockers: string[];
+  defaultLivePromotionInvariantIds: string[];
+  defaultLivePromotionInvariantBlockers: string[];
+  reviewedImportActivationApplyProofPresent: boolean;
+  reviewedImportActivationApplyProofPassed: boolean;
+  reviewedImportActivationApplyProofBlockers: string[];
+  reviewedImportActivationApplyActivationId: string | null;
   defaultDispatchActivationBlockers: string[];
   activationIdGate?: {
     schemaVersion:
@@ -1778,6 +1798,20 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
     workflowId: string;
     activationId: string;
     workerBindingActivationId: string;
+    defaultDispatchActivationBlockers: string[];
+  };
+  reviewedImportActivationApplyGate?: {
+    schemaVersion:
+      | "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1"
+      | string;
+    gateId: "reviewed-import-activation-apply" | string;
+    invariantId: "reviewed_import_activation_apply" | string;
+    proofPresent: boolean;
+    proofPassed: boolean;
+    proofBlockers: string[];
+    activationId: string | null;
+    workerBindingActivationId: string | null;
+    rollbackTarget: string | null;
     defaultDispatchActivationBlockers: string[];
   };
   cognitionExecutionMode: "workflow_synchronous_envelope" | string;

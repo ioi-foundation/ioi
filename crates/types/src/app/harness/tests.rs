@@ -1059,6 +1059,16 @@ fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
     assert!(proof.live_promotion_readiness_proof.is_none());
     assert!(!proof.live_promotion_readiness_ready);
     assert!(proof.live_promotion_readiness_blockers.is_empty());
+    assert!(proof.default_live_promotion_invariant_ids.is_empty());
+    assert!(proof.default_live_promotion_invariant_blockers.is_empty());
+    assert!(!proof.reviewed_import_activation_apply_proof_present);
+    assert!(!proof.reviewed_import_activation_apply_proof_passed);
+    assert!(proof
+        .reviewed_import_activation_apply_proof_blockers
+        .is_empty());
+    assert!(proof
+        .reviewed_import_activation_apply_activation_id
+        .is_none());
     assert_eq!(
         proof.live_promotion_readiness_policy_decision,
         "not_required_for_canary_handoff"
@@ -1106,6 +1116,18 @@ fn runtime_selector_decision_keeps_legacy_default_while_routing_canary() {
     assert!(decision.live_promotion_readiness_proof.is_none());
     assert!(!decision.live_promotion_readiness_ready);
     assert!(decision.live_promotion_readiness_blockers.is_empty());
+    assert!(decision.default_live_promotion_invariant_ids.is_empty());
+    assert!(decision
+        .default_live_promotion_invariant_blockers
+        .is_empty());
+    assert!(!decision.reviewed_import_activation_apply_proof_present);
+    assert!(!decision.reviewed_import_activation_apply_proof_passed);
+    assert!(decision
+        .reviewed_import_activation_apply_proof_blockers
+        .is_empty());
+    assert!(decision
+        .reviewed_import_activation_apply_activation_id
+        .is_none());
     assert_eq!(
         decision.live_promotion_readiness_policy_decision,
         "not_required_for_canary_selector"
@@ -1138,6 +1160,29 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.activation_id_gate_click_proof_passed);
     assert!(dispatch.activation_id_gate_click_proof_blockers.is_empty());
     assert!(dispatch.default_dispatch_activation_blockers.is_empty());
+    assert_eq!(
+        dispatch.default_live_promotion_invariant_ids,
+        vec![DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string()]
+    );
+    assert!(dispatch
+        .default_live_promotion_invariant_blockers
+        .is_empty());
+    assert!(dispatch.reviewed_import_activation_apply_proof_present);
+    assert!(dispatch.reviewed_import_activation_apply_proof_passed);
+    assert!(dispatch
+        .reviewed_import_activation_apply_proof_blockers
+        .is_empty());
+    assert_eq!(
+        dispatch
+            .reviewed_import_activation_apply_activation_id
+            .as_deref(),
+        Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    );
+    assert_eq!(
+        dispatch.reviewed_import_activation_apply_gate.invariant_id,
+        DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+    );
+    assert!(dispatch.reviewed_import_activation_apply_gate.proof_passed);
     assert_eq!(
         dispatch.dispatch_scope,
         "read_only_cognition_routing_verification_completion_authority_tooling"

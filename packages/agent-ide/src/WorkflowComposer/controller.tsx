@@ -524,6 +524,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
   workflow: WorkflowProject,
   nowMs: number,
   activationIdGateClickProof: WorkflowHarnessActivationIdGateClickProof,
+  packageImportActivationApplyProof: WorkflowHarnessPackageImportActivationApplyProof,
 ): WorkflowProject {
   const harness = workflow.metadata.harness;
   if (!harness) return workflow;
@@ -551,6 +552,15 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     activationIdGateClickProof.mintedActivation.activationId,
     ...activationIdGateClickProof.mintedActivation.receiptRefs,
     ...activationIdGateClickProof.mintedActivation.evidenceRefs,
+    packageImportActivationApplyProof.activationResult?.activationId,
+    ...(packageImportActivationApplyProof.activationResult?.receiptRefs ?? []),
+    ...(packageImportActivationApplyProof.activationResult?.evidenceRefs ?? []),
+    ...(packageImportActivationApplyProof.activationResult
+      ?.workerHandoffReceiptIds ?? []),
+    ...(packageImportActivationApplyProof.activationResult
+      ?.workerHandoffNodeAttemptIds ?? []),
+    ...(packageImportActivationApplyProof.activationResult
+      ?.workerHandoffReplayFixtureRefs ?? []),
   ]);
   const selectorDecisionId = `harness-selector:${workflow.metadata.id || workflow.metadata.slug}:live-gui-default`;
   const defaultRuntimeDispatchProof = makeHarnessDefaultRuntimeDispatchProof({
@@ -566,6 +576,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     activationIdGateProofNowMs: nowMs,
     activationIdGateWorkerBindingActivationId:
       harness.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    packageImportActivationApplyProof,
+    packageImportActivationApplyProofNowMs: nowMs,
     evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const livePromotionReadinessProof =
@@ -590,6 +602,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     livePromotionReadinessProof,
     activationIdGateClickProof,
     activationIdGateProofNowMs: nowMs,
+    packageImportActivationApplyProof,
+    packageImportActivationApplyProofNowMs: nowMs,
     evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const liveHandoffProof = makeBlessedHarnessLiveHandoffProof({
@@ -615,6 +629,8 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     activationBlockers: [],
     activationIdGateClickProof,
     activationIdGateProofNowMs: nowMs,
+    packageImportActivationApplyProof,
+    packageImportActivationApplyProofNowMs: nowMs,
     evidenceRefs: defaultPromotionEvidenceRefs,
   });
   const workerBinding = {
@@ -9337,6 +9353,7 @@ export function useWorkflowComposerController({
         workflow,
         nowMs + 150,
         activationIdGateClickProof,
+        packageImportActivationApplyProof,
       );
       const nextTests = defaultAgentHarnessTests(workflow);
       setWorkflowPath(proofWorkflowPath);
