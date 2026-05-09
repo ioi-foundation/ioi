@@ -243,6 +243,7 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "harness_live_turn_node_inspector_present",
   "harness_live_turn_node_inspector_deep_link_present",
   "harness_live_shadow_comparison_present",
+  "harness_live_shadow_routing_model_pairs_present",
   "harness_authority_tooling_gate_live_present",
   "harness_authority_tooling_provider_catalog_live_present",
   "harness_authority_tooling_mcp_tool_catalog_live_present",

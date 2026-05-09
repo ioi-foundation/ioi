@@ -1722,6 +1722,14 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   routingModelActionFrameIds: string[];
   routingModelComponentKinds: WorkflowHarnessComponentKind[];
   routingModelDivergenceClasses: WorkflowHarnessDivergenceClass[];
+  routingModelShadowAdapterMode?: "workflow_component_adapter_shadow" | string;
+  routingModelShadowAttemptIds?: string[];
+  routingModelShadowReceiptIds?: string[];
+  routingModelShadowReplayFixtureRefs?: string[];
+  routingModelShadowAdapterResults?: WorkflowHarnessComponentAdapterResult[];
+  routingModelShadowActionFrameIds?: string[];
+  routingModelShadowComponentKinds?: WorkflowHarnessComponentKind[];
+  routingModelShadowDivergenceClasses?: WorkflowHarnessDivergenceClass[];
   verificationOutputAdapterMode: "workflow_component_adapter_gated" | string;
   verificationOutputAttemptIds: string[];
   verificationOutputReceiptIds: string[];
