@@ -221,6 +221,9 @@ test("runtime consistency contract requires harness shadow proof", () => {
   );
   assert.ok(contract.requiredArtifacts.includes("harness_live_shadow_comparison"));
   assert.ok(
+    contract.requiredArtifacts.includes("harness_live_shadow_comparison_gate"),
+  );
+  assert.ok(
     contract.requiredArtifacts.includes("harness_authority_tooling_provider_catalog_live"),
   );
   assert.ok(
@@ -462,6 +465,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
       "harness_live_shadow_authority_tooling_pairs_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_live_shadow_comparison_gate_present",
     ),
   );
   assert.ok(

@@ -794,6 +794,32 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
                 .map(|attempt_id| attempt_id.ends_with("_shadow"))
                 .unwrap_or(false)
     }));
+    let live_shadow_gate = dispatch
+        .get("liveShadowComparisonGate")
+        .expect("default runtime dispatch must emit live/shadow promotion gate");
+    assert_eq!(
+        live_shadow_gate
+            .get("schemaVersion")
+            .and_then(|value| value.as_str()),
+        Some("workflow.harness.live-shadow-comparison-gate.v1")
+    );
+    assert_eq!(
+        live_shadow_gate
+            .get("ready")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        live_shadow_gate
+            .get("comparisonCount")
+            .and_then(|value| value.as_u64()),
+        Some(20)
+    );
+    assert!(live_shadow_gate
+        .get("componentKinds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() == 20)
+        .unwrap_or(false));
     assert_eq!(
         dispatch
             .get("cognitionExecutionShadowAdapterMode")
@@ -3087,6 +3113,27 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
             .get("policyDecision")
             .and_then(|value| value.as_str()),
         Some("allow_default_harness_live_promotion_readiness")
+    );
+    let live_shadow_gate = live_promotion_readiness
+        .get("liveShadowComparisonGate")
+        .expect("live promotion readiness proof should bind live/shadow comparison gate");
+    assert_eq!(
+        live_promotion_readiness
+            .get("liveShadowComparisonGateReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        live_shadow_gate
+            .get("policyDecision")
+            .and_then(|value| value.as_str()),
+        Some("allow_default_harness_live_shadow_comparison_gate")
+    );
+    assert_eq!(
+        live_shadow_gate
+            .get("comparisonCount")
+            .and_then(|value| value.as_u64()),
+        Some(20)
     );
     assert!(live_promotion_readiness
         .get("clusterReadiness")

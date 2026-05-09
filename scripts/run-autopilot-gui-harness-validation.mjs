@@ -55,6 +55,12 @@ const HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
   "connector_call",
   "wallet_capability",
 ]);
+const HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS = Object.freeze([
+  ...HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS,
+  ...HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS,
+  ...HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS,
+  ...HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS,
+]);
 const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
   DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
     (invariant) =>
@@ -996,6 +1002,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         binding.liveHandoffLivePromotionReadinessReady ?? null,
       dispatchLivePromotionReadinessReady:
         binding.dispatchLivePromotionReadinessReady ?? null,
+      selectorLiveShadowComparisonGateReady:
+        binding.selectorLiveShadowComparisonGateReady ?? null,
+      liveHandoffLiveShadowComparisonGateReady:
+        binding.liveHandoffLiveShadowComparisonGateReady ?? null,
+      dispatchLiveShadowComparisonGateReady:
+        binding.dispatchLiveShadowComparisonGateReady ?? null,
       selectorLivePromotionReadinessProofId:
         binding.selectorLivePromotionReadinessProofId ?? null,
       liveHandoffLivePromotionReadinessProofId:
@@ -1428,6 +1440,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.selectorLivePromotionReadinessReady === true &&
       binding.liveHandoffLivePromotionReadinessReady === true &&
       binding.dispatchLivePromotionReadinessReady === true &&
+      binding.selectorLiveShadowComparisonGateReady === true &&
+      binding.liveHandoffLiveShadowComparisonGateReady === true &&
+      binding.dispatchLiveShadowComparisonGateReady === true &&
       binding.livePromotionReadinessProofIdsMatch === true &&
       binding.invalidForkLiveActivationBlocked === true &&
       workerLaunchReviewedImportActivationInvariantBound &&
@@ -2216,6 +2231,22 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.livePromotionReadinessProof?.rollbackAvailable === true &&
             dispatch.livePromotionReadinessProof?.policyDecision ===
               "allow_default_harness_live_promotion_readiness" &&
+            dispatch.livePromotionReadinessProof
+              ?.liveShadowComparisonGateReady === true &&
+            dispatch.livePromotionReadinessProof?.liveShadowComparisonGate
+              ?.schemaVersion ===
+              "workflow.harness.live-shadow-comparison-gate.v1" &&
+            dispatch.livePromotionReadinessProof?.liveShadowComparisonGate
+              ?.ready === true &&
+            dispatch.livePromotionReadinessProof?.liveShadowComparisonGate
+              ?.comparisonCount >=
+              HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.length &&
+            HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.every(
+              (componentKind) =>
+                dispatch.livePromotionReadinessProof?.liveShadowComparisonGate?.componentKinds?.includes(
+                  componentKind,
+                ),
+            ) &&
             Array.isArray(
               dispatch.livePromotionReadinessProof?.requiredClusterIds,
             ) &&
@@ -4481,6 +4512,9 @@ function buildGuiEvidenceAssessment({
         binding.selectorLivePromotionReadinessReady === true &&
         binding.liveHandoffLivePromotionReadinessReady === true &&
         binding.dispatchLivePromotionReadinessReady === true &&
+        binding.selectorLiveShadowComparisonGateReady === true &&
+        binding.liveHandoffLiveShadowComparisonGateReady === true &&
+        binding.dispatchLiveShadowComparisonGateReady === true &&
         binding.livePromotionReadinessProofIdsMatch === true &&
         binding.invalidForkLiveActivationBlocked === true &&
         runtimeBindingHasReviewedImportActivationInvariant(binding) &&
@@ -4749,6 +4783,42 @@ function buildGuiEvidenceAssessment({
           componentKind,
         ),
     );
+  const liveShadowComparisonGate =
+    workflowProofDefaultDispatch?.liveShadowComparisonGate ??
+    workflowProofDefaultDispatch?.livePromotionReadinessProof
+      ?.liveShadowComparisonGate ??
+    null;
+  const hasHarnessLiveShadowComparisonGate =
+    hasHarnessLiveShadowCognitionPairs &&
+    hasHarnessLiveShadowRoutingModelPairs &&
+    hasHarnessLiveShadowVerificationOutputPairs &&
+    hasHarnessLiveShadowAuthorityToolingPairs &&
+    workflowProofDefaultDispatch?.liveShadowComparisonGateReady === true &&
+    workflowProofDefaultDispatch?.livePromotionReadinessProof
+      ?.liveShadowComparisonGateReady === true &&
+    liveShadowComparisonGate?.schemaVersion ===
+      "workflow.harness.live-shadow-comparison-gate.v1" &&
+    liveShadowComparisonGate?.gateId === "p0-live-shadow-comparison-gate" &&
+    liveShadowComparisonGate?.targetExecutionMode === "live" &&
+    liveShadowComparisonGate?.ready === true &&
+    liveShadowComparisonGate?.allRequiredComponentsPresent === true &&
+    liveShadowComparisonGate?.receiptReady === true &&
+    liveShadowComparisonGate?.replayReady === true &&
+    liveShadowComparisonGate?.divergenceReady === true &&
+    liveShadowComparisonGate?.blockingDivergenceCount === 0 &&
+    liveShadowComparisonGate?.unclassifiedDivergenceCount === 0 &&
+    liveShadowComparisonGate?.comparisonCount >=
+      HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.length &&
+    liveShadowComparisonGate?.requiredComparisonCount >=
+      HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.length &&
+    liveShadowComparisonGate?.policyDecision ===
+      "allow_default_harness_live_shadow_comparison_gate" &&
+    Array.isArray(liveShadowComparisonGate?.blockers) &&
+    liveShadowComparisonGate.blockers.length === 0 &&
+    HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.every(
+      (componentKind) =>
+        liveShadowComparisonGate?.componentKinds?.includes(componentKind),
+    );
   const hasHarnessLiveShadowComparison =
     hasHarnessLiveTurnNodeInspectorDeepLink &&
     hasHarnessLiveShadowCognitionPairs &&
@@ -4783,7 +4853,8 @@ function buildGuiEvidenceAssessment({
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessLivePromotionReadinessCount > 0 &&
     workflowProofDefaultDispatch?.livePromotionReadinessProof
-      ?.defaultLiveActivationReady === true;
+      ?.defaultLiveActivationReady === true &&
+    hasHarnessLiveShadowComparisonGate;
   const hasHarnessAuthorityToolingGateLive =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingGateLiveCount > 0;
@@ -4967,6 +5038,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessLiveShadowVerificationOutputPairs,
       harness_live_shadow_authority_tooling_pairs_present:
         hasHarnessLiveShadowAuthorityToolingPairs,
+      harness_live_shadow_comparison_gate_present:
+        hasHarnessLiveShadowComparisonGate,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -5060,6 +5133,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveShadowRoutingModelPairs,
       hasHarnessLiveShadowVerificationOutputPairs,
       hasHarnessLiveShadowAuthorityToolingPairs,
+      hasHarnessLiveShadowComparisonGate,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -5119,6 +5193,7 @@ function buildGuiEvidenceAssessment({
       harnessLiveShadowAuthorityToolingRequiredComponentKinds: [
         ...HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS,
       ],
+      harnessLiveShadowComparisonGate: liveShadowComparisonGate,
       harnessLiveShadowComparisonSamples:
         summary.harnessLiveShadowComparisonSamples,
       harnessWorkerBindingCount: summary.harnessWorkerBindingCount,
@@ -6548,6 +6623,22 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           true &&
         defaultDispatch?.livePromotionReadinessProof?.policyDecision ===
           "allow_default_harness_live_promotion_readiness" &&
+        defaultDispatch?.livePromotionReadinessProof
+          ?.liveShadowComparisonGateReady === true &&
+        defaultDispatch?.livePromotionReadinessProof?.liveShadowComparisonGate
+          ?.schemaVersion ===
+          "workflow.harness.live-shadow-comparison-gate.v1" &&
+        defaultDispatch?.livePromotionReadinessProof?.liveShadowComparisonGate
+          ?.ready === true &&
+        defaultDispatch?.livePromotionReadinessProof?.liveShadowComparisonGate
+          ?.comparisonCount >=
+          HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.length &&
+        HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS.every(
+          (componentKind) =>
+            defaultDispatch?.livePromotionReadinessProof?.liveShadowComparisonGate?.componentKinds?.includes(
+              componentKind,
+            ),
+        ) &&
         clusterIds.every((clusterId) =>
           (
             defaultDispatch?.livePromotionReadinessProof?.requiredClusterIds ??
@@ -7275,6 +7366,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             activationIdGate: defaultDispatch.activationIdGate ?? null,
             reviewedImportActivationApplyGate:
               defaultDispatch.reviewedImportActivationApplyGate ?? null,
+            liveShadowComparisonGate:
+              defaultDispatch.liveShadowComparisonGate ?? null,
+            liveShadowComparisonGateReady:
+              defaultDispatch.liveShadowComparisonGateReady ?? null,
             livePromotionReadinessProof:
               defaultDispatch.livePromotionReadinessProof ?? null,
             workerBindingRegistryRecord:
@@ -8242,6 +8337,11 @@ async function runGuiValidation(args, outputRoot) {
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.liveShadowComparisonDeepLink === true
             ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_live_shadow_comparison_gate:
+          guiEvidence.runtimeConsistency
+            .harness_live_shadow_comparison_gate_present === true
+            ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_gate_live:
           runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0

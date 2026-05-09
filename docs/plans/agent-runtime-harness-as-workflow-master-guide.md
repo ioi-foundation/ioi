@@ -1556,6 +1556,56 @@ should harden final promotion semantics: prove the default live handoff consumes
 the blessed workflow activation with all P0 cluster comparison gates as explicit
 preconditions, then exercise rollback from that fully proven state.
 
+### Implemented: Explicit P0 Live/Shadow Promotion Gate
+
+The final-promotion hardening slice now makes the full retained live/shadow
+comparison set an explicit promotion gate instead of an inferred cluster
+property:
+
+- Rust now has canonical `HarnessLiveShadowComparisonGate` contract state for
+  the default live promotion proof. The gate records required component kinds,
+  observed component kinds, comparison counts, receipt readiness, replay
+  readiness, divergence readiness, blockers, policy decision, and evidence
+  refs.
+- The required gate component set is the twenty retained P0 live/shadow pairs:
+  cognition live kernels, routing/model adapters, verification/output adapters,
+  and authority/tooling adapters.
+- `HarnessLivePromotionReadinessProof` now carries
+  `liveShadowComparisonGate` and `liveShadowComparisonGateReady`, and
+  `promotionEligible` / `defaultLiveActivationReady` require the gate to pass.
+- The default runtime dispatch emits the same top-level
+  `liveShadowComparisonGate` and binds the worker registry/attach path to the
+  readiness proof only after the gate is ready.
+- Default runtime binding evidence now records selector, handoff, and dispatch
+  live/shadow gate readiness, so a missing gate blocks authority binding rather
+  than only failing after the fact.
+- The TS workflow projection carries the same proof shape and blocker logic, so
+  GUI fixture evidence and Rust runtime evidence agree on the promotion
+  contract.
+- GUI validation now requires
+  `harness_live_shadow_comparison_gate_present`, and the proof export preserves
+  the top-level gate fields so the workbench evidence path can inspect the same
+  precondition the runtime uses.
+
+Full retained GUI validation is green in
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T07-17-00-620Z/result.json`.
+That evidence reports the live/shadow comparison gate as ready with
+`comparisonCount: 20`, `requiredComparisonCount: 20`, and policy decision
+`allow_default_harness_live_shadow_comparison_gate`.
+
+Runtime P3 with required GUI evidence is green at
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T07-23-20-833Z/dashboard-index.json`.
+
+This changes final promotion from "the readiness proof says all clusters are
+ready" to "the blessed default-live handoff and worker binding consume a
+readiness proof that explicitly proves every retained P0 live/shadow comparison
+gate before the default workflow activation can drive runtime authority." The
+next chronological slice should harden rollback from this exact fully gated
+state: force a default-live worker binding rollback drill to reference the same
+readiness proof id, gate id, activation id, workflow hash, and rollback target,
+then require GUI evidence that the rollback path is visible from the runtime
+binding/workbench panel.
+
 ## Current State
 
 ### Roadmap State

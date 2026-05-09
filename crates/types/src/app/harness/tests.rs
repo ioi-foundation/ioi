@@ -1606,6 +1606,24 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(
         dispatch
             .live_promotion_readiness_proof
+            .live_shadow_comparison_gate_ready
+    );
+    assert!(
+        dispatch
+            .live_promotion_readiness_proof
+            .live_shadow_comparison_gate
+            .ready
+    );
+    assert_eq!(
+        dispatch
+            .live_promotion_readiness_proof
+            .live_shadow_comparison_gate
+            .comparison_count,
+        20
+    );
+    assert!(
+        dispatch
+            .live_promotion_readiness_proof
             .invalid_fork_live_activation_blocked
     );
     assert_eq!(

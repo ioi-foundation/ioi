@@ -14,16 +14,17 @@ use ioi_services::agentic::runtime::harness::invoke_default_harness_component;
 use ioi_types::app::{
     compare_harness_live_shadow_attempts, default_harness_default_runtime_dispatch_proof,
     default_harness_gated_cluster_run_for_shadow_run,
-    default_harness_live_promotion_readiness_proof, default_harness_shadow_run_for_attempts,
-    harness_component_adapter_result_camel_value, harness_gated_cluster_run_camel_value,
-    harness_node_attempt_record_from_camel_value, harness_promotion_cluster_components,
-    harness_shadow_comparison_camel_value, runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
-    HarnessComponentInvocation, HarnessComponentKind, HarnessExecutionMode,
-    HarnessLivePromotionClusterReadiness, HarnessLivePromotionReadinessProof,
-    HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
-    HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-    DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS, DEFAULT_AGENT_HARNESS_HASH,
-    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+    default_harness_live_promotion_readiness_proof,
+    default_harness_live_shadow_comparison_gate_component_kinds,
+    default_harness_shadow_run_for_attempts, harness_component_adapter_result_camel_value,
+    harness_gated_cluster_run_camel_value, harness_node_attempt_record_from_camel_value,
+    harness_promotion_cluster_components, harness_shadow_comparison_camel_value,
+    runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, HarnessComponentInvocation,
+    HarnessComponentKind, HarnessExecutionMode, HarnessLivePromotionClusterReadiness,
+    HarnessLivePromotionReadinessProof, HarnessLiveShadowComparisonGate, HarnessNodeAttemptRecord,
+    HarnessNodeAttemptStatus, HarnessPromotionClusterId, HarnessShadowComparison,
+    DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+    DEFAULT_AGENT_HARNESS_HASH, DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
     DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -838,6 +839,41 @@ fn runtime_harness_live_promotion_cluster_readiness_camel_value(
     })
 }
 
+fn runtime_harness_live_shadow_comparison_gate_camel_value(
+    gate: &HarnessLiveShadowComparisonGate,
+) -> Value {
+    json!({
+        "schemaVersion": gate.schema_version,
+        "gateId": gate.gate_id,
+        "workflowId": gate.workflow_id,
+        "activationId": gate.activation_id,
+        "harnessHash": gate.harness_hash,
+        "targetExecutionMode": gate.target_execution_mode.as_str(),
+        "requiredComponentKinds": gate
+            .required_component_kinds
+            .iter()
+            .map(|component_kind| component_kind.as_str())
+            .collect::<Vec<_>>(),
+        "componentKinds": gate
+            .component_kinds
+            .iter()
+            .map(|component_kind| component_kind.as_str())
+            .collect::<Vec<_>>(),
+        "comparisonCount": gate.comparison_count,
+        "requiredComparisonCount": gate.required_comparison_count,
+        "allRequiredComponentsPresent": gate.all_required_components_present,
+        "receiptReady": gate.receipt_ready,
+        "replayReady": gate.replay_ready,
+        "divergenceReady": gate.divergence_ready,
+        "blockingDivergenceCount": gate.blocking_divergence_count,
+        "unclassifiedDivergenceCount": gate.unclassified_divergence_count,
+        "ready": gate.ready,
+        "policyDecision": gate.policy_decision,
+        "blockers": gate.blockers,
+        "evidenceRefs": gate.evidence_refs,
+    })
+}
+
 fn runtime_harness_live_promotion_readiness_proof_camel_value(
     proof: &HarnessLivePromotionReadinessProof,
 ) -> Value {
@@ -859,6 +895,10 @@ fn runtime_harness_live_promotion_readiness_proof_camel_value(
             .iter()
             .map(runtime_harness_live_promotion_cluster_readiness_camel_value)
             .collect::<Vec<_>>(),
+        "liveShadowComparisonGate": runtime_harness_live_shadow_comparison_gate_camel_value(
+            &proof.live_shadow_comparison_gate,
+        ),
+        "liveShadowComparisonGateReady": proof.live_shadow_comparison_gate_ready,
         "allClustersReady": proof.all_clusters_ready,
         "promotionEligible": proof.promotion_eligible,
         "defaultLiveActivationReady": proof.default_live_activation_ready,
@@ -951,6 +991,95 @@ fn runtime_harness_live_promotion_readiness_blockers(proof: Option<&Value>) -> V
         != Some("allow_default_harness_live_promotion_readiness")
     {
         blockers.push("live_promotion_readiness_policy_blocked".to_string());
+    }
+    let gate = proof.get("liveShadowComparisonGate");
+    let gate_required_component_kinds =
+        default_harness_live_shadow_comparison_gate_component_kinds()
+            .iter()
+            .map(|component_kind| component_kind.as_str().to_string())
+            .collect::<Vec<_>>();
+    let gate_component_kinds =
+        runtime_harness_value_string_array(gate.and_then(|value| value.get("componentKinds")));
+    if gate
+        .and_then(|value| value.get("schemaVersion"))
+        .and_then(Value::as_str)
+        != Some("workflow.harness.live-shadow-comparison-gate.v1")
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_schema_mismatch".to_string());
+    }
+    if proof
+        .get("liveShadowComparisonGateReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+        || gate
+            .and_then(|value| value.get("ready"))
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_not_ready".to_string());
+    }
+    if gate
+        .and_then(|value| value.get("targetExecutionMode"))
+        .and_then(Value::as_str)
+        != Some("live")
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_not_live".to_string());
+    }
+    for component_kind in &gate_required_component_kinds {
+        if !gate_component_kinds
+            .iter()
+            .any(|candidate| candidate == component_kind)
+        {
+            blockers.push(format!(
+                "live_promotion_readiness_live_shadow_gate_component_missing:{component_kind}"
+            ));
+        }
+    }
+    if gate
+        .and_then(|value| value.get("comparisonCount"))
+        .and_then(Value::as_u64)
+        .unwrap_or_default()
+        < gate_required_component_kinds.len() as u64
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_count_missing".to_string());
+    }
+    if gate
+        .and_then(|value| value.get("receiptReady"))
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_receipts_missing".to_string());
+    }
+    if gate
+        .and_then(|value| value.get("replayReady"))
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_replay_missing".to_string());
+    }
+    if gate
+        .and_then(|value| value.get("divergenceReady"))
+        .and_then(Value::as_bool)
+        != Some(true)
+        || gate
+            .and_then(|value| value.get("blockingDivergenceCount"))
+            .and_then(Value::as_u64)
+            .unwrap_or(1)
+            > 0
+        || gate
+            .and_then(|value| value.get("unclassifiedDivergenceCount"))
+            .and_then(Value::as_u64)
+            .unwrap_or(1)
+            > 0
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_divergence_not_ready".to_string());
+    }
+    if gate
+        .and_then(|value| value.get("policyDecision"))
+        .and_then(Value::as_str)
+        != Some("allow_default_harness_live_shadow_comparison_gate")
+    {
+        blockers.push("live_promotion_readiness_live_shadow_gate_policy_blocked".to_string());
     }
 
     blockers.extend(
@@ -2494,6 +2623,37 @@ fn runtime_harness_default_runtime_binding(
             .unwrap_or(false);
     let dispatch_live_promotion_readiness_ready =
         dispatch_live_promotion_readiness_blockers.is_empty();
+    let selector_live_shadow_comparison_gate_ready = selector_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("liveShadowComparisonGateReady"))
+        .and_then(Value::as_bool)
+        == Some(true)
+        && selector_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("liveShadowComparisonGate"))
+            .and_then(|gate| gate.get("ready"))
+            .and_then(Value::as_bool)
+            == Some(true);
+    let live_handoff_live_shadow_comparison_gate_ready = live_handoff_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("liveShadowComparisonGateReady"))
+        .and_then(Value::as_bool)
+        == Some(true)
+        && live_handoff_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("liveShadowComparisonGate"))
+            .and_then(|gate| gate.get("ready"))
+            .and_then(Value::as_bool)
+            == Some(true);
+    let dispatch_live_shadow_comparison_gate_ready = dispatch_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("liveShadowComparisonGateReady"))
+        .and_then(Value::as_bool)
+        == Some(true)
+        && default_dispatch
+            .get("liveShadowComparisonGateReady")
+            .and_then(Value::as_bool)
+            == Some(true)
+        && dispatch_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("liveShadowComparisonGate"))
+            .and_then(|gate| gate.get("ready"))
+            .and_then(Value::as_bool)
+            == Some(true);
     let live_promotion_readiness_proof_ids_match = !selector_live_promotion_readiness_proof_id
         .is_empty()
         && selector_live_promotion_readiness_proof_id == dispatch_live_promotion_readiness_proof_id
@@ -2567,6 +2727,18 @@ fn runtime_harness_default_runtime_binding(
     if !dispatch_live_promotion_readiness_ready {
         worker_binding_authority_blockers
             .push("dispatch_live_promotion_readiness_not_ready".to_string());
+    }
+    if !selector_live_shadow_comparison_gate_ready {
+        worker_binding_authority_blockers
+            .push("selector_live_shadow_comparison_gate_not_ready".to_string());
+    }
+    if !live_handoff_live_shadow_comparison_gate_ready {
+        worker_binding_authority_blockers
+            .push("live_handoff_live_shadow_comparison_gate_not_ready".to_string());
+    }
+    if !dispatch_live_shadow_comparison_gate_ready {
+        worker_binding_authority_blockers
+            .push("dispatch_live_shadow_comparison_gate_not_ready".to_string());
     }
     if !live_promotion_readiness_proof_ids_match {
         worker_binding_authority_blockers
@@ -2923,6 +3095,9 @@ fn runtime_harness_default_runtime_binding(
         "selectorLivePromotionReadinessReady": selector_live_promotion_readiness_ready,
         "liveHandoffLivePromotionReadinessReady": live_handoff_live_promotion_readiness_ready,
         "dispatchLivePromotionReadinessReady": dispatch_live_promotion_readiness_ready,
+        "selectorLiveShadowComparisonGateReady": selector_live_shadow_comparison_gate_ready,
+        "liveHandoffLiveShadowComparisonGateReady": live_handoff_live_shadow_comparison_gate_ready,
+        "dispatchLiveShadowComparisonGateReady": dispatch_live_shadow_comparison_gate_ready,
         "selectorLivePromotionReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
         "liveHandoffLivePromotionReadinessProofId": live_handoff_live_promotion_readiness_proof_id.clone(),
         "dispatchLivePromotionReadinessProofId": dispatch_live_promotion_readiness_proof_id.clone(),
@@ -11889,13 +12064,152 @@ fn runtime_harness_default_runtime_dispatch(
         && live_promotion_routing_model_ready
         && live_promotion_verification_output_ready
         && live_promotion_authority_tooling_ready;
+    let default_runtime_dispatch_id = format!("harness-default-dispatch:{sid}:{turn_id}:read-only");
+    let live_shadow_comparison_required_component_kinds =
+        default_harness_live_shadow_comparison_gate_component_kinds()
+            .iter()
+            .map(|component_kind| component_kind.as_str().to_string())
+            .collect::<Vec<_>>();
+    let mut live_shadow_comparison_component_kinds = live_shadow_comparisons
+        .iter()
+        .filter_map(|comparison| {
+            comparison
+                .get("componentKind")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    live_shadow_comparison_component_kinds.sort();
+    live_shadow_comparison_component_kinds.dedup();
+    let live_shadow_comparison_all_required_components_present =
+        live_shadow_comparison_required_component_kinds
+            .iter()
+            .all(|component_kind| {
+                live_shadow_comparison_component_kinds
+                    .iter()
+                    .any(|candidate| candidate == component_kind)
+            });
+    let live_shadow_comparison_blocking_divergence_count = live_shadow_comparisons
+        .iter()
+        .filter(|comparison| {
+            comparison
+                .get("blocking")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .count();
+    let live_shadow_comparison_unclassified_divergence_count = live_shadow_comparisons
+        .iter()
+        .filter(|comparison| {
+            comparison.get("divergence").and_then(Value::as_str) == Some("unclassified")
+        })
+        .count();
+    let live_shadow_comparison_receipt_ready = !cognition_execution_receipt_ids.is_empty()
+        && !cognition_execution_shadow_receipt_ids.is_empty()
+        && !routing_model_receipt_ids.is_empty()
+        && !routing_model_shadow_receipt_ids.is_empty()
+        && !verification_output_receipt_ids.is_empty()
+        && !verification_output_shadow_receipt_ids.is_empty()
+        && !authority_tooling_receipt_ids.is_empty()
+        && !authority_tooling_shadow_receipt_ids.is_empty();
+    let live_shadow_comparison_replay_ready = !cognition_execution_replay_fixture_refs.is_empty()
+        && !cognition_execution_shadow_replay_fixture_refs.is_empty()
+        && !routing_model_replay_fixture_refs.is_empty()
+        && !routing_model_shadow_replay_fixture_refs.is_empty()
+        && !verification_output_replay_fixture_refs.is_empty()
+        && !verification_output_shadow_replay_fixture_refs.is_empty()
+        && !authority_tooling_replay_fixture_refs.is_empty()
+        && !authority_tooling_shadow_replay_fixture_refs.is_empty();
+    let live_shadow_comparison_divergence_ready = live_shadow_comparison_blocking_divergence_count
+        == 0
+        && live_shadow_comparison_unclassified_divergence_count == 0;
+    let mut live_shadow_comparison_gate_blockers = Vec::<String>::new();
+    if !live_shadow_comparison_all_required_components_present {
+        live_shadow_comparison_gate_blockers
+            .push("live_shadow_comparison_required_components_missing".to_string());
+    }
+    if live_shadow_comparisons.len() < live_shadow_comparison_required_component_kinds.len() {
+        live_shadow_comparison_gate_blockers
+            .push("live_shadow_comparison_required_count_missing".to_string());
+    }
+    if !live_shadow_comparison_receipt_ready {
+        live_shadow_comparison_gate_blockers
+            .push("live_shadow_comparison_receipts_missing".to_string());
+    }
+    if !live_shadow_comparison_replay_ready {
+        live_shadow_comparison_gate_blockers
+            .push("live_shadow_comparison_replay_missing".to_string());
+    }
+    if !live_shadow_comparison_divergence_ready {
+        live_shadow_comparison_gate_blockers
+            .push("live_shadow_comparison_divergence_not_ready".to_string());
+    }
+    live_shadow_comparison_gate_blockers.sort();
+    live_shadow_comparison_gate_blockers.dedup();
+    let live_shadow_comparison_gate_ready = live_shadow_comparison_gate_blockers.is_empty();
+    let mut live_shadow_comparison_gate_evidence_refs = vec![
+        default_runtime_dispatch_id.clone(),
+        format!("harness-live-shadow-comparison-gate:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}"),
+    ];
+    live_shadow_comparison_gate_evidence_refs.extend(cognition_execution_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(cognition_execution_shadow_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(routing_model_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(routing_model_shadow_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(verification_output_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(verification_output_shadow_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(authority_tooling_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(authority_tooling_shadow_receipt_ids.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(cognition_execution_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(cognition_execution_shadow_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(routing_model_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(routing_model_shadow_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(verification_output_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(verification_output_shadow_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs.extend(authority_tooling_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs
+        .extend(authority_tooling_shadow_replay_fixture_refs.clone());
+    live_shadow_comparison_gate_evidence_refs.sort();
+    live_shadow_comparison_gate_evidence_refs.dedup();
+    let live_shadow_comparison_gate = json!({
+        "schemaVersion": "workflow.harness.live-shadow-comparison-gate.v1",
+        "gateId": "p0-live-shadow-comparison-gate",
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "targetExecutionMode": "live",
+        "requiredComponentKinds": live_shadow_comparison_required_component_kinds.clone(),
+        "componentKinds": live_shadow_comparison_component_kinds.clone(),
+        "comparisonCount": live_shadow_comparisons.len(),
+        "requiredComparisonCount": live_shadow_comparison_required_component_kinds.len(),
+        "allRequiredComponentsPresent": live_shadow_comparison_all_required_components_present,
+        "receiptReady": live_shadow_comparison_receipt_ready,
+        "replayReady": live_shadow_comparison_replay_ready,
+        "divergenceReady": live_shadow_comparison_divergence_ready,
+        "blockingDivergenceCount": live_shadow_comparison_blocking_divergence_count,
+        "unclassifiedDivergenceCount": live_shadow_comparison_unclassified_divergence_count,
+        "ready": live_shadow_comparison_gate_ready,
+        "policyDecision": if live_shadow_comparison_gate_ready {
+            "allow_default_harness_live_shadow_comparison_gate"
+        } else {
+            "block_default_harness_live_shadow_comparison_gate"
+        },
+        "blockers": live_shadow_comparison_gate_blockers.clone(),
+        "evidenceRefs": live_shadow_comparison_gate_evidence_refs.clone()
+    });
     let live_promotion_invalid_fork_live_activation_blocked = true;
     let live_promotion_readiness_promotion_eligible = live_promotion_all_clusters_ready
+        && live_shadow_comparison_gate_ready
         && activation_blockers.is_empty()
         && live_promotion_invalid_fork_live_activation_blocked
         && authority_tooling_rollback_available
         && model_provider_canary_rollback_available;
-    let default_runtime_dispatch_id = format!("harness-default-dispatch:{sid}:{turn_id}:read-only");
     let live_promotion_readiness_proof = json!({
         "schemaVersion": "workflow.harness.live-promotion-readiness.v1",
         "proofId": format!("harness-live-promotion-readiness:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}"),
@@ -11906,6 +12220,8 @@ fn runtime_harness_default_runtime_dispatch(
         "targetExecutionMode": "live",
         "requiredClusterIds": ["cognition", "routing_model", "verification_output", "authority_tooling"],
         "clusterReadiness": live_promotion_cluster_readiness,
+        "liveShadowComparisonGate": live_shadow_comparison_gate.clone(),
+        "liveShadowComparisonGateReady": live_shadow_comparison_gate_ready,
         "allClustersReady": live_promotion_all_clusters_ready,
         "promotionEligible": live_promotion_readiness_promotion_eligible,
         "defaultLiveActivationReady": live_promotion_readiness_promotion_eligible,
@@ -11924,11 +12240,14 @@ fn runtime_harness_default_runtime_dispatch(
             format!("runtime-evidence:{sid}")
         ]
     });
+    let live_promotion_readiness_blockers =
+        runtime_harness_live_promotion_readiness_blockers(Some(&live_promotion_readiness_proof));
+    let dispatch_accepted = dispatch_accepted && live_promotion_readiness_promotion_eligible;
     let worker_binding_registry_blockers =
         if dispatch_accepted && live_promotion_readiness_promotion_eligible {
             Vec::<String>::new()
         } else {
-            activation_blockers.clone()
+            live_promotion_readiness_blockers.clone()
         };
     let worker_binding_registry_record = json!({
         "schemaVersion": "workflow.harness.worker-binding-registry.v1",
@@ -11969,7 +12288,7 @@ fn runtime_harness_default_runtime_dispatch(
             "defaultDispatchId": default_runtime_dispatch_id.clone(),
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "authorityBindingReady": dispatch_accepted && live_promotion_readiness_promotion_eligible,
-            "authorityBindingBlockers": activation_blockers.clone(),
+            "authorityBindingBlockers": live_promotion_readiness_blockers.clone(),
             "livePromotionReadinessProofId": live_promotion_readiness_proof
                 .get("proofId")
                 .and_then(Value::as_str)
@@ -12155,6 +12474,8 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionShadowDivergenceClasses": cognition_execution_shadow_divergence_classes.clone(),
         "liveShadowComparisons": live_shadow_comparisons.clone(),
         "liveShadowComparisonCount": live_shadow_comparisons.len(),
+        "liveShadowComparisonGate": live_shadow_comparison_gate.clone(),
+        "liveShadowComparisonGateReady": live_shadow_comparison_gate_ready,
         "liveShadowBlockingDivergenceCount": live_shadow_comparisons.iter().filter(|comparison| {
             comparison.get("blocking").and_then(Value::as_bool).unwrap_or(false)
         }).count(),
