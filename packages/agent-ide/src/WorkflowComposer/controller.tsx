@@ -647,6 +647,10 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     authorityBindingBlockers: [],
     livePromotionReadinessProofId: livePromotionReadinessProof.proofId,
     policyDecision: selectorDecision.policyDecision,
+    requiredInvariantIds:
+      defaultRuntimeDispatchProof.defaultLivePromotionInvariantIds,
+    invariantBlockers:
+      defaultRuntimeDispatchProof.defaultLivePromotionInvariantBlockers,
   };
   const workerBindingRegistryRecord =
     makeWorkflowHarnessWorkerBindingRegistryRecord({
@@ -664,6 +668,10 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       policyDecision: selectorDecision.policyDecision,
       bindingStatus: "bound",
       blockers: [],
+      requiredInvariantIds:
+        defaultRuntimeDispatchProof.defaultLivePromotionInvariantIds,
+      invariantBlockers:
+        defaultRuntimeDispatchProof.defaultLivePromotionInvariantBlockers,
       workerBinding,
       createdAtMs: nowMs,
     });

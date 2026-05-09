@@ -2817,6 +2817,8 @@ export interface WorkflowHarnessWorkerBinding {
   authorityBindingBlockers?: string[];
   livePromotionReadinessProofId?: string;
   policyDecision?: string;
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
 }
 
 export type WorkflowHarnessWorkerBindingStatus =
@@ -2840,6 +2842,8 @@ export interface WorkflowHarnessWorkerBindingRegistryRecord {
   policyDecision: string;
   bindingStatus: WorkflowHarnessWorkerBindingStatus;
   blockers: string[];
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   workerBinding: WorkflowHarnessWorkerBinding;
   createdAtMs?: number;
 }
@@ -2864,6 +2868,7 @@ export interface WorkflowHarnessWorkerAttachRequest {
   componentVersionSet: Record<string, string>;
   rollbackTarget: string;
   readinessProofId: string;
+  requiredInvariantIds?: string[];
   requestedStatus: WorkflowHarnessWorkerAttachStatus;
 }
 
@@ -2886,6 +2891,8 @@ export interface WorkflowHarnessWorkerAttachReceipt {
   blockers: string[];
   workerBinding: WorkflowHarnessWorkerBinding;
   policyDecision: string;
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   evidenceRefs: string[];
   createdAtMs?: number;
 }
@@ -2912,6 +2919,8 @@ export interface WorkflowHarnessWorkerAttachLifecycleEvent {
   rollbackAvailable: boolean;
   policyDecision: string;
   blockers: string[];
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   evidenceRefs: string[];
   createdAtMs?: number;
 }
@@ -2954,6 +2963,8 @@ export interface WorkflowHarnessWorkerSessionRecord {
   accepted: boolean;
   blockers: string[];
   policyDecision: string;
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   evidenceRefs: string[];
   persistenceKey: string;
   recordPersistenceKey: string;
@@ -2963,6 +2974,8 @@ export interface WorkflowHarnessWorkerSessionRecord {
   persistenceBlockers: string[];
   launchAuthorityReady: boolean;
   launchAuthorityBlockers: string[];
+  launchAuthorityInvariantIds?: string[];
+  launchAuthorityInvariantBlockers?: string[];
   launchAuthoritySource: string;
   rollbackHandoffReady: boolean;
   rollbackHandoffBlockers: string[];
@@ -2997,6 +3010,8 @@ export interface WorkflowHarnessWorkerLaunchEnvelope {
   recordPersistenceKey: string;
   launchAuthoritySource: string;
   launchAuthorityReady: boolean;
+  launchAuthorityInvariantIds?: string[];
+  launchAuthorityInvariantBlockers?: string[];
   rollbackHandoffReady: boolean;
   accepted: boolean;
   blockers: string[];
@@ -3027,6 +3042,8 @@ export interface WorkflowHarnessWorkerHandoffReceipt {
   accepted: boolean;
   handoffStatus: "launched" | "resumed" | "rollback_handoff_ready" | "blocked" | string;
   blockers: string[];
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   policyDecision: string;
   receiptRefs: string[];
   evidenceRefs: string[];

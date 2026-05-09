@@ -48,6 +48,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-34-19-262Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-09T00-32-20-635Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T01-19-51-435Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -98,8 +100,9 @@ readiness gate, live handoff, default runtime dispatch proof, durable worker
 binding authority proof, worker binding registry proof, worker attach lifecycle
 timeline, worker session record, runtime-checkpoint worker session
 persistence, persisted worker-session launch authority, typed worker
-launch/resume/rollback envelopes, durable worker handoff receipts, rollback
-handoff authority, worker handoff node timeline/replay fixture binding, gated
+launch/resume/rollback envelopes, durable worker handoff receipts, worker
+launch reviewed-import activation invariant binding, rollback handoff
+authority, worker handoff node timeline/replay fixture binding, gated
 verification/output adapter proof, gated authority/tooling adapter proof, fork
 activation handoff timeline proof, fork handoff deep-link proof,
 canary/rollback route-state proof, fork package evidence manifest proof,
@@ -108,9 +111,9 @@ proof, package evidence export/import round-trip proof, and user-facing import
 review mode proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T00-32-20-635Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T01-19-51-435Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -1239,6 +1242,40 @@ runtime selection instead of remaining only a result-level validator check:
   `defaultDispatchReviewedImportActivationApplyInvariant: true`.
 - Runtime P3 with required GUI evidence is green at
   `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`.
+
+### 2026-05-09 Worker Launch Reviewed Import Invariant Slice
+
+The reviewed-import activation invariant now reaches the persistent worker
+launch and handoff boundary. This closes the gap where selector/default
+dispatch could be invariant-gated while the worker launch path still accepted
+bindings that looked live but inherited projection-only invariant blockers.
+
+- Rust canonical harness contracts and TypeScript graph/runtime contracts now
+  carry `requiredInvariantIds` and `invariantBlockers` through worker binding,
+  worker binding registry, attach request/receipt, attach lifecycle, worker
+  session record, launch envelope, and handoff receipt records.
+- Worker sessions now expose `launchAuthorityInvariantIds` and
+  `launchAuthorityInvariantBlockers`, so launch/resume/rollback envelopes prove
+  the same reviewed-import activation invariant before a persistent worker can
+  become launch-authoritative.
+- Attach resolution fails closed on missing invariant ids, mismatched registry
+  vs request invariants, registry invariant blockers, or nested worker binding
+  invariant blockers.
+- Default dispatch, runtime selector handoff, Autopilot runtime binding, and
+  fork activation handoff all mint worker bindings with
+  `reviewed_import_activation_apply` and no invariant blockers only after the
+  reviewed import apply proof has passed.
+- The live GUI proof now verifies that selector, live handoff, default
+  dispatch, active worker binding, worker registry, attach lifecycle, session
+  record, launch envelopes, handoff receipts, and node timeline are all bound
+  to the same invariant posture.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T01-19-51-435Z/result.json`;
+  runtime consistency reports
+  `harness_worker_launch_reviewed_import_activation_apply_invariant_present:
+  true` and `harness_chat_runtime_binding_matches_workflow_activation: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`.
 
 ## Current State
 

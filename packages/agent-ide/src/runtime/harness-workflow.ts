@@ -484,6 +484,8 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
   policyDecision?: string;
   bindingStatus?: WorkflowHarnessWorkerBindingRegistryRecord["bindingStatus"];
   blockers?: string[];
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
   createdAtMs?: number;
 }): WorkflowHarnessWorkerBindingRegistryRecord {
@@ -498,9 +500,17 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
   const policyDecision =
     options.policyDecision ?? "retain_legacy_runtime_default";
   const blockers = uniqueStrings(options.blockers ?? []);
+  const requiredInvariantIds = uniqueStrings(
+    options.requiredInvariantIds ?? [
+      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+    ],
+  );
+  const invariantBlockers = uniqueStrings(options.invariantBlockers ?? []);
   const bindingStatus =
     options.bindingStatus ??
-    (blockers.length === 0 && readinessProofId ? "bound" : "blocked");
+    (blockers.length === 0 && invariantBlockers.length === 0 && readinessProofId
+      ? "bound"
+      : "blocked");
   const workerBinding: WorkflowHarnessWorkerBinding = options.workerBinding ?? {
     harnessWorkflowId: workflowId,
     harnessActivationId: activationId,
@@ -510,10 +520,15 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
     selectorDecisionId: options.selectorDecisionId,
     defaultDispatchId: options.defaultDispatchId,
     rollbackTarget,
-    authorityBindingReady: bindingStatus === "bound" && blockers.length === 0,
-    authorityBindingBlockers: blockers,
+    authorityBindingReady:
+      bindingStatus === "bound" &&
+      blockers.length === 0 &&
+      invariantBlockers.length === 0,
+    authorityBindingBlockers: uniqueStrings([...blockers, ...invariantBlockers]),
     livePromotionReadinessProofId: readinessProofId || undefined,
     policyDecision,
+    requiredInvariantIds,
+    invariantBlockers,
   };
   return {
     schemaVersion: "workflow.harness.worker-binding-registry.v1",
@@ -534,9 +549,28 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
     policyDecision,
     bindingStatus,
     blockers,
+    requiredInvariantIds,
+    invariantBlockers,
     workerBinding,
     createdAtMs: options.createdAtMs,
   };
+}
+
+function workflowHarnessRequiredInvariantIdsPresent(
+  invariantIds: string[] | null | undefined,
+): boolean {
+  return uniqueStrings(invariantIds ?? []).includes(
+    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+  );
+}
+
+function workflowHarnessInvariantSetsMatch(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined,
+): boolean {
+  const leftEntries = uniqueStrings(left ?? []).sort();
+  const rightEntries = uniqueStrings(right ?? []).sort();
+  return JSON.stringify(leftEntries) === JSON.stringify(rightEntries);
 }
 
 export function workflowHarnessWorkerBindingRegistryBlockers(
@@ -571,6 +605,14 @@ export function workflowHarnessWorkerBindingRegistryBlockers(
   if (record.bindingStatus !== "bound") {
     blockers.push("worker_binding_registry_not_bound");
   }
+  if (!workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)) {
+    blockers.push(
+      "worker_binding_registry_reviewed_import_activation_apply_invariant_missing",
+    );
+  }
+  if ((record.invariantBlockers ?? []).length > 0) {
+    blockers.push("worker_binding_registry_invariant_blocked");
+  }
   if (
     record.policyDecision !==
     "promote_blessed_workflow_default_for_non_mutating_turn"
@@ -603,6 +645,17 @@ export function workflowHarnessWorkerBindingRegistryBlockers(
     record.readinessProofId
   ) {
     blockers.push("worker_binding_registry_worker_readiness_proof_mismatch");
+  }
+  if (
+    !workflowHarnessInvariantSetsMatch(
+      record.workerBinding.requiredInvariantIds,
+      record.requiredInvariantIds,
+    )
+  ) {
+    blockers.push("worker_binding_registry_worker_invariant_mismatch");
+  }
+  if ((record.workerBinding.invariantBlockers ?? []).length > 0) {
+    blockers.push("worker_binding_registry_worker_invariant_blocked");
   }
   if (Object.keys(record.componentVersionSet ?? {}).length === 0) {
     blockers.push("worker_binding_registry_component_versions_missing");
@@ -642,6 +695,14 @@ function workflowHarnessWorkerBindingRegistryContractBlockers(
   if (record.bindingStatus !== "bound") {
     blockers.push("worker_binding_registry_not_bound");
   }
+  if (!workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)) {
+    blockers.push(
+      "worker_binding_registry_reviewed_import_activation_apply_invariant_missing",
+    );
+  }
+  if ((record.invariantBlockers ?? []).length > 0) {
+    blockers.push("worker_binding_registry_invariant_blocked");
+  }
   if (record.workerBinding.harnessWorkflowId !== record.workflowId) {
     blockers.push("worker_binding_registry_worker_workflow_mismatch");
   }
@@ -668,6 +729,17 @@ function workflowHarnessWorkerBindingRegistryContractBlockers(
     record.readinessProofId
   ) {
     blockers.push("worker_binding_registry_worker_readiness_proof_mismatch");
+  }
+  if (
+    !workflowHarnessInvariantSetsMatch(
+      record.workerBinding.requiredInvariantIds,
+      record.requiredInvariantIds,
+    )
+  ) {
+    blockers.push("worker_binding_registry_worker_invariant_mismatch");
+  }
+  if ((record.workerBinding.invariantBlockers ?? []).length > 0) {
+    blockers.push("worker_binding_registry_worker_invariant_blocked");
   }
   if (Object.keys(record.componentVersionSet ?? {}).length === 0) {
     blockers.push("worker_binding_registry_component_versions_missing");
@@ -703,6 +775,7 @@ export function makeWorkflowHarnessWorkerAttachRequest(
     componentVersionSet: record.componentVersionSet,
     rollbackTarget: record.rollbackTarget,
     readinessProofId: record.readinessProofId,
+    requiredInvariantIds: record.requiredInvariantIds,
     requestedStatus,
   };
 }
@@ -753,6 +826,22 @@ export function resolveWorkflowHarnessWorkerBinding(
   if (request.readinessProofId !== record.readinessProofId) {
     blockers.push("worker_attach_readiness_proof_mismatch");
   }
+  if (
+    !workflowHarnessInvariantSetsMatch(
+      request.requiredInvariantIds,
+      record.requiredInvariantIds,
+    )
+  ) {
+    blockers.push("worker_attach_required_invariant_mismatch");
+  }
+  if (!workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)) {
+    blockers.push(
+      "worker_attach_reviewed_import_activation_apply_invariant_missing",
+    );
+  }
+  if ((record.invariantBlockers ?? []).length > 0) {
+    blockers.push("worker_attach_invariant_blocked");
+  }
   if (record.bindingStatus !== "bound") {
     blockers.push("worker_attach_registry_not_bound");
   }
@@ -779,6 +868,17 @@ export function resolveWorkflowHarnessWorkerBinding(
     record.readinessProofId
   ) {
     blockers.push("worker_attach_worker_readiness_proof_mismatch");
+  }
+  if (
+    !workflowHarnessInvariantSetsMatch(
+      record.workerBinding.requiredInvariantIds,
+      record.requiredInvariantIds,
+    )
+  ) {
+    blockers.push("worker_attach_worker_invariant_mismatch");
+  }
+  if ((record.workerBinding.invariantBlockers ?? []).length > 0) {
+    blockers.push("worker_attach_worker_invariant_blocked");
   }
   const accepted = uniqueStrings(blockers).length === 0;
   const attachStatus: WorkflowHarnessWorkerAttachStatus = accepted
@@ -815,6 +915,11 @@ export function resolveWorkflowHarnessWorkerBinding(
     policyDecision: accepted
       ? "allow_harness_worker_attach"
       : "block_harness_worker_attach",
+    requiredInvariantIds: record.requiredInvariantIds,
+    invariantBlockers: uniqueStrings([
+      ...(record.invariantBlockers ?? []),
+      ...(record.workerBinding.invariantBlockers ?? []),
+    ]),
     evidenceRefs: uniqueStrings([
       record.registryRecordId,
       record.readinessProofId,
@@ -875,6 +980,8 @@ export function makeWorkflowHarnessWorkerAttachLifecycle(
       rollbackAvailable: receipt.rollbackAvailable,
       policyDecision: receipt.policyDecision,
       blockers: receipt.blockers,
+      requiredInvariantIds: receipt.requiredInvariantIds,
+      invariantBlockers: receipt.invariantBlockers,
       evidenceRefs: receipt.evidenceRefs,
       createdAtMs: options.createdAtMs ?? record.createdAtMs,
     };
@@ -933,7 +1040,15 @@ export function makeWorkflowHarnessWorkerSessionRecord(
         : ["worker_session_registry_record_mismatch"]),
       ...(event.accepted ? [] : ["worker_session_lifecycle_event_blocked"]),
       ...(event.blockers ?? []),
+      ...(event.invariantBlockers ?? []),
     ]),
+    ...(workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)
+      ? []
+      : [
+          "worker_session_reviewed_import_activation_apply_invariant_missing",
+        ]),
+    ...(record.invariantBlockers ?? []),
+    ...(record.workerBinding.invariantBlockers ?? []),
   ]).sort();
   const accepted = blockers.length === 0;
   const resumed =
@@ -962,6 +1077,12 @@ export function makeWorkflowHarnessWorkerSessionRecord(
   const lifecycleEventIds = lifecycle.map((event) => event.eventId);
   const lifecycleAttemptIds = lifecycle.map((event) => event.attemptId);
   const receiptIds = lifecycle.map((event) => event.receiptId);
+  const requiredInvariantIds = uniqueStrings(record.requiredInvariantIds ?? []);
+  const invariantBlockers = uniqueStrings([
+    ...(record.invariantBlockers ?? []),
+    ...(record.workerBinding.invariantBlockers ?? []),
+    ...lifecycle.flatMap((event) => event.invariantBlockers ?? []),
+  ]);
   const persistenceBlockers = accepted ? [] : blockers;
   const launchAuthorityBlockers = accepted ? [] : blockers;
   const rollbackHandoffBlockers = accepted ? [] : blockers;
@@ -997,6 +1118,8 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     policyDecision: accepted
       ? "allow_harness_worker_session"
       : "block_harness_worker_session",
+    requiredInvariantIds,
+    invariantBlockers,
     evidenceRefs: uniqueStrings([
       record.registryRecordId,
       record.readinessProofId,
@@ -1012,6 +1135,8 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     persistenceBlockers,
     launchAuthorityReady: accepted,
     launchAuthorityBlockers,
+    launchAuthorityInvariantIds: requiredInvariantIds,
+    launchAuthorityInvariantBlockers: invariantBlockers,
     launchAuthoritySource: "persisted_harness_worker_session_record",
     rollbackHandoffReady: accepted,
     rollbackHandoffBlockers,
@@ -1058,6 +1183,18 @@ export function workflowHarnessWorkerSessionBlockers(
   if ((session.launchAuthorityBlockers ?? []).length > 0) {
     blockers.push("worker_session_launch_authority_blocked");
   }
+  if (
+    !workflowHarnessRequiredInvariantIdsPresent(
+      session.launchAuthorityInvariantIds,
+    )
+  ) {
+    blockers.push(
+      "worker_session_reviewed_import_activation_apply_invariant_missing",
+    );
+  }
+  if ((session.launchAuthorityInvariantBlockers ?? []).length > 0) {
+    blockers.push("worker_session_launch_invariant_blocked");
+  }
   if (session.rollbackHandoffReady !== true) {
     blockers.push("worker_session_rollback_handoff_not_ready");
   }
@@ -1094,6 +1231,12 @@ export function makeWorkflowHarnessWorkerLaunchEnvelope(
       ? []
       : ["worker_launch_authority_not_ready"]),
     ...(session.launchAuthorityBlockers ?? []),
+    ...(session.launchAuthorityInvariantBlockers ?? []),
+    ...(workflowHarnessRequiredInvariantIdsPresent(
+      session.launchAuthorityInvariantIds,
+    )
+      ? []
+      : ["worker_launch_reviewed_import_activation_apply_invariant_missing"]),
     ...(session.launchAuthoritySource ===
     "persisted_harness_worker_session_record"
       ? []
@@ -1138,6 +1281,9 @@ export function makeWorkflowHarnessWorkerLaunchEnvelope(
     recordPersistenceKey: session.recordPersistenceKey,
     launchAuthoritySource: session.launchAuthoritySource,
     launchAuthorityReady: session.launchAuthorityReady,
+    launchAuthorityInvariantIds: session.launchAuthorityInvariantIds,
+    launchAuthorityInvariantBlockers:
+      session.launchAuthorityInvariantBlockers,
     rollbackHandoffReady: session.rollbackHandoffReady,
     accepted,
     blockers,
@@ -1187,6 +1333,12 @@ export function resolveWorkflowHarnessWorkerHandoffReceipt(
     ...(envelope.launchAuthorityReady
       ? []
       : ["worker_handoff_launch_authority_not_ready"]),
+    ...(envelope.launchAuthorityInvariantBlockers ?? []),
+    ...(workflowHarnessRequiredInvariantIdsPresent(
+      envelope.launchAuthorityInvariantIds,
+    )
+      ? []
+      : ["worker_handoff_reviewed_import_activation_apply_invariant_missing"]),
     ...(envelope.phase === "rollback" && !envelope.rollbackHandoffReady
       ? ["worker_handoff_rollback_not_ready"]
       : []),
@@ -1221,6 +1373,8 @@ export function resolveWorkflowHarnessWorkerHandoffReceipt(
     accepted,
     handoffStatus,
     blockers,
+    requiredInvariantIds: envelope.launchAuthorityInvariantIds,
+    invariantBlockers: envelope.launchAuthorityInvariantBlockers,
     policyDecision: accepted
       ? "allow_harness_worker_handoff"
       : "block_harness_worker_handoff",
@@ -1329,6 +1483,10 @@ function makeWorkflowHarnessForkActivationHandoffProof(options: {
     authorityBindingBlockers: [],
     livePromotionReadinessProofId: readinessProofId,
     policyDecision: "allow_fork_harness_canary_worker_binding",
+    requiredInvariantIds: [
+      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+    ],
+    invariantBlockers: [],
   };
   const workerBindingRegistryRecord =
     makeWorkflowHarnessWorkerBindingRegistryRecord({
@@ -1343,6 +1501,8 @@ function makeWorkflowHarnessForkActivationHandoffProof(options: {
       policyDecision: "allow_fork_harness_canary_worker_binding",
       bindingStatus: "bound",
       blockers: [],
+      requiredInvariantIds: canaryWorkerBinding.requiredInvariantIds,
+      invariantBlockers: [],
       workerBinding: canaryWorkerBinding,
       createdAtMs: options.createdAtMs,
     });
@@ -4894,6 +5054,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         : "retain_legacy_runtime_default",
       bindingStatus: dispatchAccepted ? "bound" : "blocked",
       blockers: activationBlockers,
+      requiredInvariantIds: defaultLivePromotionInvariantIds,
+      invariantBlockers: defaultLivePromotionInvariantBlockers,
     });
   const workerAttachLifecycle = dispatchAccepted
     ? makeWorkflowHarnessWorkerAttachLifecycle(workerBindingRegistryRecord)
@@ -7555,6 +7717,10 @@ export function makeDefaultAgentHarnessWorkflow(
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     authorityBindingReady: false,
     authorityBindingBlockers: ["worker_binding_authority_not_live"],
+    requiredInvariantIds: [
+      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+    ],
+    invariantBlockers: ["reviewed_import_activation_apply_not_live"],
   };
   const workerBindingRegistryRecord =
     makeWorkflowHarnessWorkerBindingRegistryRecord({
@@ -7902,6 +8068,10 @@ export function workflowHarnessWorkerBinding(
           ? "worker_binding_authority_not_live"
           : "fork_activation_not_live_default",
       ],
+      requiredInvariantIds: [
+        DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+      ],
+      invariantBlockers: ["reviewed_import_activation_apply_not_live"],
     };
   }
   return {
@@ -7913,6 +8083,10 @@ export function workflowHarnessWorkerBinding(
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     authorityBindingReady: false,
     authorityBindingBlockers: ["legacy_runtime_binding"],
+    requiredInvariantIds: [
+      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+    ],
+    invariantBlockers: ["legacy_runtime_binding"],
   };
 }
 
