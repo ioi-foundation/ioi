@@ -80,6 +80,7 @@ import type {
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionTransitionAttempt,
   WorkflowHarnessPromotionTransitionTarget,
+  WorkflowHarnessWorkerInvariantNegativeEnforcementProof,
   WorkflowExecutionMode,
   WorkflowKind,
   WorkflowNodeKind,
@@ -6098,6 +6099,325 @@ export function useWorkflowComposerController({
       loadWorkflowProject,
     ],
   );
+  const runHarnessWorkerInvariantNegativeEnforcementProbe = useCallback(
+    async (
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessWorkerInvariantNegativeEnforcementProof> => {
+      const selectedRailTestId = "workflow-harness-activation-gate-inspector";
+      const projectRoot = currentProject?.rootPath || ".";
+      const blockers: string[] = [];
+      const invalidActivationBlocker =
+        "worker_launch_reviewed_import_activation_apply_invariant_missing";
+      const expectedInspectorBlocker =
+        "worker_launch_reviewed_import_activation_invariant_not_bound";
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      const link = {
+        panel: "settings" as WorkflowRightPanel,
+        activationGateId: "worker-invariant",
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      const emptyAction = () => ({
+        id: null as string | null,
+        kind: null as string | null,
+        impact: null as string | null,
+        command: null as string | null,
+        disabled: false,
+      });
+      const readAction = (state: Record<string, string>) => ({
+        id: state["data-gate-action-id"] || null,
+        kind: state["data-gate-action-kind"] || null,
+        impact: state["data-gate-action-impact"] || null,
+        command: state["data-gate-action-command"] || null,
+        disabled: state["data-gate-action-disabled"] === "true",
+      });
+      const stageWorkflow = async (
+        nextWorkflow: WorkflowProject,
+        nextTests: WorkflowTestCase[],
+        candidate: WorkflowHarnessForkActivationCandidate | null,
+      ) => {
+        const nextWorkflowPath = `${projectRoot}/.agents/workflows/${nextWorkflow.metadata.slug}.workflow.json`;
+        const nextValidation = validateWorkflowProject(nextWorkflow, nextTests);
+        setWorkflowPath(nextWorkflowPath);
+        setTestsPath(
+          nextWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"),
+        );
+        setTests(nextTests);
+        setProposals([]);
+        setRuns([]);
+        loadWorkflowProject(nextWorkflow);
+        setHarnessActivationCandidate(candidate);
+        setSelectedHarnessRollbackTarget(null);
+        setValidationResult(nextValidation);
+        setReadinessResult(
+          evaluateWorkflowActivationReadiness(
+            nextWorkflow,
+            nextTests,
+            nextValidation,
+            [],
+            [],
+          ),
+        );
+        setRightPanel("settings");
+        setBottomPanel("selection");
+        await nextHarnessWorkbenchFrame();
+        await nextHarnessWorkbenchFrame();
+      };
+      const applyWorkerInvariantDeepLink = async () => {
+        if (!parsed) {
+          blockers.push("worker_invariant_negative_hash_parse_failed");
+          return;
+        }
+        writeHarnessWorkbenchDeepLink(hash);
+        applyHarnessWorkbenchDeepLink(parsed);
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+      };
+
+      let forkWorkflowId = "";
+      let invalidCandidate: WorkflowHarnessForkActivationCandidate | null =
+        null;
+      let inspectorState: Record<string, string> = {};
+      let action = emptyAction();
+      let activationApply: ReturnType<
+        typeof applyWorkflowHarnessActivationCandidate
+      > | null = null;
+
+      try {
+        const fork = forkDefaultAgentHarnessWorkflow(
+          "Worker Invariant Negative Fork",
+          generatedAtMs,
+        );
+        let mintableWorkflow = fork.workflow;
+        HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS.forEach((clusterId, index) => {
+          mintableWorkflow = workflowReadyForHarnessPromotion(
+            mintableWorkflow,
+            clusterId,
+            generatedAtMs + 10 + index,
+          );
+        });
+        const { workflow: stagedWorkflow, candidate } =
+          workflowWithMintableHarnessActivationCandidate(
+            mintableWorkflow,
+            fork.tests,
+            generatedAtMs + 20,
+          );
+        forkWorkflowId = stagedWorkflow.metadata.id || stagedWorkflow.metadata.slug;
+        invalidCandidate = {
+          ...candidate,
+          decision: "blocked",
+          activationId: undefined,
+          activationBlockers: Array.from(
+            new Set([...candidate.activationBlockers, invalidActivationBlocker]),
+          ),
+          blockerCodes: Array.from(
+            new Set([...candidate.blockerCodes, invalidActivationBlocker]),
+          ),
+        };
+
+        await stageWorkflow(stagedWorkflow, fork.tests, invalidCandidate);
+        await applyWorkerInvariantDeepLink();
+        inspectorState = readHarnessRailSelectedState(selectedRailTestId);
+        action = readAction(inspectorState);
+        activationApply = applyWorkflowHarnessActivationCandidate(
+          stagedWorkflow,
+          invalidCandidate,
+          {
+            rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            nowMs: generatedAtMs + 30,
+          },
+        );
+      } catch (error) {
+        blockers.push(
+          `worker_invariant_negative_probe_failed:${errorMessage(error)}`,
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+
+      const gateId =
+        inspectorState["data-selected-activation-gate-id"] || null;
+      const status = inspectorState["data-gate-status"] || null;
+      const requiredInvariantIds = String(
+        inspectorState["data-required-invariant-ids"] ?? "",
+      )
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const invariantBlockers = String(
+        inspectorState["data-invariant-blockers"] ?? "",
+      )
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const invariantBlockerCount = Number(
+        inspectorState["data-invariant-blocker-count"] ?? 0,
+      );
+      const appliedWorkflow = activationApply?.workflow ?? null;
+      const appliedHarness = appliedWorkflow?.metadata.harness ?? null;
+      const latestAudit =
+        appliedHarness?.activationAudit?.[
+          (appliedHarness.activationAudit?.length ?? 0) - 1
+        ] ?? null;
+      const workerSessionLive =
+        appliedHarness?.workerSessionRecord?.accepted === true ||
+        appliedHarness?.activationRecord?.workerSessionRecord?.accepted ===
+          true;
+      const workerLaunchEnvelopeCount =
+        (appliedHarness?.workerLaunchEnvelopes?.length ?? 0) +
+        (appliedHarness?.activationRecord?.workerLaunchEnvelopes?.length ?? 0);
+      const workerHandoffReceiptCount =
+        (appliedHarness?.workerHandoffReceipts?.length ?? 0) +
+        (appliedHarness?.activationRecord?.workerHandoffReceipts?.length ?? 0);
+      const workerHandoffNodeAttemptCount =
+        (appliedHarness?.workerHandoffNodeAttemptIds?.length ?? 0) +
+        (appliedHarness?.activationRecord?.workerHandoffNodeAttemptIds
+          ?.length ?? 0);
+
+      if (gateId !== "worker-invariant") {
+        blockers.push("worker_invariant_negative_gate_not_selected");
+      }
+      if (status !== "blocked") {
+        blockers.push("worker_invariant_negative_gate_not_blocked");
+      }
+      if (invariantBlockerCount <= 0 || invariantBlockers.length <= 0) {
+        blockers.push("worker_invariant_negative_blockers_missing");
+      }
+      if (!invariantBlockers.includes(expectedInspectorBlocker)) {
+        blockers.push("worker_invariant_negative_expected_blocker_missing");
+      }
+      if (
+        requiredInvariantIds.includes(
+          DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+        ) &&
+        !invariantBlockers.includes(expectedInspectorBlocker)
+      ) {
+        blockers.push("worker_invariant_negative_required_id_bound");
+      }
+      if (
+        action.id !== "activation-gate-action:worker-invariant:check-readiness"
+      ) {
+        blockers.push("worker_invariant_negative_action_id_mismatch");
+      }
+      if (action.kind !== "check_readiness") {
+        blockers.push("worker_invariant_negative_action_kind_mismatch");
+      }
+      if (action.impact !== "inspect") {
+        blockers.push("worker_invariant_negative_action_impact_mismatch");
+      }
+      if (action.command !== "workflow-harness-gate-action-worker-invariant") {
+        blockers.push("worker_invariant_negative_action_command_mismatch");
+      }
+      if (!invalidCandidate) {
+        blockers.push("worker_invariant_negative_candidate_missing");
+      }
+      if (invalidCandidate?.decision !== "blocked") {
+        blockers.push("worker_invariant_negative_candidate_not_blocked");
+      }
+      if (
+        !invalidCandidate?.activationBlockers.includes(invalidActivationBlocker)
+      ) {
+        blockers.push("worker_invariant_negative_candidate_blocker_missing");
+      }
+      if (activationApply?.applied !== false) {
+        blockers.push("worker_invariant_negative_apply_not_refused");
+      }
+      if (!activationApply?.blockers.includes(invalidActivationBlocker)) {
+        blockers.push("worker_invariant_negative_apply_blocker_missing");
+      }
+      if (!activationApply?.blockers.includes("candidate_not_mintable")) {
+        blockers.push("worker_invariant_negative_apply_mintable");
+      }
+      if (activationApply?.activationId) {
+        blockers.push("worker_invariant_negative_activation_id_minted");
+      }
+      if (appliedHarness?.activationId) {
+        blockers.push("worker_invariant_negative_workflow_activation_minted");
+      }
+      if (appliedHarness?.activationState !== "blocked") {
+        blockers.push("worker_invariant_negative_activation_state_mismatch");
+      }
+      if (
+        appliedWorkflow?.metadata.workerHarnessBinding?.authorityBindingReady ===
+        true
+      ) {
+        blockers.push("worker_invariant_negative_authority_bound");
+      }
+      if (workerSessionLive) {
+        blockers.push("worker_invariant_negative_worker_session_live");
+      }
+      if (workerLaunchEnvelopeCount > 0) {
+        blockers.push("worker_invariant_negative_worker_launch_created");
+      }
+      if (workerHandoffReceiptCount > 0) {
+        blockers.push("worker_invariant_negative_worker_handoff_created");
+      }
+      if (workerHandoffNodeAttemptCount > 0) {
+        blockers.push("worker_invariant_negative_worker_attempt_created");
+      }
+      if (latestAudit?.eventType !== "activation_mint_blocked") {
+        blockers.push("worker_invariant_negative_audit_type_mismatch");
+      }
+      if (latestAudit?.status !== "blocked") {
+        blockers.push("worker_invariant_negative_audit_status_mismatch");
+      }
+
+      return {
+        schemaVersion:
+          "workflow.harness.worker-invariant-negative-enforcement-proof.v1",
+        method:
+          "stage a promoted fork with the reviewed-import activation apply worker invariant not bound, deep-link the worker-invariant activation gate, then attempt activation apply and require refusal without worker session, launch, handoff, or activation id state",
+        generatedAtMs,
+        forkWorkflowId,
+        invalidCandidate: {
+          candidateId: invalidCandidate?.candidateId ?? null,
+          decision: invalidCandidate?.decision ?? null,
+          activationIdPreview:
+            invalidCandidate?.activationIdPreview ??
+            invalidCandidate?.activationId ??
+            null,
+          activationBlockers: invalidCandidate?.activationBlockers ?? [],
+        },
+        deepLink: {
+          hash,
+          selectedRailTestId,
+          gateId,
+          status,
+          requiredInvariantIds,
+          invariantBlockers,
+          invariantBlockerCount,
+          action,
+          inspectorState,
+        },
+        activationApply: {
+          attempted: Boolean(invalidCandidate),
+          applied: activationApply?.applied === true,
+          activationId: activationApply?.activationId ?? null,
+          blockers: activationApply?.blockers ?? [],
+          workflowActivationId: appliedHarness?.activationId ?? null,
+          workflowActivationState: appliedHarness?.activationState ?? null,
+          workerBindingAuthorityReady:
+            appliedWorkflow?.metadata.workerHarnessBinding
+              ?.authorityBindingReady === true,
+          workerSessionLive,
+          workerLaunchEnvelopeCount,
+          workerHandoffReceiptCount,
+          workerHandoffNodeAttemptCount,
+          latestAuditEventType: latestAudit?.eventType ?? null,
+          latestAuditStatus: latestAudit?.status ?? null,
+        },
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [
+      applyHarnessWorkbenchDeepLink,
+      currentProject?.rootPath,
+      loadWorkflowProject,
+    ],
+  );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
       const issue = canvasEdgeIssues.get(sourceEdgeId);
@@ -9403,6 +9723,8 @@ export function useWorkflowComposerController({
           activationBlockerFork.proposals,
           nowMs + 145,
         );
+      const workerInvariantNegativeEnforcementProof =
+        await runHarnessWorkerInvariantNegativeEnforcementProbe(nowMs + 148);
       workflow = workflowWithBlessedDefaultRuntimeActivationProof(
         workflow,
         nowMs + 150,
@@ -9474,6 +9796,7 @@ export function useWorkflowComposerController({
             activationGateCollectEvidenceClickProof,
             activationGateRollbackRestoreClickProof,
             activationIdGateClickProof,
+            workerInvariantNegativeEnforcementProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -9582,6 +9905,13 @@ export function useWorkflowComposerController({
           activationIdGateClickProof.blockedDryRun.decision,
         activationIdMintedActivationId:
           activationIdGateClickProof.mintedActivation.activationId,
+        workerInvariantNegativeEnforcementPassed:
+          workerInvariantNegativeEnforcementProof.passed,
+        workerInvariantNegativeEnforcementBlockers:
+          workerInvariantNegativeEnforcementProof.blockers,
+        workerInvariantNegativeEnforcementApplyRefused:
+          workerInvariantNegativeEnforcementProof.activationApply.applied ===
+          false,
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -9607,6 +9937,7 @@ export function useWorkflowComposerController({
     runHarnessPackageEvidenceImportRoundTripProbe,
     runHarnessActivationGateCollectEvidenceClickProbe,
     runHarnessActivationIdGateClickProbe,
+    runHarnessWorkerInvariantNegativeEnforcementProbe,
     runHarnessActivationGateRollbackRestoreClickProbe,
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
