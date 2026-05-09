@@ -1262,6 +1262,8 @@ export function WorkflowRailPanel({
       : null;
   const harnessActiveRuntimeRollbackExecutionProof =
     workflow.metadata.harness?.activeRuntimeRollbackExecutionProof ?? null;
+  const harnessActiveRuntimeRollbackApplyProof =
+    workflow.metadata.harness?.activeRuntimeRollbackApplyProof ?? null;
   const harnessActiveRuntimeRollbackDryRunPassed =
     harnessActiveRuntimeRollbackExecutionProof?.dryRun.passed === true &&
     harnessActiveRuntimeRollbackExecutionProof.passed === true;
@@ -1292,6 +1294,13 @@ export function WorkflowRailPanel({
     !onApplyActiveRuntimeRollback ||
     !harnessActiveRuntimeRollbackDryRunPassed ||
     !harnessActiveRuntimeRollbackProofStillBound;
+  const harnessActiveRuntimeRollbackApplyBlockers = [
+    ...(harnessActiveRuntimeRollbackApplyProof?.blockers ?? []),
+    ...(!harnessActiveRuntimeRollbackProofStillBound &&
+    harnessActiveRuntimeRollbackExecutionProof
+      ? ["rollback_proof_not_bound_after_route_restore"]
+      : []),
+  ];
   const harnessReadOnlyRoutingProof =
     harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingProof ?? null;
   const harnessReadOnlyRoutingNodeKinds =
@@ -4251,6 +4260,35 @@ export function WorkflowRailPanel({
                   harnessActiveRuntimeRollbackExecutionProof?.apply
                     .policyDecision ?? ""
                 }
+                data-rollback-apply-execution-status={
+                  harnessActiveRuntimeRollbackApplyProof?.applyStatus ??
+                  "not_run"
+                }
+                data-rollback-apply-execution-id={
+                  harnessActiveRuntimeRollbackApplyProof?.executionId ?? ""
+                }
+                data-rollback-apply-receipt-id={
+                  harnessActiveRuntimeRollbackApplyProof?.rollbackReceiptId ?? ""
+                }
+                data-rollback-apply-audit-event-id={
+                  harnessActiveRuntimeRollbackApplyProof?.auditEventId ?? ""
+                }
+                data-rollback-apply-target-verified={
+                  harnessActiveRuntimeRollbackApplyProof?.rollbackTargetVerified
+                    ? "true"
+                    : "false"
+                }
+                data-rollback-apply-hash-verified={
+                  harnessActiveRuntimeRollbackApplyProof?.hashVerified
+                    ? "true"
+                    : "false"
+                }
+                data-rollback-apply-policy-decision={
+                  harnessActiveRuntimeRollbackApplyProof?.policyDecision ?? ""
+                }
+                data-rollback-apply-blockers={harnessActiveRuntimeRollbackApplyBlockers.join(
+                  ",",
+                )}
                 data-rollback-execution-blockers={[
                   ...(harnessActiveRuntimeRollbackExecutionProof?.blockers ??
                     []),
@@ -4744,6 +4782,36 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeRollbackExecutionProof?.apply
                       .policyDecision ?? ""
                   }
+                  data-rollback-apply-execution-status={
+                    harnessActiveRuntimeRollbackApplyProof?.applyStatus ??
+                    "not_run"
+                  }
+                  data-rollback-apply-execution-id={
+                    harnessActiveRuntimeRollbackApplyProof?.executionId ?? ""
+                  }
+                  data-rollback-apply-receipt-id={
+                    harnessActiveRuntimeRollbackApplyProof?.rollbackReceiptId ??
+                    ""
+                  }
+                  data-rollback-apply-audit-event-id={
+                    harnessActiveRuntimeRollbackApplyProof?.auditEventId ?? ""
+                  }
+                  data-rollback-apply-target-verified={
+                    harnessActiveRuntimeRollbackApplyProof?.rollbackTargetVerified
+                      ? "true"
+                      : "false"
+                  }
+                  data-rollback-apply-hash-verified={
+                    harnessActiveRuntimeRollbackApplyProof?.hashVerified
+                      ? "true"
+                      : "false"
+                  }
+                  data-rollback-apply-policy-decision={
+                    harnessActiveRuntimeRollbackApplyProof?.policyDecision ?? ""
+                  }
+                  data-rollback-apply-blockers={harnessActiveRuntimeRollbackApplyBlockers.join(
+                    ",",
+                  )}
                   data-rollback-execution-blockers={[
                     ...(harnessActiveRuntimeRollbackExecutionProof?.blockers ??
                       []),
@@ -4818,6 +4886,14 @@ export function WorkflowRailPanel({
                     {harnessActiveRuntimeRollbackProofStillBound
                       ? "bound"
                       : "not restored"}
+                  </small>
+                  <small>
+                    rollback apply{" "}
+                    {harnessActiveRuntimeRollbackApplyProof?.applyStatus ??
+                      "not run"}{" "}
+                    · receipt{" "}
+                    {harnessActiveRuntimeRollbackApplyProof?.rollbackReceiptId ??
+                      "pending"}
                   </small>
                   {harnessActiveRuntimeBinding.workerRollbackProof.blockers
                     .length > 0 ? (

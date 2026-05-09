@@ -1358,7 +1358,9 @@ export type WorkflowHarnessActivationAuditEventType =
   | "rollback_drill_blocked"
   | "rollback_drill_passed"
   | "rollback_execution_blocked"
-  | "rollback_executed";
+  | "rollback_executed"
+  | "active_runtime_rollback_apply_blocked"
+  | "active_runtime_rollback_applied";
 
 export type WorkflowHarnessActivationAuditEventStatus =
   | "blocked"
@@ -1478,6 +1480,15 @@ export interface WorkflowHarnessActiveRuntimeRollbackExecutionProof {
     readiness: "ready" | "blocked" | string;
     applied: boolean;
     policyDecision: string;
+    executionId?: string | null;
+    rollbackReceiptId?: string | null;
+    auditEventId?: string | null;
+    rollbackTargetVerified?: boolean;
+    hashVerified?: boolean;
+    receiptRefs?: string[];
+    evidenceRefs?: string[];
+    replayFixtureRefs?: string[];
+    appliedAtMs?: number | null;
     blockers: string[];
   };
   routeRestore?: {
@@ -1491,6 +1502,43 @@ export interface WorkflowHarnessActiveRuntimeRollbackExecutionProof {
   };
   passed: boolean;
   blockers: string[];
+}
+
+export interface WorkflowHarnessActiveRuntimeRollbackApplyProof {
+  schemaVersion:
+    | "workflow.harness.active-runtime-rollback-apply-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  workflowId: string;
+  activationId: string;
+  previousActivationId?: string | null;
+  nextActivationId?: string | null;
+  rollbackTarget: string;
+  readinessProofId: string;
+  liveShadowComparisonGateId: string;
+  liveShadowComparisonGateReady: boolean;
+  harnessHash: string;
+  launchEnvelopeId?: string | null;
+  handoffReceiptId?: string | null;
+  nodeAttemptId?: string | null;
+  replayFixtureRef?: string | null;
+  dryRunCanaryResultId?: string | null;
+  executionId: string;
+  rollbackReceiptId: string;
+  auditEventId: string;
+  applyStatus: "applied" | "blocked" | string;
+  rollbackApplied: boolean;
+  rollbackTargetVerified: boolean;
+  hashVerified: boolean;
+  policyDecision: string;
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  replayFixtureRefs: string[];
+  staleProofBlocked: boolean;
+  detachedProofBlocked: boolean;
+  blockers: string[];
+  passed: boolean;
 }
 
 export type WorkflowHarnessReplayDrillDivergenceClass =
@@ -2967,6 +3015,7 @@ export interface WorkflowHarnessMetadata {
   liveShadowComparisonDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activeRuntimeRollbackProofWorkbenchProof?: WorkflowHarnessDeepLinkReplayProof;
   activeRuntimeRollbackExecutionProof?: WorkflowHarnessActiveRuntimeRollbackExecutionProof;
+  activeRuntimeRollbackApplyProof?: WorkflowHarnessActiveRuntimeRollbackApplyProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
