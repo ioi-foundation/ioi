@@ -36,6 +36,7 @@ import type {
   WorkflowHarnessReplayDrillDivergenceClass,
   WorkflowHarnessReplayDrillResult,
   WorkflowHarnessReplayGateResult,
+  WorkflowHarnessShadowComparison,
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerAttachReceipt,
@@ -221,7 +222,8 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
   if ((minted.workerHandoffReplayFixtureRefs ?? []).length === 0) {
     blockers.push("activation_id_gate_mint_worker_handoff_replay_missing");
   }
-  const workerHandoffAttemptId = minted.workerHandoffNodeAttemptIds?.[0] ?? null;
+  const workerHandoffAttemptId =
+    minted.workerHandoffNodeAttemptIds?.[0] ?? null;
   if (
     workerHandoffAttemptId &&
     minted.workerHandoffDeepLink?.includes("activationGateNodeAttemptId=") !==
@@ -231,9 +233,8 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
   }
   if (
     workerHandoffAttemptId &&
-    minted.workerHandoffDeepLinkState?.[
-      "data-selected-activation-gate-id"
-    ] !== "worker-handoff"
+    minted.workerHandoffDeepLinkState?.["data-selected-activation-gate-id"] !==
+      "worker-handoff"
   ) {
     blockers.push("activation_id_gate_mint_handoff_gate_not_restored");
   }
@@ -276,7 +277,10 @@ export function workflowHarnessPackageImportActivationApplyProofBlockers(
   const maxAgeMs =
     options.maxAgeMs ??
     DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS;
-  if (proof.schemaVersion !== "workflow.harness.package-import-activation-apply-proof.v1") {
+  if (
+    proof.schemaVersion !==
+    "workflow.harness.package-import-activation-apply-proof.v1"
+  ) {
     blockers.push("package_import_activation_apply_schema_mismatch");
   }
   if (proof.passed !== true || proof.blockers.length > 0) {
@@ -316,10 +320,14 @@ export function workflowHarnessPackageImportActivationApplyProofBlockers(
     blockers.push("package_import_activation_apply_activation_id_missing");
   }
   if (activationId !== action.activationIdPreview) {
-    blockers.push("package_import_activation_apply_activation_preview_mismatch");
+    blockers.push(
+      "package_import_activation_apply_activation_preview_mismatch",
+    );
   }
   if (result.workflowActivationId !== activationId) {
-    blockers.push("package_import_activation_apply_workflow_activation_mismatch");
+    blockers.push(
+      "package_import_activation_apply_workflow_activation_mismatch",
+    );
   }
   if (result.workflowActivationState !== "validated") {
     blockers.push("package_import_activation_apply_workflow_state_mismatch");
@@ -357,19 +365,26 @@ export function workflowHarnessPackageImportActivationApplyProofBlockers(
     blockers.push("package_import_activation_apply_evidence_missing");
   }
   if (result.workerHandoffReceiptIds.length === 0) {
-    blockers.push("package_import_activation_apply_worker_handoff_receipts_missing");
+    blockers.push(
+      "package_import_activation_apply_worker_handoff_receipts_missing",
+    );
   }
   if (result.workerHandoffNodeAttemptIds.length === 0) {
-    blockers.push("package_import_activation_apply_worker_handoff_attempts_missing");
+    blockers.push(
+      "package_import_activation_apply_worker_handoff_attempts_missing",
+    );
   }
   if (result.workerHandoffReplayFixtureRefs.length === 0) {
-    blockers.push("package_import_activation_apply_worker_handoff_replay_missing");
+    blockers.push(
+      "package_import_activation_apply_worker_handoff_replay_missing",
+    );
   }
   const workerHandoffAttemptId = result.workerHandoffNodeAttemptIds[0] ?? null;
   if (
     workerHandoffAttemptId &&
-    proof.workerHandoff.deepLinkHash?.includes("activationGateNodeAttemptId=") !==
-      true
+    proof.workerHandoff.deepLinkHash?.includes(
+      "activationGateNodeAttemptId=",
+    ) !== true
   ) {
     blockers.push("package_import_activation_apply_handoff_node_link_missing");
   }
@@ -386,13 +401,17 @@ export function workflowHarnessPackageImportActivationApplyProofBlockers(
       "data-selected-activation-gate-node-attempt-id"
     ] !== workerHandoffAttemptId
   ) {
-    blockers.push("package_import_activation_apply_handoff_attempt_not_selected");
+    blockers.push(
+      "package_import_activation_apply_handoff_attempt_not_selected",
+    );
   }
   if (
     workerHandoffAttemptId &&
     proof.workerHandoff.selectedAttemptId !== workerHandoffAttemptId
   ) {
-    blockers.push("package_import_activation_apply_handoff_timeline_attempt_missing");
+    blockers.push(
+      "package_import_activation_apply_handoff_timeline_attempt_missing",
+    );
   }
   if (workerHandoffAttemptId && proof.workerHandoff.timelineVisible !== true) {
     blockers.push("package_import_activation_apply_handoff_timeline_missing");
@@ -401,7 +420,9 @@ export function workflowHarnessPackageImportActivationApplyProofBlockers(
     proof.incompleteAction.disabled !== true ||
     proof.incompleteAction.mintable !== false
   ) {
-    blockers.push("package_import_activation_apply_incomplete_action_not_blocked");
+    blockers.push(
+      "package_import_activation_apply_incomplete_action_not_blocked",
+    );
   }
   return uniqueStrings(blockers);
 }
@@ -524,7 +545,10 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
       bindingStatus === "bound" &&
       blockers.length === 0 &&
       invariantBlockers.length === 0,
-    authorityBindingBlockers: uniqueStrings([...blockers, ...invariantBlockers]),
+    authorityBindingBlockers: uniqueStrings([
+      ...blockers,
+      ...invariantBlockers,
+    ]),
     livePromotionReadinessProofId: readinessProofId || undefined,
     policyDecision,
     requiredInvariantIds,
@@ -605,7 +629,9 @@ export function workflowHarnessWorkerBindingRegistryBlockers(
   if (record.bindingStatus !== "bound") {
     blockers.push("worker_binding_registry_not_bound");
   }
-  if (!workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)) {
+  if (
+    !workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)
+  ) {
     blockers.push(
       "worker_binding_registry_reviewed_import_activation_apply_invariant_missing",
     );
@@ -695,7 +721,9 @@ function workflowHarnessWorkerBindingRegistryContractBlockers(
   if (record.bindingStatus !== "bound") {
     blockers.push("worker_binding_registry_not_bound");
   }
-  if (!workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)) {
+  if (
+    !workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)
+  ) {
     blockers.push(
       "worker_binding_registry_reviewed_import_activation_apply_invariant_missing",
     );
@@ -785,10 +813,11 @@ export function resolveWorkflowHarnessWorkerBinding(
   request = makeWorkflowHarnessWorkerAttachRequest(record),
 ): WorkflowHarnessWorkerAttachReceipt {
   const blockers = uniqueStrings([
-    ...workflowHarnessWorkerBindingRegistryContractBlockers(record).map((blocker) =>
-      blocker === "worker_binding_registry_not_bound"
-        ? "worker_attach_registry_not_bound"
-        : `worker_attach_${blocker.replace(/^worker_binding_registry_/, "")}`,
+    ...workflowHarnessWorkerBindingRegistryContractBlockers(record).map(
+      (blocker) =>
+        blocker === "worker_binding_registry_not_bound"
+          ? "worker_attach_registry_not_bound"
+          : `worker_attach_${blocker.replace(/^worker_binding_registry_/, "")}`,
     ),
   ]);
   if (request.schemaVersion !== "workflow.harness.worker-attach-request.v1") {
@@ -834,7 +863,9 @@ export function resolveWorkflowHarnessWorkerBinding(
   ) {
     blockers.push("worker_attach_required_invariant_mismatch");
   }
-  if (!workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)) {
+  if (
+    !workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)
+  ) {
     blockers.push(
       "worker_attach_reviewed_import_activation_apply_invariant_missing",
     );
@@ -1044,9 +1075,7 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     ]),
     ...(workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)
       ? []
-      : [
-          "worker_session_reviewed_import_activation_apply_invariant_missing",
-        ]),
+      : ["worker_session_reviewed_import_activation_apply_invariant_missing"]),
     ...(record.invariantBlockers ?? []),
     ...(record.workerBinding.invariantBlockers ?? []),
   ]).sort();
@@ -1282,8 +1311,7 @@ export function makeWorkflowHarnessWorkerLaunchEnvelope(
     launchAuthoritySource: session.launchAuthoritySource,
     launchAuthorityReady: session.launchAuthorityReady,
     launchAuthorityInvariantIds: session.launchAuthorityInvariantIds,
-    launchAuthorityInvariantBlockers:
-      session.launchAuthorityInvariantBlockers,
+    launchAuthorityInvariantBlockers: session.launchAuthorityInvariantBlockers,
     rollbackHandoffReady: session.rollbackHandoffReady,
     accepted,
     blockers,
@@ -1682,8 +1710,9 @@ export function makeWorkflowHarnessPackageEvidenceManifest(
     ...(activationRecord?.workerHandoffReplayFixtureRefs ?? []),
     ...(harness.workerHandoffReplayFixtureRefs ?? []),
   ]);
-  const rollbackRestoreReceiptRefs =
-    rollbackRestoreCanaryReceiptRefs(rollbackRestoreCanary);
+  const rollbackRestoreReceiptRefs = rollbackRestoreCanaryReceiptRefs(
+    rollbackRestoreCanary,
+  );
   const receiptRefs = uniqueStrings([
     ...workflowRollbackReceiptRefs(workflow),
     ...workerHandoffReceipts.map((receipt) => receipt.receiptId),
@@ -1784,7 +1813,9 @@ export function makeWorkflowHarnessPackageEvidenceManifest(
       }),
     })),
   ].filter(
-    (link): link is WorkflowHarnessPackageEvidenceManifest["deepLinks"][number] =>
+    (
+      link,
+    ): link is WorkflowHarnessPackageEvidenceManifest["deepLinks"][number] =>
       Boolean(link),
   );
   return {
@@ -3980,11 +4011,11 @@ export function makeHarnessRuntimeSelectorDecision(
         ? "Blessed workflow activation is promoted to the default runtime selector for a non-mutating turn."
         : defaultRequested && defaultLivePromotionInvariantBlockers.length > 0
           ? "Blessed workflow default promotion is blocked until reviewed import activation apply proof is present in the selected evidence bundle."
-        : defaultRequested
-          ? "Blessed workflow default promotion is blocked until the live-promotion readiness proof passes."
-          : workflowSelected
-            ? "Turn is non-mutating and eligible for blessed workflow canary routing."
-            : "Turn remains on the legacy runtime selector."),
+          : defaultRequested
+            ? "Blessed workflow default promotion is blocked until the live-promotion readiness proof passes."
+            : workflowSelected
+              ? "Turn is non-mutating and eligible for blessed workflow canary routing."
+              : "Turn remains on the legacy runtime selector."),
     livePromotionReadinessProof: options.livePromotionReadinessProof ?? null,
     livePromotionReadinessReady,
     livePromotionReadinessBlockers,
@@ -4179,9 +4210,11 @@ function makeDefaultHarnessAdapterResult(
   attemptSlug: string,
   policyDecision: string,
   attemptIndex: number,
-  executionMode: "live" | "gated",
+  executionMode: "live" | "gated" | "shadow",
+  options: { hashSlug?: string } = {},
 ): WorkflowHarnessComponentAdapterResult {
   const component = componentFor(kind);
+  const hashSlug = options.hashSlug ?? attemptSlug;
   const replay = {
     ...replayEnvelopeFor(component),
     fixtureRef: `harness-default-dispatch:fixture-${attemptSlug}`,
@@ -4204,7 +4237,7 @@ function makeDefaultHarnessAdapterResult(
     evidenceKeys: component.evidence,
   };
   const receiptId = `harness-default-dispatch:receipt-${attemptSlug}`;
-  const outputHash = `sha256:${attemptSlug}`;
+  const outputHash = `sha256:${hashSlug}`;
   return {
     schemaVersion: "workflow.harness.component-adapter-result.v1",
     invocationId: `default-dispatch:${attemptSlug}`,
@@ -4221,7 +4254,7 @@ function makeDefaultHarnessAdapterResult(
       readiness: component.readiness,
       attemptIndex,
       status: executionMode,
-      inputHash: `sha256:input-${attemptSlug}`,
+      inputHash: `sha256:input-${hashSlug}`,
       outputHash,
       policyDecision,
       receiptIds: [receiptId],
@@ -4247,6 +4280,19 @@ function makeDefaultCognitionAdapterResults(): WorkflowHarnessComponentAdapterRe
       component.policyDecision,
       index + 1,
       "live",
+    ),
+  );
+}
+
+function makeDefaultCognitionShadowAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_COGNITION_LIVE_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultHarnessAdapterResult(
+      component.kind,
+      `${component.attemptSlug}_shadow`,
+      component.policyDecision,
+      index + 24,
+      "shadow",
+      { hashSlug: component.attemptSlug },
     ),
   );
 }
@@ -4654,6 +4700,63 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     cognitionExecutionAdapterResults.map(
       (result) => result.actionFrame.componentKind,
     );
+  const cognitionExecutionShadowAdapterResults =
+    makeDefaultCognitionShadowAdapterResults();
+  const cognitionExecutionShadowActionFrameIds =
+    cognitionExecutionShadowAdapterResults.map(
+      (result) =>
+        `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    );
+  const cognitionExecutionShadowComponentKinds =
+    cognitionExecutionShadowAdapterResults.map(
+      (result) => result.actionFrame.componentKind,
+    );
+  const cognitionExecutionShadowAttemptIds =
+    cognitionExecutionShadowAdapterResults.map(
+      (result) => result.nodeAttempt.attemptId,
+    );
+  const cognitionExecutionShadowReceiptIds =
+    cognitionExecutionShadowAdapterResults.flatMap(
+      (result) => result.receiptIds,
+    );
+  const cognitionExecutionShadowReplayFixtureRefs =
+    cognitionExecutionShadowAdapterResults
+      .map((result) => result.replay.fixtureRef)
+      .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const liveShadowComparisons: WorkflowHarnessShadowComparison[] =
+    cognitionExecutionAdapterResults.flatMap((liveResult, index) => {
+      const shadowResult = cognitionExecutionShadowAdapterResults[index];
+      if (!shadowResult) return [];
+      return [
+        {
+          workflowNodeId: liveResult.nodeAttempt.workflowNodeId,
+          componentKind: liveResult.nodeAttempt.componentKind,
+          liveAttemptId: liveResult.nodeAttempt.attemptId,
+          shadowAttemptId: shadowResult.nodeAttempt.attemptId,
+          divergence: "none",
+          blocking: false,
+          summary:
+            "Live and shadow cognition adapter envelopes match for the default harness turn.",
+          evidenceRefs: uniqueStrings([
+            ...liveResult.nodeAttempt.receiptIds,
+            ...shadowResult.nodeAttempt.receiptIds,
+            liveResult.replay.fixtureRef,
+            shadowResult.replay.fixtureRef,
+          ]),
+          liveReceiptRefs: liveResult.nodeAttempt.receiptIds,
+          shadowReceiptRefs: shadowResult.nodeAttempt.receiptIds,
+          liveReplayFixtureRef: liveResult.replay.fixtureRef,
+          shadowReplayFixtureRef: shadowResult.replay.fixtureRef,
+          liveInputHash: liveResult.nodeAttempt.inputHash,
+          shadowInputHash: shadowResult.nodeAttempt.inputHash,
+          liveOutputHash: liveResult.nodeAttempt.outputHash,
+          shadowOutputHash: shadowResult.nodeAttempt.outputHash,
+        },
+      ];
+    });
+  const liveShadowDivergenceClasses = liveShadowComparisons.map(
+    (comparison) => comparison.divergence,
+  );
   const cognitionExecutionGateAdapterResults =
     makeDefaultCognitionGateAdapterResults();
   const cognitionExecutionGateActionFrameIds =
@@ -4845,30 +4948,38 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         componentKinds: cognitionExecutionLiveReadyComponentKinds,
         readinessReady:
           cognitionExecutionAdapterResults.length >= 3 &&
+          cognitionExecutionShadowAdapterResults.length >= 3 &&
           cognitionExecutionGateAdapterResults.length >= 3,
         receiptRefs: [
           "harness-default-dispatch:receipt-planner_envelope",
           "harness-default-dispatch:receipt-prompt_assembler_envelope",
           "harness-default-dispatch:receipt-task_state_envelope",
+          ...cognitionExecutionShadowReceiptIds,
           ...cognitionExecutionGateReceiptIds,
         ],
         replayFixtureRefs: [
           "harness-default-dispatch:fixture-planner_envelope",
           "harness-default-dispatch:fixture-prompt_assembler_envelope",
           "harness-default-dispatch:fixture-task_state_envelope",
+          ...cognitionExecutionShadowReplayFixtureRefs,
           ...cognitionExecutionGateReplayFixtureRefs,
         ],
         actionFrameIds: [
           ...cognitionExecutionActionFrameIds,
+          ...cognitionExecutionShadowActionFrameIds,
           ...cognitionExecutionGateActionFrameIds,
         ],
         attemptIds: [
           "harness-default-dispatch:attempt-planner_envelope",
           "harness-default-dispatch:attempt-prompt_assembler_envelope",
           "harness-default-dispatch:attempt-task_state_envelope",
+          ...cognitionExecutionShadowAttemptIds,
           ...cognitionExecutionGateAttemptIds,
         ],
-        divergenceClasses: cognitionExecutionGateDivergenceClasses,
+        divergenceClasses: [
+          ...liveShadowDivergenceClasses,
+          ...cognitionExecutionGateDivergenceClasses,
+        ],
         canaryReady: true,
         rollbackReady: true,
         rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -5137,14 +5248,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
   const defaultNodeAttemptIds = uniqueStrings([
     ...(options.nodeAttemptIds ?? []),
+    ...cognitionExecutionShadowAttemptIds,
     ...workerHandoffNodeAttemptIds,
   ]);
   const defaultReceiptIds = uniqueStrings([
     ...(options.receiptIds ?? []),
+    ...cognitionExecutionShadowReceiptIds,
     ...workerHandoffReceiptIds,
   ]);
   const defaultReplayFixtureRefs = uniqueStrings([
     ...(options.replayFixtureRefs ?? []),
+    ...cognitionExecutionShadowReplayFixtureRefs,
     ...workerHandoffReplayFixtureRefs,
   ]);
   return {
@@ -5179,6 +5293,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       "harness-default-dispatch:attempt-planner_envelope",
       "harness-default-dispatch:attempt-prompt_assembler_envelope",
       "harness-default-dispatch:attempt-task_state_envelope",
+      ...cognitionExecutionShadowAttemptIds,
       ...cognitionExecutionGateAttemptIds,
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -5232,6 +5347,22 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     cognitionExecutionAdapterResults,
     cognitionExecutionActionFrameIds,
     cognitionExecutionLiveReadyComponentKinds,
+    cognitionExecutionShadowAdapterMode: "workflow_component_adapter_shadow",
+    cognitionExecutionShadowAttemptIds,
+    cognitionExecutionShadowReceiptIds,
+    cognitionExecutionShadowReplayFixtureRefs,
+    cognitionExecutionShadowAdapterResults,
+    cognitionExecutionShadowActionFrameIds,
+    cognitionExecutionShadowComponentKinds,
+    cognitionExecutionShadowDivergenceClasses: liveShadowDivergenceClasses,
+    liveShadowComparisons,
+    liveShadowComparisonCount: liveShadowComparisons.length,
+    liveShadowBlockingDivergenceCount: liveShadowComparisons.filter(
+      (comparison) => comparison.blocking,
+    ).length,
+    liveShadowUnclassifiedDivergenceCount: liveShadowComparisons.filter(
+      (comparison) => comparison.divergence === "unclassified",
+    ).length,
     cognitionExecutionGateAdapterMode: "workflow_component_adapter_gated",
     cognitionExecutionGateAttemptIds,
     cognitionExecutionGateReceiptIds,
@@ -5506,7 +5637,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       schemaVersion:
         "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1",
       gateId: "reviewed-import-activation-apply",
-      invariantId: DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+      invariantId:
+        DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
       proofPresent: packageImportActivationApplyProofPresent,
       proofPassed: packageImportActivationApplyProofPassed,
       proofBlockers: packageImportActivationApplyProofBlockers,
@@ -5533,6 +5665,21 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       adapterResultCount: cognitionExecutionAdapterResults.length,
       actionFrameIds: cognitionExecutionActionFrameIds,
       liveReadyComponentKinds: cognitionExecutionLiveReadyComponentKinds,
+      shadowAdapterMode: "workflow_component_adapter_shadow",
+      shadowAdapterResultCount: cognitionExecutionShadowAdapterResults.length,
+      shadowAttemptIds: cognitionExecutionShadowAttemptIds,
+      shadowReceiptIds: cognitionExecutionShadowReceiptIds,
+      shadowReplayFixtureRefs: cognitionExecutionShadowReplayFixtureRefs,
+      shadowActionFrameIds: cognitionExecutionShadowActionFrameIds,
+      shadowComponentKinds: cognitionExecutionShadowComponentKinds,
+      shadowDivergenceClasses: liveShadowDivergenceClasses,
+      liveShadowComparisonCount: liveShadowComparisons.length,
+      liveShadowBlockingDivergenceCount: liveShadowComparisons.filter(
+        (comparison) => comparison.blocking,
+      ).length,
+      liveShadowUnclassifiedDivergenceCount: liveShadowComparisons.filter(
+        (comparison) => comparison.divergence === "unclassified",
+      ).length,
       gateAdapterMode: "workflow_component_adapter_gated",
       gateAdapterResultCount: cognitionExecutionGateAdapterResults.length,
       gateAttemptIds: cognitionExecutionGateAttemptIds,
@@ -5549,18 +5696,21 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         "harness-default-dispatch:attempt-planner_envelope",
         "harness-default-dispatch:attempt-prompt_assembler_envelope",
         "harness-default-dispatch:attempt-task_state_envelope",
+        ...cognitionExecutionShadowAttemptIds,
         ...cognitionExecutionGateAttemptIds,
       ],
       receiptIds: [
         "harness-default-dispatch:receipt-planner_envelope",
         "harness-default-dispatch:receipt-prompt_assembler_envelope",
         "harness-default-dispatch:receipt-task_state_envelope",
+        ...cognitionExecutionShadowReceiptIds,
         ...cognitionExecutionGateReceiptIds,
       ],
       replayFixtureRefs: [
         "harness-default-dispatch:fixture-planner_envelope",
         "harness-default-dispatch:fixture-prompt_assembler_envelope",
         "harness-default-dispatch:fixture-task_state_envelope",
+        ...cognitionExecutionShadowReplayFixtureRefs,
         ...cognitionExecutionGateReplayFixtureRefs,
       ],
       policyDecision: "accept_workflow_prompt_assembly_hash_envelope",

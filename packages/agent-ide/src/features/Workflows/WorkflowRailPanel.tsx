@@ -3199,6 +3199,13 @@ export function WorkflowRailPanel({
                     <li
                       key={`${comparison.liveAttemptId}-${comparison.shadowAttemptId}`}
                       className={`is-${comparison.divergence}`}
+                      data-live-attempt-id={comparison.liveAttemptId}
+                      data-shadow-attempt-id={comparison.shadowAttemptId}
+                      data-workflow-node-id={comparison.workflowNodeId}
+                      data-component-kind={comparison.componentKind}
+                      data-divergence={comparison.divergence}
+                      data-blocking={comparison.blocking ? "true" : "false"}
+                      data-evidence-refs={comparison.evidenceRefs.join("|")}
                     >
                       <strong>{comparison.divergence}</strong>
                       <span>{comparison.summary}</span>
@@ -8191,6 +8198,25 @@ export function WorkflowRailPanel({
           }
           data-input-hash={selectedHarnessNodeAttemptInspection.inputHash}
           data-output-hash={selectedHarnessNodeAttemptInspection.outputHash}
+          data-shadow-comparison-live-attempt-id={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              ?.liveAttemptId ?? ""
+          }
+          data-shadow-comparison-shadow-attempt-id={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              ?.shadowAttemptId ?? ""
+          }
+          data-shadow-comparison-divergence={
+            selectedHarnessNodeAttemptInspection.shadowComparison?.divergence ??
+            ""
+          }
+          data-shadow-comparison-blocking={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              ? selectedHarnessNodeAttemptInspection.shadowComparison.blocking
+                ? "true"
+                : "false"
+              : ""
+          }
         >
           <h4>Node attempt</h4>
           <article
@@ -8227,7 +8253,9 @@ export function WorkflowRailPanel({
             </div>
             <div>
               <dt>Binding</dt>
-              <dd>{selectedHarnessNodeAttemptInspection.harnessActivationId}</dd>
+              <dd>
+                {selectedHarnessNodeAttemptInspection.harnessActivationId}
+              </dd>
             </div>
           </dl>
           <article className="workflow-output-row">
@@ -8239,6 +8267,119 @@ export function WorkflowRailPanel({
               {selectedHarnessNodeAttemptInspection.outputHash}
             </small>
           </article>
+        </section>
+      ) : null}
+      {selectedHarnessNodeAttemptInspection?.shadowComparison ? (
+        <section
+          className="workflow-rail-section workflow-harness-live-shadow-comparison-inspector"
+          data-testid="workflow-harness-live-shadow-comparison-inspector"
+          data-live-attempt-id={
+            selectedHarnessNodeAttemptInspection.shadowComparison.liveAttemptId
+          }
+          data-shadow-attempt-id={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              .shadowAttemptId
+          }
+          data-workflow-node-id={
+            selectedHarnessNodeAttemptInspection.shadowComparison.workflowNodeId
+          }
+          data-component-kind={
+            selectedHarnessNodeAttemptInspection.shadowComparison.componentKind
+          }
+          data-divergence={
+            selectedHarnessNodeAttemptInspection.shadowComparison.divergence
+          }
+          data-blocking={
+            selectedHarnessNodeAttemptInspection.shadowComparison.blocking
+              ? "true"
+              : "false"
+          }
+          data-summary={
+            selectedHarnessNodeAttemptInspection.shadowComparison.summary
+          }
+          data-live-receipt-refs={selectedHarnessNodeAttemptInspection.shadowComparison.liveReceiptRefs.join(
+            "|",
+          )}
+          data-shadow-receipt-refs={selectedHarnessNodeAttemptInspection.shadowComparison.shadowReceiptRefs.join(
+            "|",
+          )}
+          data-live-replay-fixture-ref={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              .liveReplayFixtureRef
+          }
+          data-shadow-replay-fixture-ref={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              .shadowReplayFixtureRef
+          }
+          data-live-input-hash={
+            selectedHarnessNodeAttemptInspection.shadowComparison.liveInputHash
+          }
+          data-shadow-input-hash={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              .shadowInputHash
+          }
+          data-live-output-hash={
+            selectedHarnessNodeAttemptInspection.shadowComparison.liveOutputHash
+          }
+          data-shadow-output-hash={
+            selectedHarnessNodeAttemptInspection.shadowComparison
+              .shadowOutputHash
+          }
+        >
+          <h4>Live vs shadow</h4>
+          <article
+            className={`workflow-output-row is-${selectedHarnessNodeAttemptInspection.shadowComparison.divergence}`}
+          >
+            <strong>
+              {selectedHarnessNodeAttemptInspection.shadowComparison.divergence}
+            </strong>
+            <span>
+              {selectedHarnessNodeAttemptInspection.shadowComparison.summary}
+            </span>
+            <small>
+              {selectedHarnessNodeAttemptInspection.shadowComparison.blocking
+                ? "blocking"
+                : "non-blocking"}
+            </small>
+          </article>
+          <dl className="workflow-node-inspector-stats">
+            <div>
+              <dt>Live receipts</dt>
+              <dd>
+                {
+                  selectedHarnessNodeAttemptInspection.shadowComparison
+                    .liveReceiptRefs.length
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Shadow receipts</dt>
+              <dd>
+                {
+                  selectedHarnessNodeAttemptInspection.shadowComparison
+                    .shadowReceiptRefs.length
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Live fixture</dt>
+              <dd>
+                {
+                  selectedHarnessNodeAttemptInspection.shadowComparison
+                    .liveReplayFixtureRef
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Shadow fixture</dt>
+              <dd>
+                {
+                  selectedHarnessNodeAttemptInspection.shadowComparison
+                    .shadowReplayFixtureRef
+                }
+              </dd>
+            </div>
+          </dl>
         </section>
       ) : null}
       {selectedHarnessReceiptInspection ? (
@@ -9453,9 +9594,7 @@ export function WorkflowRailPanel({
                   className="workflow-output-row"
                   data-testid="workflow-selected-node-harness-attempt"
                   data-node-attempt-id={selectedHarnessAttempt.attemptId}
-                  data-workflow-node-id={
-                    selectedHarnessAttempt.workflowNodeId
-                  }
+                  data-workflow-node-id={selectedHarnessAttempt.workflowNodeId}
                   data-component-kind={selectedHarnessAttempt.componentKind}
                   data-component-id={selectedHarnessAttempt.componentId}
                   data-harness-workflow-id={

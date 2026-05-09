@@ -9,6 +9,7 @@ import type {
   WorkflowHarnessNodeAttemptRecord,
   WorkflowHarnessReplayDeterminism,
   WorkflowHarnessReplayEnvelope,
+  WorkflowHarnessShadowComparison,
   WorkflowPortablePackage,
   WorkflowProject,
   WorkflowProposal,
@@ -268,7 +269,27 @@ export interface WorkflowHarnessNodeAttemptInspection {
   replayDeterminism: WorkflowHarnessReplayDeterminism | string;
   replayRedactionPolicy: string;
   evidenceRefs: string[];
+  shadowComparison?: WorkflowHarnessNodeAttemptComparisonInspection | null;
   payloadPreview: WorkflowValuePreview;
+}
+
+export interface WorkflowHarnessNodeAttemptComparisonInspection {
+  workflowNodeId: string;
+  componentKind: string;
+  liveAttemptId: string;
+  shadowAttemptId: string;
+  divergence: string;
+  blocking: boolean;
+  summary: string;
+  evidenceRefs: string[];
+  liveReceiptRefs: string[];
+  shadowReceiptRefs: string[];
+  liveReplayFixtureRef: string;
+  shadowReplayFixtureRef: string;
+  liveInputHash: string;
+  shadowInputHash: string;
+  liveOutputHash: string;
+  shadowOutputHash: string;
 }
 
 export interface ResolveWorkflowHarnessReceiptInspectionOptions {
@@ -307,11 +328,13 @@ function workflowHarnessNodeAttemptInspectionFromAttempt(
     runId,
     sourceKind,
     sourceLabel,
+    shadowComparison = null,
   }: {
     workflow: WorkflowProject;
     runId: string;
     sourceKind: string;
     sourceLabel: string;
+    shadowComparison?: WorkflowHarnessNodeAttemptComparisonInspection | null;
   },
 ): WorkflowHarnessNodeAttemptInspection {
   return {
@@ -340,10 +363,75 @@ function workflowHarnessNodeAttemptInspectionFromAttempt(
     replayDeterminism: attempt.replay.determinism,
     replayRedactionPolicy: attempt.replay.redactionPolicy,
     evidenceRefs: workflowUniqueReceiptRefs(attempt.evidenceRefs),
+    shadowComparison,
     payloadPreview: workflowValuePreview(
       workflowRedactedReceiptPayload(attempt),
     ),
   };
+}
+
+function workflowHarnessNodeAttemptComparisonInspection(
+  comparison: WorkflowHarnessShadowComparison,
+  attempts: WorkflowHarnessNodeAttemptRecord[],
+): WorkflowHarnessNodeAttemptComparisonInspection {
+  const liveAttempt =
+    attempts.find((attempt) => attempt.attemptId === comparison.liveAttemptId) ??
+    null;
+  const shadowAttempt =
+    attempts.find((attempt) => attempt.attemptId === comparison.shadowAttemptId) ??
+    null;
+  return {
+    workflowNodeId: comparison.workflowNodeId,
+    componentKind: comparison.componentKind,
+    liveAttemptId: comparison.liveAttemptId,
+    shadowAttemptId: comparison.shadowAttemptId,
+    divergence: comparison.divergence,
+    blocking: comparison.blocking,
+    summary: comparison.summary,
+    evidenceRefs: workflowUniqueReceiptRefs(comparison.evidenceRefs),
+    liveReceiptRefs: workflowUniqueReceiptRefs([
+      ...(comparison.liveReceiptRefs ?? []),
+      ...(liveAttempt?.receiptIds ?? []),
+    ]),
+    shadowReceiptRefs: workflowUniqueReceiptRefs([
+      ...(comparison.shadowReceiptRefs ?? []),
+      ...(shadowAttempt?.receiptIds ?? []),
+    ]),
+    liveReplayFixtureRef:
+      comparison.liveReplayFixtureRef ??
+      liveAttempt?.replay.fixtureRef ??
+      "not captured",
+    shadowReplayFixtureRef:
+      comparison.shadowReplayFixtureRef ??
+      shadowAttempt?.replay.fixtureRef ??
+      "not captured",
+    liveInputHash:
+      comparison.liveInputHash ?? liveAttempt?.inputHash ?? "not captured",
+    shadowInputHash:
+      comparison.shadowInputHash ?? shadowAttempt?.inputHash ?? "not captured",
+    liveOutputHash:
+      comparison.liveOutputHash ?? liveAttempt?.outputHash ?? "not captured",
+    shadowOutputHash:
+      comparison.shadowOutputHash ??
+      shadowAttempt?.outputHash ??
+      "not captured",
+  };
+}
+
+function workflowHarnessComparisonForAttempt(
+  attemptId: string,
+  comparisons: WorkflowHarnessShadowComparison[],
+  attempts: WorkflowHarnessNodeAttemptRecord[],
+): WorkflowHarnessNodeAttemptComparisonInspection | null {
+  const comparison =
+    comparisons.find(
+      (candidate) =>
+        candidate.liveAttemptId === attemptId ||
+        candidate.shadowAttemptId === attemptId,
+    ) ?? null;
+  return comparison
+    ? workflowHarnessNodeAttemptComparisonInspection(comparison, attempts)
+    : null;
 }
 
 function workflowHarnessDefaultRuntimeNodeAttempts(
@@ -353,6 +441,7 @@ function workflowHarnessDefaultRuntimeNodeAttempts(
   if (!dispatch) return [];
   const adapterAttempts = [
     ...(dispatch.cognitionExecutionAdapterResults ?? []),
+    ...(dispatch.cognitionExecutionShadowAdapterResults ?? []),
     ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
     ...(dispatch.routingModelAdapterResults ?? []),
     ...(dispatch.verificationOutputAdapterResults ?? []),
@@ -392,18 +481,33 @@ export function resolveWorkflowHarnessNodeAttemptInspection({
       .find((attempt) => attempt?.attemptId === nodeAttemptId) ??
     null;
   if (directAttempt) {
+    const directAttempts = [
+      ...(lastRunResult?.harnessAttempts ?? []),
+      ...(lastRunResult?.nodeRuns ?? [])
+        .map((nodeRun) => nodeRun.harnessAttempt ?? null)
+        .filter((attempt): attempt is WorkflowHarnessNodeAttemptRecord =>
+          Boolean(attempt),
+        ),
+    ];
     return workflowHarnessNodeAttemptInspectionFromAttempt(directAttempt, {
       workflow,
       runId,
       sourceKind: "node_attempt",
       sourceLabel: "Workflow node attempt",
+      shadowComparison: workflowHarnessComparisonForAttempt(
+        directAttempt.attemptId,
+        lastRunResult?.harnessShadowComparisons ?? [],
+        directAttempts,
+      ),
     });
   }
 
   const defaultRuntimeDispatch =
     workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+  const defaultRuntimeAttempts =
+    workflowHarnessDefaultRuntimeNodeAttempts(workflow);
   const defaultRuntimeAttempt =
-    workflowHarnessDefaultRuntimeNodeAttempts(workflow).find(
+    defaultRuntimeAttempts.find(
       (attempt) => attempt.attemptId === nodeAttemptId,
     ) ?? null;
   if (defaultRuntimeAttempt) {
@@ -414,6 +518,11 @@ export function resolveWorkflowHarnessNodeAttemptInspection({
         runId: selectedRunId ?? defaultRuntimeDispatch?.dispatchId ?? runId,
         sourceKind: "default_runtime_dispatch",
         sourceLabel: "Default runtime dispatch node attempt",
+        shadowComparison: workflowHarnessComparisonForAttempt(
+          defaultRuntimeAttempt.attemptId,
+          defaultRuntimeDispatch?.liveShadowComparisons ?? [],
+          defaultRuntimeAttempts,
+        ),
       },
     );
   }
