@@ -1740,6 +1740,51 @@ default-live binding, keep the operation reversible through the same rollback
 target, and prove in GUI evidence that apply cannot run against a stale or
 detached proof.
 
+### Implemented: Active Runtime Rollback Apply Proof
+
+The active runtime rollback workbench now carries the apply step past readiness
+into durable execution proof:
+
+- A dedicated `WorkflowHarnessActiveRuntimeRollbackApplyProof` records the
+  apply execution id, rollback receipt id, audit event id, rollback target,
+  readiness proof, live/shadow gate, activation id, harness hash, launch
+  envelope, handoff receipt, node attempt, replay fixture, dry-run canary id,
+  target/hash verification, stale/detached proof guards, receipt refs, replay
+  refs, and blockers.
+- The Apply rollback control now calls a guarded runtime helper. It refuses
+  missing dry-runs, stale proof ids, detached launch/handoff/node/replay state,
+  live-shadow gate mismatch, activation mismatch, hash mismatch, and policy
+  mismatch before marking rollback applied.
+- The active runtime binding rail shows the apply execution status, execution
+  id, rollback receipt id, audit event id, target/hash verification, policy
+  decision, and blockers next to the dry-run canary state.
+- GUI validation now requires
+  `harness_active_runtime_rollback_apply_execution` and
+  `harness_active_runtime_rollback_apply_execution_present`. The retained GUI
+  proof fails unless the same-session workbench clicks Apply after the bound
+  dry-run, records a rollback receipt, records an
+  `active_runtime_rollback_applied` audit event, and proves target/hash
+  verification.
+
+Full retained GUI validation is green in
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T13-04-57-555Z/result.json`.
+That bundle reports all 8 retained queries passing and
+`activeRuntimeRollbackApplyExecution: true`. The apply proof records rollback
+receipt
+`harness-active-runtime-rollback-apply-receipt:default-agent-harness:1778332248215`,
+audit event
+`harness-activation-audit:default-agent-harness:active_runtime_rollback_applied:1778332248215`,
+`rollbackTargetVerified: true`, `hashVerified: true`, and no blockers.
+
+Runtime P3 with required GUI evidence is green at
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T13-11-20-740Z/dashboard-index.json`.
+
+This changes rollback from "dry-runnable and apply-gated" to "applied through a
+durable, audited, receipt-bearing workbench action." The next chronological
+slice should add negative retained GUI proof for stale/detached apply attempts:
+mutate the selected proof binding in a controlled fixture, verify Apply is
+blocked with explicit blocker codes, and keep the happy path unchanged.
+
 ## Current State
 
 ### Roadmap State
