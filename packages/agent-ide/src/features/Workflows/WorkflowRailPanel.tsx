@@ -30,6 +30,7 @@ import type {
 import { workflowInterruptPreview } from "../../runtime/workflow-bottom-panel-model";
 import {
   DEFAULT_AGENT_HARNESS_COMPONENTS,
+  DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
   harnessNodeEvidenceSummary,
   harnessSlotsForWorkflow,
   workflowHarnessLivePromotionReadinessProofBlockers,
@@ -191,8 +192,47 @@ type WorkflowHarnessActivationWizardStep = {
   nodeAttemptIds?: string[];
   receiptRefs?: string[];
   replayFixtureRefs?: string[];
+  requiredInvariantIds?: string[];
+  invariantBlockers?: string[];
   gateAction: WorkflowHarnessActivationGateAction;
 };
+
+function workflowHarnessUniqueStrings(
+  values: Array<string | null | undefined>,
+): string[] {
+  return Array.from(
+    new Set(
+      values.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      ),
+    ),
+  );
+}
+
+function workflowHarnessInvariantIds(
+  ...lists: Array<readonly string[] | null | undefined>
+): string[] {
+  return workflowHarnessUniqueStrings(
+    lists.flatMap((list) => (Array.isArray(list) ? [...list] : [])),
+  );
+}
+
+function workflowHarnessHasReviewedImportActivationInvariant(
+  invariantIds: readonly string[] | null | undefined,
+): boolean {
+  return Boolean(
+    invariantIds?.includes(
+      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+    ),
+  );
+}
+
+function workflowHarnessInvariantBlockers(
+  ...lists: Array<readonly string[] | null | undefined>
+): string[] {
+  return workflowHarnessInvariantIds(...lists);
+}
 
 function workflowHarnessPackageDeepLinkTarget(
   link: { kind?: string; ref?: string } | null | undefined,
@@ -781,7 +821,131 @@ export function WorkflowRailPanel({
             workerAttachReceipt?.accepted === true &&
             workerAttachReceipt.attachStatus === "bound" &&
             workerAttachBlockers.length === 0;
-          const workerBindingAuthorityBlockers = [
+          const workerBindingRequiredInvariantIds = workflowHarnessInvariantIds(
+            harnessWorkerBinding?.requiredInvariantIds,
+            workerBindingRegistryRecord?.workerBinding?.requiredInvariantIds,
+          );
+          const workerBindingInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              harnessWorkerBinding?.invariantBlockers,
+              workerBindingRegistryRecord?.workerBinding?.invariantBlockers,
+            );
+          const workerRegistryRequiredInvariantIds =
+            workflowHarnessInvariantIds(
+              workerBindingRegistryRecord?.requiredInvariantIds,
+              workerBindingRegistryRecord?.workerBinding?.requiredInvariantIds,
+            );
+          const workerRegistryInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              workerBindingRegistryRecord?.invariantBlockers,
+              workerBindingRegistryRecord?.workerBinding?.invariantBlockers,
+            );
+          const workerAttachRequiredInvariantIds = workflowHarnessInvariantIds(
+            workerAttachReceipt?.requiredInvariantIds,
+            workerAttachReceipt?.workerBinding?.requiredInvariantIds,
+          );
+          const workerAttachInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              workerAttachReceipt?.invariantBlockers,
+              workerAttachReceipt?.workerBinding?.invariantBlockers,
+            );
+          const workerAttachLifecycleRequiredInvariantIds =
+            workflowHarnessInvariantIds(
+              ...workerAttachLifecycle.map(
+                (event) => event.requiredInvariantIds,
+              ),
+            );
+          const workerAttachLifecycleInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              ...workerAttachLifecycle.map((event) => event.invariantBlockers),
+            );
+          const workerSessionRequiredInvariantIds = workflowHarnessInvariantIds(
+            workerSessionRecord?.requiredInvariantIds,
+          );
+          const workerSessionInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              workerSessionRecord?.invariantBlockers,
+            );
+          const workerSessionLaunchAuthorityInvariantIds =
+            workflowHarnessInvariantIds(
+              workerSessionRecord?.launchAuthorityInvariantIds,
+            );
+          const workerSessionLaunchAuthorityInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              workerSessionRecord?.launchAuthorityInvariantBlockers,
+            );
+          const workerLaunchEnvelopeInvariantIds = workflowHarnessInvariantIds(
+            ...workerLaunchEnvelopes.map(
+              (envelope) => envelope.launchAuthorityInvariantIds,
+            ),
+          );
+          const workerLaunchEnvelopeInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              ...workerLaunchEnvelopes.map(
+                (envelope) => envelope.launchAuthorityInvariantBlockers,
+              ),
+            );
+          const workerHandoffReceiptInvariantIds = workflowHarnessInvariantIds(
+            ...workerHandoffReceipts.map(
+              (receipt) => receipt.requiredInvariantIds,
+            ),
+          );
+          const workerHandoffReceiptInvariantBlockers =
+            workflowHarnessInvariantBlockers(
+              ...workerHandoffReceipts.map(
+                (receipt) => receipt.invariantBlockers,
+              ),
+            );
+          const workerLaunchReviewedImportInvariantBound =
+            workflowHarnessHasReviewedImportActivationInvariant(
+              workerBindingRequiredInvariantIds,
+            ) &&
+            workerBindingInvariantBlockers.length === 0 &&
+            workflowHarnessHasReviewedImportActivationInvariant(
+              workerRegistryRequiredInvariantIds,
+            ) &&
+            workerRegistryInvariantBlockers.length === 0 &&
+            workflowHarnessHasReviewedImportActivationInvariant(
+              workerAttachRequiredInvariantIds,
+            ) &&
+            workerAttachInvariantBlockers.length === 0 &&
+            workerAttachLifecycle.length >= 3 &&
+            workerAttachLifecycle.every(
+              (event) =>
+                workflowHarnessHasReviewedImportActivationInvariant(
+                  event.requiredInvariantIds,
+                ) && (event.invariantBlockers ?? []).length === 0,
+            ) &&
+            workflowHarnessHasReviewedImportActivationInvariant(
+              workerSessionLaunchAuthorityInvariantIds,
+            ) &&
+            workerSessionLaunchAuthorityInvariantBlockers.length === 0 &&
+            workerLaunchEnvelopes.length >= 3 &&
+            workerLaunchEnvelopes.every(
+              (envelope) =>
+                workflowHarnessHasReviewedImportActivationInvariant(
+                  envelope.launchAuthorityInvariantIds,
+                ) &&
+                (envelope.launchAuthorityInvariantBlockers ?? []).length === 0,
+            ) &&
+            workerHandoffReceipts.length >= 3 &&
+            workerHandoffReceipts.every(
+              (receipt) =>
+                workflowHarnessHasReviewedImportActivationInvariant(
+                  receipt.requiredInvariantIds,
+                ) && (receipt.invariantBlockers ?? []).length === 0,
+            );
+          const workerInvariantBlockers = workflowHarnessInvariantBlockers(
+            workerBindingInvariantBlockers,
+            workerRegistryInvariantBlockers,
+            workerAttachInvariantBlockers,
+            workerAttachLifecycleInvariantBlockers,
+            workerSessionInvariantBlockers,
+            workerSessionLaunchAuthorityInvariantBlockers,
+            workerLaunchEnvelopeInvariantBlockers,
+            workerHandoffReceiptInvariantBlockers,
+          );
+          const workerBindingAuthorityBlockers = workflowHarnessUniqueStrings([
             ...(workflowIdentityMatches ? [] : ["workflow_identity_mismatch"]),
             ...(activationIdentityMatches
               ? []
@@ -842,10 +1006,16 @@ export function WorkflowRailPanel({
             ...(workerHandoffNodeTimelineBound
               ? []
               : ["worker_handoff_node_timeline_not_bound"]),
+            ...(workerLaunchReviewedImportInvariantBound
+              ? []
+              : [
+                  "worker_launch_reviewed_import_activation_invariant_not_bound",
+                ]),
             ...workerBindingRegistryBlockers,
             ...workerAttachBlockers,
             ...workerSessionBlockers,
-          ];
+            ...workerInvariantBlockers,
+          ]);
           const workerBindingAuthorityReady =
             workerBindingAuthorityBlockers.length === 0;
           const effectiveWorkerBinding = harnessWorkerBinding
@@ -891,6 +1061,24 @@ export function WorkflowRailPanel({
             invalidForkLiveActivationBlocked,
             workerBindingAuthorityReady,
             workerBindingAuthorityBlockers,
+            workerLaunchReviewedImportInvariantBound,
+            workerBindingRequiredInvariantIds,
+            workerBindingInvariantBlockers,
+            workerRegistryRequiredInvariantIds,
+            workerRegistryInvariantBlockers,
+            workerAttachRequiredInvariantIds,
+            workerAttachInvariantBlockers,
+            workerAttachLifecycleRequiredInvariantIds,
+            workerAttachLifecycleInvariantBlockers,
+            workerSessionRequiredInvariantIds,
+            workerSessionInvariantBlockers,
+            workerSessionLaunchAuthorityInvariantIds,
+            workerSessionLaunchAuthorityInvariantBlockers,
+            workerLaunchEnvelopeInvariantIds,
+            workerLaunchEnvelopeInvariantBlockers,
+            workerHandoffReceiptInvariantIds,
+            workerHandoffReceiptInvariantBlockers,
+            workerInvariantBlockers,
             workerBindingRegistryRecord,
             workerBindingRegistryBound,
             workerBindingRegistryStatus:
@@ -950,6 +1138,62 @@ export function WorkflowRailPanel({
       true &&
     harnessReadOnlyRoutingProof?.sideEffectsExecuted === false &&
     harnessReadOnlyRoutingProof?.mutationExecuted === false;
+  const harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantIds =
+    workflowHarnessInvariantIds(
+      harnessDefaultRuntimeDispatchProof?.workerSessionRecord
+        ?.launchAuthorityInvariantIds,
+    );
+  const harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      harnessDefaultRuntimeDispatchProof?.workerSessionRecord
+        ?.launchAuthorityInvariantBlockers,
+    );
+  const harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantIds =
+    workflowHarnessInvariantIds(
+      ...(harnessDefaultRuntimeDispatchProof?.workerLaunchEnvelopes ?? []).map(
+        (envelope) => envelope.launchAuthorityInvariantIds,
+      ),
+    );
+  const harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      ...(harnessDefaultRuntimeDispatchProof?.workerLaunchEnvelopes ?? []).map(
+        (envelope) => envelope.launchAuthorityInvariantBlockers,
+      ),
+    );
+  const harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantIds =
+    workflowHarnessInvariantIds(
+      ...(harnessDefaultRuntimeDispatchProof?.workerHandoffReceipts ?? []).map(
+        (receipt) => receipt.requiredInvariantIds,
+      ),
+    );
+  const harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      ...(harnessDefaultRuntimeDispatchProof?.workerHandoffReceipts ?? []).map(
+        (receipt) => receipt.invariantBlockers,
+      ),
+    );
+  const harnessDefaultRuntimeDispatchWorkerLaunchReviewedImportInvariantBound =
+    workflowHarnessHasReviewedImportActivationInvariant(
+      harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantIds,
+    ) &&
+    harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantBlockers.length ===
+      0 &&
+    (harnessDefaultRuntimeDispatchProof?.workerLaunchEnvelopes ?? []).length >=
+      3 &&
+    (harnessDefaultRuntimeDispatchProof?.workerLaunchEnvelopes ?? []).every(
+      (envelope) =>
+        workflowHarnessHasReviewedImportActivationInvariant(
+          envelope.launchAuthorityInvariantIds,
+        ) && (envelope.launchAuthorityInvariantBlockers ?? []).length === 0,
+    ) &&
+    (harnessDefaultRuntimeDispatchProof?.workerHandoffReceipts ?? []).length >=
+      3 &&
+    (harnessDefaultRuntimeDispatchProof?.workerHandoffReceipts ?? []).every(
+      (receipt) =>
+        workflowHarnessHasReviewedImportActivationInvariant(
+          receipt.requiredInvariantIds,
+        ) && (receipt.invariantBlockers ?? []).length === 0,
+    );
   const harnessAuthorityToolingProof =
     harnessDefaultRuntimeDispatchProof?.authorityToolingProof ?? null;
   const harnessAuthorityPolicyGateNode =
@@ -1231,7 +1475,155 @@ export function WorkflowRailPanel({
   );
   const harnessActivationWorkerHandoffReceiptIds =
     harnessActivationWorkerHandoffReceipts.map((receipt) => receipt.receiptId);
+  const harnessActivationWorkerBindingRegistryRecord =
+    harnessActivationRecord?.workerBindingRegistryRecord ??
+    workflow.metadata.harness?.workerBindingRegistryRecord ??
+    null;
+  const harnessActivationWorkerAttachReceipt =
+    harnessActivationRecord?.workerAttachReceipt ??
+    workflow.metadata.harness?.workerAttachReceipt ??
+    null;
+  const harnessActivationWorkerAttachLifecycle =
+    harnessActivationRecord?.workerAttachLifecycle ??
+    workflow.metadata.harness?.workerAttachLifecycle ??
+    [];
+  const harnessActivationWorkerSessionRecord =
+    harnessActivationRecord?.workerSessionRecord ??
+    workflow.metadata.harness?.workerSessionRecord ??
+    null;
+  const harnessActivationWorkerBindingInvariantIds =
+    workflowHarnessInvariantIds(
+      harnessWorkerBinding?.requiredInvariantIds,
+      harnessActivationRecord?.workerBinding?.requiredInvariantIds,
+      harnessActivationWorkerBindingRegistryRecord?.workerBinding
+        ?.requiredInvariantIds,
+    );
+  const harnessActivationWorkerBindingInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      harnessWorkerBinding?.invariantBlockers,
+      harnessActivationRecord?.workerBinding?.invariantBlockers,
+      harnessActivationWorkerBindingRegistryRecord?.workerBinding
+        ?.invariantBlockers,
+    );
+  const harnessActivationWorkerRegistryInvariantIds =
+    workflowHarnessInvariantIds(
+      harnessActivationWorkerBindingRegistryRecord?.requiredInvariantIds,
+      harnessActivationWorkerBindingRegistryRecord?.workerBinding
+        ?.requiredInvariantIds,
+    );
+  const harnessActivationWorkerRegistryInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      harnessActivationWorkerBindingRegistryRecord?.invariantBlockers,
+      harnessActivationWorkerBindingRegistryRecord?.workerBinding
+        ?.invariantBlockers,
+    );
+  const harnessActivationWorkerAttachInvariantIds = workflowHarnessInvariantIds(
+    harnessActivationWorkerAttachReceipt?.requiredInvariantIds,
+    harnessActivationWorkerAttachReceipt?.workerBinding?.requiredInvariantIds,
+  );
+  const harnessActivationWorkerAttachInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      harnessActivationWorkerAttachReceipt?.invariantBlockers,
+      harnessActivationWorkerAttachReceipt?.workerBinding?.invariantBlockers,
+      ...harnessActivationWorkerAttachLifecycle.map(
+        (event) => event.invariantBlockers,
+      ),
+    );
+  const harnessActivationWorkerSessionLaunchAuthorityInvariantIds =
+    workflowHarnessInvariantIds(
+      harnessActivationWorkerSessionRecord?.launchAuthorityInvariantIds,
+    );
+  const harnessActivationWorkerSessionInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      harnessActivationWorkerSessionRecord?.invariantBlockers,
+      harnessActivationWorkerSessionRecord?.launchAuthorityInvariantBlockers,
+    );
+  const harnessActivationWorkerLaunchEnvelopeInvariantIds =
+    workflowHarnessInvariantIds(
+      ...harnessActivationWorkerLaunchEnvelopes.map(
+        (envelope) => envelope.launchAuthorityInvariantIds,
+      ),
+    );
+  const harnessActivationWorkerLaunchEnvelopeInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      ...harnessActivationWorkerLaunchEnvelopes.map(
+        (envelope) => envelope.launchAuthorityInvariantBlockers,
+      ),
+    );
+  const harnessActivationWorkerHandoffReceiptInvariantIds =
+    workflowHarnessInvariantIds(
+      ...harnessActivationWorkerHandoffReceipts.map(
+        (receipt) => receipt.requiredInvariantIds,
+      ),
+    );
+  const harnessActivationWorkerHandoffReceiptInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      ...harnessActivationWorkerHandoffReceipts.map(
+        (receipt) => receipt.invariantBlockers,
+      ),
+    );
+  const harnessActivationWorkerRequiredInvariantIds =
+    workflowHarnessInvariantIds(
+      harnessActivationWorkerBindingInvariantIds,
+      harnessActivationWorkerRegistryInvariantIds,
+      harnessActivationWorkerAttachInvariantIds,
+      harnessActivationWorkerSessionLaunchAuthorityInvariantIds,
+      harnessActivationWorkerLaunchEnvelopeInvariantIds,
+      harnessActivationWorkerHandoffReceiptInvariantIds,
+    );
+  const harnessActivationWorkerRawInvariantBlockers =
+    workflowHarnessInvariantBlockers(
+      harnessActivationWorkerBindingInvariantBlockers,
+      harnessActivationWorkerRegistryInvariantBlockers,
+      harnessActivationWorkerAttachInvariantBlockers,
+      harnessActivationWorkerSessionInvariantBlockers,
+      harnessActivationWorkerLaunchEnvelopeInvariantBlockers,
+      harnessActivationWorkerHandoffReceiptInvariantBlockers,
+    );
+  const harnessActivationWorkerInvariantReady =
+    workflowHarnessHasReviewedImportActivationInvariant(
+      harnessActivationWorkerBindingInvariantIds,
+    ) &&
+    workflowHarnessHasReviewedImportActivationInvariant(
+      harnessActivationWorkerRegistryInvariantIds,
+    ) &&
+    workflowHarnessHasReviewedImportActivationInvariant(
+      harnessActivationWorkerAttachInvariantIds,
+    ) &&
+    harnessActivationWorkerAttachLifecycle.length >= 3 &&
+    harnessActivationWorkerAttachLifecycle.every(
+      (event) =>
+        workflowHarnessHasReviewedImportActivationInvariant(
+          event.requiredInvariantIds,
+        ) && (event.invariantBlockers ?? []).length === 0,
+    ) &&
+    workflowHarnessHasReviewedImportActivationInvariant(
+      harnessActivationWorkerSessionLaunchAuthorityInvariantIds,
+    ) &&
+    harnessActivationWorkerLaunchEnvelopes.length >= 3 &&
+    harnessActivationWorkerLaunchEnvelopes.every(
+      (envelope) =>
+        workflowHarnessHasReviewedImportActivationInvariant(
+          envelope.launchAuthorityInvariantIds,
+        ) && (envelope.launchAuthorityInvariantBlockers ?? []).length === 0,
+    ) &&
+    harnessActivationWorkerHandoffReceipts.length >= 3 &&
+    harnessActivationWorkerHandoffReceipts.every(
+      (receipt) =>
+        workflowHarnessHasReviewedImportActivationInvariant(
+          receipt.requiredInvariantIds,
+        ) && (receipt.invariantBlockers ?? []).length === 0,
+    ) &&
+    harnessActivationWorkerRawInvariantBlockers.length === 0;
+  const harnessActivationWorkerInvariantBlockers =
+    harnessActivationWorkerInvariantReady
+      ? []
+      : workflowHarnessUniqueStrings([
+          ...harnessActivationWorkerRawInvariantBlockers,
+          "worker_launch_reviewed_import_activation_invariant_not_bound",
+        ]);
   const harnessActivationWorkerLaunchHandoffReady =
+    harnessActivationWorkerInvariantReady &&
     harnessActivationWorkerLaunchEnvelopes.length >= 3 &&
     harnessActivationWorkerLaunchEnvelopes.every(
       (envelope) =>
@@ -1346,13 +1738,16 @@ export function WorkflowRailPanel({
   )
     ? harnessPackageManifest.replayFixtureRefs
     : [];
-  const harnessPackageDeepLinks = Array.isArray(harnessPackageManifest?.deepLinks)
+  const harnessPackageDeepLinks = Array.isArray(
+    harnessPackageManifest?.deepLinks,
+  )
     ? harnessPackageManifest.deepLinks
     : [];
   const harnessPackageInspectableDeepLinks = [...harnessPackageDeepLinks].sort(
     (left, right) => {
       if (left?.kind === "activation" && right?.kind !== "activation") return 1;
-      if (right?.kind === "activation" && left?.kind !== "activation") return -1;
+      if (right?.kind === "activation" && left?.kind !== "activation")
+        return -1;
       return 0;
     },
   );
@@ -1380,12 +1775,12 @@ export function WorkflowRailPanel({
     : !harnessPackageManifestRequired ||
       Boolean(
         harnessPackageManifest &&
-          harnessPackageReceiptRefValues.length > 0 &&
-          harnessPackageReplayFixtureRefValues.length > 0 &&
-          harnessPackageDeepLinks.length > 0 &&
-          harnessPackageWorkerHandoffNodeAttemptIds.length > 0 &&
-          harnessPackageWorkerHandoffReceiptIds.length > 0 &&
-          harnessPackageRollbackRestoreReceiptRefs.length > 0,
+        harnessPackageReceiptRefValues.length > 0 &&
+        harnessPackageReplayFixtureRefValues.length > 0 &&
+        harnessPackageDeepLinks.length > 0 &&
+        harnessPackageWorkerHandoffNodeAttemptIds.length > 0 &&
+        harnessPackageWorkerHandoffReceiptIds.length > 0 &&
+        harnessPackageRollbackRestoreReceiptRefs.length > 0,
       );
   const harnessPackageEvidenceRefs = workflowUniqueReceiptRefs([
     harnessPackageManifest?.activationId,
@@ -1762,6 +2157,13 @@ export function WorkflowRailPanel({
         "Re-run worker binding readiness against workflow id, activation id, and hash.",
       blocker: activationValidationBlocker,
     }),
+    "worker-invariant": makeReadinessGateAction({
+      gateId: "worker-invariant",
+      label: "Check launch invariant",
+      detail:
+        "Re-run worker launch readiness against reviewed import activation apply invariants.",
+      blocker: activationValidationBlocker,
+    }),
     "worker-handoff": makeReadinessGateAction({
       gateId: "worker-handoff",
       label: "Check handoff",
@@ -1929,16 +2331,41 @@ export function WorkflowRailPanel({
       gateAction: harnessActivationGateActions["worker-binding"],
     },
     {
+      id: "worker-invariant",
+      label: "Worker invariant",
+      ready: harnessActivationWorkerInvariantReady,
+      value: harnessActivationWorkerInvariantReady ? "bound" : "blocked",
+      detail:
+        "worker launch is bound to reviewed import activation apply across binding, attach, session, envelope, and handoff",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+        ...harnessActivationWorkerRequiredInvariantIds,
+        ...harnessActivationWorkerInvariantBlockers,
+      ]),
+      receiptRefs: workflowUniqueReceiptRefs([
+        ...harnessActivationWorkerHandoffReceiptIds,
+      ]),
+      replayFixtureRefs: workflowUniqueReplayFixtureRefs([
+        ...harnessActivationWorkerHandoffReplayFixtureRefs,
+      ]),
+      requiredInvariantIds: harnessActivationWorkerRequiredInvariantIds,
+      invariantBlockers: harnessActivationWorkerInvariantBlockers,
+      gateAction: harnessActivationGateActions["worker-invariant"],
+    },
+    {
       id: "worker-handoff",
       label: "Worker handoff",
       ready: harnessActivationWorkerHandoffTimelineReady,
       value: harnessActivationWorkerHandoffTimelineReady
         ? "timeline"
         : "blocked",
-      detail: "launch, resume, rollback handoff attempts bound to replay refs",
+      detail:
+        "launch, resume, rollback handoff attempts bound to replay refs and reviewed import launch invariant",
       evidenceRefs: workflowUniqueReceiptRefs([
         ...harnessActivationWorkerHandoffNodeAttemptIds,
         ...harnessActivationWorkerHandoffReplayFixtureRefs,
+        ...harnessActivationWorkerRequiredInvariantIds,
+        ...harnessActivationWorkerInvariantBlockers,
       ]),
       nodeAttemptIds: workflowUniqueReceiptRefs([
         ...harnessActivationWorkerHandoffNodeAttemptIds,
@@ -1949,6 +2376,8 @@ export function WorkflowRailPanel({
       replayFixtureRefs: workflowUniqueReplayFixtureRefs([
         ...harnessActivationWorkerHandoffReplayFixtureRefs,
       ]),
+      requiredInvariantIds: harnessActivationWorkerRequiredInvariantIds,
+      invariantBlockers: harnessActivationWorkerInvariantBlockers,
       gateAction: harnessActivationGateActions["worker-handoff"],
     },
   ];
@@ -1968,6 +2397,8 @@ export function WorkflowRailPanel({
         nodeAttemptIds: string[];
         receiptRefs: string[];
         replayFixtureRefs: string[];
+        requiredInvariantIds: string[];
+        invariantBlockers: string[];
         gateAction: WorkflowHarnessActivationGateAction | null;
       })
     | null = selectedHarnessActivationGateId
@@ -2007,6 +2438,12 @@ export function WorkflowRailPanel({
             : workflowUniqueReplayFixtureRefs(
                 selectedHarnessActivationWizardStep?.replayFixtureRefs ?? [],
               ),
+        requiredInvariantIds: workflowHarnessInvariantIds(
+          selectedHarnessActivationWizardStep?.requiredInvariantIds,
+        ),
+        invariantBlockers: workflowHarnessInvariantBlockers(
+          selectedHarnessActivationWizardStep?.invariantBlockers,
+        ),
         gateAction:
           harnessActivationGateActions[selectedHarnessActivationGateId] ??
           selectedHarnessActivationWizardStep?.gateAction ??
@@ -2020,8 +2457,7 @@ export function WorkflowRailPanel({
     selectedHarnessActivationGateId === "canary"
       ? (harnessCanaryExecutionBoundaries.find(
           (boundary) =>
-            selectedHarnessActivationGateEvidenceRef ===
-              boundary.boundaryId ||
+            selectedHarnessActivationGateEvidenceRef === boundary.boundaryId ||
             selectedHarnessActivationGateEvidenceRef ===
               boundary.rollbackDrill.drillId ||
             (selectedHarnessActivationGateReceiptRef
@@ -3485,6 +3921,17 @@ export function WorkflowRailPanel({
                     ? "true"
                     : "false"
                 }
+                data-worker-launch-reviewed-import-invariant-bound={
+                  harnessActiveRuntimeBinding.workerLaunchReviewedImportInvariantBound
+                    ? "true"
+                    : "false"
+                }
+                data-worker-required-invariant-ids={harnessActiveRuntimeBinding.workerBindingRequiredInvariantIds.join(
+                  ",",
+                )}
+                data-worker-invariant-blockers={harnessActiveRuntimeBinding.workerInvariantBlockers.join(
+                  ",",
+                )}
                 data-worker-binding-registry-bound={
                   harnessActiveRuntimeBinding.workerBindingRegistryBound
                     ? "true"
@@ -3558,6 +4005,14 @@ export function WorkflowRailPanel({
                     </dd>
                   </div>
                   <div>
+                    <dt>Invariant</dt>
+                    <dd>
+                      {harnessActiveRuntimeBinding.workerLaunchReviewedImportInvariantBound
+                        ? "bound"
+                        : "blocked"}
+                    </dd>
+                  </div>
+                  <div>
                     <dt>Registry</dt>
                     <dd>
                       {harnessActiveRuntimeBinding.workerBindingRegistryStatus}
@@ -3619,6 +4074,59 @@ export function WorkflowRailPanel({
                       ? "true"
                       : "false"
                   }
+                  data-worker-launch-reviewed-import-invariant-bound={
+                    harnessActiveRuntimeBinding.workerLaunchReviewedImportInvariantBound
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-binding-required-invariant-ids={harnessActiveRuntimeBinding.workerBindingRequiredInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-binding-invariant-blockers={harnessActiveRuntimeBinding.workerBindingInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-registry-required-invariant-ids={harnessActiveRuntimeBinding.workerRegistryRequiredInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-registry-invariant-blockers={harnessActiveRuntimeBinding.workerRegistryInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-attach-required-invariant-ids={harnessActiveRuntimeBinding.workerAttachRequiredInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-attach-invariant-blockers={harnessActiveRuntimeBinding.workerAttachInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-attach-lifecycle-required-invariant-ids={harnessActiveRuntimeBinding.workerAttachLifecycleRequiredInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-attach-lifecycle-invariant-blockers={harnessActiveRuntimeBinding.workerAttachLifecycleInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-session-required-invariant-ids={harnessActiveRuntimeBinding.workerSessionRequiredInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-session-invariant-blockers={harnessActiveRuntimeBinding.workerSessionInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-session-launch-authority-invariant-ids={harnessActiveRuntimeBinding.workerSessionLaunchAuthorityInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-session-launch-authority-invariant-blockers={harnessActiveRuntimeBinding.workerSessionLaunchAuthorityInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-launch-envelope-invariant-ids={harnessActiveRuntimeBinding.workerLaunchEnvelopeInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-launch-envelope-invariant-blockers={harnessActiveRuntimeBinding.workerLaunchEnvelopeInvariantBlockers.join(
+                    ",",
+                  )}
+                  data-worker-handoff-receipt-invariant-ids={harnessActiveRuntimeBinding.workerHandoffReceiptInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-handoff-receipt-invariant-blockers={harnessActiveRuntimeBinding.workerHandoffReceiptInvariantBlockers.join(
+                    ",",
+                  )}
                   data-worker-binding-registry-record-id={
                     harnessActiveRuntimeBinding.workerBindingRegistryRecord
                       ?.registryRecordId ?? ""
@@ -3818,6 +4326,25 @@ export function WorkflowRailPanel({
                       : "handoff blocked"}
                   </small>
                   <small>
+                    invariant{" "}
+                    {
+                      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+                    }{" "}
+                    ·{" "}
+                    {harnessActiveRuntimeBinding.workerLaunchReviewedImportInvariantBound
+                      ? "bound"
+                      : "blocked"}
+                  </small>
+                  {harnessActiveRuntimeBinding.workerInvariantBlockers.length >
+                  0 ? (
+                    <small>
+                      invariant blockers{" "}
+                      {harnessActiveRuntimeBinding.workerInvariantBlockers.join(
+                        ", ",
+                      )}
+                    </small>
+                  ) : null}
+                  <small>
                     envelopes{" "}
                     {harnessActiveRuntimeBinding.workerLaunchEnvelopes.length} ·
                     handoff receipts{" "}
@@ -3825,8 +4352,11 @@ export function WorkflowRailPanel({
                   </small>
                   <small>
                     handoff attempts{" "}
-                    {harnessActiveRuntimeBinding.workerHandoffNodeAttempts.length} ·
-                    replay fixtures{" "}
+                    {
+                      harnessActiveRuntimeBinding.workerHandoffNodeAttempts
+                        .length
+                    }{" "}
+                    · replay fixtures{" "}
                     {
                       harnessActiveRuntimeBinding.workerHandoffReplayFixtureRefs
                         .length
@@ -4823,6 +5353,14 @@ export function WorkflowRailPanel({
                         : "blocked"}
                     </dd>
                   </div>
+                  <div>
+                    <dt>Invariant</dt>
+                    <dd>
+                      {harnessActivationWorkerInvariantReady
+                        ? "bound"
+                        : "blocked"}
+                    </dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${harnessActivationReady ? "ready" : "blocked"}`}
@@ -4845,6 +5383,15 @@ export function WorkflowRailPanel({
                   data-worker-handoff-replay-fixture-refs={harnessActivationWorkerHandoffReplayFixtureRefs.join(
                     ",",
                   )}
+                  data-worker-launch-reviewed-import-invariant-bound={
+                    harnessActivationWorkerInvariantReady ? "true" : "false"
+                  }
+                  data-worker-required-invariant-ids={harnessActivationWorkerRequiredInvariantIds.join(
+                    ",",
+                  )}
+                  data-worker-invariant-blockers={harnessActivationWorkerInvariantBlockers.join(
+                    ",",
+                  )}
                 >
                   <strong>
                     {harnessActivationReady
@@ -4863,8 +5410,17 @@ export function WorkflowRailPanel({
                     {harnessActivationRecord?.rollbackTarget ?? "not set"} ·
                     worker{" "}
                     {harnessWorkerBinding?.harnessWorkflowId ?? "unbound"} ·
-                    handoff{" "}
-                    {harnessActivationWorkerHandoffNodeAttempts.length}
+                    handoff {harnessActivationWorkerHandoffNodeAttempts.length}
+                  </small>
+                  <small>
+                    invariant{" "}
+                    {
+                      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+                    }{" "}
+                    ·{" "}
+                    {harnessActivationWorkerInvariantReady
+                      ? "bound"
+                      : "blocked"}
                   </small>
                 </article>
                 {harnessActivationCandidate ? (
@@ -5081,6 +5637,12 @@ export function WorkflowRailPanel({
                       data-gate-action-kind={step.gateAction.kind}
                       data-gate-action-impact={step.gateAction.impact}
                       data-gate-action-command={step.gateAction.commandTestId}
+                      data-required-invariant-ids={(
+                        step.requiredInvariantIds ?? []
+                      ).join(",")}
+                      data-invariant-blockers={(
+                        step.invariantBlockers ?? []
+                      ).join(",")}
                     >
                       <strong>{step.label}</strong>
                       <span>{step.value}</span>
@@ -5169,6 +5731,16 @@ export function WorkflowRailPanel({
                       selectedHarnessActivationGateInspection.replayFixtureRefs
                         .length
                     }
+                    data-required-invariant-ids={selectedHarnessActivationGateInspection.requiredInvariantIds.join(
+                      ",",
+                    )}
+                    data-invariant-blockers={selectedHarnessActivationGateInspection.invariantBlockers.join(
+                      ",",
+                    )}
+                    data-invariant-blocker-count={
+                      selectedHarnessActivationGateInspection.invariantBlockers
+                        .length
+                    }
                     data-gate-action-id={
                       selectedHarnessActivationGateInspection.gateAction
                         ?.actionId ?? ""
@@ -5206,6 +5778,20 @@ export function WorkflowRailPanel({
                       <small>
                         {selectedHarnessActivationGateInspection.detail}
                       </small>
+                      {selectedHarnessActivationGateInspection
+                        .requiredInvariantIds.length > 0 ? (
+                        <small>
+                          invariants{" "}
+                          {selectedHarnessActivationGateInspection.requiredInvariantIds.join(
+                            ", ",
+                          )}{" "}
+                          · blockers{" "}
+                          {
+                            selectedHarnessActivationGateInspection
+                              .invariantBlockers.length
+                          }
+                        </small>
+                      ) : null}
                     </article>
                     <div
                       className="workflow-harness-authority-gate-actions"
@@ -5265,7 +5851,8 @@ export function WorkflowRailPanel({
                             data-testid="workflow-harness-package-import-review"
                             data-package-import-review-open="true"
                             data-package-import-source-workflow-path={
-                              packageImportReview.source.sourceWorkflowPath ?? ""
+                              packageImportReview.source.sourceWorkflowPath ??
+                              ""
                             }
                             data-package-import-source-workflow-id={
                               packageImportReview.source.workflowId ?? ""
@@ -5306,8 +5893,8 @@ export function WorkflowRailPanel({
                               {packageImportReview.evidence.packageEvidenceReady
                                 ? "package evidence ready for activation"
                                 : `${packageImportReview.evidence.blockerCount} package evidence blocker${
-                                    packageImportReview.evidence.blockerCount ===
-                                    1
+                                    packageImportReview.evidence
+                                      .blockerCount === 1
                                       ? ""
                                       : "s"
                                   }`}
@@ -5324,7 +5911,8 @@ export function WorkflowRailPanel({
                                     "unknown"}
                                 </span>
                                 <small>
-                                  {packageImportReview.source.sourceWorkflowPath ??
+                                  {packageImportReview.source
+                                    .sourceWorkflowPath ??
                                     packageImportReview.packagePath}
                                 </small>
                               </div>
@@ -5499,7 +6087,9 @@ export function WorkflowRailPanel({
                                     type="button"
                                     className="workflow-harness-ref-button"
                                     data-testid="workflow-harness-package-import-handoff-worker-link"
-                                    disabled={!packageImportHandoffWorkerBindingId}
+                                    disabled={
+                                      !packageImportHandoffWorkerBindingId
+                                    }
                                     onClick={() =>
                                       onCopyHarnessDeepLink?.({
                                         panel: "settings",
@@ -6090,6 +6680,17 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerSessionRecord
                     ?.launchAuthoritySource ?? ""
                 }
+                data-worker-launch-reviewed-import-invariant-bound={
+                  harnessDefaultRuntimeDispatchWorkerLaunchReviewedImportInvariantBound
+                    ? "true"
+                    : "false"
+                }
+                data-worker-session-launch-authority-invariant-ids={harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantIds.join(
+                  ",",
+                )}
+                data-worker-session-launch-authority-invariant-blockers={harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantBlockers.join(
+                  ",",
+                )}
                 data-worker-session-rollback-handoff-ready={
                   harnessDefaultRuntimeDispatchProof.workerSessionRecord
                     ?.rollbackHandoffReady
@@ -6110,6 +6711,12 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerLaunchEnvelopeIds ??
                   []
                 ).join(",")}
+                data-worker-launch-envelope-invariant-ids={harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantIds.join(
+                  ",",
+                )}
+                data-worker-launch-envelope-invariant-blockers={harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantBlockers.join(
+                  ",",
+                )}
                 data-worker-handoff-receipt-count={
                   (
                     harnessDefaultRuntimeDispatchProof.workerHandoffReceipts ??
@@ -6120,6 +6727,12 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerHandoffReceiptIds ??
                   []
                 ).join(",")}
+                data-worker-handoff-receipt-invariant-ids={harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantIds.join(
+                  ",",
+                )}
+                data-worker-handoff-receipt-invariant-blockers={harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantBlockers.join(
+                  ",",
+                )}
                 data-worker-rollback-handoff-receipt-status={
                   harnessDefaultRuntimeDispatchProof.workerHandoffReceipts?.find(
                     (receipt) => receipt.phase === "rollback",
@@ -6177,6 +6790,16 @@ export function WorkflowRailPanel({
                     ?.rollbackHandoffReady
                     ? "handoff ready"
                     : "handoff blocked"}
+                </small>
+                <small>
+                  launch invariant{" "}
+                  {
+                    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+                  }{" "}
+                  ·{" "}
+                  {harnessDefaultRuntimeDispatchWorkerLaunchReviewedImportInvariantBound
+                    ? "bound"
+                    : "blocked"}
                 </small>
                 <small>
                   envelopes{" "}
@@ -6456,9 +7079,7 @@ export function WorkflowRailPanel({
                 data-selected-canary-boundary-id={
                   selectedHarnessCanaryBoundary?.boundaryId ?? ""
                 }
-                data-selected-rollback-drill-id={
-                  selectedHarnessRollbackDrillId
-                }
+                data-selected-rollback-drill-id={selectedHarnessRollbackDrillId}
                 data-selected-canary-receipt-ref={
                   selectedHarnessActivationGateReceiptRef ??
                   selectedHarnessReceiptRef ??
@@ -6521,13 +7142,11 @@ export function WorkflowRailPanel({
                               panel: "settings",
                               activationGateId: "canary",
                               activationGateEvidenceRef: boundary.boundaryId,
-                              activationGateReceiptRef:
-                                boundary.receiptIds[0],
+                              activationGateReceiptRef: boundary.receiptIds[0],
                               receiptRef: boundary.receiptIds[0],
                               activationGateReplayFixtureRef:
                                 boundary.replayFixtureRefs[0],
-                              replayFixtureRef:
-                                boundary.replayFixtureRefs[0],
+                              replayFixtureRef: boundary.replayFixtureRefs[0],
                             })
                           }
                         >
@@ -6542,13 +7161,11 @@ export function WorkflowRailPanel({
                               activationGateId: "canary",
                               activationGateEvidenceRef:
                                 boundary.rollbackDrill.drillId,
-                              activationGateReceiptRef:
-                                boundary.receiptIds[0],
+                              activationGateReceiptRef: boundary.receiptIds[0],
                               receiptRef: boundary.receiptIds[0],
                               activationGateReplayFixtureRef:
                                 boundary.replayFixtureRefs[0],
-                              replayFixtureRef:
-                                boundary.replayFixtureRefs[0],
+                              replayFixtureRef: boundary.replayFixtureRefs[0],
                             })
                           }
                         >
