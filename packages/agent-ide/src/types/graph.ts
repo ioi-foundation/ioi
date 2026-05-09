@@ -1541,6 +1541,35 @@ export interface WorkflowHarnessActiveRuntimeRollbackApplyProof {
   passed: boolean;
 }
 
+export interface WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof {
+  schemaVersion:
+    | "workflow.harness.active-runtime-rollback-negative-apply-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  workflowId: string;
+  cases: Array<{
+    caseId: string;
+    mutationKind: "stale_proof" | "detached_proof" | string;
+    expectedBlockers: string[];
+    observedRailBlockers: string[];
+    runtimeBlockers: string[];
+    selectedRailTestId?: string | null;
+    applyButtonDisabled: boolean;
+    applyStatus: "blocked" | "applied" | string;
+    staleProofBlocked: boolean;
+    detachedProofBlocked: boolean;
+    rollbackApplied: boolean;
+    rollbackTargetVerified: boolean;
+    hashVerified: boolean;
+    rollbackReceiptId?: string | null;
+    auditEventId?: string | null;
+    passed: boolean;
+  }>;
+  passed: boolean;
+  blockers: string[];
+}
+
 export type WorkflowHarnessReplayDrillDivergenceClass =
   | "none"
   | "harmless_metadata_drift"
@@ -3016,6 +3045,7 @@ export interface WorkflowHarnessMetadata {
   activeRuntimeRollbackProofWorkbenchProof?: WorkflowHarnessDeepLinkReplayProof;
   activeRuntimeRollbackExecutionProof?: WorkflowHarnessActiveRuntimeRollbackExecutionProof;
   activeRuntimeRollbackApplyProof?: WorkflowHarnessActiveRuntimeRollbackApplyProof;
+  activeRuntimeRollbackNegativeApplyProof?: WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;

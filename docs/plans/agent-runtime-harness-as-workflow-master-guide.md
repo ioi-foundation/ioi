@@ -1785,6 +1785,48 @@ slice should add negative retained GUI proof for stale/detached apply attempts:
 mutate the selected proof binding in a controlled fixture, verify Apply is
 blocked with explicit blocker codes, and keep the happy path unchanged.
 
+### Implemented: Active Runtime Rollback Negative Apply Guardrail
+
+The apply path now has retained GUI evidence for the failure mode that matters
+most: a proof that was valid during dry-run but no longer matches the live
+rollback binding.
+
+- A dedicated `WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof` records
+  negative cases, mutation kind, expected blockers, rail-visible blockers,
+  runtime blockers, Apply disabled state, apply status, stale/detached flags,
+  target/hash verification, rollback receipt id, audit event id, and pass/fail
+  state.
+- The live GUI probe creates a controlled `stale-hash-node-replay` fixture by
+  mutating the rollback harness hash, node attempt id, and replay fixture after
+  dry-run. The rail must keep Apply disabled and expose
+  `rollback_harness_hash_stale`, `rollback_node_attempt_stale`,
+  `rollback_replay_fixture_stale`, and `rollback_apply_hash_not_verified`.
+- The same stale fixture is sent through the guarded runtime apply helper. The
+  helper must refuse the apply, mark `staleProofBlocked: true`, keep
+  `rollbackApplied: false`, and return the same explicit blocker codes.
+- GUI validation now requires
+  `harness_active_runtime_rollback_negative_apply` and
+  `harness_active_runtime_rollback_negative_apply_present` in addition to the
+  happy-path apply execution proof.
+
+Full retained GUI validation is green in
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T13-28-19-000Z/result.json`.
+That bundle reports all 8 retained queries passing and
+`activeRuntimeRollbackNegativeApply: true`. The negative case records
+`applyButtonDisabled: true`, `applyStatus: blocked`,
+`staleProofBlocked: true`, `rollbackApplied: false`, rail-visible stale blocker
+codes, matching runtime blocker codes, and no proof-level blockers.
+
+Runtime P3 with required GUI evidence is green at
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T13-34-37-699Z/dashboard-index.json`.
+
+This changes rollback from "applied through an audited workbench action" to
+"applied only when the dry-run proof is still live-bound, with stale proof
+attempts visibly and contractually blocked." The next chronological slice should
+extend the negative suite from stale proof mismatch to detached proof absence:
+remove or orphan the launch envelope, handoff receipt, node attempt, or replay
+fixture in controlled fixtures and require the matching detached blocker codes.
+
 ## Current State
 
 ### Roadmap State

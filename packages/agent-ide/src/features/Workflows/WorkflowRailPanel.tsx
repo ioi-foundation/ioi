@@ -1290,16 +1290,61 @@ export function WorkflowRailPanel({
     harnessActiveRuntimeRollbackExecutionProof?.replayFixtureRef ===
       (harnessActiveRuntimeBinding.workerRollbackProof.replayFixtureRef ||
         null);
+  const harnessActiveRuntimeRollbackProofBindingBlockers =
+    harnessActiveRuntimeRollbackExecutionProof && harnessActiveRuntimeBinding
+      ? [
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.bound === true
+            ? []
+            : ["rollback_proof_not_bound"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.readinessProofId ===
+          harnessActiveRuntimeBinding.workerRollbackProof.readinessProofId
+            ? []
+            : ["rollback_readiness_proof_stale"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.liveShadowComparisonGateId ===
+          harnessActiveRuntimeBinding.workerRollbackProof
+            .liveShadowComparisonGateId
+            ? []
+            : ["rollback_live_shadow_gate_stale"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.activationId ===
+          harnessActiveRuntimeBinding.workerRollbackProof.activationId
+            ? []
+            : ["rollback_activation_stale"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.harnessHash ===
+          harnessActiveRuntimeBinding.workerRollbackProof.harnessHash
+            ? []
+            : [
+                "rollback_harness_hash_stale",
+                "rollback_apply_hash_not_verified",
+              ]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.launchEnvelopeId ===
+          (harnessActiveRuntimeBinding.workerRollbackProof.launchEnvelope
+            ?.envelopeId ?? null)
+            ? []
+            : ["rollback_launch_envelope_stale"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.handoffReceiptId ===
+          (harnessActiveRuntimeBinding.workerRollbackProof.handoffReceipt
+            ?.receiptId ?? null)
+            ? []
+            : ["rollback_handoff_receipt_stale"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.nodeAttemptId ===
+          (harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt
+            ?.attemptId ?? null)
+            ? []
+            : ["rollback_node_attempt_stale"]),
+          ...(harnessActiveRuntimeRollbackExecutionProof.replayFixtureRef ===
+          (harnessActiveRuntimeBinding.workerRollbackProof.replayFixtureRef ||
+            null)
+            ? []
+            : ["rollback_replay_fixture_stale"]),
+        ]
+      : [];
   const harnessActiveRuntimeRollbackApplyDisabled =
     !onApplyActiveRuntimeRollback ||
     !harnessActiveRuntimeRollbackDryRunPassed ||
     !harnessActiveRuntimeRollbackProofStillBound;
   const harnessActiveRuntimeRollbackApplyBlockers = [
     ...(harnessActiveRuntimeRollbackApplyProof?.blockers ?? []),
-    ...(!harnessActiveRuntimeRollbackProofStillBound &&
-    harnessActiveRuntimeRollbackExecutionProof
-      ? ["rollback_proof_not_bound_after_route_restore"]
-      : []),
+    ...harnessActiveRuntimeRollbackProofBindingBlockers,
   ];
   const harnessReadOnlyRoutingProof =
     harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingProof ?? null;
@@ -4294,10 +4339,7 @@ export function WorkflowRailPanel({
                     []),
                   ...(harnessActiveRuntimeRollbackExecutionProof?.dryRun
                     .blockers ?? []),
-                  ...(!harnessActiveRuntimeRollbackProofStillBound &&
-                  harnessActiveRuntimeRollbackExecutionProof
-                    ? ["rollback_proof_not_bound_after_route_restore"]
-                    : []),
+                  ...harnessActiveRuntimeRollbackProofBindingBlockers,
                 ].join(",")}
               >
                 <h4>Active runtime binding</h4>
@@ -4817,10 +4859,7 @@ export function WorkflowRailPanel({
                       []),
                     ...(harnessActiveRuntimeRollbackExecutionProof?.dryRun
                       .blockers ?? []),
-                    ...(!harnessActiveRuntimeRollbackProofStillBound &&
-                    harnessActiveRuntimeRollbackExecutionProof
-                      ? ["rollback_proof_not_bound_after_route_restore"]
-                      : []),
+                    ...harnessActiveRuntimeRollbackProofBindingBlockers,
                   ].join(",")}
                 >
                   <strong>Rollback proof</strong>

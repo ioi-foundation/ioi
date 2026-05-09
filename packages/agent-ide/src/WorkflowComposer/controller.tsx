@@ -66,6 +66,7 @@ import type {
   WorkflowHarnessActivationAuditEvent,
   WorkflowConnectionClass,
   WorkflowHarnessActiveRuntimeRollbackExecutionProof,
+  WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof,
   WorkflowHarnessActivationGateActionClickProof,
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
@@ -1115,6 +1116,14 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
       attribute,
       target.getAttribute(attribute) ?? "",
     ]),
+  );
+}
+
+function splitHarnessRailBlockers(value: string | null | undefined): string[] {
+  return uniqueHarnessRefs(
+    String(value ?? "")
+      .split(/[|,]/)
+      .map((entry) => entry.trim()),
   );
 }
 
@@ -4293,6 +4302,188 @@ export function useWorkflowComposerController({
       return { executionProof: proof, applyProof, auditEvent };
     },
     [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessActiveRuntimeRollbackNegativeApplyProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      executionProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof> => {
+      const expectedBlockers = [
+        "rollback_harness_hash_stale",
+        "rollback_node_attempt_stale",
+        "rollback_replay_fixture_stale",
+        "rollback_apply_hash_not_verified",
+      ];
+      const staleExecutionProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof =
+        {
+          ...executionProof,
+          method:
+            "negative apply fixture mutates the bound rollback hash, node attempt, and replay fixture after dry-run to prove stale proof blocking",
+          harnessHash: `${executionProof.harnessHash}:stale-negative`,
+          nodeAttemptId: executionProof.nodeAttemptId
+            ? `${executionProof.nodeAttemptId}:stale-negative`
+            : "stale-negative-node-attempt",
+          replayFixtureRef: executionProof.replayFixtureRef
+            ? `${executionProof.replayFixtureRef}:stale-negative`
+            : "stale-negative-replay-fixture",
+          apply: {
+            ...executionProof.apply,
+            attempted: false,
+            disabled: false,
+            readiness: "ready",
+            applied: false,
+            executionId: null,
+            rollbackReceiptId: null,
+            auditEventId: null,
+            rollbackTargetVerified: false,
+            hashVerified: false,
+            receiptRefs: [],
+            evidenceRefs: [],
+            replayFixtureRefs: [],
+            appliedAtMs: null,
+            blockers: [],
+          },
+          routeRestore: undefined,
+          passed: true,
+          blockers: [],
+        };
+      const staleWorkflow: WorkflowProject = {
+        ...workflow,
+        metadata: {
+          ...workflow.metadata,
+          harness: workflow.metadata.harness
+            ? {
+                ...workflow.metadata.harness,
+                activeRuntimeRollbackExecutionProof: staleExecutionProof,
+                activeRuntimeRollbackApplyProof: undefined,
+              }
+            : workflow.metadata.harness,
+        },
+      };
+      const runtimeResult = executeWorkflowHarnessActiveRuntimeRollbackApply(
+        staleWorkflow,
+        { nowMs: generatedAtMs + 1 },
+      );
+      const link: HarnessWorkbenchDeepLink = {
+        panel: "settings" as WorkflowRightPanel,
+        rollbackTarget: staleExecutionProof.rollbackTarget,
+        nodeAttemptId: staleExecutionProof.nodeAttemptId ?? undefined,
+        receiptRef: staleExecutionProof.handoffReceiptId ?? undefined,
+        replayFixtureRef: staleExecutionProof.replayFixtureRef ?? undefined,
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      const blockers: string[] = [];
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      let observedState: Record<string, string> = {};
+      let applyButtonDisabled = true;
+      try {
+        loadWorkflowProject(staleWorkflow);
+        setWorkflow(staleWorkflow);
+        setRightPanel("settings");
+        setBottomPanel("selection");
+        if (!parsed) {
+          blockers.push("active_runtime_rollback_negative_hash_parse_failed");
+        } else {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        await nextHarnessWorkbenchFrame();
+        observedState = readHarnessRailSelectedState(
+          "workflow-harness-active-runtime-binding",
+        );
+        const applyButton = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-active-runtime-rollback-apply"]',
+        );
+        applyButtonDisabled =
+          applyButton?.disabled ??
+          observedState["data-rollback-execution-apply-disabled"] !== "false";
+      } catch (error) {
+        blockers.push(
+          `active_runtime_rollback_negative_apply_probe_failed:${errorMessage(
+            error,
+          )}`,
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+        loadWorkflowProject(workflow);
+        setWorkflow(workflow);
+        setRightPanel("outputs");
+        setBottomPanel("selection");
+        await nextHarnessWorkbenchFrame();
+      }
+      const observedRailBlockers = uniqueHarnessRefs([
+        ...splitHarnessRailBlockers(
+          observedState["data-rollback-execution-blockers"],
+        ),
+        ...splitHarnessRailBlockers(observedState["data-rollback-apply-blockers"]),
+      ]);
+      const runtimeBlockers = runtimeResult.proof.blockers ?? [];
+      const missingRailBlockers = expectedBlockers.filter(
+        (blocker) => !observedRailBlockers.includes(blocker),
+      );
+      const missingRuntimeBlockers = expectedBlockers.filter(
+        (blocker) => !runtimeBlockers.includes(blocker),
+      );
+      const caseBlockers = uniqueHarnessRefs([
+        ...blockers,
+        ...(applyButtonDisabled
+          ? []
+          : ["active_runtime_rollback_negative_apply_button_enabled"]),
+        ...(runtimeResult.applied
+          ? ["active_runtime_rollback_negative_apply_unexpectedly_applied"]
+          : []),
+        ...(runtimeResult.proof.applyStatus === "blocked"
+          ? []
+          : ["active_runtime_rollback_negative_apply_status_not_blocked"]),
+        ...(runtimeResult.proof.staleProofBlocked
+          ? []
+          : ["active_runtime_rollback_negative_stale_flag_missing"]),
+        ...(runtimeResult.proof.detachedProofBlocked
+          ? ["active_runtime_rollback_negative_detached_flag_unexpected"]
+          : []),
+        ...missingRailBlockers.map(
+          (blocker) => `missing_rail_blocker:${blocker}`,
+        ),
+        ...missingRuntimeBlockers.map(
+          (blocker) => `missing_runtime_blocker:${blocker}`,
+        ),
+      ]);
+      const negativeCase = {
+        caseId: "stale-hash-node-replay",
+        mutationKind: "stale_proof" as const,
+        expectedBlockers,
+        observedRailBlockers,
+        runtimeBlockers,
+        selectedRailTestId: "workflow-harness-active-runtime-binding",
+        applyButtonDisabled,
+        applyStatus: runtimeResult.proof.applyStatus,
+        staleProofBlocked: runtimeResult.proof.staleProofBlocked,
+        detachedProofBlocked: runtimeResult.proof.detachedProofBlocked,
+        rollbackApplied: runtimeResult.proof.rollbackApplied,
+        rollbackTargetVerified: runtimeResult.proof.rollbackTargetVerified,
+        hashVerified: runtimeResult.proof.hashVerified,
+        rollbackReceiptId: runtimeResult.proof.rollbackReceiptId,
+        auditEventId: runtimeResult.proof.auditEventId,
+        passed: caseBlockers.length === 0,
+      };
+      return {
+        schemaVersion:
+          "workflow.harness.active-runtime-rollback-negative-apply-proof.v1",
+        method:
+          "same-session Workflows bridge renders a stale rollback proof and confirms Apply stays disabled while the runtime helper blocks with matching stale proof blocker codes",
+        generatedAtMs,
+        workflowId:
+          workflow.metadata.harness?.harnessWorkflowId ?? workflow.metadata.id,
+        cases: [negativeCase],
+        passed: caseBlockers.length === 0,
+        blockers: caseBlockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink, loadWorkflowProject],
   );
   const runHarnessColdStartDeepLinkRestoreProbe = useCallback(
     async (
@@ -11116,8 +11307,14 @@ export function useWorkflowComposerController({
           workflow,
           nowMs + 160,
         );
+      const activeRuntimeRollbackNegativeApplyProof =
+        await runHarnessActiveRuntimeRollbackNegativeApplyProbe(
+          workflow,
+          activeRuntimeRollbackExecutionProof,
+          nowMs + 161,
+        );
       const coldStartDeepLinkRestoreProof =
-        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 161);
+        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 162);
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error(
@@ -11140,6 +11337,7 @@ export function useWorkflowComposerController({
             activeRuntimeRollbackProofWorkbenchProof,
             activeRuntimeRollbackExecutionProof,
             activeRuntimeRollbackApplyProof,
+            activeRuntimeRollbackNegativeApplyProof,
             activationAudit: [
               ...(harnessMetadata.activationAudit ?? []),
               activeRuntimeRollbackApplyAuditEvent,
@@ -11234,6 +11432,12 @@ export function useWorkflowComposerController({
           activeRuntimeRollbackApplyProof.executionId,
         activeRuntimeRollbackApplyReceiptId:
           activeRuntimeRollbackApplyProof.rollbackReceiptId,
+        activeRuntimeRollbackNegativeApplyPassed:
+          activeRuntimeRollbackNegativeApplyProof.passed,
+        activeRuntimeRollbackNegativeApplyCaseIds:
+          activeRuntimeRollbackNegativeApplyProof.cases.map(
+            (negativeCase) => negativeCase.caseId,
+          ),
         activationGateActionClickPassed: activationGateActionClickProof.passed,
         activationGateActionCommand:
           activationGateActionClickProof.action.command,
@@ -11328,6 +11532,7 @@ export function useWorkflowComposerController({
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
     runHarnessActiveRuntimeRollbackExecutionWorkbenchProbe,
+    runHarnessActiveRuntimeRollbackNegativeApplyProbe,
     runHarnessActiveRuntimeRollbackProofProbe,
     runHarnessLiveShadowComparisonDeepLinkProbe,
     runHarnessLiveTurnNodeInspectorDeepLinkProbe,
