@@ -506,6 +506,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessDefaultRuntimeBindingMatchedCount: 0,
     harnessWorkerLaunchReviewedImportActivationInvariantCount: 0,
     harnessDefaultRuntimeBindingSamples: [],
+    harnessLiveTurnNodeTimelineCount: 0,
+    harnessLiveTurnNodeTimelineScenarios: [],
+    harnessLiveTurnNodeTimelineSamples: [],
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessAuthorityToolingGateLiveCount: 0,
     harnessAuthorityToolingProviderCatalogLiveCount: 0,
@@ -529,6 +532,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     },
     collectionErrors: [],
   };
+  const harnessLiveTurnNodeTimelineKeys = new Set();
   const addScenario = (items, scenario) => {
     if (
       typeof scenario === "string" &&
@@ -537,6 +541,133 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     ) {
       items.push(scenario);
       items.sort();
+    }
+  };
+  const stringArrayLength = (value) => (Array.isArray(value) ? value.length : 0);
+  const adapterResultsReady = (value, mode, readiness, status, minimum) =>
+    Array.isArray(value) &&
+    value.length >= minimum &&
+    value.every(
+      (result) =>
+        result?.actionFrame?.executionMode === mode &&
+        result?.actionFrame?.readiness === readiness &&
+        result?.nodeAttempt?.status === status &&
+        Array.isArray(result?.nodeAttempt?.receiptIds) &&
+        result.nodeAttempt.receiptIds.length > 0 &&
+        typeof result?.nodeAttempt?.replay?.fixtureRef === "string" &&
+        result.nodeAttempt.replay.fixtureRef.length > 0,
+    );
+  const noteHarnessLiveTurnNodeTimeline = (dispatch, artifactId = null) => {
+    if (!dispatch || typeof dispatch !== "object") return;
+    const scenario = dispatch.modelProviderGatedVisibleOutputScenario;
+    const policyDecisions = [
+      dispatch.policyDecision,
+      dispatch.modelExecutionProof?.policyDecision,
+      dispatch.modelProviderCanaryProof?.policyDecision,
+      dispatch.modelProviderGatedVisibleOutputProof?.policyDecision,
+      dispatch.modelProviderGatedVisibleOutputRollbackDrillProof
+        ?.policyDecision,
+      dispatch.readOnlyCapabilityRoutingProof?.policyDecision,
+      dispatch.authorityToolingProof?.policyDecision,
+      dispatch.authorityToolingAdapterProof?.policyDecision,
+    ].filter((decision) => typeof decision === "string" && decision.length > 0);
+    const liveTurnTimelineReady =
+      dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
+      scenario === "retained_harness_dogfooding" &&
+      dispatch.status === "accepted" &&
+      dispatch.selectedSelector === "blessed_workflow_live_default" &&
+      dispatch.productionDefaultSelector === "blessed_workflow_live_default" &&
+      dispatch.executionMode === "live" &&
+      dispatch.runtimeAuthority === "blessed_workflow_activation_default" &&
+      dispatch.drivesRuntimeDecision === true &&
+      dispatch.outputAuthority === "blessed_workflow_activation_default" &&
+      dispatch.outputWriterStatus === "visible_write_committed" &&
+      stringArrayLength(dispatch.dispatchNodeAttemptIds) >= 20 &&
+      stringArrayLength(dispatch.acceptedNodeAttemptIds) >= 18 &&
+      stringArrayLength(dispatch.receiptIds) >= 18 &&
+      stringArrayLength(dispatch.replayFixtureRefs) >= 18 &&
+      stringArrayLength(dispatch.cognitionExecutionAttemptIds) >= 3 &&
+      stringArrayLength(dispatch.cognitionExecutionReceiptIds) >= 3 &&
+      stringArrayLength(dispatch.cognitionExecutionReplayFixtureRefs) >= 3 &&
+      adapterResultsReady(
+        dispatch.cognitionExecutionAdapterResults,
+        "live",
+        "live_ready",
+        "live",
+        3,
+      ) &&
+      adapterResultsReady(
+        dispatch.cognitionExecutionGateAdapterResults,
+        "gated",
+        "shadow_ready",
+        "gated",
+        3,
+      ) &&
+      adapterResultsReady(
+        dispatch.routingModelAdapterResults,
+        "gated",
+        "shadow_ready",
+        "gated",
+        3,
+      ) &&
+      adapterResultsReady(
+        dispatch.verificationOutputAdapterResults,
+        "gated",
+        "shadow_ready",
+        "gated",
+        6,
+      ) &&
+      adapterResultsReady(
+        dispatch.authorityToolingAdapterResults,
+        "gated",
+        "shadow_ready",
+        "gated",
+        8,
+      ) &&
+      stringArrayLength(dispatch.modelExecutionAttemptIds) >= 5 &&
+      stringArrayLength(dispatch.modelExecutionReceiptIds) >= 5 &&
+      stringArrayLength(dispatch.modelExecutionReplayFixtureRefs) >= 5 &&
+      policyDecisions.length >= 4;
+    if (!liveTurnTimelineReady) return;
+    const timelineKey =
+      dispatch.dispatchId ??
+      `${scenario}:${artifactId ?? "runtime-evidence-projection"}`;
+    if (harnessLiveTurnNodeTimelineKeys.has(timelineKey)) return;
+    harnessLiveTurnNodeTimelineKeys.add(timelineKey);
+    summary.harnessLiveTurnNodeTimelineCount += 1;
+    addScenario(summary.harnessLiveTurnNodeTimelineScenarios, scenario);
+    if (summary.harnessLiveTurnNodeTimelineSamples.length < 8) {
+      summary.harnessLiveTurnNodeTimelineSamples.push({
+        artifactId,
+        dispatchId: dispatch.dispatchId ?? null,
+        scenario,
+        workflowId: dispatch.workflowId ?? null,
+        activationId: dispatch.activationId ?? null,
+        harnessHash: dispatch.harnessHash ?? null,
+        executionMode: dispatch.executionMode ?? null,
+        runtimeAuthority: dispatch.runtimeAuthority ?? null,
+        policyDecision: dispatch.policyDecision ?? null,
+        policyDecisions,
+        dispatchNodeAttemptCount: stringArrayLength(
+          dispatch.dispatchNodeAttemptIds,
+        ),
+        acceptedNodeAttemptCount: stringArrayLength(
+          dispatch.acceptedNodeAttemptIds,
+        ),
+        receiptRefCount: stringArrayLength(dispatch.receiptIds),
+        replayFixtureRefCount: stringArrayLength(dispatch.replayFixtureRefs),
+        liveAdapterAttemptCount: stringArrayLength(
+          dispatch.cognitionExecutionAttemptIds,
+        ),
+        gatedAdapterAttemptCount:
+          stringArrayLength(dispatch.cognitionExecutionGateAttemptIds) +
+          stringArrayLength(dispatch.routingModelAttemptIds) +
+          stringArrayLength(dispatch.verificationOutputAttemptIds) +
+          stringArrayLength(dispatch.authorityToolingAttemptIds),
+        modelExecutionAttemptCount: stringArrayLength(
+          dispatch.modelExecutionAttemptIds,
+        ),
+      });
     }
   };
   const noteHarnessDefaultRuntimeBinding = (binding) => {
@@ -1762,6 +1893,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         }
         if (projection.HarnessDefaultRuntimeDispatch) {
           const dispatch = projection.HarnessDefaultRuntimeDispatch;
+          noteHarnessLiveTurnNodeTimeline(dispatch);
           const dispatchActivationIdGateReady =
             dispatch.activationIdGateClickProofPresent === true &&
             dispatch.activationIdGateClickProofPassed === true &&
@@ -2994,6 +3126,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_default_runtime_dispatch_readonly === true) {
             summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
           }
+          noteHarnessLiveTurnNodeTimeline(
+            metadata.harness_default_runtime_dispatch,
+            row.artifact_id,
+          );
           if (metadata.harness_live_promotion_readiness === true) {
             summary.harnessLivePromotionReadinessCount += 1;
           }
@@ -4075,6 +4211,27 @@ function buildGuiEvidenceAssessment({
     summary.harnessDefaultRuntimeBindingCount > 0 &&
     summary.harnessDefaultRuntimeBindingMatchedCount > 0 &&
     chatRuntimeBindingMatchesWorkflowProof;
+  const hasHarnessLiveTurnNodeTimeline =
+    hasHarnessChatRuntimeBinding &&
+    summary.harnessLiveTurnNodeTimelineCount > 0 &&
+    summary.harnessLiveTurnNodeTimelineScenarios.includes(
+      "retained_harness_dogfooding",
+    ) &&
+    summary.harnessLiveTurnNodeTimelineSamples.some(
+      (sample) =>
+        sample?.scenario === "retained_harness_dogfooding" &&
+        sample?.executionMode === "live" &&
+        sample?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        sample?.dispatchNodeAttemptCount >= 20 &&
+        sample?.acceptedNodeAttemptCount >= 18 &&
+        sample?.receiptRefCount >= 18 &&
+        sample?.replayFixtureRefCount >= 18 &&
+        sample?.liveAdapterAttemptCount >= 3 &&
+        sample?.gatedAdapterAttemptCount >= 20 &&
+        sample?.modelExecutionAttemptCount >= 5 &&
+        Array.isArray(sample?.policyDecisions) &&
+        sample.policyDecisions.length >= 4,
+    );
   const hasHarnessLivePromotionReadiness =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessLivePromotionReadinessCount > 0 &&
@@ -4252,6 +4409,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
         hasHarnessChatRuntimeBinding,
+      harness_live_turn_node_timeline_present:
+        hasHarnessLiveTurnNodeTimeline,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4337,6 +4496,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessDefaultRuntimeDispatch,
       hasHarnessLivePromotionReadiness,
       hasHarnessChatRuntimeBinding,
+      hasHarnessLiveTurnNodeTimeline,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -4366,6 +4526,12 @@ function buildGuiEvidenceAssessment({
         summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
       harnessLivePromotionReadinessCount:
         summary.harnessLivePromotionReadinessCount,
+      harnessLiveTurnNodeTimelineCount:
+        summary.harnessLiveTurnNodeTimelineCount,
+      harnessLiveTurnNodeTimelineScenarios:
+        summary.harnessLiveTurnNodeTimelineScenarios,
+      harnessLiveTurnNodeTimelineSamples:
+        summary.harnessLiveTurnNodeTimelineSamples,
       harnessWorkerBindingCount: summary.harnessWorkerBindingCount,
       harnessShadowRunCount: summary.harnessShadowRunCount,
       harnessNodeAttemptCount: summary.harnessNodeAttemptCount,
@@ -7205,6 +7371,13 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_chat_runtime_binding:
           runtimeArtifacts.summary.harnessDefaultRuntimeBindingMatchedCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_live_turn_node_timeline:
+          runtimeArtifacts.summary.harnessLiveTurnNodeTimelineCount > 0 &&
+          runtimeArtifacts.summary.harnessLiveTurnNodeTimelineScenarios.includes(
+            "retained_harness_dogfooding",
+          )
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_gate_live:
