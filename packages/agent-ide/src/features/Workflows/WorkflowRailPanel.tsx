@@ -47,6 +47,7 @@ import {
 import { workflowValuePreview } from "../../runtime/workflow-value-preview";
 import {
   compareRunRecords,
+  resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
   resolveWorkflowHarnessReplayInspection,
   workflowBindingCheckResult,
@@ -3154,6 +3155,22 @@ export function WorkflowRailPanel({
                     <li
                       key={attempt.attemptId}
                       className={`is-${attempt.status}`}
+                      data-testid={`workflow-run-harness-timeline-node-${attempt.attemptId}`}
+                      data-node-attempt-id={attempt.attemptId}
+                      data-workflow-node-id={attempt.workflowNodeId}
+                      data-component-kind={attempt.componentKind}
+                      data-component-id={attempt.componentId}
+                      data-harness-workflow-id={attempt.harnessWorkflowId}
+                      data-harness-activation-id={attempt.harnessActivationId}
+                      data-harness-hash={attempt.harnessHash}
+                      data-execution-mode={attempt.executionMode}
+                      data-readiness={attempt.readiness}
+                      data-status={attempt.status}
+                      data-policy-decision={attempt.policyDecision ?? ""}
+                      data-receipt-refs={attempt.receiptIds.join("|")}
+                      data-replay-fixture-ref={attempt.replay.fixtureRef ?? ""}
+                      data-input-hash={attempt.inputHash ?? ""}
+                      data-output-hash={attempt.outputHash ?? ""}
                     >
                       <strong>
                         {workflowNodeName(workflow, attempt.workflowNodeId)}
@@ -8028,6 +8045,14 @@ export function WorkflowRailPanel({
       readOnlyRoutingReady: harnessReadOnlyRoutingReady,
       authorityToolingProof: harnessAuthorityToolingProof,
     });
+  const selectedHarnessNodeAttemptInspection =
+    resolveWorkflowHarnessNodeAttemptInspection({
+      nodeAttemptId: selectedHarnessNodeAttemptId,
+      workflow,
+      lastRunResult,
+      selectedRunId,
+      selectedHarnessGroup,
+    });
   const selectedHarnessReplayDrill = selectedHarnessReplayInspection
     ? ([...(workflow.metadata.harness?.replayDrills ?? [])]
         .reverse()
@@ -8118,6 +8143,102 @@ export function WorkflowRailPanel({
           >
             Copy link
           </button>
+        </section>
+      ) : null}
+      {selectedHarnessNodeAttemptInspection ? (
+        <section
+          className="workflow-rail-section workflow-harness-node-attempt-inspector"
+          data-testid="workflow-harness-node-attempt-inspector"
+          data-node-attempt-id={selectedHarnessNodeAttemptInspection.attemptId}
+          data-node-attempt-source-kind={
+            selectedHarnessNodeAttemptInspection.sourceKind
+          }
+          data-workflow-node-id={
+            selectedHarnessNodeAttemptInspection.workflowNodeId ?? ""
+          }
+          data-component-kind={
+            selectedHarnessNodeAttemptInspection.componentKind
+          }
+          data-component-id={
+            selectedHarnessNodeAttemptInspection.producerComponent
+          }
+          data-harness-workflow-id={
+            selectedHarnessNodeAttemptInspection.harnessWorkflowId
+          }
+          data-harness-activation-id={
+            selectedHarnessNodeAttemptInspection.harnessActivationId
+          }
+          data-harness-hash={selectedHarnessNodeAttemptInspection.harnessHash}
+          data-execution-mode={
+            selectedHarnessNodeAttemptInspection.executionMode
+          }
+          data-readiness={selectedHarnessNodeAttemptInspection.readiness}
+          data-status={selectedHarnessNodeAttemptInspection.status}
+          data-policy-decision={
+            selectedHarnessNodeAttemptInspection.policyDecision
+          }
+          data-receipt-refs={selectedHarnessNodeAttemptInspection.receiptRefs.join(
+            "|",
+          )}
+          data-receipt-ref-count={
+            selectedHarnessNodeAttemptInspection.receiptRefs.length
+          }
+          data-replay-fixture-ref={
+            selectedHarnessNodeAttemptInspection.replayFixtureRef
+          }
+          data-replay-determinism={
+            selectedHarnessNodeAttemptInspection.replayDeterminism
+          }
+          data-input-hash={selectedHarnessNodeAttemptInspection.inputHash}
+          data-output-hash={selectedHarnessNodeAttemptInspection.outputHash}
+        >
+          <h4>Node attempt</h4>
+          <article
+            className={`workflow-output-row is-${selectedHarnessNodeAttemptInspection.status}`}
+          >
+            <strong>{selectedHarnessNodeAttemptInspection.attemptId}</strong>
+            <span>
+              {selectedHarnessNodeAttemptInspection.sourceLabel}
+              {" · "}
+              {selectedHarnessNodeAttemptInspection.componentKind}
+              {" · "}
+              {selectedHarnessNodeAttemptInspection.status}
+            </span>
+            <small>
+              {selectedHarnessNodeAttemptInspection.executionMode}
+              {" · "}
+              {selectedHarnessNodeAttemptInspection.readiness}
+              {" · "}
+              {selectedHarnessNodeAttemptInspection.nodeLabel}
+            </small>
+          </article>
+          <dl className="workflow-node-inspector-stats">
+            <div>
+              <dt>Receipts</dt>
+              <dd>{selectedHarnessNodeAttemptInspection.receiptRefs.length}</dd>
+            </div>
+            <div>
+              <dt>Replay</dt>
+              <dd>{selectedHarnessNodeAttemptInspection.replayDeterminism}</dd>
+            </div>
+            <div>
+              <dt>Policy</dt>
+              <dd>{selectedHarnessNodeAttemptInspection.policyDecision}</dd>
+            </div>
+            <div>
+              <dt>Binding</dt>
+              <dd>{selectedHarnessNodeAttemptInspection.harnessActivationId}</dd>
+            </div>
+          </dl>
+          <article className="workflow-output-row">
+            <strong>Replay fixture</strong>
+            <span>{selectedHarnessNodeAttemptInspection.replayFixtureRef}</span>
+            <small>
+              {selectedHarnessNodeAttemptInspection.inputHash}
+              {" · "}
+              {selectedHarnessNodeAttemptInspection.outputHash}
+            </small>
+          </article>
         </section>
       ) : null}
       {selectedHarnessReceiptInspection ? (
@@ -9331,6 +9452,33 @@ export function WorkflowRailPanel({
                 <article
                   className="workflow-output-row"
                   data-testid="workflow-selected-node-harness-attempt"
+                  data-node-attempt-id={selectedHarnessAttempt.attemptId}
+                  data-workflow-node-id={
+                    selectedHarnessAttempt.workflowNodeId
+                  }
+                  data-component-kind={selectedHarnessAttempt.componentKind}
+                  data-component-id={selectedHarnessAttempt.componentId}
+                  data-harness-workflow-id={
+                    selectedHarnessAttempt.harnessWorkflowId
+                  }
+                  data-harness-activation-id={
+                    selectedHarnessAttempt.harnessActivationId
+                  }
+                  data-harness-hash={selectedHarnessAttempt.harnessHash}
+                  data-execution-mode={selectedHarnessAttempt.executionMode}
+                  data-readiness={selectedHarnessAttempt.readiness}
+                  data-status={selectedHarnessAttempt.status}
+                  data-policy-decision={
+                    selectedHarnessAttempt.policyDecision ?? ""
+                  }
+                  data-receipt-refs={selectedHarnessAttempt.receiptIds.join(
+                    "|",
+                  )}
+                  data-replay-fixture-ref={
+                    selectedHarnessAttempt.replay.fixtureRef ?? ""
+                  }
+                  data-input-hash={selectedHarnessAttempt.inputHash ?? ""}
+                  data-output-hash={selectedHarnessAttempt.outputHash ?? ""}
                 >
                   <strong>Latest attempt</strong>
                   <span>
@@ -9338,9 +9486,16 @@ export function WorkflowRailPanel({
                     {" · "}
                     {selectedHarnessAttempt.status}
                     {" · "}
+                    {selectedHarnessAttempt.policyDecision ?? "policy pending"}
+                    {" · "}
                     {selectedHarnessAttempt.receiptIds.length} receipts
                   </span>
                   <small>
+                    {selectedHarnessAttempt.attemptId}
+                    {" · "}
+                    {selectedHarnessAttempt.replay.fixtureRef ??
+                      "replay pending"}
+                    {" · "}
                     {selectedHarnessAttempt.inputHash ?? "input hash pending"}
                     {" · "}
                     {selectedHarnessAttempt.outputHash ?? "output hash pending"}

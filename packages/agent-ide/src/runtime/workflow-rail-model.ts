@@ -6,6 +6,7 @@ import type {
   WorkflowDogfoodRun,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
+  WorkflowHarnessNodeAttemptRecord,
   WorkflowHarnessReplayDeterminism,
   WorkflowHarnessReplayEnvelope,
   WorkflowPortablePackage,
@@ -241,6 +242,35 @@ export interface WorkflowHarnessReplayInspection {
   payloadPreview: WorkflowValuePreview;
 }
 
+export interface WorkflowHarnessNodeAttemptInspection {
+  attemptId: string;
+  sourceKind: string;
+  sourceLabel: string;
+  status: string;
+  producerComponent: string;
+  componentKind: string;
+  workflowNodeId: string | null;
+  nodeLabel: string;
+  runId: string;
+  harnessWorkflowId: string;
+  harnessActivationId: string;
+  harnessHash: string;
+  executionMode: string;
+  readiness: string;
+  policyDecision: string;
+  attemptIndex: number | null;
+  inputHash: string;
+  outputHash: string;
+  startedAtMs: number | null;
+  durationMs: number | null;
+  receiptRefs: string[];
+  replayFixtureRef: string;
+  replayDeterminism: WorkflowHarnessReplayDeterminism | string;
+  replayRedactionPolicy: string;
+  evidenceRefs: string[];
+  payloadPreview: WorkflowValuePreview;
+}
+
 export interface ResolveWorkflowHarnessReceiptInspectionOptions {
   receiptRef?: string | null;
   workflow: WorkflowProject;
@@ -260,6 +290,194 @@ export interface ResolveWorkflowHarnessReplayInspectionOptions {
   selectedHarnessGroup?: WorkflowHarnessGroupView | null;
   readOnlyRoutingReady?: boolean;
   authorityToolingProof?: Record<string, unknown> | null;
+}
+
+export interface ResolveWorkflowHarnessNodeAttemptInspectionOptions {
+  nodeAttemptId?: string | null;
+  workflow: WorkflowProject;
+  lastRunResult?: WorkflowRunResult | null;
+  selectedRunId?: string | null;
+  selectedHarnessGroup?: WorkflowHarnessGroupView | null;
+}
+
+function workflowHarnessNodeAttemptInspectionFromAttempt(
+  attempt: WorkflowHarnessNodeAttemptRecord,
+  {
+    workflow,
+    runId,
+    sourceKind,
+    sourceLabel,
+  }: {
+    workflow: WorkflowProject;
+    runId: string;
+    sourceKind: string;
+    sourceLabel: string;
+  },
+): WorkflowHarnessNodeAttemptInspection {
+  return {
+    attemptId: attempt.attemptId,
+    sourceKind,
+    sourceLabel,
+    status: attempt.status,
+    producerComponent: attempt.componentId,
+    componentKind: attempt.componentKind,
+    workflowNodeId: attempt.workflowNodeId,
+    nodeLabel: workflowNodeName(workflow, attempt.workflowNodeId),
+    runId,
+    harnessWorkflowId: attempt.harnessWorkflowId,
+    harnessActivationId: attempt.harnessActivationId,
+    harnessHash: attempt.harnessHash,
+    executionMode: attempt.executionMode,
+    readiness: attempt.readiness,
+    policyDecision: attempt.policyDecision ?? "not recorded",
+    attemptIndex: attempt.attemptIndex,
+    inputHash: attempt.inputHash ?? "input hash pending",
+    outputHash: attempt.outputHash ?? "output hash pending",
+    startedAtMs: attempt.startedAtMs ?? null,
+    durationMs: attempt.durationMs ?? null,
+    receiptRefs: workflowUniqueReceiptRefs(attempt.receiptIds),
+    replayFixtureRef: attempt.replay.fixtureRef ?? "not captured",
+    replayDeterminism: attempt.replay.determinism,
+    replayRedactionPolicy: attempt.replay.redactionPolicy,
+    evidenceRefs: workflowUniqueReceiptRefs(attempt.evidenceRefs),
+    payloadPreview: workflowValuePreview(
+      workflowRedactedReceiptPayload(attempt),
+    ),
+  };
+}
+
+export function resolveWorkflowHarnessNodeAttemptInspection({
+  nodeAttemptId,
+  workflow,
+  lastRunResult = null,
+  selectedRunId = null,
+  selectedHarnessGroup = null,
+}: ResolveWorkflowHarnessNodeAttemptInspectionOptions): WorkflowHarnessNodeAttemptInspection | null {
+  if (!nodeAttemptId) return null;
+
+  const runId = selectedRunId ?? lastRunResult?.summary.id ?? "run pending";
+  const directAttempt =
+    (lastRunResult?.harnessAttempts ?? []).find(
+      (attempt) => attempt.attemptId === nodeAttemptId,
+    ) ??
+    (lastRunResult?.nodeRuns ?? [])
+      .map((nodeRun) => nodeRun.harnessAttempt ?? null)
+      .find((attempt) => attempt?.attemptId === nodeAttemptId) ??
+    null;
+  if (directAttempt) {
+    return workflowHarnessNodeAttemptInspectionFromAttempt(directAttempt, {
+      workflow,
+      runId,
+      sourceKind: "node_attempt",
+      sourceLabel: "Workflow node attempt",
+    });
+  }
+
+  const harnessActivationRecord = workflow.metadata.harness?.activationRecord;
+  const activationWorkerHandoffAttempts =
+    harnessActivationRecord?.workerHandoffNodeAttempts ??
+    workflow.metadata.harness?.workerHandoffNodeAttempts ??
+    [];
+  const activationWorkerHandoffAttempt =
+    activationWorkerHandoffAttempts.find(
+      (attempt) => attempt.attemptId === nodeAttemptId,
+    ) ?? null;
+  if (activationWorkerHandoffAttempt) {
+    return workflowHarnessNodeAttemptInspectionFromAttempt(
+      activationWorkerHandoffAttempt,
+      {
+        workflow,
+        runId,
+        sourceKind: "worker_handoff",
+        sourceLabel: "Worker handoff node attempt",
+      },
+    );
+  }
+
+  const selectedHarnessGroupGatedRun = selectedHarnessGroup
+    ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
+        (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
+      ) ?? null
+    : null;
+  const gatedRun =
+    selectedHarnessGroupGatedRun ??
+    (lastRunResult?.harnessGatedClusterRuns ?? []).find((run) =>
+      run.nodeAttemptIds.includes(nodeAttemptId),
+    ) ??
+    null;
+  if (gatedRun) {
+    const attemptIndex = gatedRun.nodeAttemptIds.indexOf(nodeAttemptId);
+    const componentKind =
+      gatedRun.componentKinds[attemptIndex] ??
+      gatedRun.componentKinds[0] ??
+      "gated_cluster";
+    return {
+      attemptId: nodeAttemptId,
+      sourceKind: "gated_cluster",
+      sourceLabel: `${gatedRun.clusterLabel} node attempt`,
+      status: gatedRun.status,
+      producerComponent: componentKind,
+      componentKind,
+      workflowNodeId: null,
+      nodeLabel: gatedRun.clusterId,
+      runId: gatedRun.runId,
+      harnessWorkflowId: gatedRun.harnessWorkflowId,
+      harnessActivationId: gatedRun.harnessActivationId,
+      harnessHash: gatedRun.harnessHash,
+      executionMode: gatedRun.executionMode,
+      readiness: gatedRun.promotionBlocked ? "blocked" : "live_ready",
+      policyDecision: gatedRun.gateDecision,
+      attemptIndex,
+      inputHash: "cluster input hash pending",
+      outputHash: "cluster output hash pending",
+      startedAtMs: null,
+      durationMs: null,
+      receiptRefs: workflowUniqueReceiptRefs([
+        gatedRun.receiptIds[attemptIndex],
+      ]),
+      replayFixtureRef:
+        gatedRun.replayFixtureRefs[attemptIndex] ?? "not captured",
+      replayDeterminism: "redacted",
+      replayRedactionPolicy: "gated_cluster_fixture_redacted",
+      evidenceRefs: workflowUniqueReceiptRefs(gatedRun.evidenceRefs),
+      payloadPreview: workflowValuePreview(
+        workflowRedactedReceiptPayload(gatedRun),
+      ),
+    };
+  }
+
+  return {
+    attemptId: nodeAttemptId,
+    sourceKind: "unresolved",
+    sourceLabel: "Unresolved node attempt",
+    status: "unresolved",
+    producerComponent: "unknown",
+    componentKind: "unknown",
+    workflowNodeId: null,
+    nodeLabel: "not resolved",
+    runId,
+    harnessWorkflowId: workflow.metadata.id,
+    harnessActivationId:
+      workflow.metadata.harness?.activationId ?? "activation pending",
+    harnessHash: workflow.metadata.harness?.harnessHash ?? "hash pending",
+    executionMode: "unknown",
+    readiness: "unknown",
+    policyDecision: "node attempt id pinned without a matching local record",
+    attemptIndex: null,
+    inputHash: "not resolved",
+    outputHash: "not resolved",
+    startedAtMs: null,
+    durationMs: null,
+    receiptRefs: [],
+    replayFixtureRef: "not resolved",
+    replayDeterminism: "disabled",
+    replayRedactionPolicy: "not resolved",
+    evidenceRefs: [nodeAttemptId],
+    payloadPreview: workflowValuePreview({
+      nodeAttemptId,
+      status: "unresolved",
+    }),
+  };
 }
 
 export function resolveWorkflowHarnessReceiptInspection({
