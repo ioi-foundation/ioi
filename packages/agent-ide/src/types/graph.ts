@@ -1068,6 +1068,29 @@ export interface WorkflowHarnessGatedClusterRun {
   evidenceRefs: string[];
 }
 
+export interface WorkflowHarnessLiveShadowComparisonGate {
+  schemaVersion: "workflow.harness.live-shadow-comparison-gate.v1" | string;
+  gateId: string;
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  targetExecutionMode: Extract<WorkflowHarnessExecutionMode, "live">;
+  requiredComponentKinds: WorkflowHarnessComponentKind[];
+  componentKinds: WorkflowHarnessComponentKind[];
+  comparisonCount: number;
+  requiredComparisonCount: number;
+  allRequiredComponentsPresent: boolean;
+  receiptReady: boolean;
+  replayReady: boolean;
+  divergenceReady: boolean;
+  blockingDivergenceCount: number;
+  unclassifiedDivergenceCount: number;
+  ready: boolean;
+  policyDecision: string;
+  blockers: string[];
+  evidenceRefs: string[];
+}
+
 export type WorkflowHarnessPromotionTransitionTarget = Extract<
   WorkflowHarnessExecutionMode,
   "gated" | "live"
@@ -1153,6 +1176,8 @@ export interface WorkflowHarnessLivePromotionReadinessProof {
   targetExecutionMode: Extract<WorkflowHarnessExecutionMode, "live">;
   requiredClusterIds: WorkflowHarnessPromotionClusterId[];
   clusterReadiness: WorkflowHarnessLivePromotionClusterReadiness[];
+  liveShadowComparisonGate: WorkflowHarnessLiveShadowComparisonGate;
+  liveShadowComparisonGateReady: boolean;
   allClustersReady: boolean;
   promotionEligible: boolean;
   defaultLiveActivationReady: boolean;
@@ -1702,6 +1727,8 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   cognitionExecutionShadowDivergenceClasses?: WorkflowHarnessDivergenceClass[];
   liveShadowComparisons?: WorkflowHarnessShadowComparison[];
   liveShadowComparisonCount?: number;
+  liveShadowComparisonGate?: WorkflowHarnessLiveShadowComparisonGate;
+  liveShadowComparisonGateReady?: boolean;
   liveShadowBlockingDivergenceCount?: number;
   liveShadowUnclassifiedDivergenceCount?: number;
   cognitionExecutionGateAdapterMode:

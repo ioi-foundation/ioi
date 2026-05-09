@@ -222,9 +222,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /WorkflowHarnessRuntimeSelectorDecision[\s\S]*defaultLivePromotionInvariantIds: string\[\][\s\S]*reviewedImportActivationApplyProofPassed: boolean[\s\S]*reviewedImportActivationApplyActivationId: string \| null/,
   );
   assert.match(graph, /WorkflowHarnessLivePromotionReadinessProof/);
+  assert.match(graph, /WorkflowHarnessLiveShadowComparisonGate/);
   assert.match(
     graph,
-    /WorkflowHarnessLivePromotionReadinessProof[\s\S]*requiredClusterIds[\s\S]*clusterReadiness[\s\S]*defaultLiveActivationReady[\s\S]*invalidForkLiveActivationBlocked/,
+    /WorkflowHarnessLivePromotionReadinessProof[\s\S]*requiredClusterIds[\s\S]*clusterReadiness[\s\S]*liveShadowComparisonGate[\s\S]*liveShadowComparisonGateReady[\s\S]*defaultLiveActivationReady[\s\S]*invalidForkLiveActivationBlocked/,
   );
   assert.match(graph, /WorkflowHarnessDefaultRuntimeDispatchProof/);
   assert.match(
@@ -323,7 +324,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   assert.match(
     workflow,
-    /workflowHarnessLivePromotionReadinessProofBlockers[\s\S]*live_promotion_readiness_proof_missing[\s\S]*live_promotion_readiness_invalid_fork_not_blocked[\s\S]*live_promotion_readiness_cluster_divergence_not_ready/,
+    /workflowHarnessLivePromotionReadinessProofBlockers[\s\S]*live_promotion_readiness_proof_missing[\s\S]*live_promotion_readiness_invalid_fork_not_blocked[\s\S]*live_promotion_readiness_live_shadow_gate_not_ready[\s\S]*live_promotion_readiness_cluster_divergence_not_ready/,
   );
   assert.match(
     workflow,

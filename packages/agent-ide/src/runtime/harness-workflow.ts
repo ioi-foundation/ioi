@@ -20,6 +20,7 @@ import type {
   WorkflowHarnessLiveHandoffProof,
   WorkflowHarnessLivePromotionClusterReadiness,
   WorkflowHarnessLivePromotionReadinessProof,
+  WorkflowHarnessLiveShadowComparisonGate,
   WorkflowHarnessMetadata,
   WorkflowHarnessPackageEvidenceManifest,
   WorkflowHarnessNodeBinding,
@@ -4461,6 +4462,92 @@ function makeHarnessLivePromotionClusterReadiness(options: {
   };
 }
 
+export function makeHarnessLiveShadowComparisonGate(options: {
+  comparisons?: WorkflowHarnessShadowComparison[];
+  dispatchId?: string;
+  receiptRefs?: string[];
+  replayFixtureRefs?: string[];
+  evidenceRefs?: string[];
+} = {}): WorkflowHarnessLiveShadowComparisonGate {
+  const requiredComponentKinds =
+    HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS;
+  const comparisons = options.comparisons ?? [];
+  const componentKinds = uniqueStrings(
+    comparisons.map((comparison) => comparison.componentKind),
+  ) as WorkflowHarnessComponentKind[];
+  const blockingDivergenceCount = comparisons.filter(
+    (comparison) => comparison.blocking,
+  ).length;
+  const unclassifiedDivergenceCount = comparisons.filter(
+    (comparison) => comparison.divergence === "unclassified",
+  ).length;
+  const receiptReady =
+    (options.receiptRefs ?? []).length > 0 ||
+    (comparisons.length > 0 &&
+      comparisons.every(
+        (comparison) =>
+          (comparison.liveReceiptRefs?.length ?? 0) > 0 &&
+          (comparison.shadowReceiptRefs?.length ?? 0) > 0,
+      ));
+  const replayReady =
+    (options.replayFixtureRefs ?? []).length > 0 ||
+    (comparisons.length > 0 &&
+      comparisons.every(
+        (comparison) =>
+          Boolean(comparison.liveReplayFixtureRef) &&
+          Boolean(comparison.shadowReplayFixtureRef),
+      ));
+  const allRequiredComponentsPresent = requiredComponentKinds.every(
+    (componentKind) => componentKinds.includes(componentKind),
+  );
+  const divergenceReady =
+    blockingDivergenceCount === 0 && unclassifiedDivergenceCount === 0;
+  const blockers = uniqueStrings([
+    ...(allRequiredComponentsPresent
+      ? []
+      : ["live_shadow_comparison_required_components_missing"]),
+    ...(comparisons.length >= requiredComponentKinds.length
+      ? []
+      : ["live_shadow_comparison_required_count_missing"]),
+    ...(receiptReady ? [] : ["live_shadow_comparison_receipts_missing"]),
+    ...(replayReady ? [] : ["live_shadow_comparison_replay_missing"]),
+    ...(divergenceReady ? [] : ["live_shadow_comparison_divergence_not_ready"]),
+  ]);
+  const ready = blockers.length === 0;
+
+  return {
+    schemaVersion: "workflow.harness.live-shadow-comparison-gate.v1",
+    gateId: "p0-live-shadow-comparison-gate",
+    workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    targetExecutionMode: "live",
+    requiredComponentKinds,
+    componentKinds,
+    comparisonCount: comparisons.length,
+    requiredComparisonCount: requiredComponentKinds.length,
+    allRequiredComponentsPresent,
+    receiptReady,
+    replayReady,
+    divergenceReady,
+    blockingDivergenceCount,
+    unclassifiedDivergenceCount,
+    ready,
+    policyDecision: ready
+      ? "allow_default_harness_live_shadow_comparison_gate"
+      : "block_default_harness_live_shadow_comparison_gate",
+    blockers,
+    evidenceRefs: uniqueStrings([
+      options.dispatchId,
+      `harness-live-shadow-comparison-gate:${DEFAULT_AGENT_HARNESS_WORKFLOW_ID}`,
+      ...(options.receiptRefs ?? []),
+      ...(options.replayFixtureRefs ?? []),
+      ...comparisons.flatMap((comparison) => comparison.evidenceRefs ?? []),
+      ...(options.evidenceRefs ?? []),
+    ]),
+  };
+}
+
 export function makeHarnessLivePromotionReadinessProof(options: {
   proofId?: string;
   dispatchId: string;
@@ -4468,6 +4555,7 @@ export function makeHarnessLivePromotionReadinessProof(options: {
   activationId?: string;
   harnessHash?: string;
   clusterReadiness: WorkflowHarnessLivePromotionClusterReadiness[];
+  liveShadowComparisonGate?: WorkflowHarnessLiveShadowComparisonGate;
   activationBlockers?: string[];
   invalidForkLiveActivationBlocked?: boolean;
   rollbackAvailable?: boolean;
@@ -4515,8 +4603,41 @@ export function makeHarnessLivePromotionReadinessProof(options: {
   const rollbackAvailable = options.rollbackAvailable ?? true;
   const rollbackTarget =
     options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const liveShadowComparisonGate =
+    options.liveShadowComparisonGate ??
+    makeHarnessLiveShadowComparisonGate({
+      dispatchId: options.dispatchId,
+      comparisons: HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS.map(
+        (componentKind) => ({
+          workflowNodeId: `harness.${componentKind}`,
+          componentKind,
+          liveAttemptId: `harness-default-dispatch:attempt-${componentKind}`,
+          shadowAttemptId: `harness-default-dispatch:attempt-${componentKind}_shadow`,
+          divergence: "none",
+          blocking: false,
+          summary:
+            "Canonical default promotion readiness includes a retained P0 live/shadow comparison.",
+          evidenceRefs: [
+            `harness-default-dispatch:receipt-${componentKind}`,
+            `harness-default-dispatch:fixture-${componentKind}`,
+          ],
+          liveReceiptRefs: [`harness-default-dispatch:receipt-${componentKind}`],
+          shadowReceiptRefs: [
+            `harness-default-dispatch:receipt-${componentKind}_shadow`,
+          ],
+          liveReplayFixtureRef: `harness-default-dispatch:fixture-${componentKind}`,
+          shadowReplayFixtureRef: `harness-default-dispatch:fixture-${componentKind}_shadow`,
+          liveInputHash: `sha256:${componentKind}`,
+          shadowInputHash: `sha256:${componentKind}`,
+          liveOutputHash: `sha256:${componentKind}`,
+          shadowOutputHash: `sha256:${componentKind}`,
+        }),
+      ),
+    });
+  const liveShadowComparisonGateReady = liveShadowComparisonGate.ready;
   const promotionEligible =
     allClustersReady &&
+    liveShadowComparisonGateReady &&
     activationBlockers.length === 0 &&
     invalidForkLiveActivationBlocked &&
     rollbackAvailable &&
@@ -4534,6 +4655,8 @@ export function makeHarnessLivePromotionReadinessProof(options: {
     targetExecutionMode: "live",
     requiredClusterIds,
     clusterReadiness,
+    liveShadowComparisonGate,
+    liveShadowComparisonGateReady,
     allClustersReady,
     promotionEligible,
     defaultLiveActivationReady: promotionEligible,
@@ -4547,6 +4670,7 @@ export function makeHarnessLivePromotionReadinessProof(options: {
     evidenceRefs: uniqueStrings([
       options.dispatchId,
       `harness-live-promotion-readiness:${workflowId}`,
+      ...liveShadowComparisonGate.evidenceRefs,
       ...clusterReadiness.flatMap((cluster) => [
         ...cluster.attemptIds,
         ...cluster.receiptRefs,
@@ -4605,6 +4729,50 @@ export function workflowHarnessLivePromotionReadinessProofBlockers(
     proof.policyDecision !== "allow_default_harness_live_promotion_readiness"
   ) {
     blockers.push("live_promotion_readiness_policy_blocked");
+  }
+  const gate = proof.liveShadowComparisonGate;
+  if (gate?.schemaVersion !== "workflow.harness.live-shadow-comparison-gate.v1") {
+    blockers.push("live_promotion_readiness_live_shadow_gate_schema_mismatch");
+  }
+  if (!proof.liveShadowComparisonGateReady || gate?.ready !== true) {
+    blockers.push("live_promotion_readiness_live_shadow_gate_not_ready");
+  }
+  if (gate?.targetExecutionMode !== "live") {
+    blockers.push("live_promotion_readiness_live_shadow_gate_not_live");
+  }
+  for (const componentKind of HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS) {
+    if (!gate?.componentKinds?.includes(componentKind)) {
+      blockers.push(
+        `live_promotion_readiness_live_shadow_gate_component_missing:${componentKind}`,
+      );
+    }
+  }
+  if (
+    !gate ||
+    gate.comparisonCount < HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS.length
+  ) {
+    blockers.push("live_promotion_readiness_live_shadow_gate_count_missing");
+  }
+  if (gate?.receiptReady !== true) {
+    blockers.push("live_promotion_readiness_live_shadow_gate_receipts_missing");
+  }
+  if (gate?.replayReady !== true) {
+    blockers.push("live_promotion_readiness_live_shadow_gate_replay_missing");
+  }
+  if (
+    gate?.divergenceReady !== true ||
+    (gate?.blockingDivergenceCount ?? 1) > 0 ||
+    (gate?.unclassifiedDivergenceCount ?? 1) > 0
+  ) {
+    blockers.push(
+      "live_promotion_readiness_live_shadow_gate_divergence_not_ready",
+    );
+  }
+  if (
+    gate?.policyDecision !==
+    "allow_default_harness_live_shadow_comparison_gate"
+  ) {
+    blockers.push("live_promotion_readiness_live_shadow_gate_policy_blocked");
   }
 
   for (const blocker of proof.activationBlockers ?? []) {
@@ -5087,6 +5255,33 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     ...verificationOutputLiveShadowComparisons,
     ...authorityToolingLiveShadowComparisons,
   ];
+  const liveShadowComparisonGate = makeHarnessLiveShadowComparisonGate({
+    comparisons: liveShadowComparisons,
+    receiptRefs: [
+      "harness-default-dispatch:receipt-planner_envelope",
+      "harness-default-dispatch:receipt-prompt_assembler_envelope",
+      "harness-default-dispatch:receipt-task_state_envelope",
+      ...cognitionExecutionShadowReceiptIds,
+      ...routingModelReceiptIds,
+      ...routingModelShadowReceiptIds,
+      ...verificationOutputReceiptIds,
+      ...verificationOutputShadowReceiptIds,
+      ...authorityToolingReceiptIds,
+      ...authorityToolingShadowReceiptIds,
+    ],
+    replayFixtureRefs: [
+      "harness-default-dispatch:fixture-planner_envelope",
+      "harness-default-dispatch:fixture-prompt_assembler_envelope",
+      "harness-default-dispatch:fixture-task_state_envelope",
+      ...cognitionExecutionShadowReplayFixtureRefs,
+      ...routingModelReplayFixtureRefs,
+      ...routingModelShadowReplayFixtureRefs,
+      ...verificationOutputReplayFixtureRefs,
+      ...verificationOutputShadowReplayFixtureRefs,
+      ...authorityToolingReplayFixtureRefs,
+      ...authorityToolingShadowReplayFixtureRefs,
+    ],
+  });
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -5127,7 +5322,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     ...activationIdGateProofBlockers,
     ...defaultLivePromotionInvariantBlockers,
   ]);
-  const dispatchAccepted = activationBlockers.length === 0;
+  const dispatchAccepted =
+    activationBlockers.length === 0 && liveShadowComparisonGate.ready;
   const activationIdGateClickProofPresent = Boolean(
     options.activationIdGateClickProof,
   );
@@ -5153,6 +5349,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     );
   const livePromotionReadinessProof = makeHarnessLivePromotionReadinessProof({
     dispatchId,
+    liveShadowComparisonGate,
     activationBlockers,
     invalidForkLiveActivationBlocked: true,
     rollbackAvailable: true,
@@ -5636,6 +5833,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     cognitionExecutionShadowDivergenceClasses,
     liveShadowComparisons,
     liveShadowComparisonCount: liveShadowComparisons.length,
+    liveShadowComparisonGate,
+    liveShadowComparisonGateReady: liveShadowComparisonGate.ready,
     liveShadowBlockingDivergenceCount: liveShadowComparisons.filter(
       (comparison) => comparison.blocking,
     ).length,
@@ -6874,6 +7073,30 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "wallet_capability",
   ],
 };
+
+const HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS: WorkflowHarnessComponentKind[] =
+  [
+    "planner",
+    "prompt_assembler",
+    "task_state",
+    "model_router",
+    "model_call",
+    "tool_router",
+    "postcondition_synthesizer",
+    "verifier",
+    "completion_gate",
+    "receipt_writer",
+    "quality_ledger",
+    "output_writer",
+    "policy_gate",
+    "approval_gate",
+    "dry_run_simulator",
+    "mcp_provider",
+    "mcp_tool_call",
+    "tool_call",
+    "connector_call",
+    "wallet_capability",
+  ];
 
 const HARNESS_PROMOTION_CLUSTER_LABELS: Record<
   WorkflowHarnessPromotionClusterId,

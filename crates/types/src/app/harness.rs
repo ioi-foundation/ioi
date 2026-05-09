@@ -207,6 +207,30 @@ pub struct HarnessShadowRun {
     pub evidence_refs: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessLiveShadowComparisonGate {
+    pub schema_version: String,
+    pub gate_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub target_execution_mode: HarnessExecutionMode,
+    pub required_component_kinds: Vec<HarnessComponentKind>,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub comparison_count: u32,
+    pub required_comparison_count: u32,
+    pub all_required_components_present: bool,
+    pub receipt_ready: bool,
+    pub replay_ready: bool,
+    pub divergence_ready: bool,
+    pub blocking_divergence_count: u32,
+    pub unclassified_divergence_count: u32,
+    pub ready: bool,
+    pub policy_decision: String,
+    pub blockers: Vec<String>,
+    pub evidence_refs: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum HarnessPromotionClusterId {
@@ -448,6 +472,8 @@ pub struct HarnessLivePromotionReadinessProof {
     pub target_execution_mode: HarnessExecutionMode,
     pub required_cluster_ids: Vec<HarnessPromotionClusterId>,
     pub cluster_readiness: Vec<HarnessLivePromotionClusterReadiness>,
+    pub live_shadow_comparison_gate: HarnessLiveShadowComparisonGate,
+    pub live_shadow_comparison_gate_ready: bool,
     pub all_clusters_ready: bool,
     pub promotion_eligible: bool,
     pub default_live_activation_ready: bool,
@@ -1612,6 +1638,29 @@ const AUTHORITY_TOOLING_CLUSTER_COMPONENTS: &[HarnessComponentKind] = &[
     HarnessComponentKind::WalletCapability,
 ];
 
+const LIVE_SHADOW_COMPARISON_GATE_COMPONENTS: &[HarnessComponentKind] = &[
+    HarnessComponentKind::Planner,
+    HarnessComponentKind::PromptAssembler,
+    HarnessComponentKind::TaskState,
+    HarnessComponentKind::ModelRouter,
+    HarnessComponentKind::ModelCall,
+    HarnessComponentKind::ToolRouter,
+    HarnessComponentKind::PostconditionSynthesizer,
+    HarnessComponentKind::Verifier,
+    HarnessComponentKind::CompletionGate,
+    HarnessComponentKind::ReceiptWriter,
+    HarnessComponentKind::QualityLedger,
+    HarnessComponentKind::OutputWriter,
+    HarnessComponentKind::PolicyGate,
+    HarnessComponentKind::ApprovalGate,
+    HarnessComponentKind::DryRunSimulator,
+    HarnessComponentKind::McpProvider,
+    HarnessComponentKind::McpToolCall,
+    HarnessComponentKind::ToolCall,
+    HarnessComponentKind::ConnectorCall,
+    HarnessComponentKind::WalletCapability,
+];
+
 fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_string()).collect()
 }
@@ -1635,6 +1684,10 @@ pub fn harness_promotion_cluster_components(
     cluster_id: HarnessPromotionClusterId,
 ) -> Vec<HarnessComponentKind> {
     promotion_cluster_components(cluster_id)
+}
+
+pub fn default_harness_live_shadow_comparison_gate_component_kinds() -> Vec<HarnessComponentKind> {
+    LIVE_SHADOW_COMPARISON_GATE_COMPONENTS.to_vec()
 }
 
 fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
@@ -3367,6 +3420,41 @@ fn default_live_promotion_cluster_readiness(
     }
 }
 
+pub fn default_harness_live_shadow_comparison_gate(
+    evidence_ref: impl Into<String>,
+) -> HarnessLiveShadowComparisonGate {
+    let required_component_kinds = default_harness_live_shadow_comparison_gate_component_kinds();
+    let required_comparison_count = required_component_kinds.len() as u32;
+    HarnessLiveShadowComparisonGate {
+        schema_version: "workflow.harness.live-shadow-comparison-gate.v1".to_string(),
+        gate_id: "p0-live-shadow-comparison-gate".to_string(),
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        target_execution_mode: HarnessExecutionMode::Live,
+        required_component_kinds: required_component_kinds.clone(),
+        component_kinds: required_component_kinds,
+        comparison_count: required_comparison_count,
+        required_comparison_count,
+        all_required_components_present: true,
+        receipt_ready: true,
+        replay_ready: true,
+        divergence_ready: true,
+        blocking_divergence_count: 0,
+        unclassified_divergence_count: 0,
+        ready: true,
+        policy_decision: "allow_default_harness_live_shadow_comparison_gate".to_string(),
+        blockers: Vec::new(),
+        evidence_refs: vec![
+            evidence_ref.into(),
+            format!(
+                "harness-live-shadow-comparison-gate:{}",
+                DEFAULT_AGENT_HARNESS_WORKFLOW_ID
+            ),
+        ],
+    }
+}
+
 pub fn default_harness_live_promotion_readiness_proof(
     dispatch_id: impl Into<String>,
     activation_blockers: Vec<String>,
@@ -3464,9 +3552,13 @@ pub fn default_harness_live_promotion_readiness_proof(
     let all_clusters_ready = cluster_readiness
         .iter()
         .all(|cluster| cluster.blockers.is_empty());
+    let live_shadow_comparison_gate =
+        default_harness_live_shadow_comparison_gate(dispatch_id.clone());
+    let live_shadow_comparison_gate_ready = live_shadow_comparison_gate.ready;
     let rollback_available = true;
     let invalid_fork_live_activation_blocked = true;
     let promotion_eligible = all_clusters_ready
+        && live_shadow_comparison_gate_ready
         && activation_blockers.is_empty()
         && rollback_available
         && invalid_fork_live_activation_blocked;
@@ -3484,6 +3576,8 @@ pub fn default_harness_live_promotion_readiness_proof(
         target_execution_mode: HarnessExecutionMode::Live,
         required_cluster_ids,
         cluster_readiness,
+        live_shadow_comparison_gate,
+        live_shadow_comparison_gate_ready,
         all_clusters_ready,
         promotion_eligible,
         default_live_activation_ready: promotion_eligible,
