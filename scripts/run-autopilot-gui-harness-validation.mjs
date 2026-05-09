@@ -45,6 +45,16 @@ const HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
   "quality_ledger",
   "output_writer",
 ]);
+const HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
+  "policy_gate",
+  "approval_gate",
+  "dry_run_simulator",
+  "mcp_provider",
+  "mcp_tool_call",
+  "tool_call",
+  "connector_call",
+  "wallet_capability",
+]);
 const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
   DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
     (invariant) =>
@@ -595,6 +605,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch?.verificationOutputAdapterResults,
       dispatch?.verificationOutputShadowAdapterResults,
       dispatch?.authorityToolingAdapterResults,
+      dispatch?.authorityToolingShadowAdapterResults,
     ];
     const resultAttempt = resultSources
       .flatMap((items) => (Array.isArray(items) ? items : []))
@@ -678,6 +689,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch?.verificationOutputAdapterResults,
       dispatch?.verificationOutputShadowAdapterResults,
       dispatch?.authorityToolingAdapterResults,
+      dispatch?.authorityToolingShadowAdapterResults,
     ]
       .flatMap((items) => (Array.isArray(items) ? items : []))
       .map((result) => result?.nodeAttempt)
@@ -798,6 +810,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         "gated",
         "shadow_ready",
         "gated",
+        8,
+      ) &&
+      adapterResultsReady(
+        dispatch.authorityToolingShadowAdapterResults,
+        "shadow",
+        "shadow_ready",
+        "shadow",
         8,
       ) &&
       stringArrayLength(dispatch.modelExecutionAttemptIds) >= 5 &&
@@ -2448,6 +2467,39 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingDivergenceClasses.every(
               (kind) => kind === "none",
             ) &&
+            dispatch.authorityToolingShadowAdapterMode ===
+              "workflow_component_adapter_shadow" &&
+            Array.isArray(dispatch.authorityToolingShadowAdapterResults) &&
+            dispatch.authorityToolingShadowAdapterResults.length >= 8 &&
+            dispatch.authorityToolingShadowAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "shadow" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "shadow",
+            ) &&
+            Array.isArray(dispatch.authorityToolingShadowAttemptIds) &&
+            dispatch.authorityToolingShadowAttemptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingShadowReceiptIds) &&
+            dispatch.authorityToolingShadowReceiptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingShadowReplayFixtureRefs) &&
+            dispatch.authorityToolingShadowReplayFixtureRefs.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingShadowComponentKinds) &&
+            [
+              "policy_gate",
+              "approval_gate",
+              "dry_run_simulator",
+              "mcp_provider",
+              "mcp_tool_call",
+              "tool_call",
+              "connector_call",
+              "wallet_capability",
+            ].every((kind) =>
+              dispatch.authorityToolingShadowComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(dispatch.authorityToolingShadowDivergenceClasses) &&
+            dispatch.authorityToolingShadowDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
             dispatch.authorityToolingAdapterProof?.ready === true &&
             dispatch.authorityToolingAdapterProof?.policyDecision ===
               "accept_workflow_authority_tooling_adapter_envelope" &&
@@ -2915,6 +2967,39 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ) &&
             Array.isArray(dispatch.authorityToolingDivergenceClasses) &&
             dispatch.authorityToolingDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.authorityToolingShadowAdapterMode ===
+              "workflow_component_adapter_shadow" &&
+            Array.isArray(dispatch.authorityToolingShadowAdapterResults) &&
+            dispatch.authorityToolingShadowAdapterResults.length >= 8 &&
+            dispatch.authorityToolingShadowAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "shadow" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "shadow",
+            ) &&
+            Array.isArray(dispatch.authorityToolingShadowAttemptIds) &&
+            dispatch.authorityToolingShadowAttemptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingShadowReceiptIds) &&
+            dispatch.authorityToolingShadowReceiptIds.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingShadowReplayFixtureRefs) &&
+            dispatch.authorityToolingShadowReplayFixtureRefs.length >= 8 &&
+            Array.isArray(dispatch.authorityToolingShadowComponentKinds) &&
+            [
+              "policy_gate",
+              "approval_gate",
+              "dry_run_simulator",
+              "mcp_provider",
+              "mcp_tool_call",
+              "tool_call",
+              "connector_call",
+              "wallet_capability",
+            ].every((kind) =>
+              dispatch.authorityToolingShadowComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(dispatch.authorityToolingShadowDivergenceClasses) &&
+            dispatch.authorityToolingShadowDivergenceClasses.every(
               (kind) => kind === "none",
             ) &&
             dispatch.authorityToolingAdapterProof?.ready === true &&
@@ -4652,11 +4737,24 @@ function buildGuiEvidenceAssessment({
           componentKind,
         ),
     );
+  const hasHarnessLiveShadowAuthorityToolingPairs =
+    summary.harnessLiveShadowComparisonCount >=
+      HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length +
+        HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.length +
+        HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS.length +
+        HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS.length &&
+    HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS.every(
+      (componentKind) =>
+        summary.harnessLiveShadowComparisonComponentKinds.includes(
+          componentKind,
+        ),
+    );
   const hasHarnessLiveShadowComparison =
     hasHarnessLiveTurnNodeInspectorDeepLink &&
     hasHarnessLiveShadowCognitionPairs &&
     hasHarnessLiveShadowRoutingModelPairs &&
     hasHarnessLiveShadowVerificationOutputPairs &&
+    hasHarnessLiveShadowAuthorityToolingPairs &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.liveShadowComparisonDeepLink === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
@@ -4867,6 +4965,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessLiveShadowRoutingModelPairs,
       harness_live_shadow_verification_output_pairs_present:
         hasHarnessLiveShadowVerificationOutputPairs,
+      harness_live_shadow_authority_tooling_pairs_present:
+        hasHarnessLiveShadowAuthorityToolingPairs,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4959,6 +5059,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveShadowCognitionPairs,
       hasHarnessLiveShadowRoutingModelPairs,
       hasHarnessLiveShadowVerificationOutputPairs,
+      hasHarnessLiveShadowAuthorityToolingPairs,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -5014,6 +5115,9 @@ function buildGuiEvidenceAssessment({
       ],
       harnessLiveShadowVerificationOutputRequiredComponentKinds: [
         ...HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS,
+      ],
+      harnessLiveShadowAuthorityToolingRequiredComponentKinds: [
+        ...HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS,
       ],
       harnessLiveShadowComparisonSamples:
         summary.harnessLiveShadowComparisonSamples,
@@ -5816,6 +5920,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       ...(defaultDispatch?.verificationOutputAdapterResults ?? []),
       ...(defaultDispatch?.verificationOutputShadowAdapterResults ?? []),
       ...(defaultDispatch?.authorityToolingAdapterResults ?? []),
+      ...(defaultDispatch?.authorityToolingShadowAdapterResults ?? []),
     ]
       .map((result) => result?.nodeAttempt ?? null)
       .filter(Boolean);

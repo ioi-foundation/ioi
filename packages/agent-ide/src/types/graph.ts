@@ -1756,6 +1756,16 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingActionFrameIds: string[];
   authorityToolingComponentKinds: WorkflowHarnessComponentKind[];
   authorityToolingDivergenceClasses: WorkflowHarnessDivergenceClass[];
+  authorityToolingShadowAdapterMode?:
+    | "workflow_component_adapter_shadow"
+    | string;
+  authorityToolingShadowAttemptIds?: string[];
+  authorityToolingShadowReceiptIds?: string[];
+  authorityToolingShadowReplayFixtureRefs?: string[];
+  authorityToolingShadowAdapterResults?: WorkflowHarnessComponentAdapterResult[];
+  authorityToolingShadowActionFrameIds?: string[];
+  authorityToolingShadowComponentKinds?: WorkflowHarnessComponentKind[];
+  authorityToolingShadowDivergenceClasses?: WorkflowHarnessDivergenceClass[];
   modelExecutionAttemptIds: string[];
   modelExecutionReceiptIds: string[];
   modelExecutionReplayFixtureRefs: string[];

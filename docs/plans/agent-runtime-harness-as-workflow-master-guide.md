@@ -1506,9 +1506,55 @@ cluster:
 
 This changes verification/output from "gated adapter results are present" to
 "each verification/output adapter has a retained shadow comparison with receipts,
-replay fixtures, no blocking divergence, and matching input/output hashes." The
-next chronological slice should apply the same direct runtime evidence pattern to
-`authority_tooling` before any final default-live handoff is treated as complete.
+replay fixtures, no blocking divergence, and matching input/output hashes."
+
+### 2026-05-09 Authority/Tooling Live Vs Shadow Runtime Slice
+
+The direct runtime comparison pattern now covers the final P0 promotion cluster,
+`authority_tooling`:
+
+- `runtime_harness_default_runtime_dispatch` invokes shadow adapter results
+  beside the gated `policy_gate`, `approval_gate`, `dry_run_simulator`,
+  `mcp_provider`, `mcp_tool_call`, `tool_call`, `connector_call`, and
+  `wallet_capability` adapter results.
+- The default dispatch artifact now carries
+  `authorityToolingShadowAdapterMode`, shadow attempt ids, receipt ids, replay
+  fixture refs, adapter results, action frame ids, component kinds, and
+  divergence classes.
+- The shared `liveShadowComparisons` list now includes twenty retained pairs:
+  cognition, routing/model, verification/output, and all eight authority/tooling
+  components.
+- The authority/tooling live-promotion readiness proof now requires both the
+  gated adapter lane and the shadow adapter lane while preserving the existing
+  policy gate, approval gate, read-only catalog, destructive denial, wallet
+  dry-run, canary, and rollback readiness checks.
+- The node-attempt inspector and live/shadow comparison rail now include
+  `authorityToolingShadowAdapterResults` when resolving default dispatch
+  attempts, so deep links can land on the new shadow-backed authority/tooling
+  evidence.
+- Runtime consistency now requires
+  `harness_live_shadow_authority_tooling_pairs_present`, so GUI validation fails
+  unless all eight authority/tooling components are present in the retained
+  live/shadow comparison set.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T06-38-31-001Z/result.json`.
+  Its evidence assessment reports `harnessLiveShadowComparisonCount: 20` and
+  component kinds `["approval_gate", "completion_gate", "connector_call",
+  "dry_run_simulator", "mcp_provider", "mcp_tool_call", "model_call",
+  "model_router", "output_writer", "planner", "policy_gate",
+  "postcondition_synthesizer", "prompt_assembler", "quality_ledger",
+  "receipt_writer", "task_state", "tool_call", "tool_router", "verifier",
+  "wallet_capability"]`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T06-45-05-443Z/dashboard-index.json`.
+
+This changes authority/tooling from "gated adapter results and live dry-run
+canaries are present" to "every P0 default harness cluster has retained
+live/shadow comparison coverage with receipts, replay fixtures, no blocking
+divergence, and matching input/output hashes." The next chronological slice
+should harden final promotion semantics: prove the default live handoff consumes
+the blessed workflow activation with all P0 cluster comparison gates as explicit
+preconditions, then exercise rollback from that fully proven state.
 
 ## Current State
 
