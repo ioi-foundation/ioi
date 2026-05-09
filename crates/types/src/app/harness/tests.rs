@@ -775,6 +775,14 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
     record.invariant_blockers.clear();
     record.readiness_proof_id =
         "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly".to_string();
+    record.rollback_readiness_proof_id = record.readiness_proof_id.clone();
+    record.rollback_live_shadow_comparison_gate_id =
+        "p0-live-shadow-comparison-gate".to_string();
+    record.rollback_live_shadow_comparison_gate_ready = true;
+    record.rollback_activation_id = DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string();
+    record.rollback_harness_hash = DEFAULT_AGENT_HARNESS_HASH.to_string();
+    record.rollback_policy_decision =
+        "allow_default_harness_worker_rollback_from_live_shadow_gate".to_string();
     record.canary_result_id = "harness-canary-result:default-agent-harness:passed".to_string();
     record.policy_decision = "promote_blessed_workflow_default_for_non_mutating_turn".to_string();
     record.worker_binding.execution_mode = HarnessExecutionMode::Live;
@@ -787,6 +795,11 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
     record.worker_binding.invariant_blockers.clear();
     record.worker_binding.live_promotion_readiness_proof_id =
         Some(record.readiness_proof_id.clone());
+    record.worker_binding.live_shadow_comparison_gate_id =
+        Some(record.rollback_live_shadow_comparison_gate_id.clone());
+    record.worker_binding.live_shadow_comparison_gate_ready = true;
+    record.worker_binding.rollback_policy_decision =
+        Some(record.rollback_policy_decision.clone());
     record.worker_binding.policy_decision = Some(record.policy_decision.clone());
     validate_harness_worker_binding_registry_record(&record)
         .expect("bound registry record accepts matching worker binding");

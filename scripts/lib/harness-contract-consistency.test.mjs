@@ -276,6 +276,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   assert.match(
     graph,
+    /WorkflowHarnessWorkerSessionRecord[\s\S]*rollbackReadinessProofId: string[\s\S]*rollbackLiveShadowComparisonGateId: string[\s\S]*rollbackLiveShadowComparisonGateReady: boolean[\s\S]*rollbackActivationId: string[\s\S]*rollbackHarnessHash: string[\s\S]*rollbackPolicyDecision: string/,
+  );
+  assert.match(
+    graph,
     /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*workerSessionRecord: WorkflowHarnessWorkerSessionRecord/,
   );
   assert.match(graph, /WorkflowHarnessWorkerLaunchEnvelope/);
@@ -287,6 +291,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(
     graph,
     /WorkflowHarnessWorkerHandoffReceipt[\s\S]*schemaVersion: "workflow\.harness\.worker-handoff-receipt\.v1"[\s\S]*phase: WorkflowHarnessWorkerLaunchPhase[\s\S]*handoffStatus: "launched" \| "resumed" \| "rollback_handoff_ready" \| "blocked"[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/,
+  );
+  assert.match(
+    graph,
+    /WorkflowHarnessWorkerHandoffReceipt[\s\S]*rollbackReadinessProofId: string[\s\S]*rollbackLiveShadowComparisonGateId: string[\s\S]*rollbackLiveShadowComparisonGateReady: boolean[\s\S]*rollbackActivationId: string[\s\S]*rollbackHarnessHash: string[\s\S]*rollbackPolicyDecision: string/,
   );
   assert.match(
     graph,
@@ -468,6 +476,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /workerHandoffNodeAttempts/,
     /workerHandoffNodeAttemptIds/,
     /workerHandoffReplayFixtureRefs/,
+    /workerRollbackLiveShadowGateBound/,
+    /rollbackLiveShadowComparisonGateId/,
+    /harness_default_runtime_rollback_live_shadow_gate_bound/,
     /harnessForkHandoffTimelineBoundCount/,
     /forkHandoffTimelineBound/,
     /selectorReviewedImportActivationApplyInvariant/,

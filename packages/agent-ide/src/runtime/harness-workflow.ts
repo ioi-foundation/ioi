@@ -66,6 +66,8 @@ export const DEFAULT_AGENT_HARNESS_HASH =
   "sha256:default-agent-harness-component-projection-v1";
 export const DEFAULT_AGENT_HARNESS_ACTIVATION_ID =
   "activation:default-agent-harness:blessed-readonly";
+export const DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID =
+  "p0-live-shadow-comparison-gate";
 export const DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET =
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
 export const DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS = Object.freeze([
@@ -502,6 +504,12 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
   componentVersionSet?: Record<string, string>;
   rollbackTarget?: string;
   readinessProofId?: string;
+  rollbackReadinessProofId?: string;
+  rollbackLiveShadowComparisonGateId?: string;
+  rollbackLiveShadowComparisonGateReady?: boolean;
+  rollbackActivationId?: string;
+  rollbackHarnessHash?: string;
+  rollbackPolicyDecision?: string;
   canaryResultId?: string;
   policyDecision?: string;
   bindingStatus?: WorkflowHarnessWorkerBindingRegistryRecord["bindingStatus"];
@@ -519,6 +527,13 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
   const rollbackTarget =
     options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
   const readinessProofId = options.readinessProofId ?? "";
+  const rollbackReadinessProofId =
+    options.rollbackReadinessProofId ?? readinessProofId;
+  const rollbackLiveShadowComparisonGateId =
+    options.rollbackLiveShadowComparisonGateId ??
+    DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID;
+  const rollbackActivationId = options.rollbackActivationId ?? activationId;
+  const rollbackHarnessHash = options.rollbackHarnessHash ?? harnessHash;
   const policyDecision =
     options.policyDecision ?? "retain_legacy_runtime_default";
   const blockers = uniqueStrings(options.blockers ?? []);
@@ -533,27 +548,57 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
     (blockers.length === 0 && invariantBlockers.length === 0 && readinessProofId
       ? "bound"
       : "blocked");
-  const workerBinding: WorkflowHarnessWorkerBinding = options.workerBinding ?? {
-    harnessWorkflowId: workflowId,
-    harnessActivationId: activationId,
-    harnessHash,
-    executionMode: bindingStatus === "bound" ? "live" : "projection",
-    source: "default",
-    selectorDecisionId: options.selectorDecisionId,
-    defaultDispatchId: options.defaultDispatchId,
-    rollbackTarget,
+  const rollbackLiveShadowComparisonGateReady =
+    options.rollbackLiveShadowComparisonGateReady ?? bindingStatus === "bound";
+  const rollbackPolicyDecision =
+    options.rollbackPolicyDecision ??
+    (bindingStatus === "bound"
+      ? "allow_default_harness_worker_rollback_from_live_shadow_gate"
+      : "block_default_harness_worker_rollback_from_live_shadow_gate");
+  const suppliedWorkerBinding = options.workerBinding;
+  const workerBinding: WorkflowHarnessWorkerBinding = {
+    harnessWorkflowId: suppliedWorkerBinding?.harnessWorkflowId ?? workflowId,
+    harnessActivationId:
+      suppliedWorkerBinding?.harnessActivationId ?? activationId,
+    harnessHash: suppliedWorkerBinding?.harnessHash ?? harnessHash,
+    executionMode:
+      suppliedWorkerBinding?.executionMode ??
+      (bindingStatus === "bound" ? "live" : "projection"),
+    source: suppliedWorkerBinding?.source ?? "default",
+    selectorDecisionId:
+      suppliedWorkerBinding?.selectorDecisionId ?? options.selectorDecisionId,
+    defaultDispatchId:
+      suppliedWorkerBinding?.defaultDispatchId ?? options.defaultDispatchId,
+    rollbackTarget: suppliedWorkerBinding?.rollbackTarget ?? rollbackTarget,
     authorityBindingReady:
-      bindingStatus === "bound" &&
-      blockers.length === 0 &&
-      invariantBlockers.length === 0,
-    authorityBindingBlockers: uniqueStrings([
-      ...blockers,
-      ...invariantBlockers,
-    ]),
-    livePromotionReadinessProofId: readinessProofId || undefined,
-    policyDecision,
-    requiredInvariantIds,
-    invariantBlockers,
+      suppliedWorkerBinding?.authorityBindingReady ??
+      (bindingStatus === "bound" &&
+        blockers.length === 0 &&
+        invariantBlockers.length === 0),
+    authorityBindingBlockers: uniqueStrings(
+      suppliedWorkerBinding?.authorityBindingBlockers ?? [
+        ...blockers,
+        ...invariantBlockers,
+      ],
+    ),
+    livePromotionReadinessProofId:
+      suppliedWorkerBinding?.livePromotionReadinessProofId ??
+      (readinessProofId || undefined),
+    liveShadowComparisonGateId:
+      suppliedWorkerBinding?.liveShadowComparisonGateId ??
+      rollbackLiveShadowComparisonGateId,
+    liveShadowComparisonGateReady:
+      suppliedWorkerBinding?.liveShadowComparisonGateReady ??
+      rollbackLiveShadowComparisonGateReady,
+    rollbackPolicyDecision:
+      suppliedWorkerBinding?.rollbackPolicyDecision ?? rollbackPolicyDecision,
+    policyDecision: suppliedWorkerBinding?.policyDecision ?? policyDecision,
+    requiredInvariantIds: uniqueStrings(
+      suppliedWorkerBinding?.requiredInvariantIds ?? requiredInvariantIds,
+    ),
+    invariantBlockers: uniqueStrings(
+      suppliedWorkerBinding?.invariantBlockers ?? invariantBlockers,
+    ),
   };
   return {
     schemaVersion: "workflow.harness.worker-binding-registry.v1",
@@ -566,6 +611,12 @@ export function makeWorkflowHarnessWorkerBindingRegistryRecord(options: {
       options.componentVersionSet ?? defaultHarnessComponentVersionSet(),
     rollbackTarget,
     readinessProofId,
+    rollbackReadinessProofId,
+    rollbackLiveShadowComparisonGateId,
+    rollbackLiveShadowComparisonGateReady,
+    rollbackActivationId,
+    rollbackHarnessHash,
+    rollbackPolicyDecision,
     canaryResultId:
       options.canaryResultId ??
       (bindingStatus === "bound"
@@ -623,6 +674,43 @@ export function workflowHarnessWorkerBindingRegistryBlockers(
   }
   if (!record.readinessProofId) {
     blockers.push("worker_binding_registry_readiness_proof_missing");
+  }
+  if (!record.rollbackReadinessProofId) {
+    blockers.push("worker_binding_registry_rollback_readiness_proof_missing");
+  }
+  if (record.rollbackReadinessProofId !== record.readinessProofId) {
+    blockers.push("worker_binding_registry_rollback_readiness_proof_mismatch");
+  }
+  if (!record.rollbackLiveShadowComparisonGateId) {
+    blockers.push("worker_binding_registry_rollback_live_shadow_gate_missing");
+  }
+  if (
+    record.workerBinding.liveShadowComparisonGateId !==
+    record.rollbackLiveShadowComparisonGateId
+  ) {
+    blockers.push("worker_binding_registry_rollback_live_shadow_gate_mismatch");
+  }
+  if (
+    record.rollbackLiveShadowComparisonGateReady !== true ||
+    record.workerBinding.liveShadowComparisonGateReady !== true
+  ) {
+    blockers.push(
+      "worker_binding_registry_rollback_live_shadow_gate_not_ready",
+    );
+  }
+  if (record.rollbackActivationId !== record.activationId) {
+    blockers.push("worker_binding_registry_rollback_activation_mismatch");
+  }
+  if (record.rollbackHarnessHash !== record.harnessHash) {
+    blockers.push("worker_binding_registry_rollback_harness_hash_mismatch");
+  }
+  if (
+    record.rollbackPolicyDecision !==
+      "allow_default_harness_worker_rollback_from_live_shadow_gate" ||
+    record.workerBinding.rollbackPolicyDecision !==
+      "allow_default_harness_worker_rollback_from_live_shadow_gate"
+  ) {
+    blockers.push("worker_binding_registry_rollback_policy_not_allowed");
   }
   if (!record.canaryResultId || record.canaryResultId.endsWith(":not-run")) {
     blockers.push("worker_binding_registry_canary_missing");
@@ -804,6 +892,14 @@ export function makeWorkflowHarnessWorkerAttachRequest(
     componentVersionSet: record.componentVersionSet,
     rollbackTarget: record.rollbackTarget,
     readinessProofId: record.readinessProofId,
+    rollbackReadinessProofId: record.rollbackReadinessProofId,
+    rollbackLiveShadowComparisonGateId:
+      record.rollbackLiveShadowComparisonGateId,
+    rollbackLiveShadowComparisonGateReady:
+      record.rollbackLiveShadowComparisonGateReady,
+    rollbackActivationId: record.rollbackActivationId,
+    rollbackHarnessHash: record.rollbackHarnessHash,
+    rollbackPolicyDecision: record.rollbackPolicyDecision,
     requiredInvariantIds: record.requiredInvariantIds,
     requestedStatus,
   };
@@ -855,6 +951,58 @@ export function resolveWorkflowHarnessWorkerBinding(
   }
   if (request.readinessProofId !== record.readinessProofId) {
     blockers.push("worker_attach_readiness_proof_mismatch");
+  }
+  if (!request.rollbackReadinessProofId) {
+    blockers.push("worker_attach_rollback_readiness_proof_missing");
+  }
+  if (
+    request.rollbackReadinessProofId !== record.readinessProofId ||
+    record.rollbackReadinessProofId !== record.readinessProofId
+  ) {
+    blockers.push("worker_attach_rollback_readiness_proof_mismatch");
+  }
+  if (
+    !request.rollbackLiveShadowComparisonGateId ||
+    !record.rollbackLiveShadowComparisonGateId
+  ) {
+    blockers.push("worker_attach_rollback_live_shadow_gate_missing");
+  }
+  if (
+    request.rollbackLiveShadowComparisonGateId !==
+      record.rollbackLiveShadowComparisonGateId ||
+    record.workerBinding.liveShadowComparisonGateId !==
+      record.rollbackLiveShadowComparisonGateId
+  ) {
+    blockers.push("worker_attach_rollback_live_shadow_gate_mismatch");
+  }
+  if (
+    request.rollbackLiveShadowComparisonGateReady !== true ||
+    record.rollbackLiveShadowComparisonGateReady !== true ||
+    record.workerBinding.liveShadowComparisonGateReady !== true
+  ) {
+    blockers.push("worker_attach_rollback_live_shadow_gate_not_ready");
+  }
+  if (
+    request.rollbackActivationId !== record.activationId ||
+    record.rollbackActivationId !== record.activationId
+  ) {
+    blockers.push("worker_attach_rollback_activation_mismatch");
+  }
+  if (
+    request.rollbackHarnessHash !== record.harnessHash ||
+    record.rollbackHarnessHash !== record.harnessHash
+  ) {
+    blockers.push("worker_attach_rollback_harness_hash_mismatch");
+  }
+  if (
+    request.rollbackPolicyDecision !==
+      "allow_default_harness_worker_rollback_from_live_shadow_gate" ||
+    record.rollbackPolicyDecision !==
+      "allow_default_harness_worker_rollback_from_live_shadow_gate" ||
+    record.workerBinding.rollbackPolicyDecision !==
+      "allow_default_harness_worker_rollback_from_live_shadow_gate"
+  ) {
+    blockers.push("worker_attach_rollback_policy_not_allowed");
   }
   if (
     !workflowHarnessInvariantSetsMatch(
@@ -938,6 +1086,15 @@ export function resolveWorkflowHarnessWorkerBinding(
       request.rollbackTarget === record.rollbackTarget &&
       !!record.rollbackTarget,
     readinessProofId: request.readinessProofId,
+    rollbackReadinessProofId: request.rollbackReadinessProofId,
+    rollbackLiveShadowComparisonGateId:
+      request.rollbackLiveShadowComparisonGateId,
+    rollbackLiveShadowComparisonGateReady:
+      request.rollbackLiveShadowComparisonGateReady === true &&
+      record.rollbackLiveShadowComparisonGateReady === true,
+    rollbackActivationId: request.rollbackActivationId,
+    rollbackHarnessHash: request.rollbackHarnessHash,
+    rollbackPolicyDecision: request.rollbackPolicyDecision,
     registryRecordId: record.registryRecordId,
     bindingStatus: record.bindingStatus,
     attachStatus,
@@ -955,6 +1112,10 @@ export function resolveWorkflowHarnessWorkerBinding(
     evidenceRefs: uniqueStrings([
       record.registryRecordId,
       record.readinessProofId,
+      record.rollbackReadinessProofId,
+      record.rollbackLiveShadowComparisonGateId,
+      record.rollbackActivationId,
+      record.rollbackHarnessHash,
       record.canaryResultId,
     ]),
     createdAtMs: record.createdAtMs,
@@ -1010,6 +1171,14 @@ export function makeWorkflowHarnessWorkerAttachLifecycle(
       registryRecordId: record.registryRecordId,
       accepted: receipt.accepted,
       rollbackAvailable: receipt.rollbackAvailable,
+      rollbackReadinessProofId: receipt.rollbackReadinessProofId,
+      rollbackLiveShadowComparisonGateId:
+        receipt.rollbackLiveShadowComparisonGateId,
+      rollbackLiveShadowComparisonGateReady:
+        receipt.rollbackLiveShadowComparisonGateReady,
+      rollbackActivationId: receipt.rollbackActivationId,
+      rollbackHarnessHash: receipt.rollbackHarnessHash,
+      rollbackPolicyDecision: receipt.rollbackPolicyDecision,
       policyDecision: receipt.policyDecision,
       blockers: receipt.blockers,
       requiredInvariantIds: receipt.requiredInvariantIds,
@@ -1077,6 +1246,25 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     ...(workflowHarnessRequiredInvariantIdsPresent(record.requiredInvariantIds)
       ? []
       : ["worker_session_reviewed_import_activation_apply_invariant_missing"]),
+    ...(record.rollbackReadinessProofId === record.readinessProofId
+      ? []
+      : ["worker_session_rollback_readiness_proof_mismatch"]),
+    ...(record.rollbackLiveShadowComparisonGateId
+      ? []
+      : ["worker_session_rollback_live_shadow_gate_missing"]),
+    ...(record.rollbackLiveShadowComparisonGateReady
+      ? []
+      : ["worker_session_rollback_live_shadow_gate_not_ready"]),
+    ...(record.rollbackActivationId === record.activationId
+      ? []
+      : ["worker_session_rollback_activation_mismatch"]),
+    ...(record.rollbackHarnessHash === record.harnessHash
+      ? []
+      : ["worker_session_rollback_harness_hash_mismatch"]),
+    ...(record.rollbackPolicyDecision ===
+    "allow_default_harness_worker_rollback_from_live_shadow_gate"
+      ? []
+      : ["worker_session_rollback_policy_not_allowed"]),
     ...(record.invariantBlockers ?? []),
     ...(record.workerBinding.invariantBlockers ?? []),
   ]).sort();
@@ -1128,6 +1316,14 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     componentVersionSet: record.componentVersionSet,
     rollbackTarget: record.rollbackTarget,
     readinessProofId: record.readinessProofId,
+    rollbackReadinessProofId: record.rollbackReadinessProofId,
+    rollbackLiveShadowComparisonGateId:
+      record.rollbackLiveShadowComparisonGateId,
+    rollbackLiveShadowComparisonGateReady:
+      record.rollbackLiveShadowComparisonGateReady,
+    rollbackActivationId: record.rollbackActivationId,
+    rollbackHarnessHash: record.rollbackHarnessHash,
+    rollbackPolicyDecision: record.rollbackPolicyDecision,
     registryRecordId: record.registryRecordId,
     currentStatus,
     currentEventId: currentEvent?.eventId,
@@ -1153,6 +1349,10 @@ export function makeWorkflowHarnessWorkerSessionRecord(
     evidenceRefs: uniqueStrings([
       record.registryRecordId,
       record.readinessProofId,
+      record.rollbackReadinessProofId,
+      record.rollbackLiveShadowComparisonGateId,
+      record.rollbackActivationId,
+      record.rollbackHarnessHash,
       ...lifecycleEventIds,
       ...receiptIds,
     ]),
@@ -1194,6 +1394,27 @@ export function workflowHarnessWorkerSessionBlockers(
   }
   if (session.rollbackTargetReady !== true) {
     blockers.push("worker_session_rollback_target_not_ready");
+  }
+  if (session.rollbackReadinessProofId !== session.readinessProofId) {
+    blockers.push("worker_session_rollback_readiness_proof_mismatch");
+  }
+  if (!session.rollbackLiveShadowComparisonGateId) {
+    blockers.push("worker_session_rollback_live_shadow_gate_missing");
+  }
+  if (session.rollbackLiveShadowComparisonGateReady !== true) {
+    blockers.push("worker_session_rollback_live_shadow_gate_not_ready");
+  }
+  if (session.rollbackActivationId !== session.activationId) {
+    blockers.push("worker_session_rollback_activation_mismatch");
+  }
+  if (session.rollbackHarnessHash !== session.harnessHash) {
+    blockers.push("worker_session_rollback_harness_hash_mismatch");
+  }
+  if (
+    session.rollbackPolicyDecision !==
+    "allow_default_harness_worker_rollback_from_live_shadow_gate"
+  ) {
+    blockers.push("worker_session_rollback_policy_not_allowed");
   }
   if ((session.lifecycleEventIds ?? []).length < 3) {
     blockers.push("worker_session_lifecycle_events_missing");
@@ -1271,6 +1492,25 @@ export function makeWorkflowHarnessWorkerLaunchEnvelope(
     "persisted_harness_worker_session_record"
       ? []
       : ["worker_launch_authority_source_invalid"]),
+    ...(session.rollbackReadinessProofId === session.readinessProofId
+      ? []
+      : ["worker_launch_rollback_readiness_proof_mismatch"]),
+    ...(session.rollbackLiveShadowComparisonGateId
+      ? []
+      : ["worker_launch_rollback_live_shadow_gate_missing"]),
+    ...(session.rollbackLiveShadowComparisonGateReady
+      ? []
+      : ["worker_launch_rollback_live_shadow_gate_not_ready"]),
+    ...(session.rollbackActivationId === session.activationId
+      ? []
+      : ["worker_launch_rollback_activation_mismatch"]),
+    ...(session.rollbackHarnessHash === session.harnessHash
+      ? []
+      : ["worker_launch_rollback_harness_hash_mismatch"]),
+    ...(session.rollbackPolicyDecision ===
+    "allow_default_harness_worker_rollback_from_live_shadow_gate"
+      ? []
+      : ["worker_launch_rollback_policy_not_allowed"]),
     ...(phase === "resume" && !session.resumed
       ? ["worker_launch_resume_not_resolved"]
       : []),
@@ -1306,6 +1546,14 @@ export function makeWorkflowHarnessWorkerLaunchEnvelope(
     componentVersionSet: session.componentVersionSet,
     registryRecordId: session.registryRecordId,
     readinessProofId: session.readinessProofId,
+    rollbackReadinessProofId: session.rollbackReadinessProofId,
+    rollbackLiveShadowComparisonGateId:
+      session.rollbackLiveShadowComparisonGateId,
+    rollbackLiveShadowComparisonGateReady:
+      session.rollbackLiveShadowComparisonGateReady,
+    rollbackActivationId: session.rollbackActivationId,
+    rollbackHarnessHash: session.rollbackHarnessHash,
+    rollbackPolicyDecision: session.rollbackPolicyDecision,
     rollbackTarget: session.rollbackTarget,
     persistenceKey: session.persistenceKey,
     recordPersistenceKey: session.recordPersistenceKey,
@@ -1323,6 +1571,10 @@ export function makeWorkflowHarnessWorkerLaunchEnvelope(
       session.sessionRecordId,
       session.registryRecordId,
       session.readinessProofId,
+      session.rollbackReadinessProofId,
+      session.rollbackLiveShadowComparisonGateId,
+      session.rollbackActivationId,
+      session.rollbackHarnessHash,
       ...session.lifecycleEventIds,
       ...session.receiptIds,
     ]),
@@ -1359,6 +1611,35 @@ export function resolveWorkflowHarnessWorkerHandoffReceipt(
     ...(envelope.harnessHash === session.harnessHash
       ? []
       : ["worker_handoff_harness_hash_mismatch"]),
+    ...(envelope.readinessProofId === session.readinessProofId
+      ? []
+      : ["worker_handoff_readiness_proof_mismatch"]),
+    ...(envelope.rollbackReadinessProofId === session.rollbackReadinessProofId &&
+    session.rollbackReadinessProofId === session.readinessProofId
+      ? []
+      : ["worker_handoff_rollback_readiness_proof_mismatch"]),
+    ...(envelope.rollbackLiveShadowComparisonGateId ===
+      session.rollbackLiveShadowComparisonGateId &&
+    !!session.rollbackLiveShadowComparisonGateId
+      ? []
+      : ["worker_handoff_rollback_live_shadow_gate_mismatch"]),
+    ...(envelope.rollbackLiveShadowComparisonGateReady === true &&
+    session.rollbackLiveShadowComparisonGateReady === true
+      ? []
+      : ["worker_handoff_rollback_live_shadow_gate_not_ready"]),
+    ...(envelope.rollbackActivationId === session.rollbackActivationId &&
+    session.rollbackActivationId === session.activationId
+      ? []
+      : ["worker_handoff_rollback_activation_mismatch"]),
+    ...(envelope.rollbackHarnessHash === session.rollbackHarnessHash &&
+    session.rollbackHarnessHash === session.harnessHash
+      ? []
+      : ["worker_handoff_rollback_harness_hash_mismatch"]),
+    ...(envelope.rollbackPolicyDecision === session.rollbackPolicyDecision &&
+    session.rollbackPolicyDecision ===
+      "allow_default_harness_worker_rollback_from_live_shadow_gate"
+      ? []
+      : ["worker_handoff_rollback_policy_not_allowed"]),
     ...(envelope.launchAuthorityReady
       ? []
       : ["worker_handoff_launch_authority_not_ready"]),
@@ -1396,6 +1677,14 @@ export function resolveWorkflowHarnessWorkerHandoffReceipt(
     harnessHash: session.harnessHash,
     registryRecordId: session.registryRecordId,
     readinessProofId: session.readinessProofId,
+    rollbackReadinessProofId: session.rollbackReadinessProofId,
+    rollbackLiveShadowComparisonGateId:
+      session.rollbackLiveShadowComparisonGateId,
+    rollbackLiveShadowComparisonGateReady:
+      session.rollbackLiveShadowComparisonGateReady,
+    rollbackActivationId: session.rollbackActivationId,
+    rollbackHarnessHash: session.rollbackHarnessHash,
+    rollbackPolicyDecision: session.rollbackPolicyDecision,
     rollbackTarget: session.rollbackTarget,
     rollbackAvailable: session.rollbackAvailable,
     launchAuthoritySource: session.launchAuthoritySource,
@@ -1411,6 +1700,10 @@ export function resolveWorkflowHarnessWorkerHandoffReceipt(
     evidenceRefs: uniqueStrings([
       ...session.evidenceRefs,
       envelope.envelopeId,
+      envelope.rollbackReadinessProofId,
+      envelope.rollbackLiveShadowComparisonGateId,
+      envelope.rollbackActivationId,
+      envelope.rollbackHarnessHash,
       session.sessionRecordId,
     ]),
     createdAtMs: options.createdAtMs ?? envelope.createdAtMs,
@@ -1511,6 +1804,11 @@ function makeWorkflowHarnessForkActivationHandoffProof(options: {
     authorityBindingReady: true,
     authorityBindingBlockers: [],
     livePromotionReadinessProofId: readinessProofId,
+    liveShadowComparisonGateId:
+      DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID,
+    liveShadowComparisonGateReady: true,
+    rollbackPolicyDecision:
+      "allow_default_harness_worker_rollback_from_live_shadow_gate",
     policyDecision: "allow_fork_harness_canary_worker_binding",
     requiredInvariantIds: [
       DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
@@ -5660,7 +5958,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(
             registryRecordId: workerBindingRegistryRecord.registryRecordId,
             accepted: false,
             rollbackAvailable: false,
+            rollbackReadinessProofId: receipt.rollbackReadinessProofId,
+            rollbackLiveShadowComparisonGateId:
+              receipt.rollbackLiveShadowComparisonGateId,
+            rollbackLiveShadowComparisonGateReady:
+              receipt.rollbackLiveShadowComparisonGateReady,
+            rollbackActivationId: receipt.rollbackActivationId,
+            rollbackHarnessHash: receipt.rollbackHarnessHash,
+            rollbackPolicyDecision: receipt.rollbackPolicyDecision,
             policyDecision: "block_harness_worker_attach",
+            requiredInvariantIds: receipt.requiredInvariantIds,
+            invariantBlockers: receipt.invariantBlockers,
             blockers: activationBlockers,
             evidenceRefs: [workerBindingRegistryRecord.registryRecordId],
           } satisfies WorkflowHarnessWorkerAttachLifecycleEvent,

@@ -679,6 +679,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       workerBinding,
       createdAtMs: nowMs,
     });
+  const boundWorkerBinding = workerBindingRegistryRecord.workerBinding;
   const workerAttachLifecycle = makeWorkflowHarnessWorkerAttachLifecycle(
     workerBindingRegistryRecord,
     { createdAtMs: nowMs },
@@ -817,7 +818,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
       defaultRuntimeDispatchProof.dispatchId,
       ...transitionRefs,
     ]),
-    workerBinding,
+    workerBinding: boundWorkerBinding,
     workerBindingRegistryRecord,
     workerAttachReceipt,
     workerAttachLifecycle,
@@ -835,7 +836,7 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     ...workflow,
     metadata: {
       ...workflow.metadata,
-      workerHarnessBinding: workerBinding,
+      workerHarnessBinding: boundWorkerBinding,
       harness: {
         ...harness,
         executionMode: "live",

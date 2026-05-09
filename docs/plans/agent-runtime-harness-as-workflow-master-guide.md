@@ -1606,6 +1606,56 @@ readiness proof id, gate id, activation id, workflow hash, and rollback target,
 then require GUI evidence that the rollback path is visible from the runtime
 binding/workbench panel.
 
+### Implemented: Rollback From Exact Gated Default-Live Binding
+
+The rollback hardening slice now proves that the default-live worker rollback
+path is not merely available; it is bound to the exact live promotion proof and
+P0 live/shadow gate that authorized the default runtime handoff:
+
+- Rust canonical harness contracts now carry rollback proof identity through
+  worker binding, registry record, attach request/receipt, attach lifecycle,
+  worker session record, launch envelope, and handoff receipt.
+- Each rollback-capable artifact records `rollbackReadinessProofId`,
+  `rollbackLiveShadowComparisonGateId`,
+  `rollbackLiveShadowComparisonGateReady`, `rollbackActivationId`,
+  `rollbackHarnessHash`, and `rollbackPolicyDecision`.
+- Bound default-live rollback is allowed only when those fields match the same
+  live promotion readiness proof, `p0-live-shadow-comparison-gate`, blessed
+  default activation id, blessed harness hash, and
+  `allow_default_harness_worker_rollback_from_live_shadow_gate`.
+- The TypeScript workflow runtime now normalizes supplied worker bindings
+  through the registry factory, so older prebuilt binding objects cannot omit
+  the live-shadow gate id or rollback policy while their registry claims to be
+  bound.
+- The promoted GUI workflow now stores the normalized registry worker binding
+  as `metadata.workerHarnessBinding`, making the active worker binding, default
+  dispatch proof, worker registry, attach lifecycle, session, launch envelopes,
+  handoff receipts, and handoff node timeline agree on the same rollback
+  identity.
+- Retained GUI validation now requires
+  `harness_default_runtime_rollback_live_shadow_gate_bound`; this fails unless
+  every rollback artifact binds to the same readiness proof, live/shadow gate,
+  activation id, harness hash, and rollback policy.
+
+Full retained GUI validation is green in
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T11-16-43-081Z/result.json`.
+That bundle reports
+`harness_default_runtime_rollback_live_shadow_gate_bound: true`,
+`harness_chat_runtime_binding_matches_workflow_activation: true`, and
+`harness_promotion_transition_live_gui_interaction_present: true`.
+
+Runtime P3 with required GUI evidence is green at
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T11-22-47-210Z/dashboard-index.json`.
+
+This changes rollback from "the live harness has a rollback target" to "the
+rollback path proves it can return from the exact fully gated default-live
+binding that was selected by the workflow runtime." The next chronological
+slice should make that rollback drill more operator-actionable in the GUI:
+surface a first-class rollback proof row from the runtime binding/workbench
+panel, show the matched readiness proof and live/shadow gate beside it, and
+preserve deep links for the rollback target, launch envelope, handoff receipt,
+and node timeline attempt.
+
 ## Current State
 
 ### Roadmap State

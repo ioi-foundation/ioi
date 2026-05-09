@@ -1543,6 +1543,71 @@ fn runtime_harness_worker_attach_receipt(
     if request_string("readinessProofId") != record_string("readinessProofId") {
         blockers.push("worker_attach_readiness_proof_mismatch".to_string());
     }
+    if request_string("rollbackReadinessProofId")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_rollback_readiness_proof_missing".to_string());
+    }
+    if request_string("rollbackReadinessProofId") != record_string("readinessProofId")
+        || record_string("rollbackReadinessProofId") != record_string("readinessProofId")
+    {
+        blockers.push("worker_attach_rollback_readiness_proof_mismatch".to_string());
+    }
+    if request_string("rollbackLiveShadowComparisonGateId")
+        .unwrap_or_default()
+        .is_empty()
+        || record_string("rollbackLiveShadowComparisonGateId")
+            .unwrap_or_default()
+            .is_empty()
+    {
+        blockers.push("worker_attach_rollback_live_shadow_gate_missing".to_string());
+    }
+    if request_string("rollbackLiveShadowComparisonGateId")
+        != record_string("rollbackLiveShadowComparisonGateId")
+        || worker_binding
+            .get("liveShadowComparisonGateId")
+            .and_then(Value::as_str)
+            != record_string("rollbackLiveShadowComparisonGateId")
+    {
+        blockers.push("worker_attach_rollback_live_shadow_gate_mismatch".to_string());
+    }
+    if attach_request
+        .get("rollbackLiveShadowComparisonGateReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+        || registry_record
+            .get("rollbackLiveShadowComparisonGateReady")
+            .and_then(Value::as_bool)
+            != Some(true)
+        || worker_binding
+            .get("liveShadowComparisonGateReady")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_attach_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if request_string("rollbackActivationId") != record_string("activationId")
+        || record_string("rollbackActivationId") != record_string("activationId")
+    {
+        blockers.push("worker_attach_rollback_activation_mismatch".to_string());
+    }
+    if request_string("rollbackHarnessHash") != record_string("harnessHash")
+        || record_string("rollbackHarnessHash") != record_string("harnessHash")
+    {
+        blockers.push("worker_attach_rollback_harness_hash_mismatch".to_string());
+    }
+    if request_string("rollbackPolicyDecision")
+        != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+        || record_string("rollbackPolicyDecision")
+            != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+        || worker_binding
+            .get("rollbackPolicyDecision")
+            .and_then(Value::as_str)
+            != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+    {
+        blockers.push("worker_attach_rollback_policy_not_allowed".to_string());
+    }
     if !runtime_harness_string_sets_match(&requested_invariant_ids, &required_invariant_ids) {
         blockers.push("worker_attach_required_invariant_mismatch".to_string());
     }
@@ -1655,6 +1720,17 @@ fn runtime_harness_worker_attach_receipt(
         "rollbackTarget": request_string("rollbackTarget").unwrap_or_default(),
         "rollbackAvailable": rollback_available,
         "readinessProofId": request_string("readinessProofId").unwrap_or_default(),
+        "rollbackReadinessProofId": request_string("rollbackReadinessProofId").unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateId": request_string("rollbackLiveShadowComparisonGateId").unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateReady": attach_request
+            .get("rollbackLiveShadowComparisonGateReady")
+            .and_then(Value::as_bool) == Some(true)
+            && registry_record
+                .get("rollbackLiveShadowComparisonGateReady")
+                .and_then(Value::as_bool) == Some(true),
+        "rollbackActivationId": request_string("rollbackActivationId").unwrap_or_default(),
+        "rollbackHarnessHash": request_string("rollbackHarnessHash").unwrap_or_default(),
+        "rollbackPolicyDecision": request_string("rollbackPolicyDecision").unwrap_or_default(),
         "registryRecordId": record_string("registryRecordId").unwrap_or_default(),
         "bindingStatus": binding_status,
         "attachStatus": attach_status,
@@ -1671,6 +1747,10 @@ fn runtime_harness_worker_attach_receipt(
         "evidenceRefs": [
             record_string("registryRecordId").unwrap_or_default(),
             record_string("readinessProofId").unwrap_or_default(),
+            record_string("rollbackReadinessProofId").unwrap_or_default(),
+            record_string("rollbackLiveShadowComparisonGateId").unwrap_or_default(),
+            record_string("rollbackActivationId").unwrap_or_default(),
+            record_string("rollbackHarnessHash").unwrap_or_default(),
             record_string("canaryResultId").unwrap_or_default()
         ]
     })
@@ -1711,6 +1791,14 @@ fn runtime_harness_worker_attach_lifecycle_events(
             "componentVersionSet": component_version_set.clone(),
             "rollbackTarget": rollback_target,
             "readinessProofId": readiness_proof_id,
+            "rollbackReadinessProofId": record_string("rollbackReadinessProofId").unwrap_or_default(),
+            "rollbackLiveShadowComparisonGateId": record_string("rollbackLiveShadowComparisonGateId").unwrap_or_default(),
+            "rollbackLiveShadowComparisonGateReady": registry_record
+                .get("rollbackLiveShadowComparisonGateReady")
+                .and_then(Value::as_bool) == Some(true),
+            "rollbackActivationId": record_string("rollbackActivationId").unwrap_or_default(),
+            "rollbackHarnessHash": record_string("rollbackHarnessHash").unwrap_or_default(),
+            "rollbackPolicyDecision": record_string("rollbackPolicyDecision").unwrap_or_default(),
             "requiredInvariantIds": registry_record
                 .get("requiredInvariantIds")
                 .cloned()
@@ -1763,6 +1851,29 @@ fn runtime_harness_worker_attach_lifecycle_events(
             "registryRecordId": record_string("registryRecordId").unwrap_or_default(),
             "accepted": accepted,
             "rollbackAvailable": rollback_available,
+            "rollbackReadinessProofId": receipt
+                .get("rollbackReadinessProofId")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "rollbackLiveShadowComparisonGateId": receipt
+                .get("rollbackLiveShadowComparisonGateId")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "rollbackLiveShadowComparisonGateReady": receipt
+                .get("rollbackLiveShadowComparisonGateReady")
+                .and_then(Value::as_bool) == Some(true),
+            "rollbackActivationId": receipt
+                .get("rollbackActivationId")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "rollbackHarnessHash": receipt
+                .get("rollbackHarnessHash")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "rollbackPolicyDecision": receipt
+                .get("rollbackPolicyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
             "policyDecision": policy_decision,
             "blockers": blockers,
             "requiredInvariantIds": receipt
@@ -1899,6 +2010,49 @@ fn runtime_harness_worker_session_record(
         blockers
             .push("worker_session_reviewed_import_activation_apply_invariant_missing".to_string());
     }
+    if registry_record
+        .get("rollbackReadinessProofId")
+        .and_then(Value::as_str)
+        != registry_record.get("readinessProofId").and_then(Value::as_str)
+    {
+        blockers.push("worker_session_rollback_readiness_proof_mismatch".to_string());
+    }
+    if registry_record
+        .get("rollbackLiveShadowComparisonGateId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_session_rollback_live_shadow_gate_missing".to_string());
+    }
+    if registry_record
+        .get("rollbackLiveShadowComparisonGateReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_session_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if registry_record
+        .get("rollbackActivationId")
+        .and_then(Value::as_str)
+        != registry_record.get("activationId").and_then(Value::as_str)
+    {
+        blockers.push("worker_session_rollback_activation_mismatch".to_string());
+    }
+    if registry_record
+        .get("rollbackHarnessHash")
+        .and_then(Value::as_str)
+        != registry_record.get("harnessHash").and_then(Value::as_str)
+    {
+        blockers.push("worker_session_rollback_harness_hash_mismatch".to_string());
+    }
+    if registry_record
+        .get("rollbackPolicyDecision")
+        .and_then(Value::as_str)
+        != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+    {
+        blockers.push("worker_session_rollback_policy_not_allowed".to_string());
+    }
     let mut invariant_blockers =
         runtime_harness_value_string_array(registry_record.get("invariantBlockers"));
     if let Some(worker_binding) = registry_record.get("workerBinding") {
@@ -1994,6 +2148,26 @@ fn runtime_harness_worker_session_record(
     let mut evidence_refs = vec![
         registry_record_id.to_string(),
         readiness_proof_id.to_string(),
+        registry_record
+            .get("rollbackReadinessProofId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        registry_record
+            .get("rollbackLiveShadowComparisonGateId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        registry_record
+            .get("rollbackActivationId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        registry_record
+            .get("rollbackHarnessHash")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
     ];
     evidence_refs.extend(lifecycle_event_ids.clone());
     evidence_refs.extend(receipt_ids.clone());
@@ -2034,6 +2208,12 @@ fn runtime_harness_worker_session_record(
         "componentVersionSet": registry_record.get("componentVersionSet").cloned().unwrap_or_else(|| json!({})),
         "rollbackTarget": rollback_target,
         "readinessProofId": readiness_proof_id,
+        "rollbackReadinessProofId": registry_record.get("rollbackReadinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateId": registry_record.get("rollbackLiveShadowComparisonGateId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateReady": registry_record.get("rollbackLiveShadowComparisonGateReady").and_then(Value::as_bool) == Some(true),
+        "rollbackActivationId": registry_record.get("rollbackActivationId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackHarnessHash": registry_record.get("rollbackHarnessHash").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackPolicyDecision": registry_record.get("rollbackPolicyDecision").and_then(Value::as_str).unwrap_or_default(),
         "registryRecordId": registry_record_id,
         "currentStatus": current_status,
         "currentEventId": current_event.and_then(|event| event.get("eventId")).and_then(Value::as_str).unwrap_or_default(),
@@ -2166,6 +2346,51 @@ fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: 
     {
         blockers.push("worker_launch_authority_source_invalid".to_string());
     }
+    if worker_session_record
+        .get("rollbackReadinessProofId")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("readinessProofId")
+            .and_then(Value::as_str)
+    {
+        blockers.push("worker_launch_rollback_readiness_proof_mismatch".to_string());
+    }
+    if worker_session_record
+        .get("rollbackLiveShadowComparisonGateId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_launch_rollback_live_shadow_gate_missing".to_string());
+    }
+    if worker_session_record
+        .get("rollbackLiveShadowComparisonGateReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        blockers.push("worker_launch_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if worker_session_record
+        .get("rollbackActivationId")
+        .and_then(Value::as_str)
+        != worker_session_record.get("activationId").and_then(Value::as_str)
+    {
+        blockers.push("worker_launch_rollback_activation_mismatch".to_string());
+    }
+    if worker_session_record
+        .get("rollbackHarnessHash")
+        .and_then(Value::as_str)
+        != worker_session_record.get("harnessHash").and_then(Value::as_str)
+    {
+        blockers.push("worker_launch_rollback_harness_hash_mismatch".to_string());
+    }
+    if worker_session_record
+        .get("rollbackPolicyDecision")
+        .and_then(Value::as_str)
+        != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+    {
+        blockers.push("worker_launch_rollback_policy_not_allowed".to_string());
+    }
     if phase == "resume"
         && worker_session_record
             .get("resumed")
@@ -2242,6 +2467,30 @@ fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: 
     ];
     evidence_refs.extend(lifecycle_event_ids);
     evidence_refs.extend(receipt_ids);
+    evidence_refs.push(
+        worker_session_record
+            .get("rollbackReadinessProofId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    );
+    evidence_refs.push(
+        worker_session_record
+            .get("rollbackLiveShadowComparisonGateId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    );
+    evidence_refs.push(
+        worker_session_record
+            .get("rollbackActivationId")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    );
+    evidence_refs.push(
+        worker_session_record
+            .get("rollbackHarnessHash")
+            .cloned()
+            .unwrap_or_else(|| json!("")),
+    );
 
     json!({
         "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
@@ -2259,6 +2508,12 @@ fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: 
         "componentVersionSet": worker_session_record.get("componentVersionSet").cloned().unwrap_or_else(|| json!({})),
         "registryRecordId": worker_session_record.get("registryRecordId").and_then(Value::as_str).unwrap_or_default(),
         "readinessProofId": worker_session_record.get("readinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackReadinessProofId": worker_session_record.get("rollbackReadinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateId": worker_session_record.get("rollbackLiveShadowComparisonGateId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateReady": worker_session_record.get("rollbackLiveShadowComparisonGateReady").and_then(Value::as_bool) == Some(true),
+        "rollbackActivationId": worker_session_record.get("rollbackActivationId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackHarnessHash": worker_session_record.get("rollbackHarnessHash").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackPolicyDecision": worker_session_record.get("rollbackPolicyDecision").and_then(Value::as_str).unwrap_or_default(),
         "rollbackTarget": worker_session_record.get("rollbackTarget").and_then(Value::as_str).unwrap_or_default(),
         "persistenceKey": worker_session_record.get("persistenceKey").and_then(Value::as_str).unwrap_or_default(),
         "recordPersistenceKey": worker_session_record.get("recordPersistenceKey").and_then(Value::as_str).unwrap_or_default(),
@@ -2307,6 +2562,94 @@ fn runtime_harness_worker_handoff_receipt(
         {
             blockers.push(blocker.to_string());
         }
+    }
+    if launch_envelope
+        .get("readinessProofId")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("readinessProofId")
+            .and_then(Value::as_str)
+    {
+        blockers.push("worker_handoff_readiness_proof_mismatch".to_string());
+    }
+    if launch_envelope
+        .get("rollbackReadinessProofId")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("rollbackReadinessProofId")
+            .and_then(Value::as_str)
+        || worker_session_record
+            .get("rollbackReadinessProofId")
+            .and_then(Value::as_str)
+            != worker_session_record
+                .get("readinessProofId")
+                .and_then(Value::as_str)
+    {
+        blockers.push("worker_handoff_rollback_readiness_proof_mismatch".to_string());
+    }
+    if launch_envelope
+        .get("rollbackLiveShadowComparisonGateId")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("rollbackLiveShadowComparisonGateId")
+            .and_then(Value::as_str)
+        || worker_session_record
+            .get("rollbackLiveShadowComparisonGateId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .is_empty()
+    {
+        blockers.push("worker_handoff_rollback_live_shadow_gate_mismatch".to_string());
+    }
+    if launch_envelope
+        .get("rollbackLiveShadowComparisonGateReady")
+        .and_then(Value::as_bool)
+        != Some(true)
+        || worker_session_record
+            .get("rollbackLiveShadowComparisonGateReady")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        blockers.push("worker_handoff_rollback_live_shadow_gate_not_ready".to_string());
+    }
+    if launch_envelope
+        .get("rollbackActivationId")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("rollbackActivationId")
+            .and_then(Value::as_str)
+        || worker_session_record
+            .get("rollbackActivationId")
+            .and_then(Value::as_str)
+            != worker_session_record.get("activationId").and_then(Value::as_str)
+    {
+        blockers.push("worker_handoff_rollback_activation_mismatch".to_string());
+    }
+    if launch_envelope
+        .get("rollbackHarnessHash")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("rollbackHarnessHash")
+            .and_then(Value::as_str)
+        || worker_session_record
+            .get("rollbackHarnessHash")
+            .and_then(Value::as_str)
+            != worker_session_record.get("harnessHash").and_then(Value::as_str)
+    {
+        blockers.push("worker_handoff_rollback_harness_hash_mismatch".to_string());
+    }
+    if launch_envelope
+        .get("rollbackPolicyDecision")
+        .and_then(Value::as_str)
+        != worker_session_record
+            .get("rollbackPolicyDecision")
+            .and_then(Value::as_str)
+        || worker_session_record
+            .get("rollbackPolicyDecision")
+            .and_then(Value::as_str)
+            != Some("allow_default_harness_worker_rollback_from_live_shadow_gate")
+    {
+        blockers.push("worker_handoff_rollback_policy_not_allowed".to_string());
     }
     if launch_envelope
         .get("launchAuthorityReady")
@@ -2370,6 +2713,19 @@ fn runtime_harness_worker_handoff_receipt(
             .cloned()
             .unwrap_or_else(|| json!("")),
     );
+    for field in [
+        "rollbackReadinessProofId",
+        "rollbackLiveShadowComparisonGateId",
+        "rollbackActivationId",
+        "rollbackHarnessHash",
+    ] {
+        evidence_refs.push(
+            launch_envelope
+                .get(field)
+                .cloned()
+                .unwrap_or_else(|| json!("")),
+        );
+    }
     evidence_refs.push(json!(session_record_id));
 
     json!({
@@ -2388,6 +2744,12 @@ fn runtime_harness_worker_handoff_receipt(
         "harnessHash": worker_session_record.get("harnessHash").and_then(Value::as_str).unwrap_or_default(),
         "registryRecordId": worker_session_record.get("registryRecordId").and_then(Value::as_str).unwrap_or_default(),
         "readinessProofId": worker_session_record.get("readinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackReadinessProofId": worker_session_record.get("rollbackReadinessProofId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateId": worker_session_record.get("rollbackLiveShadowComparisonGateId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateReady": worker_session_record.get("rollbackLiveShadowComparisonGateReady").and_then(Value::as_bool) == Some(true),
+        "rollbackActivationId": worker_session_record.get("rollbackActivationId").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackHarnessHash": worker_session_record.get("rollbackHarnessHash").and_then(Value::as_str).unwrap_or_default(),
+        "rollbackPolicyDecision": worker_session_record.get("rollbackPolicyDecision").and_then(Value::as_str).unwrap_or_default(),
         "rollbackTarget": worker_session_record.get("rollbackTarget").and_then(Value::as_str).unwrap_or_default(),
         "rollbackAvailable": worker_session_record.get("rollbackAvailable").and_then(Value::as_bool) == Some(true),
         "launchAuthoritySource": worker_session_record.get("launchAuthoritySource").and_then(Value::as_str).unwrap_or_default(),
@@ -2654,6 +3016,29 @@ fn runtime_harness_default_runtime_binding(
             .and_then(|gate| gate.get("ready"))
             .and_then(Value::as_bool)
             == Some(true);
+    let selector_live_shadow_comparison_gate_id = selector_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("liveShadowComparisonGate"))
+        .and_then(|gate| gate.get("gateId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let live_handoff_live_shadow_comparison_gate_id =
+        live_handoff_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("liveShadowComparisonGate"))
+            .and_then(|gate| gate.get("gateId"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+    let dispatch_live_shadow_comparison_gate_id = dispatch_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("liveShadowComparisonGate"))
+        .and_then(|gate| gate.get("gateId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let live_shadow_comparison_gate_ids_match = selector_live_shadow_comparison_gate_id
+        == "p0-live-shadow-comparison-gate"
+        && selector_live_shadow_comparison_gate_id == live_handoff_live_shadow_comparison_gate_id
+        && selector_live_shadow_comparison_gate_id == dispatch_live_shadow_comparison_gate_id;
     let live_promotion_readiness_proof_ids_match = !selector_live_promotion_readiness_proof_id
         .is_empty()
         && selector_live_promotion_readiness_proof_id == dispatch_live_promotion_readiness_proof_id
@@ -2739,6 +3124,10 @@ fn runtime_harness_default_runtime_binding(
     if !dispatch_live_shadow_comparison_gate_ready {
         worker_binding_authority_blockers
             .push("dispatch_live_shadow_comparison_gate_not_ready".to_string());
+    }
+    if !live_shadow_comparison_gate_ids_match {
+        worker_binding_authority_blockers
+            .push("live_shadow_comparison_gate_id_mismatch".to_string());
     }
     if !live_promotion_readiness_proof_ids_match {
         worker_binding_authority_blockers
@@ -2853,6 +3242,16 @@ fn runtime_harness_default_runtime_binding(
         "authorityBindingReady": worker_binding_authority_ready,
         "authorityBindingBlockers": worker_binding_authority_blockers.clone(),
         "livePromotionReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "liveShadowComparisonGateId": selector_live_shadow_comparison_gate_id.clone(),
+        "liveShadowComparisonGateReady": selector_live_shadow_comparison_gate_ready
+            && live_handoff_live_shadow_comparison_gate_ready
+            && dispatch_live_shadow_comparison_gate_ready
+            && live_shadow_comparison_gate_ids_match,
+        "rollbackPolicyDecision": if worker_binding_authority_ready {
+            "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        } else {
+            "block_default_harness_worker_rollback_from_live_shadow_gate"
+        },
         "policyDecision": policy_decision,
         "requiredInvariantIds": required_invariant_ids.clone(),
         "invariantBlockers": invariant_blockers.clone()
@@ -2869,6 +3268,19 @@ fn runtime_harness_default_runtime_binding(
         "componentVersionSet": component_version_set.clone(),
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "rollbackReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "rollbackLiveShadowComparisonGateId": selector_live_shadow_comparison_gate_id.clone(),
+        "rollbackLiveShadowComparisonGateReady": selector_live_shadow_comparison_gate_ready
+            && live_handoff_live_shadow_comparison_gate_ready
+            && dispatch_live_shadow_comparison_gate_ready
+            && live_shadow_comparison_gate_ids_match,
+        "rollbackActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "rollbackHarnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "rollbackPolicyDecision": if worker_binding_authority_ready {
+            "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        } else {
+            "block_default_harness_worker_rollback_from_live_shadow_gate"
+        },
         "canaryResultId": canary_result_id,
         "policyDecision": policy_decision,
         "bindingStatus": worker_binding_registry_status,
@@ -2888,6 +3300,19 @@ fn runtime_harness_default_runtime_binding(
         "componentVersionSet": component_version_set,
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "rollbackReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "rollbackLiveShadowComparisonGateId": selector_live_shadow_comparison_gate_id.clone(),
+        "rollbackLiveShadowComparisonGateReady": selector_live_shadow_comparison_gate_ready
+            && live_handoff_live_shadow_comparison_gate_ready
+            && dispatch_live_shadow_comparison_gate_ready
+            && live_shadow_comparison_gate_ids_match,
+        "rollbackActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "rollbackHarnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "rollbackPolicyDecision": if worker_binding_authority_ready {
+            "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        } else {
+            "block_default_harness_worker_rollback_from_live_shadow_gate"
+        },
         "requiredInvariantIds": required_invariant_ids,
         "requestedStatus": "bound"
     });
@@ -3098,6 +3523,10 @@ fn runtime_harness_default_runtime_binding(
         "selectorLiveShadowComparisonGateReady": selector_live_shadow_comparison_gate_ready,
         "liveHandoffLiveShadowComparisonGateReady": live_handoff_live_shadow_comparison_gate_ready,
         "dispatchLiveShadowComparisonGateReady": dispatch_live_shadow_comparison_gate_ready,
+        "selectorLiveShadowComparisonGateId": selector_live_shadow_comparison_gate_id,
+        "liveHandoffLiveShadowComparisonGateId": live_handoff_live_shadow_comparison_gate_id,
+        "dispatchLiveShadowComparisonGateId": dispatch_live_shadow_comparison_gate_id,
+        "liveShadowComparisonGateIdsMatch": live_shadow_comparison_gate_ids_match,
         "selectorLivePromotionReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
         "liveHandoffLivePromotionReadinessProofId": live_handoff_live_promotion_readiness_proof_id.clone(),
         "dispatchLivePromotionReadinessProofId": dispatch_live_promotion_readiness_proof_id.clone(),
@@ -5159,6 +5588,9 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "authorityBindingReady": true,
         "authorityBindingBlockers": [],
         "livePromotionReadinessProofId": readiness_proof_id,
+        "liveShadowComparisonGateId": "p0-live-shadow-comparison-gate",
+        "liveShadowComparisonGateReady": true,
+        "rollbackPolicyDecision": "allow_default_harness_worker_rollback_from_live_shadow_gate",
         "policyDecision": "allow_fork_harness_canary_worker_binding",
         "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
         "invariantBlockers": []
@@ -5173,6 +5605,12 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "componentVersionSet": component_version_set.clone(),
         "rollbackTarget": rollback_target,
         "readinessProofId": readiness_proof_id,
+        "rollbackReadinessProofId": readiness_proof_id,
+        "rollbackLiveShadowComparisonGateId": "p0-live-shadow-comparison-gate",
+        "rollbackLiveShadowComparisonGateReady": true,
+        "rollbackActivationId": activation_id,
+        "rollbackHarnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "rollbackPolicyDecision": "allow_default_harness_worker_rollback_from_live_shadow_gate",
         "canaryResultId": format!("harness-canary-result:{harness_workflow_id}:{activation_id}:passed"),
         "policyDecision": "allow_fork_harness_canary_worker_binding",
         "bindingStatus": "bound",
@@ -12268,6 +12706,22 @@ fn runtime_harness_default_runtime_dispatch(
             .get("proofId")
             .and_then(Value::as_str)
             .unwrap_or_default(),
+        "rollbackReadinessProofId": live_promotion_readiness_proof
+            .get("proofId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateId": live_shadow_comparison_gate
+            .get("gateId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateReady": live_shadow_comparison_gate_ready,
+        "rollbackActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "rollbackHarnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "rollbackPolicyDecision": if dispatch_accepted && live_promotion_readiness_promotion_eligible {
+            "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        } else {
+            "block_default_harness_worker_rollback_from_live_shadow_gate"
+        },
         "canaryResultId": if live_handoff.get("canaryStatus").and_then(Value::as_str) == Some("passed") {
             format!("harness-canary-result:{sid}:{turn_id}:passed")
         } else {
@@ -12293,6 +12747,16 @@ fn runtime_harness_default_runtime_dispatch(
                 .get("proofId")
                 .and_then(Value::as_str)
                 .unwrap_or_default(),
+            "liveShadowComparisonGateId": live_shadow_comparison_gate
+                .get("gateId")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "liveShadowComparisonGateReady": live_shadow_comparison_gate_ready,
+            "rollbackPolicyDecision": if dispatch_accepted && live_promotion_readiness_promotion_eligible {
+                "allow_default_harness_worker_rollback_from_live_shadow_gate"
+            } else {
+                "block_default_harness_worker_rollback_from_live_shadow_gate"
+            },
             "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
             "requiredInvariantIds": default_live_promotion_invariant_ids.clone(),
             "invariantBlockers": default_live_promotion_invariant_blockers.clone()
@@ -12315,6 +12779,22 @@ fn runtime_harness_default_runtime_dispatch(
             .get("proofId")
             .and_then(Value::as_str)
             .unwrap_or_default(),
+        "rollbackReadinessProofId": live_promotion_readiness_proof
+            .get("proofId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateId": live_shadow_comparison_gate
+            .get("gateId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "rollbackLiveShadowComparisonGateReady": live_shadow_comparison_gate_ready,
+        "rollbackActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "rollbackHarnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "rollbackPolicyDecision": if dispatch_accepted && live_promotion_readiness_promotion_eligible {
+            "allow_default_harness_worker_rollback_from_live_shadow_gate"
+        } else {
+            "block_default_harness_worker_rollback_from_live_shadow_gate"
+        },
         "requiredInvariantIds": default_live_promotion_invariant_ids.clone(),
         "requestedStatus": if dispatch_accepted { "bound" } else { "blocked" }
     });
