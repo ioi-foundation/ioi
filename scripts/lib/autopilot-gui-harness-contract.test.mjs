@@ -227,6 +227,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
       "harness_active_runtime_rollback_apply_execution",
     ),
   );
+  assert.ok(
+    contract.requiredArtifacts.includes(
+      "harness_active_runtime_rollback_negative_apply",
+    ),
+  );
   assert.ok(contract.requiredArtifacts.includes("harness_live_turn_node_timeline"));
   assert.ok(contract.requiredArtifacts.includes("harness_live_turn_node_inspector"));
   assert.ok(
@@ -455,6 +460,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
       "harness_active_runtime_rollback_apply_execution_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_active_runtime_rollback_negative_apply_present",
     ),
   );
   assert.ok(

@@ -4906,6 +4906,30 @@ function buildGuiEvidenceAssessment({
       ?.activeRuntimeRollbackApplyExecution?.rollbackTargetVerified === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
       ?.activeRuntimeRollbackApplyExecution?.hashVerified === true;
+  const hasHarnessActiveRuntimeRollbackNegativeApply =
+    hasHarnessActiveRuntimeRollbackApplyExecution &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activeRuntimeRollbackNegativeApply === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackNegativeApplyProof?.passed === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackNegativeApply?.cases?.some(
+        (negativeCase) =>
+          negativeCase.caseId === "stale-hash-node-replay" &&
+          negativeCase.applyButtonDisabled === true &&
+          negativeCase.applyStatus === "blocked" &&
+          negativeCase.staleProofBlocked === true &&
+          negativeCase.rollbackApplied === false &&
+          negativeCase.expectedBlockers?.includes(
+            "rollback_harness_hash_stale",
+          ) === true &&
+          negativeCase.observedRailBlockers?.includes(
+            "rollback_harness_hash_stale",
+          ) === true &&
+          negativeCase.runtimeBlockers?.includes(
+            "rollback_harness_hash_stale",
+          ) === true,
+      ) === true;
   const hasHarnessLiveTurnNodeTimeline =
     hasHarnessChatRuntimeBinding &&
     summary.harnessLiveTurnNodeTimelineCount > 0 &&
@@ -5267,6 +5291,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActiveRuntimeRollbackExecutionWorkbench,
       harness_active_runtime_rollback_apply_execution_present:
         hasHarnessActiveRuntimeRollbackApplyExecution,
+      harness_active_runtime_rollback_negative_apply_present:
+        hasHarnessActiveRuntimeRollbackNegativeApply,
       harness_live_turn_node_timeline_present: hasHarnessLiveTurnNodeTimeline,
       harness_live_turn_node_inspector_present: hasHarnessLiveTurnNodeInspector,
       harness_live_turn_node_inspector_deep_link_present:
@@ -5973,6 +5999,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.activeRuntimeRollbackExecutionProof ?? null;
     const activeRuntimeRollbackApplyProof =
       workflow?.metadata?.harness?.activeRuntimeRollbackApplyProof ?? null;
+    const activeRuntimeRollbackNegativeApplyProof =
+      workflow?.metadata?.harness?.activeRuntimeRollbackNegativeApplyProof ??
+      null;
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const packageEvidenceGateClickProof =
@@ -6609,6 +6638,40 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activeRuntimeRollbackApplyAuditEvent?.receiptRefs?.includes(
         activeRuntimeRollbackApplyProof?.rollbackReceiptId,
       ) === true;
+    const activeRuntimeRollbackNegativeCase =
+      activeRuntimeRollbackNegativeApplyProof?.cases?.find(
+        (negativeCase) => negativeCase.caseId === "stale-hash-node-replay",
+      ) ?? null;
+    const activeRuntimeRollbackNegativeExpectedBlockers = [
+      "rollback_harness_hash_stale",
+      "rollback_node_attempt_stale",
+      "rollback_replay_fixture_stale",
+      "rollback_apply_hash_not_verified",
+    ];
+    const activeRuntimeRollbackNegativeApply =
+      activeRuntimeRollbackApplyExecution &&
+      activeRuntimeRollbackNegativeApplyProof?.schemaVersion ===
+        "workflow.harness.active-runtime-rollback-negative-apply-proof.v1" &&
+      activeRuntimeRollbackNegativeApplyProof?.passed === true &&
+      activeRuntimeRollbackNegativeCase?.passed === true &&
+      activeRuntimeRollbackNegativeCase?.mutationKind === "stale_proof" &&
+      activeRuntimeRollbackNegativeCase?.applyButtonDisabled === true &&
+      activeRuntimeRollbackNegativeCase?.applyStatus === "blocked" &&
+      activeRuntimeRollbackNegativeCase?.staleProofBlocked === true &&
+      activeRuntimeRollbackNegativeCase?.detachedProofBlocked === false &&
+      activeRuntimeRollbackNegativeCase?.rollbackApplied === false &&
+      activeRuntimeRollbackNegativeCase?.hashVerified === false &&
+      activeRuntimeRollbackNegativeExpectedBlockers.every((blocker) =>
+        activeRuntimeRollbackNegativeCase?.expectedBlockers?.includes(blocker),
+      ) &&
+      activeRuntimeRollbackNegativeExpectedBlockers.every((blocker) =>
+        activeRuntimeRollbackNegativeCase?.observedRailBlockers?.includes(
+          blocker,
+        ),
+      ) &&
+      activeRuntimeRollbackNegativeExpectedBlockers.every((blocker) =>
+        activeRuntimeRollbackNegativeCase?.runtimeBlockers?.includes(blocker),
+      );
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -7192,6 +7255,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activeRuntimeRollbackProofWorkbench,
       activeRuntimeRollbackExecutionWorkbench,
       activeRuntimeRollbackApplyExecution,
+      activeRuntimeRollbackNegativeApply,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -8295,6 +8359,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activeRuntimeRollbackProofWorkbenchProof,
       activeRuntimeRollbackExecutionProof,
       activeRuntimeRollbackApplyProof,
+      activeRuntimeRollbackNegativeApplyProof,
       liveTurnNodeInspector: liveTurnNodeInspectorDeepLinkCase
         ? {
             selectedRailTestId:
@@ -8492,6 +8557,34 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             auditEventStatus:
               activeRuntimeRollbackApplyAuditEvent?.status ?? null,
             blockers: activeRuntimeRollbackApplyProof.blockers ?? [],
+          }
+        : null,
+      activeRuntimeRollbackNegativeApply: activeRuntimeRollbackNegativeApplyProof
+        ? {
+            passed: activeRuntimeRollbackNegativeApplyProof.passed,
+            caseCount:
+              activeRuntimeRollbackNegativeApplyProof.cases?.length ?? 0,
+            cases:
+              activeRuntimeRollbackNegativeApplyProof.cases?.map(
+                (negativeCase) => ({
+                  caseId: negativeCase.caseId,
+                  mutationKind: negativeCase.mutationKind,
+                  applyButtonDisabled: negativeCase.applyButtonDisabled,
+                  applyStatus: negativeCase.applyStatus,
+                  staleProofBlocked: negativeCase.staleProofBlocked,
+                  detachedProofBlocked: negativeCase.detachedProofBlocked,
+                  rollbackApplied: negativeCase.rollbackApplied,
+                  rollbackTargetVerified:
+                    negativeCase.rollbackTargetVerified,
+                  hashVerified: negativeCase.hashVerified,
+                  expectedBlockers: negativeCase.expectedBlockers ?? [],
+                  observedRailBlockers:
+                    negativeCase.observedRailBlockers ?? [],
+                  runtimeBlockers: negativeCase.runtimeBlockers ?? [],
+                  passed: negativeCase.passed,
+                }),
+              ) ?? [],
+            blockers: activeRuntimeRollbackNegativeApplyProof.blockers ?? [],
           }
         : null,
       activationGateActionClickProof,
@@ -9051,6 +9144,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_active_runtime_rollback_apply_execution:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.activeRuntimeRollbackApplyExecution === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_active_runtime_rollback_negative_apply:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activeRuntimeRollbackNegativeApply === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_live_turn_node_timeline:
