@@ -5309,7 +5309,7 @@ export function WorkflowRailPanel({
                 </div>
               </section>
             </section>
-            {harnessForkWorkflow ? (
+            {harnessForkWorkflow || blessedHarnessWorkflow ? (
               <section
                 className="workflow-rail-section workflow-harness-activation-wizard"
                 data-testid="workflow-harness-activation-wizard"

@@ -3864,6 +3864,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessWorkerLaunchReviewedImportActivationInvariant &&
     rollbackRestoreCanaryUiProof?.proof?.checks?.workerSessionCheckpointUi ===
       true;
+  const hasHarnessWorkerLaunchReviewedImportActivationInvariantGateDeepLink =
+    hasHarnessWorkerLaunchReviewedImportActivationInvariantGuiVisible &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activationGateWorkerInvariantDeepLink === true;
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
@@ -4232,6 +4236,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessWorkerLaunchReviewedImportActivationInvariant,
       harness_worker_launch_reviewed_import_activation_apply_invariant_gui_visible:
         hasHarnessWorkerLaunchReviewedImportActivationInvariantGuiVisible,
+      harness_worker_launch_reviewed_import_activation_apply_invariant_gate_deep_link_present:
+        hasHarnessWorkerLaunchReviewedImportActivationInvariantGateDeepLink,
       harness_default_runtime_dispatch_present:
         hasHarnessDefaultRuntimeDispatch,
       harness_live_promotion_readiness_present:
@@ -4874,6 +4880,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.activationBlockerDeepLinkProof ?? null;
     const activationGateDeepLinkProof =
       workflow?.metadata?.harness?.activationGateDeepLinkProof ?? null;
+    const liveActivationGateDeepLinkProof =
+      workflow?.metadata?.harness?.liveActivationGateDeepLinkProof ?? null;
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const packageEvidenceGateClickProof =
@@ -4983,11 +4991,60 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "activation-gate-node-attempt",
       ) ?? null;
+    const activationGateWorkerInvariantDeepLinkCase =
+      liveActivationGateDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "activation-gate-worker-invariant",
+      ) ?? null;
     const activationGateEvidenceRefCount = Number(
       activationGateDeepLinkCase?.observedSelectedState?.[
         "data-evidence-ref-count"
       ] ?? 0,
     );
+    const activationGateWorkerInvariantState =
+      activationGateWorkerInvariantDeepLinkCase?.observedSelectedState ?? {};
+    const activationGateWorkerInvariantRequiredIds = String(
+      activationGateWorkerInvariantState["data-required-invariant-ids"] ?? "",
+    )
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const activationGateWorkerInvariantDeepLinkRestored =
+      liveActivationGateDeepLinkProof?.passed === true &&
+      activationGateWorkerInvariantDeepLinkCase?.passed === true &&
+      activationGateWorkerInvariantDeepLinkCase?.selectedRailTestId ===
+        "workflow-harness-activation-gate-inspector" &&
+      typeof activationGateWorkerInvariantDeepLinkCase?.hash === "string" &&
+      activationGateWorkerInvariantDeepLinkCase.hash.startsWith(
+        "#harness-workbench?",
+      ) &&
+      activationGateWorkerInvariantDeepLinkCase.hash.includes(
+        "panel=settings",
+      ) &&
+      activationGateWorkerInvariantDeepLinkCase.hash.includes(
+        "activationGateId=worker-invariant",
+      ) &&
+      activationGateWorkerInvariantDeepLinkCase.historyMatches === true &&
+      activationGateWorkerInvariantDeepLinkCase.parsedMatches === true &&
+      activationGateWorkerInvariantDeepLinkCase.observedValue ===
+        "worker-invariant" &&
+      activationGateWorkerInvariantState["data-selected-activation-gate-id"] ===
+        "worker-invariant" &&
+      activationGateWorkerInvariantState["data-gate-status"] === "passed" &&
+      activationGateWorkerInvariantRequiredIds.includes(
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+      ) &&
+      String(
+        activationGateWorkerInvariantState["data-invariant-blockers"] ?? "",
+      ) === "" &&
+      String(
+        activationGateWorkerInvariantState["data-invariant-blocker-count"] ??
+          "",
+      ) === "0" &&
+      String(
+        activationGateWorkerInvariantState["data-gate-action-id"] ?? "",
+      ).startsWith("activation-gate-action:worker-invariant:") &&
+      activationGateWorkerInvariantState["data-gate-action-command"] ===
+        "workflow-harness-gate-action-worker-invariant";
     const activationGateReferenceDeepLinkRestored = (
       replayCase,
       paramName,
@@ -5050,6 +5107,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           (replayCase) => replayCase.id === "activation-blocker",
         )?.hash ?? null,
       activationGate: activationGateDeepLinkCase?.hash ?? null,
+      activationGateWorkerInvariant:
+        activationGateWorkerInvariantDeepLinkCase?.hash ?? null,
       activationGateEvidence: activationGateEvidenceDeepLinkCase?.hash ?? null,
       activationGateNodeAttempt:
         activationGateNodeAttemptDeepLinkCase?.hash ??
@@ -5574,6 +5633,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             routeStatefulDeepLinks.activationGateNodeAttempt?.includes(
               "activationGateNodeAttemptId=",
             ) === true)),
+      activationGateWorkerInvariantDeepLink:
+        activationGateWorkerInvariantDeepLinkRestored,
       activationGateNodeTimelineDeepLink:
         activationIdGateClickProof?.mintedActivation
           ?.workerHandoffTimelineVisible === true &&
@@ -6517,6 +6578,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       coldStartDeepLinkRestoreProof,
       activationBlockerDeepLinkProof,
       activationGateDeepLinkProof,
+      liveActivationGateDeepLinkProof,
       activationGateActionClickProof,
       packageEvidenceGateClickProof,
       packageEvidenceImportRoundTripProof,
@@ -6613,6 +6675,55 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             },
           }
         : null,
+      activationGateWorkerInvariantInspector:
+        activationGateWorkerInvariantDeepLinkCase
+          ? {
+              selectedRailTestId:
+                activationGateWorkerInvariantDeepLinkCase.selectedRailTestId,
+              hash: activationGateWorkerInvariantDeepLinkCase.hash,
+              gateId:
+                activationGateWorkerInvariantState[
+                  "data-selected-activation-gate-id"
+                ] ?? null,
+              status:
+                activationGateWorkerInvariantState["data-gate-status"] ?? null,
+              requiredInvariantIds:
+                activationGateWorkerInvariantState[
+                  "data-required-invariant-ids"
+                ] ?? "",
+              invariantBlockerCount: Number(
+                activationGateWorkerInvariantState[
+                  "data-invariant-blocker-count"
+                ] ?? 0,
+              ),
+              invariantBlockers:
+                activationGateWorkerInvariantState[
+                  "data-invariant-blockers"
+                ] ?? "",
+              action: {
+                id:
+                  activationGateWorkerInvariantState[
+                    "data-gate-action-id"
+                  ] ?? null,
+                kind:
+                  activationGateWorkerInvariantState[
+                    "data-gate-action-kind"
+                  ] ?? null,
+                impact:
+                  activationGateWorkerInvariantState[
+                    "data-gate-action-impact"
+                  ] ?? null,
+                command:
+                  activationGateWorkerInvariantState[
+                    "data-gate-action-command"
+                  ] ?? null,
+                disabled:
+                  activationGateWorkerInvariantState[
+                    "data-gate-action-disabled"
+                  ] ?? null,
+              },
+            }
+          : null,
       sourceRefs: [
         "packages/agent-ide/src/WorkflowComposer/controller.tsx",
         "packages/agent-ide/src/WorkflowComposer/support.tsx",
@@ -6968,6 +7079,11 @@ async function runGuiValidation(args, outputRoot) {
           rollbackRestoreCanaryUiProof.proof.checks
             ?.workerSessionCheckpointUi === true
             ? rollbackRestoreCanaryUiProof.path
+            : false,
+        harness_worker_launch_reviewed_import_activation_apply_invariant_gate_deep_link:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activationGateWorkerInvariantDeepLink === true
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_default_runtime_dispatch:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >

@@ -127,6 +127,7 @@ import {
 import {
   applyWorkflowHarnessActivationCandidate,
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
   defaultAgentHarnessTests,
   executeWorkflowHarnessPromotionTransition,
   executeWorkflowHarnessReplayGate,
@@ -1029,6 +1030,9 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-node-attempt-ref-count",
     "data-receipt-ref-count",
     "data-replay-fixture-ref-count",
+    "data-required-invariant-ids",
+    "data-invariant-blockers",
+    "data-invariant-blocker-count",
     "data-gate-action-id",
     "data-gate-action-kind",
     "data-gate-action-impact",
@@ -1549,6 +1553,9 @@ function harnessDeepLinkProbeCasesForWorkflow(
       ?.eventId ?? null;
   const isHarnessFork = Boolean(workflow.metadata.harness?.forkedFrom);
   const activationGateId = isHarnessFork ? "slots" : null;
+  const hasLiveWorkerInvariantGate =
+    workflowIsBlessedHarness(workflow) ||
+    Boolean(workflow.metadata.harness?.defaultRuntimeDispatchProof);
   const activationGateEvidenceRef = activationGateId
     ? (harnessSlotsForWorkflow(workflow).find((slot) => slot.required)
         ?.slotId ?? null)
@@ -1713,6 +1720,19 @@ function harnessDeepLinkProbeCasesForWorkflow(
           },
           expectedAttribute: "data-selected-activation-gate-id",
           expectedValue: activationGateId,
+          selectedRailTestId: "workflow-harness-activation-gate-inspector",
+          expectedParsedKey: "activationGateId",
+        }
+      : null,
+    hasLiveWorkerInvariantGate
+      ? {
+          id: "activation-gate-worker-invariant",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            activationGateId: "worker-invariant",
+          },
+          expectedAttribute: "data-selected-activation-gate-id",
+          expectedValue: "worker-invariant",
           selectedRailTestId: "workflow-harness-activation-gate-inspector",
           expectedParsedKey: "activationGateId",
         }
@@ -3245,6 +3265,7 @@ export function useWorkflowComposerController({
     async (
       workflow: WorkflowProject,
       generatedAtMs: number,
+      options: { requiredCaseIds?: string[] } = {},
     ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
       const replayCases = harnessDeepLinkProbeCasesForWorkflow(workflow).filter(
         (replayCase) => replayCase.id.startsWith("activation-gate"),
@@ -3268,6 +3289,28 @@ export function useWorkflowComposerController({
           );
           const observedValue =
             observedSelectedState[replayCase.expectedAttribute] ?? null;
+          const requiredInvariantIds = (
+            observedSelectedState["data-required-invariant-ids"] ?? ""
+          )
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          const workerInvariantSelected =
+            replayCase.id === "activation-gate-worker-invariant";
+          const workerInvariantGateRestored =
+            !workerInvariantSelected ||
+            (requiredInvariantIds.includes(
+              DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+            ) &&
+              (observedSelectedState["data-invariant-blockers"] ?? "") ===
+                "" &&
+              observedSelectedState["data-invariant-blocker-count"] === "0" &&
+              observedSelectedState["data-gate-status"] === "passed" &&
+              (observedSelectedState["data-gate-action-id"] ?? "").startsWith(
+                "activation-gate-action:worker-invariant:",
+              ) &&
+              observedSelectedState["data-gate-action-command"] ===
+                "workflow-harness-gate-action-worker-invariant");
           cases.push({
             id: replayCase.id,
             hash,
@@ -3288,17 +3331,20 @@ export function useWorkflowComposerController({
               typeof window !== "undefined" && window.location.hash === hash,
             observedValue,
             observedSelectedState,
+            workerInvariantGateRestored,
             passed:
               Boolean(parsed) &&
               observedValue === replayCase.expectedValue &&
-              (typeof window === "undefined" || window.location.hash === hash),
+              (typeof window === "undefined" ||
+                window.location.hash === hash) &&
+              workerInvariantGateRestored,
           });
         }
       } finally {
         writeHarnessWorkbenchDeepLink(originalHash);
       }
       const presentCaseIds = new Set(cases.map((replayCase) => replayCase.id));
-      const requiredCaseIds = [
+      const requiredCaseIds = options.requiredCaseIds ?? [
         "activation-gate",
         "activation-gate-evidence",
         "activation-gate-canary-boundary",
@@ -9388,6 +9434,14 @@ export function useWorkflowComposerController({
       setBottomPanel("selection");
       setStatusMessage("Blessed harness activation promoted to live default");
       await nextHarnessWorkbenchFrame();
+      const liveActivationGateDeepLinkProof =
+        await runHarnessActivationGateDeepLinkProbe(
+          workflow,
+          nowMs + 154,
+          {
+            requiredCaseIds: ["activation-gate-worker-invariant"],
+          },
+        );
       const deepLinkReplayProof = await runHarnessDeepLinkReplayProbe(
         workflow,
         nowMs + 155,
@@ -9410,6 +9464,7 @@ export function useWorkflowComposerController({
             coldStartDeepLinkRestoreProof,
             activationBlockerDeepLinkProof,
             activationGateDeepLinkProof,
+            liveActivationGateDeepLinkProof,
             activationGateActionClickProof,
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
@@ -9465,6 +9520,12 @@ export function useWorkflowComposerController({
         activationGateDeepLinkCaseIds: activationGateDeepLinkProof.cases.map(
           (restoreCase) => restoreCase.id,
         ),
+        liveActivationGateDeepLinkPassed:
+          liveActivationGateDeepLinkProof.passed,
+        liveActivationGateDeepLinkCaseIds:
+          liveActivationGateDeepLinkProof.cases.map(
+            (restoreCase) => restoreCase.id,
+          ),
         activationGateActionClickPassed: activationGateActionClickProof.passed,
         activationGateActionCommand:
           activationGateActionClickProof.action.command,

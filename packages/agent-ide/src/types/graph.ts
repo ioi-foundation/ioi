@@ -2785,6 +2785,7 @@ export interface WorkflowHarnessMetadata {
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
+  liveActivationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
