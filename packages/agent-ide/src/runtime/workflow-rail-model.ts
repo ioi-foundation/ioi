@@ -346,6 +346,33 @@ function workflowHarnessNodeAttemptInspectionFromAttempt(
   };
 }
 
+function workflowHarnessDefaultRuntimeNodeAttempts(
+  workflow: WorkflowProject,
+): WorkflowHarnessNodeAttemptRecord[] {
+  const dispatch = workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  if (!dispatch) return [];
+  const adapterAttempts = [
+    ...(dispatch.cognitionExecutionAdapterResults ?? []),
+    ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
+    ...(dispatch.routingModelAdapterResults ?? []),
+    ...(dispatch.verificationOutputAdapterResults ?? []),
+    ...(dispatch.authorityToolingAdapterResults ?? []),
+  ].map((result) => result.nodeAttempt);
+  const attempts = [
+    ...(dispatch.dispatchNodeAttempts ?? []),
+    ...adapterAttempts,
+  ].filter(
+    (attempt): attempt is WorkflowHarnessNodeAttemptRecord =>
+      Boolean(attempt),
+  );
+  const seen = new Set<string>();
+  return attempts.filter((attempt) => {
+    if (seen.has(attempt.attemptId)) return false;
+    seen.add(attempt.attemptId);
+    return true;
+  });
+}
+
 export function resolveWorkflowHarnessNodeAttemptInspection({
   nodeAttemptId,
   workflow,
@@ -371,6 +398,24 @@ export function resolveWorkflowHarnessNodeAttemptInspection({
       sourceKind: "node_attempt",
       sourceLabel: "Workflow node attempt",
     });
+  }
+
+  const defaultRuntimeDispatch =
+    workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+  const defaultRuntimeAttempt =
+    workflowHarnessDefaultRuntimeNodeAttempts(workflow).find(
+      (attempt) => attempt.attemptId === nodeAttemptId,
+    ) ?? null;
+  if (defaultRuntimeAttempt) {
+    return workflowHarnessNodeAttemptInspectionFromAttempt(
+      defaultRuntimeAttempt,
+      {
+        workflow,
+        runId: selectedRunId ?? defaultRuntimeDispatch?.dispatchId ?? runId,
+        sourceKind: "default_runtime_dispatch",
+        sourceLabel: "Default runtime dispatch node attempt",
+      },
+    );
   }
 
   const harnessActivationRecord = workflow.metadata.harness?.activationRecord;

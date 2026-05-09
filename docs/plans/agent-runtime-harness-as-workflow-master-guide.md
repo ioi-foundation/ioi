@@ -52,6 +52,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-09T03-45-10-002Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T03-51-29-908Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-11-07-040Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-09T04-17-19-806Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -110,12 +112,13 @@ activation handoff timeline proof, fork handoff deep-link proof,
 canary/rollback route-state proof, fork package evidence manifest proof,
 package evidence activation gate proof, and live package-evidence click-through
 proof, package evidence export/import round-trip proof, and user-facing import
-review mode proof have a green end-to-end checkpoint:
+review mode proof, live-turn node inspector proof, and live-turn node inspector
+deep-link restoration proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T03-45-10-002Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-11-07-040Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T03-51-29-908Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T04-17-19-806Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -150,8 +153,15 @@ sample binds a live `planner` attempt to its workflow node id, action frame,
 receipt ref, replay fixture ref, policy decision, input/output hashes, runtime
 authority, activation id, harness hash, `workflow-harness-node-attempt-inspector`,
 `workflow-selected-node-harness-attempt`, `workflow-run-harness-timeline`, and
-the `nodeAttemptId` deep-link parameter. It further
-proves the fork activation wizard uses the same substrate:
+the `nodeAttemptId` deep-link parameter. The GUI promotion proof now also
+restores that live attempt through
+`#harness-workbench?panel=outputs&nodeAttemptId=...`, opens
+`workflow-harness-node-attempt-inspector`, and reads back
+`data-node-attempt-source-kind=default_runtime_dispatch`, live mode,
+`live_ready`, receipt refs, replay fixture ref, policy decision, activation id,
+harness hash, input hash, and output hash. Runtime consistency now requires
+`harness_live_turn_node_inspector_deep_link_present: true`. It further proves
+the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation
 carrying a worker session, launch envelopes, handoff receipts, gated
@@ -1286,6 +1296,44 @@ bindings that looked live but inherited projection-only invariant blockers.
   true` and `harness_chat_runtime_binding_matches_workflow_activation: true`.
 - Runtime P3 with required GUI evidence is green at
   `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`.
+
+### 2026-05-09 Live Turn Node Inspector Deep-Link Slice
+
+The live default harness turn is now inspectable through the same
+route-stateful workbench path operators use for receipts, replay fixtures,
+activation gates, and worker handoffs:
+
+- The node-attempt inspector resolver now treats default runtime dispatch
+  adapter attempts as first-class sources. A live attempt emitted by
+  `defaultRuntimeDispatchProof.cognitionExecutionAdapterResults` can be opened
+  directly from its `nodeAttemptId` even when it did not originate from the
+  latest ad hoc workflow run object.
+- The promotion GUI proof now runs
+  `runHarnessLiveTurnNodeInspectorDeepLinkProbe`, writes a
+  `#harness-workbench?panel=outputs&nodeAttemptId=...&receiptRef=...&replayFixtureRef=...`
+  hash, applies the workbench route, and reads
+  `workflow-harness-node-attempt-inspector` back from the DOM.
+- The retained proof requires the rail to echo the default dispatch attempt id,
+  `data-node-attempt-source-kind=default_runtime_dispatch`, workflow node id,
+  component id/kind, activation id, harness hash, live execution mode,
+  `live_ready` readiness, live status, policy decision, receipt refs, replay
+  fixture ref, input hash, and output hash.
+- The GUI harness evidence contract now requires
+  `harness_live_turn_node_inspector_deep_link` and runtime consistency requires
+  `harness_live_turn_node_inspector_deep_link_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-11-07-040Z/result.json`;
+  the promotion proof reports
+  `liveTurnNodeInspectorDeepLink: true` for
+  `harness.planner:default-dispatch:planner_envelope`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T04-17-19-806Z/dashboard-index.json`.
+
+This changes the live-turn node inspector from "runtime artifacts include an
+inspectable attempt" to "the actual GUI can restore the live default dispatch
+node attempt by URL and prove the rail displays the same receipt, replay,
+policy, binding, and hash evidence." The next chronological slice should use
+the same pattern for live-vs-shadow divergence comparison on the node timeline.
 
 ## Current State
 
