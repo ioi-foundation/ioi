@@ -1787,9 +1787,10 @@ blocked with explicit blocker codes, and keep the happy path unchanged.
 
 ### Implemented: Active Runtime Rollback Negative Apply Guardrail
 
-The apply path now has retained GUI evidence for the failure mode that matters
-most: a proof that was valid during dry-run but no longer matches the live
-rollback binding.
+The apply path now has retained GUI evidence for the two rollback failure
+classes that matter most: a proof that was valid during dry-run but no longer
+matches the live rollback binding, and a proof graph whose live rollback
+dependencies have been removed or orphaned.
 
 - A dedicated `WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof` records
   negative cases, mutation kind, expected blockers, rail-visible blockers,
@@ -1804,28 +1805,42 @@ rollback binding.
 - The same stale fixture is sent through the guarded runtime apply helper. The
   helper must refuse the apply, mark `staleProofBlocked: true`, keep
   `rollbackApplied: false`, and return the same explicit blocker codes.
+- The negative suite now adds detached proof fixtures for
+  `detached-launch-envelope-missing`, `detached-handoff-receipt-missing`,
+  `detached-node-attempt-missing`, `detached-node-attempt-orphaned`, and
+  `detached-replay-fixture-missing`. Each fixture keeps the successful dry-run
+  proof in place, removes or orphans one live rollback dependency, verifies the
+  rail keeps Apply disabled, and requires matching rail/runtime blockers such as
+  `rollback_launch_envelope_missing`,
+  `rollback_handoff_receipt_missing`, `rollback_node_attempt_missing`,
+  `rollback_node_attempt_orphaned`, and `rollback_replay_fixture_missing`.
 - GUI validation now requires
   `harness_active_runtime_rollback_negative_apply` and
   `harness_active_runtime_rollback_negative_apply_present` in addition to the
   happy-path apply execution proof.
 
 Full retained GUI validation is green in
-`docs/evidence/autopilot-gui-harness-validation/2026-05-09T13-28-19-000Z/result.json`.
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T14-08-26-010Z/result.json`.
 That bundle reports all 8 retained queries passing and
-`activeRuntimeRollbackNegativeApply: true`. The negative case records
-`applyButtonDisabled: true`, `applyStatus: blocked`,
-`staleProofBlocked: true`, `rollbackApplied: false`, rail-visible stale blocker
-codes, matching runtime blocker codes, and no proof-level blockers.
+`activeRuntimeRollbackNegativeApply: true`. The negative suite records six
+passing cases with `applyButtonDisabled: true`, `applyStatus: blocked`,
+`rollbackApplied: false`, matching rail-visible blocker codes, matching runtime
+blocker codes, and no proof-level blockers. The stale case records
+`hashVerified: false`; the detached cases intentionally keep
+`hashVerified: true` when the hash is still bound and block solely on missing or
+orphaned proof dependencies.
 
 Runtime P3 with required GUI evidence is green at
-`docs/evidence/agent-runtime-p3-validation/2026-05-09T13-34-37-699Z/dashboard-index.json`.
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T14-14-54-279Z/dashboard-index.json`.
 
 This changes rollback from "applied through an audited workbench action" to
-"applied only when the dry-run proof is still live-bound, with stale proof
-attempts visibly and contractually blocked." The next chronological slice should
-extend the negative suite from stale proof mismatch to detached proof absence:
-remove or orphan the launch envelope, handoff receipt, node attempt, or replay
-fixture in controlled fixtures and require the matching detached blocker codes.
+"applied only when the dry-run proof is still live-bound, with stale and
+detached proof attempts visibly and contractually blocked." The next
+chronological slice should move from rollback proof guardrails to import/package
+activation replay: prove that a forked harness package cannot activate live
+unless its imported workflow hash, activation id, worker binding, rollback
+target, replay fixtures, and policy posture all match the reviewed package
+manifest.
 
 ## Current State
 

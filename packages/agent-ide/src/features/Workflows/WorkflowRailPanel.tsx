@@ -847,12 +847,23 @@ export function WorkflowRailPanel({
               attempt.attemptId.includes(":rollback:"),
             ) ??
             null;
+          const workerRollbackNodeAttemptBound =
+            Boolean(workerRollbackNodeAttempt) &&
+            Boolean(workerRollbackHandoffReceipt?.receiptId) &&
+            workerRollbackNodeAttempt?.receiptIds.includes(
+              workerRollbackHandoffReceipt?.receiptId ?? "",
+            ) === true;
           const workerRollbackReplayFixtureRef =
             workerRollbackNodeAttempt?.replay.fixtureRef ??
             workerHandoffReplayFixtureRefs.find((fixtureRef) =>
               fixtureRef.includes(":rollback:"),
             ) ??
             "";
+          const workerRollbackReplayFixtureBound =
+            Boolean(workerRollbackReplayFixtureRef) &&
+            workerHandoffReplayFixtureRefs.includes(
+              workerRollbackReplayFixtureRef,
+            );
           const workerRollbackReadinessProofId =
             workerBindingRegistryRecord?.rollbackReadinessProofId ??
             workerSessionRecord?.rollbackReadinessProofId ??
@@ -921,6 +932,9 @@ export function WorkflowRailPanel({
               (workerRollbackLaunchEnvelope.blockers ?? []).length === 0
                 ? []
                 : ["rollback_launch_envelope_not_ready"]),
+              ...(workerRollbackLaunchEnvelope
+                ? []
+                : ["rollback_launch_envelope_missing"]),
               ...(workerRollbackHandoffReceipt?.accepted === true &&
               workerRollbackHandoffReceipt.phase === "rollback" &&
               workerRollbackHandoffReceipt.handoffStatus ===
@@ -928,6 +942,9 @@ export function WorkflowRailPanel({
               (workerRollbackHandoffReceipt.blockers ?? []).length === 0
                 ? []
                 : ["rollback_handoff_receipt_not_ready"]),
+              ...(workerRollbackHandoffReceipt
+                ? []
+                : ["rollback_handoff_receipt_missing"]),
               ...(workerRollbackNodeAttempt?.workflowNodeId ===
                 "harness.handoff_bridge" &&
               workerRollbackNodeAttempt.componentKind === "handoff_bridge" &&
@@ -938,6 +955,19 @@ export function WorkflowRailPanel({
               )
                 ? []
                 : ["rollback_node_attempt_not_bound"]),
+              ...(workerRollbackNodeAttempt
+                ? []
+                : ["rollback_node_attempt_missing"]),
+              ...(workerRollbackReplayFixtureRef
+                ? []
+                : ["rollback_replay_fixture_missing"]),
+              ...(workerRollbackNodeAttempt && !workerRollbackNodeAttemptBound
+                ? ["rollback_node_attempt_orphaned"]
+                : []),
+              ...(workerRollbackReplayFixtureRef &&
+              !workerRollbackReplayFixtureBound
+                ? ["rollback_replay_fixture_orphaned"]
+                : []),
             ]);
           const workerRollbackProof = {
             bound: workerRollbackProofBlockers.length === 0,
@@ -1296,6 +1326,28 @@ export function WorkflowRailPanel({
           ...(harnessActiveRuntimeBinding.workerRollbackProof.bound === true
             ? []
             : ["rollback_proof_not_bound"]),
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.launchEnvelope
+            ? []
+            : ["rollback_launch_envelope_missing"]),
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.handoffReceipt
+            ? []
+            : ["rollback_handoff_receipt_missing"]),
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt
+            ? []
+            : ["rollback_node_attempt_missing"]),
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.replayFixtureRef
+            ? []
+            : ["rollback_replay_fixture_missing"]),
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.blockers.includes(
+            "rollback_node_attempt_orphaned",
+          )
+            ? ["rollback_node_attempt_orphaned"]
+            : []),
+          ...(harnessActiveRuntimeBinding.workerRollbackProof.blockers.includes(
+            "rollback_replay_fixture_orphaned",
+          )
+            ? ["rollback_replay_fixture_orphaned"]
+            : []),
           ...(harnessActiveRuntimeRollbackExecutionProof.readinessProofId ===
           harnessActiveRuntimeBinding.workerRollbackProof.readinessProofId
             ? []

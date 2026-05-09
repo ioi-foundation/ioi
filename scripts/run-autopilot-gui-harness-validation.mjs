@@ -4906,30 +4906,86 @@ function buildGuiEvidenceAssessment({
       ?.activeRuntimeRollbackApplyExecution?.rollbackTargetVerified === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
       ?.activeRuntimeRollbackApplyExecution?.hashVerified === true;
+  const activeRuntimeRollbackNegativeRequiredCases = [
+    {
+      caseId: "stale-hash-node-replay",
+      mutationKind: "stale_proof",
+      staleProofBlocked: true,
+      detachedProofBlocked: false,
+      hashVerified: false,
+      expectedBlockers: ["rollback_harness_hash_stale"],
+    },
+    {
+      caseId: "detached-launch-envelope-missing",
+      mutationKind: "detached_proof",
+      staleProofBlocked: true,
+      detachedProofBlocked: true,
+      hashVerified: true,
+      expectedBlockers: ["rollback_launch_envelope_missing"],
+    },
+    {
+      caseId: "detached-handoff-receipt-missing",
+      mutationKind: "detached_proof",
+      staleProofBlocked: true,
+      detachedProofBlocked: true,
+      hashVerified: true,
+      expectedBlockers: ["rollback_handoff_receipt_missing"],
+    },
+    {
+      caseId: "detached-node-attempt-missing",
+      mutationKind: "detached_proof",
+      staleProofBlocked: true,
+      detachedProofBlocked: true,
+      hashVerified: true,
+      expectedBlockers: ["rollback_node_attempt_missing"],
+    },
+    {
+      caseId: "detached-node-attempt-orphaned",
+      mutationKind: "detached_proof",
+      staleProofBlocked: false,
+      detachedProofBlocked: true,
+      hashVerified: true,
+      expectedBlockers: ["rollback_node_attempt_orphaned"],
+    },
+    {
+      caseId: "detached-replay-fixture-missing",
+      mutationKind: "detached_proof",
+      staleProofBlocked: true,
+      detachedProofBlocked: true,
+      hashVerified: true,
+      expectedBlockers: ["rollback_replay_fixture_missing"],
+    },
+  ];
+  const negativeApplySummaryCases =
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackNegativeApply?.cases ?? [];
   const hasHarnessActiveRuntimeRollbackNegativeApply =
     hasHarnessActiveRuntimeRollbackApplyExecution &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.activeRuntimeRollbackNegativeApply === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
       ?.activeRuntimeRollbackNegativeApplyProof?.passed === true &&
-    promotionTransitionLiveGuiInteractionProof?.proof
-      ?.activeRuntimeRollbackNegativeApply?.cases?.some(
+    activeRuntimeRollbackNegativeRequiredCases.every((requiredCase) =>
+      negativeApplySummaryCases.some(
         (negativeCase) =>
-          negativeCase.caseId === "stale-hash-node-replay" &&
+          negativeCase.caseId === requiredCase.caseId &&
+          negativeCase.mutationKind === requiredCase.mutationKind &&
           negativeCase.applyButtonDisabled === true &&
           negativeCase.applyStatus === "blocked" &&
-          negativeCase.staleProofBlocked === true &&
+          negativeCase.staleProofBlocked ===
+            requiredCase.staleProofBlocked &&
+          negativeCase.detachedProofBlocked ===
+            requiredCase.detachedProofBlocked &&
           negativeCase.rollbackApplied === false &&
-          negativeCase.expectedBlockers?.includes(
-            "rollback_harness_hash_stale",
-          ) === true &&
-          negativeCase.observedRailBlockers?.includes(
-            "rollback_harness_hash_stale",
-          ) === true &&
-          negativeCase.runtimeBlockers?.includes(
-            "rollback_harness_hash_stale",
-          ) === true,
-      ) === true;
+          negativeCase.hashVerified === requiredCase.hashVerified &&
+          requiredCase.expectedBlockers.every(
+            (blocker) =>
+              negativeCase.expectedBlockers?.includes(blocker) === true &&
+              negativeCase.observedRailBlockers?.includes(blocker) === true &&
+              negativeCase.runtimeBlockers?.includes(blocker) === true,
+          ),
+      ),
+    );
   const hasHarnessLiveTurnNodeTimeline =
     hasHarnessChatRuntimeBinding &&
     summary.harnessLiveTurnNodeTimelineCount > 0 &&
@@ -6638,39 +6694,108 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activeRuntimeRollbackApplyAuditEvent?.receiptRefs?.includes(
         activeRuntimeRollbackApplyProof?.rollbackReceiptId,
       ) === true;
-    const activeRuntimeRollbackNegativeCase =
-      activeRuntimeRollbackNegativeApplyProof?.cases?.find(
-        (negativeCase) => negativeCase.caseId === "stale-hash-node-replay",
-      ) ?? null;
-    const activeRuntimeRollbackNegativeExpectedBlockers = [
-      "rollback_harness_hash_stale",
-      "rollback_node_attempt_stale",
-      "rollback_replay_fixture_stale",
-      "rollback_apply_hash_not_verified",
+    const activeRuntimeRollbackNegativeRequiredProofCases = [
+      {
+        caseId: "stale-hash-node-replay",
+        mutationKind: "stale_proof",
+        staleProofBlocked: true,
+        detachedProofBlocked: false,
+        hashVerified: false,
+        expectedBlockers: [
+          "rollback_harness_hash_stale",
+          "rollback_node_attempt_stale",
+          "rollback_replay_fixture_stale",
+          "rollback_apply_hash_not_verified",
+        ],
+      },
+      {
+        caseId: "detached-launch-envelope-missing",
+        mutationKind: "detached_proof",
+        staleProofBlocked: true,
+        detachedProofBlocked: true,
+        hashVerified: true,
+        expectedBlockers: [
+          "rollback_launch_envelope_missing",
+          "rollback_launch_envelope_stale",
+        ],
+      },
+      {
+        caseId: "detached-handoff-receipt-missing",
+        mutationKind: "detached_proof",
+        staleProofBlocked: true,
+        detachedProofBlocked: true,
+        hashVerified: true,
+        expectedBlockers: [
+          "rollback_handoff_receipt_missing",
+          "rollback_handoff_receipt_stale",
+        ],
+      },
+      {
+        caseId: "detached-node-attempt-missing",
+        mutationKind: "detached_proof",
+        staleProofBlocked: true,
+        detachedProofBlocked: true,
+        hashVerified: true,
+        expectedBlockers: [
+          "rollback_node_attempt_missing",
+          "rollback_node_attempt_stale",
+        ],
+      },
+      {
+        caseId: "detached-node-attempt-orphaned",
+        mutationKind: "detached_proof",
+        staleProofBlocked: false,
+        detachedProofBlocked: true,
+        hashVerified: true,
+        expectedBlockers: ["rollback_node_attempt_orphaned"],
+      },
+      {
+        caseId: "detached-replay-fixture-missing",
+        mutationKind: "detached_proof",
+        staleProofBlocked: true,
+        detachedProofBlocked: true,
+        hashVerified: true,
+        expectedBlockers: [
+          "rollback_replay_fixture_missing",
+          "rollback_replay_fixture_stale",
+        ],
+      },
     ];
+    const activeRuntimeRollbackNegativeCasePassed = (requiredCase) => {
+      const negativeCase =
+        activeRuntimeRollbackNegativeApplyProof?.cases?.find(
+          (candidate) => candidate.caseId === requiredCase.caseId,
+        ) ?? null;
+      return (
+        negativeCase?.passed === true &&
+        negativeCase?.mutationKind === requiredCase.mutationKind &&
+        negativeCase?.applyButtonDisabled === true &&
+        negativeCase?.applyStatus === "blocked" &&
+        negativeCase?.staleProofBlocked ===
+          requiredCase.staleProofBlocked &&
+        negativeCase?.detachedProofBlocked ===
+          requiredCase.detachedProofBlocked &&
+        negativeCase?.rollbackApplied === false &&
+        negativeCase?.hashVerified === requiredCase.hashVerified &&
+        requiredCase.expectedBlockers.every((blocker) =>
+          negativeCase?.expectedBlockers?.includes(blocker),
+        ) &&
+        requiredCase.expectedBlockers.every((blocker) =>
+          negativeCase?.observedRailBlockers?.includes(blocker),
+        ) &&
+        requiredCase.expectedBlockers.every((blocker) =>
+          negativeCase?.runtimeBlockers?.includes(blocker),
+        )
+      );
+    };
     const activeRuntimeRollbackNegativeApply =
       activeRuntimeRollbackApplyExecution &&
       activeRuntimeRollbackNegativeApplyProof?.schemaVersion ===
         "workflow.harness.active-runtime-rollback-negative-apply-proof.v1" &&
       activeRuntimeRollbackNegativeApplyProof?.passed === true &&
-      activeRuntimeRollbackNegativeCase?.passed === true &&
-      activeRuntimeRollbackNegativeCase?.mutationKind === "stale_proof" &&
-      activeRuntimeRollbackNegativeCase?.applyButtonDisabled === true &&
-      activeRuntimeRollbackNegativeCase?.applyStatus === "blocked" &&
-      activeRuntimeRollbackNegativeCase?.staleProofBlocked === true &&
-      activeRuntimeRollbackNegativeCase?.detachedProofBlocked === false &&
-      activeRuntimeRollbackNegativeCase?.rollbackApplied === false &&
-      activeRuntimeRollbackNegativeCase?.hashVerified === false &&
-      activeRuntimeRollbackNegativeExpectedBlockers.every((blocker) =>
-        activeRuntimeRollbackNegativeCase?.expectedBlockers?.includes(blocker),
-      ) &&
-      activeRuntimeRollbackNegativeExpectedBlockers.every((blocker) =>
-        activeRuntimeRollbackNegativeCase?.observedRailBlockers?.includes(
-          blocker,
-        ),
-      ) &&
-      activeRuntimeRollbackNegativeExpectedBlockers.every((blocker) =>
-        activeRuntimeRollbackNegativeCase?.runtimeBlockers?.includes(blocker),
+      activeRuntimeRollbackNegativeApplyProof?.blockers?.length === 0 &&
+      activeRuntimeRollbackNegativeRequiredProofCases.every((requiredCase) =>
+        activeRuntimeRollbackNegativeCasePassed(requiredCase),
       );
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
