@@ -503,6 +503,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessActivationIdGateClickProofRuntimeBlockedCount: 0,
     harnessDefaultRuntimeBindingCount: 0,
     harnessDefaultRuntimeBindingMatchedCount: 0,
+    harnessWorkerLaunchReviewedImportActivationInvariantCount: 0,
     harnessDefaultRuntimeBindingSamples: [],
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessAuthorityToolingGateLiveCount: 0,
@@ -637,6 +638,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               livePromotionReadinessProofId:
                 binding.workerBinding.livePromotionReadinessProofId ?? null,
               policyDecision: binding.workerBinding.policyDecision ?? null,
+              requiredInvariantIds: Array.isArray(
+                binding.workerBinding.requiredInvariantIds,
+              )
+                ? binding.workerBinding.requiredInvariantIds
+                : null,
+              invariantBlockers: Array.isArray(
+                binding.workerBinding.invariantBlockers,
+              )
+                ? binding.workerBinding.invariantBlockers
+                : null,
             }
           : null,
       workerBindingRegistryRecord:
@@ -666,6 +677,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               )
                 ? binding.workerBindingRegistryRecord.blockers
                 : null,
+              requiredInvariantIds: Array.isArray(
+                binding.workerBindingRegistryRecord.requiredInvariantIds,
+              )
+                ? binding.workerBindingRegistryRecord.requiredInvariantIds
+                : null,
+              invariantBlockers: Array.isArray(
+                binding.workerBindingRegistryRecord.invariantBlockers,
+              )
+                ? binding.workerBindingRegistryRecord.invariantBlockers
+                : null,
               workerBindingActivationId:
                 binding.workerBindingRegistryRecord.workerBinding
                   ?.harnessActivationId ?? null,
@@ -687,6 +708,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerAttachReceipt.readinessProofId ?? null,
               blockers: Array.isArray(binding.workerAttachReceipt.blockers)
                 ? binding.workerAttachReceipt.blockers
+                : null,
+              requiredInvariantIds: Array.isArray(
+                binding.workerAttachReceipt.requiredInvariantIds,
+              )
+                ? binding.workerAttachReceipt.requiredInvariantIds
+                : null,
+              invariantBlockers: Array.isArray(
+                binding.workerAttachReceipt.invariantBlockers,
+              )
+                ? binding.workerAttachReceipt.invariantBlockers
                 : null,
             }
           : null,
@@ -728,6 +759,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             accepted: event?.accepted ?? null,
             receiptId: event?.receiptId ?? null,
             blockers: Array.isArray(event?.blockers) ? event.blockers : null,
+            requiredInvariantIds: Array.isArray(event?.requiredInvariantIds)
+              ? event.requiredInvariantIds
+              : null,
+            invariantBlockers: Array.isArray(event?.invariantBlockers)
+              ? event.invariantBlockers
+              : null,
           }))
         : null,
       workerSessionAccepted: binding.workerSessionAccepted ?? null,
@@ -792,6 +829,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               )
                 ? binding.workerSessionRecord.launchAuthorityBlockers
                 : null,
+              launchAuthorityInvariantIds: Array.isArray(
+                binding.workerSessionRecord.launchAuthorityInvariantIds,
+              )
+                ? binding.workerSessionRecord.launchAuthorityInvariantIds
+                : null,
+              launchAuthorityInvariantBlockers: Array.isArray(
+                binding.workerSessionRecord.launchAuthorityInvariantBlockers,
+              )
+                ? binding.workerSessionRecord.launchAuthorityInvariantBlockers
+                : null,
               launchAuthoritySource:
                 binding.workerSessionRecord.launchAuthoritySource ?? null,
               rollbackHandoffReady:
@@ -813,6 +860,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             sessionRecordId: envelope?.sessionRecordId ?? null,
             workerId: envelope?.workerId ?? null,
             launchAuthorityReady: envelope?.launchAuthorityReady ?? null,
+            launchAuthorityInvariantIds: Array.isArray(
+              envelope?.launchAuthorityInvariantIds,
+            )
+              ? envelope.launchAuthorityInvariantIds
+              : null,
+            launchAuthorityInvariantBlockers: Array.isArray(
+              envelope?.launchAuthorityInvariantBlockers,
+            )
+              ? envelope.launchAuthorityInvariantBlockers
+              : null,
             rollbackHandoffReady: envelope?.rollbackHandoffReady ?? null,
             accepted: envelope?.accepted ?? null,
             blockers: Array.isArray(envelope?.blockers)
@@ -833,6 +890,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             handoffStatus: receipt?.handoffStatus ?? null,
             blockers: Array.isArray(receipt?.blockers)
               ? receipt.blockers
+              : null,
+            requiredInvariantIds: Array.isArray(receipt?.requiredInvariantIds)
+              ? receipt.requiredInvariantIds
+              : null,
+            invariantBlockers: Array.isArray(receipt?.invariantBlockers)
+              ? receipt.invariantBlockers
               : null,
             receiptRefs: Array.isArray(receipt?.receiptRefs)
               ? receipt.receiptRefs
@@ -865,6 +928,60 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             }
           : null,
     };
+    const hasReviewedImportActivationInvariant = (ids) =>
+      Array.isArray(ids) &&
+      ids.includes(REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID);
+    const hasNoInvariantBlockers = (blockers) =>
+      Array.isArray(blockers) && blockers.length === 0;
+    const workerLaunchReviewedImportActivationInvariantBound =
+      hasReviewedImportActivationInvariant(
+        binding.workerBinding?.requiredInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(binding.workerBinding?.invariantBlockers) &&
+      hasReviewedImportActivationInvariant(
+        binding.workerBindingRegistryRecord?.requiredInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(
+        binding.workerBindingRegistryRecord?.invariantBlockers,
+      ) &&
+      hasReviewedImportActivationInvariant(
+        binding.workerAttachReceipt?.requiredInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(binding.workerAttachReceipt?.invariantBlockers) &&
+      Array.isArray(binding.workerAttachLifecycle) &&
+      binding.workerAttachLifecycle.length >= 3 &&
+      binding.workerAttachLifecycle.every(
+        (event) =>
+          hasReviewedImportActivationInvariant(event?.requiredInvariantIds) &&
+          hasNoInvariantBlockers(event?.invariantBlockers),
+      ) &&
+      hasReviewedImportActivationInvariant(
+        binding.workerSessionRecord?.launchAuthorityInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(
+        binding.workerSessionRecord?.launchAuthorityInvariantBlockers,
+      ) &&
+      Array.isArray(binding.workerLaunchEnvelopes) &&
+      binding.workerLaunchEnvelopes.length >= 3 &&
+      binding.workerLaunchEnvelopes.every(
+        (envelope) =>
+          hasReviewedImportActivationInvariant(
+            envelope?.launchAuthorityInvariantIds,
+          ) &&
+          hasNoInvariantBlockers(envelope?.launchAuthorityInvariantBlockers),
+      ) &&
+      Array.isArray(binding.workerHandoffReceipts) &&
+      binding.workerHandoffReceipts.length >= 3 &&
+      binding.workerHandoffReceipts.every(
+        (receipt) =>
+          hasReviewedImportActivationInvariant(receipt?.requiredInvariantIds) &&
+          hasNoInvariantBlockers(receipt?.invariantBlockers),
+      );
+    sample.workerLaunchReviewedImportActivationInvariantBound =
+      workerLaunchReviewedImportActivationInvariantBound;
+    if (workerLaunchReviewedImportActivationInvariantBound) {
+      summary.harnessWorkerLaunchReviewedImportActivationInvariantCount += 1;
+    }
     const bindingMatched =
       binding.bindingMatched === true &&
       binding.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
@@ -884,6 +1001,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.dispatchLivePromotionReadinessReady === true &&
       binding.livePromotionReadinessProofIdsMatch === true &&
       binding.invalidForkLiveActivationBlocked === true &&
+      workerLaunchReviewedImportActivationInvariantBound &&
       binding.workerBindingAuthorityReady === true &&
       Array.isArray(binding.workerBindingAuthorityBlockers) &&
       binding.workerBindingAuthorityBlockers.length === 0 &&
@@ -913,9 +1031,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             "workflow.harness.worker-attach-lifecycle.v1" &&
           event?.workflowNodeId === "harness.handoff_bridge" &&
           event?.componentKind === "handoff_bridge" &&
-          event?.accepted === true &&
-          Array.isArray(event?.blockers) &&
-          event.blockers.length === 0,
+              event?.accepted === true &&
+              Array.isArray(event?.blockers) &&
+              event.blockers.length === 0 &&
+              hasReviewedImportActivationInvariant(
+                event?.requiredInvariantIds,
+              ) &&
+              hasNoInvariantBlockers(event?.invariantBlockers),
       ) &&
       binding.workerSessionAccepted === true &&
       binding.workerSessionStatus === "rollback_ready" &&
@@ -948,6 +1070,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.workerSessionRecord?.launchAuthorityReady === true &&
       Array.isArray(binding.workerSessionRecord?.launchAuthorityBlockers) &&
       binding.workerSessionRecord.launchAuthorityBlockers.length === 0 &&
+      hasReviewedImportActivationInvariant(
+        binding.workerSessionRecord?.launchAuthorityInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(
+        binding.workerSessionRecord?.launchAuthorityInvariantBlockers,
+      ) &&
       binding.workerSessionRecord?.launchAuthoritySource ===
         "persisted_harness_worker_session_record" &&
       binding.workerSessionRecord?.rollbackHandoffReady === true &&
@@ -973,6 +1101,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(envelope?.blockers) &&
             envelope.blockers.length === 0 &&
             envelope?.launchAuthorityReady === true &&
+            hasReviewedImportActivationInvariant(
+              envelope?.launchAuthorityInvariantIds,
+            ) &&
+            hasNoInvariantBlockers(
+              envelope?.launchAuthorityInvariantBlockers,
+            ) &&
             (phase !== "rollback" || envelope?.rollbackHandoffReady === true),
         ),
       ) &&
@@ -998,6 +1132,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             receipt?.accepted === true &&
             Array.isArray(receipt?.blockers) &&
             receipt.blockers.length === 0 &&
+            hasReviewedImportActivationInvariant(
+              receipt?.requiredInvariantIds,
+            ) &&
+            hasNoInvariantBlockers(receipt?.invariantBlockers) &&
             Array.isArray(receipt?.receiptRefs) &&
             receipt.receiptRefs.length >= 4,
         ),
@@ -1021,11 +1159,21 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.workerBinding?.authorityBindingReady === true &&
       Array.isArray(binding.workerBinding?.authorityBindingBlockers) &&
       binding.workerBinding.authorityBindingBlockers.length === 0 &&
+      hasReviewedImportActivationInvariant(
+        binding.workerBinding?.requiredInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(binding.workerBinding?.invariantBlockers) &&
       binding.workerBinding?.livePromotionReadinessProofId ===
         binding.selectorLivePromotionReadinessProofId &&
       binding.workerBindingRegistryRecord?.bindingStatus === "bound" &&
       Array.isArray(binding.workerBindingRegistryRecord?.blockers) &&
       binding.workerBindingRegistryRecord.blockers.length === 0 &&
+      hasReviewedImportActivationInvariant(
+        binding.workerBindingRegistryRecord?.requiredInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(
+        binding.workerBindingRegistryRecord?.invariantBlockers,
+      ) &&
       binding.workerBindingRegistryRecord?.readinessProofId ===
         binding.selectorLivePromotionReadinessProofId &&
       binding.workerBindingRegistryRecord?.activationId ===
@@ -1038,6 +1186,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         "workflow.harness.worker-attach-receipt.v1" &&
       binding.workerAttachReceipt?.accepted === true &&
       binding.workerAttachReceipt?.attachStatus === "bound" &&
+      hasReviewedImportActivationInvariant(
+        binding.workerAttachReceipt?.requiredInvariantIds,
+      ) &&
+      hasNoInvariantBlockers(binding.workerAttachReceipt?.invariantBlockers) &&
       binding.workerAttachReceipt?.registryRecordId ===
         binding.workerBindingRegistryRecord?.registryRecordId &&
       binding.workerAttachReceipt?.readinessProofId ===
@@ -3083,13 +3235,13 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         rail,
       ),
     workerSessionCheckpointUi:
-      /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\][\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityBlockers: string\[\][\s\S]*launchAuthoritySource: string[\s\S]*rollbackHandoffReady: boolean[\s\S]*rollbackHandoffBlockers: string\[\][\s\S]*rollbackHandoffTarget: string/.test(
+      /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\][\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityBlockers: string\[\][\s\S]*launchAuthorityInvariantIds\?: string\[\][\s\S]*launchAuthorityInvariantBlockers\?: string\[\][\s\S]*launchAuthoritySource: string[\s\S]*rollbackHandoffReady: boolean[\s\S]*rollbackHandoffBlockers: string\[\][\s\S]*rollbackHandoffTarget: string/.test(
         graph,
       ) &&
-      /WorkflowHarnessWorkerLaunchEnvelope[\s\S]*schemaVersion: "workflow\.harness\.worker-launch-envelope\.v1"[\s\S]*phase: WorkflowHarnessWorkerLaunchPhase[\s\S]*launchAuthorityReady: boolean/.test(
+      /WorkflowHarnessWorkerLaunchEnvelope[\s\S]*schemaVersion: "workflow\.harness\.worker-launch-envelope\.v1"[\s\S]*phase: WorkflowHarnessWorkerLaunchPhase[\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityInvariantIds\?: string\[\][\s\S]*launchAuthorityInvariantBlockers\?: string\[\]/.test(
         graph,
       ) &&
-      /WorkflowHarnessWorkerHandoffReceipt[\s\S]*schemaVersion: "workflow\.harness\.worker-handoff-receipt\.v1"[\s\S]*handoffStatus: "launched" \| "resumed" \| "rollback_handoff_ready" \| "blocked"/.test(
+      /WorkflowHarnessWorkerHandoffReceipt[\s\S]*schemaVersion: "workflow\.harness\.worker-handoff-receipt\.v1"[\s\S]*handoffStatus: "launched" \| "resumed" \| "rollback_handoff_ready" \| "blocked"[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/.test(
         graph,
       ) &&
       /data-worker-session-persistence-key/.test(rail) &&
@@ -3691,6 +3843,13 @@ function buildGuiEvidenceAssessment({
       ?.liveHandoffReviewedImportActivationApplyInvariant === true &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.defaultDispatchReviewedImportActivationApplyInvariant === true;
+  const hasHarnessWorkerLaunchReviewedImportActivationInvariant =
+    hasHarnessSelectorReviewedImportActivationApplyInvariant &&
+    summary.harnessWorkerLaunchReviewedImportActivationInvariantCount > 0 &&
+    summary.harnessDefaultRuntimeBindingSamples.some(
+      (binding) =>
+        binding?.workerLaunchReviewedImportActivationInvariantBound === true,
+    );
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
@@ -3706,6 +3865,8 @@ function buildGuiEvidenceAssessment({
     promotionTransitionLiveGuiInteractionProof?.proof?.runtimeSelector ?? null;
   const workflowProofDefaultDispatch =
     promotionTransitionLiveGuiInteractionProof?.proof?.defaultDispatch ?? null;
+  const runtimeBindingHasReviewedImportActivationInvariant = (binding) =>
+    binding?.workerLaunchReviewedImportActivationInvariantBound === true;
   const chatRuntimeBindingMatchesWorkflowProof =
     hasHarnessDefaultRuntimeDispatch &&
     Boolean(workflowProofRuntimeSelector) &&
@@ -3733,6 +3894,7 @@ function buildGuiEvidenceAssessment({
         binding.dispatchLivePromotionReadinessReady === true &&
         binding.livePromotionReadinessProofIdsMatch === true &&
         binding.invalidForkLiveActivationBlocked === true &&
+        runtimeBindingHasReviewedImportActivationInvariant(binding) &&
         binding.workerBindingAuthorityReady === true &&
         Array.isArray(binding.workerBindingAuthorityBlockers) &&
         binding.workerBindingAuthorityBlockers.length === 0 &&
@@ -4052,6 +4214,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessSelectorLivePromotionReadinessGatedCount > 0,
       harness_selector_reviewed_import_activation_apply_invariant_present:
         hasHarnessSelectorReviewedImportActivationApplyInvariant,
+      harness_worker_launch_reviewed_import_activation_apply_invariant_present:
+        hasHarnessWorkerLaunchReviewedImportActivationInvariant,
       harness_default_runtime_dispatch_present:
         hasHarnessDefaultRuntimeDispatch,
       harness_live_promotion_readiness_present:
@@ -4139,6 +4303,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
       hasHarnessSelectorReviewedImportActivationApplyInvariant,
+      hasHarnessWorkerLaunchReviewedImportActivationInvariant,
       hasHarnessDefaultRuntimeDispatch,
       hasHarnessLivePromotionReadiness,
       hasHarnessChatRuntimeBinding,
@@ -6762,6 +6927,11 @@ async function runGuiValidation(args, outputRoot) {
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.defaultDispatchReviewedImportActivationApplyInvariant === true
             ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_worker_launch_reviewed_import_activation_apply_invariant:
+          runtimeArtifacts.summary
+            .harnessWorkerLaunchReviewedImportActivationInvariantCount > 0
+            ? runtimeArtifacts.path
             : false,
         harness_default_runtime_dispatch:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >

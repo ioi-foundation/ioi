@@ -785,6 +785,8 @@ pub struct HarnessWorkerBinding {
     pub authority_binding_blockers: Vec<String>,
     pub live_promotion_readiness_proof_id: Option<String>,
     pub policy_decision: Option<String>,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
@@ -822,6 +824,8 @@ pub struct HarnessWorkerBindingRegistryRecord {
     pub policy_decision: String,
     pub binding_status: HarnessWorkerBindingStatus,
     pub blockers: Vec<String>,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
     pub worker_binding: HarnessWorkerBinding,
 }
 
@@ -861,6 +865,7 @@ pub struct HarnessWorkerAttachRequest {
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub readiness_proof_id: String,
+    pub required_invariant_ids: Vec<String>,
     pub requested_status: HarnessWorkerAttachStatus,
 }
 
@@ -884,6 +889,8 @@ pub struct HarnessWorkerAttachReceipt {
     pub blockers: Vec<String>,
     pub worker_binding: HarnessWorkerBinding,
     pub policy_decision: String,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
     pub evidence_refs: Vec<String>,
 }
 
@@ -922,6 +929,8 @@ pub struct HarnessWorkerAttachLifecycleEvent {
     pub rollback_available: bool,
     pub policy_decision: String,
     pub blockers: Vec<String>,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
     pub evidence_refs: Vec<String>,
 }
 
@@ -978,6 +987,8 @@ pub struct HarnessWorkerSessionRecord {
     pub accepted: bool,
     pub blockers: Vec<String>,
     pub policy_decision: String,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub persistence_key: String,
     pub record_persistence_key: String,
@@ -987,6 +998,8 @@ pub struct HarnessWorkerSessionRecord {
     pub persistence_blockers: Vec<String>,
     pub launch_authority_ready: bool,
     pub launch_authority_blockers: Vec<String>,
+    pub launch_authority_invariant_ids: Vec<String>,
+    pub launch_authority_invariant_blockers: Vec<String>,
     pub launch_authority_source: String,
     pub rollback_handoff_ready: bool,
     pub rollback_handoff_blockers: Vec<String>,
@@ -1033,6 +1046,8 @@ pub struct HarnessWorkerLaunchEnvelope {
     pub record_persistence_key: String,
     pub launch_authority_source: String,
     pub launch_authority_ready: bool,
+    pub launch_authority_invariant_ids: Vec<String>,
+    pub launch_authority_invariant_blockers: Vec<String>,
     pub rollback_handoff_ready: bool,
     pub accepted: bool,
     pub blockers: Vec<String>,
@@ -1063,6 +1078,8 @@ pub struct HarnessWorkerHandoffReceipt {
     pub accepted: bool,
     pub handoff_status: String,
     pub blockers: Vec<String>,
+    pub required_invariant_ids: Vec<String>,
+    pub invariant_blockers: Vec<String>,
     pub policy_decision: String,
     pub receipt_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
@@ -2314,6 +2331,10 @@ pub fn default_harness_worker_binding() -> HarnessWorkerBinding {
         authority_binding_blockers: vec!["worker_binding_authority_not_live".to_string()],
         live_promotion_readiness_proof_id: None,
         policy_decision: None,
+        required_invariant_ids: vec![
+            DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string(),
+        ],
+        invariant_blockers: vec!["reviewed_import_activation_apply_not_live".to_string()],
     }
 }
 
@@ -2348,6 +2369,10 @@ pub fn default_harness_worker_binding_registry_record() -> HarnessWorkerBindingR
         policy_decision: "retain_legacy_runtime_default".to_string(),
         binding_status: HarnessWorkerBindingStatus::Projection,
         blockers: vec!["worker_binding_registry_not_live".to_string()],
+        required_invariant_ids: vec![
+            DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string(),
+        ],
+        invariant_blockers: vec!["reviewed_import_activation_apply_not_live".to_string()],
         worker_binding,
     }
 }
@@ -2370,6 +2395,9 @@ pub fn bound_default_harness_worker_binding_registry_record(
     worker_binding.authority_binding_blockers.clear();
     worker_binding.live_promotion_readiness_proof_id = Some(readiness_proof_id.clone());
     worker_binding.policy_decision = Some(policy_decision.clone());
+    worker_binding.required_invariant_ids =
+        vec![DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string()];
+    worker_binding.invariant_blockers.clear();
     HarnessWorkerBindingRegistryRecord {
         schema_version: "workflow.harness.worker-binding-registry.v1".to_string(),
         registry_record_id: format!(
@@ -2389,6 +2417,10 @@ pub fn bound_default_harness_worker_binding_registry_record(
         policy_decision,
         binding_status: HarnessWorkerBindingStatus::Bound,
         blockers: Vec::new(),
+        required_invariant_ids: vec![
+            DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string(),
+        ],
+        invariant_blockers: Vec::new(),
         worker_binding,
     }
 }
@@ -2416,6 +2448,7 @@ pub fn default_harness_worker_attach_request(
         component_version_set: record.component_version_set.clone(),
         rollback_target: record.rollback_target.clone(),
         readiness_proof_id: record.readiness_proof_id.clone(),
+        required_invariant_ids: record.required_invariant_ids.clone(),
         requested_status,
     }
 }
@@ -2432,6 +2465,18 @@ fn harness_component_version_sets_match(
         .iter()
         .map(|binding| (&binding.component_id, &binding.component_version))
         .collect::<std::collections::BTreeMap<_, _>>();
+    left == right
+}
+
+fn harness_required_invariant_ids_present(invariant_ids: &[String]) -> bool {
+    invariant_ids
+        .iter()
+        .any(|id| id == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT)
+}
+
+fn harness_invariant_sets_match(left: &[String], right: &[String]) -> bool {
+    let left = left.iter().collect::<std::collections::BTreeSet<_>>();
+    let right = right.iter().collect::<std::collections::BTreeSet<_>>();
     left == right
 }
 
@@ -2488,6 +2533,19 @@ pub fn resolve_harness_worker_binding(
     if request.readiness_proof_id != record.readiness_proof_id {
         blockers.push("worker_attach_readiness_proof_mismatch".to_string());
     }
+    if !harness_invariant_sets_match(
+        &request.required_invariant_ids,
+        &record.required_invariant_ids,
+    ) {
+        blockers.push("worker_attach_required_invariant_mismatch".to_string());
+    }
+    if !harness_required_invariant_ids_present(&record.required_invariant_ids) {
+        blockers
+            .push("worker_attach_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    if !record.invariant_blockers.is_empty() {
+        blockers.push("worker_attach_invariant_blocked".to_string());
+    }
     if record.binding_status != HarnessWorkerBindingStatus::Bound {
         blockers.push("worker_attach_registry_not_bound".to_string());
     }
@@ -2516,6 +2574,15 @@ pub fn resolve_harness_worker_binding(
         != Some(record.readiness_proof_id.as_str())
     {
         blockers.push("worker_attach_worker_readiness_proof_mismatch".to_string());
+    }
+    if !harness_invariant_sets_match(
+        &record.worker_binding.required_invariant_ids,
+        &record.required_invariant_ids,
+    ) {
+        blockers.push("worker_attach_worker_invariant_mismatch".to_string());
+    }
+    if !record.worker_binding.invariant_blockers.is_empty() {
+        blockers.push("worker_attach_worker_invariant_blocked".to_string());
     }
     blockers.sort();
     blockers.dedup();
@@ -2565,6 +2632,14 @@ pub fn resolve_harness_worker_binding(
             "allow_harness_worker_attach".to_string()
         } else {
             "block_harness_worker_attach".to_string()
+        },
+        required_invariant_ids: record.required_invariant_ids.clone(),
+        invariant_blockers: {
+            let mut blockers = record.invariant_blockers.clone();
+            blockers.extend(record.worker_binding.invariant_blockers.iter().cloned());
+            blockers.sort();
+            blockers.dedup();
+            blockers
         },
         evidence_refs: vec![
             record.registry_record_id.clone(),
@@ -2624,6 +2699,8 @@ pub fn default_harness_worker_attach_lifecycle_events(
             rollback_available: receipt.rollback_available,
             policy_decision: receipt.policy_decision.clone(),
             blockers: receipt.blockers.clone(),
+            required_invariant_ids: receipt.required_invariant_ids.clone(),
+            invariant_blockers: receipt.invariant_blockers.clone(),
             evidence_refs: receipt.evidence_refs.clone(),
             receipt,
         }
@@ -2683,7 +2760,14 @@ pub fn default_harness_worker_session_record(
             blockers.push("worker_session_lifecycle_event_blocked".to_string());
         }
         blockers.extend(event.blockers.iter().cloned());
+        blockers.extend(event.invariant_blockers.iter().cloned());
     }
+    if !harness_required_invariant_ids_present(&record.required_invariant_ids) {
+        blockers
+            .push("worker_session_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    blockers.extend(record.invariant_blockers.iter().cloned());
+    blockers.extend(record.worker_binding.invariant_blockers.iter().cloned());
     blockers.sort();
     blockers.dedup();
 
@@ -2730,6 +2814,13 @@ pub fn default_harness_worker_session_record(
         .iter()
         .map(|event| event.receipt_id.clone())
         .collect::<Vec<_>>();
+    let mut invariant_blockers = record.invariant_blockers.clone();
+    invariant_blockers.extend(record.worker_binding.invariant_blockers.iter().cloned());
+    for event in lifecycle {
+        invariant_blockers.extend(event.invariant_blockers.iter().cloned());
+    }
+    invariant_blockers.sort();
+    invariant_blockers.dedup();
     let lifecycle_statuses = lifecycle
         .iter()
         .map(|event| event.attach_status)
@@ -2802,6 +2893,8 @@ pub fn default_harness_worker_session_record(
         } else {
             "block_harness_worker_session".to_string()
         },
+        required_invariant_ids: record.required_invariant_ids.clone(),
+        invariant_blockers: invariant_blockers.clone(),
         evidence_refs,
         persistence_key,
         record_persistence_key,
@@ -2811,6 +2904,8 @@ pub fn default_harness_worker_session_record(
         persistence_blockers,
         launch_authority_ready: false,
         launch_authority_blockers,
+        launch_authority_invariant_ids: record.required_invariant_ids.clone(),
+        launch_authority_invariant_blockers: invariant_blockers,
         launch_authority_source: "persisted_harness_worker_session_record".to_string(),
         rollback_handoff_ready: false,
         rollback_handoff_blockers,
@@ -2856,6 +2951,11 @@ pub fn default_harness_worker_launch_envelope(
     if !record.launch_authority_blockers.is_empty() {
         blockers.push("worker_launch_authority_blocked".to_string());
     }
+    if !harness_required_invariant_ids_present(&record.launch_authority_invariant_ids) {
+        blockers
+            .push("worker_launch_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    blockers.extend(record.launch_authority_invariant_blockers.iter().cloned());
     if record.launch_authority_source != "persisted_harness_worker_session_record" {
         blockers.push("worker_launch_authority_source_mismatch".to_string());
     }
@@ -2917,6 +3017,8 @@ pub fn default_harness_worker_launch_envelope(
         record_persistence_key: record.record_persistence_key.clone(),
         launch_authority_source: record.launch_authority_source.clone(),
         launch_authority_ready: record.launch_authority_ready,
+        launch_authority_invariant_ids: record.launch_authority_invariant_ids.clone(),
+        launch_authority_invariant_blockers: record.launch_authority_invariant_blockers.clone(),
         rollback_handoff_ready: record.rollback_handoff_ready,
         accepted,
         blockers,
@@ -2961,6 +3063,11 @@ pub fn resolve_harness_worker_handoff_receipt(
     if !record.launch_authority_ready {
         blockers.push("worker_handoff_launch_authority_not_ready".to_string());
     }
+    if !harness_required_invariant_ids_present(&envelope.launch_authority_invariant_ids) {
+        blockers
+            .push("worker_handoff_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    blockers.extend(envelope.launch_authority_invariant_blockers.iter().cloned());
     if envelope.phase == HarnessWorkerLaunchPhase::Rollback && !record.rollback_handoff_ready {
         blockers.push("worker_handoff_rollback_not_ready".to_string());
     }
@@ -3011,6 +3118,8 @@ pub fn resolve_harness_worker_handoff_receipt(
         accepted,
         handoff_status: handoff_status.to_string(),
         blockers,
+        required_invariant_ids: envelope.launch_authority_invariant_ids.clone(),
+        invariant_blockers: envelope.launch_authority_invariant_blockers.clone(),
         policy_decision: if accepted {
             "allow_harness_worker_handoff".to_string()
         } else {
@@ -4136,6 +4245,20 @@ pub fn validate_harness_worker_binding_registry_record(
         || record.worker_binding.harness_hash != record.harness_hash
     {
         return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
+    }
+    if !harness_required_invariant_ids_present(&record.required_invariant_ids)
+        || !harness_invariant_sets_match(
+            &record.worker_binding.required_invariant_ids,
+            &record.required_invariant_ids,
+        )
+    {
+        return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
+    }
+    if record.binding_status == HarnessWorkerBindingStatus::Bound
+        && (!record.invariant_blockers.is_empty()
+            || !record.worker_binding.invariant_blockers.is_empty())
+    {
+        return Err(HarnessBindingError::RegistryBlocked);
     }
     if record.binding_status == HarnessWorkerBindingStatus::Bound && !record.blockers.is_empty() {
         return Err(HarnessBindingError::RegistryBlocked);

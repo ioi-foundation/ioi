@@ -790,6 +790,18 @@ fn runtime_harness_value_string_array(value: Option<&Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn runtime_harness_required_invariant_present(invariant_ids: &[String]) -> bool {
+    invariant_ids
+        .iter()
+        .any(|id| id == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT)
+}
+
+fn runtime_harness_string_sets_match(left: &[String], right: &[String]) -> bool {
+    let left = left.iter().collect::<std::collections::BTreeSet<_>>();
+    let right = right.iter().collect::<std::collections::BTreeSet<_>>();
+    left == right
+}
+
 fn runtime_harness_live_promotion_cluster_readiness_camel_value(
     cluster: &HarnessLivePromotionClusterReadiness,
 ) -> Value {
@@ -1359,6 +1371,16 @@ fn runtime_harness_worker_attach_receipt(
     }
     let record_string = |key: &str| registry_record.get(key).and_then(Value::as_str);
     let request_string = |key: &str| attach_request.get(key).and_then(Value::as_str);
+    let required_invariant_ids =
+        runtime_harness_value_string_array(registry_record.get("requiredInvariantIds"));
+    let requested_invariant_ids =
+        runtime_harness_value_string_array(attach_request.get("requiredInvariantIds"));
+    let registry_invariant_blockers =
+        runtime_harness_value_string_array(registry_record.get("invariantBlockers"));
+    let worker_invariant_blockers =
+        runtime_harness_value_string_array(worker_binding.get("invariantBlockers"));
+    let worker_required_invariant_ids =
+        runtime_harness_value_string_array(worker_binding.get("requiredInvariantIds"));
     if request_string("workflowId") != record_string("workflowId") {
         blockers.push("worker_attach_workflow_mismatch".to_string());
     }
@@ -1391,6 +1413,17 @@ fn runtime_harness_worker_attach_receipt(
     }
     if request_string("readinessProofId") != record_string("readinessProofId") {
         blockers.push("worker_attach_readiness_proof_mismatch".to_string());
+    }
+    if !runtime_harness_string_sets_match(&requested_invariant_ids, &required_invariant_ids) {
+        blockers.push("worker_attach_required_invariant_mismatch".to_string());
+    }
+    if !runtime_harness_required_invariant_present(&required_invariant_ids) {
+        blockers
+            .push("worker_attach_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    if !registry_invariant_blockers.is_empty() {
+        blockers.push("worker_attach_invariant_blocked".to_string());
+        blockers.extend(registry_invariant_blockers.iter().cloned());
     }
     let binding_status = record_string("bindingStatus").unwrap_or("blocked");
     if binding_status != "bound" {
@@ -1444,6 +1477,13 @@ fn runtime_harness_worker_attach_receipt(
     {
         blockers.push("worker_attach_worker_readiness_proof_mismatch".to_string());
     }
+    if !runtime_harness_string_sets_match(&worker_required_invariant_ids, &required_invariant_ids) {
+        blockers.push("worker_attach_worker_invariant_mismatch".to_string());
+    }
+    if !worker_invariant_blockers.is_empty() {
+        blockers.push("worker_attach_worker_invariant_blocked".to_string());
+        blockers.extend(worker_invariant_blockers.iter().cloned());
+    }
     blockers.sort();
     blockers.dedup();
     let accepted = blockers.is_empty();
@@ -1468,6 +1508,10 @@ fn runtime_harness_worker_attach_receipt(
         && request_string("rollbackTarget")
             .map(|value| !value.is_empty())
             .unwrap_or(false);
+    let mut invariant_blockers = registry_invariant_blockers.clone();
+    invariant_blockers.extend(worker_invariant_blockers.clone());
+    invariant_blockers.sort();
+    invariant_blockers.dedup();
     json!({
         "schemaVersion": "workflow.harness.worker-attach-receipt.v1",
         "receiptId": format!(
@@ -1493,6 +1537,8 @@ fn runtime_harness_worker_attach_receipt(
         } else {
             "block_harness_worker_attach"
         },
+        "requiredInvariantIds": required_invariant_ids,
+        "invariantBlockers": invariant_blockers,
         "evidenceRefs": [
             record_string("registryRecordId").unwrap_or_default(),
             record_string("readinessProofId").unwrap_or_default(),
@@ -1536,6 +1582,10 @@ fn runtime_harness_worker_attach_lifecycle_events(
             "componentVersionSet": component_version_set.clone(),
             "rollbackTarget": rollback_target,
             "readinessProofId": readiness_proof_id,
+            "requiredInvariantIds": registry_record
+                .get("requiredInvariantIds")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
             "requestedStatus": requested_status
         });
         let receipt = runtime_harness_worker_attach_receipt(
@@ -1586,6 +1636,14 @@ fn runtime_harness_worker_attach_lifecycle_events(
             "rollbackAvailable": rollback_available,
             "policyDecision": policy_decision,
             "blockers": blockers,
+            "requiredInvariantIds": receipt
+                .get("requiredInvariantIds")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+            "invariantBlockers": receipt
+                .get("invariantBlockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
             "evidenceRefs": evidence_refs
         })
     })
@@ -1702,7 +1760,31 @@ fn runtime_harness_worker_session_record(
         if let Some(items) = event.get("blockers").and_then(Value::as_array) {
             blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
         }
+        if let Some(items) = event.get("invariantBlockers").and_then(Value::as_array) {
+            blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
+        }
     }
+    let required_invariant_ids =
+        runtime_harness_value_string_array(registry_record.get("requiredInvariantIds"));
+    if !runtime_harness_required_invariant_present(&required_invariant_ids) {
+        blockers
+            .push("worker_session_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    let mut invariant_blockers =
+        runtime_harness_value_string_array(registry_record.get("invariantBlockers"));
+    if let Some(worker_binding) = registry_record.get("workerBinding") {
+        invariant_blockers.extend(runtime_harness_value_string_array(
+            worker_binding.get("invariantBlockers"),
+        ));
+    }
+    for event in lifecycle {
+        invariant_blockers.extend(runtime_harness_value_string_array(
+            event.get("invariantBlockers"),
+        ));
+    }
+    invariant_blockers.sort();
+    invariant_blockers.dedup();
+    blockers.extend(invariant_blockers.iter().cloned());
     blockers.sort();
     blockers.dedup();
     let accepted = blockers.is_empty();
@@ -1841,6 +1923,8 @@ fn runtime_harness_worker_session_record(
         "accepted": accepted,
         "blockers": blockers,
         "policyDecision": if accepted { "allow_harness_worker_session" } else { "block_harness_worker_session" },
+        "requiredInvariantIds": required_invariant_ids.clone(),
+        "invariantBlockers": invariant_blockers.clone(),
         "evidenceRefs": evidence_refs,
         "persistenceKey": persistence_key,
         "recordPersistenceKey": record_persistence_key,
@@ -1850,6 +1934,8 @@ fn runtime_harness_worker_session_record(
         "persistenceBlockers": persistence_blockers,
         "launchAuthorityReady": accepted,
         "launchAuthorityBlockers": launch_authority_blockers,
+        "launchAuthorityInvariantIds": required_invariant_ids,
+        "launchAuthorityInvariantBlockers": invariant_blockers,
         "launchAuthoritySource": "persisted_harness_worker_session_record",
         "rollbackHandoffReady": accepted,
         "rollbackHandoffBlockers": rollback_handoff_blockers,
@@ -1933,6 +2019,17 @@ fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: 
     {
         blockers.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
     }
+    let launch_authority_invariant_ids = runtime_harness_value_string_array(
+        worker_session_record.get("launchAuthorityInvariantIds"),
+    );
+    let launch_authority_invariant_blockers = runtime_harness_value_string_array(
+        worker_session_record.get("launchAuthorityInvariantBlockers"),
+    );
+    if !runtime_harness_required_invariant_present(&launch_authority_invariant_ids) {
+        blockers
+            .push("worker_launch_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    blockers.extend(launch_authority_invariant_blockers.iter().cloned());
     if worker_session_record
         .get("launchAuthoritySource")
         .and_then(Value::as_str)
@@ -2038,6 +2135,8 @@ fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: 
         "recordPersistenceKey": worker_session_record.get("recordPersistenceKey").and_then(Value::as_str).unwrap_or_default(),
         "launchAuthoritySource": worker_session_record.get("launchAuthoritySource").and_then(Value::as_str).unwrap_or_default(),
         "launchAuthorityReady": worker_session_record.get("launchAuthorityReady").and_then(Value::as_bool) == Some(true),
+        "launchAuthorityInvariantIds": launch_authority_invariant_ids,
+        "launchAuthorityInvariantBlockers": launch_authority_invariant_blockers,
         "rollbackHandoffReady": worker_session_record.get("rollbackHandoffReady").and_then(Value::as_bool) == Some(true),
         "accepted": accepted,
         "blockers": blockers,
@@ -2087,6 +2186,15 @@ fn runtime_harness_worker_handoff_receipt(
     {
         blockers.push("worker_handoff_launch_authority_not_ready".to_string());
     }
+    let launch_authority_invariant_ids =
+        runtime_harness_value_string_array(launch_envelope.get("launchAuthorityInvariantIds"));
+    let launch_authority_invariant_blockers =
+        runtime_harness_value_string_array(launch_envelope.get("launchAuthorityInvariantBlockers"));
+    if !runtime_harness_required_invariant_present(&launch_authority_invariant_ids) {
+        blockers
+            .push("worker_handoff_reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    blockers.extend(launch_authority_invariant_blockers.iter().cloned());
     if phase == "rollback"
         && launch_envelope
             .get("rollbackHandoffReady")
@@ -2157,6 +2265,8 @@ fn runtime_harness_worker_handoff_receipt(
         "accepted": accepted,
         "handoffStatus": handoff_status,
         "blockers": blockers,
+        "requiredInvariantIds": launch_authority_invariant_ids,
+        "invariantBlockers": launch_authority_invariant_blockers,
         "policyDecision": if accepted { "allow_harness_worker_handoff" } else { "block_harness_worker_handoff" },
         "receiptRefs": receipt_refs,
         "evidenceRefs": evidence_refs
@@ -2466,6 +2576,55 @@ fn runtime_harness_default_runtime_binding(
         worker_binding_authority_blockers
             .push("invalid_fork_live_activation_not_blocked".to_string());
     }
+    let selector_required_invariant_ids = runtime_harness_value_string_array(
+        selector_decision.get("defaultLivePromotionInvariantIds"),
+    );
+    let live_handoff_required_invariant_ids =
+        runtime_harness_value_string_array(live_handoff.get("defaultLivePromotionInvariantIds"));
+    let dispatch_required_invariant_ids = runtime_harness_value_string_array(
+        default_dispatch.get("defaultLivePromotionInvariantIds"),
+    );
+    let required_invariant_ids = if !dispatch_required_invariant_ids.is_empty() {
+        dispatch_required_invariant_ids.clone()
+    } else if !live_handoff_required_invariant_ids.is_empty() {
+        live_handoff_required_invariant_ids.clone()
+    } else {
+        selector_required_invariant_ids.clone()
+    };
+    let mut invariant_blockers = Vec::<String>::new();
+    invariant_blockers.extend(runtime_harness_value_string_array(
+        selector_decision.get("defaultLivePromotionInvariantBlockers"),
+    ));
+    invariant_blockers.extend(runtime_harness_value_string_array(
+        live_handoff.get("defaultLivePromotionInvariantBlockers"),
+    ));
+    invariant_blockers.extend(runtime_harness_value_string_array(
+        default_dispatch.get("defaultLivePromotionInvariantBlockers"),
+    ));
+    invariant_blockers.sort();
+    invariant_blockers.dedup();
+    if !runtime_harness_required_invariant_present(&required_invariant_ids)
+        || !runtime_harness_required_invariant_present(&selector_required_invariant_ids)
+        || !runtime_harness_required_invariant_present(&live_handoff_required_invariant_ids)
+        || !runtime_harness_required_invariant_present(&dispatch_required_invariant_ids)
+    {
+        worker_binding_authority_blockers
+            .push("reviewed_import_activation_apply_invariant_missing".to_string());
+    }
+    if !runtime_harness_string_sets_match(&selector_required_invariant_ids, &required_invariant_ids)
+        || !runtime_harness_string_sets_match(
+            &live_handoff_required_invariant_ids,
+            &required_invariant_ids,
+        )
+    {
+        worker_binding_authority_blockers
+            .push("reviewed_import_activation_apply_invariant_mismatch".to_string());
+    }
+    if !invariant_blockers.is_empty() {
+        worker_binding_authority_blockers
+            .push("reviewed_import_activation_apply_invariant_blocked".to_string());
+        worker_binding_authority_blockers.extend(invariant_blockers.iter().cloned());
+    }
     worker_binding_authority_blockers.sort();
     worker_binding_authority_blockers.dedup();
     let worker_binding_authority_ready = worker_binding_authority_blockers.is_empty();
@@ -2522,7 +2681,9 @@ fn runtime_harness_default_runtime_binding(
         "authorityBindingReady": worker_binding_authority_ready,
         "authorityBindingBlockers": worker_binding_authority_blockers.clone(),
         "livePromotionReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
-        "policyDecision": policy_decision
+        "policyDecision": policy_decision,
+        "requiredInvariantIds": required_invariant_ids.clone(),
+        "invariantBlockers": invariant_blockers.clone()
     });
     let worker_binding_registry_record = json!({
         "schemaVersion": "workflow.harness.worker-binding-registry.v1",
@@ -2540,6 +2701,8 @@ fn runtime_harness_default_runtime_binding(
         "policyDecision": policy_decision,
         "bindingStatus": worker_binding_registry_status,
         "blockers": worker_binding_registry_blockers.clone(),
+        "requiredInvariantIds": required_invariant_ids.clone(),
+        "invariantBlockers": invariant_blockers.clone(),
         "workerBinding": worker_binding.clone()
     });
     let worker_attach_request = json!({
@@ -2553,6 +2716,7 @@ fn runtime_harness_default_runtime_binding(
         "componentVersionSet": component_version_set,
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "requiredInvariantIds": required_invariant_ids,
         "requestedStatus": "bound"
     });
     let worker_attach_lifecycle = runtime_harness_worker_attach_lifecycle_events(
@@ -4820,7 +4984,9 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "authorityBindingReady": true,
         "authorityBindingBlockers": [],
         "livePromotionReadinessProofId": readiness_proof_id,
-        "policyDecision": "allow_fork_harness_canary_worker_binding"
+        "policyDecision": "allow_fork_harness_canary_worker_binding",
+        "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
+        "invariantBlockers": []
     });
     let worker_binding_registry_record = json!({
         "schemaVersion": "workflow.harness.worker-binding-registry.v1",
@@ -4836,6 +5002,8 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "policyDecision": "allow_fork_harness_canary_worker_binding",
         "bindingStatus": "bound",
         "blockers": [],
+        "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
+        "invariantBlockers": [],
         "workerBinding": worker_binding
     });
     let worker_attach_lifecycle = runtime_harness_worker_attach_lifecycle_events(
@@ -11324,6 +11492,8 @@ fn runtime_harness_default_runtime_dispatch(
         "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
         "bindingStatus": if dispatch_accepted && live_promotion_readiness_promotion_eligible { "bound" } else { "blocked" },
         "blockers": worker_binding_registry_blockers,
+        "requiredInvariantIds": default_live_promotion_invariant_ids.clone(),
+        "invariantBlockers": default_live_promotion_invariant_blockers.clone(),
         "workerBinding": {
             "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
             "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -11339,7 +11509,9 @@ fn runtime_harness_default_runtime_dispatch(
                 .get("proofId")
                 .and_then(Value::as_str)
                 .unwrap_or_default(),
-            "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn"
+            "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
+            "requiredInvariantIds": default_live_promotion_invariant_ids.clone(),
+            "invariantBlockers": default_live_promotion_invariant_blockers.clone()
         }
     });
     let worker_attach_request = json!({
@@ -11359,6 +11531,7 @@ fn runtime_harness_default_runtime_dispatch(
             .get("proofId")
             .and_then(Value::as_str)
             .unwrap_or_default(),
+        "requiredInvariantIds": default_live_promotion_invariant_ids.clone(),
         "requestedStatus": if dispatch_accepted { "bound" } else { "blocked" }
     });
     let worker_attach_lifecycle = runtime_harness_worker_attach_lifecycle_events(
@@ -12561,7 +12734,9 @@ fn runtime_evidence_projection(
                 "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "authorityBindingReady": false,
                 "authorityBindingBlockers": ["worker_binding_authority_missing"],
-                "policyDecision": "retain_legacy_runtime_default"
+                "policyDecision": "retain_legacy_runtime_default",
+                "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
+                "invariantBlockers": ["worker_binding_authority_missing"]
             })
         });
     let harness_worker_binding_registry_record = harness_default_runtime_binding
@@ -12584,6 +12759,8 @@ fn runtime_evidence_projection(
                 "policyDecision": "retain_legacy_runtime_default",
                 "bindingStatus": "blocked",
                 "blockers": ["worker_binding_registry_missing"],
+                "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
+                "invariantBlockers": ["worker_binding_registry_missing"],
                 "workerBinding": harness_worker_binding.clone()
             })
         });
@@ -12602,6 +12779,7 @@ fn runtime_evidence_projection(
                 "componentVersionSet": {},
                 "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "readinessProofId": "",
+                "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
                 "requestedStatus": "blocked"
             });
             runtime_harness_worker_attach_receipt(

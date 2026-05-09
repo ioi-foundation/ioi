@@ -192,18 +192,18 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessRuntimeSelectorDecision/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerBinding[\s\S]*selectorDecisionId\?: string[\s\S]*defaultDispatchId\?: string[\s\S]*authorityBindingReady\?: boolean[\s\S]*livePromotionReadinessProofId\?: string/,
+    /WorkflowHarnessWorkerBinding[\s\S]*selectorDecisionId\?: string[\s\S]*defaultDispatchId\?: string[\s\S]*authorityBindingReady\?: boolean[\s\S]*livePromotionReadinessProofId\?: string[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/,
   );
   assert.match(graph, /WorkflowHarnessWorkerBindingRegistryRecord/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerBindingRegistryRecord[\s\S]*registryRecordId: string[\s\S]*activationHash: string[\s\S]*bindingStatus: WorkflowHarnessWorkerBindingStatus[\s\S]*workerBinding: WorkflowHarnessWorkerBinding/,
+    /WorkflowHarnessWorkerBindingRegistryRecord[\s\S]*registryRecordId: string[\s\S]*activationHash: string[\s\S]*bindingStatus: WorkflowHarnessWorkerBindingStatus[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\][\s\S]*workerBinding: WorkflowHarnessWorkerBinding/,
   );
   assert.match(graph, /WorkflowHarnessWorkerAttachRequest/);
   assert.match(graph, /WorkflowHarnessWorkerAttachReceipt/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerAttachReceipt[\s\S]*receiptId: string[\s\S]*registryRecordId: string[\s\S]*attachStatus: WorkflowHarnessWorkerAttachStatus[\s\S]*accepted: boolean[\s\S]*workerBinding: WorkflowHarnessWorkerBinding/,
+    /WorkflowHarnessWorkerAttachReceipt[\s\S]*receiptId: string[\s\S]*registryRecordId: string[\s\S]*attachStatus: WorkflowHarnessWorkerAttachStatus[\s\S]*accepted: boolean[\s\S]*workerBinding: WorkflowHarnessWorkerBinding[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/,
   );
   assert.match(
     graph,
@@ -285,7 +285,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessWorkerHandoffReceipt/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerHandoffReceipt[\s\S]*schemaVersion: "workflow\.harness\.worker-handoff-receipt\.v1"[\s\S]*phase: WorkflowHarnessWorkerLaunchPhase[\s\S]*handoffStatus: "launched" \| "resumed" \| "rollback_handoff_ready" \| "blocked"/,
+    /WorkflowHarnessWorkerHandoffReceipt[\s\S]*schemaVersion: "workflow\.harness\.worker-handoff-receipt\.v1"[\s\S]*phase: WorkflowHarnessWorkerLaunchPhase[\s\S]*handoffStatus: "launched" \| "resumed" \| "rollback_handoff_ready" \| "blocked"[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/,
   );
   assert.match(
     graph,

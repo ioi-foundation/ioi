@@ -731,6 +731,11 @@ fn worker_binding_requires_activation_identity() {
         .authority_binding_blockers
         .iter()
         .any(|blocker| blocker == "worker_binding_authority_not_live"));
+    assert!(binding
+        .required_invariant_ids
+        .iter()
+        .any(|id| id == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT));
+    assert!(!binding.invariant_blockers.is_empty());
 
     let missing_activation = HarnessWorkerBinding {
         harness_activation_id: None,
@@ -760,9 +765,14 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
         .blockers
         .iter()
         .any(|blocker| blocker == "worker_binding_registry_not_live"));
+    assert!(record
+        .required_invariant_ids
+        .iter()
+        .any(|id| id == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT));
 
     record.binding_status = HarnessWorkerBindingStatus::Bound;
     record.blockers.clear();
+    record.invariant_blockers.clear();
     record.readiness_proof_id =
         "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly".to_string();
     record.canary_result_id = "harness-canary-result:default-agent-harness:passed".to_string();
@@ -774,11 +784,14 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
         Some("harness-default-dispatch:default-agent-harness:readonly".to_string());
     record.worker_binding.authority_binding_ready = true;
     record.worker_binding.authority_binding_blockers.clear();
+    record.worker_binding.invariant_blockers.clear();
     record.worker_binding.live_promotion_readiness_proof_id =
         Some(record.readiness_proof_id.clone());
     record.worker_binding.policy_decision = Some(record.policy_decision.clone());
     validate_harness_worker_binding_registry_record(&record)
         .expect("bound registry record accepts matching worker binding");
+    assert!(record.invariant_blockers.is_empty());
+    assert!(record.worker_binding.invariant_blockers.is_empty());
 
     record.worker_binding.harness_hash = "sha256:mismatch".to_string();
     assert_eq!(
@@ -808,6 +821,11 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
     );
     assert_eq!(receipt.policy_decision, "allow_harness_worker_attach");
     assert!(receipt.rollback_available);
+    assert!(receipt
+        .required_invariant_ids
+        .iter()
+        .any(|id| id == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT));
+    assert!(receipt.invariant_blockers.is_empty());
 
     let resumed = resolve_harness_worker_binding(
         &record,
