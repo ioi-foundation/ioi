@@ -2119,6 +2119,7 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "activation-gate-node-attempt"
     | "activation-gate-receipt"
     | "activation-gate-replay"
+    | "live-turn-node-inspector"
     | string;
   hash: string;
   expectedPanel: WorkflowRightPanel;
@@ -2835,6 +2836,7 @@ export interface WorkflowHarnessMetadata {
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   liveActivationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
+  liveTurnNodeInspectorDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;

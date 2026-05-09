@@ -77,6 +77,7 @@ import type {
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessDeepLinkReplayProof,
   WorkflowHarnessGroupView,
+  WorkflowHarnessNodeAttemptRecord,
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionTransitionAttempt,
   WorkflowHarnessPromotionTransitionTarget,
@@ -1866,6 +1867,51 @@ function harnessDeepLinkProbeCasesForWorkflow(
   );
 }
 
+function harnessLiveTurnNodeInspectorAttemptForWorkflow(
+  workflow: WorkflowProject,
+): WorkflowHarnessNodeAttemptRecord | null {
+  const dispatch =
+    workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+  if (!dispatch) return null;
+  const adapterAttempts = [
+    ...(dispatch.cognitionExecutionAdapterResults ?? []),
+    ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
+    ...(dispatch.routingModelAdapterResults ?? []),
+    ...(dispatch.verificationOutputAdapterResults ?? []),
+    ...(dispatch.authorityToolingAdapterResults ?? []),
+  ].map((result) => result.nodeAttempt);
+  const attempts = [
+    ...adapterAttempts,
+    ...(dispatch.dispatchNodeAttempts ?? []),
+  ].filter(
+    (attempt): attempt is WorkflowHarnessNodeAttemptRecord =>
+      Boolean(attempt),
+  );
+  const inspectable = (attempt: WorkflowHarnessNodeAttemptRecord) =>
+    attempt.attemptId.length > 0 &&
+    attempt.workflowNodeId.length > 0 &&
+    attempt.componentId.length > 0 &&
+    attempt.receiptIds.length > 0 &&
+    Boolean(attempt.replay.fixtureRef) &&
+    Boolean(attempt.inputHash) &&
+    Boolean(attempt.outputHash) &&
+    Boolean(attempt.policyDecision);
+  return (
+    attempts.find(
+      (attempt) =>
+        attempt.executionMode === "live" &&
+        attempt.readiness === "live_ready" &&
+        attempt.status === "live" &&
+        inspectable(attempt),
+    ) ??
+    attempts.find(
+      (attempt) => attempt.executionMode === "live" && inspectable(attempt),
+    ) ??
+    attempts.find(inspectable) ??
+    null
+  );
+}
+
 type HarnessGroupCanvasView = WorkflowHarnessGroupView & {
   groupNodeId: string;
   position: { x: number; y: number };
@@ -3080,6 +3126,181 @@ export function useWorkflowComposerController({
         cases,
         passed: blockers.length === 0,
         blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessLiveTurnNodeInspectorDeepLinkProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
+      const attempt = harnessLiveTurnNodeInspectorAttemptForWorkflow(workflow);
+      if (!attempt) {
+        return {
+          schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+          method:
+            "same-session Workflows bridge opens a live default dispatch node attempt deep link and reads the node-attempt inspector rail",
+          generatedAtMs,
+          cases: [],
+          passed: false,
+          blockers: ["missing_live_turn_node_inspector_attempt"],
+        };
+      }
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      const receiptRef = attempt.receiptIds[0] ?? null;
+      const replayFixtureRef = attempt.replay.fixtureRef ?? null;
+      const link: HarnessWorkbenchDeepLink = {
+        panel: "outputs" as WorkflowRightPanel,
+        nodeAttemptId: attempt.attemptId,
+        receiptRef: receiptRef ?? undefined,
+        replayFixtureRef: replayFixtureRef ?? undefined,
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      let observedSelectedState: Record<string, string> = {};
+      let openedHash = "";
+      try {
+        if (parsed) {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+        openedHash =
+          typeof window === "undefined" ? hash : window.location.hash;
+        observedSelectedState = readHarnessRailSelectedState(
+          "workflow-harness-node-attempt-inspector",
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      const receiptRefs = String(
+        observedSelectedState["data-receipt-refs"] ?? "",
+      )
+        .split(/[|,]/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const requiredAttributeChecks = [
+        [
+          "data-node-attempt-id",
+          attempt.attemptId,
+          observedSelectedState["data-node-attempt-id"],
+        ],
+        [
+          "data-workflow-node-id",
+          attempt.workflowNodeId,
+          observedSelectedState["data-workflow-node-id"],
+        ],
+        [
+          "data-component-kind",
+          attempt.componentKind,
+          observedSelectedState["data-component-kind"],
+        ],
+        [
+          "data-component-id",
+          attempt.componentId,
+          observedSelectedState["data-component-id"],
+        ],
+        [
+          "data-harness-workflow-id",
+          attempt.harnessWorkflowId,
+          observedSelectedState["data-harness-workflow-id"],
+        ],
+        [
+          "data-harness-activation-id",
+          attempt.harnessActivationId,
+          observedSelectedState["data-harness-activation-id"],
+        ],
+        [
+          "data-harness-hash",
+          attempt.harnessHash,
+          observedSelectedState["data-harness-hash"],
+        ],
+        [
+          "data-execution-mode",
+          attempt.executionMode,
+          observedSelectedState["data-execution-mode"],
+        ],
+        [
+          "data-readiness",
+          attempt.readiness,
+          observedSelectedState["data-readiness"],
+        ],
+        [
+          "data-status",
+          attempt.status,
+          observedSelectedState["data-status"],
+        ],
+        [
+          "data-policy-decision",
+          attempt.policyDecision ?? "",
+          observedSelectedState["data-policy-decision"],
+        ],
+        [
+          "data-replay-fixture-ref",
+          replayFixtureRef ?? "",
+          observedSelectedState["data-replay-fixture-ref"],
+        ],
+        [
+          "data-input-hash",
+          attempt.inputHash ?? "",
+          observedSelectedState["data-input-hash"],
+        ],
+        [
+          "data-output-hash",
+          attempt.outputHash ?? "",
+          observedSelectedState["data-output-hash"],
+        ],
+      ] as const;
+      const attributeBlockers = requiredAttributeChecks
+        .filter(([, expected, observed]) => observed !== expected)
+        .map(([attribute]) => `${attribute}_mismatch`);
+      const blockers = [
+        ...(parsed ? [] : ["live_turn_node_inspector_hash_parse_failed"]),
+        ...(parsed?.nodeAttemptId === attempt.attemptId
+          ? []
+          : ["live_turn_node_inspector_node_attempt_parse_mismatch"]),
+        ...(openedHash === hash
+          ? []
+          : ["live_turn_node_inspector_history_mismatch"]),
+        ...(receiptRef && receiptRefs.includes(receiptRef)
+          ? []
+          : ["live_turn_node_inspector_receipt_refs_mismatch"]),
+        ...attributeBlockers,
+      ];
+      const observedValue =
+        observedSelectedState["data-node-attempt-id"] ?? null;
+      const casePassed =
+        blockers.length === 0 &&
+        observedValue === attempt.attemptId &&
+        Boolean(parsed) &&
+        parsed?.nodeAttemptId === attempt.attemptId;
+      return {
+        schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+        method:
+          "same-session Workflows bridge opens a live default dispatch node attempt deep link and reads the node-attempt inspector rail",
+        generatedAtMs,
+        cases: [
+          {
+            id: "live-turn-node-inspector",
+            hash,
+            expectedPanel: "outputs",
+            expectedAttribute: "data-node-attempt-id",
+            expectedValue: attempt.attemptId,
+            selectedRailTestId: "workflow-harness-node-attempt-inspector",
+            openedHash,
+            parsedMatches: parsed?.nodeAttemptId === attempt.attemptId,
+            historyMatches: openedHash === hash,
+            observedValue,
+            observedSelectedState,
+            passed: casePassed,
+          },
+        ],
+        passed: casePassed,
+        blockers: casePassed ? [] : blockers,
       };
     },
     [applyHarnessWorkbenchDeepLink],
@@ -9785,6 +10006,11 @@ export function useWorkflowComposerController({
         workflow,
         nowMs + 155,
       );
+      const liveTurnNodeInspectorDeepLinkProof =
+        await runHarnessLiveTurnNodeInspectorDeepLinkProbe(
+          workflow,
+          nowMs + 157,
+        );
       const coldStartDeepLinkRestoreProof =
         await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 160);
       const harnessMetadata = workflow.metadata.harness;
@@ -9804,6 +10030,7 @@ export function useWorkflowComposerController({
             activationBlockerDeepLinkProof,
             activationGateDeepLinkProof,
             liveActivationGateDeepLinkProof,
+            liveTurnNodeInspectorDeepLinkProof,
             activationGateActionClickProof,
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
@@ -9864,6 +10091,12 @@ export function useWorkflowComposerController({
           liveActivationGateDeepLinkProof.passed,
         liveActivationGateDeepLinkCaseIds:
           liveActivationGateDeepLinkProof.cases.map(
+            (restoreCase) => restoreCase.id,
+          ),
+        liveTurnNodeInspectorDeepLinkPassed:
+          liveTurnNodeInspectorDeepLinkProof.passed,
+        liveTurnNodeInspectorDeepLinkCaseIds:
+          liveTurnNodeInspectorDeepLinkProof.cases.map(
             (restoreCase) => restoreCase.id,
           ),
         activationGateActionClickPassed: activationGateActionClickProof.passed,
@@ -9959,6 +10192,7 @@ export function useWorkflowComposerController({
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
+    runHarnessLiveTurnNodeInspectorDeepLinkProbe,
     runtime,
   ]);
 

@@ -4398,6 +4398,12 @@ function buildGuiEvidenceAssessment({
         sample?.timelineTestId === "workflow-run-harness-timeline" &&
         sample?.deepLinkParam === "nodeAttemptId",
     );
+  const hasHarnessLiveTurnNodeInspectorDeepLink =
+    hasHarnessLiveTurnNodeInspector &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.liveTurnNodeInspectorDeepLink === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.liveTurnNodeInspectorDeepLinkProof?.passed === true;
   const hasHarnessLivePromotionReadiness =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessLivePromotionReadinessCount > 0 &&
@@ -4579,6 +4585,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessLiveTurnNodeTimeline,
       harness_live_turn_node_inspector_present:
         hasHarnessLiveTurnNodeInspector,
+      harness_live_turn_node_inspector_deep_link_present:
+        hasHarnessLiveTurnNodeInspectorDeepLink,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4666,6 +4674,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessChatRuntimeBinding,
       hasHarnessLiveTurnNodeTimeline,
       hasHarnessLiveTurnNodeInspector,
+      hasHarnessLiveTurnNodeInspectorDeepLink,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -5231,6 +5240,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.activationGateDeepLinkProof ?? null;
     const liveActivationGateDeepLinkProof =
       workflow?.metadata?.harness?.liveActivationGateDeepLinkProof ?? null;
+    const liveTurnNodeInspectorDeepLinkProof =
+      workflow?.metadata?.harness?.liveTurnNodeInspectorDeepLinkProof ?? null;
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const packageEvidenceGateClickProof =
@@ -5484,6 +5495,99 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       replayCase.observedValue === replayCase.expectedValue &&
       replayCase.observedSelectedState?.[stateName] ===
         replayCase.expectedValue;
+    const liveTurnNodeInspectorDeepLinkCase =
+      liveTurnNodeInspectorDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "live-turn-node-inspector",
+      ) ?? null;
+    const defaultDispatchAdapterAttempts = [
+      ...(defaultDispatch?.cognitionExecutionAdapterResults ?? []),
+      ...(defaultDispatch?.cognitionExecutionGateAdapterResults ?? []),
+      ...(defaultDispatch?.routingModelAdapterResults ?? []),
+      ...(defaultDispatch?.verificationOutputAdapterResults ?? []),
+      ...(defaultDispatch?.authorityToolingAdapterResults ?? []),
+    ]
+      .map((result) => result?.nodeAttempt ?? null)
+      .filter(Boolean);
+    const defaultDispatchNodeAttempts = [
+      ...defaultDispatchAdapterAttempts,
+      ...(defaultDispatch?.dispatchNodeAttempts ?? []),
+    ];
+    const liveTurnNodeInspectorAttempt =
+      defaultDispatchNodeAttempts.find(
+        (attempt) =>
+          attempt?.attemptId ===
+          liveTurnNodeInspectorDeepLinkCase?.expectedValue,
+      ) ??
+      defaultDispatchNodeAttempts.find(
+        (attempt) =>
+          attempt?.executionMode === "live" &&
+          attempt?.readiness === "live_ready" &&
+          attempt?.status === "live" &&
+          Array.isArray(attempt?.receiptIds) &&
+          attempt.receiptIds.length > 0 &&
+          typeof attempt?.replay?.fixtureRef === "string" &&
+          attempt.replay.fixtureRef.length > 0,
+      ) ??
+      null;
+    const liveTurnNodeInspectorState =
+      liveTurnNodeInspectorDeepLinkCase?.observedSelectedState ?? {};
+    const liveTurnNodeInspectorReceiptRefs = String(
+      liveTurnNodeInspectorState["data-receipt-refs"] ?? "",
+    )
+      .split(/[|,]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const liveTurnNodeInspectorDeepLinkRestored =
+      liveTurnNodeInspectorDeepLinkProof?.passed === true &&
+      liveTurnNodeInspectorDeepLinkCase?.passed === true &&
+      liveTurnNodeInspectorDeepLinkCase?.selectedRailTestId ===
+        "workflow-harness-node-attempt-inspector" &&
+      typeof liveTurnNodeInspectorDeepLinkCase?.hash === "string" &&
+      liveTurnNodeInspectorDeepLinkCase.hash.startsWith(
+        "#harness-workbench?",
+      ) &&
+      liveTurnNodeInspectorDeepLinkCase.hash.includes("panel=outputs") &&
+      liveTurnNodeInspectorDeepLinkCase.hash.includes("nodeAttemptId=") &&
+      liveTurnNodeInspectorDeepLinkCase.hash.includes("receiptRef=") &&
+      liveTurnNodeInspectorDeepLinkCase.hash.includes("replayFixtureRef=") &&
+      liveTurnNodeInspectorDeepLinkCase.historyMatches === true &&
+      liveTurnNodeInspectorDeepLinkCase.parsedMatches === true &&
+      liveTurnNodeInspectorDeepLinkCase.observedValue ===
+        liveTurnNodeInspectorDeepLinkCase.expectedValue &&
+      Boolean(liveTurnNodeInspectorAttempt) &&
+      liveTurnNodeInspectorState["data-node-attempt-id"] ===
+        liveTurnNodeInspectorAttempt?.attemptId &&
+      liveTurnNodeInspectorState["data-node-attempt-source-kind"] ===
+        "default_runtime_dispatch" &&
+      liveTurnNodeInspectorState["data-workflow-node-id"] ===
+        liveTurnNodeInspectorAttempt?.workflowNodeId &&
+      liveTurnNodeInspectorState["data-component-kind"] ===
+        liveTurnNodeInspectorAttempt?.componentKind &&
+      liveTurnNodeInspectorState["data-component-id"] ===
+        liveTurnNodeInspectorAttempt?.componentId &&
+      liveTurnNodeInspectorState["data-harness-workflow-id"] ===
+        liveTurnNodeInspectorAttempt?.harnessWorkflowId &&
+      liveTurnNodeInspectorState["data-harness-activation-id"] ===
+        liveTurnNodeInspectorAttempt?.harnessActivationId &&
+      liveTurnNodeInspectorState["data-harness-hash"] ===
+        liveTurnNodeInspectorAttempt?.harnessHash &&
+      liveTurnNodeInspectorState["data-execution-mode"] ===
+        liveTurnNodeInspectorAttempt?.executionMode &&
+      liveTurnNodeInspectorState["data-readiness"] ===
+        liveTurnNodeInspectorAttempt?.readiness &&
+      liveTurnNodeInspectorState["data-status"] ===
+        liveTurnNodeInspectorAttempt?.status &&
+      liveTurnNodeInspectorState["data-policy-decision"] ===
+        liveTurnNodeInspectorAttempt?.policyDecision &&
+      liveTurnNodeInspectorReceiptRefs.includes(
+        liveTurnNodeInspectorAttempt?.receiptIds?.[0],
+      ) &&
+      liveTurnNodeInspectorState["data-replay-fixture-ref"] ===
+        liveTurnNodeInspectorAttempt?.replay?.fixtureRef &&
+      liveTurnNodeInspectorState["data-input-hash"] ===
+        liveTurnNodeInspectorAttempt?.inputHash &&
+      liveTurnNodeInspectorState["data-output-hash"] ===
+        liveTurnNodeInspectorAttempt?.outputHash;
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -6005,6 +6109,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         routeStatefulDeepLinks.replay?.includes("replayFixtureRef="),
       routeStatefulDeepLinkReplay: deepLinkReplayPassed,
       coldStartDeepLinkRestore: coldStartDeepLinkRestorePassed,
+      liveTurnNodeInspectorDeepLink: liveTurnNodeInspectorDeepLinkRestored,
       routeStatefulRevisionBindingDeepLink:
         routeStatefulDeepLinks.revision?.includes(
           "revisionBindingKind=current",
@@ -7008,6 +7113,47 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationBlockerDeepLinkProof,
       activationGateDeepLinkProof,
       liveActivationGateDeepLinkProof,
+      liveTurnNodeInspectorDeepLinkProof,
+      liveTurnNodeInspector: liveTurnNodeInspectorDeepLinkCase
+        ? {
+            selectedRailTestId:
+              liveTurnNodeInspectorDeepLinkCase.selectedRailTestId,
+            hash: liveTurnNodeInspectorDeepLinkCase.hash,
+            expectedNodeAttemptId:
+              liveTurnNodeInspectorDeepLinkCase.expectedValue,
+            observedNodeAttemptId:
+              liveTurnNodeInspectorState["data-node-attempt-id"] ?? null,
+            sourceKind:
+              liveTurnNodeInspectorState[
+                "data-node-attempt-source-kind"
+              ] ?? null,
+            workflowNodeId:
+              liveTurnNodeInspectorState["data-workflow-node-id"] ?? null,
+            componentKind:
+              liveTurnNodeInspectorState["data-component-kind"] ?? null,
+            componentId:
+              liveTurnNodeInspectorState["data-component-id"] ?? null,
+            harnessWorkflowId:
+              liveTurnNodeInspectorState["data-harness-workflow-id"] ?? null,
+            harnessActivationId:
+              liveTurnNodeInspectorState[
+                "data-harness-activation-id"
+              ] ?? null,
+            harnessHash:
+              liveTurnNodeInspectorState["data-harness-hash"] ?? null,
+            executionMode:
+              liveTurnNodeInspectorState["data-execution-mode"] ?? null,
+            readiness: liveTurnNodeInspectorState["data-readiness"] ?? null,
+            status: liveTurnNodeInspectorState["data-status"] ?? null,
+            policyDecision:
+              liveTurnNodeInspectorState["data-policy-decision"] ?? null,
+            receiptRefs: liveTurnNodeInspectorReceiptRefs,
+            replayFixtureRef:
+              liveTurnNodeInspectorState["data-replay-fixture-ref"] ?? null,
+            inputHash: liveTurnNodeInspectorState["data-input-hash"] ?? null,
+            outputHash: liveTurnNodeInspectorState["data-output-hash"] ?? null,
+          }
+        : null,
       activationGateActionClickProof,
       packageEvidenceGateClickProof,
       packageEvidenceImportRoundTripProof,
@@ -7561,6 +7707,11 @@ async function runGuiValidation(args, outputRoot) {
             "retained_harness_dogfooding",
           )
             ? runtimeArtifacts.path
+            : false,
+        harness_live_turn_node_inspector_deep_link:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.liveTurnNodeInspectorDeepLink === true
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_authority_tooling_gate_live:
           runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0
