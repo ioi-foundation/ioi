@@ -448,6 +448,7 @@ function workflowHarnessDefaultRuntimeNodeAttempts(
     ...(dispatch.verificationOutputAdapterResults ?? []),
     ...(dispatch.verificationOutputShadowAdapterResults ?? []),
     ...(dispatch.authorityToolingAdapterResults ?? []),
+    ...(dispatch.authorityToolingShadowAdapterResults ?? []),
   ].map((result) => result.nodeAttempt);
   const attempts = [
     ...(dispatch.dispatchNodeAttempts ?? []),

@@ -4374,6 +4374,20 @@ function makeDefaultAuthorityToolingGateAdapterResults(): WorkflowHarnessCompone
   );
 }
 
+function makeDefaultAuthorityToolingShadowAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+    (component, index) =>
+      makeDefaultHarnessAdapterResult(
+        component.kind,
+        `${component.attemptSlug}_shadow`,
+        component.policyDecision,
+        index + 36,
+        "shadow",
+        { hashSlug: component.attemptSlug },
+      ),
+  );
+}
+
 function makeHarnessLivePromotionClusterReadiness(options: {
   clusterId: WorkflowHarnessPromotionClusterId;
   currentStatus?: WorkflowHarnessClusterPromotionStatus;
@@ -4984,11 +4998,6 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     verificationOutputLiveShadowComparisons.map(
       (comparison) => comparison.divergence,
     );
-  const liveShadowComparisons = [
-    ...cognitionLiveShadowComparisons,
-    ...routingModelLiveShadowComparisons,
-    ...verificationOutputLiveShadowComparisons,
-  ];
   const authorityToolingAdapterResults =
     makeDefaultAuthorityToolingGateAdapterResults();
   const authorityToolingActionFrameIds = authorityToolingAdapterResults.map(
@@ -5014,6 +5023,70 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         `harness-default-dispatch:fixture-${component.attemptSlug}`,
     );
   const authorityToolingDivergenceClasses = ["none" as const];
+  const authorityToolingShadowAdapterResults =
+    makeDefaultAuthorityToolingShadowAdapterResults();
+  const authorityToolingShadowActionFrameIds =
+    authorityToolingShadowAdapterResults.map(
+      (result) =>
+        `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    );
+  const authorityToolingShadowComponentKinds =
+    authorityToolingShadowAdapterResults.map(
+      (result) => result.actionFrame.componentKind,
+    );
+  const authorityToolingShadowAttemptIds =
+    authorityToolingShadowAdapterResults.map(
+      (result) => result.nodeAttempt.attemptId,
+    );
+  const authorityToolingShadowReceiptIds =
+    authorityToolingShadowAdapterResults.flatMap(
+      (result) => result.receiptIds,
+    );
+  const authorityToolingShadowReplayFixtureRefs =
+    authorityToolingShadowAdapterResults
+      .map((result) => result.replay.fixtureRef)
+      .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const authorityToolingLiveShadowComparisons: WorkflowHarnessShadowComparison[] =
+    authorityToolingAdapterResults.flatMap((liveResult, index) => {
+      const shadowResult = authorityToolingShadowAdapterResults[index];
+      if (!shadowResult) return [];
+      return [
+        {
+          workflowNodeId: liveResult.nodeAttempt.workflowNodeId,
+          componentKind: liveResult.nodeAttempt.componentKind,
+          liveAttemptId: liveResult.nodeAttempt.attemptId,
+          shadowAttemptId: shadowResult.nodeAttempt.attemptId,
+          divergence: "none",
+          blocking: false,
+          summary:
+            "Gated and shadow authority/tooling adapter envelopes match for the default harness turn.",
+          evidenceRefs: uniqueStrings([
+            ...liveResult.nodeAttempt.receiptIds,
+            ...shadowResult.nodeAttempt.receiptIds,
+            liveResult.replay.fixtureRef,
+            shadowResult.replay.fixtureRef,
+          ]),
+          liveReceiptRefs: liveResult.nodeAttempt.receiptIds,
+          shadowReceiptRefs: shadowResult.nodeAttempt.receiptIds,
+          liveReplayFixtureRef: liveResult.replay.fixtureRef,
+          shadowReplayFixtureRef: shadowResult.replay.fixtureRef,
+          liveInputHash: liveResult.nodeAttempt.inputHash,
+          shadowInputHash: shadowResult.nodeAttempt.inputHash,
+          liveOutputHash: liveResult.nodeAttempt.outputHash,
+          shadowOutputHash: shadowResult.nodeAttempt.outputHash,
+        },
+      ];
+    });
+  const authorityToolingShadowDivergenceClasses =
+    authorityToolingLiveShadowComparisons.map(
+      (comparison) => comparison.divergence,
+    );
+  const liveShadowComparisons = [
+    ...cognitionLiveShadowComparisons,
+    ...routingModelLiveShadowComparisons,
+    ...verificationOutputLiveShadowComparisons,
+    ...authorityToolingLiveShadowComparisons,
+  ];
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -5216,14 +5289,33 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         componentKinds: authorityToolingComponentKinds,
         readinessReady:
           authorityToolingAdapterResults.length >= 8 &&
+          authorityToolingShadowAdapterResults.length >= 8 &&
           authorityToolingDivergenceClasses.every(
             (divergenceClass) => divergenceClass === "none",
+          ) &&
+          authorityToolingShadowDivergenceClasses.every(
+            (divergenceClass) => divergenceClass === "none",
           ),
-        receiptRefs: authorityToolingReceiptIds,
-        replayFixtureRefs: authorityToolingReplayFixtureRefs,
-        actionFrameIds: authorityToolingActionFrameIds,
-        attemptIds: authorityToolingAttemptIds,
-        divergenceClasses: authorityToolingDivergenceClasses,
+        receiptRefs: [
+          ...authorityToolingReceiptIds,
+          ...authorityToolingShadowReceiptIds,
+        ],
+        replayFixtureRefs: [
+          ...authorityToolingReplayFixtureRefs,
+          ...authorityToolingShadowReplayFixtureRefs,
+        ],
+        actionFrameIds: [
+          ...authorityToolingActionFrameIds,
+          ...authorityToolingShadowActionFrameIds,
+        ],
+        attemptIds: [
+          ...authorityToolingAttemptIds,
+          ...authorityToolingShadowAttemptIds,
+        ],
+        divergenceClasses: [
+          ...authorityToolingDivergenceClasses,
+          ...authorityToolingShadowDivergenceClasses,
+        ],
         canaryReady: true,
         rollbackReady: true,
         rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -5429,6 +5521,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     ...cognitionExecutionShadowAttemptIds,
     ...routingModelShadowAttemptIds,
     ...verificationOutputShadowAttemptIds,
+    ...authorityToolingShadowAttemptIds,
     ...workerHandoffNodeAttemptIds,
   ]);
   const defaultReceiptIds = uniqueStrings([
@@ -5436,6 +5529,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     ...cognitionExecutionShadowReceiptIds,
     ...routingModelShadowReceiptIds,
     ...verificationOutputShadowReceiptIds,
+    ...authorityToolingShadowReceiptIds,
     ...workerHandoffReceiptIds,
   ]);
   const defaultReplayFixtureRefs = uniqueStrings([
@@ -5443,6 +5537,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     ...cognitionExecutionShadowReplayFixtureRefs,
     ...routingModelShadowReplayFixtureRefs,
     ...verificationOutputShadowReplayFixtureRefs,
+    ...authorityToolingShadowReplayFixtureRefs,
     ...workerHandoffReplayFixtureRefs,
   ]);
   return {
@@ -5595,6 +5690,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     authorityToolingActionFrameIds,
     authorityToolingComponentKinds,
     authorityToolingDivergenceClasses,
+    authorityToolingShadowAdapterMode: "workflow_component_adapter_shadow",
+    authorityToolingShadowAttemptIds,
+    authorityToolingShadowReceiptIds,
+    authorityToolingShadowReplayFixtureRefs,
+    authorityToolingShadowAdapterResults,
+    authorityToolingShadowActionFrameIds,
+    authorityToolingShadowComponentKinds,
+    authorityToolingShadowDivergenceClasses,
     modelExecutionAttemptIds: [
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -6193,6 +6296,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       actionFrameIds: authorityToolingActionFrameIds,
       componentKinds: authorityToolingComponentKinds,
       divergenceClasses: authorityToolingDivergenceClasses,
+      shadowAdapterMode: "workflow_component_adapter_shadow",
+      shadowAdapterResultCount: authorityToolingShadowAdapterResults.length,
+      shadowAttemptIds: authorityToolingShadowAttemptIds,
+      shadowReceiptIds: authorityToolingShadowReceiptIds,
+      shadowReplayFixtureRefs: authorityToolingShadowReplayFixtureRefs,
+      shadowActionFrameIds: authorityToolingShadowActionFrameIds,
+      shadowComponentKinds: authorityToolingShadowComponentKinds,
+      shadowDivergenceClasses: authorityToolingShadowDivergenceClasses,
       readOnlyRouteAccepted: true,
       destructiveRouteDenied: true,
       mutatingToolCallsBlocked: true,

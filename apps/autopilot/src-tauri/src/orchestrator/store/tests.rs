@@ -744,7 +744,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .get("liveShadowComparisons")
         .and_then(|value| value.as_array())
         .expect("default runtime dispatch must emit live/shadow comparisons");
-    assert_eq!(live_shadow_comparisons.len(), 12);
+    assert_eq!(live_shadow_comparisons.len(), 20);
     let live_shadow_component_kinds = live_shadow_comparisons
         .iter()
         .filter_map(|comparison| {
@@ -766,6 +766,14 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "receipt_writer",
         "quality_ledger",
         "output_writer",
+        "policy_gate",
+        "approval_gate",
+        "dry_run_simulator",
+        "mcp_provider",
+        "mcp_tool_call",
+        "tool_call",
+        "connector_call",
+        "wallet_capability",
     ] {
         assert!(live_shadow_component_kinds.contains(&required_component));
     }
@@ -830,6 +838,40 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .expect("default runtime dispatch must retain verification/output shadow adapter results");
     assert_eq!(verification_output_shadow_adapter_results.len(), 6);
     assert!(verification_output_shadow_adapter_results
+        .iter()
+        .all(|result| {
+            let node_attempt = result
+                .get("nodeAttempt")
+                .unwrap_or(&serde_json::Value::Null);
+            node_attempt
+                .get("executionMode")
+                .and_then(|value| value.as_str())
+                == Some("shadow")
+                && node_attempt.get("status").and_then(|value| value.as_str()) == Some("shadow")
+                && node_attempt
+                    .get("receiptIds")
+                    .and_then(|value| value.as_array())
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && node_attempt
+                    .get("replay")
+                    .and_then(|replay| replay.get("fixtureRef"))
+                    .and_then(|value| value.as_str())
+                    .map(|fixture| fixture.contains("default-dispatch-shadow-fixture"))
+                    .unwrap_or(false)
+        }));
+    assert_eq!(
+        dispatch
+            .get("authorityToolingShadowAdapterMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_component_adapter_shadow")
+    );
+    let authority_tooling_shadow_adapter_results = dispatch
+        .get("authorityToolingShadowAdapterResults")
+        .and_then(|value| value.as_array())
+        .expect("default runtime dispatch must retain authority/tooling shadow adapter results");
+    assert_eq!(authority_tooling_shadow_adapter_results.len(), 8);
+    assert!(authority_tooling_shadow_adapter_results
         .iter()
         .all(|result| {
             let node_attempt = result
