@@ -27,6 +27,11 @@ const DEFAULT_AGENT_HARNESS_ACTIVATION_ID =
   "activation:default-agent-harness:blessed-readonly";
 const DEFAULT_AGENT_HARNESS_HASH =
   "sha256:default-agent-harness-component-projection-v1";
+const HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
+  "planner",
+  "prompt_assembler",
+  "task_state",
+]);
 const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
   DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
     (invariant) =>
@@ -514,6 +519,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveTurnNodeInspectorSamples: [],
     harnessLiveShadowComparisonCount: 0,
     harnessLiveShadowComparisonScenarios: [],
+    harnessLiveShadowComparisonComponentKinds: [],
     harnessLiveShadowComparisonSamples: [],
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessAuthorityToolingGateLiveCount: 0,
@@ -643,11 +649,11 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       ? { actionFrame: null, nodeAttempt: directAttempt }
       : null;
   };
-  const extractHarnessLiveShadowComparison = (dispatch) => {
+  const extractHarnessLiveShadowComparisons = (dispatch) => {
     const comparisons = Array.isArray(dispatch?.liveShadowComparisons)
       ? dispatch.liveShadowComparisons
       : [];
-    if (comparisons.length === 0) return null;
+    if (comparisons.length === 0) return [];
     const attempts = [
       dispatch?.cognitionExecutionAdapterResults,
       dispatch?.cognitionExecutionShadowAdapterResults,
@@ -659,6 +665,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       .flatMap((items) => (Array.isArray(items) ? items : []))
       .map((result) => result?.nodeAttempt)
       .filter(Boolean);
+    const readyComparisons = [];
     for (const comparison of comparisons) {
       const liveAttempt =
         attempts.find(
@@ -689,10 +696,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         liveAttempt.outputHash.length > 0 &&
         liveAttempt.outputHash === shadowAttempt.outputHash;
       if (ready) {
-        return { comparison, liveAttempt, shadowAttempt };
+        readyComparisons.push({ comparison, liveAttempt, shadowAttempt });
       }
     }
-    return null;
+    return readyComparisons;
   };
   const noteHarnessLiveTurnNodeTimeline = (dispatch, artifactId = null) => {
     if (!dispatch || typeof dispatch !== "object") return;
@@ -857,52 +864,57 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         deepLinkParam: "nodeAttemptId",
       });
     }
-    const comparisonBundle = extractHarnessLiveShadowComparison(dispatch);
-    if (!comparisonBundle) return;
-    const { comparison, liveAttempt, shadowAttempt } = comparisonBundle;
-    const comparisonKey = `${timelineKey}:${comparison.liveAttemptId}:${comparison.shadowAttemptId}`;
-    if (harnessLiveShadowComparisonKeys.has(comparisonKey)) return;
-    harnessLiveShadowComparisonKeys.add(comparisonKey);
-    summary.harnessLiveShadowComparisonCount += 1;
-    addScenario(summary.harnessLiveShadowComparisonScenarios, scenario);
-    if (summary.harnessLiveShadowComparisonSamples.length < 8) {
-      summary.harnessLiveShadowComparisonSamples.push({
-        artifactId,
-        dispatchId: dispatch.dispatchId ?? null,
-        scenario,
-        workflowId:
-          dispatch.workflowId ?? liveAttempt.harnessWorkflowId ?? null,
-        activationId:
-          dispatch.activationId ?? liveAttempt.harnessActivationId ?? null,
-        harnessHash: dispatch.harnessHash ?? liveAttempt.harnessHash ?? null,
-        runtimeAuthority: dispatch.runtimeAuthority ?? null,
-        workflowNodeId: comparison.workflowNodeId,
-        componentKind: comparison.componentKind,
-        liveAttemptId: comparison.liveAttemptId,
-        shadowAttemptId: comparison.shadowAttemptId,
-        divergence: comparison.divergence,
-        blocking: comparison.blocking,
-        summary: comparison.summary ?? null,
-        liveExecutionMode: liveAttempt.executionMode ?? null,
-        shadowExecutionMode: shadowAttempt.executionMode ?? null,
-        liveReceiptRefs: Array.isArray(liveAttempt.receiptIds)
-          ? liveAttempt.receiptIds.slice(0, 12)
-          : [],
-        shadowReceiptRefs: Array.isArray(shadowAttempt.receiptIds)
-          ? shadowAttempt.receiptIds.slice(0, 12)
-          : [],
-        liveReplayFixtureRef: liveAttempt.replay?.fixtureRef ?? null,
-        shadowReplayFixtureRef: shadowAttempt.replay?.fixtureRef ?? null,
-        liveInputHash: liveAttempt.inputHash ?? null,
-        shadowInputHash: shadowAttempt.inputHash ?? null,
-        liveOutputHash: liveAttempt.outputHash ?? null,
-        shadowOutputHash: shadowAttempt.outputHash ?? null,
-        comparisonInspectorTestId:
-          "workflow-harness-live-shadow-comparison-inspector",
-        nodeInspectorTestId: "workflow-harness-node-attempt-inspector",
-        timelineTestId: "workflow-run-harness-timeline",
-        deepLinkParam: "nodeAttemptId",
-      });
+    const comparisonBundles = extractHarnessLiveShadowComparisons(dispatch);
+    if (comparisonBundles.length === 0) return;
+    for (const { comparison, liveAttempt, shadowAttempt } of comparisonBundles) {
+      const comparisonKey = `${timelineKey}:${comparison.liveAttemptId}:${comparison.shadowAttemptId}`;
+      if (harnessLiveShadowComparisonKeys.has(comparisonKey)) continue;
+      harnessLiveShadowComparisonKeys.add(comparisonKey);
+      summary.harnessLiveShadowComparisonCount += 1;
+      addScenario(summary.harnessLiveShadowComparisonScenarios, scenario);
+      addScenario(
+        summary.harnessLiveShadowComparisonComponentKinds,
+        comparison.componentKind,
+      );
+      if (summary.harnessLiveShadowComparisonSamples.length < 8) {
+        summary.harnessLiveShadowComparisonSamples.push({
+          artifactId,
+          dispatchId: dispatch.dispatchId ?? null,
+          scenario,
+          workflowId:
+            dispatch.workflowId ?? liveAttempt.harnessWorkflowId ?? null,
+          activationId:
+            dispatch.activationId ?? liveAttempt.harnessActivationId ?? null,
+          harnessHash: dispatch.harnessHash ?? liveAttempt.harnessHash ?? null,
+          runtimeAuthority: dispatch.runtimeAuthority ?? null,
+          workflowNodeId: comparison.workflowNodeId,
+          componentKind: comparison.componentKind,
+          liveAttemptId: comparison.liveAttemptId,
+          shadowAttemptId: comparison.shadowAttemptId,
+          divergence: comparison.divergence,
+          blocking: comparison.blocking,
+          summary: comparison.summary ?? null,
+          liveExecutionMode: liveAttempt.executionMode ?? null,
+          shadowExecutionMode: shadowAttempt.executionMode ?? null,
+          liveReceiptRefs: Array.isArray(liveAttempt.receiptIds)
+            ? liveAttempt.receiptIds.slice(0, 12)
+            : [],
+          shadowReceiptRefs: Array.isArray(shadowAttempt.receiptIds)
+            ? shadowAttempt.receiptIds.slice(0, 12)
+            : [],
+          liveReplayFixtureRef: liveAttempt.replay?.fixtureRef ?? null,
+          shadowReplayFixtureRef: shadowAttempt.replay?.fixtureRef ?? null,
+          liveInputHash: liveAttempt.inputHash ?? null,
+          shadowInputHash: shadowAttempt.inputHash ?? null,
+          liveOutputHash: liveAttempt.outputHash ?? null,
+          shadowOutputHash: shadowAttempt.outputHash ?? null,
+          comparisonInspectorTestId:
+            "workflow-harness-live-shadow-comparison-inspector",
+          nodeInspectorTestId: "workflow-harness-node-attempt-inspector",
+          timelineTestId: "workflow-run-harness-timeline",
+          deepLinkParam: "nodeAttemptId",
+        });
+      }
     }
   };
   const noteHarnessDefaultRuntimeBinding = (binding) => {
@@ -4515,8 +4527,17 @@ function buildGuiEvidenceAssessment({
   const liveShadowComparisonProof =
     promotionTransitionLiveGuiInteractionProof?.proof?.liveShadowComparison ??
     null;
+  const hasHarnessLiveShadowCognitionPairs =
+    summary.harnessLiveShadowComparisonCount >=
+      HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length &&
+    HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.every((componentKind) =>
+      summary.harnessLiveShadowComparisonComponentKinds.includes(
+        componentKind,
+      ),
+    );
   const hasHarnessLiveShadowComparison =
     hasHarnessLiveTurnNodeInspectorDeepLink &&
+    hasHarnessLiveShadowCognitionPairs &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.liveShadowComparisonDeepLink === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
@@ -4812,6 +4833,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveTurnNodeInspector,
       hasHarnessLiveTurnNodeInspectorDeepLink,
       hasHarnessLiveShadowComparison,
+      hasHarnessLiveShadowCognitionPairs,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -4853,6 +4875,17 @@ function buildGuiEvidenceAssessment({
         summary.harnessLiveTurnNodeInspectorScenarios,
       harnessLiveTurnNodeInspectorSamples:
         summary.harnessLiveTurnNodeInspectorSamples,
+      harnessLiveShadowComparisonCount:
+        summary.harnessLiveShadowComparisonCount,
+      harnessLiveShadowComparisonScenarios:
+        summary.harnessLiveShadowComparisonScenarios,
+      harnessLiveShadowComparisonComponentKinds:
+        summary.harnessLiveShadowComparisonComponentKinds,
+      harnessLiveShadowComparisonRequiredComponentKinds: [
+        ...HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS,
+      ],
+      harnessLiveShadowComparisonSamples:
+        summary.harnessLiveShadowComparisonSamples,
       harnessWorkerBindingCount: summary.harnessWorkerBindingCount,
       harnessShadowRunCount: summary.harnessShadowRunCount,
       harnessNodeAttemptCount: summary.harnessNodeAttemptCount,
