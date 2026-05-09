@@ -29,7 +29,8 @@ const DEFAULT_AGENT_HARNESS_HASH =
   "sha256:default-agent-harness-component-projection-v1";
 const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
   DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
-    (invariant) => invariant.artifact === "harness_package_import_activation_apply",
+    (invariant) =>
+      invariant.artifact === "harness_package_import_activation_apply",
   )?.id ?? "reviewed_import_activation_apply";
 
 function parseArgs(argv) {
@@ -1031,13 +1032,11 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             "workflow.harness.worker-attach-lifecycle.v1" &&
           event?.workflowNodeId === "harness.handoff_bridge" &&
           event?.componentKind === "handoff_bridge" &&
-              event?.accepted === true &&
-              Array.isArray(event?.blockers) &&
-              event.blockers.length === 0 &&
-              hasReviewedImportActivationInvariant(
-                event?.requiredInvariantIds,
-              ) &&
-              hasNoInvariantBlockers(event?.invariantBlockers),
+          event?.accepted === true &&
+          Array.isArray(event?.blockers) &&
+          event.blockers.length === 0 &&
+          hasReviewedImportActivationInvariant(event?.requiredInvariantIds) &&
+          hasNoInvariantBlockers(event?.invariantBlockers),
       ) &&
       binding.workerSessionAccepted === true &&
       binding.workerSessionStatus === "rollback_ready" &&
@@ -3250,13 +3249,24 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-worker-session-restored/.test(rail) &&
       /data-worker-session-checkpoint-source/.test(rail) &&
       /data-worker-session-launch-authority-ready/.test(rail) &&
+      /data-worker-session-launch-authority-invariant-ids/.test(rail) &&
       /data-worker-session-rollback-handoff-ready/.test(rail) &&
       /data-worker-launch-envelope-count/.test(rail) &&
+      /data-worker-launch-envelope-invariant-ids/.test(rail) &&
       /data-worker-handoff-receipt-count/.test(rail) &&
+      /data-worker-handoff-receipt-invariant-ids/.test(rail) &&
       /data-worker-handoff-node-attempt-count/.test(rail) &&
       /data-worker-handoff-replay-fixture-refs/.test(rail) &&
       /data-worker-handoff-node-timeline-bound/.test(rail) &&
       /data-worker-rollback-handoff-receipt-status/.test(rail) &&
+      /data-worker-launch-reviewed-import-invariant-bound/.test(rail) &&
+      /id: "worker-invariant"/.test(rail) &&
+      /data-required-invariant-ids/.test(rail) &&
+      /data-invariant-blockers/.test(rail) &&
+      /data-invariant-blocker-count/.test(rail) &&
+      /DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT/.test(
+        rail,
+      ) &&
       /worker_session_not_persisted/.test(harnessWorkflow) &&
       /worker_session_not_restored/.test(harnessWorkflow) &&
       /worker_session_launch_authority_not_ready/.test(harnessWorkflow) &&
@@ -3850,6 +3860,10 @@ function buildGuiEvidenceAssessment({
       (binding) =>
         binding?.workerLaunchReviewedImportActivationInvariantBound === true,
     );
+  const hasHarnessWorkerLaunchReviewedImportActivationInvariantGuiVisible =
+    hasHarnessWorkerLaunchReviewedImportActivationInvariant &&
+    rollbackRestoreCanaryUiProof?.proof?.checks?.workerSessionCheckpointUi ===
+      true;
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
@@ -4216,6 +4230,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessSelectorReviewedImportActivationApplyInvariant,
       harness_worker_launch_reviewed_import_activation_apply_invariant_present:
         hasHarnessWorkerLaunchReviewedImportActivationInvariant,
+      harness_worker_launch_reviewed_import_activation_apply_invariant_gui_visible:
+        hasHarnessWorkerLaunchReviewedImportActivationInvariantGuiVisible,
       harness_default_runtime_dispatch_present:
         hasHarnessDefaultRuntimeDispatch,
       harness_live_promotion_readiness_present:
@@ -5338,8 +5354,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         reviewedImportActivationApplyActivationId &&
       reviewedImportActivationApplyGate?.rollbackTarget ===
         reviewedImportActivationApplyRollbackTarget &&
-      (reviewedImportActivationApplyGate?.defaultDispatchActivationBlockers ??
-        []).length === 0;
+      (
+        reviewedImportActivationApplyGate?.defaultDispatchActivationBlockers ??
+        []
+      ).length === 0;
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -5376,7 +5394,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           "workflow.harness.live-promotion-readiness.v1" &&
         selector?.livePromotionReadinessPolicyDecision ===
           "allow_default_harness_live_promotion_readiness" &&
-        (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0 &&
+        (selector?.defaultPromotionGate?.activationBlockers ?? []).length ===
+          0 &&
         selectorReviewedImportActivationApplyInvariant,
       liveHandoffTransferred:
         liveHandoff?.selector === "blessed_workflow_live_default" &&
@@ -5641,8 +5660,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         packageEvidenceGateClickProof.restored?.nodeAttemptState?.[
           "data-selected-activation-gate-node-attempt-id"
         ] === packageEvidenceGateClickProof.selectedRefs.nodeAttemptId &&
-        typeof packageEvidenceGateClickProof.selectedRefs?.packageDeepLinkHash ===
-          "string" &&
+        typeof packageEvidenceGateClickProof.selectedRefs
+          ?.packageDeepLinkHash === "string" &&
         packageEvidenceGateClickProof.selectedRefs.packageDeepLinkHash.startsWith(
           "#harness-workbench?",
         ) &&
@@ -5650,9 +5669,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           packageEvidenceGateClickProof.restored?.packageDeepLinkState?.[
             "data-selected-activation-gate-id"
           ] ||
-            packageEvidenceGateClickProof.restored?.packageDeepLinkState?.[
-              "data-selected-worker-binding-id"
-            ],
+          packageEvidenceGateClickProof.restored?.packageDeepLinkState?.[
+            "data-selected-worker-binding-id"
+          ],
         ),
       packageEvidenceImportRoundTripProof:
         packageEvidenceImportRoundTripProof?.passed === true &&
@@ -5702,8 +5721,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         Boolean(
           packageEvidenceImportRoundTripProof.validImport?.restored
             ?.packageDeepLinkState?.["data-selected-activation-gate-id"] ||
-            packageEvidenceImportRoundTripProof.validImport?.restored
-              ?.packageDeepLinkState?.["data-selected-worker-binding-id"],
+          packageEvidenceImportRoundTripProof.validImport?.restored
+            ?.packageDeepLinkState?.["data-selected-worker-binding-id"],
         ) &&
         packageEvidenceImportRoundTripProof.incompleteImport?.gateId ===
           "package-evidence" &&
@@ -5759,13 +5778,11 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           true &&
         packageImportReviewProof.activationAction?.incomplete?.evidenceReady ===
           false &&
-        packageImportReviewProof.activationAction?.incomplete?.blockerCount >
-          0,
+        packageImportReviewProof.activationAction?.incomplete?.blockerCount > 0,
       packageImportActivationHandoffProof:
         packageImportActivationHandoffProof?.passed === true &&
         packageImportActivationHandoffProof.review?.activationHandoff
-          ?.schemaVersion ===
-          "workflow.package-import-activation-handoff.v1" &&
+          ?.schemaVersion === "workflow.package-import-activation-handoff.v1" &&
         packageImportActivationHandoffProof.railState?.[
           "data-package-import-handoff-open"
         ] === "true" &&
@@ -5825,7 +5842,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         packageImportActivationApplyProof.clicked === true &&
         packageImportActivationApplyProof.activationAction?.handoffDecision ===
           "mintable" &&
-        packageImportActivationApplyProof.activationAction?.disabled === false &&
+        packageImportActivationApplyProof.activationAction?.disabled ===
+          false &&
         packageImportActivationApplyProof.activationAction?.mintable === true &&
         packageImportActivationApplyProof.activationResult?.applied === true &&
         packageImportActivationApplyProof.activationResult?.activationId ===
@@ -5941,8 +5959,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             "data-receipt-ref-count"
           ] ?? 0,
         ) > 0 &&
-        typeof activationGateRollbackRestoreClickProof
-          .rollbackRestoreDeepLink === "string" &&
+        typeof activationGateRollbackRestoreClickProof.rollbackRestoreDeepLink ===
+          "string" &&
         activationGateRollbackRestoreClickProof.rollbackRestoreDeepLink.includes(
           "activationGateReceiptRef=",
         ) &&
@@ -6534,6 +6552,19 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
                 "data-replay-fixture-ref-count"
               ] ?? 0,
             ),
+            requiredInvariantIds:
+              activationGateDeepLinkCase.observedSelectedState?.[
+                "data-required-invariant-ids"
+              ] ?? "",
+            invariantBlockerCount: Number(
+              activationGateDeepLinkCase.observedSelectedState?.[
+                "data-invariant-blocker-count"
+              ] ?? 0,
+            ),
+            invariantBlockers:
+              activationGateDeepLinkCase.observedSelectedState?.[
+                "data-invariant-blockers"
+              ] ?? "",
             action: {
               id:
                 activationGateDeepLinkCase.observedSelectedState?.[
@@ -6932,6 +6963,11 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary
             .harnessWorkerLaunchReviewedImportActivationInvariantCount > 0
             ? runtimeArtifacts.path
+            : false,
+        harness_worker_launch_reviewed_import_activation_apply_invariant_gui_visible:
+          rollbackRestoreCanaryUiProof.proof.checks
+            ?.workerSessionCheckpointUi === true
+            ? rollbackRestoreCanaryUiProof.path
             : false,
         harness_default_runtime_dispatch:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >

@@ -811,8 +811,14 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /(?=[\s\S]*workflow-harness-active-runtime-binding)(?=[\s\S]*data-binding-matched)(?=[\s\S]*data-selector-decision-id)(?=[\s\S]*data-default-dispatch-id)(?=[\s\S]*data-selected-selector-decision-id)(?=[\s\S]*data-selected-default-dispatch-id)(?=[\s\S]*data-selected-worker-binding-id)(?=[\s\S]*data-selected-rollback-target)(?=[\s\S]*workflow-harness-active-runtime-binding-selector-link)(?=[\s\S]*selectorDecisionId)(?=[\s\S]*workflow-harness-active-runtime-binding-dispatch-link)(?=[\s\S]*dispatchId)(?=[\s\S]*workflow-harness-active-runtime-binding-worker-link)(?=[\s\S]*workerBindingId)(?=[\s\S]*workflow-harness-active-runtime-binding-rollback-link)(?=[\s\S]*rollbackTarget)(?=[\s\S]*workflow-harness-active-runtime-binding-receipt-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-replay-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-blockers)/,
+  /(?=[\s\S]*workflow-harness-active-runtime-binding)(?=[\s\S]*data-binding-matched)(?=[\s\S]*data-selector-decision-id)(?=[\s\S]*data-default-dispatch-id)(?=[\s\S]*data-worker-launch-reviewed-import-invariant-bound)(?=[\s\S]*data-worker-session-launch-authority-invariant-ids)(?=[\s\S]*data-worker-launch-envelope-invariant-ids)(?=[\s\S]*data-worker-handoff-receipt-invariant-ids)(?=[\s\S]*DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT)(?=[\s\S]*data-selected-selector-decision-id)(?=[\s\S]*data-selected-default-dispatch-id)(?=[\s\S]*data-selected-worker-binding-id)(?=[\s\S]*data-selected-rollback-target)(?=[\s\S]*workflow-harness-active-runtime-binding-selector-link)(?=[\s\S]*selectorDecisionId)(?=[\s\S]*workflow-harness-active-runtime-binding-dispatch-link)(?=[\s\S]*dispatchId)(?=[\s\S]*workflow-harness-active-runtime-binding-worker-link)(?=[\s\S]*workerBindingId)(?=[\s\S]*workflow-harness-active-runtime-binding-rollback-link)(?=[\s\S]*rollbackTarget)(?=[\s\S]*workflow-harness-active-runtime-binding-receipt-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-replay-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-blockers)/,
   "The harness rail should surface route-restorable active runtime binding identity with selector, dispatch, worker, rollback, receipt, replay, and blocker deep links.",
+);
+
+assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*id: "worker-invariant")(?=[\s\S]*workflow-harness-activation-step-\$\{step\.id\})(?=[\s\S]*data-required-invariant-ids)(?=[\s\S]*data-invariant-blockers)(?=[\s\S]*workflow-harness-activation-gate-inspector)(?=[\s\S]*data-invariant-blocker-count)/,
+  "The activation wizard should expose reviewed-import worker launch invariants as a selectable gate with GUI-visible blockers.",
 );
 
 assert.match(
