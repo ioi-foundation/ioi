@@ -1465,10 +1465,50 @@ The direct runtime comparison pattern now covers the next P0 promotion cluster,
 
 This changes routing/model from "gated adapter results are present" to "each
 routing/model adapter has a retained shadow comparison with receipts, replay
-fixtures, no blocking divergence, and matching input/output hashes." The next
-chronological slice should apply the same direct runtime evidence pattern to
-`verification_output`, starting with verifier, postcondition synthesizer,
-completion gate, and output writer.
+fixtures, no blocking divergence, and matching input/output hashes."
+
+### 2026-05-09 Verification/Output Live Vs Shadow Runtime Slice
+
+The direct runtime comparison pattern now covers the full `verification_output`
+cluster:
+
+- `runtime_harness_default_runtime_dispatch` invokes shadow adapter results
+  beside the gated `postcondition_synthesizer`, `verifier`, `completion_gate`,
+  `receipt_writer`, `quality_ledger`, and `output_writer` adapter results.
+- The default dispatch artifact now carries
+  `verificationOutputShadowAdapterMode`, shadow attempt ids, receipt ids, replay
+  fixture refs, adapter results, action frame ids, component kinds, and
+  divergence classes.
+- The shared `liveShadowComparisons` list now includes twelve retained pairs:
+  the cognition trio, the routing/model trio, and all six verification/output
+  components.
+- The verification/output live-promotion readiness proof now requires both the
+  gated adapter lane and the shadow adapter lane, and its cluster rollup includes
+  both sets of attempt ids, receipt refs, replay refs, action frame ids, and
+  divergence classes.
+- The node-attempt inspector and live/shadow comparison rail now include
+  `verificationOutputShadowAdapterResults` when resolving default dispatch
+  attempts, so deep links can land on the new shadow-backed verification/output
+  evidence.
+- Runtime consistency now requires
+  `harness_live_shadow_verification_output_pairs_present`, so GUI validation
+  fails unless `postcondition_synthesizer`, `verifier`, `completion_gate`,
+  `receipt_writer`, `quality_ledger`, and `output_writer` are all present in the
+  retained live/shadow comparison set.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T06-21-39-565Z/result.json`.
+  Its evidence assessment reports `harnessLiveShadowComparisonCount: 12` and
+  component kinds `["completion_gate", "model_call", "model_router",
+  "output_writer", "planner", "postcondition_synthesizer", "prompt_assembler",
+  "quality_ledger", "receipt_writer", "task_state", "tool_router", "verifier"]`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T06-28-12-256Z/dashboard-index.json`.
+
+This changes verification/output from "gated adapter results are present" to
+"each verification/output adapter has a retained shadow comparison with receipts,
+replay fixtures, no blocking divergence, and matching input/output hashes." The
+next chronological slice should apply the same direct runtime evidence pattern to
+`authority_tooling` before any final default-live handoff is treated as complete.
 
 ## Current State
 

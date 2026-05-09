@@ -37,6 +37,14 @@ const HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
   "model_call",
   "tool_router",
 ]);
+const HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
+  "postcondition_synthesizer",
+  "verifier",
+  "completion_gate",
+  "receipt_writer",
+  "quality_ledger",
+  "output_writer",
+]);
 const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
   DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
     (invariant) =>
@@ -585,6 +593,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch?.routingModelAdapterResults,
       dispatch?.routingModelShadowAdapterResults,
       dispatch?.verificationOutputAdapterResults,
+      dispatch?.verificationOutputShadowAdapterResults,
       dispatch?.authorityToolingAdapterResults,
     ];
     const resultAttempt = resultSources
@@ -667,6 +676,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch?.routingModelAdapterResults,
       dispatch?.routingModelShadowAdapterResults,
       dispatch?.verificationOutputAdapterResults,
+      dispatch?.verificationOutputShadowAdapterResults,
       dispatch?.authorityToolingAdapterResults,
     ]
       .flatMap((items) => (Array.isArray(items) ? items : []))
@@ -774,6 +784,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         "gated",
         "shadow_ready",
         "gated",
+        6,
+      ) &&
+      adapterResultsReady(
+        dispatch.verificationOutputShadowAdapterResults,
+        "shadow",
+        "shadow_ready",
+        "shadow",
         6,
       ) &&
       adapterResultsReady(
@@ -2365,6 +2382,39 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.verificationOutputDivergenceClasses.every(
               (kind) => kind === "none",
             ) &&
+            dispatch.verificationOutputShadowAdapterMode ===
+              "workflow_component_adapter_shadow" &&
+            Array.isArray(dispatch.verificationOutputShadowAdapterResults) &&
+            dispatch.verificationOutputShadowAdapterResults.length >= 6 &&
+            dispatch.verificationOutputShadowAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "shadow" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "shadow",
+            ) &&
+            Array.isArray(dispatch.verificationOutputShadowAttemptIds) &&
+            dispatch.verificationOutputShadowAttemptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputShadowReceiptIds) &&
+            dispatch.verificationOutputShadowReceiptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputShadowReplayFixtureRefs) &&
+            dispatch.verificationOutputShadowReplayFixtureRefs.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputShadowComponentKinds) &&
+            [
+              "postcondition_synthesizer",
+              "verifier",
+              "completion_gate",
+              "receipt_writer",
+              "quality_ledger",
+              "output_writer",
+            ].every((kind) =>
+              dispatch.verificationOutputShadowComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(
+              dispatch.verificationOutputShadowDivergenceClasses,
+            ) &&
+            dispatch.verificationOutputShadowDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
             dispatch.authorityToolingAdapterMode ===
               "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.authorityToolingAdapterResults) &&
@@ -2799,6 +2849,39 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ) &&
             Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
             dispatch.verificationOutputDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.verificationOutputShadowAdapterMode ===
+              "workflow_component_adapter_shadow" &&
+            Array.isArray(dispatch.verificationOutputShadowAdapterResults) &&
+            dispatch.verificationOutputShadowAdapterResults.length >= 6 &&
+            dispatch.verificationOutputShadowAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "shadow" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "shadow",
+            ) &&
+            Array.isArray(dispatch.verificationOutputShadowAttemptIds) &&
+            dispatch.verificationOutputShadowAttemptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputShadowReceiptIds) &&
+            dispatch.verificationOutputShadowReceiptIds.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputShadowReplayFixtureRefs) &&
+            dispatch.verificationOutputShadowReplayFixtureRefs.length >= 6 &&
+            Array.isArray(dispatch.verificationOutputShadowComponentKinds) &&
+            [
+              "postcondition_synthesizer",
+              "verifier",
+              "completion_gate",
+              "receipt_writer",
+              "quality_ledger",
+              "output_writer",
+            ].every((kind) =>
+              dispatch.verificationOutputShadowComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(
+              dispatch.verificationOutputShadowDivergenceClasses,
+            ) &&
+            dispatch.verificationOutputShadowDivergenceClasses.every(
               (kind) => kind === "none",
             ) &&
             dispatch.authorityToolingAdapterMode ===
@@ -4558,10 +4641,22 @@ function buildGuiEvidenceAssessment({
         componentKind,
       ),
     );
+  const hasHarnessLiveShadowVerificationOutputPairs =
+    summary.harnessLiveShadowComparisonCount >=
+      HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length +
+        HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.length +
+        HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS.length &&
+    HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS.every(
+      (componentKind) =>
+        summary.harnessLiveShadowComparisonComponentKinds.includes(
+          componentKind,
+        ),
+    );
   const hasHarnessLiveShadowComparison =
     hasHarnessLiveTurnNodeInspectorDeepLink &&
     hasHarnessLiveShadowCognitionPairs &&
     hasHarnessLiveShadowRoutingModelPairs &&
+    hasHarnessLiveShadowVerificationOutputPairs &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.liveShadowComparisonDeepLink === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
@@ -4770,6 +4865,8 @@ function buildGuiEvidenceAssessment({
       harness_live_shadow_comparison_present: hasHarnessLiveShadowComparison,
       harness_live_shadow_routing_model_pairs_present:
         hasHarnessLiveShadowRoutingModelPairs,
+      harness_live_shadow_verification_output_pairs_present:
+        hasHarnessLiveShadowVerificationOutputPairs,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4861,6 +4958,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveShadowComparison,
       hasHarnessLiveShadowCognitionPairs,
       hasHarnessLiveShadowRoutingModelPairs,
+      hasHarnessLiveShadowVerificationOutputPairs,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -4913,6 +5011,9 @@ function buildGuiEvidenceAssessment({
       ],
       harnessLiveShadowRoutingModelRequiredComponentKinds: [
         ...HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS,
+      ],
+      harnessLiveShadowVerificationOutputRequiredComponentKinds: [
+        ...HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS,
       ],
       harnessLiveShadowComparisonSamples:
         summary.harnessLiveShadowComparisonSamples,
@@ -5713,6 +5814,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       ...(defaultDispatch?.routingModelAdapterResults ?? []),
       ...(defaultDispatch?.routingModelShadowAdapterResults ?? []),
       ...(defaultDispatch?.verificationOutputAdapterResults ?? []),
+      ...(defaultDispatch?.verificationOutputShadowAdapterResults ?? []),
       ...(defaultDispatch?.authorityToolingAdapterResults ?? []),
     ]
       .map((result) => result?.nodeAttempt ?? null)

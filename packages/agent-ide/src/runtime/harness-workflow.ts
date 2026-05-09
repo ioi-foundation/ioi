@@ -4347,6 +4347,20 @@ function makeDefaultVerificationOutputGateAdapterResults(): WorkflowHarnessCompo
   );
 }
 
+function makeDefaultVerificationOutputShadowAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS.map(
+    (component, index) =>
+      makeDefaultHarnessAdapterResult(
+        component.kind,
+        `${component.attemptSlug}_shadow`,
+        component.policyDecision,
+        index + 30,
+        "shadow",
+        { hashSlug: component.attemptSlug },
+      ),
+  );
+}
+
 function makeDefaultAuthorityToolingGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
   return DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
     (component, index) =>
@@ -4878,10 +4892,6 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     routingModelLiveShadowComparisons.map(
       (comparison) => comparison.divergence,
     );
-  const liveShadowComparisons = [
-    ...cognitionLiveShadowComparisons,
-    ...routingModelLiveShadowComparisons,
-  ];
   const verificationOutputAdapterResults =
     makeDefaultVerificationOutputGateAdapterResults();
   const verificationOutputActionFrameIds = verificationOutputAdapterResults.map(
@@ -4916,6 +4926,69 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     "harness-default-dispatch:fixture-verification_output_output_writer_envelope",
   ];
   const verificationOutputDivergenceClasses = ["none" as const];
+  const verificationOutputShadowAdapterResults =
+    makeDefaultVerificationOutputShadowAdapterResults();
+  const verificationOutputShadowActionFrameIds =
+    verificationOutputShadowAdapterResults.map(
+      (result) =>
+        `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    );
+  const verificationOutputShadowComponentKinds =
+    verificationOutputShadowAdapterResults.map(
+      (result) => result.actionFrame.componentKind,
+    );
+  const verificationOutputShadowAttemptIds =
+    verificationOutputShadowAdapterResults.map(
+      (result) => result.nodeAttempt.attemptId,
+    );
+  const verificationOutputShadowReceiptIds =
+    verificationOutputShadowAdapterResults.flatMap(
+      (result) => result.receiptIds,
+    );
+  const verificationOutputShadowReplayFixtureRefs =
+    verificationOutputShadowAdapterResults
+      .map((result) => result.replay.fixtureRef)
+      .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const verificationOutputLiveShadowComparisons: WorkflowHarnessShadowComparison[] =
+    verificationOutputAdapterResults.flatMap((liveResult, index) => {
+      const shadowResult = verificationOutputShadowAdapterResults[index];
+      if (!shadowResult) return [];
+      return [
+        {
+          workflowNodeId: liveResult.nodeAttempt.workflowNodeId,
+          componentKind: liveResult.nodeAttempt.componentKind,
+          liveAttemptId: liveResult.nodeAttempt.attemptId,
+          shadowAttemptId: shadowResult.nodeAttempt.attemptId,
+          divergence: "none",
+          blocking: false,
+          summary:
+            "Gated and shadow verification/output adapter envelopes match for the default harness turn.",
+          evidenceRefs: uniqueStrings([
+            ...liveResult.nodeAttempt.receiptIds,
+            ...shadowResult.nodeAttempt.receiptIds,
+            liveResult.replay.fixtureRef,
+            shadowResult.replay.fixtureRef,
+          ]),
+          liveReceiptRefs: liveResult.nodeAttempt.receiptIds,
+          shadowReceiptRefs: shadowResult.nodeAttempt.receiptIds,
+          liveReplayFixtureRef: liveResult.replay.fixtureRef,
+          shadowReplayFixtureRef: shadowResult.replay.fixtureRef,
+          liveInputHash: liveResult.nodeAttempt.inputHash,
+          shadowInputHash: shadowResult.nodeAttempt.inputHash,
+          liveOutputHash: liveResult.nodeAttempt.outputHash,
+          shadowOutputHash: shadowResult.nodeAttempt.outputHash,
+        },
+      ];
+    });
+  const verificationOutputShadowDivergenceClasses =
+    verificationOutputLiveShadowComparisons.map(
+      (comparison) => comparison.divergence,
+    );
+  const liveShadowComparisons = [
+    ...cognitionLiveShadowComparisons,
+    ...routingModelLiveShadowComparisons,
+    ...verificationOutputLiveShadowComparisons,
+  ];
   const authorityToolingAdapterResults =
     makeDefaultAuthorityToolingGateAdapterResults();
   const authorityToolingActionFrameIds = authorityToolingAdapterResults.map(
@@ -5107,14 +5180,33 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         componentKinds: verificationOutputComponentKinds,
         readinessReady:
           verificationOutputAdapterResults.length >= 6 &&
+          verificationOutputShadowAdapterResults.length >= 6 &&
           verificationOutputDivergenceClasses.every(
             (divergenceClass) => divergenceClass === "none",
+          ) &&
+          verificationOutputShadowDivergenceClasses.every(
+            (divergenceClass) => divergenceClass === "none",
           ),
-        receiptRefs: verificationOutputReceiptIds,
-        replayFixtureRefs: verificationOutputReplayFixtureRefs,
-        actionFrameIds: verificationOutputActionFrameIds,
-        attemptIds: verificationOutputAttemptIds,
-        divergenceClasses: verificationOutputDivergenceClasses,
+        receiptRefs: [
+          ...verificationOutputReceiptIds,
+          ...verificationOutputShadowReceiptIds,
+        ],
+        replayFixtureRefs: [
+          ...verificationOutputReplayFixtureRefs,
+          ...verificationOutputShadowReplayFixtureRefs,
+        ],
+        actionFrameIds: [
+          ...verificationOutputActionFrameIds,
+          ...verificationOutputShadowActionFrameIds,
+        ],
+        attemptIds: [
+          ...verificationOutputAttemptIds,
+          ...verificationOutputShadowAttemptIds,
+        ],
+        divergenceClasses: [
+          ...verificationOutputDivergenceClasses,
+          ...verificationOutputShadowDivergenceClasses,
+        ],
         canaryReady: true,
         rollbackReady: true,
         rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -5335,16 +5427,22 @@ export function makeHarnessDefaultRuntimeDispatchProof(
   const defaultNodeAttemptIds = uniqueStrings([
     ...(options.nodeAttemptIds ?? []),
     ...cognitionExecutionShadowAttemptIds,
+    ...routingModelShadowAttemptIds,
+    ...verificationOutputShadowAttemptIds,
     ...workerHandoffNodeAttemptIds,
   ]);
   const defaultReceiptIds = uniqueStrings([
     ...(options.receiptIds ?? []),
     ...cognitionExecutionShadowReceiptIds,
+    ...routingModelShadowReceiptIds,
+    ...verificationOutputShadowReceiptIds,
     ...workerHandoffReceiptIds,
   ]);
   const defaultReplayFixtureRefs = uniqueStrings([
     ...(options.replayFixtureRefs ?? []),
     ...cognitionExecutionShadowReplayFixtureRefs,
+    ...routingModelShadowReplayFixtureRefs,
+    ...verificationOutputShadowReplayFixtureRefs,
     ...workerHandoffReplayFixtureRefs,
   ]);
   return {
@@ -5481,6 +5579,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     verificationOutputActionFrameIds,
     verificationOutputComponentKinds,
     verificationOutputDivergenceClasses,
+    verificationOutputShadowAdapterMode: "workflow_component_adapter_shadow",
+    verificationOutputShadowAttemptIds,
+    verificationOutputShadowReceiptIds,
+    verificationOutputShadowReplayFixtureRefs,
+    verificationOutputShadowAdapterResults,
+    verificationOutputShadowActionFrameIds,
+    verificationOutputShadowComponentKinds,
+    verificationOutputShadowDivergenceClasses,
     authorityToolingAdapterMode: "workflow_component_adapter_gated",
     authorityToolingAttemptIds,
     authorityToolingReceiptIds,
@@ -6058,6 +6164,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       actionFrameIds: verificationOutputActionFrameIds,
       componentKinds: verificationOutputComponentKinds,
       divergenceClasses: verificationOutputDivergenceClasses,
+      shadowAdapterMode: "workflow_component_adapter_shadow",
+      shadowAdapterResultCount: verificationOutputShadowAdapterResults.length,
+      shadowAttemptIds: verificationOutputShadowAttemptIds,
+      shadowReceiptIds: verificationOutputShadowReceiptIds,
+      shadowReplayFixtureRefs: verificationOutputShadowReplayFixtureRefs,
+      shadowActionFrameIds: verificationOutputShadowActionFrameIds,
+      shadowComponentKinds: verificationOutputShadowComponentKinds,
+      shadowDivergenceClasses: verificationOutputShadowDivergenceClasses,
       completionDecision: "objective_satisfied",
       receiptProjectionAuthority: "blessed_workflow_activation_default",
       qualityLedgerAuthority: "blessed_workflow_activation_default",
