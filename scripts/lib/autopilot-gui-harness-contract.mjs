@@ -24,6 +24,16 @@ export const GUI_AUTOMATION_CLICK_POLICY = Object.freeze({
   ]),
 });
 
+export const DEFAULT_LIVE_PROMOTION_INVARIANTS = Object.freeze([
+  Object.freeze({
+    id: "reviewed_import_activation_apply",
+    artifact: "harness_package_import_activation_apply",
+    runtimeConsistency: "harness_package_import_activation_apply_present",
+    description:
+      "Default-live promotion requires a same-session reviewed import activation apply proof: click, minted activation id, validated workflow state, worker binding, rollback/revision binding, audit, receipts, replay refs, and worker-handoff deep-link restoration.",
+  }),
+]);
+
 export const AUTOPILOT_RETAINED_QUERIES = Object.freeze([
   {
     scenario: "no_tool_answer",
@@ -247,6 +257,9 @@ export function autopilotGuiHarnessContract() {
     requiredArtifacts: [...REQUIRED_GUI_ARTIFACTS],
     cleanChatUxRequirements: [...CLEAN_CHAT_UX_REQUIREMENTS],
     runtimeConsistencyRequirements: [...RUNTIME_CONSISTENCY_REQUIREMENTS],
+    defaultLivePromotionInvariants: DEFAULT_LIVE_PROMOTION_INVARIANTS.map(
+      (invariant) => ({ ...invariant }),
+    ),
     guiAutomationClickPolicy: {
       mode: GUI_AUTOMATION_CLICK_POLICY.mode,
       safeZone: { ...GUI_AUTOMATION_CLICK_POLICY.safeZone },
@@ -257,6 +270,145 @@ export function autopilotGuiHarnessContract() {
 
 export function retainedQueryByScenario(scenario) {
   return AUTOPILOT_RETAINED_QUERIES.find((query) => query.scenario === scenario) ?? null;
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.length > 0;
+}
+
+function hasEntries(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+export function validateDefaultLivePromotionInvariants(result) {
+  const failures = [];
+  const promotionProof = result?.uiAssertions?.promotionTransitionLiveGui;
+  const proof = promotionProof?.packageImportActivationApplyProof;
+  const action = proof?.activationAction;
+  const activationResult = proof?.activationResult;
+  const workerHandoff = proof?.workerHandoff;
+  const selectedState = workerHandoff?.selectedState ?? {};
+  const firstWorkerHandoffAttempt =
+    activationResult?.workerHandoffNodeAttemptIds?.[0] ?? null;
+  const activationId = activationResult?.activationId ?? null;
+
+  if (promotionProof?.checks?.packageImportActivationApplyProof !== true) {
+    failures.push(
+      "default live promotion invariant failed: reviewed import activation apply check is not true",
+    );
+  }
+  if (proof?.passed !== true) {
+    failures.push(
+      "default live promotion invariant failed: reviewed import activation apply proof did not pass",
+    );
+  }
+  if (proof?.clicked !== true) {
+    failures.push(
+      "default live promotion invariant failed: Activate reviewed import was not clicked",
+    );
+  }
+  if (action?.handoffDecision !== "mintable" || action?.disabled !== false || action?.mintable !== true) {
+    failures.push(
+      "default live promotion invariant failed: reviewed import activation action is not mintable",
+    );
+  }
+  if (!isNonEmptyString(activationId)) {
+    failures.push(
+      "default live promotion invariant failed: reviewed import activation id was not minted",
+    );
+  }
+  if (activationId !== action?.activationIdPreview) {
+    failures.push(
+      "default live promotion invariant failed: minted activation id does not match reviewed handoff preview",
+    );
+  }
+  if (activationResult?.applied !== true) {
+    failures.push(
+      "default live promotion invariant failed: reviewed import activation was not applied",
+    );
+  }
+  if (activationResult?.workflowActivationId !== activationId) {
+    failures.push(
+      "default live promotion invariant failed: workflow activation id does not match minted activation id",
+    );
+  }
+  if (activationResult?.workflowActivationState !== "validated") {
+    failures.push(
+      "default live promotion invariant failed: workflow activation state is not validated",
+    );
+  }
+  if (
+    activationResult?.workerBindingActivationId !== activationId ||
+    activationResult?.activationRecordWorkerBindingActivationId !== activationId
+  ) {
+    failures.push(
+      "default live promotion invariant failed: worker binding does not point at the minted activation id",
+    );
+  }
+  if (activationResult?.rollbackTarget !== action?.rollbackTarget) {
+    failures.push(
+      "default live promotion invariant failed: rollback target does not match reviewed handoff",
+    );
+  }
+  if (
+    activationResult?.revisionBindingActivationId !== activationId ||
+    !isNonEmptyString(activationResult?.activationRecordRevisionBindingHash) ||
+    !isNonEmptyString(activationResult?.rollbackRevisionBindingHash)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: revision binding or rollback revision hash is missing",
+    );
+  }
+  if (
+    activationResult?.latestAuditEventType !== "activation_minted" ||
+    activationResult?.latestAuditStatus !== "applied"
+  ) {
+    failures.push(
+      "default live promotion invariant failed: activation audit does not record activation_minted/applied",
+    );
+  }
+  if (
+    !hasEntries(activationResult?.receiptRefs) ||
+    !hasEntries(activationResult?.evidenceRefs)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: activation receipt or evidence refs are missing",
+    );
+  }
+  if (
+    !hasEntries(activationResult?.workerHandoffReceiptIds) ||
+    !hasEntries(activationResult?.workerHandoffNodeAttemptIds) ||
+    !hasEntries(activationResult?.workerHandoffReplayFixtureRefs)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: worker-handoff receipt, node attempt, or replay refs are missing",
+    );
+  }
+  if (
+    selectedState["data-selected-activation-gate-id"] !== "worker-handoff" ||
+    selectedState["data-selected-activation-gate-node-attempt-id"] !==
+      firstWorkerHandoffAttempt ||
+    workerHandoff?.selectedAttemptId !== firstWorkerHandoffAttempt ||
+    workerHandoff?.timelineVisible !== true ||
+    workerHandoff?.deepLinkHash?.includes("activationGateNodeAttemptId=") !== true
+  ) {
+    failures.push(
+      "default live promotion invariant failed: worker-handoff deep link did not restore the gate, selected attempt, and timeline",
+    );
+  }
+  if (
+    proof?.incompleteAction?.disabled !== true ||
+    proof?.incompleteAction?.mintable !== false
+  ) {
+    failures.push(
+      "default live promotion invariant failed: incomplete reviewed import activation is not blocked",
+    );
+  }
+
+  return {
+    ok: failures.length === 0,
+    failures,
+  };
 }
 
 export function validateAutopilotGuiHarnessResult(result) {
@@ -316,6 +468,8 @@ export function validateAutopilotGuiHarnessResult(result) {
       failures.push(`runtime consistency requirement failed: ${requirement}`);
     }
   }
+
+  failures.push(...validateDefaultLivePromotionInvariants(result).failures);
 
   return {
     ok: failures.length === 0,

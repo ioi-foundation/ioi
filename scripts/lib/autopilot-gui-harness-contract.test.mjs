@@ -5,11 +5,105 @@ import {
   AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
   AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
   AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+  DEFAULT_LIVE_PROMOTION_INVARIANTS,
   autopilotGuiHarnessContract,
   buildBlockedAutopilotGuiHarnessResult,
   retainedQueryByScenario,
   validateAutopilotGuiHarnessResult,
+  validateDefaultLivePromotionInvariants,
 } from "./autopilot-gui-harness-contract.mjs";
+
+function reviewedImportActivationApplyProof(overrides = {}) {
+  const activationId =
+    "activation:package-evidence-import-roundtrip-fork:validated-canary:default-agen";
+  const rollbackTarget = "activation:default-agent-harness:blessed-readonly";
+  const workerHandoffAttempt =
+    "harness-worker-handoff:attempt:launch:harness-worker-session:package-evidence-import-roundtrip-fork";
+  const base = {
+    passed: true,
+    clicked: true,
+    activationAction: {
+      activationIdPreview: activationId,
+      blockerCount: 0,
+      canaryStatus: "passed",
+      disabled: false,
+      evidenceReady: true,
+      handoffDecision: "mintable",
+      handoffPresent: true,
+      mintable: true,
+      present: true,
+      rollbackTarget,
+      workerBindingId: activationId,
+    },
+    activationResult: {
+      activationId,
+      applied: true,
+      workflowActivationId: activationId,
+      workflowActivationState: "validated",
+      workerBindingActivationId: activationId,
+      activationRecordWorkerBindingActivationId: activationId,
+      rollbackTarget,
+      revisionBindingActivationId: activationId,
+      activationRecordRevisionBindingHash: "stable-fnv1a32:8cfd072b",
+      rollbackRevisionBindingHash: "stable-fnv1a32:8cfd072b",
+      latestAuditEventType: "activation_minted",
+      latestAuditStatus: "applied",
+      receiptRefs: ["activation-receipt:reviewed-import"],
+      evidenceRefs: ["candidate:package-evidence-import-roundtrip-fork"],
+      workerHandoffReceiptIds: ["harness-worker-handoff-receipt:launch"],
+      workerHandoffNodeAttemptIds: [workerHandoffAttempt],
+      workerHandoffReplayFixtureRefs: ["harness-worker-handoff:fixture:launch"],
+    },
+    workerHandoff: {
+      deepLinkHash: `#harness-workbench?activationGateNodeAttemptId=${workerHandoffAttempt}`,
+      selectedAttemptId: workerHandoffAttempt,
+      selectedState: {
+        "data-selected-activation-gate-id": "worker-handoff",
+        "data-selected-activation-gate-node-attempt-id": workerHandoffAttempt,
+      },
+      timelineVisible: true,
+    },
+    incompleteAction: {
+      disabled: true,
+      mintable: false,
+    },
+  };
+  return {
+    ...base,
+    ...overrides,
+    activationAction: {
+      ...base.activationAction,
+      ...(overrides.activationAction ?? {}),
+    },
+    activationResult: {
+      ...base.activationResult,
+      ...(overrides.activationResult ?? {}),
+    },
+    workerHandoff: {
+      ...base.workerHandoff,
+      ...(overrides.workerHandoff ?? {}),
+      selectedState: {
+        ...base.workerHandoff.selectedState,
+        ...(overrides.workerHandoff?.selectedState ?? {}),
+      },
+    },
+    incompleteAction: {
+      ...base.incompleteAction,
+      ...(overrides.incompleteAction ?? {}),
+    },
+  };
+}
+
+function promotionInvariantUiAssertions(proof = reviewedImportActivationApplyProof()) {
+  return {
+    promotionTransitionLiveGui: {
+      checks: {
+        packageImportActivationApplyProof: true,
+      },
+      packageImportActivationApplyProof: proof,
+    },
+  };
+}
 
 test("autopilot GUI harness contract preserves retained query pack", () => {
   const contract = autopilotGuiHarnessContract();
@@ -37,6 +131,9 @@ test("autopilot GUI harness contract preserves retained query pack", () => {
     "retained_repo_grounded_answer",
     "retained_source_heavy_synthesis",
     "retained_probe_behavior",
+  ]);
+  assert.deepEqual(contract.defaultLivePromotionInvariants, [
+    ...DEFAULT_LIVE_PROMOTION_INVARIANTS,
   ]);
   assert.ok(retainedQueryByScenario("safety_boundary"));
   assert.equal(
@@ -387,6 +484,7 @@ test("complete GUI harness result validates only when UI and runtime evidence ag
     runtimeConsistency: Object.fromEntries(
       contract.runtimeConsistencyRequirements.map((requirement) => [requirement, true]),
     ),
+    uiAssertions: promotionInvariantUiAssertions(),
   };
 
   assert.deepEqual(validateAutopilotGuiHarnessResult(passing), {
@@ -406,6 +504,77 @@ test("complete GUI harness result validates only when UI and runtime evidence ag
   assert.ok(
     validation.failures.includes(
       "runtime consistency requirement failed: visible_output_matches_trace",
+    ),
+  );
+});
+
+test("default-live promotion requires reviewed import activation apply proof", () => {
+  const passing = validateDefaultLivePromotionInvariants({
+    uiAssertions: promotionInvariantUiAssertions(),
+  });
+  assert.deepEqual(passing, {
+    ok: true,
+    failures: [],
+  });
+
+  const missing = validateDefaultLivePromotionInvariants({});
+  assert.equal(missing.ok, false);
+  assert.ok(
+    missing.failures.includes(
+      "default live promotion invariant failed: reviewed import activation apply proof did not pass",
+    ),
+  );
+  assert.ok(
+    missing.failures.includes(
+      "default live promotion invariant failed: Activate reviewed import was not clicked",
+    ),
+  );
+
+  const invalidWorkerBinding = validateDefaultLivePromotionInvariants({
+    uiAssertions: promotionInvariantUiAssertions(
+      reviewedImportActivationApplyProof({
+        activationResult: {
+          workerBindingActivationId: "activation:wrong",
+        },
+      }),
+    ),
+  });
+  assert.equal(invalidWorkerBinding.ok, false);
+  assert.ok(
+    invalidWorkerBinding.failures.includes(
+      "default live promotion invariant failed: worker binding does not point at the minted activation id",
+    ),
+  );
+});
+
+test("complete GUI harness result rejects claimed promotion without embedded apply proof", () => {
+  const contract = autopilotGuiHarnessContract();
+  const claimed = {
+    schemaVersion: contract.schemaVersion,
+    launchCommand: contract.launchCommand,
+    queryResults: contract.retainedQueries.map((query) => ({
+      scenario: query.scenario,
+      passed: true,
+      runtimeEvidence: {
+        matchedUserRequest: true,
+        hasAssistantResponse: true,
+        concatenatedPrompt: false,
+      },
+    })),
+    artifacts: Object.fromEntries(contract.requiredArtifacts.map((artifact) => [artifact, true])),
+    chatUx: Object.fromEntries(
+      contract.cleanChatUxRequirements.map((requirement) => [requirement, true]),
+    ),
+    runtimeConsistency: Object.fromEntries(
+      contract.runtimeConsistencyRequirements.map((requirement) => [requirement, true]),
+    ),
+  };
+
+  const validation = validateAutopilotGuiHarnessResult(claimed);
+  assert.equal(validation.ok, false);
+  assert.ok(
+    validation.failures.includes(
+      "default live promotion invariant failed: reviewed import activation apply proof did not pass",
     ),
   );
 });

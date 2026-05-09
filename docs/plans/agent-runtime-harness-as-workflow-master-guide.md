@@ -169,7 +169,12 @@ and worker binding routes; the retained GUI evidence marks
 `harness_package_import_activation_handoff_present: true`. The retained GUI
 proof now commits the reviewed import activation through the real
 `Activate reviewed import` button and marks
-`harness_package_import_activation_apply_present: true`.
+`harness_package_import_activation_apply_present: true`. That proof is now a
+hard default-live promotion invariant: `validateAutopilotGuiHarnessResult`
+rejects any claimed passing GUI bundle unless the embedded activation apply
+proof shows the click, minted activation id, validated workflow state, worker
+binding, rollback/revision binding, audit, refs, and worker-handoff deep-link
+restoration.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -1161,6 +1166,35 @@ pre-activation handoff:
 This closes the activation side of the package loop: a fork package can be
 exported, imported, reviewed, inspected, activated, audited, and traced to the
 worker handoff timeline through the GUI.
+
+### 2026-05-09 Reviewed Import Activation Hard Gate Slice
+
+The reviewed-import activation apply proof is no longer only an artifact flag.
+It is a contract-level default-live promotion invariant:
+
+- `scripts/lib/autopilot-gui-harness-contract.mjs` now exposes
+  `DEFAULT_LIVE_PROMOTION_INVARIANTS` and validates
+  `uiAssertions.promotionTransitionLiveGui.packageImportActivationApplyProof`
+  directly.
+- A passing GUI result must prove the same-session `Activate reviewed import`
+  click, mintable handoff action, minted activation id, `validated` workflow
+  activation state, matching worker binding ids, preserved rollback target,
+  revision and rollback hashes, `activation_minted` / `applied` audit status,
+  activation receipt/evidence refs, worker handoff receipts, worker handoff
+  node attempts, worker handoff replay fixture refs, and worker-handoff
+  deep-link restoration.
+- A GUI result that merely claims
+  `harness_package_import_activation_apply_present: true` now fails unless the
+  embedded proof satisfies the invariant. Runtime P3 and superiority gates
+  inherit this because they select passing GUI evidence through
+  `validateAutopilotGuiHarnessResult`.
+- The promotion-ready baseline is
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T23-54-16-708Z/`;
+  all eight retained queries passed and the hard invariant reports clicked,
+  applied, `validated`, `activation_minted` / `applied`, and worker-handoff
+  timeline restoration.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-00-38-348Z/dashboard-index.json`.
 
 ## Current State
 
