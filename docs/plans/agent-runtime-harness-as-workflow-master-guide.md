@@ -112,13 +112,14 @@ activation handoff timeline proof, fork handoff deep-link proof,
 canary/rollback route-state proof, fork package evidence manifest proof,
 package evidence activation gate proof, and live package-evidence click-through
 proof, package evidence export/import round-trip proof, and user-facing import
-review mode proof, live-turn node inspector proof, and live-turn node inspector
-deep-link restoration proof have a green end-to-end checkpoint:
+review mode proof, live-turn node inspector proof, live-turn node inspector
+deep-link restoration proof, and live-vs-shadow comparison deep-link proof have
+a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-11-07-040Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-48-25-805Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T04-17-19-806Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-03-55-186Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -160,7 +161,15 @@ restores that live attempt through
 `data-node-attempt-source-kind=default_runtime_dispatch`, live mode,
 `live_ready`, receipt refs, replay fixture ref, policy decision, activation id,
 harness hash, input hash, and output hash. Runtime consistency now requires
-`harness_live_turn_node_inspector_deep_link_present: true`. It further proves
+`harness_live_turn_node_inspector_deep_link_present: true`. The GUI promotion
+proof also restores a live-vs-shadow comparison through the same
+`nodeAttemptId` route, opens
+`workflow-harness-live-shadow-comparison-inspector`, and reads back the live
+attempt id, shadow attempt id, workflow node id, `planner` component kind,
+`divergence=none`, `blocking=false`, live and shadow receipt refs, live and
+shadow replay fixture refs, and matching input/output hashes. Runtime
+consistency now also requires `harness_live_shadow_comparison_present: true`.
+It further proves
 the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation
@@ -1332,8 +1341,50 @@ activation gates, and worker handoffs:
 This changes the live-turn node inspector from "runtime artifacts include an
 inspectable attempt" to "the actual GUI can restore the live default dispatch
 node attempt by URL and prove the rail displays the same receipt, replay,
-policy, binding, and hash evidence." The next chronological slice should use
-the same pattern for live-vs-shadow divergence comparison on the node timeline.
+policy, binding, and hash evidence."
+
+### 2026-05-09 Live Vs Shadow Comparison Deep-Link Slice
+
+The default harness workflow now carries explicit shadow cognition adapter
+attempts beside its live cognition adapter attempts and exposes their
+comparison as a first-class rail surface:
+
+- `defaultRuntimeDispatchProof` now emits
+  `cognitionExecutionShadowAdapterResults`, shadow attempt ids, receipt ids,
+  replay fixture refs, action frame ids, divergence classes, and
+  `liveShadowComparisons` for the live `planner`, `prompt_assembler`, and
+  `task_state` envelopes.
+- Each comparison binds the live node attempt to its shadow node attempt with
+  `divergence=none`, `blocking=false`, live and shadow receipt refs, live and
+  shadow replay fixture refs, and matching input/output hashes.
+- The node-attempt inspector resolver now attaches the comparison when a live
+  or shadow default-dispatch attempt is selected. The right rail renders
+  `workflow-harness-live-shadow-comparison-inspector` with data attributes for
+  both attempt ids, the component kind, divergence/blocking state, receipts,
+  replay fixtures, and hash comparison.
+- The promotion GUI proof now runs
+  `runHarnessLiveShadowComparisonDeepLinkProbe`, writes the same
+  `#harness-workbench?panel=outputs&nodeAttemptId=...&receiptRef=...&replayFixtureRef=...`
+  hash shape, opens the comparison inspector, and proves the rail echoes the
+  live/shadow pair.
+- The GUI harness evidence contract now requires
+  `harness_live_shadow_comparison` and runtime consistency requires
+  `harness_live_shadow_comparison_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-48-25-805Z/result.json`;
+  the promotion proof reports `liveShadowComparisonDeepLink: true` for
+  `harness.planner:default-dispatch:planner_envelope` paired with
+  `harness.planner:default-dispatch:planner_envelope_shadow`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-03-55-186Z/dashboard-index.json`.
+
+This changes live-vs-shadow from "comparison records may exist somewhere in a
+run" to "the GUI can restore a default harness live/shadow pair by URL and
+prove the rail displays the same receipt, replay, divergence, and hash
+evidence." The next chronological slice should push the shadow comparison from
+the GUI promotion proof into retained live runtime dispatch artifacts so normal
+dogfooded turns also emit the shadow adapter comparison directly from the
+runtime evidence path.
 
 ## Current State
 

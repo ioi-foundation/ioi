@@ -991,6 +991,14 @@ export interface WorkflowHarnessShadowComparison {
   blocking: boolean;
   summary: string;
   evidenceRefs: string[];
+  liveReceiptRefs?: string[];
+  shadowReceiptRefs?: string[];
+  liveReplayFixtureRef?: string;
+  shadowReplayFixtureRef?: string;
+  liveInputHash?: string;
+  shadowInputHash?: string;
+  liveOutputHash?: string;
+  shadowOutputHash?: string;
 }
 
 export interface WorkflowHarnessShadowRun {
@@ -1682,6 +1690,20 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   cognitionExecutionAdapterResults: WorkflowHarnessComponentAdapterResult[];
   cognitionExecutionActionFrameIds: string[];
   cognitionExecutionLiveReadyComponentKinds: WorkflowHarnessComponentKind[];
+  cognitionExecutionShadowAdapterMode?:
+    | "workflow_component_adapter_shadow"
+    | string;
+  cognitionExecutionShadowAttemptIds?: string[];
+  cognitionExecutionShadowReceiptIds?: string[];
+  cognitionExecutionShadowReplayFixtureRefs?: string[];
+  cognitionExecutionShadowAdapterResults?: WorkflowHarnessComponentAdapterResult[];
+  cognitionExecutionShadowActionFrameIds?: string[];
+  cognitionExecutionShadowComponentKinds?: WorkflowHarnessComponentKind[];
+  cognitionExecutionShadowDivergenceClasses?: WorkflowHarnessDivergenceClass[];
+  liveShadowComparisons?: WorkflowHarnessShadowComparison[];
+  liveShadowComparisonCount?: number;
+  liveShadowBlockingDivergenceCount?: number;
+  liveShadowUnclassifiedDivergenceCount?: number;
   cognitionExecutionGateAdapterMode:
     | "workflow_component_adapter_gated"
     | string;
@@ -2837,6 +2859,7 @@ export interface WorkflowHarnessMetadata {
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   liveActivationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   liveTurnNodeInspectorDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
+  liveShadowComparisonDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;

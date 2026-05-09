@@ -512,6 +512,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveTurnNodeInspectorCount: 0,
     harnessLiveTurnNodeInspectorScenarios: [],
     harnessLiveTurnNodeInspectorSamples: [],
+    harnessLiveShadowComparisonCount: 0,
+    harnessLiveShadowComparisonScenarios: [],
+    harnessLiveShadowComparisonSamples: [],
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessAuthorityToolingGateLiveCount: 0,
     harnessAuthorityToolingProviderCatalogLiveCount: 0,
@@ -537,6 +540,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
   };
   const harnessLiveTurnNodeTimelineKeys = new Set();
   const harnessLiveTurnNodeInspectorKeys = new Set();
+  const harnessLiveShadowComparisonKeys = new Set();
   const addScenario = (items, scenario) => {
     if (
       typeof scenario === "string" &&
@@ -547,7 +551,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       items.sort();
     }
   };
-  const stringArrayLength = (value) => (Array.isArray(value) ? value.length : 0);
+  const stringArrayLength = (value) =>
+    Array.isArray(value) ? value.length : 0;
   const adapterResultsReady = (value, mode, readiness, status, minimum) =>
     Array.isArray(value) &&
     value.length >= minimum &&
@@ -564,6 +569,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
   const extractInspectableHarnessAttempt = (dispatch) => {
     const resultSources = [
       dispatch?.cognitionExecutionAdapterResults,
+      dispatch?.cognitionExecutionShadowAdapterResults,
       dispatch?.cognitionExecutionGateAdapterResults,
       dispatch?.routingModelAdapterResults,
       dispatch?.verificationOutputAdapterResults,
@@ -608,9 +614,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       });
     if (resultAttempt?.nodeAttempt) return resultAttempt;
 
-    const directAttempt = (Array.isArray(dispatch?.dispatchNodeAttempts)
-      ? dispatch.dispatchNodeAttempts
-      : []
+    const directAttempt = (
+      Array.isArray(dispatch?.dispatchNodeAttempts)
+        ? dispatch.dispatchNodeAttempts
+        : []
     ).find((nodeAttempt) => {
       const replayFixtureRef = nodeAttempt?.replay?.fixtureRef;
       return (
@@ -636,6 +643,57 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       ? { actionFrame: null, nodeAttempt: directAttempt }
       : null;
   };
+  const extractHarnessLiveShadowComparison = (dispatch) => {
+    const comparisons = Array.isArray(dispatch?.liveShadowComparisons)
+      ? dispatch.liveShadowComparisons
+      : [];
+    if (comparisons.length === 0) return null;
+    const attempts = [
+      dispatch?.cognitionExecutionAdapterResults,
+      dispatch?.cognitionExecutionShadowAdapterResults,
+      dispatch?.cognitionExecutionGateAdapterResults,
+      dispatch?.routingModelAdapterResults,
+      dispatch?.verificationOutputAdapterResults,
+      dispatch?.authorityToolingAdapterResults,
+    ]
+      .flatMap((items) => (Array.isArray(items) ? items : []))
+      .map((result) => result?.nodeAttempt)
+      .filter(Boolean);
+    for (const comparison of comparisons) {
+      const liveAttempt =
+        attempts.find(
+          (attempt) => attempt?.attemptId === comparison?.liveAttemptId,
+        ) ?? null;
+      const shadowAttempt =
+        attempts.find(
+          (attempt) => attempt?.attemptId === comparison?.shadowAttemptId,
+        ) ?? null;
+      if (!liveAttempt || !shadowAttempt) continue;
+      const ready =
+        comparison.divergence === "none" &&
+        comparison.blocking === false &&
+        liveAttempt.executionMode === "live" &&
+        shadowAttempt.executionMode === "shadow" &&
+        Array.isArray(liveAttempt.receiptIds) &&
+        liveAttempt.receiptIds.length > 0 &&
+        Array.isArray(shadowAttempt.receiptIds) &&
+        shadowAttempt.receiptIds.length > 0 &&
+        typeof liveAttempt.replay?.fixtureRef === "string" &&
+        liveAttempt.replay.fixtureRef.length > 0 &&
+        typeof shadowAttempt.replay?.fixtureRef === "string" &&
+        shadowAttempt.replay.fixtureRef.length > 0 &&
+        typeof liveAttempt.inputHash === "string" &&
+        liveAttempt.inputHash.length > 0 &&
+        liveAttempt.inputHash === shadowAttempt.inputHash &&
+        typeof liveAttempt.outputHash === "string" &&
+        liveAttempt.outputHash.length > 0 &&
+        liveAttempt.outputHash === shadowAttempt.outputHash;
+      if (ready) {
+        return { comparison, liveAttempt, shadowAttempt };
+      }
+    }
+    return null;
+  };
   const noteHarnessLiveTurnNodeTimeline = (dispatch, artifactId = null) => {
     if (!dispatch || typeof dispatch !== "object") return;
     const scenario = dispatch.modelProviderGatedVisibleOutputScenario;
@@ -651,7 +709,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch.authorityToolingAdapterProof?.policyDecision,
     ].filter((decision) => typeof decision === "string" && decision.length > 0);
     const liveTurnTimelineReady =
-      dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
+      dispatch.schemaVersion ===
+        "workflow.harness.default-runtime-dispatch.v1" &&
       scenario === "retained_harness_dogfooding" &&
       dispatch.status === "accepted" &&
       dispatch.selectedSelector === "blessed_workflow_live_default" &&
@@ -763,14 +822,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         artifactId,
         dispatchId: dispatch.dispatchId ?? null,
         scenario,
-        workflowId: dispatch.workflowId ?? nodeAttempt.harnessWorkflowId ?? null,
+        workflowId:
+          dispatch.workflowId ?? nodeAttempt.harnessWorkflowId ?? null,
         activationId:
           dispatch.activationId ?? nodeAttempt.harnessActivationId ?? null,
         harnessHash: dispatch.harnessHash ?? nodeAttempt.harnessHash ?? null,
         runtimeAuthority: dispatch.runtimeAuthority ?? null,
         nodeAttemptId: nodeAttempt.attemptId,
         workflowNodeId: nodeAttempt.workflowNodeId,
-        componentId: nodeAttempt.componentId ?? actionFrame?.componentId ?? null,
+        componentId:
+          nodeAttempt.componentId ?? actionFrame?.componentId ?? null,
         componentKind:
           nodeAttempt.componentKind ?? actionFrame?.componentKind ?? null,
         executionMode:
@@ -792,6 +853,53 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         actionFrameExecutionMode: actionFrame?.executionMode ?? null,
         inspectorTestId: "workflow-harness-node-attempt-inspector",
         selectedNodeInspectorTestId: "workflow-selected-node-harness-attempt",
+        timelineTestId: "workflow-run-harness-timeline",
+        deepLinkParam: "nodeAttemptId",
+      });
+    }
+    const comparisonBundle = extractHarnessLiveShadowComparison(dispatch);
+    if (!comparisonBundle) return;
+    const { comparison, liveAttempt, shadowAttempt } = comparisonBundle;
+    const comparisonKey = `${timelineKey}:${comparison.liveAttemptId}:${comparison.shadowAttemptId}`;
+    if (harnessLiveShadowComparisonKeys.has(comparisonKey)) return;
+    harnessLiveShadowComparisonKeys.add(comparisonKey);
+    summary.harnessLiveShadowComparisonCount += 1;
+    addScenario(summary.harnessLiveShadowComparisonScenarios, scenario);
+    if (summary.harnessLiveShadowComparisonSamples.length < 8) {
+      summary.harnessLiveShadowComparisonSamples.push({
+        artifactId,
+        dispatchId: dispatch.dispatchId ?? null,
+        scenario,
+        workflowId:
+          dispatch.workflowId ?? liveAttempt.harnessWorkflowId ?? null,
+        activationId:
+          dispatch.activationId ?? liveAttempt.harnessActivationId ?? null,
+        harnessHash: dispatch.harnessHash ?? liveAttempt.harnessHash ?? null,
+        runtimeAuthority: dispatch.runtimeAuthority ?? null,
+        workflowNodeId: comparison.workflowNodeId,
+        componentKind: comparison.componentKind,
+        liveAttemptId: comparison.liveAttemptId,
+        shadowAttemptId: comparison.shadowAttemptId,
+        divergence: comparison.divergence,
+        blocking: comparison.blocking,
+        summary: comparison.summary ?? null,
+        liveExecutionMode: liveAttempt.executionMode ?? null,
+        shadowExecutionMode: shadowAttempt.executionMode ?? null,
+        liveReceiptRefs: Array.isArray(liveAttempt.receiptIds)
+          ? liveAttempt.receiptIds.slice(0, 12)
+          : [],
+        shadowReceiptRefs: Array.isArray(shadowAttempt.receiptIds)
+          ? shadowAttempt.receiptIds.slice(0, 12)
+          : [],
+        liveReplayFixtureRef: liveAttempt.replay?.fixtureRef ?? null,
+        shadowReplayFixtureRef: shadowAttempt.replay?.fixtureRef ?? null,
+        liveInputHash: liveAttempt.inputHash ?? null,
+        shadowInputHash: shadowAttempt.inputHash ?? null,
+        liveOutputHash: liveAttempt.outputHash ?? null,
+        shadowOutputHash: shadowAttempt.outputHash ?? null,
+        comparisonInspectorTestId:
+          "workflow-harness-live-shadow-comparison-inspector",
+        nodeInspectorTestId: "workflow-harness-node-attempt-inspector",
         timelineTestId: "workflow-run-harness-timeline",
         deepLinkParam: "nodeAttemptId",
       });
@@ -4404,6 +4512,35 @@ function buildGuiEvidenceAssessment({
       ?.liveTurnNodeInspectorDeepLink === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
       ?.liveTurnNodeInspectorDeepLinkProof?.passed === true;
+  const liveShadowComparisonProof =
+    promotionTransitionLiveGuiInteractionProof?.proof?.liveShadowComparison ??
+    null;
+  const hasHarnessLiveShadowComparison =
+    hasHarnessLiveTurnNodeInspectorDeepLink &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.liveShadowComparisonDeepLink === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.liveShadowComparisonDeepLinkProof?.passed === true &&
+    liveShadowComparisonProof?.selectedRailTestId ===
+      "workflow-harness-live-shadow-comparison-inspector" &&
+    typeof liveShadowComparisonProof?.observedLiveAttemptId === "string" &&
+    liveShadowComparisonProof.observedLiveAttemptId.length > 0 &&
+    typeof liveShadowComparisonProof?.observedShadowAttemptId === "string" &&
+    liveShadowComparisonProof.observedShadowAttemptId.length > 0 &&
+    liveShadowComparisonProof?.divergence === "none" &&
+    liveShadowComparisonProof?.blocking === "false" &&
+    Array.isArray(liveShadowComparisonProof?.liveReceiptRefs) &&
+    liveShadowComparisonProof.liveReceiptRefs.length > 0 &&
+    Array.isArray(liveShadowComparisonProof?.shadowReceiptRefs) &&
+    liveShadowComparisonProof.shadowReceiptRefs.length > 0 &&
+    typeof liveShadowComparisonProof?.liveReplayFixtureRef === "string" &&
+    liveShadowComparisonProof.liveReplayFixtureRef.length > 0 &&
+    typeof liveShadowComparisonProof?.shadowReplayFixtureRef === "string" &&
+    liveShadowComparisonProof.shadowReplayFixtureRef.length > 0 &&
+    liveShadowComparisonProof?.liveInputHash ===
+      liveShadowComparisonProof?.shadowInputHash &&
+    liveShadowComparisonProof?.liveOutputHash ===
+      liveShadowComparisonProof?.shadowOutputHash;
   const hasHarnessLivePromotionReadiness =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessLivePromotionReadinessCount > 0 &&
@@ -4581,12 +4718,11 @@ function buildGuiEvidenceAssessment({
         hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
         hasHarnessChatRuntimeBinding,
-      harness_live_turn_node_timeline_present:
-        hasHarnessLiveTurnNodeTimeline,
-      harness_live_turn_node_inspector_present:
-        hasHarnessLiveTurnNodeInspector,
+      harness_live_turn_node_timeline_present: hasHarnessLiveTurnNodeTimeline,
+      harness_live_turn_node_inspector_present: hasHarnessLiveTurnNodeInspector,
       harness_live_turn_node_inspector_deep_link_present:
         hasHarnessLiveTurnNodeInspectorDeepLink,
+      harness_live_shadow_comparison_present: hasHarnessLiveShadowComparison,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4675,6 +4811,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveTurnNodeTimeline,
       hasHarnessLiveTurnNodeInspector,
       hasHarnessLiveTurnNodeInspectorDeepLink,
+      hasHarnessLiveShadowComparison,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -5242,6 +5379,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.liveActivationGateDeepLinkProof ?? null;
     const liveTurnNodeInspectorDeepLinkProof =
       workflow?.metadata?.harness?.liveTurnNodeInspectorDeepLinkProof ?? null;
+    const liveShadowComparisonDeepLinkProof =
+      workflow?.metadata?.harness?.liveShadowComparisonDeepLinkProof ?? null;
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const packageEvidenceGateClickProof =
@@ -5477,8 +5616,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         0 &&
       Number(workerInvariantNegativeApply.workerHandoffReceiptCount ?? 0) ===
         0 &&
-      Number(workerInvariantNegativeApply.workerHandoffNodeAttemptCount ?? 0) ===
-        0 &&
+      Number(
+        workerInvariantNegativeApply.workerHandoffNodeAttemptCount ?? 0,
+      ) === 0 &&
       workerInvariantNegativeApply.latestAuditEventType ===
         "activation_mint_blocked" &&
       workerInvariantNegativeApply.latestAuditStatus === "blocked";
@@ -5499,8 +5639,13 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       liveTurnNodeInspectorDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "live-turn-node-inspector",
       ) ?? null;
+    const liveShadowComparisonDeepLinkCase =
+      liveShadowComparisonDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "live-shadow-comparison",
+      ) ?? null;
     const defaultDispatchAdapterAttempts = [
       ...(defaultDispatch?.cognitionExecutionAdapterResults ?? []),
+      ...(defaultDispatch?.cognitionExecutionShadowAdapterResults ?? []),
       ...(defaultDispatch?.cognitionExecutionGateAdapterResults ?? []),
       ...(defaultDispatch?.routingModelAdapterResults ?? []),
       ...(defaultDispatch?.verificationOutputAdapterResults ?? []),
@@ -5588,6 +5733,85 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         liveTurnNodeInspectorAttempt?.inputHash &&
       liveTurnNodeInspectorState["data-output-hash"] ===
         liveTurnNodeInspectorAttempt?.outputHash;
+    const liveShadowComparison =
+      (defaultDispatch?.liveShadowComparisons ?? []).find(
+        (comparison) =>
+          comparison.liveAttemptId ===
+          liveShadowComparisonDeepLinkCase?.expectedValue,
+      ) ??
+      (defaultDispatch?.liveShadowComparisons ?? [])[0] ??
+      null;
+    const liveShadowLiveAttempt =
+      defaultDispatchNodeAttempts.find(
+        (attempt) => attempt?.attemptId === liveShadowComparison?.liveAttemptId,
+      ) ?? null;
+    const liveShadowShadowAttempt =
+      defaultDispatchNodeAttempts.find(
+        (attempt) =>
+          attempt?.attemptId === liveShadowComparison?.shadowAttemptId,
+      ) ?? null;
+    const liveShadowComparisonState =
+      liveShadowComparisonDeepLinkCase?.observedSelectedState ?? {};
+    const liveShadowComparisonLiveReceiptRefs = String(
+      liveShadowComparisonState["data-live-receipt-refs"] ?? "",
+    )
+      .split(/[|,]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const liveShadowComparisonShadowReceiptRefs = String(
+      liveShadowComparisonState["data-shadow-receipt-refs"] ?? "",
+    )
+      .split(/[|,]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const liveShadowComparisonDeepLinkRestored =
+      liveShadowComparisonDeepLinkProof?.passed === true &&
+      liveShadowComparisonDeepLinkCase?.passed === true &&
+      liveShadowComparisonDeepLinkCase?.selectedRailTestId ===
+        "workflow-harness-live-shadow-comparison-inspector" &&
+      typeof liveShadowComparisonDeepLinkCase?.hash === "string" &&
+      liveShadowComparisonDeepLinkCase.hash.startsWith("#harness-workbench?") &&
+      liveShadowComparisonDeepLinkCase.hash.includes("panel=outputs") &&
+      liveShadowComparisonDeepLinkCase.hash.includes("nodeAttemptId=") &&
+      liveShadowComparisonDeepLinkCase.hash.includes("receiptRef=") &&
+      liveShadowComparisonDeepLinkCase.hash.includes("replayFixtureRef=") &&
+      liveShadowComparisonDeepLinkCase.historyMatches === true &&
+      liveShadowComparisonDeepLinkCase.parsedMatches === true &&
+      liveShadowComparisonDeepLinkCase.observedValue ===
+        liveShadowComparisonDeepLinkCase.expectedValue &&
+      Boolean(liveShadowComparison) &&
+      Boolean(liveShadowLiveAttempt) &&
+      Boolean(liveShadowShadowAttempt) &&
+      liveShadowComparisonState["data-live-attempt-id"] ===
+        liveShadowComparison?.liveAttemptId &&
+      liveShadowComparisonState["data-shadow-attempt-id"] ===
+        liveShadowComparison?.shadowAttemptId &&
+      liveShadowComparisonState["data-workflow-node-id"] ===
+        liveShadowComparison?.workflowNodeId &&
+      liveShadowComparisonState["data-component-kind"] ===
+        liveShadowComparison?.componentKind &&
+      liveShadowComparisonState["data-divergence"] ===
+        liveShadowComparison?.divergence &&
+      liveShadowComparisonState["data-blocking"] ===
+        (liveShadowComparison?.blocking ? "true" : "false") &&
+      liveShadowComparisonLiveReceiptRefs.includes(
+        liveShadowLiveAttempt?.receiptIds?.[0],
+      ) &&
+      liveShadowComparisonShadowReceiptRefs.includes(
+        liveShadowShadowAttempt?.receiptIds?.[0],
+      ) &&
+      liveShadowComparisonState["data-live-replay-fixture-ref"] ===
+        liveShadowLiveAttempt?.replay?.fixtureRef &&
+      liveShadowComparisonState["data-shadow-replay-fixture-ref"] ===
+        liveShadowShadowAttempt?.replay?.fixtureRef &&
+      liveShadowComparisonState["data-live-input-hash"] ===
+        liveShadowLiveAttempt?.inputHash &&
+      liveShadowComparisonState["data-shadow-input-hash"] ===
+        liveShadowShadowAttempt?.inputHash &&
+      liveShadowComparisonState["data-live-output-hash"] ===
+        liveShadowLiveAttempt?.outputHash &&
+      liveShadowComparisonState["data-shadow-output-hash"] ===
+        liveShadowShadowAttempt?.outputHash;
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -5639,8 +5863,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGate: activationGateDeepLinkCase?.hash ?? null,
       activationGateWorkerInvariant:
         activationGateWorkerInvariantDeepLinkCase?.hash ?? null,
-      workerInvariantNegative:
-        workerInvariantNegativeDeepLink.hash ?? null,
+      workerInvariantNegative: workerInvariantNegativeDeepLink.hash ?? null,
       activationGateEvidence: activationGateEvidenceDeepLinkCase?.hash ?? null,
       activationGateNodeAttempt:
         activationGateNodeAttemptDeepLinkCase?.hash ??
@@ -5652,6 +5875,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         activationGateCanaryBoundaryDeepLinkCase?.hash ?? null,
       activationGateCanaryRollbackDrill:
         activationGateCanaryRollbackDrillDeepLinkCase?.hash ?? null,
+      liveShadowComparison: liveShadowComparisonDeepLinkCase?.hash ?? null,
       activationAudit: audit[0]?.eventId
         ? `#harness-workbench?${new URLSearchParams({
             panel: "settings",
@@ -6110,6 +6334,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       routeStatefulDeepLinkReplay: deepLinkReplayPassed,
       coldStartDeepLinkRestore: coldStartDeepLinkRestorePassed,
       liveTurnNodeInspectorDeepLink: liveTurnNodeInspectorDeepLinkRestored,
+      liveShadowComparisonDeepLink: liveShadowComparisonDeepLinkRestored,
       routeStatefulRevisionBindingDeepLink:
         routeStatefulDeepLinks.revision?.includes(
           "revisionBindingKind=current",
@@ -7114,6 +7339,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateDeepLinkProof,
       liveActivationGateDeepLinkProof,
       liveTurnNodeInspectorDeepLinkProof,
+      liveShadowComparisonDeepLinkProof,
       liveTurnNodeInspector: liveTurnNodeInspectorDeepLinkCase
         ? {
             selectedRailTestId:
@@ -7124,9 +7350,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             observedNodeAttemptId:
               liveTurnNodeInspectorState["data-node-attempt-id"] ?? null,
             sourceKind:
-              liveTurnNodeInspectorState[
-                "data-node-attempt-source-kind"
-              ] ?? null,
+              liveTurnNodeInspectorState["data-node-attempt-source-kind"] ??
+              null,
             workflowNodeId:
               liveTurnNodeInspectorState["data-workflow-node-id"] ?? null,
             componentKind:
@@ -7136,9 +7361,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             harnessWorkflowId:
               liveTurnNodeInspectorState["data-harness-workflow-id"] ?? null,
             harnessActivationId:
-              liveTurnNodeInspectorState[
-                "data-harness-activation-id"
-              ] ?? null,
+              liveTurnNodeInspectorState["data-harness-activation-id"] ?? null,
             harnessHash:
               liveTurnNodeInspectorState["data-harness-hash"] ?? null,
             executionMode:
@@ -7152,6 +7375,40 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               liveTurnNodeInspectorState["data-replay-fixture-ref"] ?? null,
             inputHash: liveTurnNodeInspectorState["data-input-hash"] ?? null,
             outputHash: liveTurnNodeInspectorState["data-output-hash"] ?? null,
+          }
+        : null,
+      liveShadowComparison: liveShadowComparisonDeepLinkCase
+        ? {
+            selectedRailTestId:
+              liveShadowComparisonDeepLinkCase.selectedRailTestId,
+            hash: liveShadowComparisonDeepLinkCase.hash,
+            expectedLiveAttemptId:
+              liveShadowComparisonDeepLinkCase.expectedValue,
+            observedLiveAttemptId:
+              liveShadowComparisonState["data-live-attempt-id"] ?? null,
+            observedShadowAttemptId:
+              liveShadowComparisonState["data-shadow-attempt-id"] ?? null,
+            workflowNodeId:
+              liveShadowComparisonState["data-workflow-node-id"] ?? null,
+            componentKind:
+              liveShadowComparisonState["data-component-kind"] ?? null,
+            divergence: liveShadowComparisonState["data-divergence"] ?? null,
+            blocking: liveShadowComparisonState["data-blocking"] ?? null,
+            liveReceiptRefs: liveShadowComparisonLiveReceiptRefs,
+            shadowReceiptRefs: liveShadowComparisonShadowReceiptRefs,
+            liveReplayFixtureRef:
+              liveShadowComparisonState["data-live-replay-fixture-ref"] ?? null,
+            shadowReplayFixtureRef:
+              liveShadowComparisonState["data-shadow-replay-fixture-ref"] ??
+              null,
+            liveInputHash:
+              liveShadowComparisonState["data-live-input-hash"] ?? null,
+            shadowInputHash:
+              liveShadowComparisonState["data-shadow-input-hash"] ?? null,
+            liveOutputHash:
+              liveShadowComparisonState["data-live-output-hash"] ?? null,
+            shadowOutputHash:
+              liveShadowComparisonState["data-shadow-output-hash"] ?? null,
           }
         : null,
       activationGateActionClickProof,
@@ -7273,18 +7530,15 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
                 ] ?? 0,
               ),
               invariantBlockers:
-                activationGateWorkerInvariantState[
-                  "data-invariant-blockers"
-                ] ?? "",
+                activationGateWorkerInvariantState["data-invariant-blockers"] ??
+                "",
               action: {
                 id:
-                  activationGateWorkerInvariantState[
-                    "data-gate-action-id"
-                  ] ?? null,
+                  activationGateWorkerInvariantState["data-gate-action-id"] ??
+                  null,
                 kind:
-                  activationGateWorkerInvariantState[
-                    "data-gate-action-kind"
-                  ] ?? null,
+                  activationGateWorkerInvariantState["data-gate-action-kind"] ??
+                  null,
                 impact:
                   activationGateWorkerInvariantState[
                     "data-gate-action-impact"
@@ -7711,6 +7965,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_live_turn_node_inspector_deep_link:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.liveTurnNodeInspectorDeepLink === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_live_shadow_comparison:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.liveShadowComparisonDeepLink === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_authority_tooling_gate_live:

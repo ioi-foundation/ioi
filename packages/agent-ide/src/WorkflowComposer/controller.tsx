@@ -81,6 +81,7 @@ import type {
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionTransitionAttempt,
   WorkflowHarnessPromotionTransitionTarget,
+  WorkflowHarnessShadowComparison,
   WorkflowHarnessWorkerInvariantNegativeEnforcementProof,
   WorkflowExecutionMode,
   WorkflowKind,
@@ -1043,6 +1044,23 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-replay-determinism",
     "data-input-hash",
     "data-output-hash",
+    "data-shadow-comparison-live-attempt-id",
+    "data-shadow-comparison-shadow-attempt-id",
+    "data-shadow-comparison-divergence",
+    "data-shadow-comparison-blocking",
+    "data-live-attempt-id",
+    "data-shadow-attempt-id",
+    "data-divergence",
+    "data-blocking",
+    "data-summary",
+    "data-live-receipt-refs",
+    "data-shadow-receipt-refs",
+    "data-live-replay-fixture-ref",
+    "data-shadow-replay-fixture-ref",
+    "data-live-input-hash",
+    "data-shadow-input-hash",
+    "data-live-output-hash",
+    "data-shadow-output-hash",
     "data-gate-source-kind",
     "data-gate-status",
     "data-evidence-ref-count",
@@ -1875,6 +1893,7 @@ function harnessLiveTurnNodeInspectorAttemptForWorkflow(
   if (!dispatch) return null;
   const adapterAttempts = [
     ...(dispatch.cognitionExecutionAdapterResults ?? []),
+    ...(dispatch.cognitionExecutionShadowAdapterResults ?? []),
     ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
     ...(dispatch.routingModelAdapterResults ?? []),
     ...(dispatch.verificationOutputAdapterResults ?? []),
@@ -1910,6 +1929,42 @@ function harnessLiveTurnNodeInspectorAttemptForWorkflow(
     attempts.find(inspectable) ??
     null
   );
+}
+
+function harnessLiveShadowComparisonForWorkflow(
+  workflow: WorkflowProject,
+): {
+  comparison: WorkflowHarnessShadowComparison;
+  liveAttempt: WorkflowHarnessNodeAttemptRecord;
+  shadowAttempt: WorkflowHarnessNodeAttemptRecord;
+} | null {
+  const dispatch =
+    workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+  const comparison = dispatch?.liveShadowComparisons?.[0] ?? null;
+  if (!dispatch || !comparison) return null;
+  const attempts = [
+    ...(dispatch.cognitionExecutionAdapterResults ?? []),
+    ...(dispatch.cognitionExecutionShadowAdapterResults ?? []),
+    ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
+    ...(dispatch.routingModelAdapterResults ?? []),
+    ...(dispatch.verificationOutputAdapterResults ?? []),
+    ...(dispatch.authorityToolingAdapterResults ?? []),
+  ]
+    .map((result) => result.nodeAttempt)
+    .filter(
+      (attempt): attempt is WorkflowHarnessNodeAttemptRecord =>
+        Boolean(attempt),
+    );
+  const liveAttempt =
+    attempts.find((attempt) => attempt.attemptId === comparison.liveAttemptId) ??
+    null;
+  const shadowAttempt =
+    attempts.find(
+      (attempt) => attempt.attemptId === comparison.shadowAttemptId,
+    ) ?? null;
+  return liveAttempt && shadowAttempt
+    ? { comparison, liveAttempt, shadowAttempt }
+    : null;
 }
 
 type HarnessGroupCanvasView = WorkflowHarnessGroupView & {
@@ -3293,6 +3348,183 @@ export function useWorkflowComposerController({
             selectedRailTestId: "workflow-harness-node-attempt-inspector",
             openedHash,
             parsedMatches: parsed?.nodeAttemptId === attempt.attemptId,
+            historyMatches: openedHash === hash,
+            observedValue,
+            observedSelectedState,
+            passed: casePassed,
+          },
+        ],
+        passed: casePassed,
+        blockers: casePassed ? [] : blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessLiveShadowComparisonDeepLinkProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
+      const comparisonBundle = harnessLiveShadowComparisonForWorkflow(workflow);
+      if (!comparisonBundle) {
+        return {
+          schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+          method:
+            "same-session Workflows bridge opens a live-vs-shadow comparison through the node-attempt inspector rail",
+          generatedAtMs,
+          cases: [],
+          passed: false,
+          blockers: ["missing_live_shadow_comparison"],
+        };
+      }
+      const { comparison, liveAttempt, shadowAttempt } = comparisonBundle;
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      const receiptRef = liveAttempt.receiptIds[0] ?? null;
+      const replayFixtureRef = liveAttempt.replay.fixtureRef ?? null;
+      const link: HarnessWorkbenchDeepLink = {
+        panel: "outputs" as WorkflowRightPanel,
+        nodeAttemptId: comparison.liveAttemptId,
+        receiptRef: receiptRef ?? undefined,
+        replayFixtureRef: replayFixtureRef ?? undefined,
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      let observedSelectedState: Record<string, string> = {};
+      let openedHash = "";
+      try {
+        if (parsed) {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+        openedHash =
+          typeof window === "undefined" ? hash : window.location.hash;
+        observedSelectedState = readHarnessRailSelectedState(
+          "workflow-harness-live-shadow-comparison-inspector",
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      const liveReceiptRefs = String(
+        observedSelectedState["data-live-receipt-refs"] ?? "",
+      )
+        .split(/[|,]/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const shadowReceiptRefs = String(
+        observedSelectedState["data-shadow-receipt-refs"] ?? "",
+      )
+        .split(/[|,]/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const requiredAttributeChecks = [
+        [
+          "data-live-attempt-id",
+          comparison.liveAttemptId,
+          observedSelectedState["data-live-attempt-id"],
+        ],
+        [
+          "data-shadow-attempt-id",
+          comparison.shadowAttemptId,
+          observedSelectedState["data-shadow-attempt-id"],
+        ],
+        [
+          "data-workflow-node-id",
+          comparison.workflowNodeId,
+          observedSelectedState["data-workflow-node-id"],
+        ],
+        [
+          "data-component-kind",
+          comparison.componentKind,
+          observedSelectedState["data-component-kind"],
+        ],
+        [
+          "data-divergence",
+          comparison.divergence,
+          observedSelectedState["data-divergence"],
+        ],
+        [
+          "data-blocking",
+          comparison.blocking ? "true" : "false",
+          observedSelectedState["data-blocking"],
+        ],
+        [
+          "data-live-replay-fixture-ref",
+          liveAttempt.replay.fixtureRef ?? "",
+          observedSelectedState["data-live-replay-fixture-ref"],
+        ],
+        [
+          "data-shadow-replay-fixture-ref",
+          shadowAttempt.replay.fixtureRef ?? "",
+          observedSelectedState["data-shadow-replay-fixture-ref"],
+        ],
+        [
+          "data-live-input-hash",
+          liveAttempt.inputHash ?? "",
+          observedSelectedState["data-live-input-hash"],
+        ],
+        [
+          "data-shadow-input-hash",
+          shadowAttempt.inputHash ?? "",
+          observedSelectedState["data-shadow-input-hash"],
+        ],
+        [
+          "data-live-output-hash",
+          liveAttempt.outputHash ?? "",
+          observedSelectedState["data-live-output-hash"],
+        ],
+        [
+          "data-shadow-output-hash",
+          shadowAttempt.outputHash ?? "",
+          observedSelectedState["data-shadow-output-hash"],
+        ],
+      ] as const;
+      const attributeBlockers = requiredAttributeChecks
+        .filter(([, expected, observed]) => observed !== expected)
+        .map(([attribute]) => `${attribute}_mismatch`);
+      const blockers = [
+        ...(parsed ? [] : ["live_shadow_comparison_hash_parse_failed"]),
+        ...(parsed?.nodeAttemptId === comparison.liveAttemptId
+          ? []
+          : ["live_shadow_comparison_node_attempt_parse_mismatch"]),
+        ...(openedHash === hash
+          ? []
+          : ["live_shadow_comparison_history_mismatch"]),
+        ...(receiptRef && liveReceiptRefs.includes(receiptRef)
+          ? []
+          : ["live_shadow_comparison_live_receipt_mismatch"]),
+        ...(shadowAttempt.receiptIds[0] &&
+        shadowReceiptRefs.includes(shadowAttempt.receiptIds[0])
+          ? []
+          : ["live_shadow_comparison_shadow_receipt_mismatch"]),
+        ...attributeBlockers,
+      ];
+      const observedValue =
+        observedSelectedState["data-live-attempt-id"] ?? null;
+      const casePassed =
+        blockers.length === 0 &&
+        observedValue === comparison.liveAttemptId &&
+        Boolean(parsed) &&
+        parsed?.nodeAttemptId === comparison.liveAttemptId;
+      return {
+        schemaVersion: "workflow.harness.deep-link-replay-proof.v1",
+        method:
+          "same-session Workflows bridge opens a live-vs-shadow comparison through the node-attempt inspector rail",
+        generatedAtMs,
+        cases: [
+          {
+            id: "live-shadow-comparison",
+            hash,
+            expectedPanel: "outputs",
+            expectedAttribute: "data-live-attempt-id",
+            expectedValue: comparison.liveAttemptId,
+            selectedRailTestId:
+              "workflow-harness-live-shadow-comparison-inspector",
+            openedHash,
+            parsedMatches: parsed?.nodeAttemptId === comparison.liveAttemptId,
             historyMatches: openedHash === hash,
             observedValue,
             observedSelectedState,
@@ -10011,6 +10243,11 @@ export function useWorkflowComposerController({
           workflow,
           nowMs + 157,
         );
+      const liveShadowComparisonDeepLinkProof =
+        await runHarnessLiveShadowComparisonDeepLinkProbe(
+          workflow,
+          nowMs + 158,
+        );
       const coldStartDeepLinkRestoreProof =
         await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 160);
       const harnessMetadata = workflow.metadata.harness;
@@ -10031,6 +10268,7 @@ export function useWorkflowComposerController({
             activationGateDeepLinkProof,
             liveActivationGateDeepLinkProof,
             liveTurnNodeInspectorDeepLinkProof,
+            liveShadowComparisonDeepLinkProof,
             activationGateActionClickProof,
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
@@ -10097,6 +10335,12 @@ export function useWorkflowComposerController({
           liveTurnNodeInspectorDeepLinkProof.passed,
         liveTurnNodeInspectorDeepLinkCaseIds:
           liveTurnNodeInspectorDeepLinkProof.cases.map(
+            (restoreCase) => restoreCase.id,
+          ),
+        liveShadowComparisonDeepLinkPassed:
+          liveShadowComparisonDeepLinkProof.passed,
+        liveShadowComparisonDeepLinkCaseIds:
+          liveShadowComparisonDeepLinkProof.cases.map(
             (restoreCase) => restoreCase.id,
           ),
         activationGateActionClickPassed: activationGateActionClickProof.passed,
@@ -10192,6 +10436,7 @@ export function useWorkflowComposerController({
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
+    runHarnessLiveShadowComparisonDeepLinkProbe,
     runHarnessLiveTurnNodeInspectorDeepLinkProbe,
     runtime,
   ]);
