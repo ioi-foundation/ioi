@@ -117,9 +117,9 @@ deep-link restoration proof, and live-vs-shadow comparison deep-link proof have
 a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T05-15-35-394Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T05-28-33-120Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-22-17-721Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-36-07-777Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -171,11 +171,12 @@ shadow replay fixture refs, and matching input/output hashes. Runtime
 consistency now also requires `harness_live_shadow_comparison_present: true`.
 Normal retained live runtime artifacts now also emit the same comparison
 directly from the Rust/orchestrator default dispatch path:
-`harnessLiveShadowComparisonCount: 1` for `retained_harness_dogfooding`, with
-the runtime `planner` live attempt paired to
-`planner_envelope_shadow`, distinct live/shadow receipt refs, distinct
-live/shadow replay fixture refs, and matching input/output hashes. It further
-proves
+`harnessLiveShadowComparisonCount: 3` for `retained_harness_dogfooding`, with
+runtime `planner`, `prompt_assembler`, and `task_state` live attempts paired
+to their shadow attempts, distinct live/shadow receipt refs, distinct
+live/shadow replay fixture refs, and matching input/output hashes. Runtime
+consistency now treats `harness_live_shadow_comparison_present` as a cognition
+coverage gate, not a single-sample existence check. It further proves
 the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation
@@ -1408,21 +1409,23 @@ adapter comparisons directly in normal retained runtime evidence:
   three non-blocking live/shadow comparisons and three retained shadow adapter
   results with shadow execution mode, receipts, and replay fixtures.
 - Full retained GUI validation is green in
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T05-15-35-394Z/result.json`.
-  Its `runtime-artifacts.json` reports
-  `harnessLiveShadowComparisonCount: 1` for `retained_harness_dogfooding`,
-  proving the retained runtime artifact path sees the live `planner` attempt
-  paired with the `planner_envelope_shadow` attempt, distinct live/shadow
-  receipts, distinct replay fixtures, and matching input/output hashes.
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T05-28-33-120Z/result.json`.
+  Its `runtime-artifacts.json` now reports
+  `harnessLiveShadowComparisonCount: 3` for `retained_harness_dogfooding`,
+  and `harnessLiveShadowComparisonComponentKinds: ["planner",
+  "prompt_assembler", "task_state"]`, proving the retained runtime artifact
+  path sees every cognition live attempt paired with its shadow attempt,
+  distinct live/shadow receipts, distinct replay fixtures, non-blocking
+  `divergence=none`, and matching input/output hashes.
 - Runtime P3 with required GUI evidence is green at
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-22-17-721Z/dashboard-index.json`.
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-36-07-777Z/dashboard-index.json`.
 
 This changes the live/shadow proof from "the GUI promotion fixture can show a
-comparison" to "a normal retained dogfooded turn emits the comparison from the
-runtime dispatch evidence path." The next chronological slice should tighten
-the retained runtime collector so it reports all cognition live/shadow pairs,
-not only the first valid sample, then apply the same direct runtime evidence
-pattern to the next P0 cluster.
+comparison" to "a normal retained dogfooded turn emits every cognition
+live/shadow comparison from the runtime dispatch evidence path, and retained
+GUI validation fails unless all three cognition pairs are present." The next
+chronological slice should apply the same direct runtime evidence pattern to
+the next P0 cluster instead of leaving it as proof-fixture-only evidence.
 
 ## Current State
 
