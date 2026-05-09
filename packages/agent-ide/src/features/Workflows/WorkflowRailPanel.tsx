@@ -341,6 +341,8 @@ export function WorkflowRailPanel({
   onApplyHarnessActivationCandidate,
   onRunHarnessRollbackDrill,
   onExecuteHarnessRollback,
+  onRunActiveRuntimeRollbackDryRun,
+  onApplyActiveRuntimeRollback,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -418,6 +420,8 @@ export function WorkflowRailPanel({
   onApplyHarnessActivationCandidate?: () => void;
   onRunHarnessRollbackDrill?: () => void;
   onExecuteHarnessRollback?: () => void;
+  onRunActiveRuntimeRollbackDryRun?: () => void;
+  onApplyActiveRuntimeRollback?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -1256,6 +1260,38 @@ export function WorkflowRailPanel({
           };
         })()
       : null;
+  const harnessActiveRuntimeRollbackExecutionProof =
+    workflow.metadata.harness?.activeRuntimeRollbackExecutionProof ?? null;
+  const harnessActiveRuntimeRollbackDryRunPassed =
+    harnessActiveRuntimeRollbackExecutionProof?.dryRun.passed === true &&
+    harnessActiveRuntimeRollbackExecutionProof.passed === true;
+  const harnessActiveRuntimeRollbackProofStillBound =
+    harnessActiveRuntimeBinding?.workerRollbackProof.bound === true &&
+    harnessActiveRuntimeRollbackExecutionProof?.readinessProofId ===
+      harnessActiveRuntimeBinding.workerRollbackProof.readinessProofId &&
+    harnessActiveRuntimeRollbackExecutionProof?.liveShadowComparisonGateId ===
+      harnessActiveRuntimeBinding.workerRollbackProof
+        .liveShadowComparisonGateId &&
+    harnessActiveRuntimeRollbackExecutionProof?.activationId ===
+      harnessActiveRuntimeBinding.workerRollbackProof.activationId &&
+    harnessActiveRuntimeRollbackExecutionProof?.harnessHash ===
+      harnessActiveRuntimeBinding.workerRollbackProof.harnessHash &&
+    harnessActiveRuntimeRollbackExecutionProof?.launchEnvelopeId ===
+      (harnessActiveRuntimeBinding.workerRollbackProof.launchEnvelope
+        ?.envelopeId ?? null) &&
+    harnessActiveRuntimeRollbackExecutionProof?.handoffReceiptId ===
+      (harnessActiveRuntimeBinding.workerRollbackProof.handoffReceipt
+        ?.receiptId ?? null) &&
+    harnessActiveRuntimeRollbackExecutionProof?.nodeAttemptId ===
+      (harnessActiveRuntimeBinding.workerRollbackProof.nodeAttempt?.attemptId ??
+        null) &&
+    harnessActiveRuntimeRollbackExecutionProof?.replayFixtureRef ===
+      (harnessActiveRuntimeBinding.workerRollbackProof.replayFixtureRef ||
+        null);
+  const harnessActiveRuntimeRollbackApplyDisabled =
+    !onApplyActiveRuntimeRollback ||
+    !harnessActiveRuntimeRollbackDryRunPassed ||
+    !harnessActiveRuntimeRollbackProofStillBound;
   const harnessReadOnlyRoutingProof =
     harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingProof ?? null;
   const harnessReadOnlyRoutingNodeKinds =
@@ -4184,6 +4220,47 @@ export function WorkflowRailPanel({
                   harnessActiveRuntimeBinding.workerRollbackProof
                     .replayFixtureRef
                 }
+                data-rollback-execution-dry-run-status={
+                  harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                    .canaryStatus ?? "not_run"
+                }
+                data-rollback-execution-canary-result-id={
+                  harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                    .canaryResultId ?? ""
+                }
+                data-rollback-execution-canary-status={
+                  harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                    .canaryStatus ?? "not_run"
+                }
+                data-rollback-execution-canary-hash-verified={
+                  harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                    .canaryHashVerified
+                    ? "true"
+                    : "false"
+                }
+                data-rollback-execution-apply-readiness={
+                  harnessActiveRuntimeRollbackProofStillBound &&
+                  harnessActiveRuntimeRollbackDryRunPassed
+                    ? "ready"
+                    : "blocked"
+                }
+                data-rollback-execution-apply-disabled={
+                  harnessActiveRuntimeRollbackApplyDisabled ? "true" : "false"
+                }
+                data-rollback-execution-apply-policy-decision={
+                  harnessActiveRuntimeRollbackExecutionProof?.apply
+                    .policyDecision ?? ""
+                }
+                data-rollback-execution-blockers={[
+                  ...(harnessActiveRuntimeRollbackExecutionProof?.blockers ??
+                    []),
+                  ...(harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                    .blockers ?? []),
+                  ...(!harnessActiveRuntimeRollbackProofStillBound &&
+                  harnessActiveRuntimeRollbackExecutionProof
+                    ? ["rollback_proof_not_bound_after_route_restore"]
+                    : []),
+                ].join(",")}
               >
                 <h4>Active runtime binding</h4>
                 <dl
@@ -4634,6 +4711,49 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeBinding.workerRollbackProof
                       .replayFixtureRef
                   }
+                  data-rollback-execution-dry-run-status={
+                    harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .canaryStatus ?? "not_run"
+                  }
+                  data-rollback-execution-canary-result-id={
+                    harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .canaryResultId ?? ""
+                  }
+                  data-rollback-execution-canary-status={
+                    harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .canaryStatus ?? "not_run"
+                  }
+                  data-rollback-execution-canary-hash-verified={
+                    harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .canaryHashVerified
+                      ? "true"
+                      : "false"
+                  }
+                  data-rollback-execution-apply-readiness={
+                    harnessActiveRuntimeRollbackProofStillBound &&
+                    harnessActiveRuntimeRollbackDryRunPassed
+                      ? "ready"
+                      : "blocked"
+                  }
+                  data-rollback-execution-apply-disabled={
+                    harnessActiveRuntimeRollbackApplyDisabled
+                      ? "true"
+                      : "false"
+                  }
+                  data-rollback-execution-apply-policy-decision={
+                    harnessActiveRuntimeRollbackExecutionProof?.apply
+                      .policyDecision ?? ""
+                  }
+                  data-rollback-execution-blockers={[
+                    ...(harnessActiveRuntimeRollbackExecutionProof?.blockers ??
+                      []),
+                    ...(harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .blockers ?? []),
+                    ...(!harnessActiveRuntimeRollbackProofStillBound &&
+                    harnessActiveRuntimeRollbackExecutionProof
+                      ? ["rollback_proof_not_bound_after_route_restore"]
+                      : []),
+                  ].join(",")}
                 >
                   <strong>Rollback proof</strong>
                   <span>
@@ -4681,6 +4801,24 @@ export function WorkflowRailPanel({
                     {harnessActiveRuntimeBinding.workerRollbackProof
                       .replayFixtureRef || "missing"}
                   </small>
+                  <small>
+                    dry run{" "}
+                    {harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .canaryStatus ?? "not run"}{" "}
+                    · canary{" "}
+                    {harnessActiveRuntimeRollbackExecutionProof?.dryRun
+                      .canaryResultId ?? "pending"}
+                  </small>
+                  <small>
+                    apply{" "}
+                    {harnessActiveRuntimeRollbackApplyDisabled
+                      ? "blocked"
+                      : "ready"}{" "}
+                    · proof{" "}
+                    {harnessActiveRuntimeRollbackProofStillBound
+                      ? "bound"
+                      : "not restored"}
+                  </small>
                   {harnessActiveRuntimeBinding.workerRollbackProof.blockers
                     .length > 0 ? (
                     <small>
@@ -4690,6 +4828,34 @@ export function WorkflowRailPanel({
                       )}
                     </small>
                   ) : null}
+                  <div className="workflow-harness-authority-gate-actions">
+                    <button
+                      type="button"
+                      data-testid="workflow-harness-active-runtime-rollback-dry-run"
+                      data-rollback-action-kind="dry_run"
+                      disabled={
+                        !onRunActiveRuntimeRollbackDryRun ||
+                        !harnessActiveRuntimeBinding.workerRollbackProof.bound
+                      }
+                      onClick={onRunActiveRuntimeRollbackDryRun}
+                    >
+                      Rollback dry run
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="workflow-harness-active-runtime-rollback-apply"
+                      data-rollback-action-kind="apply"
+                      data-rollback-apply-disabled={
+                        harnessActiveRuntimeRollbackApplyDisabled
+                          ? "true"
+                          : "false"
+                      }
+                      disabled={harnessActiveRuntimeRollbackApplyDisabled}
+                      onClick={onApplyActiveRuntimeRollback}
+                    >
+                      Apply rollback
+                    </button>
+                  </div>
                 </article>
                 <div
                   className="workflow-harness-authority-gate-actions"

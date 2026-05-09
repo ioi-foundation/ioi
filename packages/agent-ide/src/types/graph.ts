@@ -1443,6 +1443,56 @@ export interface WorkflowHarnessActivationRollbackExecution {
   createdAtMs: number;
 }
 
+export interface WorkflowHarnessActiveRuntimeRollbackExecutionProof {
+  schemaVersion:
+    | "workflow.harness.active-runtime-rollback-execution-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  workflowId: string;
+  activationId: string;
+  rollbackTarget: string;
+  readinessProofId: string;
+  liveShadowComparisonGateId: string;
+  liveShadowComparisonGateReady: boolean;
+  harnessHash: string;
+  policyDecision: string;
+  launchEnvelopeId?: string | null;
+  handoffReceiptId?: string | null;
+  nodeAttemptId?: string | null;
+  replayFixtureRef?: string | null;
+  dryRun: {
+    clicked: boolean;
+    passed: boolean;
+    canaryResultId?: string | null;
+    canaryStatus: "passed" | "blocked" | string;
+    canaryHashVerified: boolean;
+    policyDecision: string;
+    receiptRefs: string[];
+    replayFixtureRefs: string[];
+    blockers: string[];
+  };
+  apply: {
+    attempted: boolean;
+    disabled: boolean;
+    readiness: "ready" | "blocked" | string;
+    applied: boolean;
+    policyDecision: string;
+    blockers: string[];
+  };
+  routeRestore?: {
+    hash?: string | null;
+    selectedRailTestId?: string | null;
+    rollbackProofBound: boolean;
+    dryRunStatus?: string | null;
+    applyDisabled: boolean;
+    canaryResultId?: string | null;
+    observedSelectedState?: Record<string, string>;
+  };
+  passed: boolean;
+  blockers: string[];
+}
+
 export type WorkflowHarnessReplayDrillDivergenceClass =
   | "none"
   | "harmless_metadata_drift"
@@ -2916,6 +2966,7 @@ export interface WorkflowHarnessMetadata {
   liveTurnNodeInspectorDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   liveShadowComparisonDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activeRuntimeRollbackProofWorkbenchProof?: WorkflowHarnessDeepLinkReplayProof;
+  activeRuntimeRollbackExecutionProof?: WorkflowHarnessActiveRuntimeRollbackExecutionProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
