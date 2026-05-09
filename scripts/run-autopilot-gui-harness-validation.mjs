@@ -4879,6 +4879,19 @@ function buildGuiEvidenceAssessment({
       ?.activeRuntimeRollbackProofWorkbenchProof?.passed === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
       ?.activeRuntimeRollbackProofWorkbench?.rollbackProofBound === "true";
+  const hasHarnessActiveRuntimeRollbackExecutionWorkbench =
+    hasHarnessActiveRuntimeRollbackProofWorkbench &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activeRuntimeRollbackExecutionWorkbench === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackExecutionProof?.passed === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackExecutionWorkbench?.dryRunStatus === "passed" &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackExecutionWorkbench?.applyDisabled === false &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.activeRuntimeRollbackExecutionWorkbench?.routeRestoreProofBound ===
+      true;
   const hasHarnessLiveTurnNodeTimeline =
     hasHarnessChatRuntimeBinding &&
     summary.harnessLiveTurnNodeTimelineCount > 0 &&
@@ -5236,6 +5249,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount > 0,
       harness_active_runtime_rollback_proof_workbench_present:
         hasHarnessActiveRuntimeRollbackProofWorkbench,
+      harness_active_runtime_rollback_execution_workbench_present:
+        hasHarnessActiveRuntimeRollbackExecutionWorkbench,
       harness_live_turn_node_timeline_present: hasHarnessLiveTurnNodeTimeline,
       harness_live_turn_node_inspector_present: hasHarnessLiveTurnNodeInspector,
       harness_live_turn_node_inspector_deep_link_present:
@@ -5938,6 +5953,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
     const activeRuntimeRollbackProofWorkbenchProof =
       workflow?.metadata?.harness?.activeRuntimeRollbackProofWorkbenchProof ??
       null;
+    const activeRuntimeRollbackExecutionProof =
+      workflow?.metadata?.harness?.activeRuntimeRollbackExecutionProof ?? null;
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const packageEvidenceGateClickProof =
@@ -6452,6 +6469,52 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         rollbackNodeAttempt?.attemptId &&
       activeRuntimeRollbackProofState["data-rollback-replay-fixture-ref"] ===
         rollbackReplayFixtureRef;
+    const activeRuntimeRollbackExecutionWorkbench =
+      activeRuntimeRollbackProofWorkbench &&
+      activeRuntimeRollbackExecutionProof?.schemaVersion ===
+        "workflow.harness.active-runtime-rollback-execution-proof.v1" &&
+      activeRuntimeRollbackExecutionProof?.passed === true &&
+      activeRuntimeRollbackExecutionProof?.dryRun?.clicked === true &&
+      activeRuntimeRollbackExecutionProof?.dryRun?.passed === true &&
+      activeRuntimeRollbackExecutionProof?.dryRun?.canaryStatus ===
+        "passed" &&
+      activeRuntimeRollbackExecutionProof?.dryRun?.canaryHashVerified ===
+        true &&
+      typeof activeRuntimeRollbackExecutionProof?.dryRun?.canaryResultId ===
+        "string" &&
+      activeRuntimeRollbackExecutionProof.dryRun.canaryResultId.startsWith(
+        "harness-active-runtime-rollback-canary:",
+      ) &&
+      activeRuntimeRollbackExecutionProof?.apply?.readiness === "ready" &&
+      activeRuntimeRollbackExecutionProof?.apply?.disabled === false &&
+      activeRuntimeRollbackExecutionProof?.routeRestore?.rollbackProofBound ===
+        true &&
+      activeRuntimeRollbackExecutionProof?.routeRestore?.dryRunStatus ===
+        "passed" &&
+      activeRuntimeRollbackExecutionProof?.routeRestore?.applyDisabled ===
+        false &&
+      activeRuntimeRollbackExecutionProof?.readinessProofId ===
+        expectedRollbackReadinessProofId &&
+      activeRuntimeRollbackExecutionProof?.liveShadowComparisonGateId ===
+        expectedRollbackGateId &&
+      activeRuntimeRollbackExecutionProof?.activationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      activeRuntimeRollbackExecutionProof?.harnessHash ===
+        DEFAULT_AGENT_HARNESS_HASH &&
+      activeRuntimeRollbackExecutionProof?.launchEnvelopeId ===
+        rollbackLaunchEnvelope?.envelopeId &&
+      activeRuntimeRollbackExecutionProof?.handoffReceiptId ===
+        rollbackHandoffReceipt?.receiptId &&
+      activeRuntimeRollbackExecutionProof?.nodeAttemptId ===
+        rollbackNodeAttempt?.attemptId &&
+      activeRuntimeRollbackExecutionProof?.replayFixtureRef ===
+        rollbackReplayFixtureRef &&
+      (
+        activeRuntimeRollbackExecutionProof?.dryRun?.receiptRefs ?? []
+      ).includes(rollbackHandoffReceipt?.receiptId) &&
+      (
+        activeRuntimeRollbackExecutionProof?.dryRun?.replayFixtureRefs ?? []
+      ).includes(rollbackReplayFixtureRef);
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -7033,6 +7096,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerLaunchHandoffBound,
       workerHandoffNodeTimelineBound,
       activeRuntimeRollbackProofWorkbench,
+      activeRuntimeRollbackExecutionWorkbench,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -8119,6 +8183,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           "workflow-harness-active-runtime-rollback-proof-node-attempt-link",
         activeRuntimeRollbackProofReplayLink:
           "workflow-harness-active-runtime-rollback-proof-replay-link",
+        activeRuntimeRollbackDryRun:
+          "workflow-harness-active-runtime-rollback-dry-run",
+        activeRuntimeRollbackApply:
+          "workflow-harness-active-runtime-rollback-apply",
         deepLinkState: "workflow-harness-deep-link-state",
       },
       routeStatefulDeepLinks,
@@ -8130,6 +8198,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       liveTurnNodeInspectorDeepLinkProof,
       liveShadowComparisonDeepLinkProof,
       activeRuntimeRollbackProofWorkbenchProof,
+      activeRuntimeRollbackExecutionProof,
       liveTurnNodeInspector: liveTurnNodeInspectorDeepLinkCase
         ? {
             selectedRailTestId:
@@ -8256,6 +8325,46 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
                 activeRuntimeRollbackProofState[
                   "data-rollback-replay-fixture-ref"
                 ] ?? null,
+            }
+          : null,
+      activeRuntimeRollbackExecutionWorkbench:
+        activeRuntimeRollbackExecutionProof
+          ? {
+              passed: activeRuntimeRollbackExecutionProof.passed,
+              rollbackTarget:
+                activeRuntimeRollbackExecutionProof.rollbackTarget ?? null,
+              readinessProofId:
+                activeRuntimeRollbackExecutionProof.readinessProofId ?? null,
+              liveShadowGateId:
+                activeRuntimeRollbackExecutionProof
+                  .liveShadowComparisonGateId ?? null,
+              activationId:
+                activeRuntimeRollbackExecutionProof.activationId ?? null,
+              harnessHash:
+                activeRuntimeRollbackExecutionProof.harnessHash ?? null,
+              dryRunStatus:
+                activeRuntimeRollbackExecutionProof.dryRun?.canaryStatus ??
+                null,
+              canaryResultId:
+                activeRuntimeRollbackExecutionProof.dryRun?.canaryResultId ??
+                null,
+              canaryHashVerified:
+                activeRuntimeRollbackExecutionProof.dryRun
+                  ?.canaryHashVerified ?? null,
+              applyReadiness:
+                activeRuntimeRollbackExecutionProof.apply?.readiness ?? null,
+              applyDisabled:
+                activeRuntimeRollbackExecutionProof.apply?.disabled ?? null,
+              routeRestoreProofBound:
+                activeRuntimeRollbackExecutionProof.routeRestore
+                  ?.rollbackProofBound ?? null,
+              routeRestoreApplyDisabled:
+                activeRuntimeRollbackExecutionProof.routeRestore
+                  ?.applyDisabled ?? null,
+              routeRestoreDryRunStatus:
+                activeRuntimeRollbackExecutionProof.routeRestore
+                  ?.dryRunStatus ?? null,
+              blockers: activeRuntimeRollbackExecutionProof.blockers ?? [],
             }
           : null,
       activationGateActionClickProof,
@@ -8805,6 +8914,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_active_runtime_rollback_proof_workbench:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.activeRuntimeRollbackProofWorkbench === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_active_runtime_rollback_execution_workbench:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activeRuntimeRollbackExecutionWorkbench === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_live_turn_node_timeline:

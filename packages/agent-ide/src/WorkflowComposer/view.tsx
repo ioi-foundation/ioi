@@ -73,6 +73,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleDragStart,
     handleDryRunFunction,
     handleDryRunNodeFromFixture,
+    handleApplyActiveRuntimeRollback,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -95,6 +96,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleRunHarnessReplayDrill,
     handleRunHarnessReplayGate,
     handleRunHarnessRollbackDrill,
+    handleRunActiveRuntimeRollbackDryRun,
     handleRunTests,
     handleRunWorkflowNode,
     handleRunWorkflowUpstream,
@@ -1365,6 +1367,12 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onExecuteHarnessRollback={() => {
                       void handleExecuteHarnessRollback();
+                    }}
+                    onRunActiveRuntimeRollbackDryRun={() => {
+                      handleRunActiveRuntimeRollbackDryRun();
+                    }}
+                    onApplyActiveRuntimeRollback={() => {
+                      handleApplyActiveRuntimeRollback();
                     }}
                     onConfigureNode={() => {
                       if (selectedNode) {

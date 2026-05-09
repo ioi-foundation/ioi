@@ -63,6 +63,7 @@ import type {
   WorkflowBindingManifest,
   WorkflowBottomPanel,
   WorkflowConnectionClass,
+  WorkflowHarnessActiveRuntimeRollbackExecutionProof,
   WorkflowHarnessActivationGateActionClickProof,
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
@@ -132,6 +133,7 @@ import {
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
   defaultAgentHarnessTests,
+  executeWorkflowHarnessActiveRuntimeRollbackDryRun,
   executeWorkflowHarnessPromotionTransition,
   executeWorkflowHarnessReplayGate,
   executeWorkflowHarnessReplayDrill,
@@ -1040,6 +1042,14 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-rollback-handoff-receipt-id",
     "data-rollback-node-attempt-id",
     "data-rollback-replay-fixture-ref",
+    "data-rollback-execution-dry-run-status",
+    "data-rollback-execution-canary-result-id",
+    "data-rollback-execution-canary-status",
+    "data-rollback-execution-canary-hash-verified",
+    "data-rollback-execution-apply-readiness",
+    "data-rollback-execution-apply-disabled",
+    "data-rollback-execution-apply-policy-decision",
+    "data-rollback-execution-blockers",
     "data-node-attempt-id",
     "data-node-attempt-source-kind",
     "data-workflow-node-id",
@@ -1576,6 +1586,32 @@ function readHarnessActivationMintClickResult(): HarnessActivationMintClickResul
     .__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessActivationMintClickResult)
+    : null;
+}
+
+type HarnessActiveRuntimeRollbackDryRunClickResult = {
+  passed: boolean;
+  blockers: string[];
+  rollbackTarget: string;
+  readinessProofId: string;
+  liveShadowComparisonGateId: string;
+  activationId: string;
+  harnessHash: string;
+  dryRunStatus: string;
+  canaryResultId: string | null;
+  canaryStatus: string;
+  canaryHashVerified: boolean;
+  applyReadiness: string;
+  applyDisabled: boolean;
+  statusMessage: string;
+};
+
+function readHarnessActiveRuntimeRollbackDryRunClickResult(): HarnessActiveRuntimeRollbackDryRunClickResult | null {
+  if (typeof window === "undefined") return null;
+  const result = (window as any)
+    .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT;
+  return result && typeof result === "object"
+    ? (result as HarnessActiveRuntimeRollbackDryRunClickResult)
     : null;
 }
 
@@ -3803,6 +3839,270 @@ export function useWorkflowComposerController({
         passed: blockers.length === 0,
         blockers,
       };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessActiveRuntimeRollbackExecutionWorkbenchProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessActiveRuntimeRollbackExecutionProof> => {
+      const defaultDispatch =
+        workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+      const workerHandoffReceipts =
+        defaultDispatch?.workerHandoffReceipts ??
+        workflow.metadata.harness?.workerHandoffReceipts ??
+        [];
+      const workerHandoffNodeAttempts =
+        defaultDispatch?.workerHandoffNodeAttempts ??
+        workflow.metadata.harness?.workerHandoffNodeAttempts ??
+        [];
+      const rollbackHandoffReceipt =
+        workerHandoffReceipts.find((receipt) => receipt.phase === "rollback") ??
+        null;
+      const rollbackNodeAttempt =
+        workerHandoffNodeAttempts.find(
+          (attempt) =>
+            Boolean(rollbackHandoffReceipt?.receiptId) &&
+            attempt.receiptIds.includes(rollbackHandoffReceipt?.receiptId ?? ""),
+        ) ??
+        workerHandoffNodeAttempts.find((attempt) =>
+          attempt.attemptId.includes(":rollback:"),
+        ) ??
+        null;
+      const rollbackReplayFixtureRef =
+        rollbackNodeAttempt?.replay.fixtureRef ??
+        (defaultDispatch?.workerHandoffReplayFixtureRefs ?? []).find(
+          (fixtureRef) => fixtureRef.includes(":rollback:"),
+        ) ??
+        "";
+      const rollbackTarget =
+        defaultDispatch?.rollbackTarget ??
+        workflow.metadata.harness?.runtimeSelectorDecision?.rollbackTarget ??
+        workflow.metadata.harness?.activationId ??
+        "";
+      const link: HarnessWorkbenchDeepLink = {
+        panel: "settings" as WorkflowRightPanel,
+        rollbackTarget,
+        nodeAttemptId: rollbackNodeAttempt?.attemptId,
+        receiptRef: rollbackHandoffReceipt?.receiptId,
+        replayFixtureRef: rollbackReplayFixtureRef || undefined,
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      const blockers: string[] = [];
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      let beforeState: Record<string, string> = {};
+      let afterState: Record<string, string> = {};
+      let dryRunResult: HarnessActiveRuntimeRollbackDryRunClickResult | null =
+        null;
+      let clicked = false;
+      let applyDisabledBefore = true;
+      let applyDisabledAfter = true;
+      try {
+        if (typeof window !== "undefined") {
+          (window as any)
+            .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT =
+            null;
+        }
+        if (!parsed) {
+          blockers.push("active_runtime_rollback_execution_hash_parse_failed");
+        } else {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+        beforeState = readHarnessRailSelectedState(
+          "workflow-harness-active-runtime-binding",
+        );
+        const dryRunButton = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-active-runtime-rollback-dry-run"]',
+        );
+        const applyButtonBefore = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-active-runtime-rollback-apply"]',
+        );
+        applyDisabledBefore =
+          applyButtonBefore?.disabled ??
+          beforeState["data-rollback-execution-apply-disabled"] !== "false";
+        if (!dryRunButton) {
+          blockers.push("active_runtime_rollback_dry_run_button_missing");
+        } else if (dryRunButton.disabled) {
+          blockers.push("active_runtime_rollback_dry_run_button_disabled");
+        } else {
+          dryRunButton.click();
+          clicked = true;
+          for (let attempt = 0; attempt < 80; attempt += 1) {
+            await nextHarnessWorkbenchFrame();
+            dryRunResult =
+              readHarnessActiveRuntimeRollbackDryRunClickResult();
+            if (dryRunResult?.canaryResultId || dryRunResult?.blockers.length) {
+              break;
+            }
+          }
+          if (parsed) {
+            applyHarnessWorkbenchDeepLink(parsed);
+            writeHarnessWorkbenchDeepLink(hash);
+            await nextHarnessWorkbenchFrame();
+            await nextHarnessWorkbenchFrame();
+            afterState = readHarnessRailSelectedState(
+              "workflow-harness-active-runtime-binding",
+            );
+          }
+        }
+      } catch (error) {
+        blockers.push(
+          `active_runtime_rollback_execution_probe_failed:${errorMessage(error)}`,
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      const applyButtonAfter = document.querySelector<HTMLButtonElement>(
+        '[data-testid="workflow-harness-active-runtime-rollback-apply"]',
+      );
+      applyDisabledAfter =
+        applyButtonAfter?.disabled ??
+        afterState["data-rollback-execution-apply-disabled"] !== "false";
+      if (!rollbackTarget) {
+        blockers.push("active_runtime_rollback_target_missing");
+      }
+      if (!rollbackHandoffReceipt) {
+        blockers.push("active_runtime_rollback_handoff_receipt_missing");
+      }
+      if (!rollbackNodeAttempt) {
+        blockers.push("active_runtime_rollback_node_attempt_missing");
+      }
+      if (!rollbackReplayFixtureRef) {
+        blockers.push("active_runtime_rollback_replay_fixture_missing");
+      }
+      if (beforeState["data-rollback-proof-bound"] !== "true") {
+        blockers.push("active_runtime_rollback_before_proof_not_bound");
+      }
+      if (!applyDisabledBefore) {
+        blockers.push("active_runtime_rollback_apply_enabled_before_dry_run");
+      }
+      if (!clicked) {
+        blockers.push("active_runtime_rollback_dry_run_not_clicked");
+      }
+      if (dryRunResult?.passed !== true) {
+        blockers.push("active_runtime_rollback_dry_run_not_passed");
+      }
+      if (dryRunResult?.canaryStatus !== "passed") {
+        blockers.push("active_runtime_rollback_canary_not_passed");
+      }
+      if (dryRunResult?.canaryHashVerified !== true) {
+        blockers.push("active_runtime_rollback_canary_hash_not_verified");
+      }
+      if (afterState["data-rollback-proof-bound"] !== "true") {
+        blockers.push("active_runtime_rollback_after_proof_not_bound");
+      }
+      if (afterState["data-rollback-execution-dry-run-status"] !== "passed") {
+        blockers.push("active_runtime_rollback_dry_run_status_not_visible");
+      }
+      if (
+        afterState["data-rollback-execution-canary-result-id"] !==
+        dryRunResult?.canaryResultId
+      ) {
+        blockers.push("active_runtime_rollback_canary_id_not_visible");
+      }
+      if (afterState["data-rollback-execution-apply-readiness"] !== "ready") {
+        blockers.push("active_runtime_rollback_apply_not_ready_after_dry_run");
+      }
+      if (applyDisabledAfter) {
+        blockers.push("active_runtime_rollback_apply_still_disabled");
+      }
+      const proof: WorkflowHarnessActiveRuntimeRollbackExecutionProof = {
+        schemaVersion:
+          "workflow.harness.active-runtime-rollback-execution-proof.v1",
+        method:
+          "same-session Workflows bridge opens the active runtime rollback proof, clicks dry-run, verifies inline canary state, and restores the route before checking apply readiness",
+        generatedAtMs,
+        workflowId:
+          defaultDispatch?.workflowId ??
+          workflow.metadata.harness?.harnessWorkflowId ??
+          workflow.metadata.id,
+        activationId:
+          afterState["data-rollback-activation-id"] ||
+          dryRunResult?.activationId ||
+          defaultDispatch?.activationId ||
+          "",
+        rollbackTarget,
+        readinessProofId:
+          afterState["data-rollback-readiness-proof-id"] ||
+          dryRunResult?.readinessProofId ||
+          "",
+        liveShadowComparisonGateId:
+          afterState["data-rollback-live-shadow-gate-id"] ||
+          dryRunResult?.liveShadowComparisonGateId ||
+          "",
+        liveShadowComparisonGateReady:
+          afterState["data-rollback-live-shadow-gate-ready"] === "true",
+        harnessHash:
+          afterState["data-rollback-harness-hash"] ||
+          dryRunResult?.harnessHash ||
+          defaultDispatch?.harnessHash ||
+          "",
+        policyDecision:
+          afterState["data-rollback-policy-decision"] ||
+          "allow_default_harness_worker_rollback_from_live_shadow_gate",
+        launchEnvelopeId:
+          afterState["data-rollback-launch-envelope-id"] || null,
+        handoffReceiptId:
+          afterState["data-rollback-handoff-receipt-id"] ||
+          rollbackHandoffReceipt?.receiptId ||
+          null,
+        nodeAttemptId:
+          afterState["data-rollback-node-attempt-id"] ||
+          rollbackNodeAttempt?.attemptId ||
+          null,
+        replayFixtureRef:
+          afterState["data-rollback-replay-fixture-ref"] ||
+          rollbackReplayFixtureRef ||
+          null,
+        dryRun: {
+          clicked,
+          passed: dryRunResult?.passed === true,
+          canaryResultId: dryRunResult?.canaryResultId ?? null,
+          canaryStatus: dryRunResult?.canaryStatus ?? "blocked",
+          canaryHashVerified: dryRunResult?.canaryHashVerified === true,
+          policyDecision: dryRunResult?.passed
+            ? "allow_default_live_rollback_dry_run_from_bound_proof"
+            : "block_default_live_rollback_dry_run",
+          receiptRefs: [
+            rollbackHandoffReceipt?.receiptId ?? "",
+            rollbackNodeAttempt?.receiptIds?.[0] ?? "",
+          ].filter(Boolean),
+          replayFixtureRefs: [rollbackReplayFixtureRef].filter(Boolean),
+          blockers: dryRunResult?.blockers ?? [],
+        },
+        apply: {
+          attempted: false,
+          disabled: applyDisabledAfter,
+          readiness: applyDisabledAfter ? "blocked" : "ready",
+          applied: false,
+          policyDecision: applyDisabledAfter
+            ? "block_default_live_rollback_apply_until_dry_run_passes"
+            : "allow_default_live_rollback_apply_after_bound_dry_run",
+          blockers: applyDisabledAfter ? ["rollback_apply_not_ready"] : [],
+        },
+        routeRestore: {
+          hash,
+          selectedRailTestId: "workflow-harness-active-runtime-binding",
+          rollbackProofBound:
+            afterState["data-rollback-proof-bound"] === "true",
+          dryRunStatus:
+            afterState["data-rollback-execution-dry-run-status"] || null,
+          applyDisabled: applyDisabledAfter,
+          canaryResultId:
+            afterState["data-rollback-execution-canary-result-id"] || null,
+          observedSelectedState: afterState,
+        },
+        passed: blockers.length === 0,
+        blockers,
+      };
+      return proof;
     },
     [applyHarnessWorkbenchDeepLink],
   );
@@ -9183,6 +9483,143 @@ export function useWorkflowComposerController({
     tests,
   ]);
 
+  const handleRunActiveRuntimeRollbackDryRun = useCallback(() => {
+    const result = executeWorkflowHarnessActiveRuntimeRollbackDryRun(
+      currentProjectFile,
+    );
+    setWorkflow(result.workflow);
+    loadWorkflowProject(result.workflow);
+    const validation = validateWorkflowProject(result.workflow, tests);
+    const readiness = evaluateWorkflowActivationReadiness(
+      result.workflow,
+      tests,
+      validation,
+      proposals,
+      Object.values(nodeFixturesById).flat(),
+    );
+    setValidationResult(validation);
+    setReadinessResult(readiness);
+    setRightPanel("settings");
+    setBottomPanel("selection");
+    const statusMessage = result.passed
+      ? `Active runtime rollback dry run passed: ${result.proof.rollbackTarget}`
+      : `Active runtime rollback dry run blocked by ${result.blockers.length} blocker${
+          result.blockers.length === 1 ? "" : "s"
+        }`;
+    if (typeof window !== "undefined") {
+      (window as any)
+        .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT = {
+        passed: result.passed,
+        blockers: result.blockers,
+        rollbackTarget: result.proof.rollbackTarget,
+        readinessProofId: result.proof.readinessProofId,
+        liveShadowComparisonGateId: result.proof.liveShadowComparisonGateId,
+        activationId: result.proof.activationId,
+        harnessHash: result.proof.harnessHash,
+        dryRunStatus: result.proof.dryRun.canaryStatus,
+        canaryResultId: result.proof.dryRun.canaryResultId ?? null,
+        canaryStatus: result.proof.dryRun.canaryStatus,
+        canaryHashVerified: result.proof.dryRun.canaryHashVerified,
+        applyReadiness: result.proof.apply.readiness,
+        applyDisabled: result.proof.apply.disabled,
+        statusMessage,
+      } satisfies HarnessActiveRuntimeRollbackDryRunClickResult;
+    }
+    setStatusMessage(statusMessage);
+  }, [currentProjectFile, loadWorkflowProject, nodeFixturesById, proposals, tests]);
+
+  const handleApplyActiveRuntimeRollback = useCallback(() => {
+    const existingProof =
+      currentProjectFile.metadata.harness?.activeRuntimeRollbackExecutionProof;
+    const proofBound =
+      existingProof?.passed === true &&
+      existingProof.dryRun.passed === true &&
+      existingProof.apply.disabled === false;
+    const blockers = proofBound ? [] : ["active_runtime_rollback_dry_run_required"];
+    const nextProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof =
+      existingProof ?? {
+        schemaVersion:
+          "workflow.harness.active-runtime-rollback-execution-proof.v1",
+        method:
+          "active runtime rollback apply was requested before a bound dry-run proof existed",
+        generatedAtMs: Date.now(),
+        workflowId:
+          currentProjectFile.metadata.harness?.harnessWorkflowId ??
+          currentProjectFile.metadata.id,
+        activationId: currentProjectFile.metadata.harness?.activationId ?? "",
+        rollbackTarget: selectedHarnessRollbackTarget ?? "",
+        readinessProofId: "",
+        liveShadowComparisonGateId: "",
+        liveShadowComparisonGateReady: false,
+        harnessHash: currentProjectFile.metadata.harness?.harnessHash ?? "",
+        policyDecision: "block_default_live_rollback_apply_until_dry_run_passes",
+        dryRun: {
+          clicked: false,
+          passed: false,
+          canaryResultId: null,
+          canaryStatus: "blocked",
+          canaryHashVerified: false,
+          policyDecision: "block_default_live_rollback_dry_run",
+          receiptRefs: [],
+          replayFixtureRefs: [],
+          blockers,
+        },
+        apply: {
+          attempted: true,
+          disabled: true,
+          readiness: "blocked",
+          applied: false,
+          policyDecision:
+            "block_default_live_rollback_apply_until_dry_run_passes",
+          blockers,
+        },
+        passed: false,
+        blockers,
+      };
+    const appliedProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof = {
+      ...nextProof,
+      apply: {
+        ...nextProof.apply,
+        attempted: true,
+        disabled: !proofBound,
+        readiness: proofBound ? "ready" : "blocked",
+        applied: false,
+        policyDecision: proofBound
+          ? "default_live_rollback_apply_ready_after_bound_dry_run"
+          : "block_default_live_rollback_apply_until_dry_run_passes",
+        blockers,
+      },
+      blockers: [...nextProof.blockers, ...blockers],
+    };
+    const nextWorkflow: WorkflowProject = {
+      ...currentProjectFile,
+      metadata: {
+        ...currentProjectFile.metadata,
+        dirty: true,
+        harness: currentProjectFile.metadata.harness
+          ? {
+              ...currentProjectFile.metadata.harness,
+              activeRuntimeRollbackExecutionProof: appliedProof,
+            }
+          : currentProjectFile.metadata.harness,
+        updatedAtMs: Date.now(),
+      },
+    };
+    setWorkflow(nextWorkflow);
+    loadWorkflowProject(nextWorkflow);
+    setRightPanel("settings");
+    setBottomPanel("selection");
+    setStatusMessage(
+      proofBound
+        ? "Active runtime rollback apply is ready after bound dry run"
+        : "Active runtime rollback apply blocked until dry run passes",
+    );
+  }, [
+    currentProjectFile,
+    loadWorkflowProject,
+    selectedHarnessRollbackTarget,
+  ]);
+
   const handleExecuteHarnessRollback = useCallback(async () => {
     const rollbackRevisionBinding =
       currentProjectFile.metadata.harness?.activationRecord
@@ -10519,8 +10956,13 @@ export function useWorkflowComposerController({
         );
       const activeRuntimeRollbackProofWorkbenchProof =
         await runHarnessActiveRuntimeRollbackProofProbe(workflow, nowMs + 159);
+      const activeRuntimeRollbackExecutionProof =
+        await runHarnessActiveRuntimeRollbackExecutionWorkbenchProbe(
+          workflow,
+          nowMs + 160,
+        );
       const coldStartDeepLinkRestoreProof =
-        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 160);
+        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 161);
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error(
@@ -10541,6 +10983,7 @@ export function useWorkflowComposerController({
             liveTurnNodeInspectorDeepLinkProof,
             liveShadowComparisonDeepLinkProof,
             activeRuntimeRollbackProofWorkbenchProof,
+            activeRuntimeRollbackExecutionProof,
             activationGateActionClickProof,
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
@@ -10621,6 +11064,10 @@ export function useWorkflowComposerController({
           activeRuntimeRollbackProofWorkbenchProof.cases.map(
             (restoreCase) => restoreCase.id,
           ),
+        activeRuntimeRollbackExecutionPassed:
+          activeRuntimeRollbackExecutionProof.passed,
+        activeRuntimeRollbackExecutionCanaryResultId:
+          activeRuntimeRollbackExecutionProof.dryRun.canaryResultId,
         activationGateActionClickPassed: activationGateActionClickProof.passed,
         activationGateActionCommand:
           activationGateActionClickProof.action.command,
@@ -10714,6 +11161,7 @@ export function useWorkflowComposerController({
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
+    runHarnessActiveRuntimeRollbackExecutionWorkbenchProbe,
     runHarnessActiveRuntimeRollbackProofProbe,
     runHarnessLiveShadowComparisonDeepLinkProbe,
     runHarnessLiveTurnNodeInspectorDeepLinkProbe,
@@ -10896,6 +11344,7 @@ export function useWorkflowComposerController({
     handleDragStart,
     handleDryRunFunction,
     handleDryRunNodeFromFixture,
+    handleApplyActiveRuntimeRollback,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -10917,6 +11366,7 @@ export function useWorkflowComposerController({
     handleRunHarnessReplayDrill,
     handleRunHarnessReplayGate,
     handleRunHarnessRollbackDrill,
+    handleRunActiveRuntimeRollbackDryRun,
     handleRunTests,
     handleRunWorkflowNode,
     handleRunWorkflowUpstream,

@@ -12,6 +12,7 @@ import type {
   WorkflowHarnessActivationAuditEvent,
   WorkflowHarnessActivationAuditEventStatus,
   WorkflowHarnessActivationAuditEventType,
+  WorkflowHarnessActiveRuntimeRollbackExecutionProof,
   WorkflowHarnessActivationRollbackExecution,
   WorkflowHarnessActivationRollbackProof,
   WorkflowHarnessActivationIdGateClickProof,
@@ -3026,6 +3027,236 @@ export function executeWorkflowHarnessRevisionRollback(
     blockers,
     rollbackTarget,
     restoredWorkerBinding,
+  };
+}
+
+export function executeWorkflowHarnessActiveRuntimeRollbackDryRun(
+  workflow: WorkflowProject,
+  options: {
+    nowMs?: number;
+  } = {},
+): {
+  workflow: WorkflowProject;
+  proof: WorkflowHarnessActiveRuntimeRollbackExecutionProof;
+  passed: boolean;
+  blockers: string[];
+} {
+  const generatedAtMs = options.nowMs ?? Date.now();
+  const harness = workflow.metadata.harness;
+  const defaultDispatch = harness?.defaultRuntimeDispatchProof ?? null;
+  const selector = harness?.runtimeSelectorDecision ?? null;
+  const workerLaunchEnvelopes =
+    defaultDispatch?.workerLaunchEnvelopes ??
+    harness?.workerLaunchEnvelopes ??
+    harness?.activationRecord?.workerLaunchEnvelopes ??
+    [];
+  const workerHandoffReceipts =
+    defaultDispatch?.workerHandoffReceipts ??
+    harness?.workerHandoffReceipts ??
+    harness?.activationRecord?.workerHandoffReceipts ??
+    [];
+  const workerHandoffNodeAttempts =
+    defaultDispatch?.workerHandoffNodeAttempts ??
+    harness?.workerHandoffNodeAttempts ??
+    [];
+  const rollbackLaunchEnvelope =
+    workerLaunchEnvelopes.find((envelope) => envelope.phase === "rollback") ??
+    null;
+  const rollbackHandoffReceipt =
+    workerHandoffReceipts.find((receipt) => receipt.phase === "rollback") ??
+    null;
+  const rollbackNodeAttempt =
+    workerHandoffNodeAttempts.find(
+      (attempt) =>
+        Boolean(rollbackHandoffReceipt?.receiptId) &&
+        attempt.receiptIds.includes(rollbackHandoffReceipt?.receiptId ?? ""),
+    ) ??
+    workerHandoffNodeAttempts.find((attempt) =>
+      attempt.attemptId.includes(":rollback:"),
+    ) ??
+    null;
+  const replayFixtureRef =
+    rollbackNodeAttempt?.replay.fixtureRef ??
+    (defaultDispatch?.workerHandoffReplayFixtureRefs ?? []).find((fixtureRef) =>
+      fixtureRef.includes(":rollback:"),
+    ) ??
+    null;
+  const readinessProofId =
+    rollbackHandoffReceipt?.rollbackReadinessProofId ??
+    rollbackLaunchEnvelope?.rollbackReadinessProofId ??
+    selector?.livePromotionReadinessProof?.proofId ??
+    defaultDispatch?.livePromotionReadinessProof?.proofId ??
+    "";
+  const liveShadowComparisonGateId =
+    rollbackHandoffReceipt?.rollbackLiveShadowComparisonGateId ??
+    rollbackLaunchEnvelope?.rollbackLiveShadowComparisonGateId ??
+    defaultDispatch?.liveShadowComparisonGate?.gateId ??
+    defaultDispatch?.livePromotionReadinessProof?.liveShadowComparisonGate
+      ?.gateId ??
+    "";
+  const liveShadowComparisonGateReady =
+    rollbackHandoffReceipt?.rollbackLiveShadowComparisonGateReady ??
+    rollbackLaunchEnvelope?.rollbackLiveShadowComparisonGateReady ??
+    defaultDispatch?.liveShadowComparisonGateReady ??
+    defaultDispatch?.livePromotionReadinessProof
+      ?.liveShadowComparisonGateReady ??
+    false;
+  const activationId =
+    rollbackHandoffReceipt?.rollbackActivationId ??
+    rollbackLaunchEnvelope?.rollbackActivationId ??
+    defaultDispatch?.activationId ??
+    selector?.activationId ??
+    "";
+  const harnessHash =
+    rollbackHandoffReceipt?.rollbackHarnessHash ??
+    rollbackLaunchEnvelope?.rollbackHarnessHash ??
+    defaultDispatch?.harnessHash ??
+    selector?.harnessHash ??
+    "";
+  const rollbackTarget =
+    defaultDispatch?.rollbackTarget ??
+    selector?.rollbackTarget ??
+    harness?.activationId ??
+    "";
+  const policyDecision =
+    rollbackHandoffReceipt?.rollbackPolicyDecision ??
+    rollbackLaunchEnvelope?.rollbackPolicyDecision ??
+    "";
+  const receiptRefs = uniqueStrings([
+    rollbackLaunchEnvelope?.envelopeId,
+    rollbackHandoffReceipt?.receiptId,
+    ...(rollbackNodeAttempt?.receiptIds ?? []),
+  ]);
+  const replayFixtureRefs = uniqueStrings([replayFixtureRef]);
+  const blockers = uniqueStrings([
+    ...(defaultDispatch ? [] : ["missing_default_runtime_dispatch"]),
+    ...(selector ? [] : ["missing_runtime_selector_decision"]),
+    ...(rollbackTarget ? [] : ["rollback_target_missing"]),
+    ...(rollbackLaunchEnvelope?.accepted === true &&
+    rollbackLaunchEnvelope.phase === "rollback" &&
+    rollbackLaunchEnvelope.rollbackHandoffReady === true &&
+    (rollbackLaunchEnvelope.blockers ?? []).length === 0
+      ? []
+      : ["rollback_launch_envelope_not_ready"]),
+    ...(rollbackHandoffReceipt?.accepted === true &&
+    rollbackHandoffReceipt.phase === "rollback" &&
+    rollbackHandoffReceipt.handoffStatus === "rollback_handoff_ready" &&
+    (rollbackHandoffReceipt.blockers ?? []).length === 0
+      ? []
+      : ["rollback_handoff_receipt_not_ready"]),
+    ...(rollbackNodeAttempt?.workflowNodeId === "harness.handoff_bridge" &&
+    rollbackNodeAttempt.componentKind === "handoff_bridge" &&
+    Boolean(replayFixtureRef) &&
+    Boolean(rollbackHandoffReceipt?.receiptId) &&
+    rollbackNodeAttempt.receiptIds.includes(
+      rollbackHandoffReceipt?.receiptId ?? "",
+    )
+      ? []
+      : ["rollback_node_attempt_not_bound"]),
+    ...(readinessProofId &&
+    readinessProofId ===
+      (selector?.livePromotionReadinessProof?.proofId ??
+        defaultDispatch?.livePromotionReadinessProof?.proofId)
+      ? []
+      : ["rollback_readiness_proof_mismatch"]),
+    ...(liveShadowComparisonGateId ===
+    DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID
+      ? []
+      : ["rollback_live_shadow_gate_mismatch"]),
+    ...(liveShadowComparisonGateReady
+      ? []
+      : ["rollback_live_shadow_gate_not_ready"]),
+    ...(activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+      ? []
+      : ["rollback_activation_mismatch"]),
+    ...(harnessHash === DEFAULT_AGENT_HARNESS_HASH
+      ? []
+      : ["rollback_harness_hash_mismatch"]),
+    ...(policyDecision ===
+    "allow_default_harness_worker_rollback_from_live_shadow_gate"
+      ? []
+      : ["rollback_policy_decision_mismatch"]),
+    ...(receiptRefs.length > 0 ? [] : ["rollback_receipts_missing"]),
+    ...(replayFixtureRefs.length > 0 ? [] : ["rollback_replay_missing"]),
+  ]);
+  const canaryHashVerified =
+    blockers.length === 0 &&
+    Boolean(rollbackLaunchEnvelope?.envelopeId) &&
+    Boolean(rollbackHandoffReceipt?.receiptId) &&
+    Boolean(rollbackNodeAttempt?.attemptId) &&
+    Boolean(replayFixtureRef);
+  const dryRunPassed = blockers.length === 0 && canaryHashVerified;
+  const canaryResultId = dryRunPassed
+    ? `harness-active-runtime-rollback-canary:${slugify(
+        workflow.metadata.id || workflow.metadata.slug,
+      )}:${generatedAtMs}`
+    : null;
+  const proof: WorkflowHarnessActiveRuntimeRollbackExecutionProof = {
+    schemaVersion:
+      "workflow.harness.active-runtime-rollback-execution-proof.v1",
+    method:
+      "active runtime rollback workbench runs a dry-run against the bound default-live rollback proof and gates apply readiness on the restored proof row",
+    generatedAtMs,
+    workflowId:
+      defaultDispatch?.workflowId ??
+      selector?.workflowId ??
+      harness?.harnessWorkflowId ??
+      workflow.metadata.id,
+    activationId,
+    rollbackTarget,
+    readinessProofId,
+    liveShadowComparisonGateId,
+    liveShadowComparisonGateReady,
+    harnessHash,
+    policyDecision,
+    launchEnvelopeId: rollbackLaunchEnvelope?.envelopeId ?? null,
+    handoffReceiptId: rollbackHandoffReceipt?.receiptId ?? null,
+    nodeAttemptId: rollbackNodeAttempt?.attemptId ?? null,
+    replayFixtureRef,
+    dryRun: {
+      clicked: true,
+      passed: dryRunPassed,
+      canaryResultId,
+      canaryStatus: dryRunPassed ? "passed" : "blocked",
+      canaryHashVerified,
+      policyDecision: dryRunPassed
+        ? "allow_default_live_rollback_dry_run_from_bound_proof"
+        : "block_default_live_rollback_dry_run",
+      receiptRefs,
+      replayFixtureRefs,
+      blockers,
+    },
+    apply: {
+      attempted: false,
+      disabled: !dryRunPassed,
+      readiness: dryRunPassed ? "ready" : "blocked",
+      applied: false,
+      policyDecision: dryRunPassed
+        ? "allow_default_live_rollback_apply_after_bound_dry_run"
+        : "block_default_live_rollback_apply_until_dry_run_passes",
+      blockers: dryRunPassed ? [] : ["rollback_dry_run_not_passed"],
+    },
+    passed: dryRunPassed,
+    blockers,
+  };
+  return {
+    workflow: {
+      ...workflow,
+      metadata: {
+        ...workflow.metadata,
+        dirty: true,
+        harness: harness
+          ? {
+              ...harness,
+              activeRuntimeRollbackExecutionProof: proof,
+            }
+          : harness,
+        updatedAtMs: generatedAtMs,
+      },
+    },
+    proof,
+    passed: dryRunPassed,
+    blockers,
   };
 }
 
