@@ -50,6 +50,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-09T01-19-51-435Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T03-45-10-002Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-09T03-51-29-908Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -111,9 +113,9 @@ proof, package evidence export/import round-trip proof, and user-facing import
 review mode proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T01-19-51-435Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T03-45-10-002Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T03-51-29-908Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -140,7 +142,15 @@ launch envelope and handoff receipt counts, and a live GUI check
 `workerLaunchHandoffBound: true`. It also proves worker handoff node attempts
 and replay fixtures are bound into the dispatch timeline with
 `workerHandoffNodeTimelineBound: true`, so launch, resume, and rollback
-handoff can be inspected as first-class workflow node attempts. It further
+handoff can be inspected as first-class workflow node attempts. Normal live
+agent turns now also produce a retained live-turn node inspector proof:
+`harness_live_turn_node_inspector_present: true` and
+`harnessLiveTurnNodeInspectorCount: 1` for `retained_harness_dogfooding`. The
+sample binds a live `planner` attempt to its workflow node id, action frame,
+receipt ref, replay fixture ref, policy decision, input/output hashes, runtime
+authority, activation id, harness hash, `workflow-harness-node-attempt-inspector`,
+`workflow-selected-node-harness-attempt`, `workflow-run-harness-timeline`, and
+the `nodeAttemptId` deep-link parameter. It further
 proves the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation

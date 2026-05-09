@@ -509,6 +509,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveTurnNodeTimelineCount: 0,
     harnessLiveTurnNodeTimelineScenarios: [],
     harnessLiveTurnNodeTimelineSamples: [],
+    harnessLiveTurnNodeInspectorCount: 0,
+    harnessLiveTurnNodeInspectorScenarios: [],
+    harnessLiveTurnNodeInspectorSamples: [],
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessAuthorityToolingGateLiveCount: 0,
     harnessAuthorityToolingProviderCatalogLiveCount: 0,
@@ -533,6 +536,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     collectionErrors: [],
   };
   const harnessLiveTurnNodeTimelineKeys = new Set();
+  const harnessLiveTurnNodeInspectorKeys = new Set();
   const addScenario = (items, scenario) => {
     if (
       typeof scenario === "string" &&
@@ -557,6 +561,81 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         typeof result?.nodeAttempt?.replay?.fixtureRef === "string" &&
         result.nodeAttempt.replay.fixtureRef.length > 0,
     );
+  const extractInspectableHarnessAttempt = (dispatch) => {
+    const resultSources = [
+      dispatch?.cognitionExecutionAdapterResults,
+      dispatch?.cognitionExecutionGateAdapterResults,
+      dispatch?.routingModelAdapterResults,
+      dispatch?.verificationOutputAdapterResults,
+      dispatch?.authorityToolingAdapterResults,
+    ];
+    const resultAttempt = resultSources
+      .flatMap((items) => (Array.isArray(items) ? items : []))
+      .map((result) => ({
+        actionFrame: result?.actionFrame,
+        nodeAttempt: result?.nodeAttempt,
+      }))
+      .find(({ actionFrame, nodeAttempt }) => {
+        const replayFixtureRef = nodeAttempt?.replay?.fixtureRef;
+        return (
+          typeof nodeAttempt?.attemptId === "string" &&
+          nodeAttempt.attemptId.length > 0 &&
+          typeof nodeAttempt?.workflowNodeId === "string" &&
+          nodeAttempt.workflowNodeId.length > 0 &&
+          typeof nodeAttempt?.componentKind === "string" &&
+          nodeAttempt.componentKind.length > 0 &&
+          typeof nodeAttempt?.executionMode === "string" &&
+          nodeAttempt.executionMode.length > 0 &&
+          typeof nodeAttempt?.readiness === "string" &&
+          nodeAttempt.readiness.length > 0 &&
+          typeof nodeAttempt?.status === "string" &&
+          nodeAttempt.status.length > 0 &&
+          Array.isArray(nodeAttempt?.receiptIds) &&
+          nodeAttempt.receiptIds.length > 0 &&
+          typeof replayFixtureRef === "string" &&
+          replayFixtureRef.length > 0 &&
+          typeof nodeAttempt?.policyDecision === "string" &&
+          nodeAttempt.policyDecision.length > 0 &&
+          typeof nodeAttempt?.inputHash === "string" &&
+          nodeAttempt.inputHash.length > 0 &&
+          typeof nodeAttempt?.outputHash === "string" &&
+          nodeAttempt.outputHash.length > 0 &&
+          (!actionFrame ||
+            (actionFrame.nodeId === nodeAttempt.workflowNodeId &&
+              actionFrame.componentKind === nodeAttempt.componentKind &&
+              actionFrame.executionMode === nodeAttempt.executionMode))
+        );
+      });
+    if (resultAttempt?.nodeAttempt) return resultAttempt;
+
+    const directAttempt = (Array.isArray(dispatch?.dispatchNodeAttempts)
+      ? dispatch.dispatchNodeAttempts
+      : []
+    ).find((nodeAttempt) => {
+      const replayFixtureRef = nodeAttempt?.replay?.fixtureRef;
+      return (
+        typeof nodeAttempt?.attemptId === "string" &&
+        nodeAttempt.attemptId.length > 0 &&
+        typeof nodeAttempt?.workflowNodeId === "string" &&
+        nodeAttempt.workflowNodeId.length > 0 &&
+        typeof nodeAttempt?.componentKind === "string" &&
+        nodeAttempt.componentKind.length > 0 &&
+        Array.isArray(nodeAttempt?.receiptIds) &&
+        nodeAttempt.receiptIds.length > 0 &&
+        typeof replayFixtureRef === "string" &&
+        replayFixtureRef.length > 0 &&
+        typeof nodeAttempt?.policyDecision === "string" &&
+        nodeAttempt.policyDecision.length > 0 &&
+        typeof nodeAttempt?.inputHash === "string" &&
+        nodeAttempt.inputHash.length > 0 &&
+        typeof nodeAttempt?.outputHash === "string" &&
+        nodeAttempt.outputHash.length > 0
+      );
+    });
+    return directAttempt
+      ? { actionFrame: null, nodeAttempt: directAttempt }
+      : null;
+  };
   const noteHarnessLiveTurnNodeTimeline = (dispatch, artifactId = null) => {
     if (!dispatch || typeof dispatch !== "object") return;
     const scenario = dispatch.modelProviderGatedVisibleOutputScenario;
@@ -667,6 +746,54 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         modelExecutionAttemptCount: stringArrayLength(
           dispatch.modelExecutionAttemptIds,
         ),
+      });
+    }
+    const inspectableAttempt = extractInspectableHarnessAttempt(dispatch);
+    if (!inspectableAttempt?.nodeAttempt) return;
+    const nodeAttempt = inspectableAttempt.nodeAttempt;
+    const actionFrame = inspectableAttempt.actionFrame;
+    const replayFixtureRef = nodeAttempt.replay?.fixtureRef ?? null;
+    const inspectorKey = `${timelineKey}:${nodeAttempt.attemptId}`;
+    if (harnessLiveTurnNodeInspectorKeys.has(inspectorKey)) return;
+    harnessLiveTurnNodeInspectorKeys.add(inspectorKey);
+    summary.harnessLiveTurnNodeInspectorCount += 1;
+    addScenario(summary.harnessLiveTurnNodeInspectorScenarios, scenario);
+    if (summary.harnessLiveTurnNodeInspectorSamples.length < 8) {
+      summary.harnessLiveTurnNodeInspectorSamples.push({
+        artifactId,
+        dispatchId: dispatch.dispatchId ?? null,
+        scenario,
+        workflowId: dispatch.workflowId ?? nodeAttempt.harnessWorkflowId ?? null,
+        activationId:
+          dispatch.activationId ?? nodeAttempt.harnessActivationId ?? null,
+        harnessHash: dispatch.harnessHash ?? nodeAttempt.harnessHash ?? null,
+        runtimeAuthority: dispatch.runtimeAuthority ?? null,
+        nodeAttemptId: nodeAttempt.attemptId,
+        workflowNodeId: nodeAttempt.workflowNodeId,
+        componentId: nodeAttempt.componentId ?? actionFrame?.componentId ?? null,
+        componentKind:
+          nodeAttempt.componentKind ?? actionFrame?.componentKind ?? null,
+        executionMode:
+          nodeAttempt.executionMode ?? actionFrame?.executionMode ?? null,
+        readiness: nodeAttempt.readiness ?? actionFrame?.readiness ?? null,
+        status: nodeAttempt.status ?? null,
+        policyDecision: nodeAttempt.policyDecision ?? null,
+        receiptRefs: Array.isArray(nodeAttempt.receiptIds)
+          ? nodeAttempt.receiptIds.slice(0, 12)
+          : [],
+        receiptRefCount: stringArrayLength(nodeAttempt.receiptIds),
+        replayFixtureRef,
+        replayDeterminism: nodeAttempt.replay?.determinism ?? null,
+        replayRedactionPolicy: nodeAttempt.replay?.redactionPolicy ?? null,
+        inputHash: nodeAttempt.inputHash ?? null,
+        outputHash: nodeAttempt.outputHash ?? null,
+        actionFrameNodeId: actionFrame?.nodeId ?? null,
+        actionFrameComponentKind: actionFrame?.componentKind ?? null,
+        actionFrameExecutionMode: actionFrame?.executionMode ?? null,
+        inspectorTestId: "workflow-harness-node-attempt-inspector",
+        selectedNodeInspectorTestId: "workflow-selected-node-harness-attempt",
+        timelineTestId: "workflow-run-harness-timeline",
+        deepLinkParam: "nodeAttemptId",
       });
     }
   };
@@ -4232,6 +4359,45 @@ function buildGuiEvidenceAssessment({
         Array.isArray(sample?.policyDecisions) &&
         sample.policyDecisions.length >= 4,
     );
+  const hasHarnessLiveTurnNodeInspector =
+    hasHarnessLiveTurnNodeTimeline &&
+    summary.harnessLiveTurnNodeInspectorCount > 0 &&
+    summary.harnessLiveTurnNodeInspectorScenarios.includes(
+      "retained_harness_dogfooding",
+    ) &&
+    summary.harnessLiveTurnNodeInspectorSamples.some(
+      (sample) =>
+        sample?.scenario === "retained_harness_dogfooding" &&
+        sample?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        typeof sample?.nodeAttemptId === "string" &&
+        sample.nodeAttemptId.length > 0 &&
+        typeof sample?.workflowNodeId === "string" &&
+        sample.workflowNodeId.length > 0 &&
+        typeof sample?.componentKind === "string" &&
+        sample.componentKind.length > 0 &&
+        typeof sample?.executionMode === "string" &&
+        sample.executionMode.length > 0 &&
+        typeof sample?.readiness === "string" &&
+        sample.readiness.length > 0 &&
+        typeof sample?.status === "string" &&
+        sample.status.length > 0 &&
+        typeof sample?.policyDecision === "string" &&
+        sample.policyDecision.length > 0 &&
+        sample?.receiptRefCount > 0 &&
+        Array.isArray(sample?.receiptRefs) &&
+        sample.receiptRefs.length > 0 &&
+        typeof sample?.replayFixtureRef === "string" &&
+        sample.replayFixtureRef.length > 0 &&
+        typeof sample?.inputHash === "string" &&
+        sample.inputHash.length > 0 &&
+        typeof sample?.outputHash === "string" &&
+        sample.outputHash.length > 0 &&
+        sample?.inspectorTestId === "workflow-harness-node-attempt-inspector" &&
+        sample?.selectedNodeInspectorTestId ===
+          "workflow-selected-node-harness-attempt" &&
+        sample?.timelineTestId === "workflow-run-harness-timeline" &&
+        sample?.deepLinkParam === "nodeAttemptId",
+    );
   const hasHarnessLivePromotionReadiness =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessLivePromotionReadinessCount > 0 &&
@@ -4411,6 +4577,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessChatRuntimeBinding,
       harness_live_turn_node_timeline_present:
         hasHarnessLiveTurnNodeTimeline,
+      harness_live_turn_node_inspector_present:
+        hasHarnessLiveTurnNodeInspector,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4497,6 +4665,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLivePromotionReadiness,
       hasHarnessChatRuntimeBinding,
       hasHarnessLiveTurnNodeTimeline,
+      hasHarnessLiveTurnNodeInspector,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -4532,6 +4701,12 @@ function buildGuiEvidenceAssessment({
         summary.harnessLiveTurnNodeTimelineScenarios,
       harnessLiveTurnNodeTimelineSamples:
         summary.harnessLiveTurnNodeTimelineSamples,
+      harnessLiveTurnNodeInspectorCount:
+        summary.harnessLiveTurnNodeInspectorCount,
+      harnessLiveTurnNodeInspectorScenarios:
+        summary.harnessLiveTurnNodeInspectorScenarios,
+      harnessLiveTurnNodeInspectorSamples:
+        summary.harnessLiveTurnNodeInspectorSamples,
       harnessWorkerBindingCount: summary.harnessWorkerBindingCount,
       harnessShadowRunCount: summary.harnessShadowRunCount,
       harnessNodeAttemptCount: summary.harnessNodeAttemptCount,
@@ -7376,6 +7551,13 @@ async function runGuiValidation(args, outputRoot) {
         harness_live_turn_node_timeline:
           runtimeArtifacts.summary.harnessLiveTurnNodeTimelineCount > 0 &&
           runtimeArtifacts.summary.harnessLiveTurnNodeTimelineScenarios.includes(
+            "retained_harness_dogfooding",
+          )
+            ? runtimeArtifacts.path
+            : false,
+        harness_live_turn_node_inspector:
+          runtimeArtifacts.summary.harnessLiveTurnNodeInspectorCount > 0 &&
+          runtimeArtifacts.summary.harnessLiveTurnNodeInspectorScenarios.includes(
             "retained_harness_dogfooding",
           )
             ? runtimeArtifacts.path
