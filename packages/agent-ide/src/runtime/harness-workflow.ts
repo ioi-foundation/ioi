@@ -3060,6 +3060,10 @@ export function executeWorkflowHarnessActiveRuntimeRollbackDryRun(
     defaultDispatch?.workerHandoffNodeAttempts ??
     harness?.workerHandoffNodeAttempts ??
     [];
+  const workerHandoffReplayFixtureRefs =
+    defaultDispatch?.workerHandoffReplayFixtureRefs ??
+    harness?.workerHandoffReplayFixtureRefs ??
+    [];
   const rollbackLaunchEnvelope =
     workerLaunchEnvelopes.find((envelope) => envelope.phase === "rollback") ??
     null;
@@ -3078,7 +3082,7 @@ export function executeWorkflowHarnessActiveRuntimeRollbackDryRun(
     null;
   const replayFixtureRef =
     rollbackNodeAttempt?.replay.fixtureRef ??
-    (defaultDispatch?.workerHandoffReplayFixtureRefs ?? []).find((fixtureRef) =>
+    workerHandoffReplayFixtureRefs.find((fixtureRef) =>
       fixtureRef.includes(":rollback:"),
     ) ??
     null;
@@ -3292,6 +3296,10 @@ export function executeWorkflowHarnessActiveRuntimeRollbackApply(
     defaultDispatch?.workerHandoffNodeAttempts ??
     harness?.workerHandoffNodeAttempts ??
     [];
+  const workerHandoffReplayFixtureRefs =
+    defaultDispatch?.workerHandoffReplayFixtureRefs ??
+    harness?.workerHandoffReplayFixtureRefs ??
+    [];
   const rollbackLaunchEnvelope =
     workerLaunchEnvelopes.find((envelope) => envelope.phase === "rollback") ??
     null;
@@ -3308,12 +3316,21 @@ export function executeWorkflowHarnessActiveRuntimeRollbackApply(
       attempt.attemptId.includes(":rollback:"),
     ) ??
     null;
+  const rollbackNodeAttemptBound =
+    Boolean(rollbackNodeAttempt) &&
+    Boolean(rollbackHandoffReceipt?.receiptId) &&
+    rollbackNodeAttempt?.receiptIds.includes(
+      rollbackHandoffReceipt?.receiptId ?? "",
+    ) === true;
   const replayFixtureRef =
     rollbackNodeAttempt?.replay.fixtureRef ??
-    (defaultDispatch?.workerHandoffReplayFixtureRefs ?? []).find((fixtureRef) =>
+    workerHandoffReplayFixtureRefs.find((fixtureRef) =>
       fixtureRef.includes(":rollback:"),
     ) ??
     null;
+  const rollbackReplayFixtureBound =
+    Boolean(replayFixtureRef) &&
+    workerHandoffReplayFixtureRefs.includes(replayFixtureRef ?? "");
   const readinessProofId =
     rollbackHandoffReceipt?.rollbackReadinessProofId ??
     rollbackLaunchEnvelope?.rollbackReadinessProofId ??
@@ -3363,6 +3380,12 @@ export function executeWorkflowHarnessActiveRuntimeRollbackApply(
     ...(rollbackHandoffReceipt ? [] : ["rollback_handoff_receipt_missing"]),
     ...(rollbackNodeAttempt ? [] : ["rollback_node_attempt_missing"]),
     ...(replayFixtureRef ? [] : ["rollback_replay_fixture_missing"]),
+    ...(rollbackNodeAttempt && !rollbackNodeAttemptBound
+      ? ["rollback_node_attempt_orphaned"]
+      : []),
+    ...(replayFixtureRef && !rollbackReplayFixtureBound
+      ? ["rollback_replay_fixture_orphaned"]
+      : []),
   ]);
   const staleBlockers = uniqueStrings([
     ...(existingProof?.readinessProofId === readinessProofId

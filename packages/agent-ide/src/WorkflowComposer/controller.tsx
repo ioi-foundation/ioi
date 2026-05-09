@@ -4309,17 +4309,114 @@ export function useWorkflowComposerController({
       executionProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof,
       generatedAtMs: number,
     ): Promise<WorkflowHarnessActiveRuntimeRollbackNegativeApplyProof> => {
-      const expectedBlockers = [
-        "rollback_harness_hash_stale",
-        "rollback_node_attempt_stale",
-        "rollback_replay_fixture_stale",
-        "rollback_apply_hash_not_verified",
-      ];
+      type DefaultRuntimeDispatchProof = NonNullable<
+        NonNullable<
+          WorkflowProject["metadata"]["harness"]
+        >["defaultRuntimeDispatchProof"]
+      >;
+      type NegativeApplyCaseConfig = {
+        caseId: string;
+        mutationKind: "stale_proof" | "detached_proof";
+        expectedBlockers: string[];
+        workflow: WorkflowProject;
+        executionProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof;
+        staleProofBlocked: boolean;
+        detachedProofBlocked: boolean;
+      };
+      const resetExecutionProofForNegativeApply = (
+        proof: WorkflowHarnessActiveRuntimeRollbackExecutionProof,
+        method: string,
+      ): WorkflowHarnessActiveRuntimeRollbackExecutionProof => ({
+        ...proof,
+        method,
+        apply: {
+          ...proof.apply,
+          attempted: false,
+          disabled: false,
+          readiness: "ready",
+          applied: false,
+          executionId: null,
+          rollbackReceiptId: null,
+          auditEventId: null,
+          rollbackTargetVerified: false,
+          hashVerified: false,
+          receiptRefs: [],
+          evidenceRefs: [],
+          replayFixtureRefs: [],
+          appliedAtMs: null,
+          blockers: [],
+        },
+        routeRestore: undefined,
+        passed: true,
+        blockers: [],
+      });
+      const buildNegativeWorkflow = (
+        nextExecutionProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof,
+        mutateDispatch?: (
+          dispatch: DefaultRuntimeDispatchProof,
+        ) => DefaultRuntimeDispatchProof,
+      ): WorkflowProject => {
+        const harness = workflow.metadata.harness;
+        const defaultDispatch = harness?.defaultRuntimeDispatchProof ?? null;
+        const nextDefaultDispatch =
+          defaultDispatch && mutateDispatch
+            ? mutateDispatch(defaultDispatch)
+            : defaultDispatch;
+        return {
+          ...workflow,
+          metadata: {
+            ...workflow.metadata,
+            harness: harness
+              ? {
+                  ...harness,
+                  defaultRuntimeDispatchProof:
+                    nextDefaultDispatch ?? undefined,
+                  workerLaunchEnvelopes:
+                    nextDefaultDispatch?.workerLaunchEnvelopes ??
+                    harness.workerLaunchEnvelopes,
+                  workerHandoffReceipts:
+                    nextDefaultDispatch?.workerHandoffReceipts ??
+                    harness.workerHandoffReceipts,
+                  workerHandoffNodeAttemptIds:
+                    nextDefaultDispatch?.workerHandoffNodeAttemptIds ??
+                    harness.workerHandoffNodeAttemptIds,
+                  workerHandoffNodeAttempts:
+                    nextDefaultDispatch?.workerHandoffNodeAttempts ??
+                    harness.workerHandoffNodeAttempts,
+                  workerHandoffReplayFixtureRefs:
+                    nextDefaultDispatch?.workerHandoffReplayFixtureRefs ??
+                    harness.workerHandoffReplayFixtureRefs,
+                  activationRecord:
+                    harness.activationRecord && nextDefaultDispatch
+                      ? {
+                          ...harness.activationRecord,
+                          workerLaunchEnvelopes:
+                            nextDefaultDispatch.workerLaunchEnvelopes,
+                          workerHandoffReceipts:
+                            nextDefaultDispatch.workerHandoffReceipts,
+                          workerHandoffNodeAttemptIds:
+                            nextDefaultDispatch.workerHandoffNodeAttemptIds,
+                          workerHandoffNodeAttempts:
+                            nextDefaultDispatch.workerHandoffNodeAttempts,
+                          workerHandoffReplayFixtureRefs:
+                            nextDefaultDispatch.workerHandoffReplayFixtureRefs,
+                        }
+                      : harness.activationRecord,
+                  activeRuntimeRollbackExecutionProof: nextExecutionProof,
+                  activeRuntimeRollbackApplyProof: undefined,
+                }
+              : harness,
+          },
+        };
+      };
+      const resetMethod =
+        "negative apply fixture reuses the bound dry-run proof but removes or orphans one live rollback binding dependency before Apply";
       const staleExecutionProof: WorkflowHarnessActiveRuntimeRollbackExecutionProof =
         {
-          ...executionProof,
-          method:
+          ...resetExecutionProofForNegativeApply(
+            executionProof,
             "negative apply fixture mutates the bound rollback hash, node attempt, and replay fixture after dry-run to prove stale proof blocking",
+          ),
           harnessHash: `${executionProof.harnessHash}:stale-negative`,
           nodeAttemptId: executionProof.nodeAttemptId
             ? `${executionProof.nodeAttemptId}:stale-negative`
@@ -4327,160 +4424,342 @@ export function useWorkflowComposerController({
           replayFixtureRef: executionProof.replayFixtureRef
             ? `${executionProof.replayFixtureRef}:stale-negative`
             : "stale-negative-replay-fixture",
-          apply: {
-            ...executionProof.apply,
-            attempted: false,
-            disabled: false,
-            readiness: "ready",
-            applied: false,
-            executionId: null,
-            rollbackReceiptId: null,
-            auditEventId: null,
-            rollbackTargetVerified: false,
-            hashVerified: false,
-            receiptRefs: [],
-            evidenceRefs: [],
-            replayFixtureRefs: [],
-            appliedAtMs: null,
-            blockers: [],
-          },
-          routeRestore: undefined,
-          passed: true,
-          blockers: [],
         };
-      const staleWorkflow: WorkflowProject = {
-        ...workflow,
-        metadata: {
-          ...workflow.metadata,
-          harness: workflow.metadata.harness
-            ? {
-                ...workflow.metadata.harness,
-                activeRuntimeRollbackExecutionProof: staleExecutionProof,
-                activeRuntimeRollbackApplyProof: undefined,
-              }
-            : workflow.metadata.harness,
+      const detachedExecutionProof = () =>
+        resetExecutionProofForNegativeApply(executionProof, resetMethod);
+      const withoutRollbackNodeAttempt = (
+        dispatch: DefaultRuntimeDispatchProof,
+      ): DefaultRuntimeDispatchProof => {
+        const nextWorkerHandoffNodeAttempts =
+          dispatch.workerHandoffNodeAttempts.filter(
+            (attempt) => attempt.attemptId !== executionProof.nodeAttemptId,
+          );
+        const nextWorkerHandoffNodeAttemptIds =
+          dispatch.workerHandoffNodeAttemptIds.filter(
+            (attemptId) => attemptId !== executionProof.nodeAttemptId,
+          );
+        return {
+          ...dispatch,
+          workerHandoffNodeAttempts: nextWorkerHandoffNodeAttempts,
+          workerHandoffNodeAttemptIds: nextWorkerHandoffNodeAttemptIds,
+          dispatchNodeAttempts: dispatch.dispatchNodeAttempts?.filter(
+            (attempt) => attempt.attemptId !== executionProof.nodeAttemptId,
+          ),
+          dispatchNodeAttemptIds: dispatch.dispatchNodeAttemptIds.filter(
+            (attemptId) => attemptId !== executionProof.nodeAttemptId,
+          ),
+          acceptedNodeAttemptIds: dispatch.acceptedNodeAttemptIds.filter(
+            (attemptId) => attemptId !== executionProof.nodeAttemptId,
+          ),
+          nodeAttemptIds: dispatch.nodeAttemptIds.filter(
+            (attemptId) => attemptId !== executionProof.nodeAttemptId,
+          ),
+        };
+      };
+      const orphanRollbackNodeAttempt = (
+        dispatch: DefaultRuntimeDispatchProof,
+      ): DefaultRuntimeDispatchProof => ({
+        ...dispatch,
+        workerHandoffNodeAttempts: dispatch.workerHandoffNodeAttempts.map(
+          (attempt) =>
+            attempt.attemptId === executionProof.nodeAttemptId
+              ? {
+                  ...attempt,
+                  receiptIds: uniqueHarnessRefs([
+                    ...attempt.receiptIds.filter(
+                      (receiptId) =>
+                        receiptId !== executionProof.handoffReceiptId,
+                    ),
+                    executionProof.handoffReceiptId
+                      ? `${executionProof.handoffReceiptId}:orphaned`
+                      : "rollback-handoff-receipt:orphaned",
+                  ]),
+                }
+              : attempt,
+        ),
+      });
+      const clearRollbackReplayFixture = (
+        dispatch: DefaultRuntimeDispatchProof,
+      ): DefaultRuntimeDispatchProof => {
+        const nextWorkerHandoffNodeAttempts =
+          dispatch.workerHandoffNodeAttempts.map((attempt) =>
+            attempt.attemptId === executionProof.nodeAttemptId
+              ? {
+                  ...attempt,
+                  replay: {
+                    ...attempt.replay,
+                    fixtureRef: "",
+                  },
+                }
+              : attempt,
+          );
+        const nextReplayFixtureRefs = dispatch.replayFixtureRefs.filter(
+          (fixtureRef) => fixtureRef !== executionProof.replayFixtureRef,
+        );
+        return {
+          ...dispatch,
+          workerHandoffNodeAttempts: nextWorkerHandoffNodeAttempts,
+          workerHandoffReplayFixtureRefs:
+            dispatch.workerHandoffReplayFixtureRefs.filter(
+              (fixtureRef) => fixtureRef !== executionProof.replayFixtureRef,
+            ),
+          replayFixtureRefs: nextReplayFixtureRefs,
+        };
+      };
+      const negativeCaseConfigs: NegativeApplyCaseConfig[] = [
+        {
+          caseId: "stale-hash-node-replay",
+          mutationKind: "stale_proof",
+          expectedBlockers: [
+            "rollback_harness_hash_stale",
+            "rollback_node_attempt_stale",
+            "rollback_replay_fixture_stale",
+            "rollback_apply_hash_not_verified",
+          ],
+          workflow: buildNegativeWorkflow(staleExecutionProof),
+          executionProof: staleExecutionProof,
+          staleProofBlocked: true,
+          detachedProofBlocked: false,
         },
-      };
-      const runtimeResult = executeWorkflowHarnessActiveRuntimeRollbackApply(
-        staleWorkflow,
-        { nowMs: generatedAtMs + 1 },
-      );
-      const link: HarnessWorkbenchDeepLink = {
-        panel: "settings" as WorkflowRightPanel,
-        rollbackTarget: staleExecutionProof.rollbackTarget,
-        nodeAttemptId: staleExecutionProof.nodeAttemptId ?? undefined,
-        receiptRef: staleExecutionProof.handoffReceiptId ?? undefined,
-        replayFixtureRef: staleExecutionProof.replayFixtureRef ?? undefined,
-      };
-      const hash = encodeHarnessWorkbenchDeepLink(link);
-      const parsed = parseHarnessWorkbenchDeepLink(hash);
-      const blockers: string[] = [];
-      const originalHash =
-        typeof window === "undefined" ? "" : window.location.hash;
-      let observedState: Record<string, string> = {};
-      let applyButtonDisabled = true;
-      try {
-        loadWorkflowProject(staleWorkflow);
-        setWorkflow(staleWorkflow);
-        setRightPanel("settings");
-        setBottomPanel("selection");
-        if (!parsed) {
-          blockers.push("active_runtime_rollback_negative_hash_parse_failed");
-        } else {
-          writeHarnessWorkbenchDeepLink(hash);
-          applyHarnessWorkbenchDeepLink(parsed);
+        {
+          caseId: "detached-launch-envelope-missing",
+          mutationKind: "detached_proof",
+          expectedBlockers: [
+            "rollback_launch_envelope_missing",
+            "rollback_launch_envelope_stale",
+          ],
+          workflow: buildNegativeWorkflow(detachedExecutionProof(), (dispatch) => ({
+            ...dispatch,
+            workerLaunchEnvelopes: dispatch.workerLaunchEnvelopes.filter(
+              (envelope) => envelope.phase !== "rollback",
+            ),
+            workerLaunchEnvelopeIds: dispatch.workerLaunchEnvelopeIds.filter(
+              (envelopeId) => envelopeId !== executionProof.launchEnvelopeId,
+            ),
+          })),
+          executionProof: detachedExecutionProof(),
+          staleProofBlocked: true,
+          detachedProofBlocked: true,
+        },
+        {
+          caseId: "detached-handoff-receipt-missing",
+          mutationKind: "detached_proof",
+          expectedBlockers: [
+            "rollback_handoff_receipt_missing",
+            "rollback_handoff_receipt_stale",
+          ],
+          workflow: buildNegativeWorkflow(detachedExecutionProof(), (dispatch) => ({
+            ...dispatch,
+            workerHandoffReceipts: dispatch.workerHandoffReceipts.filter(
+              (receipt) => receipt.phase !== "rollback",
+            ),
+            workerHandoffReceiptIds: dispatch.workerHandoffReceiptIds.filter(
+              (receiptId) => receiptId !== executionProof.handoffReceiptId,
+            ),
+            receiptIds: dispatch.receiptIds.filter(
+              (receiptId) => receiptId !== executionProof.handoffReceiptId,
+            ),
+          })),
+          executionProof: detachedExecutionProof(),
+          staleProofBlocked: true,
+          detachedProofBlocked: true,
+        },
+        {
+          caseId: "detached-node-attempt-missing",
+          mutationKind: "detached_proof",
+          expectedBlockers: [
+            "rollback_node_attempt_missing",
+            "rollback_node_attempt_stale",
+          ],
+          workflow: buildNegativeWorkflow(
+            detachedExecutionProof(),
+            withoutRollbackNodeAttempt,
+          ),
+          executionProof: detachedExecutionProof(),
+          staleProofBlocked: true,
+          detachedProofBlocked: true,
+        },
+        {
+          caseId: "detached-node-attempt-orphaned",
+          mutationKind: "detached_proof",
+          expectedBlockers: ["rollback_node_attempt_orphaned"],
+          workflow: buildNegativeWorkflow(
+            detachedExecutionProof(),
+            orphanRollbackNodeAttempt,
+          ),
+          executionProof: detachedExecutionProof(),
+          staleProofBlocked: false,
+          detachedProofBlocked: true,
+        },
+        {
+          caseId: "detached-replay-fixture-missing",
+          mutationKind: "detached_proof",
+          expectedBlockers: [
+            "rollback_replay_fixture_missing",
+            "rollback_replay_fixture_stale",
+          ],
+          workflow: buildNegativeWorkflow(
+            detachedExecutionProof(),
+            clearRollbackReplayFixture,
+          ),
+          executionProof: detachedExecutionProof(),
+          staleProofBlocked: true,
+          detachedProofBlocked: true,
+        },
+      ];
+      const runNegativeCase = async (
+        negativeConfig: NegativeApplyCaseConfig,
+        index: number,
+      ) => {
+        const runtimeResult = executeWorkflowHarnessActiveRuntimeRollbackApply(
+          negativeConfig.workflow,
+          { nowMs: generatedAtMs + index + 1 },
+        );
+        const link: HarnessWorkbenchDeepLink = {
+          panel: "settings" as WorkflowRightPanel,
+          rollbackTarget: negativeConfig.executionProof.rollbackTarget,
+          nodeAttemptId:
+            negativeConfig.executionProof.nodeAttemptId ?? undefined,
+          receiptRef:
+            negativeConfig.executionProof.handoffReceiptId ?? undefined,
+          replayFixtureRef:
+            negativeConfig.executionProof.replayFixtureRef ?? undefined,
+        };
+        const hash = encodeHarnessWorkbenchDeepLink(link);
+        const parsed = parseHarnessWorkbenchDeepLink(hash);
+        const blockers: string[] = [];
+        let observedState: Record<string, string> = {};
+        let applyButtonDisabled = true;
+        try {
+          loadWorkflowProject(negativeConfig.workflow);
+          setWorkflow(negativeConfig.workflow);
+          setRightPanel("settings");
+          setBottomPanel("selection");
+          if (!parsed) {
+            blockers.push(
+              "active_runtime_rollback_negative_hash_parse_failed",
+            );
+          } else {
+            applyHarnessWorkbenchDeepLink(parsed);
+          }
+          await nextHarnessWorkbenchFrame();
+          await nextHarnessWorkbenchFrame();
+          observedState = readHarnessRailSelectedState(
+            "workflow-harness-active-runtime-binding",
+          );
+          const applyButton = document.querySelector<HTMLButtonElement>(
+            '[data-testid="workflow-harness-active-runtime-rollback-apply"]',
+          );
+          applyButtonDisabled =
+            applyButton?.disabled ??
+            observedState["data-rollback-execution-apply-disabled"] !== "false";
+        } catch (error) {
+          blockers.push(
+            `active_runtime_rollback_negative_apply_probe_failed:${errorMessage(
+              error,
+            )}`,
+          );
+        } finally {
+          loadWorkflowProject(workflow);
+          setWorkflow(workflow);
+          setRightPanel("outputs");
+          setBottomPanel("selection");
+          await nextHarnessWorkbenchFrame();
         }
-        await nextHarnessWorkbenchFrame();
-        await nextHarnessWorkbenchFrame();
-        observedState = readHarnessRailSelectedState(
-          "workflow-harness-active-runtime-binding",
+        const observedRailBlockers = uniqueHarnessRefs([
+          ...splitHarnessRailBlockers(
+            observedState["data-rollback-execution-blockers"],
+          ),
+          ...splitHarnessRailBlockers(
+            observedState["data-rollback-apply-blockers"],
+          ),
+        ]);
+        const runtimeBlockers = runtimeResult.proof.blockers ?? [];
+        const missingRailBlockers = negativeConfig.expectedBlockers.filter(
+          (blocker) => !observedRailBlockers.includes(blocker),
         );
-        const applyButton = document.querySelector<HTMLButtonElement>(
-          '[data-testid="workflow-harness-active-runtime-rollback-apply"]',
+        const missingRuntimeBlockers = negativeConfig.expectedBlockers.filter(
+          (blocker) => !runtimeBlockers.includes(blocker),
         );
-        applyButtonDisabled =
-          applyButton?.disabled ??
-          observedState["data-rollback-execution-apply-disabled"] !== "false";
-      } catch (error) {
-        blockers.push(
-          `active_runtime_rollback_negative_apply_probe_failed:${errorMessage(
-            error,
-          )}`,
-        );
-      } finally {
-        writeHarnessWorkbenchDeepLink(originalHash);
-        loadWorkflowProject(workflow);
-        setWorkflow(workflow);
-        setRightPanel("outputs");
-        setBottomPanel("selection");
-        await nextHarnessWorkbenchFrame();
-      }
-      const observedRailBlockers = uniqueHarnessRefs([
-        ...splitHarnessRailBlockers(
-          observedState["data-rollback-execution-blockers"],
-        ),
-        ...splitHarnessRailBlockers(observedState["data-rollback-apply-blockers"]),
-      ]);
-      const runtimeBlockers = runtimeResult.proof.blockers ?? [];
-      const missingRailBlockers = expectedBlockers.filter(
-        (blocker) => !observedRailBlockers.includes(blocker),
-      );
-      const missingRuntimeBlockers = expectedBlockers.filter(
-        (blocker) => !runtimeBlockers.includes(blocker),
-      );
-      const caseBlockers = uniqueHarnessRefs([
-        ...blockers,
-        ...(applyButtonDisabled
-          ? []
-          : ["active_runtime_rollback_negative_apply_button_enabled"]),
-        ...(runtimeResult.applied
-          ? ["active_runtime_rollback_negative_apply_unexpectedly_applied"]
-          : []),
-        ...(runtimeResult.proof.applyStatus === "blocked"
-          ? []
-          : ["active_runtime_rollback_negative_apply_status_not_blocked"]),
-        ...(runtimeResult.proof.staleProofBlocked
-          ? []
-          : ["active_runtime_rollback_negative_stale_flag_missing"]),
-        ...(runtimeResult.proof.detachedProofBlocked
-          ? ["active_runtime_rollback_negative_detached_flag_unexpected"]
-          : []),
-        ...missingRailBlockers.map(
-          (blocker) => `missing_rail_blocker:${blocker}`,
-        ),
-        ...missingRuntimeBlockers.map(
-          (blocker) => `missing_runtime_blocker:${blocker}`,
-        ),
-      ]);
-      const negativeCase = {
-        caseId: "stale-hash-node-replay",
-        mutationKind: "stale_proof" as const,
-        expectedBlockers,
-        observedRailBlockers,
-        runtimeBlockers,
-        selectedRailTestId: "workflow-harness-active-runtime-binding",
-        applyButtonDisabled,
-        applyStatus: runtimeResult.proof.applyStatus,
-        staleProofBlocked: runtimeResult.proof.staleProofBlocked,
-        detachedProofBlocked: runtimeResult.proof.detachedProofBlocked,
-        rollbackApplied: runtimeResult.proof.rollbackApplied,
-        rollbackTargetVerified: runtimeResult.proof.rollbackTargetVerified,
-        hashVerified: runtimeResult.proof.hashVerified,
-        rollbackReceiptId: runtimeResult.proof.rollbackReceiptId,
-        auditEventId: runtimeResult.proof.auditEventId,
-        passed: caseBlockers.length === 0,
+        const caseBlockers = uniqueHarnessRefs([
+          ...blockers,
+          ...(applyButtonDisabled
+            ? []
+            : ["active_runtime_rollback_negative_apply_button_enabled"]),
+          ...(runtimeResult.applied
+            ? ["active_runtime_rollback_negative_apply_unexpectedly_applied"]
+            : []),
+          ...(runtimeResult.proof.applyStatus === "blocked"
+            ? []
+            : ["active_runtime_rollback_negative_apply_status_not_blocked"]),
+          ...(runtimeResult.proof.staleProofBlocked ===
+          negativeConfig.staleProofBlocked
+            ? []
+            : [
+                negativeConfig.staleProofBlocked
+                  ? "active_runtime_rollback_negative_stale_flag_missing"
+                  : "active_runtime_rollback_negative_stale_flag_unexpected",
+              ]),
+          ...(runtimeResult.proof.detachedProofBlocked ===
+          negativeConfig.detachedProofBlocked
+            ? []
+            : [
+                negativeConfig.detachedProofBlocked
+                  ? "active_runtime_rollback_negative_detached_flag_missing"
+                  : "active_runtime_rollback_negative_detached_flag_unexpected",
+              ]),
+          ...missingRailBlockers.map(
+            (blocker) => `missing_rail_blocker:${blocker}`,
+          ),
+          ...missingRuntimeBlockers.map(
+            (blocker) => `missing_runtime_blocker:${blocker}`,
+          ),
+        ]);
+        return {
+          caseBlockers,
+          negativeCase: {
+            caseId: negativeConfig.caseId,
+            mutationKind: negativeConfig.mutationKind,
+            expectedBlockers: negativeConfig.expectedBlockers,
+            observedRailBlockers,
+            runtimeBlockers,
+            selectedRailTestId: "workflow-harness-active-runtime-binding",
+            applyButtonDisabled,
+            applyStatus: runtimeResult.proof.applyStatus,
+            staleProofBlocked: runtimeResult.proof.staleProofBlocked,
+            detachedProofBlocked: runtimeResult.proof.detachedProofBlocked,
+            rollbackApplied: runtimeResult.proof.rollbackApplied,
+            rollbackTargetVerified: runtimeResult.proof.rollbackTargetVerified,
+            hashVerified: runtimeResult.proof.hashVerified,
+            rollbackReceiptId: runtimeResult.proof.rollbackReceiptId,
+            auditEventId: runtimeResult.proof.auditEventId,
+            passed: caseBlockers.length === 0,
+          },
+        };
       };
+      const caseResults = [];
+      for (const [index, negativeConfig] of negativeCaseConfigs.entries()) {
+        caseResults.push(await runNegativeCase(negativeConfig, index));
+      }
+      const negativeCases = caseResults.map((result) => result.negativeCase);
+      const proofBlockers = uniqueHarnessRefs(
+        caseResults.flatMap((result) =>
+          result.caseBlockers.map(
+            (blocker) => `${result.negativeCase.caseId}:${blocker}`,
+          ),
+        ),
+      );
       return {
         schemaVersion:
           "workflow.harness.active-runtime-rollback-negative-apply-proof.v1",
         method:
-          "same-session Workflows bridge renders a stale rollback proof and confirms Apply stays disabled while the runtime helper blocks with matching stale proof blocker codes",
+          "same-session Workflows bridge renders stale and detached rollback proof fixtures and confirms Apply stays disabled while the runtime helper blocks with matching proof blocker codes",
         generatedAtMs,
         workflowId:
           workflow.metadata.harness?.harnessWorkflowId ?? workflow.metadata.id,
-        cases: [negativeCase],
-        passed: caseBlockers.length === 0,
-        blockers: caseBlockers,
+        cases: negativeCases,
+        passed: proofBlockers.length === 0,
+        blockers: proofBlockers,
       };
     },
     [applyHarnessWorkbenchDeepLink, loadWorkflowProject],
