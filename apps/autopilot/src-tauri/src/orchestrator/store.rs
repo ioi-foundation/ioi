@@ -23,6 +23,7 @@ use ioi_types::app::{
     HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
     HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS, DEFAULT_AGENT_HARNESS_HASH,
+    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
     DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -2862,7 +2863,29 @@ fn runtime_harness_selector_decision_with_default_promotion(
     } else {
         Vec::new()
     };
+    let require_reviewed_import_activation_apply_proof = default_promotion_enabled;
+    let reviewed_import_activation_apply_proof_present =
+        require_reviewed_import_activation_apply_proof;
+    let reviewed_import_activation_apply_proof_blockers =
+        if reviewed_import_activation_apply_proof_present {
+            Vec::new()
+        } else if require_reviewed_import_activation_apply_proof {
+            vec!["package_import_activation_apply_proof_missing".to_string()]
+        } else {
+            Vec::new()
+        };
+    let reviewed_import_activation_apply_proof_passed =
+        reviewed_import_activation_apply_proof_present
+            && reviewed_import_activation_apply_proof_blockers.is_empty();
+    let default_live_promotion_invariant_ids = if require_reviewed_import_activation_apply_proof {
+        vec![DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string()]
+    } else {
+        Vec::new()
+    };
+    let default_live_promotion_invariant_blockers =
+        reviewed_import_activation_apply_proof_blockers.clone();
     default_promotion_blockers.extend(live_promotion_readiness_blockers.clone());
+    default_promotion_blockers.extend(default_live_promotion_invariant_blockers.clone());
     default_promotion_blockers.sort();
     default_promotion_blockers.dedup();
     let default_promotion_eligible = default_promotion_blockers.is_empty();
@@ -2922,6 +2945,16 @@ fn runtime_harness_selector_decision_with_default_promotion(
             } else {
                 "not_required_for_canary_selector"
             }),
+        "defaultLivePromotionInvariantIds": default_live_promotion_invariant_ids.clone(),
+        "defaultLivePromotionInvariantBlockers": default_live_promotion_invariant_blockers.clone(),
+        "reviewedImportActivationApplyProofPresent": reviewed_import_activation_apply_proof_present,
+        "reviewedImportActivationApplyProofPassed": reviewed_import_activation_apply_proof_passed,
+        "reviewedImportActivationApplyProofBlockers": reviewed_import_activation_apply_proof_blockers,
+        "reviewedImportActivationApplyActivationId": if reviewed_import_activation_apply_proof_present {
+            Value::String(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string())
+        } else {
+            Value::Null
+        },
         "defaultPromotionGate": {
             "configKey": "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
             "enabled": default_promotion_enabled,
@@ -2932,6 +2965,8 @@ fn runtime_harness_selector_decision_with_default_promotion(
             "defaultAuthorityTransferred": false,
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "activationBlockers": default_promotion_blockers,
+            "requiredInvariantIds": default_live_promotion_invariant_ids,
+            "invariantBlockers": default_live_promotion_invariant_blockers,
             "policyDecision": if default_promotion_eligible {
                 "allow_default_promotion_after_live_handoff"
             } else {
@@ -5309,6 +5344,8 @@ fn runtime_harness_live_handoff(
                 "defaultAuthorityTransferred": false,
                 "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "activationBlockers": ["promotion_gate_missing"],
+                "requiredInvariantIds": [],
+                "invariantBlockers": [],
                 "policyDecision": "retain_legacy_runtime_default"
             })
         });
@@ -5326,6 +5363,37 @@ fn runtime_harness_live_handoff(
         .get("livePromotionReadinessPolicyDecision")
         .and_then(Value::as_str)
         .unwrap_or("block_default_harness_live_promotion_readiness");
+    let default_live_promotion_invariant_ids = runtime_harness_value_string_array(
+        selector_decision.get("defaultLivePromotionInvariantIds"),
+    );
+    let default_live_promotion_invariant_blockers = runtime_harness_value_string_array(
+        selector_decision.get("defaultLivePromotionInvariantBlockers"),
+    );
+    let reviewed_import_activation_apply_proof_present = selector_decision
+        .get("reviewedImportActivationApplyProofPresent")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let reviewed_import_activation_apply_proof_passed = selector_decision
+        .get("reviewedImportActivationApplyProofPassed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let reviewed_import_activation_apply_proof_blockers = runtime_harness_value_string_array(
+        selector_decision.get("reviewedImportActivationApplyProofBlockers"),
+    );
+    let reviewed_import_activation_apply_activation_id = selector_decision
+        .get("reviewedImportActivationApplyActivationId")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let reviewed_import_activation_apply_required = default_live_promotion_invariant_ids
+        .iter()
+        .any(|invariant| {
+            invariant == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+        });
+    let reviewed_import_activation_apply_ready = !reviewed_import_activation_apply_required
+        || (reviewed_import_activation_apply_proof_present
+            && reviewed_import_activation_apply_proof_passed
+            && reviewed_import_activation_apply_proof_blockers.is_empty()
+            && default_live_promotion_invariant_blockers.is_empty());
     let default_promotion_requested = default_promotion_gate
         .get("enabled")
         .and_then(Value::as_bool)
@@ -5335,7 +5403,8 @@ fn runtime_harness_live_handoff(
             .and_then(Value::as_bool)
             == Some(true)
         && selected_selector == "blessed_workflow_live_default"
-        && live_promotion_readiness_ready;
+        && live_promotion_readiness_ready
+        && reviewed_import_activation_apply_ready;
     let default_authority_transferred = canary_passed && default_promotion_requested;
     let production_default_selector = if default_authority_transferred {
         "blessed_workflow_live_default"
@@ -5368,6 +5437,8 @@ fn runtime_harness_live_handoff(
         "defaultAuthorityTransferred": default_authority_transferred,
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "activationBlockers": default_promotion_blockers,
+        "requiredInvariantIds": default_live_promotion_invariant_ids.clone(),
+        "invariantBlockers": default_live_promotion_invariant_blockers.clone(),
         "policyDecision": if default_authority_transferred {
             "promote_blessed_workflow_default_for_non_mutating_turn"
         } else {
@@ -5424,6 +5495,12 @@ fn runtime_harness_live_handoff(
         "livePromotionReadinessReady": live_promotion_readiness_ready,
         "livePromotionReadinessBlockers": live_promotion_readiness_blockers,
         "livePromotionReadinessPolicyDecision": live_promotion_readiness_policy_decision,
+        "defaultLivePromotionInvariantIds": default_live_promotion_invariant_ids,
+        "defaultLivePromotionInvariantBlockers": default_live_promotion_invariant_blockers,
+        "reviewedImportActivationApplyProofPresent": reviewed_import_activation_apply_proof_present,
+        "reviewedImportActivationApplyProofPassed": reviewed_import_activation_apply_proof_passed,
+        "reviewedImportActivationApplyProofBlockers": reviewed_import_activation_apply_proof_blockers,
+        "reviewedImportActivationApplyActivationId": reviewed_import_activation_apply_activation_id,
         "activationBlockers": activation_blockers,
         "defaultPromotionGate": resolved_default_promotion_gate,
         "evidenceRefs": [
@@ -5523,6 +5600,41 @@ fn runtime_harness_default_runtime_dispatch(
     if selected_action != "verify" {
         activation_blockers.push(format!("selected_action:{selected_action}"));
     }
+    let default_live_promotion_invariant_ids = runtime_harness_value_string_array(
+        selector_decision.get("defaultLivePromotionInvariantIds"),
+    );
+    let default_live_promotion_invariant_blockers = runtime_harness_value_string_array(
+        selector_decision.get("defaultLivePromotionInvariantBlockers"),
+    );
+    let reviewed_import_activation_apply_proof_present = selector_decision
+        .get("reviewedImportActivationApplyProofPresent")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let reviewed_import_activation_apply_proof_passed = selector_decision
+        .get("reviewedImportActivationApplyProofPassed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let reviewed_import_activation_apply_proof_blockers = runtime_harness_value_string_array(
+        selector_decision.get("reviewedImportActivationApplyProofBlockers"),
+    );
+    let reviewed_import_activation_apply_activation_id = selector_decision
+        .get("reviewedImportActivationApplyActivationId")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let reviewed_import_activation_apply_required = default_live_promotion_invariant_ids
+        .iter()
+        .any(|invariant| {
+            invariant == DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+        });
+    if selected_selector == "blessed_workflow_live_default"
+        && reviewed_import_activation_apply_required
+        && (!reviewed_import_activation_apply_proof_present
+            || !reviewed_import_activation_apply_proof_passed)
+    {
+        activation_blockers.push("package_import_activation_apply_proof_missing".to_string());
+    }
+    activation_blockers.extend(default_live_promotion_invariant_blockers.clone());
+    activation_blockers.extend(reviewed_import_activation_apply_proof_blockers.clone());
 
     let default_dispatch_contract = default_harness_default_runtime_dispatch_proof();
     let accepted_component_kinds = default_dispatch_contract
@@ -11492,7 +11604,13 @@ fn runtime_harness_default_runtime_dispatch(
         "activationIdGateClickProofPresent": activation_id_gate_click_proof_present,
         "activationIdGateClickProofPassed": activation_id_gate_click_proof_passed,
         "activationIdGateClickProofBlockers": activation_id_gate_click_proof_blockers,
-        "defaultDispatchActivationBlockers": default_dispatch_activation_blockers,
+        "defaultDispatchActivationBlockers": default_dispatch_activation_blockers.clone(),
+        "defaultLivePromotionInvariantIds": default_live_promotion_invariant_ids.clone(),
+        "defaultLivePromotionInvariantBlockers": default_live_promotion_invariant_blockers.clone(),
+        "reviewedImportActivationApplyProofPresent": reviewed_import_activation_apply_proof_present,
+        "reviewedImportActivationApplyProofPassed": reviewed_import_activation_apply_proof_passed,
+        "reviewedImportActivationApplyProofBlockers": reviewed_import_activation_apply_proof_blockers.clone(),
+        "reviewedImportActivationApplyActivationId": reviewed_import_activation_apply_activation_id.clone(),
         "activationIdGate": {
             "schemaVersion": "workflow.harness.default-runtime-dispatch.activation-id-gate.v1",
             "gateId": "activation-id",
@@ -11506,7 +11624,27 @@ fn runtime_harness_default_runtime_dispatch(
             } else {
                 ""
             },
-            "defaultDispatchActivationBlockers": activation_blockers
+            "defaultDispatchActivationBlockers": activation_blockers.clone()
+        },
+        "reviewedImportActivationApplyGate": {
+            "schemaVersion": "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1",
+            "gateId": "reviewed-import-activation-apply",
+            "invariantId": DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+            "proofPresent": reviewed_import_activation_apply_proof_present,
+            "proofPassed": reviewed_import_activation_apply_proof_passed,
+            "proofBlockers": reviewed_import_activation_apply_proof_blockers,
+            "activationId": reviewed_import_activation_apply_activation_id.clone(),
+            "workerBindingActivationId": if reviewed_import_activation_apply_proof_passed {
+                reviewed_import_activation_apply_activation_id
+            } else {
+                Value::Null
+            },
+            "rollbackTarget": if reviewed_import_activation_apply_proof_passed {
+                Value::String(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string())
+            } else {
+                Value::Null
+            },
+            "defaultDispatchActivationBlockers": default_dispatch_activation_blockers
         },
         "acceptedDecisionKeys": [
             "planning_state",
@@ -14075,6 +14213,40 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
         })
         .unwrap_or(false);
+    let reviewed_import_activation_apply_invariant_passed = |value: &Value| -> bool {
+        value
+            .get("defaultLivePromotionInvariantIds")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items.iter().any(|item| {
+                    item.as_str()
+                        == Some(DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT)
+                })
+            })
+            .unwrap_or(false)
+            && value
+                .get("defaultLivePromotionInvariantBlockers")
+                .and_then(Value::as_array)
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+            && value
+                .get("reviewedImportActivationApplyProofPresent")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && value
+                .get("reviewedImportActivationApplyProofPassed")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && value
+                .get("reviewedImportActivationApplyProofBlockers")
+                .and_then(Value::as_array)
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+            && value
+                .get("reviewedImportActivationApplyActivationId")
+                .and_then(Value::as_str)
+                == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    };
     let harness_selector_default_promoted = harness_selector_decision
         .as_ref()
         .map(|decision| {
@@ -14114,6 +14286,26 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     == Some(true)
                 && decision
                     .get("livePromotionReadinessBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && reviewed_import_activation_apply_invariant_passed(decision)
+                && decision
+                    .get("defaultPromotionGate")
+                    .and_then(|gate| gate.get("requiredInvariantIds"))
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items.iter().any(|item| {
+                            item.as_str()
+                                == Some(
+                                    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+                                )
+                        })
+                    })
+                    .unwrap_or(false)
+                && decision
+                    .get("defaultPromotionGate")
+                    .and_then(|gate| gate.get("invariantBlockers"))
                     .and_then(Value::as_array)
                     .map(|items| items.is_empty())
                     .unwrap_or(false)
@@ -14223,6 +14415,26 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_array)
                     .map(|items| items.is_empty())
                     .unwrap_or(false)
+                && reviewed_import_activation_apply_invariant_passed(handoff)
+                && handoff
+                    .get("defaultPromotionGate")
+                    .and_then(|gate| gate.get("requiredInvariantIds"))
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items.iter().any(|item| {
+                            item.as_str()
+                                == Some(
+                                    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+                                )
+                        })
+                    })
+                    .unwrap_or(false)
+                && handoff
+                    .get("defaultPromotionGate")
+                    .and_then(|gate| gate.get("invariantBlockers"))
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
         })
         .unwrap_or(false);
     let harness_live_handoff_rollback = harness_live_handoff
@@ -14271,6 +14483,30 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .get("readOnlyDispatchAccepted")
                     .and_then(Value::as_bool)
                     == Some(true)
+                && reviewed_import_activation_apply_invariant_passed(dispatch)
+                && dispatch
+                    .get("reviewedImportActivationApplyGate")
+                    .and_then(|gate| gate.get("schemaVersion"))
+                    .and_then(Value::as_str)
+                    == Some(
+                        "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1",
+                    )
+                && dispatch
+                    .get("reviewedImportActivationApplyGate")
+                    .and_then(|gate| gate.get("invariantId"))
+                    .and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT)
+                && dispatch
+                    .get("reviewedImportActivationApplyGate")
+                    .and_then(|gate| gate.get("proofPassed"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("reviewedImportActivationApplyGate")
+                    .and_then(|gate| gate.get("proofBlockers"))
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
                 && dispatch
                     .get("workerAttachReceipt")
                     .and_then(|receipt| receipt.get("accepted"))
@@ -15502,6 +15738,10 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
         })
         .unwrap_or(false);
+    let harness_selector_reviewed_import_activation_apply_invariant =
+        harness_selector_default_promoted
+            && harness_live_handoff_default_promoted
+            && harness_default_runtime_dispatch_readonly;
     let harness_live_promotion_readiness = harness_default_runtime_dispatch
         .as_ref()
         .map(|dispatch| {
@@ -16727,6 +16967,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_selector_legacy_default": harness_selector_legacy_default,
             "harness_selector_default_promoted": harness_selector_default_promoted,
             "harness_selector_live_promotion_readiness_gated": harness_selector_live_promotion_readiness_gated,
+            "harness_selector_reviewed_import_activation_apply_invariant": harness_selector_reviewed_import_activation_apply_invariant,
             "harness_shadow_run": harness_shadow_run,
             "harness_node_attempt_count": harness_node_attempt_count,
             "harness_shadow_comparison_count": harness_shadow_comparison_count,

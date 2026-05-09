@@ -1,0 +1,2487 @@
+{
+  "profileRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+  "chatDbPath": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/chat-memory.db",
+  "transcriptCount": 17,
+  "threadEventCount": 3,
+  "artifactRecordCount": 31,
+  "runtimeEvidenceReportCount": 9,
+  "runBundleCount": 1,
+  "selectedSourceCount": 8,
+  "promptAssemblyCount": 3,
+  "turnStateCount": 3,
+  "decisionLoopCount": 3,
+  "traceBundleCount": 3,
+  "modelRoutingCount": 3,
+  "toolSelectionQualityCount": 3,
+  "scorecardCount": 12,
+  "stopReasonCount": 9,
+  "qualityLedgerCount": 9,
+  "harnessWorkerBindingCount": 6,
+  "harnessShadowRunCount": 9,
+  "harnessNodeAttemptCount": 207,
+  "harnessShadowComparisonCount": 207,
+  "harnessBlockingDivergenceCount": 0,
+  "harnessGatedClusterCount": 36,
+  "harnessGatedCognitionCount": 9,
+  "harnessGatedRoutingModelCount": 9,
+  "harnessGatedVerificationOutputCount": 9,
+  "harnessGatedAuthorityToolingCount": 9,
+  "harnessForkActivationBlockedCount": 9,
+  "harnessForkActivationMintedCount": 9,
+  "harnessForkHandoffTimelineBoundCount": 3,
+  "harnessRollbackRestoreCanaryBlockedCount": 12,
+  "harnessRollbackRestoreCanaryReadyCount": 12,
+  "harnessRollbackRestoreCanaryReceiptCount": 24,
+  "harnessRollbackRestoreCanaryStatuses": [
+    "blocked",
+    "not_required",
+    "ready"
+  ],
+  "harnessActivationAuditReceiptCount": 42,
+  "harnessRollbackExecutionReceiptCount": 18,
+  "harnessCanaryBoundaryExecutedCount": 5,
+  "harnessCanaryBoundaryRollbackDrillCount": 5,
+  "harnessSelectorCanaryRoutedCount": 0,
+  "harnessSelectorLegacyDefaultCount": 4,
+  "harnessSelectorDefaultPromotedCount": 5,
+  "harnessSelectorLivePromotionReadinessGatedCount": 5,
+  "harnessSelectorReviewedImportActivationApplyInvariantCount": 5,
+  "harnessLiveHandoffCanaryCount": 0,
+  "harnessLiveHandoffDefaultPromotedCount": 5,
+  "harnessLiveHandoffRollbackCount": 5,
+  "harnessDefaultRuntimeDispatchReadonlyCount": 5,
+  "harnessLivePromotionReadinessCount": 5,
+  "harnessActivationIdGateClickProofRuntimeCount": 2,
+  "harnessActivationIdGateClickProofRuntimeBlockedCount": 0,
+  "harnessDefaultRuntimeBindingCount": 6,
+  "harnessDefaultRuntimeBindingMatchedCount": 5,
+  "harnessDefaultRuntimeBindingSamples": [
+    {
+      "bindingId": "harness-default-runtime-binding:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+      "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "dispatchDrivesRuntime": true,
+      "selectorLivePromotionReadinessReady": true,
+      "liveHandoffLivePromotionReadinessReady": true,
+      "dispatchLivePromotionReadinessReady": true,
+      "selectorLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "liveHandoffLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "dispatchLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "livePromotionReadinessProofIdsMatch": true,
+      "invalidForkLiveActivationBlocked": true,
+      "workerBindingAuthorityReady": true,
+      "workerBindingAuthorityBlockers": [],
+      "workerBindingRegistryBound": true,
+      "workerBindingRegistryStatus": "bound",
+      "workerBindingRegistryBlockers": [],
+      "workerAttachAccepted": true,
+      "workerAttachStatus": "bound",
+      "workerAttachBlockers": [],
+      "workerAttachRollbackAvailable": true,
+      "workerAttachResumeAccepted": true,
+      "workerAttachRollbackAccepted": true,
+      "workerAttachLifecycleComplete": true,
+      "workerAttachLifecycleStatuses": [
+        "bound",
+        "resumed",
+        "rolled_back"
+      ],
+      "workerAttachLifecycleAttemptIds": [
+        "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+      ],
+      "invalidWorkerAttachBlocked": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1",
+        "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+        "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "authorityBindingReady": true,
+        "authorityBindingBlockers": [],
+        "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn"
+      },
+      "workerBindingRegistryRecord": {
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "canaryResultId": "harness-canary-result:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:passed",
+        "bindingStatus": "bound",
+        "blockers": [],
+        "workerBindingActivationId": "activation:default-agent-harness:blessed-readonly",
+        "workerBinding": {
+          "authorityBindingBlockers": [],
+          "authorityBindingReady": true,
+          "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+          "executionMode": "live",
+          "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+          "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+          "harnessWorkflowId": "default-agent-harness",
+          "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
+          "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+          "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+          "source": "autopilot_runtime_selector_default_v1"
+        }
+      },
+      "workerAttachReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "attachStatus": "bound",
+        "accepted": true,
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "blockers": []
+      },
+      "workerAttachResumeReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+        "attachStatus": "resumed",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachRollbackReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "attachStatus": "rolled_back",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachLifecycle": [
+        {
+          "phase": "attach",
+          "attemptId": "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "bound",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+          "blockers": []
+        },
+        {
+          "phase": "resume",
+          "attemptId": "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "resumed",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+          "blockers": []
+        },
+        {
+          "phase": "rollback",
+          "attemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "rolled_back",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+          "blockers": []
+        }
+      ],
+      "workerSessionAccepted": true,
+      "workerSessionStatus": "rollback_ready",
+      "workerSessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+      "workerSessionBlockers": [],
+      "workerSessionRecord": {
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "sessionId": "47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "currentStatus": "rollback_ready",
+        "currentAttemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "currentReceiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "resumed": true,
+        "rollbackTargetReady": true,
+        "accepted": true,
+        "blockers": [],
+        "persistenceKey": "agent::harness_worker_session::47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "recordPersistenceKey": "agent::harness_worker_session_record::harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "persistedInRuntimeCheckpoint": true,
+        "restoredFromPersistedSession": true,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": [],
+        "launchAuthorityReady": true,
+        "launchAuthorityBlockers": [],
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": true,
+        "rollbackHandoffBlockers": [],
+        "rollbackHandoffTarget": "activation:default-agent-harness:blessed-readonly"
+      },
+      "workerLaunchEnvelopes": [
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        }
+      ],
+      "workerHandoffReceipts": [
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "launched",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "resumed",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "rollback_handoff_ready",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        }
+      ],
+      "workerLaunchEnvelopeIds": [
+        "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerHandoffReceiptIds": [
+        "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerLaunchEnvelopesAccepted": true,
+      "workerHandoffReceiptsAccepted": true,
+      "invalidWorkerAttachReceipt": {
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_activation_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:0",
+      "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+      "selectedSelector": "legacy_runtime",
+      "productionDefaultSelector": "legacy_runtime",
+      "executionMode": "gated",
+      "runtimeAuthority": "existing_runtime_service",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": false,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": false,
+      "dispatchDrivesRuntime": false,
+      "selectorLivePromotionReadinessReady": false,
+      "liveHandoffLivePromotionReadinessReady": false,
+      "dispatchLivePromotionReadinessReady": false,
+      "selectorLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "liveHandoffLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "dispatchLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "livePromotionReadinessProofIdsMatch": true,
+      "invalidForkLiveActivationBlocked": true,
+      "workerBindingAuthorityReady": false,
+      "workerBindingAuthorityBlockers": [
+        "default_authority_not_transferred",
+        "dispatch_live_promotion_readiness_not_ready",
+        "dispatch_not_driving_runtime",
+        "execution_mode_not_live",
+        "live_handoff_live_promotion_readiness_not_ready",
+        "production_default_not_live",
+        "selector_live_promotion_readiness_not_ready",
+        "selector_not_default_live"
+      ],
+      "workerBindingRegistryBound": false,
+      "workerBindingRegistryStatus": "blocked",
+      "workerBindingRegistryBlockers": [
+        "canary_result_not_passed",
+        "default_authority_not_transferred",
+        "dispatch_live_promotion_readiness_not_ready",
+        "dispatch_not_driving_runtime",
+        "execution_mode_not_live",
+        "live_handoff_live_promotion_readiness_not_ready",
+        "policy_decision_not_live_default",
+        "production_default_not_live",
+        "selector_live_promotion_readiness_not_ready",
+        "selector_not_default_live"
+      ],
+      "workerAttachAccepted": false,
+      "workerAttachStatus": "blocked",
+      "workerAttachBlockers": [
+        "worker_attach_authority_blocked",
+        "worker_attach_authority_not_ready",
+        "worker_attach_canary_not_passed",
+        "worker_attach_registry_blocked",
+        "worker_attach_registry_not_bound",
+        "worker_attach_worker_not_live"
+      ],
+      "workerAttachRollbackAvailable": true,
+      "workerAttachResumeAccepted": false,
+      "workerAttachRollbackAccepted": false,
+      "workerAttachLifecycleComplete": false,
+      "workerAttachLifecycleStatuses": [
+        "blocked",
+        "blocked",
+        "blocked"
+      ],
+      "workerAttachLifecycleAttemptIds": [
+        "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+      ],
+      "invalidWorkerAttachBlocked": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "gated",
+        "source": "autopilot_runtime_selector_legacy_default_v1",
+        "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:0",
+        "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "authorityBindingReady": false,
+        "authorityBindingBlockers": [
+          "default_authority_not_transferred",
+          "dispatch_live_promotion_readiness_not_ready",
+          "dispatch_not_driving_runtime",
+          "execution_mode_not_live",
+          "live_handoff_live_promotion_readiness_not_ready",
+          "production_default_not_live",
+          "selector_live_promotion_readiness_not_ready",
+          "selector_not_default_live"
+        ],
+        "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "policyDecision": "retain_legacy_runtime_default"
+      },
+      "workerBindingRegistryRecord": {
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "canaryResultId": "harness-canary-result:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "bindingStatus": "blocked",
+        "blockers": [
+          "canary_result_not_passed",
+          "default_authority_not_transferred",
+          "dispatch_live_promotion_readiness_not_ready",
+          "dispatch_not_driving_runtime",
+          "execution_mode_not_live",
+          "live_handoff_live_promotion_readiness_not_ready",
+          "policy_decision_not_live_default",
+          "production_default_not_live",
+          "selector_live_promotion_readiness_not_ready",
+          "selector_not_default_live"
+        ],
+        "workerBindingActivationId": "activation:default-agent-harness:blessed-readonly",
+        "workerBinding": {
+          "authorityBindingBlockers": [
+            "default_authority_not_transferred",
+            "dispatch_live_promotion_readiness_not_ready",
+            "dispatch_not_driving_runtime",
+            "execution_mode_not_live",
+            "live_handoff_live_promotion_readiness_not_ready",
+            "production_default_not_live",
+            "selector_live_promotion_readiness_not_ready",
+            "selector_not_default_live"
+          ],
+          "authorityBindingReady": false,
+          "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+          "executionMode": "gated",
+          "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+          "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+          "harnessWorkflowId": "default-agent-harness",
+          "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "policyDecision": "retain_legacy_runtime_default",
+          "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+          "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:0",
+          "source": "autopilot_runtime_selector_legacy_default_v1"
+        }
+      },
+      "workerAttachReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "attachStatus": "blocked",
+        "accepted": false,
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      },
+      "workerAttachResumeReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      },
+      "workerAttachRollbackReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      },
+      "workerAttachLifecycle": [
+        {
+          "phase": "attach",
+          "attemptId": "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "blocked",
+          "accepted": false,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live"
+          ]
+        },
+        {
+          "phase": "resume",
+          "attemptId": "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "blocked",
+          "accepted": false,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live"
+          ]
+        },
+        {
+          "phase": "rollback",
+          "attemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "blocked",
+          "accepted": false,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live"
+          ]
+        }
+      ],
+      "workerSessionAccepted": false,
+      "workerSessionStatus": "blocked",
+      "workerSessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+      "workerSessionBlockers": [
+        "worker_attach_authority_blocked",
+        "worker_attach_authority_not_ready",
+        "worker_attach_canary_not_passed",
+        "worker_attach_registry_blocked",
+        "worker_attach_registry_not_bound",
+        "worker_attach_worker_not_live",
+        "worker_session_attach_not_bound",
+        "worker_session_lifecycle_event_blocked",
+        "worker_session_resume_not_resolved",
+        "worker_session_rollback_not_ready"
+      ],
+      "workerSessionRecord": {
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "sessionId": "47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "currentStatus": "blocked",
+        "currentAttemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "currentReceiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "resumed": false,
+        "rollbackTargetReady": true,
+        "accepted": false,
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "persistenceKey": "agent::harness_worker_session::47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "recordPersistenceKey": "agent::harness_worker_session_record::harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "persistedInRuntimeCheckpoint": false,
+        "restoredFromPersistedSession": false,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "launchAuthorityReady": false,
+        "launchAuthorityBlockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": false,
+        "rollbackHandoffBlockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "rollbackHandoffTarget": "activation:default-agent-harness:blessed-readonly"
+      },
+      "workerLaunchEnvelopes": [
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": false,
+          "rollbackHandoffReady": false,
+          "accepted": false,
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_launch_authority_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "policyDecision": "block_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": false,
+          "rollbackHandoffReady": false,
+          "accepted": false,
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_launch_authority_not_ready",
+            "worker_launch_resume_not_resolved",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "policyDecision": "block_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": false,
+          "rollbackHandoffReady": false,
+          "accepted": false,
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_launch_authority_not_ready",
+            "worker_launch_rollback_handoff_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "policyDecision": "block_harness_worker_launch_envelope"
+        }
+      ],
+      "workerHandoffReceipts": [
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": false,
+          "handoffStatus": "blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_handoff_envelope_not_accepted",
+            "worker_handoff_launch_authority_not_ready",
+            "worker_launch_authority_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "block_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": false,
+          "handoffStatus": "blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_handoff_envelope_not_accepted",
+            "worker_handoff_launch_authority_not_ready",
+            "worker_launch_authority_not_ready",
+            "worker_launch_resume_not_resolved",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "block_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": false,
+          "handoffStatus": "blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_handoff_envelope_not_accepted",
+            "worker_handoff_launch_authority_not_ready",
+            "worker_handoff_rollback_not_ready",
+            "worker_launch_authority_not_ready",
+            "worker_launch_rollback_handoff_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "block_harness_worker_handoff"
+        }
+      ],
+      "workerLaunchEnvelopeIds": [
+        "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerHandoffReceiptIds": [
+        "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerLaunchEnvelopesAccepted": false,
+      "workerHandoffReceiptsAccepted": false,
+      "invalidWorkerAttachReceipt": {
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_activation_hash_mismatch",
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+      "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "dispatchDrivesRuntime": true,
+      "selectorLivePromotionReadinessReady": true,
+      "liveHandoffLivePromotionReadinessReady": true,
+      "dispatchLivePromotionReadinessReady": true,
+      "selectorLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "liveHandoffLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "dispatchLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "livePromotionReadinessProofIdsMatch": true,
+      "invalidForkLiveActivationBlocked": true,
+      "workerBindingAuthorityReady": true,
+      "workerBindingAuthorityBlockers": [],
+      "workerBindingRegistryBound": true,
+      "workerBindingRegistryStatus": "bound",
+      "workerBindingRegistryBlockers": [],
+      "workerAttachAccepted": true,
+      "workerAttachStatus": "bound",
+      "workerAttachBlockers": [],
+      "workerAttachRollbackAvailable": true,
+      "workerAttachResumeAccepted": true,
+      "workerAttachRollbackAccepted": true,
+      "workerAttachLifecycleComplete": true,
+      "workerAttachLifecycleStatuses": [
+        "bound",
+        "resumed",
+        "rolled_back"
+      ],
+      "workerAttachLifecycleAttemptIds": [
+        "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+      ],
+      "invalidWorkerAttachBlocked": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1",
+        "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+        "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "authorityBindingReady": true,
+        "authorityBindingBlockers": [],
+        "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn"
+      },
+      "workerBindingRegistryRecord": {
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "canaryResultId": "harness-canary-result:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:passed",
+        "bindingStatus": "bound",
+        "blockers": [],
+        "workerBindingActivationId": "activation:default-agent-harness:blessed-readonly",
+        "workerBinding": {
+          "authorityBindingBlockers": [],
+          "authorityBindingReady": true,
+          "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+          "executionMode": "live",
+          "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+          "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+          "harnessWorkflowId": "default-agent-harness",
+          "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
+          "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+          "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+          "source": "autopilot_runtime_selector_default_v1"
+        }
+      },
+      "workerAttachReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "attachStatus": "bound",
+        "accepted": true,
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "blockers": []
+      },
+      "workerAttachResumeReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+        "attachStatus": "resumed",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachRollbackReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "attachStatus": "rolled_back",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachLifecycle": [
+        {
+          "phase": "attach",
+          "attemptId": "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "bound",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+          "blockers": []
+        },
+        {
+          "phase": "resume",
+          "attemptId": "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "resumed",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+          "blockers": []
+        },
+        {
+          "phase": "rollback",
+          "attemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "rolled_back",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+          "blockers": []
+        }
+      ],
+      "workerSessionAccepted": true,
+      "workerSessionStatus": "rollback_ready",
+      "workerSessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+      "workerSessionBlockers": [],
+      "workerSessionRecord": {
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "sessionId": "47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "currentStatus": "rollback_ready",
+        "currentAttemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "currentReceiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "resumed": true,
+        "rollbackTargetReady": true,
+        "accepted": true,
+        "blockers": [],
+        "persistenceKey": "agent::harness_worker_session::47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "recordPersistenceKey": "agent::harness_worker_session_record::harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "persistedInRuntimeCheckpoint": true,
+        "restoredFromPersistedSession": true,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": [],
+        "launchAuthorityReady": true,
+        "launchAuthorityBlockers": [],
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": true,
+        "rollbackHandoffBlockers": [],
+        "rollbackHandoffTarget": "activation:default-agent-harness:blessed-readonly"
+      },
+      "workerLaunchEnvelopes": [
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        }
+      ],
+      "workerHandoffReceipts": [
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "launched",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "resumed",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "rollback_handoff_ready",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        }
+      ],
+      "workerLaunchEnvelopeIds": [
+        "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerHandoffReceiptIds": [
+        "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerLaunchEnvelopesAccepted": true,
+      "workerHandoffReceiptsAccepted": true,
+      "invalidWorkerAttachReceipt": {
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_activation_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+      "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "dispatchDrivesRuntime": true,
+      "selectorLivePromotionReadinessReady": true,
+      "liveHandoffLivePromotionReadinessReady": true,
+      "dispatchLivePromotionReadinessReady": true,
+      "selectorLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "liveHandoffLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "dispatchLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "livePromotionReadinessProofIdsMatch": true,
+      "invalidForkLiveActivationBlocked": true,
+      "workerBindingAuthorityReady": true,
+      "workerBindingAuthorityBlockers": [],
+      "workerBindingRegistryBound": true,
+      "workerBindingRegistryStatus": "bound",
+      "workerBindingRegistryBlockers": [],
+      "workerAttachAccepted": true,
+      "workerAttachStatus": "bound",
+      "workerAttachBlockers": [],
+      "workerAttachRollbackAvailable": true,
+      "workerAttachResumeAccepted": true,
+      "workerAttachRollbackAccepted": true,
+      "workerAttachLifecycleComplete": true,
+      "workerAttachLifecycleStatuses": [
+        "bound",
+        "resumed",
+        "rolled_back"
+      ],
+      "workerAttachLifecycleAttemptIds": [
+        "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+      ],
+      "invalidWorkerAttachBlocked": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1",
+        "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+        "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "authorityBindingReady": true,
+        "authorityBindingBlockers": [],
+        "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn"
+      },
+      "workerBindingRegistryRecord": {
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "canaryResultId": "harness-canary-result:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:passed",
+        "bindingStatus": "bound",
+        "blockers": [],
+        "workerBindingActivationId": "activation:default-agent-harness:blessed-readonly",
+        "workerBinding": {
+          "authorityBindingBlockers": [],
+          "authorityBindingReady": true,
+          "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+          "executionMode": "live",
+          "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+          "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+          "harnessWorkflowId": "default-agent-harness",
+          "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
+          "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+          "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+          "source": "autopilot_runtime_selector_default_v1"
+        }
+      },
+      "workerAttachReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "attachStatus": "bound",
+        "accepted": true,
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "blockers": []
+      },
+      "workerAttachResumeReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+        "attachStatus": "resumed",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachRollbackReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "attachStatus": "rolled_back",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachLifecycle": [
+        {
+          "phase": "attach",
+          "attemptId": "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "bound",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+          "blockers": []
+        },
+        {
+          "phase": "resume",
+          "attemptId": "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "resumed",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+          "blockers": []
+        },
+        {
+          "phase": "rollback",
+          "attemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "rolled_back",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+          "blockers": []
+        }
+      ],
+      "workerSessionAccepted": true,
+      "workerSessionStatus": "rollback_ready",
+      "workerSessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+      "workerSessionBlockers": [],
+      "workerSessionRecord": {
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "sessionId": "47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "currentStatus": "rollback_ready",
+        "currentAttemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "currentReceiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "resumed": true,
+        "rollbackTargetReady": true,
+        "accepted": true,
+        "blockers": [],
+        "persistenceKey": "agent::harness_worker_session::47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "recordPersistenceKey": "agent::harness_worker_session_record::harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "persistedInRuntimeCheckpoint": true,
+        "restoredFromPersistedSession": true,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": [],
+        "launchAuthorityReady": true,
+        "launchAuthorityBlockers": [],
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": true,
+        "rollbackHandoffBlockers": [],
+        "rollbackHandoffTarget": "activation:default-agent-harness:blessed-readonly"
+      },
+      "workerLaunchEnvelopes": [
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        }
+      ],
+      "workerHandoffReceipts": [
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "launched",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "resumed",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "rollback_handoff_ready",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        }
+      ],
+      "workerLaunchEnvelopeIds": [
+        "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerHandoffReceiptIds": [
+        "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerLaunchEnvelopesAccepted": true,
+      "workerHandoffReceiptsAccepted": true,
+      "invalidWorkerAttachReceipt": {
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_activation_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:0",
+      "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+      "selectedSelector": "legacy_runtime",
+      "productionDefaultSelector": "legacy_runtime",
+      "executionMode": "gated",
+      "runtimeAuthority": "existing_runtime_service",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": false,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": false,
+      "dispatchDrivesRuntime": false,
+      "selectorLivePromotionReadinessReady": false,
+      "liveHandoffLivePromotionReadinessReady": false,
+      "dispatchLivePromotionReadinessReady": false,
+      "selectorLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "liveHandoffLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "dispatchLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "livePromotionReadinessProofIdsMatch": true,
+      "invalidForkLiveActivationBlocked": true,
+      "workerBindingAuthorityReady": false,
+      "workerBindingAuthorityBlockers": [
+        "default_authority_not_transferred",
+        "dispatch_live_promotion_readiness_not_ready",
+        "dispatch_not_driving_runtime",
+        "execution_mode_not_live",
+        "live_handoff_live_promotion_readiness_not_ready",
+        "production_default_not_live",
+        "selector_live_promotion_readiness_not_ready",
+        "selector_not_default_live"
+      ],
+      "workerBindingRegistryBound": false,
+      "workerBindingRegistryStatus": "blocked",
+      "workerBindingRegistryBlockers": [
+        "canary_result_not_passed",
+        "default_authority_not_transferred",
+        "dispatch_live_promotion_readiness_not_ready",
+        "dispatch_not_driving_runtime",
+        "execution_mode_not_live",
+        "live_handoff_live_promotion_readiness_not_ready",
+        "policy_decision_not_live_default",
+        "production_default_not_live",
+        "selector_live_promotion_readiness_not_ready",
+        "selector_not_default_live"
+      ],
+      "workerAttachAccepted": false,
+      "workerAttachStatus": "blocked",
+      "workerAttachBlockers": [
+        "worker_attach_authority_blocked",
+        "worker_attach_authority_not_ready",
+        "worker_attach_canary_not_passed",
+        "worker_attach_registry_blocked",
+        "worker_attach_registry_not_bound",
+        "worker_attach_worker_not_live"
+      ],
+      "workerAttachRollbackAvailable": true,
+      "workerAttachResumeAccepted": false,
+      "workerAttachRollbackAccepted": false,
+      "workerAttachLifecycleComplete": false,
+      "workerAttachLifecycleStatuses": [
+        "blocked",
+        "blocked",
+        "blocked"
+      ],
+      "workerAttachLifecycleAttemptIds": [
+        "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+      ],
+      "invalidWorkerAttachBlocked": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "gated",
+        "source": "autopilot_runtime_selector_legacy_default_v1",
+        "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:0",
+        "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "authorityBindingReady": false,
+        "authorityBindingBlockers": [
+          "default_authority_not_transferred",
+          "dispatch_live_promotion_readiness_not_ready",
+          "dispatch_not_driving_runtime",
+          "execution_mode_not_live",
+          "live_handoff_live_promotion_readiness_not_ready",
+          "production_default_not_live",
+          "selector_live_promotion_readiness_not_ready",
+          "selector_not_default_live"
+        ],
+        "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "policyDecision": "retain_legacy_runtime_default"
+      },
+      "workerBindingRegistryRecord": {
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "canaryResultId": "harness-canary-result:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "bindingStatus": "blocked",
+        "blockers": [
+          "canary_result_not_passed",
+          "default_authority_not_transferred",
+          "dispatch_live_promotion_readiness_not_ready",
+          "dispatch_not_driving_runtime",
+          "execution_mode_not_live",
+          "live_handoff_live_promotion_readiness_not_ready",
+          "policy_decision_not_live_default",
+          "production_default_not_live",
+          "selector_live_promotion_readiness_not_ready",
+          "selector_not_default_live"
+        ],
+        "workerBindingActivationId": "activation:default-agent-harness:blessed-readonly",
+        "workerBinding": {
+          "authorityBindingBlockers": [
+            "default_authority_not_transferred",
+            "dispatch_live_promotion_readiness_not_ready",
+            "dispatch_not_driving_runtime",
+            "execution_mode_not_live",
+            "live_handoff_live_promotion_readiness_not_ready",
+            "production_default_not_live",
+            "selector_live_promotion_readiness_not_ready",
+            "selector_not_default_live"
+          ],
+          "authorityBindingReady": false,
+          "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+          "executionMode": "gated",
+          "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+          "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+          "harnessWorkflowId": "default-agent-harness",
+          "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "policyDecision": "retain_legacy_runtime_default",
+          "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+          "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:0",
+          "source": "autopilot_runtime_selector_legacy_default_v1"
+        }
+      },
+      "workerAttachReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "attachStatus": "blocked",
+        "accepted": false,
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      },
+      "workerAttachResumeReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      },
+      "workerAttachRollbackReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      },
+      "workerAttachLifecycle": [
+        {
+          "phase": "attach",
+          "attemptId": "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "blocked",
+          "accepted": false,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live"
+          ]
+        },
+        {
+          "phase": "resume",
+          "attemptId": "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "blocked",
+          "accepted": false,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live"
+          ]
+        },
+        {
+          "phase": "rollback",
+          "attemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "blocked",
+          "accepted": false,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live"
+          ]
+        }
+      ],
+      "workerSessionAccepted": false,
+      "workerSessionStatus": "blocked",
+      "workerSessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+      "workerSessionBlockers": [
+        "worker_attach_authority_blocked",
+        "worker_attach_authority_not_ready",
+        "worker_attach_canary_not_passed",
+        "worker_attach_registry_blocked",
+        "worker_attach_registry_not_bound",
+        "worker_attach_worker_not_live",
+        "worker_session_attach_not_bound",
+        "worker_session_lifecycle_event_blocked",
+        "worker_session_resume_not_resolved",
+        "worker_session_rollback_not_ready"
+      ],
+      "workerSessionRecord": {
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "sessionId": "47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:read-only",
+        "currentStatus": "blocked",
+        "currentAttemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "currentReceiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+        "resumed": false,
+        "rollbackTargetReady": true,
+        "accepted": false,
+        "blockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "persistenceKey": "agent::harness_worker_session::47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "recordPersistenceKey": "agent::harness_worker_session_record::harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "persistedInRuntimeCheckpoint": false,
+        "restoredFromPersistedSession": false,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "launchAuthorityReady": false,
+        "launchAuthorityBlockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": false,
+        "rollbackHandoffBlockers": [
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live",
+          "worker_session_attach_not_bound",
+          "worker_session_lifecycle_event_blocked",
+          "worker_session_resume_not_resolved",
+          "worker_session_rollback_not_ready"
+        ],
+        "rollbackHandoffTarget": "activation:default-agent-harness:blessed-readonly"
+      },
+      "workerLaunchEnvelopes": [
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": false,
+          "rollbackHandoffReady": false,
+          "accepted": false,
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_launch_authority_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "policyDecision": "block_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": false,
+          "rollbackHandoffReady": false,
+          "accepted": false,
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_launch_authority_not_ready",
+            "worker_launch_resume_not_resolved",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "policyDecision": "block_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": false,
+          "rollbackHandoffReady": false,
+          "accepted": false,
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_launch_authority_not_ready",
+            "worker_launch_rollback_handoff_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "policyDecision": "block_harness_worker_launch_envelope"
+        }
+      ],
+      "workerHandoffReceipts": [
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": false,
+          "handoffStatus": "blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_handoff_envelope_not_accepted",
+            "worker_handoff_launch_authority_not_ready",
+            "worker_launch_authority_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "block_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": false,
+          "handoffStatus": "blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_handoff_envelope_not_accepted",
+            "worker_handoff_launch_authority_not_ready",
+            "worker_launch_authority_not_ready",
+            "worker_launch_resume_not_resolved",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "block_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": false,
+          "handoffStatus": "blocked",
+          "blockers": [
+            "worker_attach_authority_blocked",
+            "worker_attach_authority_not_ready",
+            "worker_attach_canary_not_passed",
+            "worker_attach_registry_blocked",
+            "worker_attach_registry_not_bound",
+            "worker_attach_worker_not_live",
+            "worker_handoff_envelope_not_accepted",
+            "worker_handoff_launch_authority_not_ready",
+            "worker_handoff_rollback_not_ready",
+            "worker_launch_authority_not_ready",
+            "worker_launch_rollback_handoff_not_ready",
+            "worker_launch_session_not_accepted",
+            "worker_launch_session_not_persisted",
+            "worker_launch_session_not_restored",
+            "worker_session_attach_not_bound",
+            "worker_session_lifecycle_event_blocked",
+            "worker_session_resume_not_resolved",
+            "worker_session_rollback_not_ready"
+          ],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-0:blocked",
+            "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "block_harness_worker_handoff"
+        }
+      ],
+      "workerLaunchEnvelopeIds": [
+        "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerHandoffReceiptIds": [
+        "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerLaunchEnvelopesAccepted": false,
+      "workerHandoffReceiptsAccepted": false,
+      "invalidWorkerAttachReceipt": {
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_activation_hash_mismatch",
+          "worker_attach_authority_blocked",
+          "worker_attach_authority_not_ready",
+          "worker_attach_canary_not_passed",
+          "worker_attach_registry_blocked",
+          "worker_attach_registry_not_bound",
+          "worker_attach_worker_not_live"
+        ]
+      }
+    },
+    {
+      "bindingId": "harness-default-runtime-binding:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20",
+      "workflowId": "default-agent-harness",
+      "activationId": "activation:default-agent-harness:blessed-readonly",
+      "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+      "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+      "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+      "selectedSelector": "blessed_workflow_live_default",
+      "productionDefaultSelector": "blessed_workflow_live_default",
+      "executionMode": "live",
+      "runtimeAuthority": "blessed_workflow_activation_default",
+      "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+      "rollbackAvailable": true,
+      "bindingMatched": true,
+      "selectorDecisionLinksDispatch": true,
+      "drivesRuntimeDecision": true,
+      "dispatchDrivesRuntime": true,
+      "selectorLivePromotionReadinessReady": true,
+      "liveHandoffLivePromotionReadinessReady": true,
+      "dispatchLivePromotionReadinessReady": true,
+      "selectorLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "liveHandoffLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "dispatchLivePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+      "livePromotionReadinessProofIdsMatch": true,
+      "invalidForkLiveActivationBlocked": true,
+      "workerBindingAuthorityReady": true,
+      "workerBindingAuthorityBlockers": [],
+      "workerBindingRegistryBound": true,
+      "workerBindingRegistryStatus": "bound",
+      "workerBindingRegistryBlockers": [],
+      "workerAttachAccepted": true,
+      "workerAttachStatus": "bound",
+      "workerAttachBlockers": [],
+      "workerAttachRollbackAvailable": true,
+      "workerAttachResumeAccepted": true,
+      "workerAttachRollbackAccepted": true,
+      "workerAttachLifecycleComplete": true,
+      "workerAttachLifecycleStatuses": [
+        "bound",
+        "resumed",
+        "rolled_back"
+      ],
+      "workerAttachLifecycleAttemptIds": [
+        "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+      ],
+      "invalidWorkerAttachBlocked": true,
+      "workerBinding": {
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "live",
+        "source": "autopilot_runtime_selector_default_v1",
+        "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+        "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "authorityBindingReady": true,
+        "authorityBindingBlockers": [],
+        "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn"
+      },
+      "workerBindingRegistryRecord": {
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "canaryResultId": "harness-canary-result:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:passed",
+        "bindingStatus": "bound",
+        "blockers": [],
+        "workerBindingActivationId": "activation:default-agent-harness:blessed-readonly",
+        "workerBinding": {
+          "authorityBindingBlockers": [],
+          "authorityBindingReady": true,
+          "defaultDispatchId": "harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+          "executionMode": "live",
+          "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+          "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+          "harnessWorkflowId": "default-agent-harness",
+          "livePromotionReadinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "policyDecision": "promote_blessed_workflow_default_for_non_mutating_turn",
+          "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+          "selectorDecisionId": "harness-selector:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:20",
+          "source": "autopilot_runtime_selector_default_v1"
+        }
+      },
+      "workerAttachReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "attachStatus": "bound",
+        "accepted": true,
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "blockers": []
+      },
+      "workerAttachResumeReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+        "attachStatus": "resumed",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachRollbackReceipt": {
+        "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "attachStatus": "rolled_back",
+        "accepted": true,
+        "blockers": []
+      },
+      "workerAttachLifecycle": [
+        {
+          "phase": "attach",
+          "attemptId": "harness-worker-attach:attempt:attach:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "bound",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+          "blockers": []
+        },
+        {
+          "phase": "resume",
+          "attemptId": "harness-worker-attach:attempt:resume:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "resumed",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+          "blockers": []
+        },
+        {
+          "phase": "rollback",
+          "attemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+          "attachStatus": "rolled_back",
+          "accepted": true,
+          "receiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+          "blockers": []
+        }
+      ],
+      "workerSessionAccepted": true,
+      "workerSessionStatus": "rollback_ready",
+      "workerSessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+      "workerSessionBlockers": [],
+      "workerSessionRecord": {
+        "schemaVersion": "workflow.harness.worker-session.v1",
+        "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "sessionId": "47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "workflowId": "default-agent-harness",
+        "activationId": "activation:default-agent-harness:blessed-readonly",
+        "activationHash": "sha256:default-agent-harness-component-projection-v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "readinessProofId": "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "registryRecordId": "harness-worker-binding-registry:default-agent-harness:activation:default-agent-harness:blessed-readonly:harness-default-dispatch:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:read-only",
+        "currentStatus": "rollback_ready",
+        "currentAttemptId": "harness-worker-attach:attempt:rollback:default-agent-harness:activation:default-agent-harness:blessed-readonly",
+        "currentReceiptId": "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+        "resumed": true,
+        "rollbackTargetReady": true,
+        "accepted": true,
+        "blockers": [],
+        "persistenceKey": "agent::harness_worker_session::47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "recordPersistenceKey": "agent::harness_worker_session_record::harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "persistedInRuntimeCheckpoint": true,
+        "restoredFromPersistedSession": true,
+        "runtimeCheckpointSource": "runtime_state_access_harness_worker_session_record",
+        "persistenceBlockers": [],
+        "launchAuthorityReady": true,
+        "launchAuthorityBlockers": [],
+        "launchAuthoritySource": "persisted_harness_worker_session_record",
+        "rollbackHandoffReady": true,
+        "rollbackHandoffBlockers": [],
+        "rollbackHandoffTarget": "activation:default-agent-harness:blessed-readonly"
+      },
+      "workerLaunchEnvelopes": [
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-launch-envelope.v1",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "launchAuthorityReady": true,
+          "rollbackHandoffReady": true,
+          "accepted": true,
+          "blockers": [],
+          "policyDecision": "allow_harness_worker_launch_envelope"
+        }
+      ],
+      "workerHandoffReceipts": [
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "launch",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "launched",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "resume",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "resumed",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        },
+        {
+          "schemaVersion": "workflow.harness.worker-handoff-receipt.v1",
+          "receiptId": "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "envelopeId": "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "phase": "rollback",
+          "sessionRecordId": "harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "workerId": "harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+          "accepted": true,
+          "handoffStatus": "rollback_handoff_ready",
+          "blockers": [],
+          "receiptRefs": [
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:bound",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:resumed",
+            "harness-worker-attach-receipt:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:turn-20:rolled_back",
+            "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+          ],
+          "policyDecision": "allow_harness_worker_handoff"
+        }
+      ],
+      "workerLaunchEnvelopeIds": [
+        "harness-worker-launch-envelope:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-launch-envelope:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerHandoffReceiptIds": [
+        "harness-worker-handoff-receipt:launch:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:resume:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6",
+        "harness-worker-handoff-receipt:rollback:harness-worker-session:default-agent-harness:activation:default-agent-harness:blessed-readonly:sha256:default-agent-harness-component-projection-v1:harness-worker:default-agent-harness:activation:default-agent-harness:blessed-readonly:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6:47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6"
+      ],
+      "workerLaunchEnvelopesAccepted": true,
+      "workerHandoffReceiptsAccepted": true,
+      "invalidWorkerAttachReceipt": {
+        "attachStatus": "blocked",
+        "accepted": false,
+        "blockers": [
+          "worker_attach_activation_hash_mismatch"
+        ]
+      }
+    }
+  ],
+  "harnessAuthorityToolingReadOnlyCanaryCount": 5,
+  "harnessAuthorityToolingGateLiveCount": 5,
+  "harnessAuthorityToolingProviderCatalogLiveCount": 5,
+  "harnessAuthorityToolingMcpToolCatalogLiveCount": 5,
+  "harnessAuthorityToolingNativeToolCatalogLiveCount": 5,
+  "harnessAuthorityToolingConnectorCatalogLiveCount": 5,
+  "harnessAuthorityToolingWalletCapabilityLiveDryRunCount": 5,
+  "harnessModelProviderGatedVisibleOutputCount": 5,
+  "harnessModelProviderGatedVisibleOutputRollbackDrillCount": 5,
+  "harnessModelProviderGatedVisibleOutputScenarios": [
+    "retained_harness_dogfooding",
+    "retained_mermaid_rendering",
+    "retained_no_tool_answer",
+    "retained_planning_without_mutation",
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessModelProviderGatedVisibleOutputRollbackDrillScenarios": [
+    "retained_harness_dogfooding",
+    "retained_mermaid_rendering",
+    "retained_no_tool_answer",
+    "retained_planning_without_mutation",
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessReadOnlyCapabilityRoutingCount": 0,
+  "harnessReadOnlyCapabilityRoutingNoMutationCount": 0,
+  "harnessReadOnlyCapabilityRoutingScenarios": [
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessReadOnlyCapabilityRoutingNoMutationScenarios": [
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "recentArtifacts": [
+    {
+      "artifactId": "9b9236c6-17d5-41d1-980d-df091286d578",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778287126376
+    },
+    {
+      "artifactId": "13b18ebf-f69a-42f3-b0f4-811c3e44a712",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778287126206
+    },
+    {
+      "artifactId": "8a2866c9-28d7-4477-9691-3ae1d80298f3",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778287126030
+    },
+    {
+      "artifactId": "0f0cb073-36f9-4faf-b4e6-1fbd2767151f",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778287098129
+    },
+    {
+      "artifactId": "07bba815-b15d-41a8-acde-e76ba8983bf9",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778287098094
+    },
+    {
+      "artifactId": "37cf8b96-4f01-47b2-99ad-c77a418ddcbd",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778287098060
+    },
+    {
+      "artifactId": "22f961ef-fd38-4ca6-bfb2-c2ddfa163d4d",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778287058146
+    },
+    {
+      "artifactId": "30efe44c-5cec-4a37-b113-a18332d7a5a6",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778287057964
+    },
+    {
+      "artifactId": "9a5301bf-2b7d-415c-95e3-57dccac31afe",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778287057784
+    },
+    {
+      "artifactId": "5cf2cfd3-66f5-40c5-a3c7-e97ca8fe7ea1",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778287027690
+    },
+    {
+      "artifactId": "3bb6f6f9-1b39-4ec6-85b1-c281f996a98e",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778287027512
+    },
+    {
+      "artifactId": "b098ed95-861d-4fbb-a4b6-0cce655c1158",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778287027333
+    },
+    {
+      "artifactId": "1285ee2a-678c-46ea-8c79-ffcf9b8708a2",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778286988160
+    },
+    {
+      "artifactId": "9ce8b0b1-edac-4f83-8b7d-228f9ec9a487",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778286987988
+    },
+    {
+      "artifactId": "c9417f73-131f-4274-b4f5-28baeec0b497",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778286987812
+    },
+    {
+      "artifactId": "8ed7a558-139d-4fcd-b1e4-ba4fc907effb",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778286957284
+    },
+    {
+      "artifactId": "0024a31b-90cb-4251-9af5-d206f3bc96c1",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778286957108
+    },
+    {
+      "artifactId": "1f5d47da-8cb9-40c5-b83f-04a06f66a190",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778286956936
+    },
+    {
+      "artifactId": "d238b484-bbe5-4a3e-9e9b-f06c4134f18c",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778286931085
+    },
+    {
+      "artifactId": "dbda6499-e159-468f-bdf7-0b18916839fc",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778286930918
+    },
+    {
+      "artifactId": "051a1417-dede-471d-b88a-07938422d0be",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778286930750
+    },
+    {
+      "artifactId": "40ce49a0-5f2f-4fbe-8d55-70a2db4ea1ac",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/walkthrough.md",
+      "createdAtMs": 1778286908971
+    },
+    {
+      "artifactId": "d0e72c00-67c1-48b0-aab6-5117b837567f",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/task.md",
+      "createdAtMs": 1778286908761
+    },
+    {
+      "artifactId": "5eb8fc48-4f55-4207-b5a9-2a2293aa1812",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/47e8a3b667514478bd144cb65b69032e39cb85eb7fe8411fa7aebe208d0ac3d6/planning/implementation_plan.md",
+      "createdAtMs": 1778286908573
+    }
+  ],
+  "logSignals": {
+    "kernelEvents": 5139,
+    "chatProofTrace": 33,
+    "sessionProjectionRefreshes": 32
+  },
+  "collectionErrors": []
+}

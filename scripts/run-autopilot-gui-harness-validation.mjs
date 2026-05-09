@@ -14,6 +14,7 @@ import {
   AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
   AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
   AUTOPILOT_RETAINED_QUERIES,
+  DEFAULT_LIVE_PROMOTION_INVARIANTS,
   GUI_AUTOMATION_CLICK_POLICY,
   autopilotGuiHarnessContract,
   buildBlockedAutopilotGuiHarnessResult,
@@ -26,6 +27,10 @@ const DEFAULT_AGENT_HARNESS_ACTIVATION_ID =
   "activation:default-agent-harness:blessed-readonly";
 const DEFAULT_AGENT_HARNESS_HASH =
   "sha256:default-agent-harness-component-projection-v1";
+const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
+  DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
+    (invariant) => invariant.artifact === "harness_package_import_activation_apply",
+  )?.id ?? "reviewed_import_activation_apply";
 
 function parseArgs(argv) {
   const args = {
@@ -488,6 +493,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessSelectorLegacyDefaultCount: 0,
     harnessSelectorDefaultPromotedCount: 0,
     harnessSelectorLivePromotionReadinessGatedCount: 0,
+    harnessSelectorReviewedImportActivationApplyInvariantCount: 0,
     harnessLiveHandoffCanaryCount: 0,
     harnessLiveHandoffDefaultPromotedCount: 0,
     harnessLiveHandoffRollbackCount: 0,
@@ -1349,6 +1355,21 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               "allow_default_harness_live_promotion_readiness"
           ) {
             summary.harnessSelectorDefaultPromotedCount += 1;
+          }
+          if (
+            decision.defaultLivePromotionInvariantIds?.includes(
+              REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+            ) === true &&
+            Array.isArray(decision.defaultLivePromotionInvariantBlockers) &&
+            decision.defaultLivePromotionInvariantBlockers.length === 0 &&
+            decision.reviewedImportActivationApplyProofPresent === true &&
+            decision.reviewedImportActivationApplyProofPassed === true &&
+            Array.isArray(
+              decision.reviewedImportActivationApplyProofBlockers,
+            ) &&
+            decision.reviewedImportActivationApplyProofBlockers.length === 0
+          ) {
+            summary.harnessSelectorReviewedImportActivationApplyInvariantCount += 1;
           }
           if (
             decision.livePromotionReadinessReady === true &&
@@ -2528,6 +2549,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_selector_default_promoted === true) {
           summary.harnessSelectorDefaultPromotedCount += 1;
         }
+        if (
+          digest.harness_selector_reviewed_import_activation_apply_invariant ===
+          true
+        ) {
+          summary.harnessSelectorReviewedImportActivationApplyInvariantCount += 1;
+        }
         if (digest.harness_selector_live_promotion_readiness_gated === true) {
           summary.harnessSelectorLivePromotionReadinessGatedCount += 1;
         }
@@ -2792,6 +2819,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
           if (metadata.harness_selector_default_promoted === true) {
             summary.harnessSelectorDefaultPromotedCount += 1;
+          }
+          if (
+            metadata.harness_selector_reviewed_import_activation_apply_invariant ===
+            true
+          ) {
+            summary.harnessSelectorReviewedImportActivationApplyInvariantCount += 1;
           }
           if (
             metadata.harness_selector_live_promotion_readiness_gated === true
@@ -3649,6 +3682,15 @@ function buildGuiEvidenceAssessment({
     summary.harnessSelectorDefaultPromotedCount > 0 &&
     summary.harnessSelectorLivePromotionReadinessGatedCount > 0 &&
     summary.harnessSelectorLegacyDefaultCount > 0;
+  const hasHarnessSelectorReviewedImportActivationApplyInvariant =
+    hasHarnessSelectorRouting &&
+    summary.harnessSelectorReviewedImportActivationApplyInvariantCount > 0 &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.selectorReviewedImportActivationApplyInvariant === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.liveHandoffReviewedImportActivationApplyInvariant === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.defaultDispatchReviewedImportActivationApplyInvariant === true;
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
@@ -4008,6 +4050,8 @@ function buildGuiEvidenceAssessment({
       harness_selector_default_promoted: hasHarnessSelectorRouting,
       harness_selector_live_promotion_readiness_gated:
         summary.harnessSelectorLivePromotionReadinessGatedCount > 0,
+      harness_selector_reviewed_import_activation_apply_invariant_present:
+        hasHarnessSelectorReviewedImportActivationApplyInvariant,
       harness_default_runtime_dispatch_present:
         hasHarnessDefaultRuntimeDispatch,
       harness_live_promotion_readiness_present:
@@ -4094,6 +4138,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
+      hasHarnessSelectorReviewedImportActivationApplyInvariant,
       hasHarnessDefaultRuntimeDispatch,
       hasHarnessLivePromotionReadiness,
       hasHarnessChatRuntimeBinding,
@@ -4174,6 +4219,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessSelectorDefaultPromotedCount,
       harnessSelectorLivePromotionReadinessGatedCount:
         summary.harnessSelectorLivePromotionReadinessGatedCount,
+      harnessSelectorReviewedImportActivationApplyInvariantCount:
+        summary.harnessSelectorReviewedImportActivationApplyInvariantCount,
       harnessLiveHandoffCanaryCount: summary.harnessLiveHandoffCanaryCount,
       harnessLiveHandoffDefaultPromotedCount:
         summary.harnessLiveHandoffDefaultPromotedCount,
@@ -5060,6 +5107,74 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerHandoffNodeAttemptIds.every((attemptId) =>
         defaultDispatch?.nodeAttemptIds?.includes(attemptId),
       );
+    const reviewedImportActivationApplyActivationId =
+      packageImportActivationApplyProof?.activationResult?.activationId ?? null;
+    const reviewedImportActivationApplyRollbackTarget =
+      packageImportActivationApplyProof?.activationAction?.rollbackTarget ??
+      null;
+    const selectorReviewedImportActivationApplyInvariant =
+      selector?.defaultLivePromotionInvariantIds?.includes(
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+      ) === true &&
+      (selector?.defaultLivePromotionInvariantBlockers ?? []).length === 0 &&
+      selector?.reviewedImportActivationApplyProofPresent === true &&
+      selector?.reviewedImportActivationApplyProofPassed === true &&
+      (selector?.reviewedImportActivationApplyProofBlockers ?? []).length ===
+        0 &&
+      typeof reviewedImportActivationApplyActivationId === "string" &&
+      reviewedImportActivationApplyActivationId.length > 0 &&
+      selector?.reviewedImportActivationApplyActivationId ===
+        reviewedImportActivationApplyActivationId &&
+      selector?.defaultPromotionGate?.requiredInvariantIds?.includes(
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+      ) === true &&
+      (selector?.defaultPromotionGate?.invariantBlockers ?? []).length === 0;
+    const liveHandoffReviewedImportActivationApplyInvariant =
+      liveHandoff?.defaultLivePromotionInvariantIds?.includes(
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+      ) === true &&
+      (liveHandoff?.defaultLivePromotionInvariantBlockers ?? []).length === 0 &&
+      liveHandoff?.reviewedImportActivationApplyProofPresent === true &&
+      liveHandoff?.reviewedImportActivationApplyProofPassed === true &&
+      (liveHandoff?.reviewedImportActivationApplyProofBlockers ?? []).length ===
+        0 &&
+      typeof reviewedImportActivationApplyActivationId === "string" &&
+      reviewedImportActivationApplyActivationId.length > 0 &&
+      liveHandoff?.reviewedImportActivationApplyActivationId ===
+        reviewedImportActivationApplyActivationId;
+    const reviewedImportActivationApplyGate =
+      defaultDispatch?.reviewedImportActivationApplyGate ?? null;
+    const defaultDispatchReviewedImportActivationApplyInvariant =
+      defaultDispatch?.defaultLivePromotionInvariantIds?.includes(
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
+      ) === true &&
+      (defaultDispatch?.defaultLivePromotionInvariantBlockers ?? []).length ===
+        0 &&
+      defaultDispatch?.reviewedImportActivationApplyProofPresent === true &&
+      defaultDispatch?.reviewedImportActivationApplyProofPassed === true &&
+      (defaultDispatch?.reviewedImportActivationApplyProofBlockers ?? [])
+        .length === 0 &&
+      typeof reviewedImportActivationApplyActivationId === "string" &&
+      reviewedImportActivationApplyActivationId.length > 0 &&
+      defaultDispatch?.reviewedImportActivationApplyActivationId ===
+        reviewedImportActivationApplyActivationId &&
+      reviewedImportActivationApplyGate?.schemaVersion ===
+        "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1" &&
+      reviewedImportActivationApplyGate?.gateId ===
+        "reviewed-import-activation-apply" &&
+      reviewedImportActivationApplyGate?.invariantId ===
+        REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID &&
+      reviewedImportActivationApplyGate?.proofPresent === true &&
+      reviewedImportActivationApplyGate?.proofPassed === true &&
+      (reviewedImportActivationApplyGate?.proofBlockers ?? []).length === 0 &&
+      reviewedImportActivationApplyGate?.activationId ===
+        reviewedImportActivationApplyActivationId &&
+      reviewedImportActivationApplyGate?.workerBindingActivationId ===
+        reviewedImportActivationApplyActivationId &&
+      reviewedImportActivationApplyGate?.rollbackTarget ===
+        reviewedImportActivationApplyRollbackTarget &&
+      (reviewedImportActivationApplyGate?.defaultDispatchActivationBlockers ??
+        []).length === 0;
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -5096,7 +5211,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           "workflow.harness.live-promotion-readiness.v1" &&
         selector?.livePromotionReadinessPolicyDecision ===
           "allow_default_harness_live_promotion_readiness" &&
-        (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0,
+        (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0 &&
+        selectorReviewedImportActivationApplyInvariant,
       liveHandoffTransferred:
         liveHandoff?.selector === "blessed_workflow_live_default" &&
         liveHandoff?.productionDefaultSelector ===
@@ -5115,7 +5231,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           "workflow.harness.live-promotion-readiness.v1" &&
         liveHandoff?.livePromotionReadinessPolicyDecision ===
           "allow_default_harness_live_promotion_readiness" &&
-        (liveHandoff?.activationBlockers ?? []).length === 0,
+        (liveHandoff?.activationBlockers ?? []).length === 0 &&
+        liveHandoffReviewedImportActivationApplyInvariant,
       defaultDispatchBound:
         defaultDispatch?.selectedSelector === "blessed_workflow_live_default" &&
         defaultDispatch?.productionDefaultSelector ===
@@ -5137,9 +5254,13 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         defaultDispatch?.activationIdGate?.workerBindingActivationId ===
           DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         (defaultDispatch?.activationBlockers ?? []).length === 0 &&
+        defaultDispatchReviewedImportActivationApplyInvariant &&
         clusterIds.every((clusterId) =>
           (defaultDispatch?.acceptedClusterIds ?? []).includes(clusterId),
         ),
+      selectorReviewedImportActivationApplyInvariant,
+      liveHandoffReviewedImportActivationApplyInvariant,
+      defaultDispatchReviewedImportActivationApplyInvariant,
       livePromotionReadinessBound:
         defaultDispatch?.livePromotionReadinessProof?.schemaVersion ===
           "workflow.harness.live-promotion-readiness.v1" &&
@@ -5789,6 +5910,18 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               selector.livePromotionReadinessProof ?? null,
             livePromotionReadinessPolicyDecision:
               selector.livePromotionReadinessPolicyDecision ?? null,
+            defaultLivePromotionInvariantIds:
+              selector.defaultLivePromotionInvariantIds ?? [],
+            defaultLivePromotionInvariantBlockers:
+              selector.defaultLivePromotionInvariantBlockers ?? [],
+            reviewedImportActivationApplyProofPresent:
+              selector.reviewedImportActivationApplyProofPresent ?? false,
+            reviewedImportActivationApplyProofPassed:
+              selector.reviewedImportActivationApplyProofPassed ?? false,
+            reviewedImportActivationApplyProofBlockers:
+              selector.reviewedImportActivationApplyProofBlockers ?? [],
+            reviewedImportActivationApplyActivationId:
+              selector.reviewedImportActivationApplyActivationId ?? null,
             defaultPromotionGate: selector.defaultPromotionGate,
           }
         : null,
@@ -5812,6 +5945,18 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               liveHandoff.livePromotionReadinessProof ?? null,
             livePromotionReadinessPolicyDecision:
               liveHandoff.livePromotionReadinessPolicyDecision ?? null,
+            defaultLivePromotionInvariantIds:
+              liveHandoff.defaultLivePromotionInvariantIds ?? [],
+            defaultLivePromotionInvariantBlockers:
+              liveHandoff.defaultLivePromotionInvariantBlockers ?? [],
+            reviewedImportActivationApplyProofPresent:
+              liveHandoff.reviewedImportActivationApplyProofPresent ?? false,
+            reviewedImportActivationApplyProofPassed:
+              liveHandoff.reviewedImportActivationApplyProofPassed ?? false,
+            reviewedImportActivationApplyProofBlockers:
+              liveHandoff.reviewedImportActivationApplyProofBlockers ?? [],
+            reviewedImportActivationApplyActivationId:
+              liveHandoff.reviewedImportActivationApplyActivationId ?? null,
             activationBlockerCount: liveHandoff.activationBlockers?.length ?? 0,
           }
         : null,
@@ -5840,7 +5985,22 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               defaultDispatch.activationIdGateClickProofBlockers ?? [],
             defaultDispatchActivationBlockers:
               defaultDispatch.defaultDispatchActivationBlockers ?? [],
+            defaultLivePromotionInvariantIds:
+              defaultDispatch.defaultLivePromotionInvariantIds ?? [],
+            defaultLivePromotionInvariantBlockers:
+              defaultDispatch.defaultLivePromotionInvariantBlockers ?? [],
+            reviewedImportActivationApplyProofPresent:
+              defaultDispatch.reviewedImportActivationApplyProofPresent ??
+              false,
+            reviewedImportActivationApplyProofPassed:
+              defaultDispatch.reviewedImportActivationApplyProofPassed ?? false,
+            reviewedImportActivationApplyProofBlockers:
+              defaultDispatch.reviewedImportActivationApplyProofBlockers ?? [],
+            reviewedImportActivationApplyActivationId:
+              defaultDispatch.reviewedImportActivationApplyActivationId ?? null,
             activationIdGate: defaultDispatch.activationIdGate ?? null,
+            reviewedImportActivationApplyGate:
+              defaultDispatch.reviewedImportActivationApplyGate ?? null,
             livePromotionReadinessProof:
               defaultDispatch.livePromotionReadinessProof ?? null,
             workerBindingRegistryRecord:
@@ -6593,6 +6753,15 @@ async function runGuiValidation(args, outputRoot) {
             .harnessSelectorLivePromotionReadinessGatedCount > 0 &&
           runtimeArtifacts.summary.harnessSelectorLegacyDefaultCount > 0
             ? runtimeArtifacts.path
+            : false,
+        harness_selector_reviewed_import_activation_apply_invariant:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.selectorReviewedImportActivationApplyInvariant === true &&
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.liveHandoffReviewedImportActivationApplyInvariant === true &&
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.defaultDispatchReviewedImportActivationApplyInvariant === true
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_default_runtime_dispatch:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >

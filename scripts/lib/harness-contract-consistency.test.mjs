@@ -211,7 +211,15 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   assert.match(
     graph,
+    /WorkflowHarnessLiveHandoffProof[\s\S]*defaultLivePromotionInvariantIds: string\[\][\s\S]*reviewedImportActivationApplyProofPassed: boolean[\s\S]*reviewedImportActivationApplyActivationId: string \| null/,
+  );
+  assert.match(
+    graph,
     /WorkflowHarnessRuntimeSelectorDecision[\s\S]*livePromotionReadinessProof\?: WorkflowHarnessLivePromotionReadinessProof \| null[\s\S]*livePromotionReadinessReady: boolean[\s\S]*livePromotionReadinessBlockers: string\[\]/,
+  );
+  assert.match(
+    graph,
+    /WorkflowHarnessRuntimeSelectorDecision[\s\S]*defaultLivePromotionInvariantIds: string\[\][\s\S]*reviewedImportActivationApplyProofPassed: boolean[\s\S]*reviewedImportActivationApplyActivationId: string \| null/,
   );
   assert.match(graph, /WorkflowHarnessLivePromotionReadinessProof/);
   assert.match(
@@ -242,6 +250,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(
     graph,
     /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof/,
+  );
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*defaultLivePromotionInvariantIds: string\[\][\s\S]*reviewedImportActivationApplyGate\?:/,
   );
   assert.match(
     graph,
@@ -291,6 +303,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(
     workflow,
     /workflowHarnessActivationIdGateClickProofBlockers[\s\S]*activation_id_gate_click_proof_missing[\s\S]*activation_id_gate_mint_worker_binding_mismatch[\s\S]*activation_id_gate_mint_handoff_timeline_missing/,
+  );
+  assert.match(
+    workflow,
+    /workflowHarnessPackageImportActivationApplyProofBlockers[\s\S]*package_import_activation_apply_proof_missing[\s\S]*package_import_activation_apply_proof_stale/,
   );
   assert.match(
     workflow,
@@ -453,6 +469,11 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /workerHandoffReplayFixtureRefs/,
     /harnessForkHandoffTimelineBoundCount/,
     /forkHandoffTimelineBound/,
+    /selectorReviewedImportActivationApplyInvariant/,
+    /liveHandoffReviewedImportActivationApplyInvariant/,
+    /defaultDispatchReviewedImportActivationApplyInvariant/,
+    /harness_selector_reviewed_import_activation_apply_invariant/,
+    /harness_selector_reviewed_import_activation_apply_invariant_present/,
     /livePromotionReadinessProofIdsMatch/,
     /invalidForkLiveActivationBlocked/,
     /activeWorkerBinding:/,

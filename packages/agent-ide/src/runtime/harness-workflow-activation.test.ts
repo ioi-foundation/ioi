@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type {
   WorkflowHarnessActivationIdGateClickProof,
+  WorkflowHarnessPackageImportActivationApplyProof,
   WorkflowHarnessWorkerBinding,
   WorkflowProject,
   WorkflowValidationIssue,
@@ -24,6 +25,7 @@ import {
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
   workflowHarnessActivationIdGateClickProofBlockers,
+  workflowHarnessPackageImportActivationApplyProofBlockers,
   workflowHarnessPromotionTransitionEligibility,
   workflowRevisionBindingFor,
 } from "./harness-workflow.ts";
@@ -120,6 +122,91 @@ const makeActivationIdGateClickProof = (
       workerHandoffTimelineVisible: true,
       workerHandoffTimelineAttemptId:
         "harness-worker-handoff:attempt:runtime-harness-test-fork:launch",
+    },
+    passed: true,
+    blockers: [],
+  };
+  return { ...proof, ...overrides };
+};
+
+const makePackageImportActivationApplyProof = (
+  overrides: Partial<WorkflowHarnessPackageImportActivationApplyProof> = {},
+): WorkflowHarnessPackageImportActivationApplyProof => {
+  const activationId =
+    "activation:package-evidence-import-roundtrip-fork:validated-canary:default-agen";
+  const workerHandoffAttemptId =
+    "harness-worker-handoff:attempt:package-evidence-import-roundtrip-fork:launch";
+  const proof: WorkflowHarnessPackageImportActivationApplyProof = {
+    schemaVersion:
+      "workflow.harness.package-import-activation-apply-proof.v1",
+    method: "unit-test reviewed import activation apply proof",
+    generatedAtMs: 10_000,
+    review: null,
+    clicked: true,
+    beforeState: { "data-package-import-activation-enabled": "true" },
+    afterState: { "data-workflow-activation-state": "validated" },
+    activationAction: {
+      present: true,
+      disabled: false,
+      evidenceReady: true,
+      blockerCount: 0,
+      handoffPresent: true,
+      handoffDecision: "mintable",
+      activationIdPreview: activationId,
+      canaryStatus: "passed",
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      workerBindingId: activationId,
+      mintable: true,
+    },
+    activationResult: {
+      applied: true,
+      activationId,
+      blockers: [],
+      workflowActivationId: activationId,
+      workflowActivationState: "validated",
+      workerBindingActivationId: activationId,
+      activationRecordWorkerBindingActivationId: activationId,
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      revisionBindingActivationId: activationId,
+      activationRecordRevisionBindingHash: "sha256:activation-revision",
+      rollbackRevisionBindingHash: "sha256:rollback-revision",
+      activationAuditEventCount: 1,
+      latestAuditEventId: "activation-audit:reviewed-import:minted",
+      latestAuditEventType: "activation_minted",
+      latestAuditStatus: "applied",
+      receiptRefs: ["workflow_activation:reviewed-import"],
+      evidenceRefs: ["package-evidence:reviewed-import"],
+      workerHandoffReceiptIds: [
+        "harness-worker-handoff:receipt:package-evidence-import-roundtrip-fork:launch",
+      ],
+      workerHandoffNodeAttemptIds: [workerHandoffAttemptId],
+      workerHandoffReplayFixtureRefs: [
+        "harness-worker-handoff:fixture:package-evidence-import-roundtrip-fork:launch",
+      ],
+      statusMessage: "Reviewed import activation applied",
+    },
+    workerHandoff: {
+      deepLinkHash: `#harness-workbench?activationGateId=worker-handoff&activationGateNodeAttemptId=${workerHandoffAttemptId}`,
+      selectedState: {
+        "data-selected-activation-gate-id": "worker-handoff",
+        "data-selected-activation-gate-node-attempt-id":
+          workerHandoffAttemptId,
+      },
+      timelineVisible: true,
+      selectedAttemptId: workerHandoffAttemptId,
+    },
+    incompleteAction: {
+      present: true,
+      disabled: true,
+      evidenceReady: false,
+      blockerCount: 3,
+      handoffPresent: true,
+      handoffDecision: "blocked",
+      activationIdPreview: null,
+      canaryStatus: "passed",
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      workerBindingId: activationId,
+      mintable: false,
     },
     passed: true,
     blockers: [],
@@ -934,6 +1021,8 @@ const withClusterReadiness = (
 
 {
   const activationIdGateClickProof = makeActivationIdGateClickProof();
+  const packageImportActivationApplyProof =
+    makePackageImportActivationApplyProof();
   const selectorDecisionId = "harness-selector:default-agent-harness:live-default-test";
   const nodeTimelineAttemptIds = ["attempt-planner", "attempt-model-router"];
   const receiptIds = ["receipt-planner", "receipt-model-router"];
@@ -951,6 +1040,8 @@ const withClusterReadiness = (
     replayFixtureRefs,
     activationIdGateClickProof,
     activationIdGateProofNowMs: 10_100,
+    packageImportActivationApplyProof,
+    packageImportActivationApplyProofNowMs: 10_100,
   });
   const livePromotionReadinessProof = dispatch.livePromotionReadinessProof;
   const selector = makeHarnessRuntimeSelectorDecision({
@@ -968,6 +1059,8 @@ const withClusterReadiness = (
     livePromotionReadinessProof,
     activationIdGateClickProof,
     activationIdGateProofNowMs: 10_100,
+    packageImportActivationApplyProof,
+    packageImportActivationApplyProofNowMs: 10_100,
   });
   const handoff = makeBlessedHarnessLiveHandoffProof({
     selector: "blessed_workflow_live_default",
@@ -980,6 +1073,8 @@ const withClusterReadiness = (
     livePromotionReadinessProof,
     activationIdGateClickProof,
     activationIdGateProofNowMs: 10_100,
+    packageImportActivationApplyProof,
+    packageImportActivationApplyProofNowMs: 10_100,
     nodeTimelineAttemptIds,
     receiptIds,
     replayFixtureRefs,
@@ -995,6 +1090,14 @@ const withClusterReadiness = (
   assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, []);
   assert.equal(selector.livePromotionReadinessReady, true);
   assert.deepEqual(selector.livePromotionReadinessBlockers, []);
+  assert.deepEqual(selector.defaultLivePromotionInvariantBlockers, []);
+  assert.equal(selector.reviewedImportActivationApplyProofPresent, true);
+  assert.equal(selector.reviewedImportActivationApplyProofPassed, true);
+  assert.deepEqual(selector.reviewedImportActivationApplyProofBlockers, []);
+  assert.equal(
+    selector.reviewedImportActivationApplyActivationId,
+    packageImportActivationApplyProof.activationResult?.activationId,
+  );
   assert.equal(
     selector.livePromotionReadinessProof?.proofId,
     dispatch.livePromotionReadinessProof.proofId,
@@ -1007,6 +1110,10 @@ const withClusterReadiness = (
   assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, []);
   assert.equal(handoff.livePromotionReadinessReady, true);
   assert.deepEqual(handoff.livePromotionReadinessBlockers, []);
+  assert.deepEqual(handoff.defaultLivePromotionInvariantBlockers, []);
+  assert.equal(handoff.reviewedImportActivationApplyProofPresent, true);
+  assert.equal(handoff.reviewedImportActivationApplyProofPassed, true);
+  assert.deepEqual(handoff.reviewedImportActivationApplyProofBlockers, []);
   assert.equal(dispatch.selectorDecisionId, selector.decisionId);
   assert.equal(dispatch.selectedSelector, "blessed_workflow_live_default");
   assert.equal(dispatch.productionDefaultSelector, "blessed_workflow_live_default");
@@ -1028,6 +1135,19 @@ const withClusterReadiness = (
   assert.deepEqual(
     dispatch.activationIdGate?.defaultDispatchActivationBlockers,
     [],
+  );
+  assert.deepEqual(dispatch.defaultLivePromotionInvariantBlockers, []);
+  assert.equal(dispatch.reviewedImportActivationApplyProofPresent, true);
+  assert.equal(dispatch.reviewedImportActivationApplyProofPassed, true);
+  assert.deepEqual(dispatch.reviewedImportActivationApplyProofBlockers, []);
+  assert.equal(
+    dispatch.reviewedImportActivationApplyActivationId,
+    packageImportActivationApplyProof.activationResult?.activationId,
+  );
+  assert.equal(dispatch.reviewedImportActivationApplyGate?.proofPassed, true);
+  assert.equal(
+    dispatch.reviewedImportActivationApplyGate?.invariantId,
+    "reviewed_import_activation_apply",
   );
   assert.deepEqual(dispatch.activationBlockers, []);
   assert.equal(
@@ -1092,8 +1212,16 @@ const withClusterReadiness = (
 
 {
   const validProof = makeActivationIdGateClickProof();
+  const validPackageApplyProof = makePackageImportActivationApplyProof();
   assert.deepEqual(
     workflowHarnessActivationIdGateClickProofBlockers(validProof, { nowMs: 10_100 }),
+    [],
+  );
+  assert.deepEqual(
+    workflowHarnessPackageImportActivationApplyProofBlockers(
+      validPackageApplyProof,
+      { nowMs: 10_100 },
+    ),
     [],
   );
 
@@ -1109,7 +1237,13 @@ const withClusterReadiness = (
   assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, [
     "activation_id_gate_click_proof_missing",
     "live_promotion_readiness_proof_missing",
+    "package_import_activation_apply_proof_missing",
   ]);
+  assert.deepEqual(selector.defaultLivePromotionInvariantBlockers, [
+    "package_import_activation_apply_proof_missing",
+  ]);
+  assert.equal(selector.reviewedImportActivationApplyProofPresent, false);
+  assert.equal(selector.reviewedImportActivationApplyProofPassed, false);
 
   const handoff = makeBlessedHarnessLiveHandoffProof({
     selector: "blessed_workflow_live_default",
@@ -1123,15 +1257,21 @@ const withClusterReadiness = (
   assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, [
     "activation_id_gate_click_proof_missing",
     "live_promotion_readiness_proof_missing",
+    "package_import_activation_apply_proof_missing",
   ]);
   assert.deepEqual(handoff.activationBlockers, [
     "activation_id_gate_click_proof_missing",
     "live_promotion_readiness_proof_missing",
+    "package_import_activation_apply_proof_missing",
+  ]);
+  assert.deepEqual(handoff.defaultLivePromotionInvariantBlockers, [
+    "package_import_activation_apply_proof_missing",
   ]);
 
   const missingProofDispatch = makeHarnessDefaultRuntimeDispatchProof();
   assert.deepEqual(missingProofDispatch.activationBlockers, [
     "activation_id_gate_click_proof_missing",
+    "package_import_activation_apply_proof_missing",
   ]);
   assert.equal(missingProofDispatch.activationIdGateClickProofPresent, false);
   assert.equal(missingProofDispatch.activationIdGateClickProofPassed, false);
@@ -1157,8 +1297,16 @@ const withClusterReadiness = (
   );
   assert.deepEqual(
     missingProofDispatch.livePromotionReadinessProof.activationBlockers,
-    ["activation_id_gate_click_proof_missing"],
+    [
+      "activation_id_gate_click_proof_missing",
+      "package_import_activation_apply_proof_missing",
+    ],
   );
+  assert.equal(missingProofDispatch.reviewedImportActivationApplyProofPresent, false);
+  assert.equal(missingProofDispatch.reviewedImportActivationApplyProofPassed, false);
+  assert.deepEqual(missingProofDispatch.reviewedImportActivationApplyProofBlockers, [
+    "package_import_activation_apply_proof_missing",
+  ]);
 
   const dryRunOnlyProof = makeActivationIdGateClickProof({
     passed: false,
@@ -1228,6 +1376,19 @@ const withClusterReadiness = (
       maxAgeMs: 1_000,
     }).join("\n"),
     /activation_id_gate_click_proof_stale/,
+  );
+  const stalePackageApplyProof = makePackageImportActivationApplyProof({
+    generatedAtMs: 1_000,
+  });
+  assert.match(
+    workflowHarnessPackageImportActivationApplyProofBlockers(
+      stalePackageApplyProof,
+      {
+        nowMs: 10_000,
+        maxAgeMs: 1_000,
+      },
+    ).join("\n"),
+    /package_import_activation_apply_proof_stale/,
   );
 }
 

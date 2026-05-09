@@ -1,6 +1,6 @@
 # Agent Runtime Harness-As-Workflow Master Guide
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 Owner: agent runtime / workflow substrate / Autopilot GUI
 Status: next-leg master guide
 
@@ -46,6 +46,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-00-06-942Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T20-27-59-060Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-34-19-262Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T00-32-20-635Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -91,7 +93,7 @@ through a workflow-backed harness.
 
 ## Latest Validated Checkpoint
 
-As of 2026-05-08, the default live harness activation-id gate, runtime selector
+As of 2026-05-09, the default live harness activation-id gate, runtime selector
 readiness gate, live handoff, default runtime dispatch proof, durable worker
 binding authority proof, worker binding registry proof, worker attach lifecycle
 timeline, worker session record, runtime-checkpoint worker session
@@ -106,9 +108,9 @@ proof, package evidence export/import round-trip proof, and user-facing import
 review mode proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T22-40-31-318Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T00-32-20-635Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-46-52-663Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -175,6 +177,12 @@ rejects any claimed passing GUI bundle unless the embedded activation apply
 proof shows the click, minted activation id, validated workflow state, worker
 binding, rollback/revision binding, audit, refs, and worker-handoff deep-link
 restoration.
+That invariant is now consumed by the runtime selector, live handoff, and
+default runtime dispatch proof as `reviewed_import_activation_apply`; the
+selector falls back to canary/legacy if the proof is missing, stale, or blocked,
+and the dispatch proof exposes a
+`reviewedImportActivationApplyGate` with activation id, worker binding id,
+rollback target, proof blockers, and default-dispatch blockers.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -1195,6 +1203,42 @@ It is a contract-level default-live promotion invariant:
   timeline restoration.
 - Runtime P3 with required GUI evidence is green at
   `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-00-38-348Z/dashboard-index.json`.
+
+### 2026-05-09 Selector-Enforced Reviewed Import Invariant Slice
+
+The reviewed-import activation invariant now participates in default-live
+runtime selection instead of remaining only a result-level validator check:
+
+- Rust canonical harness contracts now carry default-live invariant ids,
+  invariant blockers, reviewed-import proof posture, and reviewed activation id
+  on `HarnessRuntimeSelectorDecision`, `HarnessLiveHandoffProof`, and
+  `HarnessDefaultRuntimeDispatchProof`.
+- TypeScript graph/runtime contracts mirror the same fields, and
+  `makeHarnessRuntimeSelectorDecision`, `makeBlessedHarnessLiveHandoffProof`,
+  and `makeHarnessDefaultRuntimeDispatchProof` all consume
+  `WorkflowHarnessPackageImportActivationApplyProof`.
+- If the blessed default selector is requested without a valid same-session
+  reviewed-import activation apply proof, the selector fails closed to
+  canary/legacy and records `package_import_activation_apply_proof_missing`,
+  stale, or structural blockers.
+- The default dispatch proof now exposes
+  `reviewedImportActivationApplyGate` with invariant id
+  `reviewed_import_activation_apply`, proof posture, proof blockers, activation
+  id, worker binding activation id, rollback target, and default-dispatch
+  blockers.
+- Runtime evidence and retained GUI validation now require
+  `harness_selector_reviewed_import_activation_apply_invariant` and
+  `harness_selector_reviewed_import_activation_apply_invariant_present`, proving
+  selector, live handoff, and dispatch all consumed the same invariant before
+  accepting the default-live route.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T00-32-20-635Z/result.json`;
+  the promotion proof reports
+  `selectorReviewedImportActivationApplyInvariant: true`,
+  `liveHandoffReviewedImportActivationApplyInvariant: true`, and
+  `defaultDispatchReviewedImportActivationApplyInvariant: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`.
 
 ## Current State
 

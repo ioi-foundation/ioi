@@ -24,6 +24,7 @@ import type {
   WorkflowHarnessPackageEvidenceManifest,
   WorkflowHarnessNodeBinding,
   WorkflowHarnessNodeAttemptRecord,
+  WorkflowHarnessPackageImportActivationApplyProof,
   WorkflowHarnessPromotionCluster,
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionClusterReplayGateProof,
@@ -73,6 +74,10 @@ export const DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS = Object.freeze([
   "activation_review_incomplete",
 ]);
 export const DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS =
+  5 * 60 * 1000;
+export const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT =
+  "reviewed_import_activation_apply";
+export const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS =
   5 * 60 * 1000;
 
 const HARNESS_INPUT_SCHEMA = {
@@ -255,6 +260,148 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
     minted.workerHandoffTimelineAttemptId !== workerHandoffAttemptId
   ) {
     blockers.push("activation_id_gate_mint_handoff_timeline_attempt_missing");
+  }
+  return uniqueStrings(blockers);
+}
+
+export function workflowHarnessPackageImportActivationApplyProofBlockers(
+  proof: WorkflowHarnessPackageImportActivationApplyProof | null | undefined,
+  options: {
+    nowMs?: number;
+    maxAgeMs?: number;
+  } = {},
+): string[] {
+  const blockers: string[] = [];
+  if (!proof) return ["package_import_activation_apply_proof_missing"];
+  const maxAgeMs =
+    options.maxAgeMs ??
+    DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS;
+  if (proof.schemaVersion !== "workflow.harness.package-import-activation-apply-proof.v1") {
+    blockers.push("package_import_activation_apply_schema_mismatch");
+  }
+  if (proof.passed !== true || proof.blockers.length > 0) {
+    blockers.push("package_import_activation_apply_proof_failed");
+  }
+  if (
+    typeof options.nowMs === "number" &&
+    Number.isFinite(proof.generatedAtMs) &&
+    (proof.generatedAtMs > options.nowMs + 1000 ||
+      options.nowMs - proof.generatedAtMs > maxAgeMs)
+  ) {
+    blockers.push("package_import_activation_apply_proof_stale");
+  }
+  if (proof.clicked !== true) {
+    blockers.push("package_import_activation_apply_not_clicked");
+  }
+  const action = proof.activationAction;
+  if (action.present !== true) {
+    blockers.push("package_import_activation_apply_action_missing");
+  }
+  if (action.disabled !== false || action.mintable !== true) {
+    blockers.push("package_import_activation_apply_action_not_mintable");
+  }
+  if (action.handoffDecision !== "mintable") {
+    blockers.push("package_import_activation_apply_handoff_not_mintable");
+  }
+  const result = proof.activationResult;
+  const activationId = result?.activationId ?? null;
+  if (!result) {
+    blockers.push("package_import_activation_apply_result_missing");
+    return uniqueStrings(blockers);
+  }
+  if (result.applied !== true) {
+    blockers.push("package_import_activation_apply_not_applied");
+  }
+  if (!activationId?.startsWith("activation:")) {
+    blockers.push("package_import_activation_apply_activation_id_missing");
+  }
+  if (activationId !== action.activationIdPreview) {
+    blockers.push("package_import_activation_apply_activation_preview_mismatch");
+  }
+  if (result.workflowActivationId !== activationId) {
+    blockers.push("package_import_activation_apply_workflow_activation_mismatch");
+  }
+  if (result.workflowActivationState !== "validated") {
+    blockers.push("package_import_activation_apply_workflow_state_mismatch");
+  }
+  if (result.workerBindingActivationId !== activationId) {
+    blockers.push("package_import_activation_apply_worker_binding_mismatch");
+  }
+  if (result.activationRecordWorkerBindingActivationId !== activationId) {
+    blockers.push(
+      "package_import_activation_apply_record_worker_binding_mismatch",
+    );
+  }
+  if (result.rollbackTarget !== action.rollbackTarget) {
+    blockers.push("package_import_activation_apply_rollback_target_mismatch");
+  }
+  if (result.revisionBindingActivationId !== activationId) {
+    blockers.push("package_import_activation_apply_revision_binding_mismatch");
+  }
+  if (!result.activationRecordRevisionBindingHash) {
+    blockers.push("package_import_activation_apply_revision_hash_missing");
+  }
+  if (!result.rollbackRevisionBindingHash) {
+    blockers.push("package_import_activation_apply_rollback_hash_missing");
+  }
+  if (result.latestAuditEventType !== "activation_minted") {
+    blockers.push("package_import_activation_apply_audit_type_mismatch");
+  }
+  if (result.latestAuditStatus !== "applied") {
+    blockers.push("package_import_activation_apply_audit_status_mismatch");
+  }
+  if (result.receiptRefs.length === 0) {
+    blockers.push("package_import_activation_apply_receipts_missing");
+  }
+  if (result.evidenceRefs.length === 0) {
+    blockers.push("package_import_activation_apply_evidence_missing");
+  }
+  if (result.workerHandoffReceiptIds.length === 0) {
+    blockers.push("package_import_activation_apply_worker_handoff_receipts_missing");
+  }
+  if (result.workerHandoffNodeAttemptIds.length === 0) {
+    blockers.push("package_import_activation_apply_worker_handoff_attempts_missing");
+  }
+  if (result.workerHandoffReplayFixtureRefs.length === 0) {
+    blockers.push("package_import_activation_apply_worker_handoff_replay_missing");
+  }
+  const workerHandoffAttemptId = result.workerHandoffNodeAttemptIds[0] ?? null;
+  if (
+    workerHandoffAttemptId &&
+    proof.workerHandoff.deepLinkHash?.includes("activationGateNodeAttemptId=") !==
+      true
+  ) {
+    blockers.push("package_import_activation_apply_handoff_node_link_missing");
+  }
+  if (
+    workerHandoffAttemptId &&
+    proof.workerHandoff.selectedState["data-selected-activation-gate-id"] !==
+      "worker-handoff"
+  ) {
+    blockers.push("package_import_activation_apply_handoff_gate_not_restored");
+  }
+  if (
+    workerHandoffAttemptId &&
+    proof.workerHandoff.selectedState[
+      "data-selected-activation-gate-node-attempt-id"
+    ] !== workerHandoffAttemptId
+  ) {
+    blockers.push("package_import_activation_apply_handoff_attempt_not_selected");
+  }
+  if (
+    workerHandoffAttemptId &&
+    proof.workerHandoff.selectedAttemptId !== workerHandoffAttemptId
+  ) {
+    blockers.push("package_import_activation_apply_handoff_timeline_attempt_missing");
+  }
+  if (workerHandoffAttemptId && proof.workerHandoff.timelineVisible !== true) {
+    blockers.push("package_import_activation_apply_handoff_timeline_missing");
+  }
+  if (
+    proof.incompleteAction.disabled !== true ||
+    proof.incompleteAction.mintable !== false
+  ) {
+    blockers.push("package_import_activation_apply_incomplete_action_not_blocked");
   }
   return uniqueStrings(blockers);
 }
@@ -3302,6 +3449,10 @@ export function makeBlessedHarnessLiveHandoffProof(
     activationIdGateProofNowMs?: number;
     activationIdGateProofMaxAgeMs?: number;
     requireActivationIdGateClickProof?: boolean;
+    packageImportActivationApplyProof?: WorkflowHarnessPackageImportActivationApplyProof | null;
+    packageImportActivationApplyProofNowMs?: number;
+    packageImportActivationApplyProofMaxAgeMs?: number;
+    requirePackageImportActivationApplyProof?: boolean;
     gatedClusterIds?: WorkflowHarnessLiveHandoffProof["gatedClusterIds"];
     executionBoundaryIds?: string[];
     executionBoundaryClusterIds?: WorkflowHarnessPromotionClusterId[];
@@ -3328,8 +3479,35 @@ export function makeBlessedHarnessLiveHandoffProof(
   const livePromotionReadinessReady =
     requireLivePromotionReadinessProof &&
     livePromotionReadinessBlockers.length === 0;
+  const requirePackageImportActivationApplyProof =
+    options.requirePackageImportActivationApplyProof ?? defaultRequested;
+  const packageImportActivationApplyProofBlockers =
+    requirePackageImportActivationApplyProof
+      ? workflowHarnessPackageImportActivationApplyProofBlockers(
+          options.packageImportActivationApplyProof,
+          {
+            nowMs: options.packageImportActivationApplyProofNowMs,
+            maxAgeMs: options.packageImportActivationApplyProofMaxAgeMs,
+          },
+        )
+      : [];
+  const packageImportActivationApplyProofPresent = Boolean(
+    options.packageImportActivationApplyProof,
+  );
+  const packageImportActivationApplyProofPassed =
+    packageImportActivationApplyProofPresent &&
+    packageImportActivationApplyProofBlockers.length === 0;
+  const defaultLivePromotionInvariantIds =
+    requirePackageImportActivationApplyProof
+      ? [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT]
+      : [];
+  const defaultLivePromotionInvariantBlockers = uniqueStrings([
+    ...packageImportActivationApplyProofBlockers,
+  ]);
   const effectiveDefaultAuthorityTransferred =
-    defaultAuthorityTransferred && livePromotionReadinessReady;
+    defaultAuthorityTransferred &&
+    livePromotionReadinessReady &&
+    defaultLivePromotionInvariantBlockers.length === 0;
   const selector =
     defaultRequested && !effectiveDefaultAuthorityTransferred
       ? "blessed_workflow_live_canary"
@@ -3348,7 +3526,9 @@ export function makeBlessedHarnessLiveHandoffProof(
     options.defaultPromotionGateEligible ?? defaultAuthorityTransferred;
   const defaultPromotionGateEligible =
     requestedDefaultPromotionGateEligible &&
-    (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
+    (!requireLivePromotionReadinessProof || livePromotionReadinessReady) &&
+    (!requirePackageImportActivationApplyProof ||
+      packageImportActivationApplyProofPassed);
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? defaultAuthorityTransferred)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -3366,11 +3546,13 @@ export function makeBlessedHarnessLiveHandoffProof(
         : ["promotion_gate_disabled"])),
     ...activationIdGateProofBlockers,
     ...livePromotionReadinessBlockers,
+    ...defaultLivePromotionInvariantBlockers,
   ]);
   const activationBlockers = uniqueStrings([
     ...(options.activationBlockers ?? []),
     ...activationIdGateProofBlockers,
     ...livePromotionReadinessBlockers,
+    ...defaultLivePromotionInvariantBlockers,
   ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
@@ -3439,6 +3621,17 @@ export function makeBlessedHarnessLiveHandoffProof(
       (requireLivePromotionReadinessProof
         ? "block_default_harness_live_promotion_readiness"
         : "not_required_for_canary_handoff"),
+    defaultLivePromotionInvariantIds,
+    defaultLivePromotionInvariantBlockers,
+    reviewedImportActivationApplyProofPresent:
+      packageImportActivationApplyProofPresent,
+    reviewedImportActivationApplyProofPassed:
+      packageImportActivationApplyProofPassed,
+    reviewedImportActivationApplyProofBlockers:
+      packageImportActivationApplyProofBlockers,
+    reviewedImportActivationApplyActivationId:
+      options.packageImportActivationApplyProof?.activationResult
+        ?.activationId ?? null,
     activationBlockers,
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
@@ -3449,6 +3642,8 @@ export function makeBlessedHarnessLiveHandoffProof(
       productionDefaultSelector,
       defaultAuthorityTransferred: effectiveDefaultAuthorityTransferred,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      requiredInvariantIds: defaultLivePromotionInvariantIds,
+      invariantBlockers: defaultLivePromotionInvariantBlockers,
       activationBlockers: defaultPromotionGateActivationBlockers,
       policyDecision: defaultPromotionGatePolicyDecision,
     },
@@ -3479,6 +3674,10 @@ export function makeHarnessRuntimeSelectorDecision(
     activationIdGateProofNowMs?: number;
     activationIdGateProofMaxAgeMs?: number;
     requireActivationIdGateClickProof?: boolean;
+    packageImportActivationApplyProof?: WorkflowHarnessPackageImportActivationApplyProof | null;
+    packageImportActivationApplyProofNowMs?: number;
+    packageImportActivationApplyProofMaxAgeMs?: number;
+    requirePackageImportActivationApplyProof?: boolean;
     evidenceRefs?: string[];
   } = {},
 ): WorkflowHarnessRuntimeSelectorDecision {
@@ -3496,6 +3695,31 @@ export function makeHarnessRuntimeSelectorDecision(
   const livePromotionReadinessReady =
     requireLivePromotionReadinessProof &&
     livePromotionReadinessBlockers.length === 0;
+  const requirePackageImportActivationApplyProof =
+    options.requirePackageImportActivationApplyProof ?? defaultRequested;
+  const packageImportActivationApplyProofBlockers =
+    requirePackageImportActivationApplyProof
+      ? workflowHarnessPackageImportActivationApplyProofBlockers(
+          options.packageImportActivationApplyProof,
+          {
+            nowMs: options.packageImportActivationApplyProofNowMs,
+            maxAgeMs: options.packageImportActivationApplyProofMaxAgeMs,
+          },
+        )
+      : [];
+  const packageImportActivationApplyProofPresent = Boolean(
+    options.packageImportActivationApplyProof,
+  );
+  const packageImportActivationApplyProofPassed =
+    packageImportActivationApplyProofPresent &&
+    packageImportActivationApplyProofBlockers.length === 0;
+  const defaultLivePromotionInvariantIds =
+    requirePackageImportActivationApplyProof
+      ? [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT]
+      : [];
+  const defaultLivePromotionInvariantBlockers = uniqueStrings([
+    ...packageImportActivationApplyProofBlockers,
+  ]);
   const requestedCanaryEligible =
     options.canaryEligible ??
     (requestedSelectedSelector === "blessed_workflow_live_canary" ||
@@ -3506,7 +3730,9 @@ export function makeHarnessRuntimeSelectorDecision(
     options.defaultPromotionGateAuthorityTransferred ?? defaultRequested;
   const selectedSelector =
     defaultRequested &&
-    (!livePromotionReadinessReady || !requestedDefaultPromotionGateEligible)
+    (!livePromotionReadinessReady ||
+      !requestedDefaultPromotionGateEligible ||
+      defaultLivePromotionInvariantBlockers.length > 0)
       ? requestedCanaryEligible
         ? "blessed_workflow_live_canary"
         : "legacy_runtime"
@@ -3526,7 +3752,9 @@ export function makeHarnessRuntimeSelectorDecision(
   const defaultPromotionGateEligible =
     requestedDefaultPromotionGateEligible &&
     defaultSelected &&
-    (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
+    (!requireLivePromotionReadinessProof || livePromotionReadinessReady) &&
+    (!requirePackageImportActivationApplyProof ||
+      packageImportActivationApplyProofPassed);
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? defaultRequested)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -3540,7 +3768,9 @@ export function makeHarnessRuntimeSelectorDecision(
   const defaultPromotionGateAuthorityTransferred =
     requestedDefaultPromotionAuthorityTransferred &&
     defaultSelected &&
-    (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
+    (!requireLivePromotionReadinessProof || livePromotionReadinessReady) &&
+    (!requirePackageImportActivationApplyProof ||
+      packageImportActivationApplyProofPassed);
   const defaultPromotionGateActivationBlockers = uniqueStrings([
     ...(options.defaultPromotionGateActivationBlockers ??
       (requestedDefaultPromotionGateEligible
@@ -3548,6 +3778,7 @@ export function makeHarnessRuntimeSelectorDecision(
         : ["promotion_gate_disabled"])),
     ...activationIdGateProofBlockers,
     ...livePromotionReadinessBlockers,
+    ...defaultLivePromotionInvariantBlockers,
   ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
@@ -3587,6 +3818,8 @@ export function makeHarnessRuntimeSelectorDecision(
       options.routeReason ??
       (defaultSelected
         ? "Blessed workflow activation is promoted to the default runtime selector for a non-mutating turn."
+        : defaultRequested && defaultLivePromotionInvariantBlockers.length > 0
+          ? "Blessed workflow default promotion is blocked until reviewed import activation apply proof is present in the selected evidence bundle."
         : defaultRequested
           ? "Blessed workflow default promotion is blocked until the live-promotion readiness proof passes."
           : workflowSelected
@@ -3600,6 +3833,17 @@ export function makeHarnessRuntimeSelectorDecision(
       (requireLivePromotionReadinessProof
         ? "block_default_harness_live_promotion_readiness"
         : "not_required_for_canary_selector"),
+    defaultLivePromotionInvariantIds,
+    defaultLivePromotionInvariantBlockers,
+    reviewedImportActivationApplyProofPresent:
+      packageImportActivationApplyProofPresent,
+    reviewedImportActivationApplyProofPassed:
+      packageImportActivationApplyProofPassed,
+    reviewedImportActivationApplyProofBlockers:
+      packageImportActivationApplyProofBlockers,
+    reviewedImportActivationApplyActivationId:
+      options.packageImportActivationApplyProof?.activationResult
+        ?.activationId ?? null,
     defaultPromotionGate: {
       configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
       enabled: defaultPromotionGateEnabled,
@@ -3609,6 +3853,8 @@ export function makeHarnessRuntimeSelectorDecision(
       productionDefaultSelector,
       defaultAuthorityTransferred: defaultPromotionGateAuthorityTransferred,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      requiredInvariantIds: defaultLivePromotionInvariantIds,
+      invariantBlockers: defaultLivePromotionInvariantBlockers,
       activationBlockers: defaultPromotionGateActivationBlockers,
       policyDecision: defaultPromotionGatePolicyDecision,
     },
@@ -4196,6 +4442,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     activationIdGateProofMaxAgeMs?: number;
     activationIdGateWorkerBindingActivationId?: string;
     requireActivationIdGateClickProof?: boolean;
+    packageImportActivationApplyProof?: WorkflowHarnessPackageImportActivationApplyProof | null;
+    packageImportActivationApplyProofNowMs?: number;
+    packageImportActivationApplyProofMaxAgeMs?: number;
+    requirePackageImportActivationApplyProof?: boolean;
     evidenceRefs?: string[];
   } = {},
 ): WorkflowHarnessDefaultRuntimeDispatchProof {
@@ -4365,9 +4615,35 @@ export function makeHarnessDefaultRuntimeDispatchProof(
           },
         )
       : [];
+  const requirePackageImportActivationApplyProof =
+    options.requirePackageImportActivationApplyProof ?? true;
+  const packageImportActivationApplyProofBlockers =
+    requirePackageImportActivationApplyProof
+      ? workflowHarnessPackageImportActivationApplyProofBlockers(
+          options.packageImportActivationApplyProof,
+          {
+            nowMs: options.packageImportActivationApplyProofNowMs,
+            maxAgeMs: options.packageImportActivationApplyProofMaxAgeMs,
+          },
+        )
+      : [];
+  const packageImportActivationApplyProofPresent = Boolean(
+    options.packageImportActivationApplyProof,
+  );
+  const packageImportActivationApplyProofPassed =
+    packageImportActivationApplyProofPresent &&
+    packageImportActivationApplyProofBlockers.length === 0;
+  const defaultLivePromotionInvariantIds =
+    requirePackageImportActivationApplyProof
+      ? [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT]
+      : [];
+  const defaultLivePromotionInvariantBlockers = uniqueStrings([
+    ...packageImportActivationApplyProofBlockers,
+  ]);
   const activationBlockers = uniqueStrings([
     ...(options.activationBlockers ?? []),
     ...activationIdGateProofBlockers,
+    ...defaultLivePromotionInvariantBlockers,
   ]);
   const dispatchAccepted = activationBlockers.length === 0;
   const activationIdGateClickProofPresent = Boolean(
@@ -5040,6 +5316,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     activationIdGateClickProofPresent,
     activationIdGateClickProofPassed,
     activationIdGateClickProofBlockers: activationIdGateProofBlockers,
+    defaultLivePromotionInvariantIds,
+    defaultLivePromotionInvariantBlockers,
+    reviewedImportActivationApplyProofPresent:
+      packageImportActivationApplyProofPresent,
+    reviewedImportActivationApplyProofPassed:
+      packageImportActivationApplyProofPassed,
+    reviewedImportActivationApplyProofBlockers:
+      packageImportActivationApplyProofBlockers,
+    reviewedImportActivationApplyActivationId:
+      options.packageImportActivationApplyProof?.activationResult
+        ?.activationId ?? null,
     defaultDispatchActivationBlockers: activationBlockers,
     activationIdGate: {
       schemaVersion:
@@ -5051,6 +5338,25 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
       activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       workerBindingActivationId: activationIdGateWorkerBindingActivationId,
+      defaultDispatchActivationBlockers: activationBlockers,
+    },
+    reviewedImportActivationApplyGate: {
+      schemaVersion:
+        "workflow.harness.default-runtime-dispatch.reviewed-import-activation-apply-gate.v1",
+      gateId: "reviewed-import-activation-apply",
+      invariantId: DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+      proofPresent: packageImportActivationApplyProofPresent,
+      proofPassed: packageImportActivationApplyProofPassed,
+      proofBlockers: packageImportActivationApplyProofBlockers,
+      activationId:
+        options.packageImportActivationApplyProof?.activationResult
+          ?.activationId ?? null,
+      workerBindingActivationId:
+        options.packageImportActivationApplyProof?.activationResult
+          ?.workerBindingActivationId ?? null,
+      rollbackTarget:
+        options.packageImportActivationApplyProof?.activationResult
+          ?.rollbackTarget ?? null,
       defaultDispatchActivationBlockers: activationBlockers,
     },
     cognitionExecutionMode: "workflow_synchronous_envelope",
