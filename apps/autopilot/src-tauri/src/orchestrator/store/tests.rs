@@ -744,7 +744,25 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .get("liveShadowComparisons")
         .and_then(|value| value.as_array())
         .expect("default runtime dispatch must emit live/shadow comparisons");
-    assert_eq!(live_shadow_comparisons.len(), 3);
+    assert_eq!(live_shadow_comparisons.len(), 6);
+    let live_shadow_component_kinds = live_shadow_comparisons
+        .iter()
+        .filter_map(|comparison| {
+            comparison
+                .get("componentKind")
+                .and_then(|value| value.as_str())
+        })
+        .collect::<Vec<_>>();
+    for required_component in [
+        "planner",
+        "prompt_assembler",
+        "task_state",
+        "model_router",
+        "model_call",
+        "tool_router",
+    ] {
+        assert!(live_shadow_component_kinds.contains(&required_component));
+    }
     assert!(live_shadow_comparisons.iter().all(|comparison| {
         comparison
             .get("divergence")
@@ -1298,6 +1316,61 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert!(dispatch
         .get("routingModelDivergenceClasses")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .all(|value| value == "none")
+        })
+        .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("routingModelShadowAdapterMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_component_adapter_shadow")
+    );
+    let routing_model_shadow_component_kinds = dispatch
+        .get("routingModelShadowComponentKinds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(routing_model_shadow_component_kinds.contains(&"model_router"));
+    assert!(routing_model_shadow_component_kinds.contains(&"model_call"));
+    assert!(routing_model_shadow_component_kinds.contains(&"tool_router"));
+    let routing_model_shadow_adapter_results = dispatch
+        .get("routingModelShadowAdapterResults")
+        .and_then(|value| value.as_array())
+        .expect("default runtime dispatch must retain routing/model shadow adapter results");
+    assert_eq!(routing_model_shadow_adapter_results.len(), 3);
+    assert!(routing_model_shadow_adapter_results.iter().all(|result| {
+        let node_attempt = result
+            .get("nodeAttempt")
+            .unwrap_or(&serde_json::Value::Null);
+        node_attempt
+            .get("executionMode")
+            .and_then(|value| value.as_str())
+            == Some("shadow")
+            && node_attempt.get("status").and_then(|value| value.as_str()) == Some("shadow")
+            && node_attempt
+                .get("receiptIds")
+                .and_then(|value| value.as_array())
+                .map(|items| !items.is_empty())
+                .unwrap_or(false)
+            && node_attempt
+                .get("replay")
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(|value| value.as_str())
+                .map(|fixture| fixture.contains("default-dispatch-shadow-fixture"))
+                .unwrap_or(false)
+    }));
+    assert!(dispatch
+        .get("routingModelShadowDivergenceClasses")
         .and_then(|value| value.as_array())
         .map(|items| {
             items

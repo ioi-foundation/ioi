@@ -1896,6 +1896,7 @@ function harnessLiveTurnNodeInspectorAttemptForWorkflow(
     ...(dispatch.cognitionExecutionShadowAdapterResults ?? []),
     ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
     ...(dispatch.routingModelAdapterResults ?? []),
+    ...(dispatch.routingModelShadowAdapterResults ?? []),
     ...(dispatch.verificationOutputAdapterResults ?? []),
     ...(dispatch.authorityToolingAdapterResults ?? []),
   ].map((result) => result.nodeAttempt);
@@ -1947,6 +1948,7 @@ function harnessLiveShadowComparisonForWorkflow(
     ...(dispatch.cognitionExecutionShadowAdapterResults ?? []),
     ...(dispatch.cognitionExecutionGateAdapterResults ?? []),
     ...(dispatch.routingModelAdapterResults ?? []),
+    ...(dispatch.routingModelShadowAdapterResults ?? []),
     ...(dispatch.verificationOutputAdapterResults ?? []),
     ...(dispatch.authorityToolingAdapterResults ?? []),
   ]

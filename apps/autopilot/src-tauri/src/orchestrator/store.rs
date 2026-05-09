@@ -6655,6 +6655,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut routing_model_action_frame_ids = Vec::<String>::new();
     let mut routing_model_component_kinds = Vec::<String>::new();
     let mut routing_model_divergence_classes = Vec::<String>::new();
+    let mut routing_model_shadow_attempt_ids = Vec::<String>::new();
+    let mut routing_model_shadow_receipt_ids = Vec::<String>::new();
+    let mut routing_model_shadow_replay_fixture_refs = Vec::<String>::new();
+    let mut routing_model_shadow_adapter_results = Vec::<Value>::new();
+    let mut routing_model_shadow_action_frame_ids = Vec::<String>::new();
+    let mut routing_model_shadow_component_kinds = Vec::<String>::new();
+    let mut routing_model_shadow_divergence_classes = Vec::<String>::new();
     let mut verification_output_attempt_ids = Vec::<String>::new();
     let mut verification_output_receipt_ids = Vec::<String>::new();
     let mut verification_output_replay_fixture_refs = Vec::<String>::new();
@@ -7793,13 +7800,14 @@ fn runtime_harness_default_runtime_dispatch(
                         },
                     ) {
                         Ok(adapter_result) => {
+                            let gated_adapter_result = adapter_result;
                             routing_model_action_frame_ids.push(format!(
                                 "{}:{}",
-                                adapter_result.action_frame.node_id,
-                                adapter_result.action_frame.component_id
+                                gated_adapter_result.action_frame.node_id,
+                                gated_adapter_result.action_frame.component_id
                             ));
                             routing_model_component_kinds.push(
-                                adapter_result
+                                gated_adapter_result
                                     .action_frame
                                     .component_kind
                                     .as_str()
@@ -7807,8 +7815,77 @@ fn runtime_harness_default_runtime_dispatch(
                             );
                             routing_model_divergence_classes.push("none".to_string());
                             let value =
-                                harness_component_adapter_result_camel_value(&adapter_result);
+                                harness_component_adapter_result_camel_value(&gated_adapter_result);
                             routing_model_adapter_results.push(value.clone());
+                            let shadow_receipt_id =
+                                format!("{sid}:{workflow_node_id}:{policy_decision}:shadow");
+                            let shadow_replay_fixture_ref = format!(
+                                "runtime-evidence:{sid}:default-dispatch-shadow-fixture:{attempt_slug}"
+                            );
+                            let shadow_evidence_refs = vec![
+                                format!("runtime-evidence:{sid}"),
+                                selector_decision_id.clone(),
+                                format!("harness-shadow-routing-model:{sid}:{}", task.progress),
+                            ];
+                            match invoke_default_harness_component(HarnessComponentInvocation {
+                                invocation_id: format!(
+                                    "default-dispatch:{sid}:{turn_id}:{attempt_slug}_shadow"
+                                ),
+                                component_kind,
+                                execution_mode: HarnessExecutionMode::Shadow,
+                                attempt_index,
+                                input_hash: Some(input_hash.clone()),
+                                output_hash: Some(output_hash.clone()),
+                                policy_decision: Some(policy_decision.to_string()),
+                                receipt_ids: vec![shadow_receipt_id.clone()],
+                                evidence_refs: shadow_evidence_refs,
+                                replay_fixture_ref: Some(shadow_replay_fixture_ref.clone()),
+                                started_at_ms: Some(started_at_ms),
+                                duration_ms: Some(0),
+                            }) {
+                                Ok(shadow_adapter_result) => {
+                                    let shadow_attempt_id =
+                                        shadow_adapter_result.node_attempt.attempt_id.clone();
+                                    dispatch_node_attempt_ids.push(shadow_attempt_id.clone());
+                                    routing_model_shadow_attempt_ids.push(shadow_attempt_id);
+                                    routing_model_shadow_receipt_ids
+                                        .push(shadow_receipt_id.clone());
+                                    routing_model_shadow_replay_fixture_refs
+                                        .push(shadow_replay_fixture_ref.clone());
+                                    receipt_ids.push(shadow_receipt_id);
+                                    replay_fixture_refs.push(shadow_replay_fixture_ref);
+                                    routing_model_shadow_action_frame_ids.push(format!(
+                                        "{}:{}",
+                                        shadow_adapter_result.action_frame.node_id,
+                                        shadow_adapter_result.action_frame.component_id
+                                    ));
+                                    routing_model_shadow_component_kinds.push(
+                                        shadow_adapter_result
+                                            .action_frame
+                                            .component_kind
+                                            .as_str()
+                                            .to_string(),
+                                    );
+                                    let comparison = compare_harness_live_shadow_attempts(
+                                        &gated_adapter_result.node_attempt,
+                                        &shadow_adapter_result.node_attempt,
+                                    );
+                                    routing_model_shadow_divergence_classes
+                                        .push(comparison.divergence.as_str().to_string());
+                                    live_shadow_comparisons
+                                        .push(harness_shadow_comparison_camel_value(&comparison));
+                                    routing_model_shadow_adapter_results.push(
+                                        harness_component_adapter_result_camel_value(
+                                            &shadow_adapter_result,
+                                        ),
+                                    );
+                                }
+                                Err(error) => {
+                                    activation_blockers.push(format!(
+                                        "routing_model_shadow_component_adapter_error:{attempt_slug}:{error:?}"
+                                    ));
+                                }
+                            }
                             value
                         }
                         Err(error) => {
@@ -11182,6 +11259,18 @@ fn runtime_harness_default_runtime_dispatch(
     routing_model_component_kinds.dedup();
     routing_model_divergence_classes.sort();
     routing_model_divergence_classes.dedup();
+    routing_model_shadow_attempt_ids.sort();
+    routing_model_shadow_attempt_ids.dedup();
+    routing_model_shadow_receipt_ids.sort();
+    routing_model_shadow_receipt_ids.dedup();
+    routing_model_shadow_replay_fixture_refs.sort();
+    routing_model_shadow_replay_fixture_refs.dedup();
+    routing_model_shadow_action_frame_ids.sort();
+    routing_model_shadow_action_frame_ids.dedup();
+    routing_model_shadow_component_kinds.sort();
+    routing_model_shadow_component_kinds.dedup();
+    routing_model_shadow_divergence_classes.sort();
+    routing_model_shadow_divergence_classes.dedup();
     verification_output_attempt_ids.sort();
     verification_output_attempt_ids.dedup();
     verification_output_receipt_ids.sort();
@@ -11392,7 +11481,11 @@ fn runtime_harness_default_runtime_dispatch(
             .iter()
             .all(|value| value == "none");
     let live_promotion_routing_model_ready = routing_model_adapter_results.len() >= 3
+        && routing_model_shadow_adapter_results.len() >= 3
         && routing_model_divergence_classes
+            .iter()
+            .all(|value| value == "none")
+        && routing_model_shadow_divergence_classes
             .iter()
             .all(|value| value == "none")
         && model_provider_canary_ready
@@ -11428,6 +11521,21 @@ fn runtime_harness_default_runtime_dispatch(
         cognition_execution_shadow_divergence_classes.clone();
     live_promotion_cognition_divergence_classes
         .extend(cognition_execution_gate_divergence_classes.clone());
+    let mut live_promotion_routing_model_action_frame_ids = routing_model_action_frame_ids.clone();
+    live_promotion_routing_model_action_frame_ids
+        .extend(routing_model_shadow_action_frame_ids.clone());
+    let mut live_promotion_routing_model_attempt_ids = routing_model_attempt_ids.clone();
+    live_promotion_routing_model_attempt_ids.extend(routing_model_shadow_attempt_ids.clone());
+    let mut live_promotion_routing_model_receipt_refs = routing_model_receipt_ids.clone();
+    live_promotion_routing_model_receipt_refs.extend(routing_model_shadow_receipt_ids.clone());
+    let mut live_promotion_routing_model_replay_fixture_refs =
+        routing_model_replay_fixture_refs.clone();
+    live_promotion_routing_model_replay_fixture_refs
+        .extend(routing_model_shadow_replay_fixture_refs.clone());
+    let mut live_promotion_routing_model_divergence_classes =
+        routing_model_divergence_classes.clone();
+    live_promotion_routing_model_divergence_classes
+        .extend(routing_model_shadow_divergence_classes.clone());
     let live_promotion_cluster_readiness = json!([
         {
             "clusterId": "cognition",
@@ -11460,20 +11568,22 @@ fn runtime_harness_default_runtime_dispatch(
             "targetExecutionMode": "live",
             "componentKinds": routing_model_component_kinds.clone(),
             "readinessReady": live_promotion_routing_model_ready,
-            "receiptReady": !routing_model_receipt_ids.is_empty(),
+            "receiptReady": !routing_model_receipt_ids.is_empty()
+                && !routing_model_shadow_receipt_ids.is_empty(),
             "replayGateReady": !routing_model_replay_fixture_refs.is_empty()
-                && routing_model_divergence_classes.iter().all(|value| value == "none"),
+                && !routing_model_shadow_replay_fixture_refs.is_empty()
+                && live_promotion_routing_model_divergence_classes.iter().all(|value| value == "none"),
             "canaryReady": model_provider_canary_ready && model_provider_gated_visible_output_ready,
             "rollbackReady": model_provider_canary_rollback_available
                 && model_provider_gated_visible_output_rollback_drill_ready,
-            "divergenceReady": routing_model_divergence_classes.iter().all(|value| value == "none"),
-            "blockingDivergenceCount": routing_model_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
-            "unclassifiedDivergenceCount": routing_model_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
-            "attemptIds": routing_model_attempt_ids.clone(),
-            "receiptRefs": routing_model_receipt_ids.clone(),
-            "replayFixtureRefs": routing_model_replay_fixture_refs.clone(),
-            "actionFrameIds": routing_model_action_frame_ids.clone(),
-            "divergenceClasses": routing_model_divergence_classes.clone(),
+            "divergenceReady": live_promotion_routing_model_divergence_classes.iter().all(|value| value == "none"),
+            "blockingDivergenceCount": live_promotion_routing_model_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
+            "unclassifiedDivergenceCount": live_promotion_routing_model_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
+            "attemptIds": live_promotion_routing_model_attempt_ids,
+            "receiptRefs": live_promotion_routing_model_receipt_refs,
+            "replayFixtureRefs": live_promotion_routing_model_replay_fixture_refs,
+            "actionFrameIds": live_promotion_routing_model_action_frame_ids,
+            "divergenceClasses": live_promotion_routing_model_divergence_classes,
             "rollbackTarget": "legacy_runtime_model_invocation",
             "blockers": if live_promotion_routing_model_ready { Vec::<&str>::new() } else { vec!["routing_model_live_promotion_not_ready"] },
             "decision": if live_promotion_routing_model_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
@@ -11820,6 +11930,14 @@ fn runtime_harness_default_runtime_dispatch(
         "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
         "routingModelComponentKinds": routing_model_component_kinds.clone(),
         "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
+        "routingModelShadowAdapterMode": "workflow_component_adapter_shadow",
+        "routingModelShadowAttemptIds": routing_model_shadow_attempt_ids.clone(),
+        "routingModelShadowReceiptIds": routing_model_shadow_receipt_ids.clone(),
+        "routingModelShadowReplayFixtureRefs": routing_model_shadow_replay_fixture_refs.clone(),
+        "routingModelShadowAdapterResults": routing_model_shadow_adapter_results.clone(),
+        "routingModelShadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
+        "routingModelShadowComponentKinds": routing_model_shadow_component_kinds.clone(),
+        "routingModelShadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
         "verificationOutputAdapterMode": "workflow_component_adapter_gated",
         "verificationOutputAttemptIds": verification_output_attempt_ids.clone(),
         "verificationOutputReceiptIds": verification_output_receipt_ids.clone(),
@@ -12034,6 +12152,14 @@ fn runtime_harness_default_runtime_dispatch(
             "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
             "routingModelComponentKinds": routing_model_component_kinds.clone(),
             "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
+            "routingModelShadowAdapterMode": "workflow_component_adapter_shadow",
+            "routingModelShadowAdapterResultCount": routing_model_shadow_adapter_results.len(),
+            "routingModelShadowAttemptIds": routing_model_shadow_attempt_ids.clone(),
+            "routingModelShadowReceiptIds": routing_model_shadow_receipt_ids.clone(),
+            "routingModelShadowReplayFixtureRefs": routing_model_shadow_replay_fixture_refs.clone(),
+            "routingModelShadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
+            "routingModelShadowComponentKinds": routing_model_shadow_component_kinds.clone(),
+            "routingModelShadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
             "verificationOutputAdapterMode": "workflow_component_adapter_gated",
             "verificationOutputAdapterResultCount": verification_output_adapter_results.len(),
             "verificationOutputAttemptIds": verification_output_attempt_ids.clone(),
@@ -12452,6 +12578,14 @@ fn runtime_harness_default_runtime_dispatch(
             "routingModelActionFrameIds": routing_model_action_frame_ids.clone(),
             "routingModelComponentKinds": routing_model_component_kinds.clone(),
             "routingModelDivergenceClasses": routing_model_divergence_classes.clone(),
+            "routingModelShadowAdapterMode": "workflow_component_adapter_shadow",
+            "routingModelShadowAdapterResultCount": routing_model_shadow_adapter_results.len(),
+            "routingModelShadowAttemptIds": routing_model_shadow_attempt_ids.clone(),
+            "routingModelShadowReceiptIds": routing_model_shadow_receipt_ids.clone(),
+            "routingModelShadowReplayFixtureRefs": routing_model_shadow_replay_fixture_refs.clone(),
+            "routingModelShadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
+            "routingModelShadowComponentKinds": routing_model_shadow_component_kinds.clone(),
+            "routingModelShadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
             "providerCanaryReady": model_provider_canary_ready,
             "providerCanaryAttemptIds": model_provider_canary_attempt_ids,
             "providerCanaryReceiptIds": model_provider_canary_receipt_ids,

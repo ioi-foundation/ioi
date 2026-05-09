@@ -117,9 +117,9 @@ deep-link restoration proof, and live-vs-shadow comparison deep-link proof have
 a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T05-28-33-120Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T06-00-43-156Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T05-36-07-777Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T06-06-54-656Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -171,12 +171,14 @@ shadow replay fixture refs, and matching input/output hashes. Runtime
 consistency now also requires `harness_live_shadow_comparison_present: true`.
 Normal retained live runtime artifacts now also emit the same comparison
 directly from the Rust/orchestrator default dispatch path:
-`harnessLiveShadowComparisonCount: 3` for `retained_harness_dogfooding`, with
-runtime `planner`, `prompt_assembler`, and `task_state` live attempts paired
-to their shadow attempts, distinct live/shadow receipt refs, distinct
-live/shadow replay fixture refs, and matching input/output hashes. Runtime
-consistency now treats `harness_live_shadow_comparison_present` as a cognition
-coverage gate, not a single-sample existence check. It further proves
+`harnessLiveShadowComparisonCount: 6` for `retained_harness_dogfooding`, with
+runtime `planner`, `prompt_assembler`, and `task_state` live attempts and
+`model_router`, `model_call`, and `tool_router` gated attempts paired to their
+shadow attempts, distinct live/shadow receipt refs, distinct live/shadow
+replay fixture refs, and matching input/output hashes. Runtime consistency now
+treats `harness_live_shadow_comparison_present` as a cognition plus
+routing/model coverage gate, not a single-sample existence check. It further
+proves
 the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation
@@ -1426,6 +1428,47 @@ live/shadow comparison from the runtime dispatch evidence path, and retained
 GUI validation fails unless all three cognition pairs are present." The next
 chronological slice should apply the same direct runtime evidence pattern to
 the next P0 cluster instead of leaving it as proof-fixture-only evidence.
+
+### 2026-05-09 Routing/Model Live Vs Shadow Runtime Slice
+
+The direct runtime comparison pattern now covers the next P0 promotion cluster,
+`routing_model`, in addition to cognition:
+
+- `runtime_harness_default_runtime_dispatch` invokes shadow adapter results
+  beside the gated `model_router`, `model_call`, and `tool_router` adapter
+  results.
+- The default dispatch artifact now carries `routingModelShadowAdapterMode`,
+  shadow attempt ids, receipt ids, replay fixture refs, adapter results, action
+  frame ids, component kinds, and divergence classes.
+- The shared `liveShadowComparisons` list now includes six retained pairs:
+  `planner`, `prompt_assembler`, `task_state`, `model_router`, `model_call`,
+  and `tool_router`.
+- The routing/model live-promotion readiness proof now requires the shadow
+  lane and includes shadow attempt ids, receipt refs, replay refs, action
+  frames, and divergence classes in the routing/model cluster rollup.
+- The GUI retained-evidence collector now accepts `live` or `gated` as the
+  left side of a live/shadow comparison, because routing/model has not yet
+  been promoted fully live but still needs shadow comparison proof before
+  promotion.
+- Runtime consistency now requires
+  `harness_live_shadow_routing_model_pairs_present`, so GUI validation fails
+  unless `model_router`, `model_call`, and `tool_router` are all present in the
+  retained live/shadow comparison samples.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T06-00-43-156Z/result.json`.
+  Its `runtime-artifacts.json` reports
+  `harnessLiveShadowComparisonCount: 6` and
+  `harnessLiveShadowComparisonComponentKinds: ["model_call", "model_router",
+  "planner", "prompt_assembler", "task_state", "tool_router"]`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T06-06-54-656Z/dashboard-index.json`.
+
+This changes routing/model from "gated adapter results are present" to "each
+routing/model adapter has a retained shadow comparison with receipts, replay
+fixtures, no blocking divergence, and matching input/output hashes." The next
+chronological slice should apply the same direct runtime evidence pattern to
+`verification_output`, starting with verifier, postcondition synthesizer,
+completion gate, and output writer.
 
 ## Current State
 

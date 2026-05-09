@@ -4321,6 +4321,19 @@ function makeDefaultRoutingModelGateAdapterResults(): WorkflowHarnessComponentAd
   );
 }
 
+function makeDefaultRoutingModelShadowAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_ROUTING_MODEL_GATE_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultHarnessAdapterResult(
+      component.kind,
+      `${component.attemptSlug}_shadow`,
+      component.policyDecision,
+      index + 27,
+      "shadow",
+      { hashSlug: component.attemptSlug },
+    ),
+  );
+}
+
 function makeDefaultVerificationOutputGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
   return DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS.map(
     (component, index) =>
@@ -4723,7 +4736,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     cognitionExecutionShadowAdapterResults
       .map((result) => result.replay.fixtureRef)
       .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
-  const liveShadowComparisons: WorkflowHarnessShadowComparison[] =
+  const cognitionLiveShadowComparisons: WorkflowHarnessShadowComparison[] =
     cognitionExecutionAdapterResults.flatMap((liveResult, index) => {
       const shadowResult = cognitionExecutionShadowAdapterResults[index];
       if (!shadowResult) return [];
@@ -4754,9 +4767,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         },
       ];
     });
-  const liveShadowDivergenceClasses = liveShadowComparisons.map(
-    (comparison) => comparison.divergence,
-  );
+  const cognitionExecutionShadowDivergenceClasses =
+    cognitionLiveShadowComparisons.map(
+      (comparison) => comparison.divergence,
+    );
   const cognitionExecutionGateAdapterResults =
     makeDefaultCognitionGateAdapterResults();
   const cognitionExecutionGateActionFrameIds =
@@ -4809,6 +4823,65 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     "harness-default-dispatch:fixture-routing_model_tool_router_envelope",
   ];
   const routingModelDivergenceClasses = ["none" as const];
+  const routingModelShadowAdapterResults =
+    makeDefaultRoutingModelShadowAdapterResults();
+  const routingModelShadowActionFrameIds =
+    routingModelShadowAdapterResults.map(
+      (result) =>
+        `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    );
+  const routingModelShadowComponentKinds =
+    routingModelShadowAdapterResults.map(
+      (result) => result.actionFrame.componentKind,
+    );
+  const routingModelShadowAttemptIds = routingModelShadowAdapterResults.map(
+    (result) => result.nodeAttempt.attemptId,
+  );
+  const routingModelShadowReceiptIds =
+    routingModelShadowAdapterResults.flatMap((result) => result.receiptIds);
+  const routingModelShadowReplayFixtureRefs =
+    routingModelShadowAdapterResults
+      .map((result) => result.replay.fixtureRef)
+      .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const routingModelLiveShadowComparisons: WorkflowHarnessShadowComparison[] =
+    routingModelAdapterResults.flatMap((liveResult, index) => {
+      const shadowResult = routingModelShadowAdapterResults[index];
+      if (!shadowResult) return [];
+      return [
+        {
+          workflowNodeId: liveResult.nodeAttempt.workflowNodeId,
+          componentKind: liveResult.nodeAttempt.componentKind,
+          liveAttemptId: liveResult.nodeAttempt.attemptId,
+          shadowAttemptId: shadowResult.nodeAttempt.attemptId,
+          divergence: "none",
+          blocking: false,
+          summary:
+            "Gated and shadow routing/model adapter envelopes match for the default harness turn.",
+          evidenceRefs: uniqueStrings([
+            ...liveResult.nodeAttempt.receiptIds,
+            ...shadowResult.nodeAttempt.receiptIds,
+            liveResult.replay.fixtureRef,
+            shadowResult.replay.fixtureRef,
+          ]),
+          liveReceiptRefs: liveResult.nodeAttempt.receiptIds,
+          shadowReceiptRefs: shadowResult.nodeAttempt.receiptIds,
+          liveReplayFixtureRef: liveResult.replay.fixtureRef,
+          shadowReplayFixtureRef: shadowResult.replay.fixtureRef,
+          liveInputHash: liveResult.nodeAttempt.inputHash,
+          shadowInputHash: shadowResult.nodeAttempt.inputHash,
+          liveOutputHash: liveResult.nodeAttempt.outputHash,
+          shadowOutputHash: shadowResult.nodeAttempt.outputHash,
+        },
+      ];
+    });
+  const routingModelShadowDivergenceClasses =
+    routingModelLiveShadowComparisons.map(
+      (comparison) => comparison.divergence,
+    );
+  const liveShadowComparisons = [
+    ...cognitionLiveShadowComparisons,
+    ...routingModelLiveShadowComparisons,
+  ];
   const verificationOutputAdapterResults =
     makeDefaultVerificationOutputGateAdapterResults();
   const verificationOutputActionFrameIds = verificationOutputAdapterResults.map(
@@ -4977,7 +5050,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
           ...cognitionExecutionGateAttemptIds,
         ],
         divergenceClasses: [
-          ...liveShadowDivergenceClasses,
+          ...cognitionExecutionShadowDivergenceClasses,
           ...cognitionExecutionGateDivergenceClasses,
         ],
         canaryReady: true,
@@ -4989,29 +5062,42 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         componentKinds: routingModelComponentKinds,
         readinessReady:
           routingModelAdapterResults.length >= 3 &&
+          routingModelShadowAdapterResults.length >= 3 &&
           routingModelDivergenceClasses.every(
+            (divergenceClass) => divergenceClass === "none",
+          ) &&
+          routingModelShadowDivergenceClasses.every(
             (divergenceClass) => divergenceClass === "none",
           ),
         receiptRefs: [
           ...routingModelReceiptIds,
+          ...routingModelShadowReceiptIds,
           "harness-default-dispatch:receipt-model_provider_call_canary",
           "harness-default-dispatch:receipt-model_provider_gated_visible_output",
           "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
         ],
         replayFixtureRefs: [
           ...routingModelReplayFixtureRefs,
+          ...routingModelShadowReplayFixtureRefs,
           "harness-default-dispatch:fixture-model_provider_call_canary",
           "harness-default-dispatch:fixture-model_provider_gated_visible_output",
           "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
         ],
-        actionFrameIds: routingModelActionFrameIds,
+        actionFrameIds: [
+          ...routingModelActionFrameIds,
+          ...routingModelShadowActionFrameIds,
+        ],
         attemptIds: [
           ...routingModelAttemptIds,
+          ...routingModelShadowAttemptIds,
           "harness-default-dispatch:attempt-model_provider_call_canary",
           "harness-default-dispatch:attempt-model_provider_gated_visible_output",
           "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
         ],
-        divergenceClasses: routingModelDivergenceClasses,
+        divergenceClasses: [
+          ...routingModelDivergenceClasses,
+          ...routingModelShadowDivergenceClasses,
+        ],
         canaryReady: true,
         rollbackReady: true,
         rollbackTarget: "legacy_runtime_model_invocation",
@@ -5354,7 +5440,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     cognitionExecutionShadowAdapterResults,
     cognitionExecutionShadowActionFrameIds,
     cognitionExecutionShadowComponentKinds,
-    cognitionExecutionShadowDivergenceClasses: liveShadowDivergenceClasses,
+    cognitionExecutionShadowDivergenceClasses,
     liveShadowComparisons,
     liveShadowComparisonCount: liveShadowComparisons.length,
     liveShadowBlockingDivergenceCount: liveShadowComparisons.filter(
@@ -5379,6 +5465,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     routingModelActionFrameIds,
     routingModelComponentKinds,
     routingModelDivergenceClasses,
+    routingModelShadowAdapterMode: "workflow_component_adapter_shadow",
+    routingModelShadowAttemptIds,
+    routingModelShadowReceiptIds,
+    routingModelShadowReplayFixtureRefs,
+    routingModelShadowAdapterResults,
+    routingModelShadowActionFrameIds,
+    routingModelShadowComponentKinds,
+    routingModelShadowDivergenceClasses,
     verificationOutputAdapterMode: "workflow_component_adapter_gated",
     verificationOutputAttemptIds,
     verificationOutputReceiptIds,
@@ -5672,7 +5766,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       shadowReplayFixtureRefs: cognitionExecutionShadowReplayFixtureRefs,
       shadowActionFrameIds: cognitionExecutionShadowActionFrameIds,
       shadowComponentKinds: cognitionExecutionShadowComponentKinds,
-      shadowDivergenceClasses: liveShadowDivergenceClasses,
+      shadowDivergenceClasses: cognitionExecutionShadowDivergenceClasses,
       liveShadowComparisonCount: liveShadowComparisons.length,
       liveShadowBlockingDivergenceCount: liveShadowComparisons.filter(
         (comparison) => comparison.blocking,
@@ -6036,6 +6130,15 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       routingModelActionFrameIds,
       routingModelComponentKinds,
       routingModelDivergenceClasses,
+      routingModelShadowAdapterMode: "workflow_component_adapter_shadow",
+      routingModelShadowAdapterResultCount:
+        routingModelShadowAdapterResults.length,
+      routingModelShadowAttemptIds,
+      routingModelShadowReceiptIds,
+      routingModelShadowReplayFixtureRefs,
+      routingModelShadowActionFrameIds,
+      routingModelShadowComponentKinds,
+      routingModelShadowDivergenceClasses,
       providerCanaryReady: true,
       providerCanaryAttemptIds: [
         "harness-default-dispatch:attempt-model_provider_call_canary",

@@ -451,6 +451,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   );
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
+      "harness_live_shadow_routing_model_pairs_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
       "harness_authority_tooling_provider_catalog_live_present",
     ),
   );

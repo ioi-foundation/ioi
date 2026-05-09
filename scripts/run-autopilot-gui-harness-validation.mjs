@@ -32,6 +32,11 @@ const HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
   "prompt_assembler",
   "task_state",
 ]);
+const HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
+  "model_router",
+  "model_call",
+  "tool_router",
+]);
 const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
   DEFAULT_LIVE_PROMOTION_INVARIANTS.find(
     (invariant) =>
@@ -578,6 +583,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch?.cognitionExecutionShadowAdapterResults,
       dispatch?.cognitionExecutionGateAdapterResults,
       dispatch?.routingModelAdapterResults,
+      dispatch?.routingModelShadowAdapterResults,
       dispatch?.verificationOutputAdapterResults,
       dispatch?.authorityToolingAdapterResults,
     ];
@@ -659,6 +665,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch?.cognitionExecutionShadowAdapterResults,
       dispatch?.cognitionExecutionGateAdapterResults,
       dispatch?.routingModelAdapterResults,
+      dispatch?.routingModelShadowAdapterResults,
       dispatch?.verificationOutputAdapterResults,
       dispatch?.authorityToolingAdapterResults,
     ]
@@ -679,7 +686,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       const ready =
         comparison.divergence === "none" &&
         comparison.blocking === false &&
-        liveAttempt.executionMode === "live" &&
+        ["live", "gated"].includes(liveAttempt.executionMode) &&
         shadowAttempt.executionMode === "shadow" &&
         Array.isArray(liveAttempt.receiptIds) &&
         liveAttempt.receiptIds.length > 0 &&
@@ -753,6 +760,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         "gated",
         "shadow_ready",
         "gated",
+        3,
+      ) &&
+      adapterResultsReady(
+        dispatch.routingModelShadowAdapterResults,
+        "shadow",
+        "shadow_ready",
+        "shadow",
         3,
       ) &&
       adapterResultsReady(
@@ -4535,9 +4549,19 @@ function buildGuiEvidenceAssessment({
         componentKind,
       ),
     );
+  const hasHarnessLiveShadowRoutingModelPairs =
+    summary.harnessLiveShadowComparisonCount >=
+      HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length +
+        HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.length &&
+    HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.every((componentKind) =>
+      summary.harnessLiveShadowComparisonComponentKinds.includes(
+        componentKind,
+      ),
+    );
   const hasHarnessLiveShadowComparison =
     hasHarnessLiveTurnNodeInspectorDeepLink &&
     hasHarnessLiveShadowCognitionPairs &&
+    hasHarnessLiveShadowRoutingModelPairs &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.liveShadowComparisonDeepLink === true &&
     promotionTransitionLiveGuiInteractionProof?.proof
@@ -4744,6 +4768,8 @@ function buildGuiEvidenceAssessment({
       harness_live_turn_node_inspector_deep_link_present:
         hasHarnessLiveTurnNodeInspectorDeepLink,
       harness_live_shadow_comparison_present: hasHarnessLiveShadowComparison,
+      harness_live_shadow_routing_model_pairs_present:
+        hasHarnessLiveShadowRoutingModelPairs,
       harness_authority_tooling_gate_live_present:
         hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
@@ -4834,6 +4860,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessLiveTurnNodeInspectorDeepLink,
       hasHarnessLiveShadowComparison,
       hasHarnessLiveShadowCognitionPairs,
+      hasHarnessLiveShadowRoutingModelPairs,
       chatRuntimeBindingMatchesWorkflowProof,
       hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
@@ -4883,6 +4910,9 @@ function buildGuiEvidenceAssessment({
         summary.harnessLiveShadowComparisonComponentKinds,
       harnessLiveShadowComparisonRequiredComponentKinds: [
         ...HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS,
+      ],
+      harnessLiveShadowRoutingModelRequiredComponentKinds: [
+        ...HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS,
       ],
       harnessLiveShadowComparisonSamples:
         summary.harnessLiveShadowComparisonSamples,
@@ -5681,6 +5711,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       ...(defaultDispatch?.cognitionExecutionShadowAdapterResults ?? []),
       ...(defaultDispatch?.cognitionExecutionGateAdapterResults ?? []),
       ...(defaultDispatch?.routingModelAdapterResults ?? []),
+      ...(defaultDispatch?.routingModelShadowAdapterResults ?? []),
       ...(defaultDispatch?.verificationOutputAdapterResults ?? []),
       ...(defaultDispatch?.authorityToolingAdapterResults ?? []),
     ]
