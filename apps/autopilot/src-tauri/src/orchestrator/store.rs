@@ -6633,6 +6633,14 @@ fn runtime_harness_default_runtime_dispatch(
     let mut cognition_execution_adapter_results = Vec::<Value>::new();
     let mut cognition_execution_action_frame_ids = Vec::<String>::new();
     let mut cognition_execution_live_ready_component_kinds = Vec::<String>::new();
+    let mut cognition_execution_shadow_attempt_ids = Vec::<String>::new();
+    let mut cognition_execution_shadow_receipt_ids = Vec::<String>::new();
+    let mut cognition_execution_shadow_replay_fixture_refs = Vec::<String>::new();
+    let mut cognition_execution_shadow_adapter_results = Vec::<Value>::new();
+    let mut cognition_execution_shadow_action_frame_ids = Vec::<String>::new();
+    let mut cognition_execution_shadow_component_kinds = Vec::<String>::new();
+    let mut cognition_execution_shadow_divergence_classes = Vec::<String>::new();
+    let mut live_shadow_comparisons = Vec::<Value>::new();
     let mut cognition_execution_gate_attempt_ids = Vec::<String>::new();
     let mut cognition_execution_gate_receipt_ids = Vec::<String>::new();
     let mut cognition_execution_gate_replay_fixture_refs = Vec::<String>::new();
@@ -7000,21 +7008,91 @@ fn runtime_harness_default_runtime_dispatch(
                         },
                     ) {
                         Ok(adapter_result) => {
+                            let live_adapter_result = adapter_result;
                             cognition_execution_action_frame_ids.push(format!(
                                 "{}:{}",
-                                adapter_result.action_frame.node_id,
-                                adapter_result.action_frame.component_id
+                                live_adapter_result.action_frame.node_id,
+                                live_adapter_result.action_frame.component_id
                             ));
                             cognition_execution_live_ready_component_kinds.push(
-                                adapter_result
+                                live_adapter_result
                                     .action_frame
                                     .component_kind
                                     .as_str()
                                     .to_string(),
                             );
                             let value =
-                                harness_component_adapter_result_camel_value(&adapter_result);
+                                harness_component_adapter_result_camel_value(&live_adapter_result);
                             cognition_execution_adapter_results.push(value.clone());
+                            let shadow_receipt_id =
+                                format!("{sid}:{workflow_node_id}:{policy_decision}:shadow");
+                            let shadow_replay_fixture_ref = format!(
+                                "runtime-evidence:{sid}:default-dispatch-shadow-fixture:{attempt_slug}"
+                            );
+                            let shadow_evidence_refs = vec![
+                                format!("runtime-evidence:{sid}"),
+                                selector_decision_id.clone(),
+                                format!("harness-shadow-cognition:{sid}:{}", task.progress),
+                            ];
+                            match invoke_default_harness_component(HarnessComponentInvocation {
+                                invocation_id: format!(
+                                    "default-dispatch:{sid}:{turn_id}:{attempt_slug}_shadow"
+                                ),
+                                component_kind,
+                                execution_mode: HarnessExecutionMode::Shadow,
+                                attempt_index,
+                                input_hash: Some(input_hash.clone()),
+                                output_hash: Some(output_hash.clone()),
+                                policy_decision: Some(policy_decision.to_string()),
+                                receipt_ids: vec![shadow_receipt_id.clone()],
+                                evidence_refs: shadow_evidence_refs,
+                                replay_fixture_ref: Some(shadow_replay_fixture_ref.clone()),
+                                started_at_ms: Some(started_at_ms),
+                                duration_ms: Some(0),
+                            }) {
+                                Ok(shadow_adapter_result) => {
+                                    let shadow_attempt_id =
+                                        shadow_adapter_result.node_attempt.attempt_id.clone();
+                                    dispatch_node_attempt_ids.push(shadow_attempt_id.clone());
+                                    cognition_execution_shadow_attempt_ids.push(shadow_attempt_id);
+                                    cognition_execution_shadow_receipt_ids
+                                        .push(shadow_receipt_id.clone());
+                                    cognition_execution_shadow_replay_fixture_refs
+                                        .push(shadow_replay_fixture_ref.clone());
+                                    receipt_ids.push(shadow_receipt_id);
+                                    replay_fixture_refs.push(shadow_replay_fixture_ref);
+                                    cognition_execution_shadow_action_frame_ids.push(format!(
+                                        "{}:{}",
+                                        shadow_adapter_result.action_frame.node_id,
+                                        shadow_adapter_result.action_frame.component_id
+                                    ));
+                                    cognition_execution_shadow_component_kinds.push(
+                                        shadow_adapter_result
+                                            .action_frame
+                                            .component_kind
+                                            .as_str()
+                                            .to_string(),
+                                    );
+                                    let comparison = compare_harness_live_shadow_attempts(
+                                        &live_adapter_result.node_attempt,
+                                        &shadow_adapter_result.node_attempt,
+                                    );
+                                    cognition_execution_shadow_divergence_classes
+                                        .push(comparison.divergence.as_str().to_string());
+                                    live_shadow_comparisons
+                                        .push(harness_shadow_comparison_camel_value(&comparison));
+                                    cognition_execution_shadow_adapter_results.push(
+                                        harness_component_adapter_result_camel_value(
+                                            &shadow_adapter_result,
+                                        ),
+                                    );
+                                }
+                                Err(error) => {
+                                    activation_blockers.push(format!(
+                                        "cognition_shadow_component_adapter_error:{attempt_slug}:{error:?}"
+                                    ));
+                                }
+                            }
                             value
                         }
                         Err(error) => {
@@ -11068,6 +11146,18 @@ fn runtime_harness_default_runtime_dispatch(
     cognition_execution_action_frame_ids.dedup();
     cognition_execution_live_ready_component_kinds.sort();
     cognition_execution_live_ready_component_kinds.dedup();
+    cognition_execution_shadow_attempt_ids.sort();
+    cognition_execution_shadow_attempt_ids.dedup();
+    cognition_execution_shadow_receipt_ids.sort();
+    cognition_execution_shadow_receipt_ids.dedup();
+    cognition_execution_shadow_replay_fixture_refs.sort();
+    cognition_execution_shadow_replay_fixture_refs.dedup();
+    cognition_execution_shadow_action_frame_ids.sort();
+    cognition_execution_shadow_action_frame_ids.dedup();
+    cognition_execution_shadow_component_kinds.sort();
+    cognition_execution_shadow_component_kinds.dedup();
+    cognition_execution_shadow_divergence_classes.sort();
+    cognition_execution_shadow_divergence_classes.dedup();
     cognition_execution_gate_attempt_ids.sort();
     cognition_execution_gate_attempt_ids.dedup();
     cognition_execution_gate_receipt_ids.sort();
@@ -11293,6 +11383,10 @@ fn runtime_harness_default_runtime_dispatch(
     });
     let live_promotion_cognition_ready = cognition_execution_ready
         && cognition_execution_adapter_results.len() >= 3
+        && cognition_execution_shadow_adapter_results.len() >= 3
+        && cognition_execution_shadow_divergence_classes
+            .iter()
+            .all(|value| value == "none")
         && cognition_execution_gate_adapter_results.len() >= 3
         && cognition_execution_gate_divergence_classes
             .iter()
@@ -11319,7 +11413,21 @@ fn runtime_harness_default_runtime_dispatch(
     let mut live_promotion_cognition_action_frame_ids =
         cognition_execution_action_frame_ids.clone();
     live_promotion_cognition_action_frame_ids
+        .extend(cognition_execution_shadow_action_frame_ids.clone());
+    live_promotion_cognition_action_frame_ids
         .extend(cognition_execution_gate_action_frame_ids.clone());
+    let mut live_promotion_cognition_attempt_ids = cognition_execution_attempt_ids.clone();
+    live_promotion_cognition_attempt_ids.extend(cognition_execution_shadow_attempt_ids.clone());
+    let mut live_promotion_cognition_receipt_refs = cognition_execution_receipt_ids.clone();
+    live_promotion_cognition_receipt_refs.extend(cognition_execution_shadow_receipt_ids.clone());
+    let mut live_promotion_cognition_replay_fixture_refs =
+        cognition_execution_replay_fixture_refs.clone();
+    live_promotion_cognition_replay_fixture_refs
+        .extend(cognition_execution_shadow_replay_fixture_refs.clone());
+    let mut live_promotion_cognition_divergence_classes =
+        cognition_execution_shadow_divergence_classes.clone();
+    live_promotion_cognition_divergence_classes
+        .extend(cognition_execution_gate_divergence_classes.clone());
     let live_promotion_cluster_readiness = json!([
         {
             "clusterId": "cognition",
@@ -11336,11 +11444,11 @@ fn runtime_harness_default_runtime_dispatch(
             "divergenceReady": cognition_execution_gate_divergence_classes.iter().all(|value| value == "none"),
             "blockingDivergenceCount": cognition_execution_gate_divergence_classes.iter().filter(|value| *value != "none" && *value != "harmless_metadata").count(),
             "unclassifiedDivergenceCount": cognition_execution_gate_divergence_classes.iter().filter(|value| *value == "unclassified").count(),
-            "attemptIds": cognition_execution_attempt_ids.clone(),
-            "receiptRefs": cognition_execution_receipt_ids.clone(),
-            "replayFixtureRefs": cognition_execution_replay_fixture_refs.clone(),
+            "attemptIds": live_promotion_cognition_attempt_ids,
+            "receiptRefs": live_promotion_cognition_receipt_refs,
+            "replayFixtureRefs": live_promotion_cognition_replay_fixture_refs,
             "actionFrameIds": live_promotion_cognition_action_frame_ids,
-            "divergenceClasses": cognition_execution_gate_divergence_classes.clone(),
+            "divergenceClasses": live_promotion_cognition_divergence_classes,
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "blockers": if live_promotion_cognition_ready { Vec::<&str>::new() } else { vec!["cognition_live_promotion_not_ready"] },
             "decision": if live_promotion_cognition_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
@@ -11680,6 +11788,22 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionAdapterResults": cognition_execution_adapter_results.clone(),
         "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
         "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+        "cognitionExecutionShadowAdapterMode": "workflow_component_adapter_shadow",
+        "cognitionExecutionShadowAttemptIds": cognition_execution_shadow_attempt_ids.clone(),
+        "cognitionExecutionShadowReceiptIds": cognition_execution_shadow_receipt_ids.clone(),
+        "cognitionExecutionShadowReplayFixtureRefs": cognition_execution_shadow_replay_fixture_refs.clone(),
+        "cognitionExecutionShadowAdapterResults": cognition_execution_shadow_adapter_results.clone(),
+        "cognitionExecutionShadowActionFrameIds": cognition_execution_shadow_action_frame_ids.clone(),
+        "cognitionExecutionShadowComponentKinds": cognition_execution_shadow_component_kinds.clone(),
+        "cognitionExecutionShadowDivergenceClasses": cognition_execution_shadow_divergence_classes.clone(),
+        "liveShadowComparisons": live_shadow_comparisons.clone(),
+        "liveShadowComparisonCount": live_shadow_comparisons.len(),
+        "liveShadowBlockingDivergenceCount": live_shadow_comparisons.iter().filter(|comparison| {
+            comparison.get("blocking").and_then(Value::as_bool).unwrap_or(false)
+        }).count(),
+        "liveShadowUnclassifiedDivergenceCount": live_shadow_comparisons.iter().filter(|comparison| {
+            comparison.get("divergence").and_then(Value::as_str) == Some("unclassified")
+        }).count(),
         "cognitionExecutionGateAdapterMode": "workflow_component_adapter_gated",
         "cognitionExecutionGateAttemptIds": cognition_execution_gate_attempt_ids.clone(),
         "cognitionExecutionGateReceiptIds": cognition_execution_gate_receipt_ids.clone(),
@@ -11882,6 +12006,21 @@ fn runtime_harness_default_runtime_dispatch(
             "cognitionExecutionAdapterResultCount": cognition_execution_adapter_results.len(),
             "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
             "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+            "cognitionExecutionShadowAdapterMode": "workflow_component_adapter_shadow",
+            "cognitionExecutionShadowAdapterResultCount": cognition_execution_shadow_adapter_results.len(),
+            "cognitionExecutionShadowAttemptIds": cognition_execution_shadow_attempt_ids.clone(),
+            "cognitionExecutionShadowReceiptIds": cognition_execution_shadow_receipt_ids.clone(),
+            "cognitionExecutionShadowReplayFixtureRefs": cognition_execution_shadow_replay_fixture_refs.clone(),
+            "cognitionExecutionShadowActionFrameIds": cognition_execution_shadow_action_frame_ids.clone(),
+            "cognitionExecutionShadowComponentKinds": cognition_execution_shadow_component_kinds.clone(),
+            "cognitionExecutionShadowDivergenceClasses": cognition_execution_shadow_divergence_classes.clone(),
+            "liveShadowComparisonCount": live_shadow_comparisons.len(),
+            "liveShadowBlockingDivergenceCount": live_shadow_comparisons.iter().filter(|comparison| {
+                comparison.get("blocking").and_then(Value::as_bool).unwrap_or(false)
+            }).count(),
+            "liveShadowUnclassifiedDivergenceCount": live_shadow_comparisons.iter().filter(|comparison| {
+                comparison.get("divergence").and_then(Value::as_str) == Some("unclassified")
+            }).count(),
             "cognitionExecutionGateAdapterMode": "workflow_component_adapter_gated",
             "cognitionExecutionGateAdapterResultCount": cognition_execution_gate_adapter_results.len(),
             "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
@@ -12056,6 +12195,14 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionAdapterResults": cognition_execution_adapter_results.clone(),
         "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
         "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+        "cognitionExecutionShadowAdapterMode": "workflow_component_adapter_shadow",
+        "cognitionExecutionShadowAttemptIds": cognition_execution_shadow_attempt_ids.clone(),
+        "cognitionExecutionShadowReceiptIds": cognition_execution_shadow_receipt_ids.clone(),
+        "cognitionExecutionShadowReplayFixtureRefs": cognition_execution_shadow_replay_fixture_refs.clone(),
+        "cognitionExecutionShadowAdapterResults": cognition_execution_shadow_adapter_results.clone(),
+        "cognitionExecutionShadowActionFrameIds": cognition_execution_shadow_action_frame_ids.clone(),
+        "cognitionExecutionShadowComponentKinds": cognition_execution_shadow_component_kinds.clone(),
+        "cognitionExecutionShadowDivergenceClasses": cognition_execution_shadow_divergence_classes.clone(),
         "cognitionExecutionGateAdapterMode": "workflow_component_adapter_gated",
         "cognitionExecutionGateAttemptIds": cognition_execution_gate_attempt_ids.clone(),
         "cognitionExecutionGateReceiptIds": cognition_execution_gate_receipt_ids.clone(),
@@ -12071,6 +12218,15 @@ fn runtime_harness_default_runtime_dispatch(
             "adapterResultCount": cognition_execution_adapter_results.len(),
             "actionFrameIds": cognition_execution_action_frame_ids,
             "liveReadyComponentKinds": cognition_execution_live_ready_component_kinds,
+            "shadowAdapterMode": "workflow_component_adapter_shadow",
+            "shadowAdapterResultCount": cognition_execution_shadow_adapter_results.len(),
+            "shadowAttemptIds": cognition_execution_shadow_attempt_ids,
+            "shadowReceiptIds": cognition_execution_shadow_receipt_ids,
+            "shadowReplayFixtureRefs": cognition_execution_shadow_replay_fixture_refs,
+            "shadowActionFrameIds": cognition_execution_shadow_action_frame_ids,
+            "shadowComponentKinds": cognition_execution_shadow_component_kinds,
+            "shadowDivergenceClasses": cognition_execution_shadow_divergence_classes,
+            "liveShadowComparisonCount": live_shadow_comparisons.len(),
             "gateAdapterMode": "workflow_component_adapter_gated",
             "gateAdapterResultCount": cognition_execution_gate_adapter_results.len(),
             "gateAttemptIds": cognition_execution_gate_attempt_ids,
