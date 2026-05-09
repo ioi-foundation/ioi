@@ -468,11 +468,17 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
     assert_eq!(handoff_attempt_ids.len(), 3);
     assert_eq!(handoff_replay_refs.len(), 3);
     assert!(handoff_attempts.iter().all(|attempt| {
-        attempt.get("workflowNodeId").and_then(|value| value.as_str())
+        attempt
+            .get("workflowNodeId")
+            .and_then(|value| value.as_str())
             == Some("harness.handoff_bridge")
-            && attempt.get("componentKind").and_then(|value| value.as_str())
+            && attempt
+                .get("componentKind")
+                .and_then(|value| value.as_str())
                 == Some("handoff_bridge")
-            && attempt.get("executionMode").and_then(|value| value.as_str())
+            && attempt
+                .get("executionMode")
+                .and_then(|value| value.as_str())
                 == Some("gated")
             && attempt.get("status").and_then(|value| value.as_str()) == Some("gated")
             && attempt
@@ -671,7 +677,15 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .unwrap_or_else(|| json!(null)),
         "livePromotionReadinessReady": true,
         "livePromotionReadinessBlockers": [],
-        "livePromotionReadinessPolicyDecision": "allow_default_harness_live_promotion_readiness"
+        "livePromotionReadinessPolicyDecision": "allow_default_harness_live_promotion_readiness",
+        "defaultLivePromotionInvariantIds": [
+            ioi_types::app::DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT
+        ],
+        "defaultLivePromotionInvariantBlockers": [],
+        "reviewedImportActivationApplyProofPresent": true,
+        "reviewedImportActivationApplyProofPassed": true,
+        "reviewedImportActivationApplyProofBlockers": [],
+        "reviewedImportActivationApplyActivationId": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID
     });
     let activation_id_gate_click_proof =
         super::runtime_harness_default_activation_id_gate_click_proof(sid);
@@ -726,6 +740,60 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|value| value.as_bool()),
         Some(true)
     );
+    let live_shadow_comparisons = dispatch
+        .get("liveShadowComparisons")
+        .and_then(|value| value.as_array())
+        .expect("default runtime dispatch must emit live/shadow comparisons");
+    assert_eq!(live_shadow_comparisons.len(), 3);
+    assert!(live_shadow_comparisons.iter().all(|comparison| {
+        comparison
+            .get("divergence")
+            .and_then(|value| value.as_str())
+            == Some("none")
+            && comparison.get("blocking").and_then(|value| value.as_bool()) == Some(false)
+            && comparison
+                .get("liveAttemptId")
+                .and_then(|value| value.as_str())
+                .map(|attempt_id| attempt_id.contains("default-dispatch"))
+                .unwrap_or(false)
+            && comparison
+                .get("shadowAttemptId")
+                .and_then(|value| value.as_str())
+                .map(|attempt_id| attempt_id.ends_with("_shadow"))
+                .unwrap_or(false)
+    }));
+    assert_eq!(
+        dispatch
+            .get("cognitionExecutionShadowAdapterMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_component_adapter_shadow")
+    );
+    let shadow_adapter_results = dispatch
+        .get("cognitionExecutionShadowAdapterResults")
+        .and_then(|value| value.as_array())
+        .expect("default runtime dispatch must retain shadow adapter results");
+    assert_eq!(shadow_adapter_results.len(), 3);
+    assert!(shadow_adapter_results.iter().all(|result| {
+        let node_attempt = result
+            .get("nodeAttempt")
+            .unwrap_or(&serde_json::Value::Null);
+        node_attempt
+            .get("executionMode")
+            .and_then(|value| value.as_str())
+            == Some("shadow")
+            && node_attempt.get("status").and_then(|value| value.as_str()) == Some("shadow")
+            && node_attempt
+                .get("receiptIds")
+                .and_then(|value| value.as_array())
+                .map(|items| !items.is_empty())
+                .unwrap_or(false)
+            && node_attempt
+                .get("replay")
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(|value| value.as_str())
+                .map(|fixture| fixture.contains("default-dispatch-shadow-fixture"))
+                .unwrap_or(false)
+    }));
     assert_eq!(
         dispatch
             .get("activationIdGateClickProofPresent")
