@@ -951,14 +951,11 @@ test("blocked result records external blocker without pretending validation pass
   assert.ok(validation.failures.some((failure) => failure.includes("missing retained query")));
 });
 
-test("master guide uses latest-green as completed end-state authority", () => {
+test("latest-green index is the completed harness workflow authority", () => {
   const latest = JSON.parse(
     readRepo("docs/evidence/agent-runtime-harness-workflow/latest-green.json"),
   );
   const readme = readRepo("docs/evidence/agent-runtime-harness-workflow/README.md");
-  const guide = readRepo(
-    "docs/plans/agent-runtime-harness-as-workflow-master-guide.md",
-  );
 
   assert.equal(latest.status, "green");
   assert.equal(latest.canonical, true);
@@ -966,11 +963,11 @@ test("master guide uses latest-green as completed end-state authority", () => {
   assert.equal(latest.runtimeP3Evidence.incompleteItems, 0);
   assert.ok(readme.includes(latest.guiEvidence.result));
   assert.ok(readme.includes(latest.runtimeP3Evidence.dashboardIndex));
-  assert.ok(guide.includes("docs/evidence/agent-runtime-harness-workflow/latest-green.json"));
-  assert.ok(guide.includes("## Gap Closure"));
-  assert.ok(guide.includes("## Follow-On Productization"));
-  assert.ok(!guide.includes("## Open Questions"));
-  assert.ok(!guide.includes("## Recommended Next PR Slice"));
-  assert.ok(!guide.includes("The next leg should be"));
-  assert.ok(!guide.includes("Current status: the 2026-05-10T02"));
+  assert.ok(
+    readme.includes("docs/evidence/agent-runtime-harness-workflow/latest-green.json"),
+  );
+  assert.ok(readme.includes("canonical pointer for the current green checkpoint"));
+  assert.ok(!readme.includes("## Open Questions"));
+  assert.ok(!readme.includes("## Recommended Next PR Slice"));
+  assert.ok(!readme.includes("The next leg should be"));
 });
