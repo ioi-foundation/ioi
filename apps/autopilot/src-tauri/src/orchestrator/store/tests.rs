@@ -1,12 +1,12 @@
-use super::{
-    canonical_chat_session_title_from_query, clean_chat_session_title_candidate,
-    get_local_sessions, get_local_sessions_with_live_tasks, load_artifact_content, load_artifacts,
-    load_events, load_local_engine_control_plane, load_local_engine_control_plane_document,
-    load_session_file_context, persisted_workspace_root_for_session,
-    save_local_engine_control_plane, save_local_engine_control_plane_document,
-    save_local_session_summary, save_local_task_state, save_session_file_context,
-    session_summary_from_task, thread_storage_key, LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME,
-    LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
+use super::{canonical_chat_session_title_from_query, clean_chat_session_title_candidate};
+use crate::orchestrator::store::{
+    get_local_sessions, get_local_sessions_with_live_tasks, global_checkpoint_key,
+    load_artifact_content, load_artifacts, load_events, load_local_engine_control_plane,
+    load_local_engine_control_plane_document, load_session_file_context,
+    persisted_workspace_root_for_session, save_local_engine_control_plane,
+    save_local_engine_control_plane_document, save_local_session_summary, save_local_task_state,
+    save_session_file_context, session_summary_from_task, thread_storage_key,
+    LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME, LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
 };
 use crate::kernel::file_context::{
     apply_exclude_file_context_path, apply_include_file_context_path,
@@ -2451,7 +2451,7 @@ fn save_local_engine_control_plane_value<T: Serialize>(
     memory_runtime: &Arc<MemoryRuntime>,
     value: &T,
 ) {
-    let key = super::global_checkpoint_key(LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME)
+    let key = global_checkpoint_key(LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME)
         .expect("local engine checkpoint key");
     let bytes = serde_json::to_vec(value).expect("serialize local engine checkpoint value");
     memory_runtime
