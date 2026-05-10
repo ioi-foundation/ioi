@@ -4,6 +4,8 @@ import { writeFileSync } from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+globalThis.React = React;
+
 import { WorkflowRailPanel } from "../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
 import {
   executeWorkflowHarnessPromotionTransition,
