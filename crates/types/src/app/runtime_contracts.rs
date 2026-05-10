@@ -1828,6 +1828,10 @@ impl Default for RuntimeSubstratePortContract {
 pub fn master_guide_required_evidence_classes() -> Vec<String> {
     [
         "RuntimeExecutionEnvelope",
+        "RuntimeThreadRecord",
+        "RuntimeTurnRecord",
+        "RuntimeItemRecord",
+        "RuntimeEventEnvelope",
         "RuntimeToolContract",
         "AgentRuntimeEvent",
         "RuntimeSubstratePortContract",
@@ -2024,6 +2028,10 @@ mod tests {
         let required = master_guide_required_evidence_classes();
         for contract in [
             "RuntimeExecutionEnvelope",
+            "RuntimeThreadRecord",
+            "RuntimeTurnRecord",
+            "RuntimeItemRecord",
+            "RuntimeEventEnvelope",
             "RuntimeToolContract",
             "AgentRuntimeEvent",
             "RuntimeSubstratePortContract",

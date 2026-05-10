@@ -11,5 +11,6 @@ pub mod envelope;
 pub mod events;
 pub mod policy;
 pub mod quality;
+pub mod thread_turn_item;
 pub mod tools;
 pub mod trace;
