@@ -21105,5 +21105,5 @@ pub fn load_worker_templates(
 }
 
 #[cfg(test)]
-#[path = "store/tests.rs"]
+#[path = "tests.rs"]
 mod tests;

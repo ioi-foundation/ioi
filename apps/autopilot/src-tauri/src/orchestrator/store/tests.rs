@@ -32,18 +32,25 @@ fn env_var_test_lock() -> &'static Mutex<()> {
 }
 
 struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<String>,
+    previous: Vec<(&'static str, Option<String>)>,
     _lock: std::sync::MutexGuard<'static, ()>,
 }
 
 impl EnvVarGuard {
     fn set(key: &'static str, value: &str) -> Self {
+        Self::set_many(&[(key, value)])
+    }
+
+    fn set_many(values: &[(&'static str, &str)]) -> Self {
         let lock = env_var_test_lock().lock().expect("env var test lock");
-        let previous = std::env::var(key).ok();
-        std::env::set_var(key, value);
+        let previous = values
+            .iter()
+            .map(|(key, _)| (*key, std::env::var(key).ok()))
+            .collect::<Vec<_>>();
+        for (key, value) in values {
+            std::env::set_var(key, value);
+        }
         Self {
-            key,
             previous,
             _lock: lock,
         }
@@ -52,9 +59,11 @@ impl EnvVarGuard {
 
 impl Drop for EnvVarGuard {
     fn drop(&mut self) {
-        match &self.previous {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
+        for (key, previous) in self.previous.iter().rev() {
+            match previous {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
         }
     }
 }
@@ -2602,6 +2611,10 @@ fn live_task_summary_appears_even_when_not_retained_in_session_index() {
 
 #[test]
 fn save_local_task_state_exports_gui_runtime_evidence_projection() {
+    let _runtime_harness_env_guard = EnvVarGuard::set_many(&[
+        ("AUTOPILOT_HARNESS_DEFAULT_PROMOTION", "1"),
+        (super::WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT_ENV, "1"),
+    ]);
     let dir = temp_runtime_dir();
     let memory_runtime = Arc::new(open_or_create_memory_runtime(&dir).expect("memory runtime"));
     let mut task = task_without_workspace_root();
@@ -2611,12 +2624,13 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
     task.current_step = "Ready for input".to_string();
     task.history.push(ChatMessage {
         role: "user".to_string(),
-        text: "Where is Autopilot chat task state defined? Cite the files you used.".to_string(),
+        text: "Explain what this workspace is for in two concise paragraphs.".to_string(),
         timestamp: 100,
     });
     task.history.push(ChatMessage {
         role: "agent".to_string(),
-        text: "Autopilot chat task state is defined in the task-state module.".to_string(),
+        text: "This workspace is for developing and validating the IOI Autopilot runtime harness."
+            .to_string(),
         timestamp: 200,
     });
 
@@ -2694,13 +2708,13 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         selector_decision
             .get("selectedSelector")
             .and_then(|value| value.as_str()),
-        Some("blessed_workflow_live_canary")
+        Some("blessed_workflow_live_default")
     );
     assert_eq!(
         selector_decision
             .get("productionDefaultSelector")
             .and_then(|value| value.as_str()),
-        Some("workflow_recovery_blocked")
+        Some("blessed_workflow_live_default")
     );
     assert_eq!(
         selector_decision
@@ -2719,7 +2733,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         selector_decision
             .get("actualRuntimeAuthority")
             .and_then(|value| value.as_str()),
-        Some("blessed_workflow_activation_canary")
+        Some("blessed_workflow_activation_default")
     );
     let shadow_run = projection
         .get("HarnessShadowRun")
@@ -2991,13 +3005,13 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         live_handoff
             .get("selector")
             .and_then(|value| value.as_str()),
-        Some("blessed_workflow_live_canary")
+        Some("blessed_workflow_live_default")
     );
     assert_eq!(
         live_handoff
             .get("productionDefaultSelector")
             .and_then(|value| value.as_str()),
-        Some("workflow_recovery_blocked")
+        Some("blessed_workflow_live_default")
     );
     assert_eq!(
         live_handoff
@@ -3041,7 +3055,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         live_handoff
             .get("defaultAuthorityTransferred")
             .and_then(|value| value.as_bool()),
-        Some(false)
+        Some(true)
     );
     assert_eq!(
         live_handoff
