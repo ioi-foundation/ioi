@@ -509,6 +509,134 @@ pub struct WorkflowVerificationEvidence {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkflowCodingRouteGateResult {
+    pub gate_id: String,
+    pub phase_id: String,
+    pub status: String,
+    pub reason: String,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub blocking_requirements: Vec<String>,
+    pub operator_override_allowed: bool,
+    #[serde(default)]
+    pub override_evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowCodingRouteSkillSelection {
+    pub skill_hash: String,
+    pub name: String,
+    pub lifecycle_state: String,
+    pub phase_id: String,
+    pub route_id: String,
+    pub score: u64,
+    pub source_type: String,
+    pub stale: bool,
+    #[serde(default)]
+    pub phase_tags: Vec<String>,
+    #[serde(default)]
+    pub route_tags: Vec<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowCodingRouteBenchmarkResult {
+    pub benchmark_id: String,
+    pub route_id: String,
+    pub phase_id: String,
+    pub selected_skill_hash: String,
+    pub skill_lifecycle_state: String,
+    pub input_descriptor: String,
+    pub status: String,
+    pub gate_status: String,
+    #[serde(default)]
+    pub verifier_result: Option<String>,
+    pub confidence_before_bps: u64,
+    pub confidence_after_bps: u64,
+    pub promotion_decision: String,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowCodingRoutePromotionDecision {
+    pub decision_id: String,
+    pub skill_hash: String,
+    pub skill_name: String,
+    pub route_id: String,
+    pub phase_id: String,
+    pub from_lifecycle_state: String,
+    pub to_lifecycle_state: String,
+    pub stale: bool,
+    pub confidence_before_bps: u64,
+    pub confidence_after_bps: u64,
+    pub decision: String,
+    pub reason: String,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowCodingRouteRunSummary {
+    pub schema_version: String,
+    pub route_id: String,
+    pub route_preset: String,
+    #[serde(default)]
+    pub current_phase: Option<String>,
+    #[serde(default)]
+    pub completed_phases: Vec<String>,
+    #[serde(default)]
+    pub selected_skills: Vec<WorkflowCodingRouteSkillSelection>,
+    #[serde(default)]
+    pub gate_results: Vec<WorkflowCodingRouteGateResult>,
+    #[serde(default)]
+    pub benchmark_results: Vec<WorkflowCodingRouteBenchmarkResult>,
+    #[serde(default)]
+    pub promotion_decisions: Vec<WorkflowCodingRoutePromotionDecision>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowCodingRouteEvidence {
+    pub schema_version: String,
+    pub evidence_kind: String,
+    pub route_id: String,
+    #[serde(default)]
+    pub phase_id: Option<String>,
+    pub status: String,
+    pub summary: String,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub selected_skill_hashes: Vec<String>,
+    #[serde(default)]
+    pub gate_id: Option<String>,
+    #[serde(default)]
+    pub phase_component: Option<String>,
+    #[serde(default)]
+    pub gate_result: Option<WorkflowCodingRouteGateResult>,
+    #[serde(default)]
+    pub skill_selections: Vec<WorkflowCodingRouteSkillSelection>,
+    #[serde(default)]
+    pub benchmark_results: Vec<WorkflowCodingRouteBenchmarkResult>,
+    #[serde(default)]
+    pub promotion_decisions: Vec<WorkflowCodingRoutePromotionDecision>,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkflowCompletionRequirement {
     pub id: String,
     #[serde(default)]
@@ -882,6 +1010,10 @@ pub struct WorkflowRunResult {
     pub verification_evidence: Vec<WorkflowVerificationEvidence>,
     #[serde(default)]
     pub completion_requirements: Vec<WorkflowCompletionRequirement>,
+    #[serde(default)]
+    pub route_evidence: Vec<WorkflowCodingRouteEvidence>,
+    #[serde(default)]
+    pub route_run_summary: Option<WorkflowCodingRouteRunSummary>,
     #[serde(default)]
     pub interrupt: Option<WorkflowInterrupt>,
 }

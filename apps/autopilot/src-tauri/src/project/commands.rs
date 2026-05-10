@@ -1406,11 +1406,15 @@ pub fn run_workflow_project(
 ) -> Result<WorkflowRunResult, String> {
     let workflow_path = resolve_workflow_file_path(&path)?;
     let bundle = load_workflow_bundle_from_path(&workflow_path)?;
-    let input = options.and_then(|value| value.get("input").cloned());
+    let skill_resolver = WorkflowSkillResolver::from_options(options.as_ref());
+    let input = options
+        .as_ref()
+        .and_then(|value| value.get("input").cloned());
     let thread = new_workflow_thread(&workflow_path, input);
     save_workflow_thread(&workflow_path, &thread)?;
     let state = initial_workflow_state(&thread, "pending");
-    let result = execute_workflow_project(&workflow_path, bundle, thread, state, None)?;
+    let result =
+        execute_workflow_project(&workflow_path, bundle, thread, state, None, &skill_resolver)?;
     append_workflow_evidence(
         &workflow_path,
         WorkflowEvidenceSummary {
@@ -1433,11 +1437,19 @@ pub fn run_workflow_node(
     path: String,
     node_id: String,
     input: Option<Value>,
-    _options: Option<Value>,
+    options: Option<Value>,
 ) -> Result<WorkflowRunResult, String> {
     let workflow_path = resolve_workflow_file_path(&path)?;
     let bundle = load_workflow_bundle_from_path(&workflow_path)?;
-    workflow_single_node_result(&workflow_path, &bundle.workflow, &node_id, input, false)
+    let skill_resolver = WorkflowSkillResolver::from_options(options.as_ref());
+    workflow_single_node_result(
+        &workflow_path,
+        &bundle.workflow,
+        &node_id,
+        input,
+        false,
+        &skill_resolver,
+    )
 }
 
 #[tauri::command]
@@ -1455,7 +1467,14 @@ pub fn dry_run_workflow_function(
     }
     let binding = workflow_function_binding(node)?;
     let dry_input = input.or(binding.test_input);
-    workflow_single_node_result(&workflow_path, &bundle.workflow, &node_id, dry_input, true)
+    workflow_single_node_result(
+        &workflow_path,
+        &bundle.workflow,
+        &node_id,
+        dry_input,
+        true,
+        &WorkflowSkillResolver::default(),
+    )
 }
 
 #[tauri::command]
@@ -1586,10 +1605,19 @@ pub fn dry_run_workflow_node(
     path: String,
     node_id: String,
     input: Option<Value>,
+    options: Option<Value>,
 ) -> Result<WorkflowRunResult, String> {
     let workflow_path = resolve_workflow_file_path(&path)?;
     let bundle = load_workflow_bundle_from_path(&workflow_path)?;
-    workflow_single_node_result(&workflow_path, &bundle.workflow, &node_id, input, true)
+    let skill_resolver = WorkflowSkillResolver::from_options(options.as_ref());
+    workflow_single_node_result(
+        &workflow_path,
+        &bundle.workflow,
+        &node_id,
+        input,
+        true,
+        &skill_resolver,
+    )
 }
 
 #[tauri::command]
@@ -2409,7 +2437,14 @@ pub fn resume_workflow_run(
     };
     thread.status = "running".to_string();
     save_workflow_thread(&workflow_path, &thread)?;
-    let result = execute_workflow_project(&workflow_path, bundle, thread, state, resume_gate)?;
+    let result = execute_workflow_project(
+        &workflow_path,
+        bundle,
+        thread,
+        state,
+        resume_gate,
+        &WorkflowSkillResolver::default(),
+    )?;
     append_workflow_evidence(
         &workflow_path,
         WorkflowEvidenceSummary {

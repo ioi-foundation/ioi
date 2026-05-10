@@ -31,6 +31,8 @@ import {
   CreateWorkflowFromTemplateRequest,
   CreateWorkflowProposalRequest,
   ImportWorkflowPackageRequest,
+  WorkflowCodingRouteContract,
+  type WorkflowCodingRoutePromotionDecision,
   WorkflowBindingCheckResult,
   WorkflowBindingManifest,
   WorkflowConnectorBinding,
@@ -76,7 +78,11 @@ import {
   Zone,
   Container,
   ConnectorSummary,
+  WorkflowSkillCatalogEntry,
+  WorkflowSkillPackImportRequest,
+  WorkflowSkillPackImportResult,
   createAssistantWorkbenchActivity,
+  WORKFLOW_CODING_ROUTE_CONTRACTS,
 } from "@ioi/agent-ide";
 import type {
   ActiveContextSnapshot,
@@ -453,10 +459,189 @@ function liveFleetStateFromSnapshot(snapshot: LocalEngineSnapshot): FleetState {
 
 type RuntimeShellSurface = "overlay" | "chat";
 
+type WorkflowSkillPromotionOverride = {
+    skillHash: string;
+    lifecycleState: string;
+    successRateBps: number;
+    sampleSize: number;
+    stale: boolean;
+    evidenceRefs: string[];
+    updatedAtMs: number;
+};
+
+const WORKFLOW_SKILL_PROMOTION_LEDGER_KEY =
+    "ioi.workflow.skillPromotionLedger.v1";
+
+function workflowHashString(value: string): string {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, "0");
+}
+
+function workflowDraftSkillHash(source: SkillSourceRecord, relativePath: string): string {
+    return `draft:${workflowHashString(`${source.sourceId}:${source.uri}:${relativePath}`)}`;
+}
+
+function workflowPhaseTagsForSkill(name: string): string[] {
+    const normalized = name.toLowerCase();
+    const tags = new Set<string>();
+    if (/source|context/.test(normalized)) tags.add("coding.context");
+    if (/plan|spec/.test(normalized)) tags.add("coding.plan");
+    if (/implementation|build/.test(normalized)) tags.add("coding.build");
+    if (/test|verify|debug|error|recovery/.test(normalized)) tags.add("coding.verify");
+    if (/review|security/.test(normalized)) tags.add("coding.review");
+    if (tags.size === 0) tags.add("coding.context");
+    return Array.from(tags).sort();
+}
+
+function workflowRouteTagsForSkill(name: string): string[] {
+    const normalized = name.toLowerCase();
+    const tags = new Set<string>();
+    if (/debug|error|recovery/.test(normalized)) tags.add("coding.template.debug");
+    if (/review|security/.test(normalized)) tags.add("coding.template.review");
+    if (/implementation|test|source|context|build/.test(normalized)) {
+        tags.add("coding.template.build");
+    }
+    if (tags.size === 0) {
+        tags.add("coding.template.build");
+        tags.add("coding.template.debug");
+        tags.add("coding.template.review");
+    }
+    return Array.from(tags).sort();
+}
+
+function readWorkflowSkillPromotionLedger(): Record<string, WorkflowSkillPromotionOverride> {
+    if (typeof window === "undefined" || !window.localStorage) return {};
+    try {
+        const raw = window.localStorage.getItem(WORKFLOW_SKILL_PROMOTION_LEDGER_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeWorkflowSkillPromotionLedger(
+    ledger: Record<string, WorkflowSkillPromotionOverride>,
+) {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    try {
+        window.localStorage.setItem(
+            WORKFLOW_SKILL_PROMOTION_LEDGER_KEY,
+            JSON.stringify(ledger),
+        );
+    } catch {
+        // Promotion metadata remains available in the run receipt even if storage is unavailable.
+    }
+}
+
+function applyWorkflowSkillPromotionOverride(
+    skill: WorkflowSkillCatalogEntry,
+    override?: WorkflowSkillPromotionOverride,
+): WorkflowSkillCatalogEntry {
+    if (!override) return skill;
+    return {
+        ...skill,
+        lifecycleState: override.lifecycleState,
+        successRateBps: override.successRateBps,
+        sampleSize: Math.max(skill.sampleSize ?? 0, override.sampleSize),
+        stale: override.stale,
+        promotionEvidenceRefs: Array.from(
+            new Set([...(skill.promotionEvidenceRefs ?? []), ...override.evidenceRefs]),
+        ).sort(),
+    };
+}
+
 export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRuntime {
     constructor(
       private readonly shellSurface: RuntimeShellSurface = "overlay",
     ) {}
+
+    private async workflowOptionsWithSkillCatalog(
+      options?: Record<string, unknown>,
+    ): Promise<Record<string, unknown> | null> {
+      try {
+        const skillCatalog = await this.listWorkflowSkillCatalog("");
+        return {
+          ...(options ?? {}),
+          skillCatalog,
+        };
+      } catch (error) {
+        console.warn("[Autopilot][Runtime] workflow skill catalog unavailable", error);
+        return options ?? null;
+      }
+    }
+
+    private async workflowDraftSkillsFromSources(): Promise<WorkflowSkillCatalogEntry[]> {
+        let sources: SkillSourceRecord[] = [];
+        try {
+            sources = await this.getSkillSources();
+        } catch (error) {
+            console.warn("[Autopilot][Runtime] workflow draft skill sources unavailable", error);
+            return [];
+        }
+        const importedAtMs = Date.now();
+        return sources.flatMap((source) =>
+          source.discoveredSkills.map((skill) => {
+            const skillHash = workflowDraftSkillHash(source, skill.relativePath);
+            const name = skill.name || skill.relativePath.split("/").slice(-2, -1)[0] || skillHash;
+            return {
+              skillHash,
+              name,
+              description: skill.description ?? `Draft skill imported from ${source.label}.`,
+              lifecycleState: "Draft",
+              sourceType: "runtime_skill_source_draft",
+              successRateBps: 0,
+              sampleSize: 0,
+              relativePath: skill.relativePath,
+              stale: false,
+              markdown: skill.description ?? null,
+              sourceId: source.sourceId,
+              sourceLabel: source.label,
+              sourceUri: source.uri,
+              contentHash: `fnv1a32:${workflowHashString(`${source.uri}:${skill.relativePath}:${skill.description ?? ""}`)}`,
+              importedAtMs: source.lastSyncedAtMs ?? importedAtMs,
+              license: null,
+              phaseTags: workflowPhaseTagsForSkill(name),
+              routeTags: workflowRouteTagsForSkill(name),
+              promotionEvidenceRefs: [],
+            } satisfies WorkflowSkillCatalogEntry;
+          }),
+        );
+    }
+
+    private applyWorkflowPromotionDecisions(
+      decisions?: WorkflowCodingRoutePromotionDecision[],
+    ) {
+        if (!decisions?.length) return;
+        const ledger = readWorkflowSkillPromotionLedger();
+        for (const decision of decisions) {
+            const existing = ledger[decision.skillHash];
+            const sampleSize = Math.max(existing?.sampleSize ?? 0, 0) + 1;
+            ledger[decision.skillHash] = {
+                skillHash: decision.skillHash,
+                lifecycleState: decision.toLifecycleState,
+                successRateBps: Math.max(
+                  0,
+                  Math.min(10000, Math.round(decision.confidenceAfterBps)),
+                ),
+                sampleSize,
+                stale: decision.stale,
+                evidenceRefs: Array.from(
+                  new Set([
+                    ...(existing?.evidenceRefs ?? []),
+                    ...decision.evidenceRefs,
+                  ]),
+                ).sort(),
+                updatedAtMs: decision.createdAtMs,
+            };
+        }
+        writeWorkflowSkillPromotionLedger(ledger);
+    }
 
     async runGraph(payload: GraphPayload): Promise<void> {
         await invoke("run_chat_graph", { payload });
@@ -1169,6 +1354,123 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         return invoke("get_skill_detail", { skillHash });
     }
 
+    async listWorkflowSkillCatalog(_projectRoot: string): Promise<WorkflowSkillCatalogEntry[]> {
+        let catalog: SkillCatalogEntry[] = [];
+        try {
+          catalog = await this.getSkillCatalog();
+        } catch (error) {
+          console.warn("[Autopilot][Runtime] promoted skill catalog unavailable", error);
+        }
+        const promotedEntries = await Promise.all(
+          catalog.map(async (skill) => {
+            let detail: SkillDetailView | null = null;
+            try {
+              detail = await this.getSkillDetail(skill.skill_hash);
+            } catch (error) {
+              console.warn("[Autopilot][Runtime] skill detail unavailable", skill.skill_hash, error);
+            }
+            return {
+              skillHash: skill.skill_hash,
+              name: skill.name,
+              description: skill.description,
+              lifecycleState: skill.lifecycle_state,
+              sourceType: skill.source_type,
+              successRateBps: skill.success_rate_bps,
+              sampleSize: skill.sample_size,
+              relativePath: skill.relative_path,
+              stale: skill.stale,
+              markdown: detail?.markdown ?? null,
+              sourceId: detail?.source_registry_id ?? null,
+              sourceLabel: detail?.source_registry_label ?? null,
+              sourceUri: detail?.source_registry_uri ?? null,
+              phaseTags: workflowPhaseTagsForSkill(skill.name),
+              routeTags: workflowRouteTagsForSkill(skill.name),
+              promotionEvidenceRefs: [],
+            } satisfies WorkflowSkillCatalogEntry;
+          }),
+        );
+        const draftEntries = await this.workflowDraftSkillsFromSources();
+        const ledger = readWorkflowSkillPromotionLedger();
+        const byHash = new Map<string, WorkflowSkillCatalogEntry>();
+        for (const skill of [...draftEntries, ...promotedEntries]) {
+            byHash.set(skill.skillHash, applyWorkflowSkillPromotionOverride(skill, ledger[skill.skillHash]));
+        }
+        return Array.from(byHash.values()).sort((left, right) =>
+          left.name.localeCompare(right.name) || left.skillHash.localeCompare(right.skillHash),
+        );
+    }
+
+    async listWorkflowCodingRoutes(
+      _projectRoot: string,
+    ): Promise<WorkflowCodingRouteContract[]> {
+        return JSON.parse(
+          JSON.stringify(WORKFLOW_CODING_ROUTE_CONTRACTS),
+        ) as WorkflowCodingRouteContract[];
+    }
+
+    async importWorkflowSkillPack(
+      request: WorkflowSkillPackImportRequest,
+    ): Promise<WorkflowSkillPackImportResult> {
+        const uri = request.uri.trim();
+        if (!uri) {
+          return {
+            sourceId: "",
+            uri,
+            label: request.label ?? "Skill pack",
+            status: "blocked",
+            discoveredSkillCount: 0,
+            provenance: {
+              sourceType: request.provenance?.sourceType ?? "local_path",
+              sourceRef: request.provenance?.sourceRef ?? uri,
+              importedAs: "draft",
+            },
+            message: "Skill pack import requires a source URI.",
+          };
+        }
+        const source = await this.addSkillSource(uri, request.label ?? "Draft skill pack");
+        const synced = await this.syncSkillSource(source.sourceId);
+        const draftSkills = synced.discoveredSkills.map((skill) => {
+          const skillHash = workflowDraftSkillHash(synced, skill.relativePath);
+          const name = skill.name || skill.relativePath.split("/").slice(-2, -1)[0] || skillHash;
+          return {
+            skillHash,
+            name,
+            description: skill.description ?? `Draft skill imported from ${synced.label}.`,
+            lifecycleState: "Draft",
+            sourceType: "runtime_skill_source_draft",
+            successRateBps: 0,
+            sampleSize: 0,
+            relativePath: skill.relativePath,
+            stale: false,
+            markdown: skill.description ?? null,
+            sourceId: synced.sourceId,
+            sourceLabel: synced.label,
+            sourceUri: synced.uri,
+            contentHash: `fnv1a32:${workflowHashString(`${synced.uri}:${skill.relativePath}:${skill.description ?? ""}`)}`,
+            importedAtMs: synced.lastSyncedAtMs ?? Date.now(),
+            license: null,
+            phaseTags: workflowPhaseTagsForSkill(name),
+            routeTags: workflowRouteTagsForSkill(name),
+            promotionEvidenceRefs: [],
+          } satisfies WorkflowSkillCatalogEntry;
+        });
+        return {
+          sourceId: synced.sourceId,
+          uri: synced.uri,
+          label: synced.label,
+          status: request.draft === false ? synced.syncStatus : "draft",
+          discoveredSkillCount: synced.discoveredSkills.length,
+          draftSkills,
+          provenance: {
+            sourceType: request.provenance?.sourceType ?? synced.kind ?? "local_path",
+            sourceRef: request.provenance?.sourceRef ?? synced.uri,
+            importedAs: "draft",
+          },
+          syncedAtMs: synced.lastSyncedAtMs ?? null,
+          message: `Imported ${synced.discoveredSkills.length} skill(s) as Draft runtime registry source.`,
+        };
+    }
+
     async getSubstrateProof(params: {
         sessionId?: string | null;
         skillHash?: string | null;
@@ -1260,7 +1562,10 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         path: string,
         options?: Record<string, unknown>
     ): Promise<WorkflowRunResult> {
-        return invoke("run_workflow_project", { path, options: options ?? null });
+        const runtimeOptions = await this.workflowOptionsWithSkillCatalog(options);
+        const result = await invoke<WorkflowRunResult>("run_workflow_project", { path, options: runtimeOptions });
+        this.applyWorkflowPromotionDecisions(result.routeRunSummary?.promotionDecisions);
+        return result;
     }
 
     async runWorkflowNode(
@@ -1269,7 +1574,10 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         input?: unknown,
         options?: Record<string, unknown>
     ): Promise<WorkflowRunResult> {
-        return invoke("run_workflow_node", { path, nodeId, input: input ?? null, options: options ?? null });
+        const runtimeOptions = await this.workflowOptionsWithSkillCatalog(options);
+        const result = await invoke<WorkflowRunResult>("run_workflow_node", { path, nodeId, input: input ?? null, options: runtimeOptions });
+        this.applyWorkflowPromotionDecisions(result.routeRunSummary?.promotionDecisions);
+        return result;
     }
 
     async dryRunWorkflowFunction(
@@ -1301,9 +1609,13 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async dryRunWorkflowNode(
         path: string,
         nodeId: string,
-        input?: unknown
+        input?: unknown,
+        options?: Record<string, unknown>
     ): Promise<WorkflowRunResult> {
-        return invoke("dry_run_workflow_node", { path, nodeId, input: input ?? null });
+        const runtimeOptions = await this.workflowOptionsWithSkillCatalog(options);
+        const result = await invoke<WorkflowRunResult>("dry_run_workflow_node", { path, nodeId, input: input ?? null, options: runtimeOptions });
+        this.applyWorkflowPromotionDecisions(result.routeRunSummary?.promotionDecisions);
+        return result;
     }
 
     async materializeWorkflowFunction(

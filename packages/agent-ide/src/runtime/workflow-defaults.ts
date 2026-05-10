@@ -56,6 +56,7 @@ export function normalizeGlobalConfig(config?: Partial<GraphGlobalConfig> | null
       ...DEFAULT_MODEL_BINDINGS,
       ...(config?.modelBindings ?? {}),
     },
+    codingRoute: config?.codingRoute,
     environmentProfile: {
       target: config?.environmentProfile?.target ?? DEFAULT_GLOBAL_CONFIG.environmentProfile!.target,
       credentialScope:

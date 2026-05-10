@@ -128,6 +128,70 @@ function evidenceProfile(
   };
 }
 
+export const WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA = {
+  type: "object",
+  required: [
+    "schemaVersion",
+    "status",
+    "mode",
+    "selectedSkills",
+    "promptContext",
+    "evidenceRefs",
+  ],
+  properties: {
+    schemaVersion: { type: "string" },
+    status: { type: "string" },
+    mode: { type: "string" },
+    goal: { type: "string" },
+    selectedSkills: {
+      type: "array",
+      items: {
+        type: "object",
+        required: [
+          "skillHash",
+          "name",
+          "description",
+          "lifecycleState",
+          "sourceType",
+          "stale",
+          "score",
+          "guidanceHash",
+        ],
+        properties: {
+          skillHash: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          lifecycleState: { type: "string" },
+          sourceType: { type: "string" },
+          stale: { type: "boolean" },
+          relativePath: { type: "string" },
+          score: { type: "number" },
+          guidanceHash: { type: "string" },
+          guidanceMarkdown: { type: "string" },
+        },
+      },
+    },
+    promptContext: { type: "string" },
+    evidenceRefs: { type: "array", items: { type: "string" } },
+  },
+};
+
+export const DEFAULT_WORKFLOW_SKILL_CONTEXT_LOGIC: NodeLogic = {
+  skillContext: {
+    mode: "discover",
+    goalSource: "node_input",
+    goal: "",
+    minScoreBps: 6500,
+    maxSkills: 3,
+    onNoMatch: "warn",
+    pinnedSkills: [],
+    onMissingPinned: "block",
+    includeMarkdown: true,
+    guidanceMaxChars: 1800,
+  },
+  outputSchema: WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA,
+};
+
 export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
   {
     type: "source",
@@ -361,6 +425,43 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         toolUseMode: "none",
       },
     },
+    defaultLaw: {},
+  },
+  {
+    type: "skill_context",
+    label: "Skill Context",
+    group: "AI",
+    family: "context",
+    token: "SK",
+    familyLabel: "Context",
+    metricLabel: "Skills",
+    metricValue: "discover",
+    ioTypes: { in: "payload", out: "payload" },
+    inputs: ["input"],
+    outputs: ["output", "error"],
+    portDefinitions: [
+      port("input", "Input", "input", "payload"),
+      port("output", "Context", "output", "payload", "context", false),
+      port("error", "Error", "output", "payload", "error", false),
+    ],
+    ports: [
+      port("input", "Input", "input", "payload"),
+      port("output", "Context", "output", "payload", "context", false),
+      port("error", "Error", "output", "payload", "error", false),
+    ],
+    configSchema: { type: "object", required: ["skillContext"] },
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "skill_context",
+      executorId: "workflow.skill_context",
+      sandboxed: false,
+      supportsDryRun: false,
+    },
+    defaultLogic: DEFAULT_WORKFLOW_SKILL_CONTEXT_LOGIC,
     defaultLaw: {},
   },
   {
@@ -1255,6 +1356,31 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       jsonMode: true,
     },
   });
+  const skillContextDiscover = creatorDefinition("skill_context", {
+    creatorId: "skill_context.discover",
+    label: "Discover skills",
+    description:
+      "Resolve runtime skills deterministically from workflow or node input goal text.",
+    metricValue: "discover",
+    defaultLogic: DEFAULT_WORKFLOW_SKILL_CONTEXT_LOGIC,
+    keywords: ["skill", "context", "discover", "registry"],
+  });
+  const skillContextPinned = creatorDefinition("skill_context", {
+    creatorId: "skill_context.pinned",
+    label: "Pinned skill",
+    description:
+      "Attach one or more pinned runtime skills by skill hash or deterministic name lookup.",
+    metricValue: "pinned",
+    defaultLogic: {
+      ...DEFAULT_WORKFLOW_SKILL_CONTEXT_LOGIC,
+      skillContext: {
+        ...DEFAULT_WORKFLOW_SKILL_CONTEXT_LOGIC.skillContext,
+        mode: "pinned",
+        pinnedSkills: [{ skillHash: "", name: "", required: true }],
+      },
+    },
+    keywords: ["skill", "context", "pinned", "registry"],
+  });
   const connectorRead = creatorDefinition("adapter", {
     creatorId: "adapter.read",
     label: "Connector read",
@@ -1562,11 +1688,18 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     stateAppend,
     stateReducer,
     stateCheckpoint,
+    skillContextDiscover,
+    skillContextPinned,
     ...WORKFLOW_NODE_DEFINITIONS.filter(
       (definition) =>
-        !["source", "trigger", "adapter", "plugin_tool", "output"].includes(
-          definition.type,
-        ),
+        ![
+          "source",
+          "trigger",
+          "adapter",
+          "plugin_tool",
+          "output",
+          "skill_context",
+        ].includes(definition.type),
     ).map((definition) =>
       creatorDefinition(definition.type, {
         creatorId: definition.type,
@@ -1665,10 +1798,20 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
   switch (type) {
     case "trigger":
     case "source":
-      return ["function", "model_call", "adapter", "plugin_tool", "output"];
+      return [
+        "function",
+        "skill_context",
+        "model_call",
+        "adapter",
+        "plugin_tool",
+        "output",
+      ];
+    case "skill_context":
+      return ["model_call", "output"];
     case "model_call":
       return [
         "model_binding",
+        "skill_context",
         "parser",
         "state",
         "plugin_tool",
@@ -1736,6 +1879,7 @@ function supportsMockBinding(type: WorkflowNodeKind): boolean {
 function schemaRequiredFor(type: WorkflowNodeKind): boolean {
   return (
     type === "function" ||
+    type === "skill_context" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

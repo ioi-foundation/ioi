@@ -11,6 +11,7 @@ import type {
   WorkflowConnectorBinding,
   WorkflowCheckpoint,
   WorkflowCheckpointForkRequest,
+  WorkflowCodingRouteContract,
   WorkflowRunComparison,
   WorkflowDeliveryTarget,
   WorkflowDogfoodRun,
@@ -25,6 +26,9 @@ import type {
   WorkflowRunResult,
   WorkflowRunSummary,
   WorkflowScaffoldDefinition,
+  WorkflowSkillCatalogEntry,
+  WorkflowSkillPackImportRequest,
+  WorkflowSkillPackImportResult,
   WorkflowStateSnapshot,
   WorkflowStreamEvent,
   WorkflowTestCase,
@@ -164,6 +168,7 @@ export interface GraphExecutionRuntime {
     path: string,
     nodeId: string,
     input?: unknown,
+    options?: Record<string, unknown>,
   ): Promise<WorkflowRunResult>;
   materializeWorkflowFunction?(
     path: string,
@@ -182,6 +187,15 @@ export interface GraphExecutionRuntime {
   listWorkflowConnectorCatalog?(
     projectRoot: string,
   ): Promise<WorkflowConnectorBinding[]>;
+  listWorkflowSkillCatalog?(
+    projectRoot: string,
+  ): Promise<WorkflowSkillCatalogEntry[]>;
+  listWorkflowCodingRoutes?(
+    projectRoot: string,
+  ): Promise<WorkflowCodingRouteContract[]>;
+  importWorkflowSkillPack?(
+    request: WorkflowSkillPackImportRequest,
+  ): Promise<WorkflowSkillPackImportResult>;
   streamWorkflowRun?(
     path: string,
     runId: string,

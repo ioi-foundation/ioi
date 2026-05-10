@@ -10,6 +10,28 @@ import {
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { parseArgs } from "./args.mjs";
+export { parseArgs } from "./args.mjs";
+import { writeBundle } from "./artifacts.mjs";
+export { writeBundle } from "./artifacts.mjs";
+import {
+  captureScreenshot,
+  closeMatchingWindows,
+  commandExists,
+  runShell,
+  typeQuery,
+  waitForWindow,
+} from "./desktop.mjs";
+export {
+  assertGuiClickTargetSafe,
+  captureScreenshot,
+  closeMatchingWindows,
+  detectFocusedComposerClick,
+  waitForWindow,
+  windowGeometry,
+  windowIds,
+} from "./desktop.mjs";
+
 import {
   AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
   AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
@@ -81,224 +103,12 @@ function sameStringSet(left, right) {
   );
 }
 
-export function parseArgs(argv) {
-  const args = {
-    contractOnly: false,
-    preflight: false,
-    run: false,
-    outputRoot: "docs/evidence/autopilot-gui-harness-validation",
-    windowName: "Autopilot Chat",
-    windowTimeoutMs: 120_000,
-    settleMs: 12_000,
-    querySettleMs: 18_000,
-    queryTimeoutMs: 240_000,
-    newSessionBetweenQueries: false,
-  };
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--contract-only") args.contractOnly = true;
-    else if (arg === "--preflight") args.preflight = true;
-    else if (arg === "--run") args.run = true;
-    else if (arg === "--output-root")
-      args.outputRoot = argv[++index] ?? args.outputRoot;
-    else if (arg === "--window-name")
-      args.windowName = argv[++index] ?? args.windowName;
-    else if (arg === "--window-timeout-ms")
-      args.windowTimeoutMs = Number(argv[++index] ?? args.windowTimeoutMs);
-    else if (arg === "--settle-ms")
-      args.settleMs = Number(argv[++index] ?? args.settleMs);
-    else if (arg === "--query-settle-ms")
-      args.querySettleMs = Number(argv[++index] ?? args.querySettleMs);
-    else if (arg === "--query-timeout-ms")
-      args.queryTimeoutMs = Number(argv[++index] ?? args.queryTimeoutMs);
-    else if (arg === "--same-session") args.newSessionBetweenQueries = false;
-    else if (arg === "--new-session-between-queries") {
-      throw new Error(
-        "--new-session-between-queries is disabled for retained GUI validation; the harness is same-session composer-only to avoid activity-bar/sidebar/top-chrome clicks.",
-      );
-    } else throw new Error(`Unknown argument: ${arg}`);
-  }
-  if (!args.contractOnly && !args.preflight && !args.run) args.preflight = true;
-  return args;
-}
-
-function commandExists(command) {
-  const result = spawnSync("bash", ["-lc", `command -v ${command}`], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  return result.status === 0;
-}
-
-function runShell(command, options = {}) {
-  return spawnSync("bash", ["-lc", command], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    ...options,
-  });
-}
-
-export function assertGuiClickTargetSafe({ x, y, purpose }) {
-  const { minWindowX, minWindowY } = GUI_AUTOMATION_CLICK_POLICY.safeZone;
-  if (x < minWindowX || y < minWindowY) {
-    throw new Error(
-      `Refusing GUI click for ${purpose}: (${x}, ${y}) is outside the composer/content safe zone and may hit ${GUI_AUTOMATION_CLICK_POLICY.forbiddenZones.join(", ")}.`,
-    );
-  }
-}
-
-export function windowGeometry(windowId) {
-  const result = runShell(`xdotool getwindowgeometry --shell ${windowId}`, {
-    timeout: 4_000,
-  });
-  if (result.status !== 0) {
-    return null;
-  }
-  const values = Object.fromEntries(
-    result.stdout
-      .split("\n")
-      .map((line) => line.trim().split("="))
-      .filter((parts) => parts.length === 2),
-  );
-  const x = Number(values.X);
-  const y = Number(values.Y);
-  const width = Number(values.WIDTH);
-  const height = Number(values.HEIGHT);
-  if (![x, y, width, height].every(Number.isFinite)) {
-    return null;
-  }
-  return { x, y, width, height };
-}
-
-export function detectFocusedComposerClick(windowId) {
-  const imagePath = join(
-    process.env.TMPDIR || "/tmp",
-    `autopilot-composer-detect-${process.pid}.png`,
-  );
-  const screenshot = runShell(
-    `import -window ${windowId} ${JSON.stringify(imagePath)}`,
-    {
-      timeout: 20_000,
-    },
-  );
-  if (screenshot.status !== 0) {
-    return null;
-  }
-
-  try {
-    const crop = { x: 300, y: 340, width: 980, height: 310 };
-    const pixels = runShell(
-      `convert ${JSON.stringify(imagePath)} -crop ${crop.width}x${crop.height}+${crop.x}+${crop.y} -depth 8 txt:-`,
-      {
-        timeout: 20_000,
-        maxBuffer: 32 * 1024 * 1024,
-      },
-    );
-    if (pixels.status !== 0) {
-      return null;
-    }
-
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = 0;
-    let maxY = 0;
-    let count = 0;
-    const grayRows = new Map();
-    for (const line of pixels.stdout.split("\n")) {
-      const match = line.match(/^(\d+),(\d+): \((\d+),(\d+),(\d+)/);
-      if (!match) continue;
-      const localX = Number(match[1]);
-      const localY = Number(match[2]);
-      const red = Number(match[3]);
-      const green = Number(match[4]);
-      const blue = Number(match[5]);
-      const isComposerBlue =
-        red <= 80 && green >= 80 && green <= 190 && blue >= 170;
-      const x = crop.x + localX;
-      const y = crop.y + localY;
-      if (x < GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX) continue;
-      if (isComposerBlue) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-        count += 1;
-      }
-      const isNeutralBorder =
-        Math.abs(red - green) <= 3 &&
-        Math.abs(green - blue) <= 3 &&
-        red >= 185 &&
-        red <= 235;
-      if (isNeutralBorder && y >= 400) {
-        const row = grayRows.get(y) ?? {
-          count: 0,
-          minX: Number.POSITIVE_INFINITY,
-          maxX: 0,
-        };
-        row.count += 1;
-        row.minX = Math.min(row.minX, x);
-        row.maxX = Math.max(row.maxX, x);
-        grayRows.set(y, row);
-      }
-    }
-
-    if (
-      Number.isFinite(minX) &&
-      count >= 250 &&
-      maxX - minX >= 120 &&
-      maxY - minY >= 35
-    ) {
-      return {
-        x: Math.round((minX + maxX) / 2),
-        y: Math.min(Math.max(minY + 26, minY + 14), maxY - 12),
-        bounds: { minX, minY, maxX, maxY, bluePixelCount: count },
-      };
-    }
-
-    const wideRows = [...grayRows.entries()]
-      .map(([y, row]) => ({ y, ...row, width: row.maxX - row.minX }))
-      .filter((row) => row.count >= 250 && row.width >= 120)
-      .sort((left, right) => right.width - left.width || left.y - right.y);
-    const maxWidth = wideRows[0]?.width ?? 0;
-    const topBorder = wideRows
-      .filter((row) => row.width >= maxWidth - 16)
-      .sort((left, right) => left.y - right.y)[0];
-    if (!topBorder) {
-      return null;
-    }
-    const fallbackX =
-      topBorder.width >= 700
-        ? Math.round((topBorder.minX + topBorder.maxX) / 2)
-        : Math.round(crop.x + crop.width / 2);
-    return {
-      x: Math.max(GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX, fallbackX),
-      y: topBorder.y + 24,
-      bounds: {
-        minX: topBorder.minX,
-        minY: topBorder.y,
-        maxX: topBorder.maxX,
-        maxY: topBorder.y,
-        grayPixelCount: topBorder.count,
-      },
-    };
-  } finally {
-    try {
-      unlinkSync(imagePath);
-    } catch {
-      // best-effort cleanup
-    }
-  }
-}
-
 function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
-export function writeBundle(outputRoot, bundle) {
-  mkdirSync(outputRoot, { recursive: true });
-  const path = join(outputRoot, "result.json");
-  writeFileSync(path, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
-  return path;
+async function sleep(ms) {
+  await new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
 
 function autopilotProfileRoot() {
@@ -4967,12 +4777,292 @@ export function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
   }
 }
 
+export function collectWorkflowSkillContextProof(outputRoot) {
+  const files = {
+    graphTypes: "packages/agent-ide/src/types/graph.ts",
+    nodeRegistry: "packages/agent-ide/src/runtime/workflow-node-registry.ts",
+    bindingSections:
+      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    harnessTools: "packages/agent-ide/src/runtime/workflow-harness-tools.ts",
+    tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
+    projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectCommands: "apps/autopilot/src-tauri/src/project/commands.rs",
+    runtimeTests:
+      "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
+  };
+  const source = Object.fromEntries(
+    Object.entries(files).map(([key, relativePath]) => [
+      key,
+      readFileSync(resolve(repoRoot, relativePath), "utf8"),
+    ]),
+  );
+  const checks = {
+    nodeKindTyped:
+      /WorkflowSkillContextConfig/.test(source.graphTypes) &&
+      /"skill_context"/.test(source.graphTypes),
+    creatorVariants:
+      /creatorId: "skill_context\.discover"/.test(source.nodeRegistry) &&
+      /creatorId: "skill_context\.pinned"/.test(source.nodeRegistry) &&
+      /token: "SK"/.test(source.nodeRegistry),
+    configUi:
+      /workflow-skill-context-mode/.test(source.bindingSections) &&
+      /workflow-skill-context-pinned-skills/.test(source.bindingSections) &&
+      /workflow-skill-context-include-markdown/.test(source.bindingSections),
+    catalogTool:
+      /"workflow\.catalog\.skills"/.test(source.harnessTools) &&
+      /listWorkflowSkillCatalog/.test(source.harnessTools),
+    registryBackedRuntime:
+      /getSkillCatalog\(\)/.test(source.tauriRuntime) &&
+      /getSkillDetail\(skill\.skill_hash\)/.test(source.tauriRuntime) &&
+      /workflowOptionsWithSkillCatalog/.test(source.tauriRuntime),
+    resolverExecution:
+      /struct WorkflowSkillResolver/.test(source.projectRuntime) &&
+      /resolve_skill_context/.test(source.projectRuntime) &&
+      /workflow\.skill-context\.v1/.test(source.projectRuntime) &&
+      /workflow\.skill_context\.discovery\.v1/.test(source.projectRuntime) &&
+      /workflow\.skill_context\.read\.v1/.test(source.projectRuntime),
+    runCommandsPassResolver:
+      /WorkflowSkillResolver::from_options\(options\.as_ref\(\)\)/.test(
+        source.projectCommands,
+      ) && /execute_workflow_project/.test(source.projectCommands),
+    createAndRunTests:
+      /workflow_skill_context_discovery_attaches_model_context/.test(
+        source.runtimeTests,
+      ) &&
+      /workflow_skill_context_pinned_name_ambiguity_blocks/.test(
+        source.runtimeTests,
+      ) &&
+      /edge-skill-model-context/.test(source.runtimeTests),
+  };
+  const proof = {
+    schemaVersion: "workflow.skill-context.gui-proof.v1",
+    passed: Object.values(checks).every(Boolean),
+    scenario: "workflow_skill_context_create_run",
+    checks,
+    validatedSurfaces: [
+      "composer node registry",
+      "node config UI",
+      "runtime registry resolver",
+      "node/project run commands",
+      "harness catalog tool",
+      "create-and-run runtime contract tests",
+    ],
+  };
+  const path = join(outputRoot, "workflow-skill-context-proof.json");
+  writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+  return { path, proof };
+}
+
+export function collectWorkflowCodingRouteProof(outputRoot) {
+  const files = {
+    graphTypes: "packages/agent-ide/src/types/graph.ts",
+    graphRuntimeTypes: "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+    routeCatalog: "packages/agent-ide/src/runtime/workflow-coding-routes.ts",
+    harnessTools: "packages/agent-ide/src/runtime/workflow-harness-tools.ts",
+    tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
+    projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
+    projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    runtimeTests:
+      "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
+  };
+  const source = Object.fromEntries(
+    Object.entries(files).map(([key, relativePath]) => [
+      key,
+      readFileSync(resolve(repoRoot, relativePath), "utf8"),
+    ]),
+  );
+  const checks = {
+    routeContractsTyped:
+      /interface WorkflowCodingRouteContract/.test(source.graphTypes) &&
+      /interface WorkflowCodingRouteEvidence/.test(source.graphTypes) &&
+      /routeEvidence\?: WorkflowCodingRouteEvidence\[\]/.test(source.graphTypes),
+    routeRuntimeApis:
+      /listWorkflowCodingRoutes/.test(source.graphRuntimeTypes) &&
+      /importWorkflowSkillPack/.test(source.graphRuntimeTypes),
+    routeCatalog:
+      /WORKFLOW_CODING_ROUTE_CONTRACTS/.test(source.routeCatalog) &&
+      /coding\.template\.build/.test(source.routeCatalog) &&
+      /coding\.template\.debug/.test(source.routeCatalog) &&
+      /coding\.template\.review/.test(source.routeCatalog) &&
+      /coding\.route\.gate\.v1/.test(source.routeCatalog),
+    explicitTemplates:
+      /coding\.template\.build/.test(source.projectTemplates) &&
+      /coding\.template\.debug/.test(source.projectTemplates) &&
+      /coding\.template\.review/.test(source.projectTemplates) &&
+      /skill-context-route/.test(source.projectTemplates) &&
+      /edge-skill-context-model-context/.test(source.projectTemplates) &&
+      /"context"/.test(source.projectTemplates),
+    classifierAndEvidence:
+      /workflow_classify_coding_route/.test(source.projectRuntime) &&
+      /workflow_coding_route_evidence_from_run/.test(source.projectRuntime) &&
+      /coding\.route\.classification\.v1/.test(source.projectRuntime) &&
+      /coding\.route\.skill_selection\.v1/.test(source.projectRuntime) &&
+      /coding\.route\.gate\.v1/.test(source.projectRuntime),
+    harnessCatalogAndImport:
+      /"workflow\.catalog\.coding_routes"/.test(source.harnessTools) &&
+      /listWorkflowCodingRoutes/.test(source.harnessTools) &&
+      /"workflow\.skills\.import_pack"/.test(source.harnessTools) &&
+      /importWorkflowSkillPack/.test(source.harnessTools),
+    runtimeRegistryImportPath:
+      /listWorkflowCodingRoutes/.test(source.tauriRuntime) &&
+      /WORKFLOW_CODING_ROUTE_CONTRACTS/.test(source.tauriRuntime) &&
+      /importWorkflowSkillPack/.test(source.tauriRuntime) &&
+      /addSkillSource/.test(source.tauriRuntime) &&
+      /syncSkillSource/.test(source.tauriRuntime),
+    exampleSkillPackDraftSource:
+      existsSync(
+        resolve(
+          repoRoot,
+          "examples/agent-skills-main/skills/incremental-implementation/SKILL.md",
+        ),
+      ) &&
+      existsSync(
+        resolve(
+          repoRoot,
+          "examples/agent-skills-main/skills/code-review-and-quality/SKILL.md",
+        ),
+      ),
+    createRunInspectTests:
+      /coding_route_templates_validate_run_and_emit_route_evidence/.test(
+        source.runtimeTests,
+      ) &&
+      /coding_route_classifier_defaults_to_build_and_detects_debug_or_review/.test(
+        source.runtimeTests,
+      ) &&
+      /coding\.route\.classification\.v1/.test(source.runtimeTests) &&
+      /coding\.route\.skill_selection\.v1/.test(source.runtimeTests) &&
+      /coding\.route\.gate\.v1/.test(source.runtimeTests),
+  };
+  const proof = {
+    schemaVersion: "workflow.coding-route.gui-proof.v1",
+    passed: Object.values(checks).every(Boolean),
+    scenario: "workflow_coding_route_create_run_inspect",
+    checks,
+    validatedSurfaces: [
+      "typed route contracts",
+      "build/debug/review templates",
+      "deterministic runtime classifier",
+      "route evidence artifacts",
+      "harness route catalog",
+      "Draft skill-pack import path",
+      "create-save-validate-run-inspect runtime tests",
+    ],
+  };
+  const path = join(outputRoot, "workflow-coding-route-proof.json");
+  writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+  return { path, proof };
+}
+
+export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
+  const files = {
+    graphTypes: "packages/agent-ide/src/types/graph.ts",
+    routeCatalog: "packages/agent-ide/src/runtime/workflow-coding-routes.ts",
+    bottomShelf: "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx",
+    tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
+    projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
+    projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    runtimeTests:
+      "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
+  };
+  const source = Object.fromEntries(
+    Object.entries(files).map(([key, relativePath]) => [
+      key,
+      readFileSync(resolve(repoRoot, relativePath), "utf8"),
+    ]),
+  );
+  const checks = {
+    hardenedRouteTypes:
+      /interface WorkflowCodingRouteGateResult/.test(source.graphTypes) &&
+      /interface WorkflowCodingRouteSkillSelection/.test(source.graphTypes) &&
+      /interface WorkflowCodingRouteBenchmarkResult/.test(source.graphTypes) &&
+      /interface WorkflowCodingRoutePromotionDecision/.test(source.graphTypes) &&
+      /interface WorkflowCodingRouteRunSummary/.test(source.graphTypes),
+    typedGateVocabulary:
+      /"pass"/.test(source.graphTypes) &&
+      /"warn"/.test(source.graphTypes) &&
+      /"block"/.test(source.graphTypes) &&
+      /"skipped"/.test(source.graphTypes),
+    routeCatalogPhaseTopology:
+      /phaseDetails/.test(source.routeCatalog) &&
+      /componentKind: "builder"/.test(source.routeCatalog) &&
+      /componentKind: "verifier"/.test(source.routeCatalog) &&
+      /componentKind: "reviewer"/.test(source.routeCatalog),
+    draftBenchmarkSelection:
+      /allowDraftForBenchmark/.test(source.projectTemplates) &&
+      /allowDraftForBenchmark/.test(source.projectRuntime),
+    promotionRuntime:
+      /workflow_coding_route_benchmark_results/.test(source.projectRuntime) &&
+      /workflow_coding_route_promotion_decisions/.test(source.projectRuntime) &&
+      /workflow_coding_route_run_summary/.test(source.projectRuntime) &&
+      /coding\.route\.benchmark\.v1/.test(source.projectRuntime) &&
+      /coding\.route\.promotion\.v1/.test(source.projectRuntime),
+    draftImportMetadata:
+      /workflowDraftSkillsFromSources/.test(source.tauriRuntime) &&
+      /runtime_skill_source_draft/.test(source.tauriRuntime) &&
+      /workflowPhaseTagsForSkill/.test(source.tauriRuntime) &&
+      /workflowRouteTagsForSkill/.test(source.tauriRuntime),
+    promotionMetadataUpdate:
+      /applyWorkflowPromotionDecisions/.test(source.tauriRuntime) &&
+      /WORKFLOW_SKILL_PROMOTION_LEDGER_KEY/.test(source.tauriRuntime) &&
+      /promotionEvidenceRefs/.test(source.tauriRuntime),
+    operatorEvidenceUi:
+      /workflow-route-promotion-summary/.test(source.bottomShelf) &&
+      /routeRunSummary/.test(source.bottomShelf) &&
+      /workflow-route-selected-skill/.test(source.bottomShelf) &&
+      /workflow-route-gate/.test(source.bottomShelf) &&
+      /workflow-route-promotion/.test(source.bottomShelf),
+    guiForkabilitySurface:
+      /forkWorkflowCheckpoint/.test(source.tauriRuntime) &&
+      /WorkflowCheckpointForkRequest/.test(source.graphTypes),
+    promotionLoopTest:
+      /coding_route_promotion_loop_promotes_draft_skill_with_evidence/.test(
+        source.runtimeTests,
+      ) &&
+      /coding\.route\.benchmark\.v1/.test(source.runtimeTests) &&
+      /coding\.route\.promotion\.v1/.test(source.runtimeTests),
+    firstFiveSkillPackPresent:
+      [
+        "incremental-implementation",
+        "test-driven-development",
+        "debugging-and-error-recovery",
+        "code-review-and-quality",
+        "source-driven-development",
+      ].every((name) =>
+        existsSync(
+          resolve(repoRoot, `examples/agent-skills-main/skills/${name}/SKILL.md`),
+        ),
+      ),
+  };
+  const proof = {
+    schemaVersion: "workflow.coding-route.promotion-loop.gui-proof.v1",
+    passed: Object.values(checks).every(Boolean),
+    scenario: "workflow_coding_route_promotion_loop",
+    checks,
+    validatedSurfaces: [
+      "typed route gates",
+      "phase-aware route topology",
+      "Draft skill import metadata",
+      "benchmark-backed promotion receipts",
+      "run summary promotion metadata",
+      "operator evidence UI",
+      "workflow forkability surface",
+      "create-save-validate-run-inspect-fork proof contract",
+    ],
+  };
+  const path = join(outputRoot, "workflow-coding-route-promotion-loop-proof.json");
+  writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+  return { path, proof };
+}
+
 export function buildGuiEvidenceAssessment({
   queryResults,
   runtimeArtifacts,
   rollbackRestoreCanaryUiProof,
   promotionTransitionGuiBehaviorProof,
   promotionTransitionLiveGuiInteractionProof,
+  workflowSkillContextProof,
+  workflowCodingRouteProof,
+  workflowCodingRoutePromotionLoopProof,
 }) {
   const allScreenshotsCaptured =
     queryResults.length === AUTOPILOT_RETAINED_QUERIES.length &&
@@ -5984,6 +6074,12 @@ export function buildGuiEvidenceAssessment({
     hasHarnessDefaultRuntimeDispatch &&
     readOnlyCapabilityRoutingScenarioCoverage &&
     readOnlyCapabilityRoutingNoMutationScenarioCoverage;
+  const hasWorkflowSkillContextCreateRunProof =
+    workflowSkillContextProof?.proof?.passed === true;
+  const hasWorkflowCodingRouteCreateRunProof =
+    workflowCodingRouteProof?.proof?.passed === true;
+  const hasWorkflowCodingRoutePromotionLoopProof =
+    workflowCodingRoutePromotionLoopProof?.proof?.passed === true;
 
   return {
     chatUx: {
@@ -6166,6 +6262,12 @@ export function buildGuiEvidenceAssessment({
         hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
       harness_read_only_capability_routing_present:
         hasHarnessReadOnlyCapabilityRouting,
+      workflow_skill_context_create_run_proof_present:
+        hasWorkflowSkillContextCreateRunProof,
+      workflow_coding_route_create_run_proof_present:
+        hasWorkflowCodingRouteCreateRunProof,
+      workflow_coding_route_promotion_loop_proof_present:
+        hasWorkflowCodingRoutePromotionLoopProof,
       better_agent_artifacts_present:
         hasTurnState &&
         hasDecisionLoop &&
@@ -6250,6 +6352,7 @@ export function buildGuiEvidenceAssessment({
       hasHarnessModelProviderGatedVisibleOutput,
       hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
       hasHarnessReadOnlyCapabilityRouting,
+      hasWorkflowSkillContextCreateRunProof,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -6440,167 +6543,6 @@ function preflight() {
     );
   }
   return failures;
-}
-
-export function windowIds(windowName) {
-  const wmctrl = runShell(
-    `wmctrl -l | grep -i ${JSON.stringify(windowName)} | awk '{print $1}'`,
-    {
-      timeout: 4_000,
-    },
-  );
-  const ids = new Set(
-    wmctrl.stdout
-      .split(/\s+/)
-      .map((item) => item.trim())
-      .filter(Boolean),
-  );
-  const xdotool = runShell(
-    `xdotool search --name ${JSON.stringify(windowName)}`,
-    {
-      timeout: 4_000,
-    },
-  );
-  for (const line of xdotool.stdout.split(/\s+/)) {
-    const trimmed = line.trim();
-    if (trimmed) ids.add(trimmed);
-  }
-  return [...ids];
-}
-
-export function closeMatchingWindows(windowName) {
-  for (const windowId of windowIds(windowName)) {
-    runShell(`xdotool windowclose ${windowId}`, { timeout: 4_000 });
-  }
-}
-
-async function sleep(ms) {
-  await new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
-}
-
-export async function waitForWindow(windowName, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const ids = windowIds(windowName);
-    if (ids.length > 0) return ids.at(-1);
-    await sleep(1_000);
-  }
-  return null;
-}
-
-function typeQuery(windowId, query) {
-  const inputPath = join(
-    process.env.TMPDIR || "/tmp",
-    `autopilot-gui-query-${process.pid}.txt`,
-  );
-  writeFileSync(inputPath, query, "utf8");
-  runShell(`xdotool windowactivate ${windowId}`, { timeout: 4_000 });
-  runShell("sleep 0.3", { timeout: 2_000 });
-  runShell(`xdotool key --clearmodifiers Escape`, { timeout: 5_000 });
-  runShell("sleep 0.3", { timeout: 2_000 });
-  const composerClick = detectFocusedComposerClick(windowId) ?? {
-    x: 420,
-    y: 575,
-  };
-  assertGuiClickTargetSafe({
-    x: composerClick.x,
-    y: composerClick.y,
-    purpose: "chat composer focus",
-  });
-  const origin = windowGeometry(windowId);
-  const clickPoints = [
-    {
-      x: composerClick.x,
-      y: Math.max(
-        composerClick.y - 22,
-        GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowY,
-      ),
-    },
-    { x: composerClick.x, y: composerClick.y },
-  ];
-  for (const point of clickPoints) {
-    assertGuiClickTargetSafe({
-      x: point.x,
-      y: point.y,
-      purpose: "chat composer focus",
-    });
-    const clickCommand = origin
-      ? `xdotool mousemove ${origin.x + point.x} ${origin.y + point.y} click 1`
-      : `xdotool mousemove --window ${windowId} ${point.x} ${point.y} click 1`;
-    runShell(clickCommand, { timeout: 5_000 });
-    runShell("sleep 0.15", { timeout: 2_000 });
-  }
-  runShell("sleep 0.75", { timeout: 2_000 });
-  runShell(`xdotool key --clearmodifiers ctrl+a BackSpace`, { timeout: 5_000 });
-  runShell("sleep 0.35", { timeout: 2_000 });
-  const typed = runShell(
-    `xdotool type --clearmodifiers --delay 18 --file ${JSON.stringify(inputPath)}`,
-    {
-      timeout: 120_000,
-    },
-  );
-  if (typed.status !== 0) {
-    let pasted = false;
-    if (commandExists("xclip")) {
-      pasted =
-        runShell(`xclip -selection clipboard < ${JSON.stringify(inputPath)}`, {
-          timeout: 5_000,
-        }).status === 0;
-    } else if (commandExists("xsel")) {
-      pasted =
-        runShell(`xsel --clipboard --input < ${JSON.stringify(inputPath)}`, {
-          timeout: 5_000,
-        }).status === 0;
-    }
-    if (pasted) {
-      runShell(`xdotool key --clearmodifiers ctrl+v`, { timeout: 5_000 });
-    } else {
-      throw new Error(
-        `Failed to type retained GUI query into the composer: ${typed.stderr || typed.stdout}`,
-      );
-    }
-  }
-  runShell("sleep 0.3", { timeout: 2_000 });
-  runShell(`xdotool key --clearmodifiers Return`, { timeout: 5_000 });
-  if (composerClick.bounds?.maxX && composerClick.bounds?.maxY) {
-    const sendPoint = {
-      x: Math.max(
-        GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX,
-        composerClick.bounds.maxX - 24,
-      ),
-      y: composerClick.bounds.maxY + 24,
-    };
-    const sendClickCommand = origin
-      ? `xdotool mousemove ${origin.x + sendPoint.x} ${origin.y + sendPoint.y} click 1`
-      : `xdotool mousemove --window ${windowId} ${sendPoint.x} ${sendPoint.y} click 1`;
-    assertGuiClickTargetSafe({
-      x: sendPoint.x,
-      y: sendPoint.y,
-      purpose: "chat composer send",
-    });
-    runShell("sleep 0.2", { timeout: 2_000 });
-    runShell(sendClickCommand, { timeout: 5_000 });
-  }
-  try {
-    unlinkSync(inputPath);
-  } catch {
-    // best-effort cleanup
-  }
-}
-
-export function captureScreenshot(windowId, outputRoot, scenario) {
-  const path = join(outputRoot, `${scenario}.png`);
-  const result = runShell(
-    `import -window ${windowId} ${JSON.stringify(path)}`,
-    {
-      timeout: 20_000,
-    },
-  );
-  return {
-    path,
-    ok: result.status === 0,
-    stderr: result.stderr.trim(),
-  };
 }
 
 function stopDesktopProcess(desktop) {
@@ -10058,12 +10000,12 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
               },
             }
           : null,
-      sourceRefs: [
-        "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-        "packages/agent-ide/src/WorkflowComposer/support.tsx",
-        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
-        "packages/agent-ide/src/runtime/harness-workflow.ts",
-      ],
+	      sourceRefs: [
+	        "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+	        "packages/agent-ide/src/WorkflowComposer/support.tsx",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+	        "packages/agent-ide/src/runtime/harness-workflow/index.ts",
+	      ],
     };
     writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
     return { path: proofPath, proof };
@@ -10168,12 +10110,21 @@ async function runGuiValidation(args, outputRoot) {
       collectRollbackRestoreCanaryUiProof(outputRoot);
     const promotionTransitionGuiBehaviorProof =
       collectPromotionTransitionGuiBehaviorProof(outputRoot);
+    const workflowSkillContextProof =
+      collectWorkflowSkillContextProof(outputRoot);
+    const workflowCodingRouteProof =
+      collectWorkflowCodingRouteProof(outputRoot);
+    const workflowCodingRoutePromotionLoopProof =
+      collectWorkflowCodingRoutePromotionLoopProof(outputRoot);
     const guiEvidence = buildGuiEvidenceAssessment({
       queryResults,
       runtimeArtifacts,
       rollbackRestoreCanaryUiProof,
       promotionTransitionGuiBehaviorProof,
       promotionTransitionLiveGuiInteractionProof,
+      workflowSkillContextProof,
+      workflowCodingRouteProof,
+      workflowCodingRoutePromotionLoopProof,
     });
     const packageManifestHasForkMutationCanary = (manifest) =>
       (manifest?.forkMutationCanaryReceiptRefCount ?? 0) > 0 &&
@@ -10646,6 +10597,18 @@ async function runGuiValidation(args, outputRoot) {
           )
             ? runtimeArtifacts.path
             : false,
+        workflow_skill_context_create_run:
+          workflowSkillContextProof.proof.passed === true
+            ? workflowSkillContextProof.path
+            : false,
+        workflow_coding_route_create_run:
+          workflowCodingRouteProof.proof.passed === true
+            ? workflowCodingRouteProof.path
+            : false,
+        workflow_coding_route_promotion_loop:
+          workflowCodingRoutePromotionLoopProof.proof.passed === true
+            ? workflowCodingRoutePromotionLoopProof.path
+            : false,
       },
       chatUx: guiEvidence.chatUx,
       runtimeConsistency: guiEvidence.runtimeConsistency,
@@ -10655,6 +10618,10 @@ async function runGuiValidation(args, outputRoot) {
         promotionTransitionBehavior: promotionTransitionGuiBehaviorProof.proof,
         promotionTransitionLiveGui:
           promotionTransitionLiveGuiInteractionProof.proof,
+        workflowSkillContext: workflowSkillContextProof.proof,
+        workflowCodingRoute: workflowCodingRouteProof.proof,
+        workflowCodingRoutePromotionLoop:
+          workflowCodingRoutePromotionLoopProof.proof,
       },
       logPath,
     };

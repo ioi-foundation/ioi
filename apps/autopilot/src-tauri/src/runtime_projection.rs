@@ -25,6 +25,7 @@ pub enum ActionKind {
     Function,
     ModelBinding,
     ModelCall,
+    SkillContext,
     Parser,
     AdapterConnector,
     PluginTool,
@@ -61,6 +62,7 @@ impl ActionKind {
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
+            "skill_context" => Self::SkillContext,
             "parser" => Self::Parser,
             "adapter" => Self::AdapterConnector,
             "plugin_tool" => Self::PluginTool,
@@ -97,6 +99,7 @@ impl ActionKind {
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
+            Self::SkillContext => "skill_context",
             Self::Parser => "parser",
             Self::AdapterConnector => "adapter",
             Self::PluginTool => "plugin_tool",
@@ -133,6 +136,7 @@ impl ActionKind {
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
+            Self::SkillContext => "skill_context",
             Self::Parser => "parser",
             Self::AdapterConnector => "adapter",
             Self::PluginTool => "plugin_tool",
@@ -175,6 +179,7 @@ impl ActionKind {
             Self::Function
                 | Self::ModelBinding
                 | Self::ModelCall
+                | Self::SkillContext
                 | Self::Parser
                 | Self::AdapterConnector
                 | Self::PluginTool

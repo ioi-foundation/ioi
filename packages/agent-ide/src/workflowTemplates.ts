@@ -260,6 +260,77 @@ function assertion(id: string, name: string, x: number, y: number): WorkflowNode
   });
 }
 
+function routeSource(routeId: string, request: string): WorkflowNode {
+  return node({
+    id: "source-coding-goal",
+    type: "source",
+    name: "Coding goal",
+    x: 90,
+    y: 180,
+    metricLabel: "Input",
+    metricValue: "manual",
+    ioTypes: { in: "none", out: "payload" },
+    outputs: ["output"],
+    config: {
+      logic: {
+        sourceKind: "manual",
+        payload: { request, routeId },
+        schema: {
+          type: "object",
+          required: ["request"],
+          properties: {
+            request: { type: "string" },
+            routeId: { type: "string" },
+          },
+        },
+      },
+      law: {},
+    },
+  });
+}
+
+function skillContext(_routeId: string, goal: string): WorkflowNode {
+  return node({
+    id: "skill-context-route",
+    type: "skill_context",
+    name: "Runtime skill context",
+    x: 340,
+    y: 170,
+    metricLabel: "Skills",
+    metricValue: "registry",
+    ioTypes: { in: "payload", out: "payload" },
+    inputs: ["input"],
+    outputs: ["output", "error"],
+    config: {
+      logic: {
+        skillContext: {
+          mode: "discover",
+          goalSource: "static",
+          goal,
+          minScoreBps: 4500,
+          maxSkills: 3,
+          onNoMatch: "warn",
+          allowDraftForBenchmark: true,
+          pinnedSkills: [],
+          onMissingPinned: "block",
+          includeMarkdown: true,
+          guidanceMaxChars: 1800,
+        },
+      },
+      law: {},
+    },
+  });
+}
+
+function routeWorker(routeId: string, prompt: string): WorkflowNode {
+  const worker = model("model-route-worker", "Route worker", 610, 170, prompt);
+  worker.config = {
+    logic: { ...(worker.config?.logic ?? {}), routeId },
+    law: worker.config?.law ?? {},
+  };
+  return worker;
+}
+
 function template(
   templateId: string,
   name: string,
@@ -289,6 +360,105 @@ function template(
 }
 
 export const WORKFLOW_TEMPLATES: WorkflowTemplateMetadata[] = [
+  template(
+    "coding.template.build",
+    "Coding route build",
+    "Typed build route with explicit runtime skill context and verification gate evidence.",
+    "agent_workflow",
+    "local",
+    "coding_route",
+    [],
+    [],
+    [
+      routeSource("coding.template.build", "Implement the requested coding change with explicit verification evidence."),
+      skillContext("coding.template.build", "incremental implementation test driven development focused verification"),
+      routeWorker(
+        "coding.template.build",
+        "Run the build route. Use attached runtime skill context only as bounded guidance. Produce implementation, verification, and closeout evidence.",
+      ),
+      output("output-route-report", "Route report", 880, 180, "report"),
+    ],
+    [
+      edge("edge-goal-skill-context", "source-coding-goal", "skill-context-route"),
+      edge("edge-goal-model", "source-coding-goal", "model-route-worker"),
+      edge("edge-skill-context-model-context", "skill-context-route", "model-route-worker", "output", "context"),
+      edge("edge-model-route-output", "model-route-worker", "output-route-report"),
+    ],
+    [
+      test("test-coding-build-route", "Build route has explicit skill context and output path", [
+        "source-coding-goal",
+        "skill-context-route",
+        "model-route-worker",
+        "output-route-report",
+      ]),
+    ],
+  ),
+  template(
+    "coding.template.debug",
+    "Coding route debug",
+    "Typed debug route with explicit runtime skill context and reproduction/verification gates.",
+    "agent_workflow",
+    "local",
+    "coding_route",
+    [],
+    [],
+    [
+      routeSource("coding.template.debug", "Debug the reported failure by reproducing, isolating, fixing, and verifying it."),
+      skillContext("coding.template.debug", "debugging regression reproduction test driven verification"),
+      routeWorker(
+        "coding.template.debug",
+        "Run the debug route. Use attached runtime skill context only as bounded guidance. Produce reproduction, fix, verification, and closeout evidence.",
+      ),
+      output("output-route-report", "Route report", 880, 180, "report"),
+    ],
+    [
+      edge("edge-goal-skill-context", "source-coding-goal", "skill-context-route"),
+      edge("edge-goal-model", "source-coding-goal", "model-route-worker"),
+      edge("edge-skill-context-model-context", "skill-context-route", "model-route-worker", "output", "context"),
+      edge("edge-model-route-output", "model-route-worker", "output-route-report"),
+    ],
+    [
+      test("test-coding-debug-route", "Debug route has explicit skill context and output path", [
+        "source-coding-goal",
+        "skill-context-route",
+        "model-route-worker",
+        "output-route-report",
+      ]),
+    ],
+  ),
+  template(
+    "coding.template.review",
+    "Coding route review",
+    "Typed review route with explicit runtime skill context and findings/verification gates.",
+    "agent_workflow",
+    "local",
+    "coding_route",
+    [],
+    [],
+    [
+      routeSource("coding.template.review", "Review the requested change and report grounded findings, risks, and verification gaps."),
+      skillContext("coding.template.review", "code review security review test review verification evidence"),
+      routeWorker(
+        "coding.template.review",
+        "Run the review route. Use attached runtime skill context only as bounded guidance. Lead with findings, verification evidence, and residual risk.",
+      ),
+      output("output-route-report", "Route report", 880, 180, "report"),
+    ],
+    [
+      edge("edge-goal-skill-context", "source-coding-goal", "skill-context-route"),
+      edge("edge-goal-model", "source-coding-goal", "model-route-worker"),
+      edge("edge-skill-context-model-context", "skill-context-route", "model-route-worker", "output", "context"),
+      edge("edge-model-route-output", "model-route-worker", "output-route-report"),
+    ],
+    [
+      test("test-coding-review-route", "Review route has explicit skill context and output path", [
+        "source-coding-goal",
+        "skill-context-route",
+        "model-route-worker",
+        "output-route-report",
+      ]),
+    ],
+  ),
   template(
     "basic-agent-answer",
     "Basic agent answer",

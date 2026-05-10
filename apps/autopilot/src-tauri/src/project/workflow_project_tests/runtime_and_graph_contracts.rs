@@ -370,6 +370,496 @@ fn workflow_shared_executor_lifecycle_covers_successful_node_families() {
 }
 
 #[test]
+fn workflow_skill_context_discovery_attaches_model_context() {
+    let root = temp_root("skill-context-discovery");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Skill Context Discovery".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut source = workflow_node(
+        "skill-source",
+        "source",
+        "Goal",
+        80,
+        160,
+        "Input",
+        "manual",
+    );
+    logic_mut(&mut source).insert(
+        "payload".to_string(),
+        json!({"request": "Build a frontend app user interface with polished workflow controls."}),
+    );
+    let skill_context = workflow_node(
+        "skill-context",
+        "skill_context",
+        "Runtime skills",
+        320,
+        260,
+        "Skills",
+        "discover",
+    );
+    let mut model = workflow_node(
+        "skill-model",
+        "model_call",
+        "Plan with skills",
+        560,
+        160,
+        "Model",
+        "reasoning",
+    );
+    logic_mut(&mut model).insert(
+        "outputSchema".to_string(),
+        json!({"type": "object", "required": ["message", "attachments"]}),
+    );
+    let output = workflow_node(
+        "skill-output",
+        "output",
+        "Output",
+        820,
+        160,
+        "Output",
+        "markdown",
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![source, skill_context, model, output];
+    workflow.edges = vec![
+        workflow_edge("edge-source-skill", "skill-source", "skill-context"),
+        workflow_edge("edge-source-model", "skill-source", "skill-model"),
+        json!({
+            "id": "edge-skill-model-context",
+            "from": "skill-context",
+            "to": "skill-model",
+            "fromPort": "output",
+            "toPort": "context",
+            "type": "data",
+            "connectionClass": "data",
+            "data": { "connectionClass": "data" }
+        }),
+        workflow_edge("edge-model-output", "skill-model", "skill-output"),
+    ];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_project(
+        bundle.workflow_path,
+        Some(json!({
+            "skillCatalog": [{
+                "skillHash": "skill-frontend",
+                "name": "frontend-skill",
+                "description": "Frontend app user interface design and workflow controls.",
+                "lifecycleState": "promoted",
+                "sourceType": "runtime_registry",
+                "successRateBps": 9300,
+                "sampleSize": 42,
+                "relativePath": "skills/frontend/SKILL.md",
+                "stale": false,
+                "markdown": "# frontend-skill\nUse visual hierarchy, stable controls, and domain-specific UI composition."
+            }]
+        })),
+    )
+    .expect("workflow should run");
+    assert_eq!(run.summary.status, "passed");
+    let skill_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "skill-context")
+        .expect("skill context should run");
+    let skill_output = skill_run.output.as_ref().expect("skill output");
+    assert_eq!(
+        skill_output.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.skill-context.v1")
+    );
+    assert_eq!(
+        skill_output.get("status").and_then(Value::as_str),
+        Some("attached")
+    );
+    assert!(skill_output
+        .get("evidenceRefs")
+        .and_then(Value::as_array)
+        .expect("evidence refs")
+        .iter()
+        .any(|item| item.as_str() == Some("workflow.skill_context.discovery.v1:skill-context")));
+    assert!(skill_output
+        .get("evidenceRefs")
+        .and_then(Value::as_array)
+        .expect("evidence refs")
+        .iter()
+        .any(|item| item.as_str() == Some("workflow.skill_context.read.v1:skill-frontend")));
+    let model_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "skill-model")
+        .expect("model should run");
+    let model_skill_context = model_run
+        .output
+        .as_ref()
+        .and_then(|output| output.get("attachments"))
+        .and_then(|attachments| attachments.get("skillContext"))
+        .expect("model should receive skill context attachment");
+    assert_eq!(
+        model_skill_context
+            .get("selectedSkills")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("skillHash"))
+            .and_then(Value::as_str),
+        Some("skill-frontend")
+    );
+    assert!(run.verification_evidence.iter().any(|evidence| {
+        evidence.node_id == "skill-context"
+            && evidence.evidence_type == "skill_context"
+            && evidence.summary.contains("skill-frontend")
+    }));
+    assert!(run.route_evidence.iter().any(|evidence| {
+        evidence.evidence_kind == "coding.route.skill_selection.v1"
+            && evidence
+                .selected_skill_hashes
+                .iter()
+                .any(|hash| hash == "skill-frontend")
+    }));
+}
+
+#[test]
+fn coding_route_templates_validate_run_and_emit_route_evidence() {
+    let route_skill_catalog = json!({
+        "skillCatalog": [
+            {
+                "skillHash": "skill-incremental",
+                "name": "incremental-implementation",
+                "description": "Incremental implementation with focused verification.",
+                "lifecycleState": "promoted",
+                "sourceType": "runtime_registry",
+                "successRateBps": 9400,
+                "sampleSize": 48,
+                "relativePath": "skills/incremental/SKILL.md",
+                "stale": false,
+                "markdown": "Use narrow slices, focused edits, and verification evidence."
+            },
+            {
+                "skillHash": "skill-debug",
+                "name": "debugging",
+                "description": "Reproduce failures and verify fixes.",
+                "lifecycleState": "validated",
+                "sourceType": "runtime_registry",
+                "successRateBps": 9100,
+                "sampleSize": 32,
+                "relativePath": "skills/debugging/SKILL.md",
+                "stale": false,
+                "markdown": "Capture repro evidence, isolate the cause, and verify the fix."
+            },
+            {
+                "skillHash": "skill-review",
+                "name": "code-review",
+                "description": "Review code for bugs, risks, and missing tests.",
+                "lifecycleState": "promoted",
+                "sourceType": "runtime_registry",
+                "successRateBps": 9200,
+                "sampleSize": 36,
+                "relativePath": "skills/review/SKILL.md",
+                "stale": false,
+                "markdown": "Lead with findings and cite evidence."
+            }
+        ]
+    });
+    for (template_id, expected_skill_hash) in [
+        ("coding.template.build", "skill-incremental"),
+        ("coding.template.debug", "skill-debug"),
+        ("coding.template.review", "skill-review"),
+    ] {
+        let root = temp_root(&format!("route-template-{}", template_id.replace('.', "-")));
+        let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
+            project_root: root.display().to_string(),
+            template_id: template_id.to_string(),
+            name: Some(format!("{} proof", template_id)),
+        })
+        .expect("route template should create");
+        assert_eq!(
+            bundle
+                .workflow
+                .global_config
+                .get("codingRoute")
+                .and_then(|route| route.get("routeId"))
+                .and_then(Value::as_str),
+            Some(template_id)
+        );
+        assert!(bundle.workflow.nodes.iter().any(|node| {
+            workflow_node_id(node).as_deref() == Some("skill-context-route")
+                && workflow_node_type(node) == "skill_context"
+        }));
+        assert!(bundle.workflow.edges.iter().any(|edge| {
+            workflow_edge_from(edge).as_deref() == Some("skill-context-route")
+                && workflow_edge_to(edge).as_deref() == Some("model-route-worker")
+                && workflow_edge_to_port(edge) == "context"
+        }));
+        let validation =
+            validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+        assert_eq!(validation.status, "passed", "{template_id} should validate");
+
+        let run = run_workflow_project(bundle.workflow_path, Some(route_skill_catalog.clone()))
+            .expect("route template should run");
+        assert_eq!(run.summary.status, "passed", "{template_id} should pass");
+        assert!(run.route_evidence.iter().any(|evidence| {
+            evidence.evidence_kind == "coding.route.classification.v1"
+                && evidence.route_id == template_id
+        }));
+        assert!(run.route_evidence.iter().any(|evidence| {
+            evidence.evidence_kind == "coding.route.skill_selection.v1"
+                && evidence
+                    .selected_skill_hashes
+                    .iter()
+                    .any(|hash| hash == expected_skill_hash)
+        }));
+        assert!(run.route_evidence.iter().any(|evidence| {
+            evidence.evidence_kind == "coding.route.gate.v1"
+                && evidence
+                    .gate_result
+                    .as_ref()
+                    .map(|gate| gate.status.as_str())
+                    == Some("pass")
+        }));
+        assert!(run.verification_evidence.iter().any(|evidence| {
+            evidence.evidence_type == "coding.route.gate.v1" && evidence.status == "pass"
+        }));
+        assert!(run.route_run_summary.as_ref().is_some_and(|summary| {
+            summary.route_id == template_id
+                && !summary.gate_results.is_empty()
+                && summary
+                    .benchmark_results
+                    .iter()
+                    .any(|result| result.selected_skill_hash == expected_skill_hash)
+                && summary
+                    .promotion_decisions
+                    .iter()
+                    .any(|decision| decision.skill_hash == expected_skill_hash)
+        }));
+    }
+}
+
+#[test]
+fn coding_route_promotion_loop_promotes_draft_skill_with_evidence() {
+    let root = temp_root("route-promotion-loop");
+    let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
+        project_root: root.display().to_string(),
+        template_id: "coding.template.build".to_string(),
+        name: Some("Promotion Loop Build".to_string()),
+    })
+    .expect("route template should create");
+    let run = run_workflow_project(
+        bundle.workflow_path,
+        Some(json!({
+            "skillCatalog": [
+                {
+                    "skillHash": "draft-incremental",
+                    "name": "incremental-implementation",
+                    "description": "Draft incremental implementation guidance.",
+                    "lifecycleState": "Draft",
+                    "sourceType": "runtime_skill_source_draft",
+                    "successRateBps": 0,
+                    "sampleSize": 0,
+                    "relativePath": "skills/incremental-implementation/SKILL.md",
+                    "stale": false,
+                    "markdown": "Work in small slices and verify each change.",
+                    "phaseTags": ["coding.build", "coding.verify"],
+                    "routeTags": ["coding.template.build"],
+                    "promotionEvidenceRefs": []
+                }
+            ]
+        })),
+    )
+    .expect("route should run with draft benchmark skill");
+    assert_eq!(run.summary.status, "passed");
+    let summary = run
+        .route_run_summary
+        .as_ref()
+        .expect("route run summary should exist");
+    assert_eq!(summary.route_id, "coding.template.build");
+    assert!(summary
+        .selected_skills
+        .iter()
+        .any(|skill| skill.skill_hash == "draft-incremental"
+            && skill.lifecycle_state == "Draft"));
+    assert!(summary
+        .gate_results
+        .iter()
+        .any(|gate| gate.gate_id == "route.verify.execution"
+            && gate.status == "pass"
+            && gate.operator_override_allowed == false));
+    assert!(summary
+        .benchmark_results
+        .iter()
+        .any(|result| result.selected_skill_hash == "draft-incremental"
+            && result.promotion_decision == "promote"));
+    assert!(summary
+        .promotion_decisions
+        .iter()
+        .any(|decision| decision.skill_hash == "draft-incremental"
+            && decision.decision == "promote"
+            && decision.to_lifecycle_state == "Promoted"));
+    assert!(run.route_evidence.iter().any(|evidence| {
+        evidence.evidence_kind == "coding.route.benchmark.v1"
+            && evidence
+                .benchmark_results
+                .iter()
+                .any(|result| result.selected_skill_hash == "draft-incremental")
+    }));
+    assert!(run.route_evidence.iter().any(|evidence| {
+        evidence.evidence_kind == "coding.route.promotion.v1"
+            && evidence
+                .promotion_decisions
+                .iter()
+                .any(|decision| decision.skill_hash == "draft-incremental")
+    }));
+}
+
+#[test]
+fn coding_route_classifier_defaults_to_build_and_detects_debug_or_review() {
+    for (name, expected_route) in [
+        ("Implement sidebar workflow controls", "coding.template.build"),
+        ("Debug failing route validation", "coding.template.debug"),
+        ("Review security sensitive workflow patch", "coding.template.review"),
+    ] {
+        let root = temp_root(&format!("route-classifier-{}", expected_route.replace('.', "-")));
+        let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+            project_root: root.display().to_string(),
+            name: name.to_string(),
+            workflow_kind: "agent_workflow".to_string(),
+            execution_mode: "local".to_string(),
+            template_id: None,
+        })
+        .expect("workflow bundle should create");
+        let mut source = workflow_node(
+            "route-source",
+            "source",
+            "Route source",
+            80,
+            120,
+            "Input",
+            "manual",
+        );
+        logic_mut(&mut source).insert("payload".to_string(), json!({"request": name}));
+        let output = workflow_node(
+            "route-output",
+            "output",
+            "Route output",
+            320,
+            120,
+            "Output",
+            "report",
+        );
+        let mut workflow = bundle.workflow.clone();
+        workflow.nodes = vec![source, output];
+        workflow.edges = vec![workflow_edge("edge-route-source-output", "route-source", "route-output")];
+        save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+        let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
+        assert_eq!(run.summary.status, "passed");
+        assert!(run.route_evidence.iter().any(|evidence| {
+            evidence.evidence_kind == "coding.route.classification.v1"
+                && evidence.route_id == expected_route
+        }));
+    }
+}
+
+#[test]
+fn workflow_skill_context_pinned_name_ambiguity_blocks() {
+    let root = temp_root("skill-context-ambiguous");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Skill Context Ambiguity".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+    let source = workflow_node(
+        "ambiguous-source",
+        "source",
+        "Goal",
+        80,
+        120,
+        "Input",
+        "manual",
+    );
+    let mut skill_context = workflow_node(
+        "skill-context",
+        "skill_context",
+        "Runtime skills",
+        320,
+        120,
+        "Skills",
+        "pinned",
+    );
+    logic_mut(&mut skill_context).insert(
+        "skillContext".to_string(),
+        json!({
+            "mode": "pinned",
+            "pinnedSkills": [{ "name": "frontend-skill", "required": true }],
+            "onMissingPinned": "block",
+            "includeMarkdown": true,
+            "guidanceMaxChars": 1800
+        }),
+    );
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![source, skill_context];
+    workflow.edges = vec![workflow_edge(
+        "edge-source-skill-context",
+        "ambiguous-source",
+        "skill-context",
+    )];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let run = run_workflow_project(
+        bundle.workflow_path,
+        Some(json!({
+            "skillCatalog": [
+                {
+                    "skillHash": "skill-front-a",
+                    "name": "frontend-skill",
+                    "description": "First frontend skill.",
+                    "lifecycleState": "promoted",
+                    "sourceType": "runtime_registry",
+                    "successRateBps": 9000,
+                    "sampleSize": 10,
+                    "relativePath": "a/SKILL.md",
+                    "stale": false,
+                    "markdown": "First"
+                },
+                {
+                    "skillHash": "skill-front-b",
+                    "name": "frontend-skill",
+                    "description": "Second frontend skill.",
+                    "lifecycleState": "promoted",
+                    "sourceType": "runtime_registry",
+                    "successRateBps": 9000,
+                    "sampleSize": 10,
+                    "relativePath": "b/SKILL.md",
+                    "stale": false,
+                    "markdown": "Second"
+                }
+            ]
+        })),
+    )
+    .expect("workflow should run");
+    assert_eq!(run.summary.status, "failed");
+    assert!(run.node_runs.iter().any(|node_run| {
+        node_run.node_id == "skill-context"
+            && node_run
+                .error
+                .as_deref()
+                .unwrap_or_default()
+                .contains("matched 2 skills")
+    }));
+}
+
+#[test]
 fn workflow_tool_argument_schema_blocks_malformed_tool_call() {
     let root = temp_root("tool-argument-schema");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {
@@ -872,4 +1362,3 @@ fn scratch_graph_validation_rejects_backwards_entry_and_terminal_edges() {
         .iter()
         .any(|issue| issue.code == "invalid_output_edge"));
 }
-

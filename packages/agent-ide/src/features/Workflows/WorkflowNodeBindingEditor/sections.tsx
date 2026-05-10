@@ -26,6 +26,22 @@ export function WorkflowNodeBindingSections({
   updateLogic,
   onDryRun,
 }: WorkflowNodeBindingSectionsProps) {
+  const skillContext: NonNullable<NodeLogic["skillContext"]> = logic.skillContext ?? {
+    mode: "discover",
+    goalSource: "node_input",
+    goal: "",
+    minScoreBps: 6500,
+    maxSkills: 3,
+    onNoMatch: "warn",
+    pinnedSkills: [],
+    onMissingPinned: "block",
+    includeMarkdown: true,
+    guidanceMaxChars: 1800,
+  };
+  const updateSkillContext = (
+    next: NonNullable<NodeLogic["skillContext"]>,
+  ) => updateLogic({ ...logic, skillContext: next });
+
   return (
     <>
       {node.type === "source" ? (
@@ -241,6 +257,184 @@ export function WorkflowNodeBindingSections({
                 updateLogic({ ...logic, dedupeKey: event.target.value })
               }
             />
+          </label>
+        </>
+      ) : null}
+      {node.type === "skill_context" ? (
+        <>
+          <label>
+            Skill mode
+            <select
+              data-testid="workflow-skill-context-mode"
+              value={skillContext.mode}
+              onChange={(event) =>
+                updateSkillContext({
+                  ...skillContext,
+                  mode: event.target.value as "discover" | "pinned",
+                })
+              }
+            >
+              <option value="discover">Discover</option>
+              <option value="pinned">Pinned</option>
+            </select>
+          </label>
+          {skillContext.mode === "discover" ? (
+            <>
+              <label>
+                Goal source
+                <select
+                  data-testid="workflow-skill-context-goal-source"
+                  value={skillContext.goalSource ?? "node_input"}
+                  onChange={(event) =>
+                    updateSkillContext({
+                      ...skillContext,
+                      goalSource: event.target.value as
+                        | "workflow_goal"
+                        | "node_input"
+                        | "static",
+                    })
+                  }
+                >
+                  <option value="node_input">Node input</option>
+                  <option value="workflow_goal">Workflow goal</option>
+                  <option value="static">Static goal</option>
+                </select>
+              </label>
+              <label>
+                Static goal
+                <textarea
+                  data-testid="workflow-skill-context-goal"
+                  value={String(skillContext.goal ?? "")}
+                  onChange={(event) =>
+                    updateSkillContext({
+                      ...skillContext,
+                      goal: event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Minimum score
+                <input
+                  data-testid="workflow-skill-context-min-score"
+                  type="number"
+                  min={0}
+                  max={10000}
+                  step={100}
+                  value={Number(skillContext.minScoreBps ?? 6500)}
+                  onChange={(event) =>
+                    updateSkillContext({
+                      ...skillContext,
+                      minScoreBps: Number(event.target.value) || 0,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Max skills
+                <input
+                  data-testid="workflow-skill-context-max-skills"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={Number(skillContext.maxSkills ?? 3)}
+                  onChange={(event) =>
+                    updateSkillContext({
+                      ...skillContext,
+                      maxSkills: Number(event.target.value) || 1,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                No match behavior
+                <select
+                  data-testid="workflow-skill-context-no-match"
+                  value={skillContext.onNoMatch ?? "warn"}
+                  onChange={(event) =>
+                    updateSkillContext({
+                      ...skillContext,
+                      onNoMatch: event.target.value as "warn" | "block",
+                    })
+                  }
+                >
+                  <option value="warn">Warn</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+            </>
+          ) : (
+            <>
+              <label>
+                Pinned skills
+                <textarea
+                  data-testid="workflow-skill-context-pinned-skills"
+                  value={(skillContext.pinnedSkills ?? [])
+                    .map((skill) => skill.skillHash || skill.name || "")
+                    .join("\n")}
+                  placeholder="skill hash or exact name, one per line"
+                  onChange={(event) => {
+                    const pinnedSkills = event.target.value
+                      .split(/\n|,/)
+                      .map((value) => value.trim())
+                      .filter(Boolean)
+                      .map((value) =>
+                        value.length >= 16 || value.startsWith("sha")
+                          ? { skillHash: value, required: true }
+                          : { name: value, required: true },
+                      );
+                    updateSkillContext({ ...skillContext, pinnedSkills });
+                  }}
+                />
+              </label>
+              <label>
+                Missing pinned behavior
+                <select
+                  data-testid="workflow-skill-context-missing-pinned"
+                  value={skillContext.onMissingPinned ?? "block"}
+                  onChange={(event) =>
+                    updateSkillContext({
+                      ...skillContext,
+                      onMissingPinned: event.target.value as "warn" | "block",
+                    })
+                  }
+                >
+                  <option value="block">Block</option>
+                  <option value="warn">Warn</option>
+                </select>
+              </label>
+            </>
+          )}
+          <label>
+            Guidance clipping
+            <input
+              data-testid="workflow-skill-context-guidance-max"
+              type="number"
+              min={200}
+              max={12000}
+              step={100}
+              value={Number(skillContext.guidanceMaxChars ?? 1800)}
+              onChange={(event) =>
+                updateSkillContext({
+                  ...skillContext,
+                  guidanceMaxChars: Number(event.target.value) || 1800,
+                })
+              }
+            />
+          </label>
+          <label className="workflow-config-checkbox-row">
+            <input
+              data-testid="workflow-skill-context-include-markdown"
+              type="checkbox"
+              checked={skillContext.includeMarkdown !== false}
+              onChange={(event) =>
+                updateSkillContext({
+                  ...skillContext,
+                  includeMarkdown: event.target.checked,
+                })
+              }
+            />
+            Include markdown guidance
           </label>
         </>
       ) : null}
