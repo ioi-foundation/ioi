@@ -253,4 +253,3 @@ pub struct HarnessLivePromotionReadinessProof {
     pub policy_decision: String,
     pub evidence_refs: Vec<String>,
 }
-

@@ -77,15 +77,16 @@ const harnessAuthorityTokens = [
 ];
 
 const harnessAuthorityAllowlist = [
-  "apps/autopilot/src-tauri/src/orchestrator/store.rs",
+  "apps/autopilot/src-tauri/src/orchestrator/store/core.rs",
   "apps/autopilot/src-tauri/src/orchestrator/store/tests.rs",
   "apps/autopilot/src-tauri/src/project/runtime.rs",
   "crates/services/src/agentic/runtime/README.md",
   "crates/services/src/agentic/runtime/harness.rs",
   "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-  "packages/agent-ide/src/runtime/harness-workflow.ts",
+  "packages/agent-ide/src/runtime/harness-workflow/core.ts",
   "packages/agent-ide/src/runtime/workflow-rail-model.ts",
   "packages/agent-ide/src/types/graph.ts",
+  "scripts/lib/autopilot-gui-harness-validation/core.mjs",
   "scripts/lib/harness-contract-consistency.test.mjs",
   "scripts/lib/harness-modularity-guard.test.mjs",
 ];
@@ -103,6 +104,30 @@ const retiredHarnessRuntimeTokens = [
 
 function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+function readMany(relativePaths) {
+  return relativePaths.map(read).join("\n");
+}
+
+function readRustHarnessContract() {
+  return readMany([
+    "crates/types/src/app/harness/core.rs",
+    "crates/types/src/app/harness/promotion.rs",
+    "crates/types/src/app/harness/components.rs",
+    "crates/types/src/app/harness/worker_binding.rs",
+    "crates/types/src/app/harness/activation.rs",
+    "crates/types/src/app/harness/receipts.rs",
+    "crates/types/src/app/harness/serde_bridge.rs",
+  ]);
+}
+
+function readTsHarnessWorkflow() {
+  return read("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+}
+
+function readGuiHarnessValidation() {
+  return read("scripts/lib/autopilot-gui-harness-validation/core.mjs");
 }
 
 function rustImplBlock(source, implName) {
@@ -184,7 +209,7 @@ test("runtime README carries the default harness modularity contract", () => {
 });
 
 test("Rust and TS retain the guarded P0 harness component surface", () => {
-  const rust = read("crates/types/src/app/harness.rs");
+  const rust = readRustHarnessContract();
   const graph = read("packages/agent-ide/src/types/graph.ts");
   const rustKinds = rustAsStrValues(rust, "HarnessComponentKind");
   const tsKinds = tsUnionValues(graph, "WorkflowHarnessComponentKind");
@@ -220,7 +245,7 @@ test("Rust and TS retain the guarded P0 harness component surface", () => {
 });
 
 test("adapter contracts expose action frame, node attempt, readiness, receipts, replay, and slots", () => {
-  const rust = read("crates/types/src/app/harness.rs");
+  const rust = readRustHarnessContract();
   const graph = read("packages/agent-ide/src/types/graph.ts");
 
   const tsActionFrame = tsInterfaceBlock(graph, "WorkflowHarnessActionFrame");
@@ -290,8 +315,8 @@ test("adapter contracts expose action frame, node attempt, readiness, receipts, 
 
 test("P0 clusters keep explicit workflow component adapter proof", () => {
   const graph = read("packages/agent-ide/src/types/graph.ts");
-  const workflow = read("packages/agent-ide/src/runtime/harness-workflow.ts");
-  const guiValidation = read("scripts/run-autopilot-gui-harness-validation.mjs");
+  const workflow = readTsHarnessWorkflow();
+  const guiValidation = readGuiHarnessValidation();
 
   for (const pattern of [
     /cognitionExecutionAdapterMode[\s\S]*workflow_component_adapter_live/,

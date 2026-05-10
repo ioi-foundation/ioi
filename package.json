@@ -25,7 +25,7 @@
     "validate:autopilot-gui-harness:run": "node scripts/run-autopilot-gui-harness-validation.mjs --run",
     "test:autopilot-gui-harness": "node --test scripts/lib/autopilot-gui-harness-contract.test.mjs",
     "test:harness-modularity": "node --test scripts/lib/harness-modularity-guard.test.mjs",
-    "test:harness-contract": "node --test scripts/lib/harness-contract-consistency.test.mjs scripts/lib/harness-modularity-guard.test.mjs",
+    "test:harness-contract": "node --test scripts/lib/harness-contract-consistency.test.mjs scripts/lib/harness-modularity-guard.test.mjs scripts/lib/harness-refactor-shape.test.mjs",
     "test:agent-runtime-p3": "node --test scripts/lib/agent-runtime-p3-contract.test.mjs",
     "validate:agent-runtime-p3": "node scripts/run-agent-runtime-p3-validation.mjs",
     "test:agent-runtime-superiority": "node --test scripts/lib/agent-runtime-superiority-contract.test.mjs",
