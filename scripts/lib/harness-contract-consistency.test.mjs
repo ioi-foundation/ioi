@@ -364,7 +364,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   assert.match(
     workflow,
-    /makeHarnessRuntimeSelectorDecision[\s\S]*legacy_runtime[\s\S]*blessed_workflow_live_canary/,
+    /makeHarnessRuntimeSelectorDecision[\s\S]*workflow_recovery_blocked[\s\S]*blessed_workflow_live_canary/,
   );
   assert.match(
     workflow,
@@ -409,7 +409,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /outputWriterStagedWriteMode: "isolated_checkpoint_blob"/,
     /outputWriterVisibleWriteMode: "workflow_visible_transcript_write"/,
     /authorityToolingMode: "workflow_live_dry_run"/,
-    /legacyOutputAuthorityRetained: false/,
+    /workflowOutputRecoveryAuthorityRetained: false/,
   ].forEach((pattern) => assert.match(workflow, pattern));
   [
     /DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS/,
@@ -469,7 +469,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /mutationExecuted: false/,
     /modelProviderGatedVisibleOutputRollbackDrillReady: true/,
     /modelProviderGatedVisibleOutputRollbackDrillDivergenceClass:\s*"provider_output_hash_divergence"/,
-    /modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority:\s*"legacy_runtime_model_invocation"/,
+    /modelProviderGatedVisibleOutputRollbackDrillRecoveryMode:\s*"fail_closed"/,
     /modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted: true/,
     /makeHarnessCanaryExecutionBoundary/,
     /workflow_node_executor/,

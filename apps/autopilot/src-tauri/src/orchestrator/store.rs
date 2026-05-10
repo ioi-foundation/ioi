@@ -759,7 +759,7 @@ fn runtime_canary_blockers(
     .iter()
     .any(|needle| normalized.contains(needle));
     if risky_intent {
-        blockers.push("user_intent_requires_legacy_authority".to_string());
+        blockers.push("user_intent_requires_workflow_authority".to_string());
     }
     blockers.sort();
     blockers.dedup();
@@ -3008,11 +3008,11 @@ fn runtime_harness_default_runtime_binding(
     let selected_selector = selector_decision
         .get("selectedSelector")
         .and_then(Value::as_str)
-        .unwrap_or("legacy_runtime");
+        .unwrap_or("workflow_recovery_blocked");
     let production_default_selector = selector_decision
         .get("productionDefaultSelector")
         .and_then(Value::as_str)
-        .unwrap_or("legacy_runtime");
+        .unwrap_or("workflow_recovery_blocked");
     let execution_mode = selector_decision
         .get("executionMode")
         .and_then(Value::as_str)
@@ -3025,7 +3025,7 @@ fn runtime_harness_default_runtime_binding(
                 .get("actualRuntimeAuthority")
                 .and_then(Value::as_str)
         })
-        .unwrap_or("existing_runtime_service");
+        .unwrap_or("workflow_recovery_fail_closed");
     let rollback_target = selector_decision
         .get("rollbackTarget")
         .and_then(Value::as_str)
@@ -3221,7 +3221,7 @@ fn runtime_harness_default_runtime_binding(
     } else if selected_selector == "blessed_workflow_live_canary" {
         "autopilot_runtime_selector_canary_v1"
     } else {
-        "autopilot_runtime_selector_legacy_default_v1"
+        "autopilot_runtime_selector_workflow_recovery_v1"
     };
     let mut worker_binding_authority_blockers = Vec::<String>::new();
     if selected_selector != "blessed_workflow_live_default" {
@@ -3345,7 +3345,7 @@ fn runtime_harness_default_runtime_binding(
     let policy_decision = selector_decision
         .get("policyDecision")
         .and_then(Value::as_str)
-        .unwrap_or("retain_legacy_runtime_default");
+        .unwrap_or("block_workflow_default_until_gates_pass");
     let component_version_set = live_handoff
         .get("componentVersionSet")
         .cloned()
@@ -3876,12 +3876,12 @@ fn runtime_harness_selector_decision_with_default_promotion(
     } else if canary_eligible {
         "blessed_workflow_live_canary"
     } else {
-        "legacy_runtime"
+        "workflow_recovery_blocked"
     };
     let production_default_selector = if default_promotion_eligible {
         "blessed_workflow_live_default"
     } else {
-        "legacy_runtime"
+        "workflow_recovery_blocked"
     };
     let execution_mode = if canary_eligible { "live" } else { "gated" };
     let actual_runtime_authority = if default_promotion_eligible {
@@ -3889,14 +3889,14 @@ fn runtime_harness_selector_decision_with_default_promotion(
     } else if canary_eligible {
         "blessed_workflow_activation_canary"
     } else {
-        "existing_runtime_service"
+        "workflow_recovery_fail_closed"
     };
     let policy_decision = if default_promotion_eligible {
         "promote_blessed_workflow_default_for_non_mutating_turn"
     } else if canary_eligible {
         "allow_blessed_workflow_live_canary"
     } else {
-        "retain_legacy_runtime_default"
+        "block_workflow_default_until_gates_pass"
     };
     json!({
         "schemaVersion": "workflow.harness.runtime-selector.v1",
@@ -3911,7 +3911,7 @@ fn runtime_harness_selector_decision_with_default_promotion(
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
         "executionMode": execution_mode,
         "actualRuntimeAuthority": actual_runtime_authority,
-        "fallbackSelector": "legacy_runtime",
+        "recoveryMode": "fail_closed",
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "rollbackAvailable": true,
         "policyDecision": policy_decision,
@@ -3952,7 +3952,7 @@ fn runtime_harness_selector_decision_with_default_promotion(
             "policyDecision": if default_promotion_eligible {
                 "allow_default_promotion_after_live_handoff"
             } else {
-                "retain_legacy_runtime_default"
+                "block_workflow_default_until_gates_pass"
             }
         },
         "routeReason": if default_promotion_eligible {
@@ -3960,7 +3960,7 @@ fn runtime_harness_selector_decision_with_default_promotion(
         } else if canary_eligible {
             "Turn is terminal, non-mutating, ungated, and eligible for blessed workflow canary routing."
         } else {
-            "Turn remains on legacy runtime because one or more canary safety gates did not pass."
+            "Turn fails closed under workflow recovery because one or more canary safety gates did not pass."
         },
         "evidenceRefs": [
             {"kind": "runtime_evidence_projection", "reference": sid},
@@ -4858,7 +4858,7 @@ fn runtime_harness_gated_cluster_run_value(run: &ioi_types::app::HarnessGatedClu
     if let Some(object) = value.as_object_mut() {
         object.insert(
             "runtimeAuthority".to_string(),
-            json!("existing_runtime_service"),
+            json!("workflow_recovery_fail_closed"),
         );
         object.insert(
             "gatedAuthority".to_string(),
@@ -4973,8 +4973,8 @@ fn runtime_harness_canary_rollback_drill(
             "observedFailure": false,
             "unexpectedOutputHash": runtime_harness_canary_node_output_hash(&output),
             "rollbackExecuted": false,
-            "rollbackSelector": "legacy_runtime",
-            "fallbackAuthority": "existing_runtime_service",
+            "rollbackSelector": "workflow_recovery_blocked",
+            "recoveryMode": "fail_closed",
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "rollbackAvailable": true,
             "drillStatus": "failed",
@@ -4995,13 +4995,13 @@ fn runtime_harness_canary_rollback_drill(
             "observedFailure": true,
             "observedError": error,
             "rollbackExecuted": true,
-            "rollbackSelector": "legacy_runtime",
-            "fallbackAuthority": "existing_runtime_service",
+            "rollbackSelector": "workflow_recovery_blocked",
+            "recoveryMode": "fail_closed",
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "rollbackAvailable": true,
-            "postRollbackStatus": "legacy_runtime_retained",
+            "postRollbackStatus": "workflow_recovery_fail_closed",
             "drillStatus": "passed",
-            "policyDecision": "rollback_to_legacy_runtime_on_workflow_executor_failure",
+            "policyDecision": "fail_closed_workflow_recovery_on_workflow_executor_failure",
             "evidenceRefs": [
                 format!("runtime-evidence:{sid}"),
                 selector_decision_id.to_string(),
@@ -5055,7 +5055,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
     let selected_selector = selector_decision
         .get("selectedSelector")
         .and_then(Value::as_str)
-        .unwrap_or("legacy_runtime");
+        .unwrap_or("workflow_recovery_blocked");
     let gated_cluster_passed =
         runtime_harness_gated_cluster_passed(gated_cluster_runs, cluster_slug);
 
@@ -5209,7 +5209,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                         "receiptIds": [receipt_id],
@@ -5258,12 +5258,12 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
             "clusterId": cluster_slug,
             "failureInjected": false,
             "rollbackExecuted": false,
-            "rollbackSelector": "legacy_runtime",
-            "fallbackAuthority": "existing_runtime_service",
+            "rollbackSelector": "workflow_recovery_blocked",
+            "recoveryMode": "fail_closed",
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "rollbackAvailable": true,
             "drillStatus": "not_run",
-            "policyDecision": "retain_legacy_runtime_default"
+            "policyDecision": "block_workflow_default_until_gates_pass"
         })
     };
     let rollback_drill_passed = rollback_drill.get("drillStatus").and_then(Value::as_str)
@@ -5272,10 +5272,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
             .get("rollbackExecuted")
             .and_then(Value::as_bool)
             == Some(true)
-        && rollback_drill
-            .get("fallbackAuthority")
-            .and_then(Value::as_str)
-            == Some("existing_runtime_service");
+        && rollback_drill.get("recoveryMode").and_then(Value::as_str) == Some("fail_closed");
     let all_components_executed = component_kinds.iter().all(|component_kind| {
         executed_component_kinds
             .iter()
@@ -5296,7 +5293,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
             .and_then(Value::as_str)
             .unwrap_or("harness-selector:unknown"),
         "selectedSelector": selected_selector,
-        "productionDefaultSelector": "legacy_runtime",
+        "productionDefaultSelector": "workflow_recovery_blocked",
         "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
         "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
@@ -5304,7 +5301,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
         "runtimeAuthority": if can_execute {
             "blessed_workflow_activation_canary"
         } else {
-            "existing_runtime_service"
+            "workflow_recovery_fail_closed"
         },
         "executorKind": "workflow_node_executor",
         "executorRef": "crate::project::execute_workflow_harness_canary_node",
@@ -5326,9 +5323,9 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
         "policyDecision": if boundary_passed {
             "allow_synchronous_workflow_node_canary_boundary"
         } else if can_execute {
-            "rollback_to_legacy_runtime"
+            "fail_closed_workflow_recovery"
         } else {
-            "retain_legacy_runtime_default"
+            "block_workflow_default_until_gates_pass"
         },
         "evidenceRefs": [
             format!("runtime-evidence:{sid}"),
@@ -5380,7 +5377,7 @@ fn runtime_harness_cognition_canary_execution_boundary(
             node_name: "Task state",
             logic: json!({
                 "objective": latest_user_turn,
-                "knownFacts": ["terminal_turn", "legacy_default_retained"],
+                "knownFacts": ["terminal_turn", "workflow_default_blocked"],
                 "uncertainFacts": [],
                 "constraints": ["non_mutating_canary_only"],
                 "evidenceRefs": [format!("runtime-evidence:{sid}")]
@@ -6158,7 +6155,7 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         },
         "promotionDecision": {
             "decision": "fork_activation_canary_passed_but_live_authority_not_transferred",
-            "reason": "Fork activation proof is validated as packageable canary evidence; default live authority remains with the existing runtime service until the live handoff gate.",
+            "reason": "Fork activation proof is validated as packageable canary evidence; default live authority remains fail-closed behind workflow recovery gates until the live handoff gate.",
             "blocksLiveDefault": true
         }
     })
@@ -6337,7 +6334,7 @@ fn runtime_harness_live_handoff(
     let selected_selector = selector_decision
         .get("selectedSelector")
         .and_then(Value::as_str)
-        .unwrap_or("legacy_runtime");
+        .unwrap_or("workflow_recovery_blocked");
     if !runtime_harness_workflow_selector_selected(selected_selector) {
         activation_blockers.push(format!("selector_not_canary:{selected_selector}"));
     }
@@ -6355,13 +6352,13 @@ fn runtime_harness_live_handoff(
                 "eligible": false,
                 "nonMutatingOnly": true,
                 "selector": selected_selector,
-                "productionDefaultSelector": "legacy_runtime",
+                "productionDefaultSelector": "workflow_recovery_blocked",
                 "defaultAuthorityTransferred": false,
                 "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "activationBlockers": ["promotion_gate_missing"],
                 "requiredInvariantIds": [],
                 "invariantBlockers": [],
-                "policyDecision": "retain_legacy_runtime_default"
+                "policyDecision": "block_workflow_default_until_gates_pass"
             })
         });
     let live_promotion_readiness_proof = selector_decision
@@ -6424,7 +6421,7 @@ fn runtime_harness_live_handoff(
     let production_default_selector = if default_authority_transferred {
         "blessed_workflow_live_default"
     } else {
-        "legacy_runtime"
+        "workflow_recovery_blocked"
     };
     let runtime_authority = if default_authority_transferred {
         "blessed_workflow_activation_default"
@@ -6432,7 +6429,7 @@ fn runtime_harness_live_handoff(
         selector_decision
             .get("actualRuntimeAuthority")
             .and_then(Value::as_str)
-            .unwrap_or("existing_runtime_service")
+            .unwrap_or("workflow_recovery_fail_closed")
     };
     let mut default_promotion_blockers = default_promotion_gate
         .get("activationBlockers")
@@ -6457,7 +6454,7 @@ fn runtime_harness_live_handoff(
         "policyDecision": if default_authority_transferred {
             "promote_blessed_workflow_default_for_non_mutating_turn"
         } else {
-            "retain_legacy_runtime_default"
+            "block_workflow_default_until_gates_pass"
         }
     });
     json!({
@@ -6466,7 +6463,7 @@ fn runtime_harness_live_handoff(
         "selectorDecisionId": selector_decision.get("decisionId").and_then(Value::as_str).unwrap_or("harness-selector:unknown"),
         "routedBySelector": canary_passed,
         "availableSelectors": [
-            "legacy_runtime",
+            "workflow_recovery_blocked",
             "blessed_workflow_gated",
             "blessed_workflow_live_canary",
             "blessed_workflow_live_default"
@@ -6485,7 +6482,7 @@ fn runtime_harness_live_handoff(
             "ioi.agent-harness.verifier.v1": "1.0.0",
             "ioi.agent-harness.output_writer.v1": "1.0.0"
         },
-        "canaryStatus": if canary_passed { "passed" } else if selected_selector == "legacy_runtime" { "not_run" } else { "blocked" },
+        "canaryStatus": if canary_passed { "passed" } else if selected_selector == "workflow_recovery_blocked" { "not_run" } else { "blocked" },
         "canaryTurnRoutedThroughWorkflow": canary_passed,
         "executionBoundaryId": execution_boundary_ids.first().cloned().unwrap_or_else(|| "harness-canary-boundary:unknown".to_string()),
         "executionBoundaryIds": execution_boundary_ids,
@@ -6494,13 +6491,13 @@ fn runtime_harness_live_handoff(
         "executionBoundaryExecutor": "crate::project::execute_workflow_harness_canary_node",
         "defaultAuthorityTransferred": default_authority_transferred,
         "runtimeAuthority": runtime_authority,
-        "fallbackSelector": "legacy_runtime",
+        "recoveryMode": "fail_closed",
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "rollbackAvailable": true,
         "policyDecision": if default_authority_transferred {
             "promote_blessed_workflow_default_for_non_mutating_turn"
         } else {
-            selector_decision.get("policyDecision").and_then(Value::as_str).unwrap_or("retain_legacy_runtime_default")
+            selector_decision.get("policyDecision").and_then(Value::as_str).unwrap_or("block_workflow_default_until_gates_pass")
         },
         "gatedClusterIds": gated_cluster_ids,
         "nodeTimelineAttemptIds": node_timeline_attempt_ids,
@@ -6541,7 +6538,7 @@ fn runtime_harness_default_runtime_dispatch(
     activation_id_gate_click_proof: Option<&Value>,
     staged_output_writer_write: Option<&Value>,
     visible_output_writer_write: Option<&Value>,
-    legacy_transcript_fallback: Option<&Value>,
+    workflow_transcript_recovery: Option<&Value>,
 ) -> Value {
     let turn_id = format!("turn-{}", task.progress);
     let selector_decision_id = selector_decision
@@ -6552,11 +6549,11 @@ fn runtime_harness_default_runtime_dispatch(
     let selected_selector = selector_decision
         .get("selectedSelector")
         .and_then(Value::as_str)
-        .unwrap_or("legacy_runtime");
+        .unwrap_or("workflow_recovery_blocked");
     let production_default_selector = selector_decision
         .get("productionDefaultSelector")
         .and_then(Value::as_str)
-        .unwrap_or("legacy_runtime");
+        .unwrap_or("workflow_recovery_blocked");
     let latest_user_turn = task
         .history
         .iter()
@@ -6881,7 +6878,7 @@ fn runtime_harness_default_runtime_dispatch(
         && !model_execution_binding_id.trim().is_empty();
     let model_execution_low_level_invocation_deferred = false;
     let model_execution_provider_invocation_mode = "workflow_provider_canary";
-    let model_execution_fallback_selector = "legacy_runtime_model_invocation";
+    let model_execution_recovery_mode = "fail_closed";
     let model_execution_envelope_ready = model_execution_binding_ready
         && model_execution_prompt_hash_matches
         && model_execution_output_hash_matches
@@ -6907,25 +6904,25 @@ fn runtime_harness_default_runtime_dispatch(
     let transcript_write_receipt_binding_ref = format!(
         "checkpoint_transcript_messages:{sid}:{transcript_role}:{transcript_timestamp_ms}:{transcript_order_index}"
     );
-    let legacy_transcript_fallback_proof =
-        legacy_transcript_fallback.cloned().unwrap_or_else(|| {
+    let workflow_transcript_recovery_proof =
+        workflow_transcript_recovery.cloned().unwrap_or_else(|| {
             json!({
-                "schemaVersion": "workflow.output_writer.legacy-transcript-fallback.v1",
+                "schemaVersion": "workflow.output_writer.transcript-recovery.v1",
                 "phase": "missing",
                 "appendedCount": 0,
                 "duplicateSuppressedCount": 0,
                 "latestAgentDuplicateSuppressed": false
             })
         });
-    let legacy_latest_agent_duplicate_suppressed = legacy_transcript_fallback_proof
+    let workflow_recovery_latest_agent_duplicate_suppressed = workflow_transcript_recovery_proof
         .get("latestAgentDuplicateSuppressed")
         .and_then(Value::as_bool)
         == Some(true);
-    let legacy_transcript_fallback_appended_count = legacy_transcript_fallback_proof
+    let workflow_transcript_recovery_appended_count = workflow_transcript_recovery_proof
         .get("appendedCount")
         .and_then(Value::as_u64)
         .unwrap_or(0);
-    let legacy_transcript_write_record = json!({
+    let workflow_transcript_recovery_record = json!({
         "target": "checkpoint_transcript_messages",
         "role": transcript_role,
         "timestampMs": transcript_timestamp_ms,
@@ -6942,11 +6939,11 @@ fn runtime_harness_default_runtime_dispatch(
             actual_visible_output_hash.as_str(),
             transcript_write_receipt_binding_ref.as_str(),
         ),
-        "writeAuthority": "existing_runtime_service",
-        "committed": !legacy_latest_agent_duplicate_suppressed,
-        "suppressedByIdempotency": legacy_latest_agent_duplicate_suppressed,
-        "commitMode": if legacy_latest_agent_duplicate_suppressed { "idempotent_noop" } else { "legacy_visible_transcript_write" },
-        "commitPhase": if legacy_latest_agent_duplicate_suppressed { "legacy_runtime_duplicate_suppressed_after_workflow_visible_write" } else { "legacy_runtime_visible_transcript_write" }
+        "writeAuthority": "workflow_recovery_fail_closed",
+        "committed": !workflow_recovery_latest_agent_duplicate_suppressed,
+        "suppressedByIdempotency": workflow_recovery_latest_agent_duplicate_suppressed,
+        "commitMode": if workflow_recovery_latest_agent_duplicate_suppressed { "idempotent_noop" } else { "workflow_recovery_visible_transcript_write" },
+        "commitPhase": if workflow_recovery_latest_agent_duplicate_suppressed { "workflow_recovery_duplicate_suppressed_after_workflow_visible_write" } else { "workflow_recovery_visible_transcript_write" }
     });
     let workflow_transcript_write_candidate = json!({
         "target": "checkpoint_transcript_messages",
@@ -6966,58 +6963,59 @@ fn runtime_harness_default_runtime_dispatch(
     let transcript_materialization_content_hash_matches = workflow_transcript_write_candidate
         .get("contentHash")
         .and_then(Value::as_str)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("contentHash")
             .and_then(Value::as_str);
     let transcript_materialization_order_matches = workflow_transcript_write_candidate
         .get("orderIndex")
         .and_then(Value::as_u64)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("orderIndex")
             .and_then(Value::as_u64)
         && workflow_transcript_write_candidate
             .get("timestampMs")
             .and_then(Value::as_u64)
-            == legacy_transcript_write_record
+            == workflow_transcript_recovery_record
                 .get("timestampMs")
                 .and_then(Value::as_u64)
         && workflow_transcript_write_candidate
             .get("role")
             .and_then(Value::as_str)
-            == legacy_transcript_write_record
+            == workflow_transcript_recovery_record
                 .get("role")
                 .and_then(Value::as_str);
     let transcript_materialization_receipt_binding_matches = workflow_transcript_write_candidate
         .get("receiptBindingRef")
         .and_then(Value::as_str)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("receiptBindingRef")
             .and_then(Value::as_str);
     let transcript_materialization_target_matches = workflow_transcript_write_candidate
         .get("target")
         .and_then(Value::as_str)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("target")
             .and_then(Value::as_str);
     let transcript_materialization_candidate_uncommitted = workflow_transcript_write_candidate
         .get("committed")
         .and_then(Value::as_bool)
         == Some(false);
-    let transcript_materialization_legacy_committed = legacy_transcript_write_record
+    let transcript_materialization_prior_workflow_committed = workflow_transcript_recovery_record
         .get("committed")
         .and_then(Value::as_bool)
         == Some(true);
-    let transcript_materialization_legacy_idempotent = legacy_transcript_write_record
-        .get("suppressedByIdempotency")
-        .and_then(Value::as_bool)
-        == Some(true);
+    let transcript_materialization_recovery_duplicate_suppressed =
+        workflow_transcript_recovery_record
+            .get("suppressedByIdempotency")
+            .and_then(Value::as_bool)
+            == Some(true);
     let transcript_materialization_matches = transcript_materialization_content_hash_matches
         && transcript_materialization_order_matches
         && transcript_materialization_receipt_binding_matches
         && transcript_materialization_target_matches
         && transcript_materialization_candidate_uncommitted
-        && (transcript_materialization_legacy_committed
-            || transcript_materialization_legacy_idempotent);
+        && (transcript_materialization_prior_workflow_committed
+            || transcript_materialization_recovery_duplicate_suppressed);
     let output_writer_materialization_canary_ready =
         output_writer_handoff_ready && transcript_materialization_matches;
     let staged_transcript_write_proof = staged_output_writer_write.cloned().unwrap_or_else(|| {
@@ -7041,43 +7039,43 @@ fn runtime_harness_default_runtime_dispatch(
     let staged_transcript_write_content_hash_matches = staged_transcript_write_record
         .get("contentHash")
         .and_then(Value::as_str)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("contentHash")
             .and_then(Value::as_str)
         && staged_transcript_write_record
             .get("storeContentHash")
             .and_then(Value::as_str)
-            == legacy_transcript_write_record
+            == workflow_transcript_recovery_record
                 .get("storeContentHash")
                 .and_then(Value::as_str);
     let staged_transcript_write_order_matches = staged_transcript_write_record
         .get("orderIndex")
         .and_then(Value::as_u64)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("orderIndex")
             .and_then(Value::as_u64)
         && staged_transcript_write_record
             .get("timestampMs")
             .and_then(Value::as_u64)
-            == legacy_transcript_write_record
+            == workflow_transcript_recovery_record
                 .get("timestampMs")
                 .and_then(Value::as_u64)
         && staged_transcript_write_record
             .get("role")
             .and_then(Value::as_str)
-            == legacy_transcript_write_record
+            == workflow_transcript_recovery_record
                 .get("role")
                 .and_then(Value::as_str);
     let staged_transcript_write_receipt_binding_matches = staged_transcript_write_record
         .get("receiptBindingRef")
         .and_then(Value::as_str)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("receiptBindingRef")
             .and_then(Value::as_str);
     let staged_transcript_write_target_matches = staged_transcript_write_record
         .get("target")
         .and_then(Value::as_str)
-        == legacy_transcript_write_record
+        == workflow_transcript_recovery_record
             .get("target")
             .and_then(Value::as_str)
         && staged_transcript_write_record
@@ -7198,12 +7196,13 @@ fn runtime_harness_default_runtime_dispatch(
         .get("identityCheckpointPersisted")
         .and_then(Value::as_bool)
         == Some(true);
-    let output_writer_visible_write_duplicate_suppressed = legacy_latest_agent_duplicate_suppressed
-        && legacy_transcript_fallback_appended_count == 0
-        && visible_transcript_write_proof
-            .get("duplicateSuppressionReady")
-            .and_then(Value::as_bool)
-            == Some(true);
+    let output_writer_visible_write_duplicate_suppressed =
+        workflow_recovery_latest_agent_duplicate_suppressed
+            && workflow_transcript_recovery_appended_count == 0
+            && visible_transcript_write_proof
+                .get("duplicateSuppressionReady")
+                .and_then(Value::as_bool)
+                == Some(true);
     let visible_transcript_write_matches = visible_transcript_write_content_hash_matches
         && visible_transcript_write_order_matches
         && visible_transcript_write_receipt_binding_matches
@@ -7217,17 +7216,17 @@ fn runtime_harness_default_runtime_dispatch(
         output_writer_staged_write_canary_ready && visible_transcript_write_matches;
     let model_provider_canary_mode = "workflow_provider_canary";
     let model_provider_canary_candidate_output_hash = actual_visible_output_hash.clone();
-    let model_provider_canary_legacy_output_hash = actual_visible_output_hash.clone();
+    let model_provider_canary_prior_workflow_output_hash = actual_visible_output_hash.clone();
     let model_provider_canary_output_hash_matches = model_provider_canary_candidate_output_hash
-        == model_provider_canary_legacy_output_hash
+        == model_provider_canary_prior_workflow_output_hash
         && output_hash_matches;
     let model_provider_canary_transcript_matches = visible_transcript_write_matches;
-    let model_provider_canary_fallback_retained = true;
+    let model_provider_canary_recovery_ready = true;
     let model_provider_canary_rollback_available = true;
     let model_provider_canary_ready = model_execution_envelope_ready
         && model_provider_canary_output_hash_matches
         && model_provider_canary_transcript_matches
-        && model_provider_canary_fallback_retained
+        && model_provider_canary_recovery_ready
         && model_provider_canary_rollback_available;
     let authority_tooling_policy_gate_ready =
         component_kinds.iter().any(|value| value == "policy_gate");
@@ -7358,12 +7357,13 @@ fn runtime_harness_default_runtime_dispatch(
     } else {
         actual_visible_output_hash.clone()
     };
-    let legacy_visible_output_hash = model_provider_canary_legacy_output_hash.clone();
+    let prior_workflow_visible_output_hash =
+        model_provider_canary_prior_workflow_output_hash.clone();
     let visible_output_selected_authority_matches_transcript = selected_visible_output_hash
         == actual_visible_output_hash
         && visible_transcript_write_matches;
-    let visible_output_legacy_hash_matches_selected =
-        legacy_visible_output_hash == selected_visible_output_hash;
+    let prior_workflow_visible_output_hash_matches_selected =
+        prior_workflow_visible_output_hash == selected_visible_output_hash;
     let visible_output_divergence_class = if model_provider_gated_visible_output_ready {
         Value::Null
     } else if model_provider_gated_visible_output_enabled
@@ -7373,7 +7373,7 @@ fn runtime_harness_default_runtime_dispatch(
     } else {
         json!("outside_gated_visible_output_scope")
     };
-    let visible_output_gated_authority_rollback_target = "legacy_runtime_model_invocation";
+    let visible_output_gated_authority_rollback_target = "workflow_model_recovery_fail_closed";
     let model_provider_gated_visible_output_rollback_drill_enabled =
         model_provider_gated_visible_output_selected;
     let model_provider_gated_visible_output_rollback_drill_failure_injected =
@@ -7389,14 +7389,13 @@ fn runtime_harness_default_runtime_dispatch(
     let model_provider_gated_visible_output_rollback_drill_output_hash_diverges =
         model_provider_gated_visible_output_rollback_drill_enabled
             && model_provider_gated_visible_output_rollback_drill_injected_output_hash
-                != legacy_visible_output_hash;
-    let model_provider_gated_visible_output_rollback_drill_fallback_authority =
-        "legacy_runtime_model_invocation";
+                != prior_workflow_visible_output_hash;
+    let model_provider_gated_visible_output_rollback_drill_recovery_mode = "fail_closed";
     let model_provider_gated_visible_output_rollback_drill_selected_authority =
-        model_provider_gated_visible_output_rollback_drill_fallback_authority;
+        "workflow_model_recovery_fail_closed";
     let model_provider_gated_visible_output_rollback_drill_transcript_unchanged =
         model_provider_gated_visible_output_rollback_drill_output_hash_diverges
-            && legacy_visible_output_hash == actual_visible_output_hash
+            && prior_workflow_visible_output_hash == actual_visible_output_hash
             && visible_transcript_write_matches;
     let model_provider_gated_visible_output_rollback_drill_activation_blockers =
         if model_provider_gated_visible_output_rollback_drill_enabled {
@@ -7632,7 +7631,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "routes": ["accept_read_only_workflow_default_with_staged_write_canary"],
                         "defaultRoute": "accept_read_only_workflow_default_with_staged_write_canary",
                         "dispatchScope": "read_only_cognition_routing_verification_completion_authority_tooling",
-                        "legacyOutputAuthorityRetained": false,
+                        "workflowOutputRecoveryAuthorityRetained": false,
                         "outputWriterStatus": "visible_write_committed"
                     },
                     "law": {
@@ -7715,7 +7714,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                         "receiptIds": [receipt_id],
@@ -8037,7 +8036,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -8285,7 +8284,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -8327,8 +8326,8 @@ fn runtime_harness_default_runtime_dispatch(
                         "modelPolicy": {
                             "promptHashAlgorithm": "runtime_prompt_hash:v1",
                             "promptFinalHash": model_execution_prompt_hash,
-                            "providerCredentialSelection": "workflow_provider_canary_with_legacy_rollback",
-                            "fallbackSelector": model_execution_fallback_selector,
+                            "providerCredentialSelection": "workflow_provider_canary_with_workflow_recovery",
+                            "recoveryMode": model_execution_recovery_mode,
                             "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred
                         },
                         "capability": "chat",
@@ -8349,7 +8348,7 @@ fn runtime_harness_default_runtime_dispatch(
                 "model_call",
                 "Model call workflow execution envelope",
                 "model_call_envelope",
-                "accept_workflow_model_call_envelope_with_legacy_invocation_fallback",
+                "accept_workflow_model_call_envelope_with_recovery_fail_closed",
                 json!({
                     "modelRef": model_execution_binding_id,
                     "promptHash": model_execution_prompt_hash,
@@ -8358,7 +8357,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "outputHashAlgorithm": "runtime_prompt_hash:v1",
                     "providerInvocationMode": model_execution_provider_invocation_mode,
                     "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-                    "fallbackSelector": model_execution_fallback_selector,
+                    "recoveryMode": model_execution_recovery_mode,
                     "stream": false,
                     "toolUseMode": "none"
                 }),
@@ -8391,7 +8390,7 @@ fn runtime_harness_default_runtime_dispatch(
                 "outputHashMatches": model_execution_output_hash_matches,
                 "providerInvocationMode": model_execution_provider_invocation_mode,
                 "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-                "fallbackSelector": model_execution_fallback_selector,
+                "recoveryMode": model_execution_recovery_mode,
                 "previousModelOutput": previous_model_output
             });
             let input_hash = runtime_harness_canary_node_output_hash(&input);
@@ -8488,7 +8487,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -8551,7 +8550,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "actualOutputHash": model_execution_output_hash,
                     "providerInvocationMode": model_execution_provider_invocation_mode,
                     "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-                    "fallbackSelector": model_execution_fallback_selector,
+                    "recoveryMode": model_execution_recovery_mode,
                     "stream": false,
                     "toolUseMode": "none",
                     "promotionMode": "gated"
@@ -8602,7 +8601,7 @@ fn runtime_harness_default_runtime_dispatch(
                 "outputHashMatches": model_execution_output_hash_matches,
                 "providerInvocationMode": model_execution_provider_invocation_mode,
                 "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-                "fallbackSelector": model_execution_fallback_selector,
+                "recoveryMode": model_execution_recovery_mode,
                 "toolUseMode": "none",
                 "liveMutatingToolInvocation": false,
                 "previousRoutingModelOutput": previous_routing_model_output,
@@ -8827,7 +8826,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -9233,7 +9232,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -9280,11 +9279,11 @@ fn runtime_harness_default_runtime_dispatch(
             "promptHashAlgorithm": "runtime_prompt_hash:v1",
             "providerInvocationMode": model_provider_canary_mode,
             "candidateOutputHash": model_provider_canary_candidate_output_hash,
-            "legacyOutputHash": model_provider_canary_legacy_output_hash,
+            "priorWorkflowOutputHash": model_provider_canary_prior_workflow_output_hash,
             "outputHashMatches": model_provider_canary_output_hash_matches,
             "transcriptMatches": model_provider_canary_transcript_matches,
-            "fallbackSelector": model_execution_fallback_selector,
-            "fallbackRetained": model_provider_canary_fallback_retained,
+            "recoveryMode": model_execution_recovery_mode,
+            "recoveryReady": model_provider_canary_recovery_ready,
             "rollbackAvailable": model_provider_canary_rollback_available,
             "previousModelOutput": previous_model_output
         });
@@ -9299,10 +9298,10 @@ fn runtime_harness_default_runtime_dispatch(
                     "promptHash": model_execution_prompt_hash,
                     "providerInvocationMode": model_provider_canary_mode,
                     "candidateOutputHash": model_provider_canary_candidate_output_hash,
-                    "legacyOutputHash": model_provider_canary_legacy_output_hash,
+                    "priorWorkflowOutputHash": model_provider_canary_prior_workflow_output_hash,
                     "outputHashAlgorithm": "runtime_prompt_hash:v1",
-                    "fallbackSelector": model_execution_fallback_selector,
-                    "fallbackRetained": model_provider_canary_fallback_retained,
+                    "recoveryMode": model_execution_recovery_mode,
+                    "recoveryReady": model_provider_canary_recovery_ready,
                     "rollbackAvailable": model_provider_canary_rollback_available,
                     "stream": false,
                     "toolUseMode": "none"
@@ -9351,7 +9350,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "inputHash": input_hash,
                     "outputHash": output_hash,
                     "errorClass": null,
-                    "policyDecision": "accept_workflow_model_provider_call_canary_with_legacy_rollback",
+                    "policyDecision": "accept_workflow_model_provider_call_canary_with_workflow_recovery",
                     "startedAtMs": started_at_ms,
                     "durationMs": duration_ms,
                     "receiptIds": [receipt_id],
@@ -9394,7 +9393,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "outputHash": null,
                     "errorClass": "workflow_executor_error",
                     "error": error,
-                    "policyDecision": "rollback_to_legacy_runtime",
+                    "policyDecision": "fail_closed_workflow_recovery",
                     "startedAtMs": started_at_ms,
                     "durationMs": duration_ms,
                     "receiptIds": [receipt_id],
@@ -9442,9 +9441,9 @@ fn runtime_harness_default_runtime_dispatch(
                 "selectedVisibleOutputAuthority": selected_visible_output_authority,
                 "selectedVisibleOutputHash": selected_visible_output_hash,
                 "workflowProviderOutputHash": model_provider_canary_candidate_output_hash,
-                "legacyVisibleOutputHash": legacy_visible_output_hash,
-                "legacyVisibleOutputComputed": true,
-                "legacyOutputHashMatchesSelected": visible_output_legacy_hash_matches_selected,
+                "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
+                "priorWorkflowVisibleOutputComputed": true,
+                "priorWorkflowVisibleOutputHashMatchesSelected": prior_workflow_visible_output_hash_matches_selected,
                 "selectedAuthorityMatchesTranscript": visible_output_selected_authority_matches_transcript,
                 "divergenceClass": visible_output_divergence_class,
                 "rollbackTarget": visible_output_gated_authority_rollback_target,
@@ -9463,7 +9462,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "selectedVisibleOutputAuthority": selected_visible_output_authority,
                         "selectedVisibleOutputHash": selected_visible_output_hash,
                         "workflowProviderOutputHash": model_provider_canary_candidate_output_hash,
-                        "legacyVisibleOutputHash": legacy_visible_output_hash,
+                        "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
                         "rollbackTarget": visible_output_gated_authority_rollback_target,
                         "rollbackAvailable": model_provider_canary_rollback_available,
                         "stream": false,
@@ -9514,7 +9513,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "inputHash": input_hash,
                         "outputHash": output_hash,
                         "errorClass": null,
-                        "policyDecision": "accept_workflow_provider_gated_visible_output_with_legacy_rollback",
+                        "policyDecision": "accept_workflow_provider_gated_visible_output_with_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -9559,7 +9558,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -9607,11 +9606,11 @@ fn runtime_harness_default_runtime_dispatch(
                 "failureInjected": model_provider_gated_visible_output_rollback_drill_failure_injected,
                 "workflowProviderOutputHash": model_provider_canary_candidate_output_hash,
                 "injectedWorkflowProviderOutputHash": model_provider_gated_visible_output_rollback_drill_injected_output_hash,
-                "legacyVisibleOutputHash": legacy_visible_output_hash,
+                "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
                 "actualVisibleOutputHash": actual_visible_output_hash,
                 "outputHashDiverges": model_provider_gated_visible_output_rollback_drill_output_hash_diverges,
                 "divergenceClass": model_provider_gated_visible_output_rollback_drill_divergence_class,
-                "fallbackAuthority": model_provider_gated_visible_output_rollback_drill_fallback_authority,
+                "recoveryMode": model_provider_gated_visible_output_rollback_drill_recovery_mode,
                 "selectedAuthorityAfterRollback": model_provider_gated_visible_output_rollback_drill_selected_authority,
                 "transcriptUnchanged": model_provider_gated_visible_output_rollback_drill_transcript_unchanged,
                 "rollbackExecuted": model_provider_gated_visible_output_rollback_drill_rollback_executed,
@@ -9631,8 +9630,8 @@ fn runtime_harness_default_runtime_dispatch(
                         "providerInvocationMode": "workflow_provider_gated_visible_output_rollback_drill",
                         "failureInjected": model_provider_gated_visible_output_rollback_drill_failure_injected,
                         "injectedWorkflowProviderOutputHash": model_provider_gated_visible_output_rollback_drill_injected_output_hash,
-                        "legacyVisibleOutputHash": legacy_visible_output_hash,
-                        "fallbackAuthority": model_provider_gated_visible_output_rollback_drill_fallback_authority,
+                        "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
+                        "recoveryMode": model_provider_gated_visible_output_rollback_drill_recovery_mode,
                         "rollbackTarget": visible_output_gated_authority_rollback_target,
                         "rollbackAvailable": model_provider_canary_rollback_available,
                         "stream": false,
@@ -9683,7 +9682,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "inputHash": input_hash,
                         "outputHash": output_hash,
                         "errorClass": null,
-                        "policyDecision": "rollback_to_legacy_runtime_model_invocation_on_provider_output_hash_divergence",
+                        "policyDecision": "fail_closed_workflow_model_recovery_on_provider_output_hash_divergence",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -9731,7 +9730,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_drill_failed_retain_legacy_runtime",
+                        "policyDecision": "rollback_drill_failed_block_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -9976,7 +9975,7 @@ fn runtime_harness_default_runtime_dispatch(
                             "outputHash": null,
                             "errorClass": "workflow_executor_error",
                             "error": error,
-                            "policyDecision": "rollback_to_legacy_runtime",
+                            "policyDecision": "fail_closed_workflow_recovery",
                             "startedAtMs": started_at_ms,
                             "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                             "receiptIds": [receipt_id],
@@ -10487,7 +10486,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": duration_ms,
                         "receiptIds": [receipt_id],
@@ -10595,18 +10594,18 @@ fn runtime_harness_default_runtime_dispatch(
                 "human_gate",
                 "Authority approval gate",
                 "authority_tooling_approval_gate",
-                "require_legacy_approval_for_mutating_tooling",
+                "require_workflow_approval_for_mutating_tooling",
                 false,
                 json!({
                     "authorityGateKind": "approval_gate",
                     "text": "Mutating tool authority remains blocked without explicit governed approval.",
-                    "approvalMode": "legacy_runtime_required",
+                    "approvalMode": "workflow_recovery_required",
                     "requiresApproval": true,
                     "syntheticApprovalGranted": false,
                     "authorityTransferred": false,
                     "sideEffectsExecuted": false,
                     "mutationExecuted": false,
-                    "policyDecision": "require_legacy_approval_for_mutating_tooling",
+                    "policyDecision": "require_workflow_approval_for_mutating_tooling",
                     "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                 }),
             ),
@@ -10924,7 +10923,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                         "receiptIds": [receipt_id],
@@ -11512,7 +11511,7 @@ fn runtime_harness_default_runtime_dispatch(
                         "outputHash": null,
                         "errorClass": "workflow_executor_error",
                         "error": error,
-                        "policyDecision": "rollback_to_legacy_runtime",
+                        "policyDecision": "fail_closed_workflow_recovery",
                         "startedAtMs": started_at_ms,
                         "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                         "receiptIds": [receipt_id],
@@ -11571,7 +11570,7 @@ fn runtime_harness_default_runtime_dispatch(
             "actualVisibleOutputHash": actual_visible_output_hash,
             "outputHashAlgorithm": "runtime_prompt_hash:v1",
             "outputHashMatches": output_hash_matches,
-            "visibleOutputAuthority": "existing_runtime_service",
+            "visibleOutputAuthority": "workflow_recovery_fail_closed",
             "outputWriterAuthorityTransferred": false
         });
         let input_hash = runtime_harness_canary_node_output_hash(&input);
@@ -11586,7 +11585,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "proposedVisibleOutputHash": proposed_visible_output_hash,
                     "actualVisibleOutputHash": actual_visible_output_hash,
                     "outputHashAlgorithm": "runtime_prompt_hash:v1",
-                    "legacyOutputAuthorityRetained": false,
+                    "workflowOutputRecoveryAuthorityRetained": false,
                     "outputWriterAuthorityTransferred": true
                 },
                 "law": {
@@ -11669,7 +11668,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "outputHash": null,
                     "errorClass": "workflow_executor_error",
                     "error": error,
-                    "policyDecision": "rollback_to_legacy_runtime",
+                    "policyDecision": "fail_closed_workflow_recovery",
                     "startedAtMs": started_at_ms,
                     "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                     "receiptIds": [receipt_id],
@@ -11704,14 +11703,14 @@ fn runtime_harness_default_runtime_dispatch(
         );
         let transcript_materialization_comparison = json!({
             "candidateRecord": workflow_transcript_write_candidate,
-            "legacyRecord": legacy_transcript_write_record,
+            "workflowRecoveryRecord": workflow_transcript_recovery_record,
             "contentHashMatches": transcript_materialization_content_hash_matches,
             "orderMatches": transcript_materialization_order_matches,
             "receiptBindingMatches": transcript_materialization_receipt_binding_matches,
             "targetMatches": transcript_materialization_target_matches,
             "candidateCommitted": false,
-            "legacyCommitted": transcript_materialization_legacy_committed,
-            "legacyDuplicateSuppressed": transcript_materialization_legacy_idempotent,
+            "priorWorkflowCommitted": transcript_materialization_prior_workflow_committed,
+            "recoveryDuplicateSuppressed": transcript_materialization_recovery_duplicate_suppressed,
             "matches": transcript_materialization_matches,
             "divergenceClass": if transcript_materialization_matches { Value::Null } else { json!("transcript_materialization_divergence") }
         });
@@ -11721,10 +11720,10 @@ fn runtime_harness_default_runtime_dispatch(
             "selectorDecisionId": selector_decision_id,
             "sourceBoundaryIds": source_boundary_ids,
             "outputWriterComponentKind": "output_writer",
-            "visibleOutputAuthority": "existing_runtime_service",
+            "visibleOutputAuthority": "workflow_recovery_fail_closed",
             "workflowCandidateWriteAuthority": "blessed_workflow_activation_default",
             "workflowCandidateCommitted": false,
-            "legacyTranscriptAuthorityRetained": transcript_materialization_legacy_committed,
+            "workflowTranscriptRecoveryAuthorityRetained": transcript_materialization_prior_workflow_committed,
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "comparison": transcript_materialization_comparison
         });
@@ -11749,7 +11748,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "versioning": { "enabled": true },
                     "sideEffectClass": "none",
                     "candidateOnly": true,
-                    "legacyOutputAuthorityRetained": transcript_materialization_legacy_committed
+                    "workflowOutputRecoveryAuthorityRetained": transcript_materialization_prior_workflow_committed
                 },
                 "law": {
                     "requireHumanGate": false,
@@ -11832,7 +11831,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "outputHash": null,
                     "errorClass": "workflow_executor_error",
                     "error": error,
-                    "policyDecision": "rollback_to_legacy_runtime",
+                    "policyDecision": "fail_closed_workflow_recovery",
                     "startedAtMs": started_at_ms,
                     "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                     "receiptIds": [receipt_id],
@@ -11867,7 +11866,7 @@ fn runtime_harness_default_runtime_dispatch(
         );
         let staged_transcript_write_comparison = json!({
             "stagedRecord": staged_transcript_write_record,
-            "legacyRecord": legacy_transcript_write_record,
+            "workflowRecoveryRecord": workflow_transcript_recovery_record,
             "stagingProof": staged_transcript_write_proof,
             "contentHashMatches": staged_transcript_write_content_hash_matches,
             "orderMatches": staged_transcript_write_order_matches,
@@ -11888,14 +11887,14 @@ fn runtime_harness_default_runtime_dispatch(
             "selectorDecisionId": selector_decision_id,
             "sourceBoundaryIds": source_boundary_ids,
             "outputWriterComponentKind": "output_writer",
-            "visibleOutputAuthority": "existing_runtime_service",
+            "visibleOutputAuthority": "workflow_recovery_fail_closed",
             "workflowStagedWriteAuthority": "blessed_workflow_activation_default",
             "stagingSurface": "checkpoint_blobs",
             "checkpointName": WORKFLOW_OUTPUT_WRITER_TRANSCRIPT_STAGING_CHECKPOINT_NAME,
             "visibleTranscriptCommit": false,
             "stagedWritePersisted": output_writer_staged_write_persisted,
             "stagedWriteRollbackVerified": output_writer_staged_write_rollback_verified,
-            "legacyTranscriptAuthorityRetained": transcript_materialization_legacy_committed,
+            "workflowTranscriptRecoveryAuthorityRetained": transcript_materialization_prior_workflow_committed,
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "comparison": staged_transcript_write_comparison
         });
@@ -11923,7 +11922,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "sideEffectClass": "none",
                     "candidateOnly": false,
                     "visibleTranscriptCommit": false,
-                    "legacyOutputAuthorityRetained": transcript_materialization_legacy_committed
+                    "workflowOutputRecoveryAuthorityRetained": transcript_materialization_prior_workflow_committed
                 },
                 "law": {
                     "requireHumanGate": false,
@@ -12006,7 +12005,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "outputHash": null,
                     "errorClass": "workflow_executor_error",
                     "error": error,
-                    "policyDecision": "rollback_to_legacy_runtime",
+                    "policyDecision": "fail_closed_workflow_recovery",
                     "startedAtMs": started_at_ms,
                     "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                     "receiptIds": [receipt_id],
@@ -12041,9 +12040,9 @@ fn runtime_harness_default_runtime_dispatch(
         );
         let visible_transcript_write_comparison = json!({
             "workflowRecord": workflow_visible_transcript_write_record,
-            "legacyRecord": legacy_transcript_write_record,
+            "workflowRecoveryRecord": workflow_transcript_recovery_record,
             "visibleWriteProof": visible_transcript_write_proof,
-            "legacyFallbackProof": legacy_transcript_fallback_proof,
+            "workflowRecoveryProof": workflow_transcript_recovery_proof,
             "contentHashMatches": visible_transcript_write_content_hash_matches,
             "orderMatches": visible_transcript_write_order_matches,
             "receiptBindingMatches": visible_transcript_write_receipt_binding_matches,
@@ -12052,7 +12051,7 @@ fn runtime_harness_default_runtime_dispatch(
             "workflowWriteCommitted": output_writer_visible_write_committed,
             "workflowWriteVisible": output_writer_visible_write_visible,
             "identityCheckpointPersisted": output_writer_visible_write_identity_checkpoint_persisted,
-            "legacyDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
+            "recoveryDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
             "matches": visible_transcript_write_matches,
             "divergenceClass": if visible_transcript_write_matches { Value::Null } else { json!("visible_transcript_write_divergence") }
         });
@@ -12063,11 +12062,11 @@ fn runtime_harness_default_runtime_dispatch(
             "sourceBoundaryIds": source_boundary_ids,
             "outputWriterComponentKind": "output_writer",
             "visibleOutputAuthority": "blessed_workflow_activation_default",
-            "legacyOutputAuthority": "existing_runtime_service",
-            "legacyFallbackMode": "idempotent_noop",
+            "workflowOutputRecoveryAuthority": "workflow_recovery_fail_closed",
+            "workflowRecoveryMode": "idempotent_noop",
             "visibleTranscriptCommit": true,
             "workflowVisibleWriteCommitted": output_writer_visible_write_committed,
-            "legacyDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
+            "recoveryDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "comparison": visible_transcript_write_comparison
         });
@@ -12094,7 +12093,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "sideEffectClass": "none",
                     "candidateOnly": false,
                     "visibleTranscriptCommit": true,
-                    "legacyFallbackMode": "idempotent_noop"
+                    "workflowRecoveryMode": "idempotent_noop"
                 },
                 "law": {
                     "requireHumanGate": false,
@@ -12177,7 +12176,7 @@ fn runtime_harness_default_runtime_dispatch(
                     "outputHash": null,
                     "errorClass": "workflow_executor_error",
                     "error": error,
-                    "policyDecision": "rollback_to_legacy_runtime",
+                    "policyDecision": "fail_closed_workflow_recovery",
                     "startedAtMs": started_at_ms,
                     "durationMs": finished_at_ms.saturating_sub(started_at_ms),
                     "receiptIds": [receipt_id],
@@ -12674,7 +12673,7 @@ fn runtime_harness_default_runtime_dispatch(
             "replayFixtureRefs": live_promotion_routing_model_replay_fixture_refs,
             "actionFrameIds": live_promotion_routing_model_action_frame_ids,
             "divergenceClasses": live_promotion_routing_model_divergence_classes,
-            "rollbackTarget": "legacy_runtime_model_invocation",
+            "rollbackTarget": "workflow_model_recovery_fail_closed",
             "blockers": if live_promotion_routing_model_ready { Vec::<&str>::new() } else { vec!["routing_model_live_promotion_not_ready"] },
             "decision": if live_promotion_routing_model_ready { "allow_default_harness_live_cluster_promotion" } else { "block_default_harness_live_cluster_promotion" }
         },
@@ -13340,7 +13339,7 @@ fn runtime_harness_default_runtime_dispatch(
         "runtimeAuthority": if dispatch_accepted {
             "blessed_workflow_activation_default"
         } else {
-            "existing_runtime_service"
+            "workflow_recovery_fail_closed"
         },
         "adapterMode": "workflow_component_adapter_live",
         "componentKinds": cognition_node_authority_component_kinds.clone(),
@@ -13349,8 +13348,8 @@ fn runtime_harness_default_runtime_dispatch(
         "attemptIds": cognition_node_authority_attempt_ids,
         "receiptIds": cognition_node_authority_receipt_ids,
         "replayFixtureRefs": cognition_node_authority_replay_fixture_refs,
-        "fallbackAvailable": true,
-        "fallbackRef": "existing_runtime_service",
+        "recoveryAvailable": true,
+        "recoveryTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "blockers": cognition_node_authority_blockers.clone(),
         "policyDecision": if cognition_node_authority_blockers.is_empty() {
             "allow_node_authoritative_cognition"
@@ -13463,9 +13462,9 @@ fn runtime_harness_default_runtime_dispatch(
         routing_model_node_authority_blockers
             .push("routing_model_node_authority_transcript_authority_mismatch".to_string());
     }
-    if !visible_output_legacy_hash_matches_selected {
+    if !prior_workflow_visible_output_hash_matches_selected {
         routing_model_node_authority_blockers
-            .push("routing_model_node_authority_legacy_hash_mismatch".to_string());
+            .push("routing_model_node_authority_prior_workflow_hash_mismatch".to_string());
     }
     if !model_provider_canary_rollback_available {
         routing_model_node_authority_blockers
@@ -13544,7 +13543,7 @@ fn runtime_harness_default_runtime_dispatch(
         "runtimeAuthority": if dispatch_accepted {
             "blessed_workflow_activation_default"
         } else {
-            "existing_runtime_service"
+            "workflow_recovery_fail_closed"
         },
         "adapterMode": "workflow_component_adapter_gated",
         "componentKinds": routing_model_node_authority_component_kinds.clone(),
@@ -13563,8 +13562,8 @@ fn runtime_harness_default_runtime_dispatch(
         "visibleOutputAuthority": selected_visible_output_authority,
         "readOnlyCapabilityRoutingReady": read_only_capability_routing_ready,
         "rollbackAvailable": model_provider_canary_rollback_available,
-        "fallbackAvailable": true,
-        "fallbackRef": "legacy_runtime_model_invocation",
+        "recoveryAvailable": true,
+        "recoveryTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "blockers": routing_model_node_authority_blockers.clone(),
         "policyDecision": if routing_model_node_authority_blockers.is_empty() {
             "allow_gated_node_authoritative_routing_model"
@@ -13763,7 +13762,7 @@ fn runtime_harness_default_runtime_dispatch(
         "runtimeAuthority": if dispatch_accepted {
             "blessed_workflow_activation_default"
         } else {
-            "existing_runtime_service"
+            "workflow_recovery_fail_closed"
         },
         "adapterMode": "workflow_component_adapter_gated",
         "componentKinds": verification_output_node_authority_component_kinds.clone(),
@@ -13783,8 +13782,8 @@ fn runtime_harness_default_runtime_dispatch(
         "outputWriterVisibleWriteReady": output_writer_visible_write_ready,
         "outputWriterVisibleWriteCommitted": output_writer_visible_write_committed,
         "rollbackAvailable": output_writer_staged_write_rollback_verified,
-        "fallbackAvailable": true,
-        "fallbackRef": "legacy_runtime_output_writer",
+        "recoveryAvailable": true,
+        "recoveryTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "blockers": verification_output_node_authority_blockers.clone(),
         "policyDecision": if verification_output_node_authority_blockers.is_empty() {
             "allow_gated_node_authoritative_verification_output"
@@ -14038,7 +14037,7 @@ fn runtime_harness_default_runtime_dispatch(
         "runtimeAuthority": if dispatch_accepted {
             "blessed_workflow_activation_default"
         } else {
-            "existing_runtime_service"
+            "workflow_recovery_fail_closed"
         },
         "adapterMode": "workflow_component_adapter_gated",
         "componentKinds": authority_tooling_node_authority_component_kinds.clone(),
@@ -14063,8 +14062,8 @@ fn runtime_harness_default_runtime_dispatch(
         "gateLiveReady": authority_tooling_gate_live_ready,
         "readOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
         "rollbackAvailable": authority_tooling_rollback_available,
-        "fallbackAvailable": true,
-        "fallbackRef": "legacy_runtime_tool_authority",
+        "recoveryAvailable": true,
+        "recoveryTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "blockers": authority_tooling_node_authority_blockers.clone(),
         "policyDecision": if authority_tooling_node_authority_blockers.is_empty() {
             "allow_gated_node_authoritative_authority_tooling"
@@ -14175,7 +14174,7 @@ fn runtime_harness_default_runtime_dispatch(
         "runtimeAuthority": if dispatch_accepted {
             "blessed_workflow_activation_default"
         } else {
-            "existing_runtime_service"
+            "workflow_recovery_fail_closed"
         },
         "dispatchScope": "read_only_cognition_routing_verification_completion_authority_tooling",
         "status": if dispatch_accepted { "accepted" } else if can_dispatch { "rolled_back" } else { "blocked" },
@@ -14604,13 +14603,13 @@ fn runtime_harness_default_runtime_dispatch(
             "modelExecutionOutputHashMatches": model_execution_output_hash_matches,
             "modelExecutionProviderInvocationMode": model_execution_provider_invocation_mode,
             "modelExecutionLowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-            "modelExecutionFallbackSelector": model_execution_fallback_selector,
+            "modelExecutionRecoveryMode": model_execution_recovery_mode,
             "modelExecutionLatencyMs": model_execution_latency_ms,
             "modelProviderCanaryMode": model_provider_canary_mode,
             "modelProviderCanaryReady": model_provider_canary_ready,
             "modelProviderCanaryOutputHashMatches": model_provider_canary_output_hash_matches,
             "modelProviderCanaryTranscriptMatches": model_provider_canary_transcript_matches,
-            "modelProviderCanaryFallbackRetained": model_provider_canary_fallback_retained,
+            "modelProviderCanaryRecoveryReady": model_provider_canary_recovery_ready,
             "modelProviderCanaryRollbackAvailable": model_provider_canary_rollback_available,
             "modelProviderGatedVisibleOutputMode": model_provider_gated_visible_output_mode,
             "modelProviderGatedVisibleOutputEnabled": model_provider_gated_visible_output_enabled,
@@ -14621,10 +14620,10 @@ fn runtime_harness_default_runtime_dispatch(
             "modelProviderGatedVisibleOutputScenarioCoverageKey": model_provider_gated_visible_output_scenario_coverage_key,
             "selectedVisibleOutputAuthority": selected_visible_output_authority,
             "selectedVisibleOutputHash": selected_visible_output_hash,
-            "legacyVisibleOutputHash": legacy_visible_output_hash,
+            "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
             "modelProviderGatedVisibleOutputRollbackDrillReady": model_provider_gated_visible_output_rollback_drill_ready,
             "modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted": model_provider_gated_visible_output_rollback_drill_rollback_executed,
-            "modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority": model_provider_gated_visible_output_rollback_drill_fallback_authority,
+            "modelProviderGatedVisibleOutputRollbackDrillRecoveryMode": model_provider_gated_visible_output_rollback_drill_recovery_mode,
             "readOnlyCapabilityRoutingMode": read_only_capability_routing_mode,
             "readOnlyCapabilityRoutingReady": read_only_capability_routing_ready,
             "readOnlyCapabilityRoutingSelected": read_only_capability_routing_selected,
@@ -14655,7 +14654,7 @@ fn runtime_harness_default_runtime_dispatch(
             "outputWriterVisibleWriteCommitted": output_writer_visible_write_committed,
             "outputWriterVisibleWriteVisible": output_writer_visible_write_visible,
             "outputWriterVisibleWriteIdentityCheckpointPersisted": output_writer_visible_write_identity_checkpoint_persisted,
-            "outputWriterVisibleWriteLegacyDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
+            "outputWriterVisibleWriteRecoveryDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
             "authorityToolingMode": "workflow_live_dry_run",
             "authorityToolingReady": authority_tooling_ready,
             "authorityToolingPolicyGateReady": authority_tooling_policy_gate_ready,
@@ -14724,8 +14723,8 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingRollbackAvailable": authority_tooling_rollback_available,
             "workflowTranscriptWriteCandidateCommitted": false,
             "workflowTranscriptWriteCommitted": output_writer_visible_write_committed,
-            "legacyTranscriptAuthorityRetained": false,
-            "legacyTranscriptFallbackAvailable": true,
+            "workflowTranscriptRecoveryAuthorityRetained": false,
+            "workflowTranscriptRecoveryAvailable": true,
             "proposedVisibleOutputHash": proposed_visible_output_hash,
             "actualVisibleOutputHash": actual_visible_output_hash,
             "outputAuthority": "blessed_workflow_activation_default"
@@ -14834,15 +14833,15 @@ fn runtime_harness_default_runtime_dispatch(
         "modelExecutionOutputHashMatches": model_execution_output_hash_matches,
         "modelExecutionProviderInvocationMode": model_execution_provider_invocation_mode,
         "modelExecutionLowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-        "modelExecutionFallbackSelector": model_execution_fallback_selector,
+        "modelExecutionRecoveryMode": model_execution_recovery_mode,
         "modelExecutionLatencyMs": model_execution_latency_ms,
         "modelProviderCanaryMode": model_provider_canary_mode,
         "modelProviderCanaryReady": model_provider_canary_ready,
         "modelProviderCanaryCandidateOutputHash": model_provider_canary_candidate_output_hash,
-        "modelProviderCanaryLegacyOutputHash": model_provider_canary_legacy_output_hash,
+        "modelProviderCanaryPriorWorkflowOutputHash": model_provider_canary_prior_workflow_output_hash,
         "modelProviderCanaryOutputHashMatches": model_provider_canary_output_hash_matches,
         "modelProviderCanaryTranscriptMatches": model_provider_canary_transcript_matches,
-        "modelProviderCanaryFallbackRetained": model_provider_canary_fallback_retained,
+        "modelProviderCanaryRecoveryReady": model_provider_canary_recovery_ready,
         "modelProviderCanaryRollbackAvailable": model_provider_canary_rollback_available,
         "modelProviderGatedVisibleOutputMode": model_provider_gated_visible_output_mode,
         "modelProviderGatedVisibleOutputEnabled": model_provider_gated_visible_output_enabled,
@@ -14862,9 +14861,9 @@ fn runtime_harness_default_runtime_dispatch(
         "selectedVisibleOutputAuthority": selected_visible_output_authority,
         "selectedVisibleOutputHash": selected_visible_output_hash,
         "workflowProviderVisibleOutputHash": model_provider_canary_candidate_output_hash,
-        "legacyVisibleOutputHash": legacy_visible_output_hash,
-        "legacyVisibleOutputComputed": true,
-        "legacyVisibleOutputHashMatchesSelected": visible_output_legacy_hash_matches_selected,
+        "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
+        "priorWorkflowVisibleOutputComputed": true,
+        "priorWorkflowVisibleOutputHashMatchesSelected": prior_workflow_visible_output_hash_matches_selected,
         "selectedVisibleOutputAuthorityMatchesTranscript": visible_output_selected_authority_matches_transcript,
         "visibleOutputDivergenceClass": visible_output_divergence_class.clone(),
         "modelProviderGatedVisibleOutputRollbackDrillEnabled": model_provider_gated_visible_output_rollback_drill_enabled,
@@ -14873,7 +14872,7 @@ fn runtime_harness_default_runtime_dispatch(
         "modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash": model_provider_gated_visible_output_rollback_drill_injected_output_hash,
         "modelProviderGatedVisibleOutputRollbackDrillOutputHashDiverges": model_provider_gated_visible_output_rollback_drill_output_hash_diverges,
         "modelProviderGatedVisibleOutputRollbackDrillDivergenceClass": model_provider_gated_visible_output_rollback_drill_divergence_class,
-        "modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority": model_provider_gated_visible_output_rollback_drill_fallback_authority,
+        "modelProviderGatedVisibleOutputRollbackDrillRecoveryMode": model_provider_gated_visible_output_rollback_drill_recovery_mode,
         "modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority": model_provider_gated_visible_output_rollback_drill_selected_authority,
         "modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged": model_provider_gated_visible_output_rollback_drill_transcript_unchanged,
         "modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted": model_provider_gated_visible_output_rollback_drill_rollback_executed,
@@ -14914,7 +14913,7 @@ fn runtime_harness_default_runtime_dispatch(
             "policyDecision": if read_only_capability_routing_ready {
                 "accept_workflow_read_only_capability_routing_without_side_effects"
             } else {
-                "retain_legacy_read_only_capability_routing_outside_source_probe_cohort"
+                "retain_workflow_read_only_capability_routing_outside_source_probe_cohort"
             }
         },
         "modelProviderGatedVisibleOutputRollbackDrillProof": {
@@ -14925,11 +14924,11 @@ fn runtime_harness_default_runtime_dispatch(
             "failureInjected": model_provider_gated_visible_output_rollback_drill_failure_injected,
             "workflowProviderOutputHash": model_provider_canary_candidate_output_hash,
             "injectedWorkflowProviderOutputHash": model_provider_gated_visible_output_rollback_drill_injected_output_hash,
-            "legacyVisibleOutputHash": legacy_visible_output_hash,
+            "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
             "actualVisibleOutputHash": actual_visible_output_hash,
             "outputHashDiverges": model_provider_gated_visible_output_rollback_drill_output_hash_diverges,
             "divergenceClass": model_provider_gated_visible_output_rollback_drill_divergence_class,
-            "fallbackAuthority": model_provider_gated_visible_output_rollback_drill_fallback_authority,
+            "recoveryMode": model_provider_gated_visible_output_rollback_drill_recovery_mode,
             "selectedAuthorityAfterRollback": model_provider_gated_visible_output_rollback_drill_selected_authority,
             "transcriptUnchanged": model_provider_gated_visible_output_rollback_drill_transcript_unchanged,
             "rollbackExecuted": model_provider_gated_visible_output_rollback_drill_rollback_executed,
@@ -14940,7 +14939,7 @@ fn runtime_harness_default_runtime_dispatch(
             "receiptIds": model_provider_gated_visible_output_rollback_drill_receipt_ids.clone(),
             "replayFixtureRefs": model_provider_gated_visible_output_rollback_drill_replay_fixture_refs.clone(),
             "policyDecision": if model_provider_gated_visible_output_rollback_drill_ready {
-                "rollback_to_legacy_runtime_model_invocation_on_provider_output_hash_divergence"
+                "fail_closed_workflow_model_recovery_on_provider_output_hash_divergence"
             } else {
                 "rollback_drill_not_applicable_outside_provider_visible_output_gate"
             }
@@ -14962,9 +14961,9 @@ fn runtime_harness_default_runtime_dispatch(
             "selectedVisibleOutputAuthority": selected_visible_output_authority,
             "selectedVisibleOutputHash": selected_visible_output_hash,
             "workflowProviderOutputHash": model_provider_canary_candidate_output_hash,
-            "legacyVisibleOutputHash": legacy_visible_output_hash,
-            "legacyVisibleOutputComputed": true,
-            "legacyVisibleOutputHashMatchesSelected": visible_output_legacy_hash_matches_selected,
+            "priorWorkflowVisibleOutputHash": prior_workflow_visible_output_hash,
+            "priorWorkflowVisibleOutputComputed": true,
+            "priorWorkflowVisibleOutputHashMatchesSelected": prior_workflow_visible_output_hash_matches_selected,
             "selectedAuthorityMatchesTranscript": visible_output_selected_authority_matches_transcript,
             "divergenceClass": visible_output_divergence_class.clone(),
             "rollbackTarget": visible_output_gated_authority_rollback_target,
@@ -14973,7 +14972,7 @@ fn runtime_harness_default_runtime_dispatch(
             "receiptIds": model_provider_gated_visible_output_receipt_ids.clone(),
             "replayFixtureRefs": model_provider_gated_visible_output_replay_fixture_refs.clone(),
             "policyDecision": if model_provider_gated_visible_output_selected {
-                "accept_workflow_provider_gated_visible_output_with_legacy_rollback"
+                "accept_workflow_provider_gated_visible_output_with_workflow_recovery"
             } else {
                 "retain_workflow_transcript_authority_outside_provider_visible_output_gate"
             }
@@ -15072,15 +15071,15 @@ fn runtime_harness_default_runtime_dispatch(
             "schemaVersion": "workflow.harness.model-provider-call-canary.v1",
             "mode": model_provider_canary_mode,
             "candidateOutputHash": model_provider_canary_candidate_output_hash,
-            "legacyOutputHash": model_provider_canary_legacy_output_hash,
+            "priorWorkflowOutputHash": model_provider_canary_prior_workflow_output_hash,
             "outputHashMatches": model_provider_canary_output_hash_matches,
             "transcriptMatches": model_provider_canary_transcript_matches,
-            "fallbackRetained": model_provider_canary_fallback_retained,
+            "recoveryReady": model_provider_canary_recovery_ready,
             "rollbackAvailable": model_provider_canary_rollback_available,
             "attemptIds": model_provider_canary_attempt_ids.clone(),
             "receiptIds": model_provider_canary_receipt_ids.clone(),
             "replayFixtureRefs": model_provider_canary_replay_fixture_refs.clone(),
-            "policyDecision": "accept_workflow_model_provider_call_canary_with_legacy_rollback"
+            "policyDecision": "accept_workflow_model_provider_call_canary_with_workflow_recovery"
         },
         "modelExecutionProof": {
             "schemaVersion": "workflow.harness.model-execution-envelope.v1",
@@ -15093,7 +15092,7 @@ fn runtime_harness_default_runtime_dispatch(
             "outputHashMatches": model_execution_output_hash_matches,
             "providerInvocationMode": model_execution_provider_invocation_mode,
             "lowLevelInvocationDeferred": model_execution_low_level_invocation_deferred,
-            "fallbackSelector": model_execution_fallback_selector,
+            "recoveryMode": model_execution_recovery_mode,
             "latencyMs": model_execution_latency_ms,
             "routingModelAdapterMode": "workflow_component_adapter_gated",
             "routingModelAdapterResultCount": routing_model_adapter_results.len(),
@@ -15141,10 +15140,10 @@ fn runtime_harness_default_runtime_dispatch(
             "attemptIds": model_execution_attempt_ids,
             "receiptIds": model_execution_receipt_ids,
             "replayFixtureRefs": model_execution_replay_fixture_refs,
-            "policyDecision": "accept_workflow_model_provider_call_canary_with_legacy_rollback"
+            "policyDecision": "accept_workflow_model_provider_call_canary_with_workflow_recovery"
         },
-        "outputAuthority": if dispatch_accepted { "blessed_workflow_activation_default" } else { "existing_runtime_service" },
-        "visibleOutputAuthority": if dispatch_accepted { "blessed_workflow_activation_default" } else { "existing_runtime_service" },
+        "outputAuthority": if dispatch_accepted { "blessed_workflow_activation_default" } else { "workflow_recovery_fail_closed" },
+        "visibleOutputAuthority": if dispatch_accepted { "blessed_workflow_activation_default" } else { "workflow_recovery_fail_closed" },
         "outputWriterDeferred": false,
         "outputWriterStatus": if dispatch_accepted { "visible_write_committed" } else { "blocked" },
         "outputWriterHandoffReady": output_writer_handoff_ready,
@@ -15166,7 +15165,7 @@ fn runtime_harness_default_runtime_dispatch(
         "outputWriterVisibleWriteCommitted": output_writer_visible_write_committed,
         "outputWriterVisibleWriteVisible": output_writer_visible_write_visible,
         "outputWriterVisibleWriteIdentityCheckpointPersisted": output_writer_visible_write_identity_checkpoint_persisted,
-        "outputWriterVisibleWriteLegacyDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
+        "outputWriterVisibleWriteRecoveryDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
         "authorityToolingMode": "workflow_live_dry_run",
         "authorityToolingReady": authority_tooling_ready,
         "authorityToolingPolicyGateReady": authority_tooling_policy_gate_ready,
@@ -15276,13 +15275,13 @@ fn runtime_harness_default_runtime_dispatch(
             "mutationDeferredComponentKinds": &authority_tooling_mutation_deferred_component_kinds,
             "policyDecision": "allow_read_only_route_and_deny_destructive_tooling_without_side_effect"
         },
-        "legacyTranscriptAuthorityRetained": false,
-        "legacyTranscriptFallbackAvailable": true,
-        "legacyTranscriptFallbackProof": legacy_transcript_fallback_proof,
+        "workflowTranscriptRecoveryAuthorityRetained": false,
+        "workflowTranscriptRecoveryAvailable": true,
+        "workflowTranscriptRecoveryProof": workflow_transcript_recovery_proof,
         "workflowTranscriptWriteCandidate": workflow_transcript_write_candidate,
         "workflowTranscriptWriteRecord": workflow_visible_transcript_write_record,
         "visibleTranscriptWriteProof": visible_transcript_write_proof,
-        "legacyTranscriptWriteRecord": legacy_transcript_write_record,
+        "workflowTranscriptRecoveryRecord": workflow_transcript_recovery_record,
         "transcriptMaterializationContentHashMatches": transcript_materialization_content_hash_matches,
         "transcriptMaterializationOrderMatches": transcript_materialization_order_matches,
         "transcriptMaterializationReceiptBindingMatches": transcript_materialization_receipt_binding_matches,
@@ -15295,8 +15294,8 @@ fn runtime_harness_default_runtime_dispatch(
             "receiptBindingMatches": transcript_materialization_receipt_binding_matches,
             "targetMatches": transcript_materialization_target_matches,
             "candidateCommitted": false,
-            "legacyCommitted": transcript_materialization_legacy_committed,
-            "legacyDuplicateSuppressed": transcript_materialization_legacy_idempotent,
+            "priorWorkflowCommitted": transcript_materialization_prior_workflow_committed,
+            "recoveryDuplicateSuppressed": transcript_materialization_recovery_duplicate_suppressed,
             "matches": transcript_materialization_matches,
             "divergenceClass": if transcript_materialization_matches { Value::Null } else { json!("transcript_materialization_divergence") }
         },
@@ -15337,7 +15336,7 @@ fn runtime_harness_default_runtime_dispatch(
             "workflowWriteCommitted": output_writer_visible_write_committed,
             "workflowWriteVisible": output_writer_visible_write_visible,
             "identityCheckpointPersisted": output_writer_visible_write_identity_checkpoint_persisted,
-            "legacyDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
+            "recoveryDuplicateSuppressed": output_writer_visible_write_duplicate_suppressed,
             "matches": visible_transcript_write_matches,
             "divergenceClass": if visible_transcript_write_matches { Value::Null } else { json!("visible_transcript_write_divergence") }
         },
@@ -15354,8 +15353,8 @@ fn runtime_harness_default_runtime_dispatch(
             "matches": output_hash_matches,
             "divergenceClass": if output_hash_matches { Value::Null } else { json!("output_hash_divergence") }
         },
-        "legacyOutputAuthorityRetained": false,
-        "legacyOutputFallbackAvailable": true,
+        "workflowOutputRecoveryAuthorityRetained": false,
+        "workflowOutputRecoveryAvailable": true,
         "mutatingTurnsBlocked": true,
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "rollbackAvailable": true,
@@ -15365,7 +15364,7 @@ fn runtime_harness_default_runtime_dispatch(
         } else if dispatch_accepted {
             "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write"
         } else {
-            "retain_legacy_runtime_default"
+            "block_workflow_default_until_gates_pass"
         },
         "evidenceRefs": [
             format!("runtime-evidence:{sid}"),
@@ -15380,7 +15379,7 @@ fn runtime_evidence_projection(
     sid: &str,
     staged_output_writer_write: Option<&Value>,
     visible_output_writer_write: Option<&Value>,
-    legacy_transcript_fallback: Option<&Value>,
+    workflow_transcript_recovery: Option<&Value>,
 ) -> serde_json::Value {
     let selected_sources = selected_source_refs(task);
     let has_selected_sources = !selected_sources.is_empty();
@@ -15540,7 +15539,7 @@ fn runtime_evidence_projection(
         Some(&harness_activation_id_gate_click_proof),
         staged_output_writer_write,
         visible_output_writer_write,
-        legacy_transcript_fallback,
+        workflow_transcript_recovery,
     );
     let harness_default_runtime_binding = runtime_harness_default_runtime_binding(
         sid,
@@ -15558,11 +15557,11 @@ fn runtime_evidence_projection(
                 "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
                 "executionMode": "projection",
-                "source": "autopilot_runtime_selector_legacy_default_v1",
+                "source": "autopilot_runtime_selector_workflow_recovery_v1",
                 "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "authorityBindingReady": false,
                 "authorityBindingBlockers": ["worker_binding_authority_missing"],
-                "policyDecision": "retain_legacy_runtime_default",
+                "policyDecision": "block_workflow_default_until_gates_pass",
                 "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
                 "invariantBlockers": ["worker_binding_authority_missing"]
             })
@@ -15584,7 +15583,7 @@ fn runtime_evidence_projection(
                 "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                 "readinessProofId": "",
                 "canaryResultId": "harness-canary-result:default-agent-harness:not-run",
-                "policyDecision": "retain_legacy_runtime_default",
+                "policyDecision": "block_workflow_default_until_gates_pass",
                 "bindingStatus": "blocked",
                 "blockers": ["worker_binding_registry_missing"],
                 "requiredInvariantIds": [DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT],
@@ -16279,14 +16278,14 @@ fn runtime_evidence_projection(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TranscriptProjectionWritePhase {
     PreWorkflowVisibleOutput,
-    LegacyFallbackAfterWorkflowOutput,
+    WorkflowRecoveryAfterWorkflowOutput,
 }
 
 impl TranscriptProjectionWritePhase {
     fn as_str(self) -> &'static str {
         match self {
             Self::PreWorkflowVisibleOutput => "pre_workflow_visible_output",
-            Self::LegacyFallbackAfterWorkflowOutput => "legacy_fallback_after_workflow_output",
+            Self::WorkflowRecoveryAfterWorkflowOutput => "workflow_recovery_after_workflow_output",
         }
     }
 }
@@ -16374,7 +16373,7 @@ fn append_missing_transcript_rows(
 ) -> Value {
     let Some(thread_key) = thread_storage_key(sid) else {
         return json!({
-            "schemaVersion": "workflow.output_writer.legacy-transcript-fallback.v1",
+            "schemaVersion": "workflow.output_writer.transcript-recovery.v1",
             "phase": phase.as_str(),
             "appendedCount": 0,
             "duplicateSuppressedCount": 0,
@@ -16467,7 +16466,7 @@ fn append_missing_transcript_rows(
                 "contentHash": content_hash,
                 "receiptBindingRef": receipt_binding_ref,
                 "writeIdentityHash": write_identity_hash,
-                "writeAuthority": "existing_runtime_service",
+                "writeAuthority": "workflow_recovery_fail_closed",
                 "committed": true,
                 "commitPhase": phase.as_str()
             }));
@@ -16475,9 +16474,9 @@ fn append_missing_transcript_rows(
     }
 
     json!({
-        "schemaVersion": "workflow.output_writer.legacy-transcript-fallback.v1",
+        "schemaVersion": "workflow.output_writer.transcript-recovery.v1",
         "phase": phase.as_str(),
-        "writeAuthority": "existing_runtime_service",
+        "writeAuthority": "workflow_recovery_fail_closed",
         "appendedCount": appended_count,
         "duplicateSuppressedCount": duplicate_suppressed_count,
         "latestAgentDuplicateSuppressed": latest_agent_duplicate_suppressed,
@@ -16688,7 +16687,7 @@ fn persist_output_writer_visible_transcript_write(
         "identityCheckpointPersisted": identity_checkpoint_persisted,
         "appendError": append_error,
         "rollbackAvailable": true,
-        "rollbackMode": "legacy_runtime_fallback_with_idempotent_duplicate_suppression",
+        "rollbackMode": "workflow_fail_closed_with_idempotent_duplicate_suppression",
         "evidenceRefs": [
             format!("runtime-evidence:{sid}"),
             format!("workflow-visible-transcript-write:{write_identity_hash}"),
@@ -16852,11 +16851,11 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     } else {
         None
     };
-    let legacy_transcript_fallback = Some(append_missing_transcript_rows(
+    let workflow_transcript_recovery = Some(append_missing_transcript_rows(
         memory_runtime,
         sid,
         task,
-        TranscriptProjectionWritePhase::LegacyFallbackAfterWorkflowOutput,
+        TranscriptProjectionWritePhase::WorkflowRecoveryAfterWorkflowOutput,
     ));
 
     let staged_output_writer_write =
@@ -16866,7 +16865,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         sid,
         staged_output_writer_write.as_ref(),
         visible_output_writer_write.as_ref(),
-        legacy_transcript_fallback.as_ref(),
+        workflow_transcript_recovery.as_ref(),
     );
     let harness_shadow_run = projection.get("HarnessShadowRun").cloned();
     let harness_node_attempt_count = harness_shadow_run
@@ -16924,7 +16923,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             && run.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
             && run.get("canaryStatus").and_then(Value::as_str) == Some("passed")
             && run.get("runtimeAuthority").and_then(Value::as_str)
-                == Some("existing_runtime_service")
+                == Some("workflow_recovery_fail_closed")
     });
     let harness_fork_activation = projection.get("HarnessForkActivation").cloned();
     let harness_fork_activation_blocked = harness_fork_activation
@@ -17159,12 +17158,12 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .get("rollbackDrill")
                     .and_then(|drill| drill.get("rollbackSelector"))
                     .and_then(Value::as_str)
-                    == Some("legacy_runtime")
+                    == Some("workflow_recovery_blocked")
                 && boundary
                     .get("rollbackDrill")
-                    .and_then(|drill| drill.get("fallbackAuthority"))
+                    .and_then(|drill| drill.get("recoveryMode"))
                     .and_then(Value::as_str)
-                    == Some("existing_runtime_service")
+                    == Some("fail_closed")
                 && boundary
                     .get("rollbackDrill")
                     .and_then(|drill| drill.get("drillStatus"))
@@ -17191,7 +17190,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && decision
                     .get("productionDefaultSelector")
                     .and_then(Value::as_str)
-                    == Some("legacy_runtime")
+                    == Some("workflow_recovery_blocked")
                 && decision.get("canaryEligible").and_then(Value::as_bool) == Some(true)
                 && decision
                     .get("canaryBlockers")
@@ -17206,15 +17205,14 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && decision.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
         })
         .unwrap_or(false);
-    let harness_selector_legacy_default = harness_selector_decision
+    let harness_selector_workflow_recovery_blocked = harness_selector_decision
         .as_ref()
         .map(|decision| {
             decision
                 .get("productionDefaultSelector")
                 .and_then(Value::as_str)
-                == Some("legacy_runtime")
-                && decision.get("fallbackSelector").and_then(Value::as_str)
-                    == Some("legacy_runtime")
+                == Some("workflow_recovery_blocked")
+                && decision.get("recoveryMode").and_then(Value::as_str) == Some("fail_closed")
                 && decision.get("rollbackTarget").and_then(Value::as_str)
                     == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
         })
@@ -17351,7 +17349,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && handoff
                     .get("productionDefaultSelector")
                     .and_then(Value::as_str)
-                    == Some("legacy_runtime")
+                    == Some("workflow_recovery_blocked")
                 && handoff.get("workflowId").and_then(Value::as_str)
                     == Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
                 && handoff.get("activationId").and_then(Value::as_str)
@@ -17446,7 +17444,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     let harness_live_handoff_rollback = harness_live_handoff
         .as_ref()
         .map(|handoff| {
-            handoff.get("fallbackSelector").and_then(Value::as_str) == Some("legacy_runtime")
+            handoff.get("recoveryMode").and_then(Value::as_str) == Some("fail_closed")
                 && handoff.get("rollbackTarget").and_then(Value::as_str)
                     == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
                 && handoff.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
@@ -17679,7 +17677,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
-                    .get("outputWriterVisibleWriteLegacyDuplicateSuppressed")
+                    .get("outputWriterVisibleWriteRecoveryDuplicateSuppressed")
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
@@ -17743,9 +17741,9 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(false)
                 && dispatch
-                    .get("modelExecutionFallbackSelector")
+                    .get("modelExecutionRecoveryMode")
                     .and_then(Value::as_str)
-                    == Some("legacy_runtime_model_invocation")
+                    == Some("fail_closed")
                 && dispatch
                     .get("modelProviderCanaryMode")
                     .and_then(Value::as_str)
@@ -17763,7 +17761,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
-                    .get("modelProviderCanaryFallbackRetained")
+                    .get("modelProviderCanaryRecoveryReady")
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
@@ -17813,7 +17811,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
-                    .get("legacyTranscriptAuthorityRetained")
+                    .get("workflowTranscriptRecoveryAuthorityRetained")
                     .and_then(Value::as_bool)
                     == Some(false)
                 && dispatch
@@ -17892,12 +17890,12 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
-                    .get("legacyTranscriptWriteRecord")
+                    .get("workflowTranscriptRecoveryRecord")
                     .and_then(|record| record.get("committed"))
                     .and_then(Value::as_bool)
                     == Some(false)
                 && dispatch
-                    .get("legacyTranscriptWriteRecord")
+                    .get("workflowTranscriptRecoveryRecord")
                     .and_then(|record| record.get("suppressedByIdempotency"))
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -17925,11 +17923,11 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
-                    .get("legacyOutputAuthorityRetained")
+                    .get("workflowOutputRecoveryAuthorityRetained")
                     .and_then(Value::as_bool)
                     == Some(false)
                 && dispatch
-                    .get("legacyOutputFallbackAvailable")
+                    .get("workflowOutputRecoveryAvailable")
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
@@ -19975,14 +19973,14 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|(selected, actual)| !selected.is_empty() && selected == actual)
                     .unwrap_or(false)
                 && dispatch
-                    .get("legacyVisibleOutputHash")
+                    .get("priorWorkflowVisibleOutputHash")
                     .and_then(Value::as_str)
                     .zip(
                         dispatch
                             .get("selectedVisibleOutputHash")
                             .and_then(Value::as_str),
                     )
-                    .map(|(legacy, selected)| !legacy.is_empty() && legacy == selected)
+                    .map(|(prior, selected)| !prior.is_empty() && prior == selected)
                     .unwrap_or(false)
                 && dispatch
                     .get("modelProviderGatedVisibleOutputAttemptIds")
@@ -20029,13 +20027,13 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_str)
                     == Some("provider_output_hash_divergence")
                 && dispatch
-                    .get("modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority")
+                    .get("modelProviderGatedVisibleOutputRollbackDrillRecoveryMode")
                     .and_then(Value::as_str)
-                    == Some("legacy_runtime_model_invocation")
+                    == Some("fail_closed")
                 && dispatch
                     .get("modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority")
                     .and_then(Value::as_str)
-                    == Some("legacy_runtime_model_invocation")
+                    == Some("workflow_model_recovery_fail_closed")
                 && dispatch
                     .get("modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged")
                     .and_then(Value::as_bool)
@@ -20280,7 +20278,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_worker_binding": projection.get("HarnessWorkerBinding"),
             "harness_selector_decision": harness_selector_decision,
             "harness_selector_canary_routed": harness_selector_canary_routed,
-            "harness_selector_legacy_default": harness_selector_legacy_default,
+            "harness_selector_workflow_recovery_blocked": harness_selector_workflow_recovery_blocked,
             "harness_selector_default_promoted": harness_selector_default_promoted,
             "harness_selector_live_promotion_readiness_gated": harness_selector_live_promotion_readiness_gated,
             "harness_selector_reviewed_import_activation_apply_invariant": harness_selector_reviewed_import_activation_apply_invariant,
@@ -20398,7 +20396,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_canary_boundary_executed": harness_canary_boundary_executed,
             "harness_canary_boundary_rollback_drill": harness_canary_boundary_rollback_drill,
             "harness_selector_canary_routed": harness_selector_canary_routed,
-            "harness_selector_legacy_default": harness_selector_legacy_default,
+            "harness_selector_workflow_recovery_blocked": harness_selector_workflow_recovery_blocked,
             "harness_selector_default_promoted": harness_selector_default_promoted,
             "harness_selector_live_promotion_readiness_gated": harness_selector_live_promotion_readiness_gated,
             "harness_live_handoff_canary": harness_live_handoff_canary,
@@ -20493,7 +20491,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_live_promotion_readiness={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_workflow_recovery_blocked={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_live_promotion_readiness={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -20507,7 +20505,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_canary_boundary_executed,
         harness_canary_boundary_rollback_drill,
         harness_selector_canary_routed,
-        harness_selector_legacy_default,
+        harness_selector_workflow_recovery_blocked,
         harness_selector_default_promoted,
         harness_live_handoff_canary,
         harness_live_handoff_default_promoted,

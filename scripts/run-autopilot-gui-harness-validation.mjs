@@ -542,7 +542,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessCanaryBoundaryExecutedCount: 0,
     harnessCanaryBoundaryRollbackDrillCount: 0,
     harnessSelectorCanaryRoutedCount: 0,
-    harnessSelectorLegacyDefaultCount: 0,
+    harnessSelectorWorkflowRecoveryBlockedCount: 0,
     harnessSelectorDefaultPromotedCount: 0,
     harnessSelectorLivePromotionReadinessGatedCount: 0,
     harnessSelectorReviewedImportActivationApplyInvariantCount: 0,
@@ -646,8 +646,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       gate?.requiredExecutionMode === "live" &&
       gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
       gate?.adapterMode === "workflow_component_adapter_live" &&
-      gate?.fallbackAvailable === true &&
-      gate?.fallbackRef === "existing_runtime_service" &&
+      gate?.recoveryAvailable === true &&
+      typeof gate?.recoveryTarget === "string" &&
+      gate.recoveryTarget.length > 0 &&
       gate?.policyDecision === "allow_node_authoritative_cognition" &&
       Array.isArray(gate?.blockers) &&
       gate.blockers.length === 0 &&
@@ -676,8 +677,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       gate?.requiredExecutionMode === "gated" &&
       gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
       gate?.adapterMode === "workflow_component_adapter_gated" &&
-      gate?.fallbackAvailable === true &&
-      gate?.fallbackRef === "legacy_runtime_model_invocation" &&
+      gate?.recoveryAvailable === true &&
+      typeof gate?.recoveryTarget === "string" &&
+      gate.recoveryTarget.length > 0 &&
       gate?.policyDecision ===
         "allow_gated_node_authoritative_routing_model" &&
       gate?.providerCanaryReady === true &&
@@ -720,8 +722,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       gate?.requiredExecutionMode === "gated" &&
       gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
       gate?.adapterMode === "workflow_component_adapter_gated" &&
-      gate?.fallbackAvailable === true &&
-      gate?.fallbackRef === "legacy_runtime_output_writer" &&
+      gate?.recoveryAvailable === true &&
+      typeof gate?.recoveryTarget === "string" &&
+      gate.recoveryTarget.length > 0 &&
       gate?.policyDecision ===
         "allow_gated_node_authoritative_verification_output" &&
       gate?.outputWriterHandoffReady === true &&
@@ -773,8 +776,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       gate?.requiredExecutionMode === "gated" &&
       gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
       gate?.adapterMode === "workflow_component_adapter_gated" &&
-      gate?.fallbackAvailable === true &&
-      gate?.fallbackRef === "legacy_runtime_tool_authority" &&
+      gate?.recoveryAvailable === true &&
+      typeof gate?.recoveryTarget === "string" &&
+      gate.recoveryTarget.length > 0 &&
       gate?.policyDecision ===
         "allow_gated_node_authoritative_authority_tooling" &&
       gate?.readOnlyRouteAccepted === true &&
@@ -2551,7 +2555,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (
             decision.schemaVersion === "workflow.harness.runtime-selector.v1" &&
             decision.selectedSelector === "blessed_workflow_live_canary" &&
-            decision.productionDefaultSelector === "legacy_runtime" &&
+            decision.productionDefaultSelector === "workflow_recovery_blocked" &&
             decision.canaryEligible === true &&
             Array.isArray(decision.canaryBlockers) &&
             decision.canaryBlockers.length === 0 &&
@@ -2613,12 +2617,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             summary.harnessSelectorLivePromotionReadinessGatedCount += 1;
           }
           if (
-            decision.productionDefaultSelector === "legacy_runtime" &&
-            decision.fallbackSelector === "legacy_runtime" &&
+            decision.productionDefaultSelector === "workflow_recovery_blocked" &&
+            decision.recoveryMode === "fail_closed" &&
             typeof decision.rollbackTarget === "string" &&
             decision.rollbackTarget.length > 0
           ) {
-            summary.harnessSelectorLegacyDefaultCount += 1;
+            summary.harnessSelectorWorkflowRecoveryBlockedCount += 1;
           }
         }
         if (projection.HarnessShadowRun) {
@@ -2677,7 +2681,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 run?.promotionBlocked === false &&
                 run?.rollbackAvailable === true &&
                 run?.canaryStatus === "passed" &&
-                run?.runtimeAuthority === "existing_runtime_service",
+                run?.runtimeAuthority === "workflow_recovery_fail_closed",
             ).length;
         }
         if (projection.HarnessForkActivation) {
@@ -2752,9 +2756,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 boundary.rollbackDrill?.failureInjected === true &&
                 boundary.rollbackDrill?.observedFailure === true &&
                 boundary.rollbackDrill?.rollbackExecuted === true &&
-                boundary.rollbackDrill?.rollbackSelector === "legacy_runtime" &&
-                boundary.rollbackDrill?.fallbackAuthority ===
-                  "existing_runtime_service" &&
+                boundary.rollbackDrill?.rollbackSelector ===
+                  "workflow_recovery_blocked" &&
+                boundary.rollbackDrill?.recoveryMode === "fail_closed" &&
                 boundary.rollbackDrill?.drillStatus === "passed",
             );
           if (
@@ -2779,7 +2783,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (
             handoff.schemaVersion === "workflow.harness.live-handoff.v1" &&
             handoff.selector === "blessed_workflow_live_canary" &&
-            handoff.productionDefaultSelector === "legacy_runtime" &&
+            handoff.productionDefaultSelector === "workflow_recovery_blocked" &&
             handoff.canaryStatus === "passed" &&
             handoff.canaryTurnRoutedThroughWorkflow === true &&
             handoff.executionBoundaryStatus === "passed" &&
@@ -2825,7 +2829,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             summary.harnessLiveHandoffDefaultPromotedCount += 1;
           }
           if (
-            handoff.fallbackSelector === "legacy_runtime" &&
+            (handoff.recoveryMode === "fail_closed" ||
+              handoff.recoveryMode === "restore_prior_workflow_activation") &&
             handoff.rollbackAvailable === true &&
             typeof handoff.rollbackTarget === "string" &&
             handoff.rollbackTarget.length > 0 &&
@@ -2963,7 +2968,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.outputWriterVisibleWriteVisible === true &&
             dispatch.outputWriterVisibleWriteIdentityCheckpointPersisted ===
               true &&
-            dispatch.outputWriterVisibleWriteLegacyDuplicateSuppressed ===
+            dispatch.outputWriterVisibleWriteRecoveryDuplicateSuppressed ===
               true &&
             dispatch.cognitionExecutionMode ===
               "workflow_synchronous_envelope" &&
@@ -3190,13 +3195,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.modelExecutionProviderInvocationMode ===
               "workflow_provider_canary" &&
             dispatch.modelExecutionLowLevelInvocationDeferred === false &&
-            dispatch.modelExecutionFallbackSelector ===
-              "legacy_runtime_model_invocation" &&
+            dispatch.modelExecutionRecoveryMode === "fail_closed" &&
             dispatch.modelProviderCanaryMode === "workflow_provider_canary" &&
             dispatch.modelProviderCanaryReady === true &&
             dispatch.modelProviderCanaryOutputHashMatches === true &&
             dispatch.modelProviderCanaryTranscriptMatches === true &&
-            dispatch.modelProviderCanaryFallbackRetained === true &&
+            dispatch.modelProviderCanaryRecoveryReady === true &&
             dispatch.modelProviderCanaryRollbackAvailable === true &&
             dispatch.modelProviderGatedVisibleOutputMode ===
               "workflow_provider_gated_visible_output" &&
@@ -3227,10 +3231,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.selectedVisibleOutputHash.length > 0 &&
             dispatch.selectedVisibleOutputHash ===
               dispatch.actualVisibleOutputHash &&
-            dispatch.legacyVisibleOutputHash ===
+            dispatch.priorWorkflowVisibleOutputHash ===
               dispatch.selectedVisibleOutputHash &&
-            dispatch.legacyVisibleOutputComputed === true &&
-            dispatch.legacyVisibleOutputHashMatchesSelected === true &&
+            dispatch.priorWorkflowVisibleOutputComputed === true &&
+            dispatch.priorWorkflowVisibleOutputHashMatchesSelected === true &&
             dispatch.selectedVisibleOutputAuthorityMatchesTranscript === true &&
             dispatch.modelProviderGatedVisibleOutputRollbackAvailable ===
               true &&
@@ -3251,10 +3255,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               true &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillDivergenceClass ===
               "provider_output_hash_divergence" &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority ===
-              "legacy_runtime_model_invocation" &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillRecoveryMode ===
+              "fail_closed" &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority ===
-              "legacy_runtime_model_invocation" &&
+              "workflow_model_recovery_fail_closed" &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged ===
               true &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted ===
@@ -3409,7 +3413,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingMutatingToolCallsBlocked === true &&
             dispatch.authorityToolingSideEffectsExecuted === false &&
             dispatch.authorityToolingRollbackAvailable === true &&
-            dispatch.legacyTranscriptAuthorityRetained === false &&
+            dispatch.workflowTranscriptRecoveryAuthorityRetained === false &&
             dispatch.transcriptMaterializationMatches === true &&
             dispatch.transcriptMaterializationContentHashMatches === true &&
             dispatch.transcriptMaterializationOrderMatches === true &&
@@ -3428,8 +3432,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.workflowTranscriptWriteCandidate?.committed === false &&
             dispatch.workflowTranscriptWriteRecord?.committed === true &&
             dispatch.workflowTranscriptWriteRecord?.visible === true &&
-            dispatch.legacyTranscriptWriteRecord?.committed === false &&
-            dispatch.legacyTranscriptWriteRecord?.suppressedByIdempotency ===
+            dispatch.workflowTranscriptRecoveryRecord?.committed === false &&
+            dispatch.workflowTranscriptRecoveryRecord?.suppressedByIdempotency ===
               true &&
             dispatch.stagedTranscriptWriteRecord?.committed === true &&
             dispatch.stagedTranscriptWriteRecord?.visible === false &&
@@ -3440,8 +3444,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.proposedVisibleOutputHash.length > 0 &&
             dispatch.proposedVisibleOutputHash ===
               dispatch.actualVisibleOutputHash &&
-            dispatch.legacyOutputAuthorityRetained === false &&
-            dispatch.legacyOutputFallbackAvailable === true &&
+            dispatch.workflowOutputRecoveryAuthorityRetained === false &&
+            dispatch.workflowOutputRecoveryAvailable === true &&
             dispatch.mutatingTurnsBlocked === true &&
             dispatch.outputAuthority ===
               "blessed_workflow_activation_default" &&
@@ -3947,8 +3951,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_selector_canary_routed === true) {
           summary.harnessSelectorCanaryRoutedCount += 1;
         }
-        if (digest.harness_selector_legacy_default === true) {
-          summary.harnessSelectorLegacyDefaultCount += 1;
+        if (digest.harness_selector_workflow_recovery_blocked === true) {
+          summary.harnessSelectorWorkflowRecoveryBlockedCount += 1;
         }
         if (digest.harness_selector_default_promoted === true) {
           summary.harnessSelectorDefaultPromotedCount += 1;
@@ -4237,8 +4241,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_selector_canary_routed === true) {
             summary.harnessSelectorCanaryRoutedCount += 1;
           }
-          if (metadata.harness_selector_legacy_default === true) {
-            summary.harnessSelectorLegacyDefaultCount += 1;
+          if (metadata.harness_selector_workflow_recovery_blocked === true) {
+            summary.harnessSelectorWorkflowRecoveryBlockedCount += 1;
           }
           if (metadata.harness_selector_default_promoted === true) {
             summary.harnessSelectorDefaultPromotedCount += 1;
@@ -5236,7 +5240,7 @@ function buildGuiEvidenceAssessment({
     hasHarnessLiveHandoff &&
     summary.harnessSelectorDefaultPromotedCount > 0 &&
     summary.harnessSelectorLivePromotionReadinessGatedCount > 0 &&
-    summary.harnessSelectorLegacyDefaultCount > 0;
+    summary.harnessSelectorWorkflowRecoveryBlockedCount > 0;
   const hasHarnessSelectorReviewedImportActivationApplyInvariant =
     hasHarnessSelectorRouting &&
     summary.harnessSelectorReviewedImportActivationApplyInvariantCount > 0 &&
@@ -6368,8 +6372,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessCanaryBoundaryRollbackDrillCount,
       harnessSelectorCanaryRoutedCount:
         summary.harnessSelectorCanaryRoutedCount,
-      harnessSelectorLegacyDefaultCount:
-        summary.harnessSelectorLegacyDefaultCount,
+      harnessSelectorWorkflowRecoveryBlockedCount:
+        summary.harnessSelectorWorkflowRecoveryBlockedCount,
       harnessSelectorDefaultPromotedCount:
         summary.harnessSelectorDefaultPromotedCount,
       harnessSelectorLivePromotionReadinessGatedCount:
@@ -10452,7 +10456,7 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessSelectorDefaultPromotedCount > 0 &&
           runtimeArtifacts.summary
             .harnessSelectorLivePromotionReadinessGatedCount > 0 &&
-          runtimeArtifacts.summary.harnessSelectorLegacyDefaultCount > 0
+          runtimeArtifacts.summary.harnessSelectorWorkflowRecoveryBlockedCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_selector_reviewed_import_activation_apply_invariant:

@@ -1549,13 +1549,13 @@ fn live_authority_approval_gate_denies_without_authority_transfer() {
             "logic": {
                 "authorityGateKind": "approval_gate",
                 "text": "Mutating tool authority remains blocked without explicit governed approval.",
-                "approvalMode": "legacy_runtime_required",
+                "approvalMode": "workflow_recovery_required",
                 "requiresApproval": true,
                 "syntheticApprovalGranted": false,
                 "authorityTransferred": false,
                 "sideEffectsExecuted": false,
                 "mutationExecuted": false,
-                "policyDecision": "require_legacy_approval_for_mutating_tooling",
+                "policyDecision": "require_workflow_approval_for_mutating_tooling",
                 "rollbackTarget": "default-agent-harness@v1"
             },
             "law": {

@@ -1641,7 +1641,7 @@ export function resolveWorkflowHarnessReplayInspection({
           policyDecision: workflowProofString(
             authorityToolingProof,
             "approvalGatePolicyDecision",
-            "require_legacy_approval_for_mutating_tooling",
+            "require_governed_approval_for_mutating_tooling",
           ),
         },
         {

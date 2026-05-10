@@ -213,7 +213,7 @@ fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
         blocked
             .get("selectedSelector")
             .and_then(|value| value.as_str()),
-        Some("legacy_runtime")
+        Some("workflow_recovery_blocked")
     );
     assert_eq!(
         blocked
@@ -638,12 +638,12 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "duplicateSuppressionReady": true,
         "identityCheckpointPersisted": true,
         "rollbackAvailable": true,
-        "rollbackMode": "legacy_runtime_fallback_with_idempotent_duplicate_suppression",
+        "rollbackMode": "workflow_fail_closed_with_idempotent_duplicate_suppression",
     });
-    let legacy_fallback = json!({
-        "schemaVersion": "workflow.output_writer.legacy-transcript-fallback.v1",
-        "phase": "legacy_fallback_after_workflow_output",
-        "writeAuthority": "existing_runtime_service",
+    let workflow_recovery = json!({
+        "schemaVersion": "workflow.output_writer.transcript-recovery.v1",
+        "phase": "workflow_recovery_after_workflow_output",
+        "writeAuthority": "workflow_recovery_fail_closed",
         "appendedCount": 0,
         "duplicateSuppressedCount": 2,
         "latestAgentDuplicateSuppressed": true,
@@ -703,7 +703,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         Some(&activation_id_gate_click_proof),
         Some(&staged_proof),
         Some(&visible_proof),
-        Some(&legacy_fallback),
+        Some(&workflow_recovery),
     );
     let binding = super::runtime_harness_default_runtime_binding(
         sid,
@@ -959,7 +959,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         None,
         Some(&staged_proof),
         Some(&visible_proof),
-        Some(&legacy_fallback),
+        Some(&workflow_recovery),
     );
     assert_eq!(
         missing_proof_dispatch
@@ -996,7 +996,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         Some(&mismatched_activation_id_gate_click_proof),
         Some(&staged_proof),
         Some(&visible_proof),
-        Some(&legacy_fallback),
+        Some(&workflow_recovery),
     );
     assert_eq!(
         mismatched_proof_dispatch
@@ -1603,7 +1603,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         dispatch
-            .get("outputWriterVisibleWriteLegacyDuplicateSuppressed")
+            .get("outputWriterVisibleWriteRecoveryDuplicateSuppressed")
             .and_then(|value| value.as_bool()),
         Some(true)
     );
@@ -1700,9 +1700,9 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         dispatch
-            .get("modelExecutionFallbackSelector")
+            .get("modelExecutionRecoveryMode")
             .and_then(|value| value.as_str()),
-        Some("legacy_runtime_model_invocation")
+        Some("fail_closed")
     );
     assert_eq!(
         dispatch
@@ -1730,7 +1730,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         dispatch
-            .get("modelProviderCanaryFallbackRetained")
+            .get("modelProviderCanaryRecoveryReady")
             .and_then(|value| value.as_bool()),
         Some(true)
     );
@@ -1844,7 +1844,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         dispatch
-            .get("legacyTranscriptAuthorityRetained")
+            .get("workflowTranscriptRecoveryAuthorityRetained")
             .and_then(|value| value.as_bool()),
         Some(false)
     );
@@ -1901,14 +1901,14 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         dispatch
-            .get("legacyTranscriptWriteRecord")
+            .get("workflowTranscriptRecoveryRecord")
             .and_then(|value| value.get("committed"))
             .and_then(|value| value.as_bool()),
         Some(false)
     );
     assert_eq!(
         dispatch
-            .get("legacyTranscriptWriteRecord")
+            .get("workflowTranscriptRecoveryRecord")
             .and_then(|value| value.get("suppressedByIdempotency"))
             .and_then(|value| value.as_bool()),
         Some(true)
@@ -2700,7 +2700,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         selector_decision
             .get("productionDefaultSelector")
             .and_then(|value| value.as_str()),
-        Some("legacy_runtime")
+        Some("workflow_recovery_blocked")
     );
     assert_eq!(
         selector_decision
@@ -2849,7 +2849,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         authority_tooling_gate
             .get("runtimeAuthority")
             .and_then(|value| value.as_str()),
-        Some("existing_runtime_service")
+        Some("workflow_recovery_fail_closed")
     );
     assert_eq!(
         authority_tooling_gate
@@ -2966,7 +2966,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
             rollback_drill
                 .get("rollbackSelector")
                 .and_then(|value| value.as_str()),
-            Some("legacy_runtime")
+            Some("workflow_recovery_blocked")
         );
         assert_eq!(
             rollback_drill
@@ -2997,7 +2997,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         live_handoff
             .get("productionDefaultSelector")
             .and_then(|value| value.as_str()),
-        Some("legacy_runtime")
+        Some("workflow_recovery_blocked")
     );
     assert_eq!(
         live_handoff

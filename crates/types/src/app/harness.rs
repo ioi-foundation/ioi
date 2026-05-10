@@ -1231,7 +1231,7 @@ pub struct HarnessWorkerHandoffReceipt {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum HarnessLiveHandoffSelector {
-    LegacyRuntime,
+    WorkflowRecoveryBlocked,
     BlessedWorkflowGated,
     BlessedWorkflowLiveCanary,
     BlessedWorkflowLiveDefault,
@@ -1240,10 +1240,26 @@ pub enum HarnessLiveHandoffSelector {
 impl HarnessLiveHandoffSelector {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::LegacyRuntime => "legacy_runtime",
+            Self::WorkflowRecoveryBlocked => "workflow_recovery_blocked",
             Self::BlessedWorkflowGated => "blessed_workflow_gated",
             Self::BlessedWorkflowLiveCanary => "blessed_workflow_live_canary",
             Self::BlessedWorkflowLiveDefault => "blessed_workflow_live_default",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessRecoveryMode {
+    FailClosed,
+    RestorePriorWorkflowActivation,
+}
+
+impl HarnessRecoveryMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::FailClosed => "fail_closed",
+            Self::RestorePriorWorkflowActivation => "restore_prior_workflow_activation",
         }
     }
 }
@@ -1308,8 +1324,10 @@ pub struct HarnessCognitionNodeAuthorityGate {
     pub attempt_ids: Vec<String>,
     pub receipt_ids: Vec<String>,
     pub replay_fixture_refs: Vec<String>,
-    pub fallback_available: bool,
-    pub fallback_ref: String,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub blockers: Vec<String>,
     pub policy_decision: String,
 }
@@ -1342,8 +1360,10 @@ pub struct HarnessRoutingModelNodeAuthorityGate {
     pub visible_output_authority: String,
     pub read_only_capability_routing_ready: bool,
     pub rollback_available: bool,
-    pub fallback_available: bool,
-    pub fallback_ref: String,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub blockers: Vec<String>,
     pub policy_decision: String,
 }
@@ -1377,8 +1397,10 @@ pub struct HarnessVerificationOutputNodeAuthorityGate {
     pub output_writer_visible_write_ready: bool,
     pub output_writer_visible_write_committed: bool,
     pub rollback_available: bool,
-    pub fallback_available: bool,
-    pub fallback_ref: String,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub blockers: Vec<String>,
     pub policy_decision: String,
 }
@@ -1417,8 +1439,10 @@ pub struct HarnessAuthorityToolingNodeAuthorityGate {
     pub gate_live_ready: bool,
     pub read_only_authority_canary_ready: bool,
     pub rollback_available: bool,
-    pub fallback_available: bool,
-    pub fallback_ref: String,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub blockers: Vec<String>,
     pub policy_decision: String,
 }
@@ -1442,7 +1466,10 @@ pub struct HarnessLiveHandoffProof {
     pub execution_boundary_executor: String,
     pub default_authority_transferred: bool,
     pub runtime_authority: String,
-    pub fallback_selector: HarnessLiveHandoffSelector,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub rollback_target: String,
     pub rollback_available: bool,
     pub policy_decision: String,
@@ -1479,7 +1506,10 @@ pub struct HarnessRuntimeSelectorDecision {
     pub harness_hash: String,
     pub execution_mode: HarnessExecutionMode,
     pub actual_runtime_authority: String,
-    pub fallback_selector: HarnessLiveHandoffSelector,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub rollback_target: String,
     pub rollback_available: bool,
     pub policy_decision: String,
@@ -1612,15 +1642,15 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub model_execution_output_hash_matches: bool,
     pub model_execution_provider_invocation_mode: String,
     pub model_execution_low_level_invocation_deferred: bool,
-    pub model_execution_fallback_selector: String,
+    pub model_execution_recovery_mode: HarnessRecoveryMode,
     pub model_execution_latency_ms: u64,
     pub model_provider_canary_mode: String,
     pub model_provider_canary_ready: bool,
     pub model_provider_canary_candidate_output_hash: String,
-    pub model_provider_canary_legacy_output_hash: String,
+    pub model_provider_canary_prior_workflow_output_hash: String,
     pub model_provider_canary_output_hash_matches: bool,
     pub model_provider_canary_transcript_matches: bool,
-    pub model_provider_canary_fallback_retained: bool,
+    pub model_provider_canary_recovery_ready: bool,
     pub model_provider_canary_rollback_available: bool,
     pub model_provider_gated_visible_output_mode: String,
     pub model_provider_gated_visible_output_enabled: bool,
@@ -1640,9 +1670,9 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub selected_visible_output_authority: String,
     pub selected_visible_output_hash: String,
     pub workflow_provider_visible_output_hash: String,
-    pub legacy_visible_output_hash: String,
-    pub legacy_visible_output_computed: bool,
-    pub legacy_visible_output_hash_matches_selected: bool,
+    pub prior_workflow_visible_output_hash: String,
+    pub prior_workflow_visible_output_computed: bool,
+    pub prior_workflow_visible_output_hash_matches_selected: bool,
     pub selected_visible_output_authority_matches_transcript: bool,
     pub visible_output_divergence_class: Option<String>,
     pub model_provider_gated_visible_output_rollback_drill_enabled: bool,
@@ -1651,7 +1681,7 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub model_provider_gated_visible_output_rollback_drill_injected_output_hash: String,
     pub model_provider_gated_visible_output_rollback_drill_output_hash_diverges: bool,
     pub model_provider_gated_visible_output_rollback_drill_divergence_class: String,
-    pub model_provider_gated_visible_output_rollback_drill_fallback_authority: String,
+    pub model_provider_gated_visible_output_rollback_drill_recovery_mode: HarnessRecoveryMode,
     pub model_provider_gated_visible_output_rollback_drill_selected_authority: String,
     pub model_provider_gated_visible_output_rollback_drill_transcript_unchanged: bool,
     pub model_provider_gated_visible_output_rollback_drill_rollback_executed: bool,
@@ -1690,7 +1720,7 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub output_writer_visible_write_committed: bool,
     pub output_writer_visible_write_visible: bool,
     pub output_writer_visible_write_identity_checkpoint_persisted: bool,
-    pub output_writer_visible_write_legacy_duplicate_suppressed: bool,
+    pub output_writer_visible_write_recovery_duplicate_suppressed: bool,
     pub authority_tooling_mode: String,
     pub authority_tooling_ready: bool,
     pub authority_tooling_policy_gate_ready: bool,
@@ -1706,8 +1736,8 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub authority_tooling_mutating_tool_calls_blocked: bool,
     pub authority_tooling_side_effects_executed: bool,
     pub authority_tooling_rollback_available: bool,
-    pub legacy_transcript_authority_retained: bool,
-    pub legacy_transcript_fallback_available: bool,
+    pub workflow_transcript_recovery_authority_retained: bool,
+    pub workflow_transcript_recovery_available: bool,
     pub proposed_visible_output_hash: String,
     pub actual_visible_output_hash: String,
     pub output_hash_algorithm: String,
@@ -1732,8 +1762,8 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub visible_transcript_write_target_matches: bool,
     pub visible_transcript_write_matches: bool,
     pub visible_transcript_write_divergence_count: u32,
-    pub legacy_output_authority_retained: bool,
-    pub legacy_output_fallback_available: bool,
+    pub workflow_output_recovery_authority_retained: bool,
+    pub workflow_output_recovery_available: bool,
     pub mutating_turns_blocked: bool,
     pub rollback_target: String,
     pub rollback_available: bool,
@@ -1754,7 +1784,10 @@ pub struct HarnessCanaryRollbackDrill {
     pub observed_failure: bool,
     pub rollback_executed: bool,
     pub rollback_selector: HarnessLiveHandoffSelector,
-    pub fallback_authority: String,
+    pub recovery_mode: HarnessRecoveryMode,
+    pub recovery_target: String,
+    pub recovery_available: bool,
+    pub recovery_blockers: Vec<String>,
     pub rollback_target: String,
     pub rollback_available: bool,
     pub drill_status: String,
@@ -2776,7 +2809,7 @@ pub fn default_harness_worker_binding_registry_record() -> HarnessWorkerBindingR
         rollback_policy_decision: "block_default_harness_worker_rollback_from_live_shadow_gate"
             .to_string(),
         canary_result_id: "harness-canary-result:default-agent-harness:not-run".to_string(),
-        policy_decision: "retain_legacy_runtime_default".to_string(),
+        policy_decision: "block_workflow_default_until_gates_pass".to_string(),
         binding_status: HarnessWorkerBindingStatus::Projection,
         blockers: vec!["worker_binding_registry_not_live".to_string()],
         required_invariant_ids: vec![
@@ -2863,8 +2896,8 @@ pub fn bound_default_harness_worker_binding_registry_record(
             "harness-reviewed-package:fork-mutation-canary-attempt:{}:{}",
             DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
         )],
-        reviewed_fork_mutation_canary_rollback_target:
-            DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_fork_mutation_canary_rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+            .to_string(),
         reviewed_policy_posture: "canary".to_string(),
         component_version_set: default_harness_component_version_set(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
@@ -2923,9 +2956,7 @@ pub fn default_harness_worker_attach_request(
             .clone(),
         reviewed_worker_handoff_receipt_ids: record.reviewed_worker_handoff_receipt_ids.clone(),
         reviewed_fork_mutation_canary_id: record.reviewed_fork_mutation_canary_id.clone(),
-        reviewed_fork_mutation_canary_status: record
-            .reviewed_fork_mutation_canary_status
-            .clone(),
+        reviewed_fork_mutation_canary_status: record.reviewed_fork_mutation_canary_status.clone(),
         reviewed_fork_mutation_canary_diff_hash: record
             .reviewed_fork_mutation_canary_diff_hash
             .clone(),
@@ -3213,15 +3244,18 @@ pub fn resolve_harness_worker_binding(
         blockers.push("worker_attach_reviewed_package_fork_mutation_canary_mismatch".to_string());
     }
     if record.reviewed_fork_mutation_canary_status != "passed" {
-        blockers.push(
-            "worker_attach_reviewed_package_fork_mutation_canary_not_passed".to_string(),
-        );
+        blockers.push("worker_attach_reviewed_package_fork_mutation_canary_not_passed".to_string());
     }
     if request.reviewed_fork_mutation_canary_status != record.reviewed_fork_mutation_canary_status {
-        blockers
-            .push("worker_attach_reviewed_package_fork_mutation_canary_status_mismatch".to_string());
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_status_mismatch".to_string(),
+        );
     }
-    if record.reviewed_fork_mutation_canary_diff_hash.trim().is_empty() {
+    if record
+        .reviewed_fork_mutation_canary_diff_hash
+        .trim()
+        .is_empty()
+    {
         blockers
             .push("worker_attach_reviewed_package_fork_mutation_canary_diff_missing".to_string());
     }
@@ -3231,10 +3265,7 @@ pub fn resolve_harness_worker_binding(
         blockers
             .push("worker_attach_reviewed_package_fork_mutation_canary_diff_mismatch".to_string());
     }
-    if record
-        .reviewed_fork_mutation_canary_receipt_refs
-        .is_empty()
-    {
+    if record.reviewed_fork_mutation_canary_receipt_refs.is_empty() {
         blockers.push(
             "worker_attach_reviewed_package_fork_mutation_canary_receipt_missing".to_string(),
         );
@@ -3250,9 +3281,8 @@ pub fn resolve_harness_worker_binding(
         .reviewed_fork_mutation_canary_replay_fixture_refs
         .is_empty()
     {
-        blockers.push(
-            "worker_attach_reviewed_package_fork_mutation_canary_replay_missing".to_string(),
-        );
+        blockers
+            .push("worker_attach_reviewed_package_fork_mutation_canary_replay_missing".to_string());
     }
     if request.reviewed_fork_mutation_canary_replay_fixture_refs
         != record.reviewed_fork_mutation_canary_replay_fixture_refs
@@ -3460,9 +3490,7 @@ pub fn resolve_harness_worker_binding(
             .clone(),
         reviewed_worker_handoff_receipt_ids: request.reviewed_worker_handoff_receipt_ids.clone(),
         reviewed_fork_mutation_canary_id: request.reviewed_fork_mutation_canary_id.clone(),
-        reviewed_fork_mutation_canary_status: request
-            .reviewed_fork_mutation_canary_status
-            .clone(),
+        reviewed_fork_mutation_canary_status: request.reviewed_fork_mutation_canary_status.clone(),
         reviewed_fork_mutation_canary_diff_hash: request
             .reviewed_fork_mutation_canary_diff_hash
             .clone(),
@@ -4214,12 +4242,12 @@ pub fn default_blessed_live_handoff_proof(
         schema_version: "workflow.harness.live-handoff.v1".to_string(),
         selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
         available_selectors: vec![
-            HarnessLiveHandoffSelector::LegacyRuntime,
+            HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
             HarnessLiveHandoffSelector::BlessedWorkflowGated,
             HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
             HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
         ],
-        production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        production_default_selector: HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
         workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
         activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
@@ -4245,7 +4273,10 @@ pub fn default_blessed_live_handoff_proof(
             .to_string(),
         default_authority_transferred: false,
         runtime_authority: "blessed_workflow_activation_canary".to_string(),
-        fallback_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        recovery_mode: HarnessRecoveryMode::FailClosed,
+        recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        recovery_available: true,
+        recovery_blockers: Vec::new(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         rollback_available: true,
         policy_decision: "allow_blessed_workflow_live_canary".to_string(),
@@ -4275,13 +4306,13 @@ pub fn default_blessed_live_handoff_proof(
             eligible: false,
             non_mutating_only: true,
             selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
-            production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+            production_default_selector: HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
             default_authority_transferred: false,
             rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
             activation_blockers: vec!["promotion_gate_disabled".to_string()],
             required_invariant_ids: Vec::new(),
             invariant_blockers: Vec::new(),
-            policy_decision: "retain_legacy_runtime_default".to_string(),
+            policy_decision: "block_workflow_default_until_gates_pass".to_string(),
         },
         evidence_refs: vec!["runtime-evidence:blessed-live-handoff-canary".to_string()],
     }
@@ -4293,7 +4324,7 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
         decision_id: "harness-selector:default-agent-harness:canary".to_string(),
         requested_selector: "auto_canary".to_string(),
         selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
-        production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        production_default_selector: HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
         canary_eligible: true,
         canary_blockers: Vec::new(),
         workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
@@ -4301,7 +4332,10 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
         execution_mode: HarnessExecutionMode::Live,
         actual_runtime_authority: "blessed_workflow_activation_canary".to_string(),
-        fallback_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        recovery_mode: HarnessRecoveryMode::FailClosed,
+        recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        recovery_available: true,
+        recovery_blockers: Vec::new(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         rollback_available: true,
         policy_decision: "allow_blessed_workflow_live_canary".to_string(),
@@ -4323,13 +4357,13 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
             eligible: false,
             non_mutating_only: true,
             selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
-            production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+            production_default_selector: HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
             default_authority_transferred: false,
             rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
             activation_blockers: vec!["promotion_gate_disabled".to_string()],
             required_invariant_ids: Vec::new(),
             invariant_blockers: Vec::new(),
-            policy_decision: "retain_legacy_runtime_default".to_string(),
+            policy_decision: "block_workflow_default_until_gates_pass".to_string(),
         },
         evidence_refs: vec!["runtime-evidence:selector-canary".to_string()],
     }
@@ -4465,7 +4499,7 @@ pub fn default_harness_live_promotion_readiness_proof(
                 "model_provider_gated_visible_output",
                 "model_provider_gated_visible_output_rollback_drill",
             ],
-            "legacy_runtime_model_invocation",
+            "workflow_model_recovery_fail_closed",
         ),
         default_live_promotion_cluster_readiness(
             HarnessPromotionClusterId::VerificationOutput,
@@ -4996,8 +5030,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 "harness-default-dispatch:fixture-prompt_assembler_envelope".to_string(),
                 "harness-default-dispatch:fixture-task_state_envelope".to_string(),
             ],
-            fallback_available: true,
-            fallback_ref: "existing_runtime_service".to_string(),
+            recovery_mode: HarnessRecoveryMode::FailClosed,
+            recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            recovery_available: true,
+            recovery_blockers: Vec::new(),
             blockers: Vec::new(),
             policy_decision: "allow_node_authoritative_cognition".to_string(),
         },
@@ -5075,8 +5111,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             visible_output_authority: "workflow_model_provider_call".to_string(),
             read_only_capability_routing_ready: true,
             rollback_available: true,
-            fallback_available: true,
-            fallback_ref: "legacy_runtime_model_invocation".to_string(),
+            recovery_mode: HarnessRecoveryMode::FailClosed,
+            recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            recovery_available: true,
+            recovery_blockers: Vec::new(),
             blockers: Vec::new(),
             policy_decision: "allow_gated_node_authoritative_routing_model".to_string(),
         },
@@ -5174,8 +5212,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             output_writer_visible_write_ready: true,
             output_writer_visible_write_committed: true,
             rollback_available: true,
-            fallback_available: true,
-            fallback_ref: "legacy_runtime_output_writer".to_string(),
+            recovery_mode: HarnessRecoveryMode::FailClosed,
+            recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            recovery_available: true,
+            recovery_blockers: Vec::new(),
             blockers: Vec::new(),
             policy_decision: "allow_gated_node_authoritative_verification_output".to_string(),
         },
@@ -5344,8 +5384,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             gate_live_ready: true,
             read_only_authority_canary_ready: true,
             rollback_available: true,
-            fallback_available: true,
-            fallback_ref: "legacy_runtime_tool_authority".to_string(),
+            recovery_mode: HarnessRecoveryMode::FailClosed,
+            recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            recovery_available: true,
+            recovery_blockers: Vec::new(),
             blockers: Vec::new(),
             policy_decision: "allow_gated_node_authoritative_authority_tooling".to_string(),
         },
@@ -5365,15 +5407,15 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         model_execution_output_hash_matches: true,
         model_execution_provider_invocation_mode: "workflow_provider_canary".to_string(),
         model_execution_low_level_invocation_deferred: false,
-        model_execution_fallback_selector: "legacy_runtime_model_invocation".to_string(),
+        model_execution_recovery_mode: HarnessRecoveryMode::FailClosed,
         model_execution_latency_ms: 0,
         model_provider_canary_mode: "workflow_provider_canary".to_string(),
         model_provider_canary_ready: true,
         model_provider_canary_candidate_output_hash: "sha256:visible-output".to_string(),
-        model_provider_canary_legacy_output_hash: "sha256:visible-output".to_string(),
+        model_provider_canary_prior_workflow_output_hash: "sha256:visible-output".to_string(),
         model_provider_canary_output_hash_matches: true,
         model_provider_canary_transcript_matches: true,
-        model_provider_canary_fallback_retained: true,
+        model_provider_canary_recovery_ready: true,
         model_provider_canary_rollback_available: true,
         model_provider_gated_visible_output_mode: "workflow_provider_gated_visible_output"
             .to_string(),
@@ -5401,15 +5443,14 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         model_provider_gated_visible_output_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID
             .to_string(),
         model_provider_gated_visible_output_authority: "workflow_model_provider_call".to_string(),
-        model_provider_gated_visible_output_rollback_target: "legacy_runtime_model_invocation"
-            .to_string(),
+        model_provider_gated_visible_output_rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         model_provider_gated_visible_output_rollback_available: true,
         selected_visible_output_authority: "workflow_model_provider_call".to_string(),
         selected_visible_output_hash: "sha256:visible-output".to_string(),
         workflow_provider_visible_output_hash: "sha256:visible-output".to_string(),
-        legacy_visible_output_hash: "sha256:visible-output".to_string(),
-        legacy_visible_output_computed: true,
-        legacy_visible_output_hash_matches_selected: true,
+        prior_workflow_visible_output_hash: "sha256:visible-output".to_string(),
+        prior_workflow_visible_output_computed: true,
+        prior_workflow_visible_output_hash_matches_selected: true,
         selected_visible_output_authority_matches_transcript: true,
         visible_output_divergence_class: None,
         model_provider_gated_visible_output_rollback_drill_enabled: true,
@@ -5420,10 +5461,9 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         model_provider_gated_visible_output_rollback_drill_output_hash_diverges: true,
         model_provider_gated_visible_output_rollback_drill_divergence_class:
             "provider_output_hash_divergence".to_string(),
-        model_provider_gated_visible_output_rollback_drill_fallback_authority:
-            "legacy_runtime_model_invocation".to_string(),
+        model_provider_gated_visible_output_rollback_drill_recovery_mode: HarnessRecoveryMode::FailClosed,
         model_provider_gated_visible_output_rollback_drill_selected_authority:
-            "legacy_runtime_model_invocation".to_string(),
+            "workflow_model_recovery_fail_closed".to_string(),
         model_provider_gated_visible_output_rollback_drill_transcript_unchanged: true,
         model_provider_gated_visible_output_rollback_drill_rollback_executed: true,
         model_provider_gated_visible_output_rollback_drill_activation_blockers: vec![
@@ -5474,7 +5514,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         output_writer_visible_write_committed: true,
         output_writer_visible_write_visible: true,
         output_writer_visible_write_identity_checkpoint_persisted: true,
-        output_writer_visible_write_legacy_duplicate_suppressed: true,
+        output_writer_visible_write_recovery_duplicate_suppressed: true,
         authority_tooling_mode: "workflow_live_dry_run".to_string(),
         authority_tooling_ready: true,
         authority_tooling_policy_gate_ready: true,
@@ -5490,8 +5530,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         authority_tooling_mutating_tool_calls_blocked: true,
         authority_tooling_side_effects_executed: false,
         authority_tooling_rollback_available: true,
-        legacy_transcript_authority_retained: false,
-        legacy_transcript_fallback_available: true,
+        workflow_transcript_recovery_authority_retained: false,
+        workflow_transcript_recovery_available: true,
         proposed_visible_output_hash: "sha256:visible-output".to_string(),
         actual_visible_output_hash: "sha256:visible-output".to_string(),
         output_hash_algorithm: "runtime_prompt_hash:v1".to_string(),
@@ -5516,8 +5556,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         visible_transcript_write_target_matches: true,
         visible_transcript_write_matches: true,
         visible_transcript_write_divergence_count: 0,
-        legacy_output_authority_retained: false,
-        legacy_output_fallback_available: true,
+        workflow_output_recovery_authority_retained: false,
+        workflow_output_recovery_available: true,
         mutating_turns_blocked: true,
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         rollback_available: true,
@@ -5579,7 +5619,7 @@ fn default_harness_canary_execution_boundary_for_cluster(
         cluster_label: cluster_id.label().to_string(),
         selector_decision_id: "harness-selector:default-agent-harness:canary".to_string(),
         selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
-        production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        production_default_selector: HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
         workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
         activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
@@ -5629,12 +5669,16 @@ fn default_harness_canary_execution_boundary_for_cluster(
             failure_class: "deterministic_executor_failure".to_string(),
             observed_failure: true,
             rollback_executed: true,
-            rollback_selector: HarnessLiveHandoffSelector::LegacyRuntime,
-            fallback_authority: "existing_runtime_service".to_string(),
+            rollback_selector: HarnessLiveHandoffSelector::WorkflowRecoveryBlocked,
+            recovery_mode: HarnessRecoveryMode::FailClosed,
+            recovery_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            recovery_available: true,
+            recovery_blockers: Vec::new(),
             rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
             rollback_available: true,
             drill_status: "passed".to_string(),
-            policy_decision: "rollback_to_legacy_runtime_on_workflow_executor_failure".to_string(),
+            policy_decision: "fail_closed_workflow_recovery_on_workflow_executor_failure"
+                .to_string(),
             evidence_refs: vec![
                 "runtime-evidence:default".to_string(),
                 format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}"),
@@ -5713,18 +5757,16 @@ pub fn validate_harness_worker_binding_registry_record(
                 .is_empty()
             || record.reviewed_activation_id != record.reviewed_worker_binding_activation_id
             || record.reviewed_rollback_target != record.rollback_target
-	            || record.reviewed_replay_fixture_refs.is_empty()
-	            || record.reviewed_worker_handoff_node_attempt_ids.is_empty()
-	            || record.reviewed_worker_handoff_receipt_ids.is_empty()
+            || record.reviewed_replay_fixture_refs.is_empty()
+            || record.reviewed_worker_handoff_node_attempt_ids.is_empty()
+            || record.reviewed_worker_handoff_receipt_ids.is_empty()
             || record.reviewed_fork_mutation_canary_id.trim().is_empty()
             || record.reviewed_fork_mutation_canary_status != "passed"
             || record
                 .reviewed_fork_mutation_canary_diff_hash
                 .trim()
                 .is_empty()
-            || record
-                .reviewed_fork_mutation_canary_receipt_refs
-                .is_empty()
+            || record.reviewed_fork_mutation_canary_receipt_refs.is_empty()
             || record
                 .reviewed_fork_mutation_canary_replay_fixture_refs
                 .is_empty()
@@ -5732,7 +5774,7 @@ pub fn validate_harness_worker_binding_registry_record(
                 .reviewed_fork_mutation_canary_node_attempt_ids
                 .is_empty()
             || record.reviewed_fork_mutation_canary_rollback_target != record.rollback_target
-	            || record.reviewed_policy_posture.trim().is_empty())
+            || record.reviewed_policy_posture.trim().is_empty())
     {
         return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
     }
@@ -5993,6 +6035,17 @@ pub fn default_harness_receipt_binding_for_plan(
     )
 }
 
+fn harness_node_attempt_receipt_hash(prefix: &str, binding: &HarnessReceiptBinding) -> String {
+    harness_stable_fnv1a32(&format!(
+        "{}:{}:{}:{}:{}",
+        prefix,
+        binding.receipt_id,
+        binding.workflow_node_id,
+        binding.component_id,
+        harness_stable_json_string_array(&binding.evidence_refs)
+    ))
+}
+
 pub fn default_harness_node_attempt_for_receipt(
     binding: &HarnessReceiptBinding,
     execution_mode: HarnessExecutionMode,
@@ -6015,8 +6068,8 @@ pub fn default_harness_node_attempt_for_receipt(
         readiness: component.readiness,
         attempt_index,
         status,
-        input_hash: None,
-        output_hash: None,
+        input_hash: Some(harness_node_attempt_receipt_hash("input", binding)),
+        output_hash: Some(harness_node_attempt_receipt_hash("output", binding)),
         error_class: None,
         policy_decision: binding
             .evidence_refs

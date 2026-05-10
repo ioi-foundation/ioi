@@ -294,7 +294,7 @@ pub fn default_harness_shadow_run_with_comparisons_for_events(
         let Some(binding) = default_harness_receipt_binding_for_kernel_event(event) else {
             continue;
         };
-        let live = default_harness_node_attempt_for_receipt(
+        let mut live = default_harness_node_attempt_for_receipt(
             &binding,
             HarnessExecutionMode::Live,
             attempt_index,
@@ -305,6 +305,8 @@ pub fn default_harness_shadow_run_with_comparisons_for_events(
             HarnessExecutionMode::Shadow,
             attempt_index,
         );
+        live.input_hash = invocation.input_hash.clone();
+        live.output_hash = invocation.output_hash.clone();
         let Ok(shadow) =
             invoke_default_harness_component(invocation).map(|result| result.node_attempt)
         else {
@@ -707,6 +709,117 @@ mod tests {
             live_before_ready.action_frame.execution_mode,
             HarnessExecutionMode::Live
         );
+    }
+
+    #[test]
+    fn default_component_adapter_is_typed_boundary_for_success_and_blocked_results() {
+        let success = invoke_default_harness_component(HarnessComponentInvocation {
+            invocation_id: "boundary-success".to_string(),
+            component_kind: HarnessComponentKind::Planner,
+            execution_mode: HarnessExecutionMode::Live,
+            attempt_index: 7,
+            input_hash: Some("input:boundary-success".to_string()),
+            output_hash: Some("output:boundary-success".to_string()),
+            policy_decision: Some("allow_live_planner_component".to_string()),
+            receipt_ids: vec!["receipt:boundary-success".to_string()],
+            evidence_refs: vec!["evidence:boundary-success".to_string()],
+            replay_fixture_ref: Some("fixture:boundary-success".to_string()),
+            started_at_ms: Some(1_000),
+            duration_ms: Some(12),
+        })
+        .expect("typed adapter should return a live planner result");
+
+        assert_eq!(
+            success.schema_version,
+            "workflow.harness.component-adapter-result.v1"
+        );
+        assert_eq!(
+            success.action_frame.component_kind,
+            HarnessComponentKind::Planner
+        );
+        assert_eq!(
+            success.action_frame.execution_mode,
+            HarnessExecutionMode::Live
+        );
+        assert_eq!(
+            success.action_frame.readiness,
+            HarnessComponentReadiness::LiveReady
+        );
+        assert_eq!(
+            success.node_attempt.component_kind,
+            HarnessComponentKind::Planner
+        );
+        assert_eq!(success.node_attempt.status, HarnessNodeAttemptStatus::Live);
+        assert_eq!(
+            success.node_attempt.policy_decision.as_deref(),
+            Some("allow_live_planner_component")
+        );
+        assert_eq!(success.node_attempt.duration_ms, Some(12));
+        assert_eq!(
+            success.node_attempt.receipt_ids,
+            vec!["receipt:boundary-success".to_string()]
+        );
+        assert_eq!(
+            success.node_attempt.replay.fixture_ref.as_deref(),
+            Some("fixture:boundary-success")
+        );
+        assert_eq!(success.slot_ids, success.action_frame.slot_ids);
+        assert_eq!(
+            success.result_hash.as_deref(),
+            Some("output:boundary-success")
+        );
+        assert!(success.error_class.is_none());
+
+        let blocked = invoke_default_harness_component(HarnessComponentInvocation {
+            invocation_id: "boundary-blocked".to_string(),
+            component_kind: HarnessComponentKind::RetryPolicy,
+            execution_mode: HarnessExecutionMode::Gated,
+            attempt_index: 1,
+            input_hash: Some("input:boundary-blocked".to_string()),
+            output_hash: Some("output:should-not-appear".to_string()),
+            policy_decision: Some("deny_unready_retry_policy".to_string()),
+            receipt_ids: vec!["receipt:boundary-blocked".to_string()],
+            evidence_refs: vec!["evidence:boundary-blocked".to_string()],
+            replay_fixture_ref: Some("fixture:boundary-blocked".to_string()),
+            started_at_ms: Some(2_000),
+            duration_ms: Some(1),
+        })
+        .expect("typed adapter should return a blocked attempt for unready mode");
+
+        assert_eq!(
+            blocked.action_frame.component_kind,
+            HarnessComponentKind::RetryPolicy
+        );
+        assert_eq!(
+            blocked.action_frame.execution_mode,
+            HarnessExecutionMode::Gated
+        );
+        assert_eq!(
+            blocked.action_frame.readiness,
+            HarnessComponentReadiness::ProjectionOnly
+        );
+        assert_eq!(
+            blocked.node_attempt.status,
+            HarnessNodeAttemptStatus::Blocked
+        );
+        assert_eq!(
+            blocked.node_attempt.error_class.as_deref(),
+            Some("harness_component_not_ready_for_mode")
+        );
+        assert_eq!(
+            blocked.error_class.as_deref(),
+            Some("harness_component_not_ready_for_mode")
+        );
+        assert_eq!(
+            blocked.node_attempt.receipt_ids,
+            vec!["receipt:boundary-blocked".to_string()]
+        );
+        assert_eq!(
+            blocked.node_attempt.replay.fixture_ref.as_deref(),
+            Some("fixture:boundary-blocked")
+        );
+        assert!(blocked.result_hash.is_none());
+        assert!(blocked.node_attempt.output_hash.is_none());
     }
 
     #[test]

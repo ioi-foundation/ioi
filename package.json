@@ -24,7 +24,8 @@
     "validate:autopilot-gui-harness": "node scripts/run-autopilot-gui-harness-validation.mjs --preflight",
     "validate:autopilot-gui-harness:run": "node scripts/run-autopilot-gui-harness-validation.mjs --run",
     "test:autopilot-gui-harness": "node --test scripts/lib/autopilot-gui-harness-contract.test.mjs",
-    "test:harness-contract": "node --test scripts/lib/harness-contract-consistency.test.mjs",
+    "test:harness-modularity": "node --test scripts/lib/harness-modularity-guard.test.mjs",
+    "test:harness-contract": "node --test scripts/lib/harness-contract-consistency.test.mjs scripts/lib/harness-modularity-guard.test.mjs",
     "test:agent-runtime-p3": "node --test scripts/lib/agent-runtime-p3-contract.test.mjs",
     "validate:agent-runtime-p3": "node scripts/run-agent-runtime-p3-validation.mjs",
     "test:agent-runtime-superiority": "node --test scripts/lib/agent-runtime-superiority-contract.test.mjs",
@@ -61,8 +62,6 @@
     "test:agentgres-live": "node scripts/live-model-mounting-gate.mjs agentgres",
     "evidence:runtime-complete-plus": "node scripts/evidence/runtime-complete-plus.mjs",
     "validate:runtime-complete-plus": "node scripts/conformance/runtime-complete-plus.mjs",
-    "evidence:architectural-improvements-broad": "npm run evidence:runtime-complete-plus",
-    "validate:architectural-improvements-broad": "npm run validate:runtime-complete-plus",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
     "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs",
     "dev:web": "npm run dev --workspace=apps/autopilot",
@@ -78,7 +77,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
-    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout"
+    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout && npm run test:harness-contract"
   },
   "devDependencies": {
     "prettier": "^3.2.5",

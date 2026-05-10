@@ -107,6 +107,44 @@ Use these as review rules for runtime changes:
   focused submodules.
 - Add a seam-level test when introducing a new lifecycle branch.
 
+### Default Harness Modularity Contract
+
+The default live agent harness is workflow-addressable runtime authority, not a
+parallel visual projection. New or changed default-harness behavior must route
+through the canonical harness component contracts and typed adapter results.
+
+Runtime service lanes may own the underlying kernels, but live harness decisions
+must remain modular and inspectable. Do not add ad hoc planner, gate, router,
+policy, approval, verifier, retry, receipt, output, worker binding, or rollback
+logic that bypasses:
+
+- `HarnessComponentKind`
+- `HarnessActionFrame`
+- `HarnessExecutionMode`
+- `HarnessComponentReadiness`
+- `HarnessComponentAdapterResult`
+- `HarnessNodeAttemptRecord`
+- receipt refs and evidence refs
+- replay metadata
+- worker binding and rollback proof when the behavior can affect activation or
+  live authority
+- GUI inspector support for timeline, receipts, replay, readiness, and policy
+
+Agent checklist before modifying harness-sensitive runtime behavior:
+
+- Identify the component kind and workflow node id that owns the behavior.
+- Update the Rust canonical contract first when a new component, slot, mode,
+  readiness state, receipt binding, replay envelope, worker binding, or
+  rollback field is needed.
+- Keep TypeScript graph/runtime definitions in parity with Rust.
+- Emit adapter results with action frame, node attempt, execution mode,
+  readiness, receipts, replay, result/error, duration, and slot ids.
+- Keep fork activation gated by slots, tests, replay fixtures, policy posture,
+  receipt coverage, mutation canary, worker binding, and rollback target.
+- Keep GUI state derived from canonical runtime/contract state, not one-off UI
+  state.
+- Run `npm run test:harness-contract` and the targeted Rust harness tests.
+
 Guidance budgets for hotspot entrypoints:
 
 - `service/decision_loop/mod.rs`: target under 900 lines

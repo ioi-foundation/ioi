@@ -1,6 +1,5 @@
 use super::super::runtime_locality::maybe_seed_runtime_locality_context;
 use crate::agentic::runtime::keys::{get_incident_key, get_remediation_key, get_state_key};
-use crate::agentic::runtime::legacy::split_work_graph_goal_prefix;
 use crate::agentic::runtime::service::decision_loop::signals::infer_interaction_target;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
@@ -8,6 +7,7 @@ use crate::agentic::runtime::types::{
     WorkGraphContext,
 };
 use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};
+use crate::agentic::runtime::work_graph_goal::split_work_graph_goal_prefix;
 use ioi_api::state::StateAccess;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;

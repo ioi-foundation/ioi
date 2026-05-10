@@ -58,7 +58,6 @@ const allowedSwarmCompatibilityFiles = new Set([
   "apps/autopilot/src/types/work-graph-compat.ts",
   "crates/api/src/chat/types.rs",
   "crates/services/src/agentic/runtime/service/memory/context.rs",
-  "crates/services/src/agentic/runtime/legacy.rs",
   "crates/services/src/agentic/runtime/types.rs",
   "crates/types/src/app/chat.rs",
 ]);
@@ -91,11 +90,17 @@ assert(
   "runtime conformance/evidence must have durable names",
 );
 assert(
-  "roadmap-wrappers-only",
-  read("scripts/run-architectural-improvements-broad-validation.mjs").includes("Deprecated roadmap-name wrapper") &&
-    read("scripts/run-architectural-improvements-broad-evidence.mjs").includes("Deprecated roadmap-name wrapper"),
-  ["scripts/run-architectural-improvements-broad-validation.mjs", "scripts/run-architectural-improvements-broad-evidence.mjs"],
-  "roadmap-specific scripts may only remain as thin deprecated wrappers",
+  "roadmap-wrappers-retired",
+  !exists("scripts/run-architectural-improvements-broad-validation.mjs") &&
+    !exists("scripts/run-architectural-improvements-broad-evidence.mjs") &&
+    !packageJson.scripts["validate:architectural-improvements-broad"] &&
+    !packageJson.scripts["evidence:architectural-improvements-broad"],
+  [
+    "scripts/conformance/runtime-complete-plus.mjs",
+    "scripts/evidence/runtime-complete-plus.mjs",
+    "package.json",
+  ],
+  "roadmap-specific compatibility wrappers and package aliases must stay retired; use runtime-complete-plus commands",
 );
 assert(
   "runtime-module-map",
@@ -207,13 +212,14 @@ assert(
   !read("crates/types/src/app/chat.rs").includes('alias = "swarm"') &&
     !read("crates/types/src/app/chat.rs").includes("MicroSwarm") &&
     read("docs/architecture/_meta/vocabulary.md").includes("adaptive_work_graph") &&
+    activeRuntimeSwarmFiles.every((file) => !read(file).includes("SWARM:")) &&
     activeRuntimeSwarmFiles.every((file) => {
       const content = read(file);
       if (!/\bswarm\b|Swarm|swarm[A-Z_]/.test(content)) return true;
       return allowedSwarmCompatibilityFiles.has(file);
     }),
   ["crates/types/src/app/chat.rs", "apps/autopilot/src", "crates/services/src/agentic/runtime"],
-  "active public runtime vocabulary must use adaptive work graph terminology; legacy swarm decoding must stay isolated",
+  "active public runtime vocabulary must use adaptive work graph terminology; retired SWARM: decoding must stay absent",
 );
 assert(
   "retired-ioi-swarm-product",

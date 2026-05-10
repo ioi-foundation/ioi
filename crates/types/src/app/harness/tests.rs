@@ -215,6 +215,119 @@ fn default_harness_action_frames_are_workflow_addressable() {
 }
 
 #[test]
+fn p0_harness_components_are_complete_workflow_addressable_contracts() {
+    let p0_components = [
+        HarnessComponentKind::Planner,
+        HarnessComponentKind::PromptAssembler,
+        HarnessComponentKind::TaskState,
+        HarnessComponentKind::UncertaintyGate,
+        HarnessComponentKind::BudgetGate,
+        HarnessComponentKind::CapabilitySequencer,
+        HarnessComponentKind::ModelRouter,
+        HarnessComponentKind::ModelCall,
+        HarnessComponentKind::ToolRouter,
+        HarnessComponentKind::ToolCall,
+        HarnessComponentKind::PolicyGate,
+        HarnessComponentKind::ApprovalGate,
+        HarnessComponentKind::Verifier,
+        HarnessComponentKind::RetryPolicy,
+        HarnessComponentKind::CompletionGate,
+        HarnessComponentKind::ReceiptWriter,
+        HarnessComponentKind::OutputWriter,
+    ];
+    let components = default_agent_harness_components();
+    let frames = default_agent_harness_action_frames();
+    let slots = default_agent_harness_slots();
+    let clustered_components: Vec<_> = default_harness_promotion_clusters()
+        .into_iter()
+        .flat_map(|cluster| cluster.component_kinds)
+        .collect();
+
+    for kind in p0_components {
+        let spec = components
+            .iter()
+            .find(|component| component.kind == kind)
+            .unwrap_or_else(|| panic!("missing component spec for {kind:?}"));
+        let frame = frames
+            .iter()
+            .find(|frame| frame.component_kind == kind)
+            .unwrap_or_else(|| panic!("missing action frame for {kind:?}"));
+
+        assert_eq!(spec.component_id, kind.component_id());
+        assert_eq!(spec.version, HARNESS_COMPONENT_VERSION_V1);
+        assert_eq!(spec.input_schema, HARNESS_INPUT_SCHEMA_ID);
+        assert_eq!(spec.output_schema, HARNESS_OUTPUT_SCHEMA_ID);
+        assert_eq!(spec.error_schema, HARNESS_ERROR_SCHEMA_ID);
+        assert!(!spec.kernel_ref.is_empty());
+        assert!(!spec.required_capability_scope.is_empty());
+        assert!(!spec.emitted_events.is_empty());
+        assert!(!spec.evidence.is_empty());
+        assert!(spec.timeout.timeout_ms > 0);
+        assert!(spec.retry.max_attempts >= 1);
+
+        assert_eq!(frame.workflow_id, DEFAULT_AGENT_HARNESS_WORKFLOW_ID);
+        assert_eq!(frame.workflow_hash, DEFAULT_AGENT_HARNESS_HASH);
+        assert_eq!(frame.component_id, spec.component_id);
+        assert_eq!(frame.component_version, spec.version);
+        assert_eq!(frame.node_id, kind.workflow_node_id());
+        assert_eq!(frame.kernel_ref, spec.kernel_ref);
+        assert_eq!(frame.readiness, spec.readiness);
+        assert!(!frame.slot_ids.is_empty());
+        assert!(!frame.event_kinds.is_empty());
+        assert!(!frame.evidence_keys.is_empty());
+        assert!(frame.replay.captures_input);
+        assert!(frame.replay.captures_output);
+
+        for slot_id in &frame.slot_ids {
+            let slot = slots
+                .iter()
+                .find(|slot| &slot.slot_id == slot_id)
+                .unwrap_or_else(|| panic!("missing slot {slot_id} for {kind:?}"));
+            assert!(
+                slot.allowed_component_kinds.contains(&kind),
+                "slot {slot_id} does not allow {kind:?}"
+            );
+        }
+
+        if kind == HarnessComponentKind::RetryPolicy {
+            assert_eq!(spec.readiness, HarnessComponentReadiness::ProjectionOnly);
+        } else {
+            assert!(
+                clustered_components.contains(&kind),
+                "{kind:?} must belong to a P0 promotion cluster"
+            );
+        }
+    }
+
+    let live_shadow_gate_components = default_harness_live_shadow_comparison_gate_component_kinds();
+    for compared in &live_shadow_gate_components {
+        assert!(
+            clustered_components.contains(compared),
+            "{compared:?} in live/shadow gate must belong to a P0 cluster"
+        );
+    }
+    for core_handoff_component in [
+        HarnessComponentKind::Planner,
+        HarnessComponentKind::PromptAssembler,
+        HarnessComponentKind::TaskState,
+        HarnessComponentKind::ModelRouter,
+        HarnessComponentKind::ModelCall,
+        HarnessComponentKind::ToolRouter,
+        HarnessComponentKind::Verifier,
+        HarnessComponentKind::CompletionGate,
+        HarnessComponentKind::ReceiptWriter,
+        HarnessComponentKind::OutputWriter,
+        HarnessComponentKind::PolicyGate,
+        HarnessComponentKind::ToolCall,
+    ] {
+        assert!(
+            live_shadow_gate_components.contains(&core_handoff_component),
+            "{core_handoff_component:?} missing from live/shadow comparison gate"
+        );
+    }
+}
+
+#[test]
 fn component_adapter_contract_serializes_invocation_and_result_shape() {
     let frame = default_harness_action_frame_for_component(
         HarnessComponentKind::Planner,
@@ -1155,7 +1268,7 @@ fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
     );
     assert_eq!(
         proof.production_default_selector,
-        HarnessLiveHandoffSelector::LegacyRuntime
+        HarnessLiveHandoffSelector::WorkflowRecoveryBlocked
     );
     assert_eq!(proof.workflow_id, DEFAULT_AGENT_HARNESS_WORKFLOW_ID);
     assert_eq!(proof.activation_id, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
@@ -1181,10 +1294,10 @@ fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
         "crate::project::execute_workflow_harness_canary_node"
     );
     assert!(!proof.default_authority_transferred);
-    assert_eq!(
-        proof.fallback_selector,
-        HarnessLiveHandoffSelector::LegacyRuntime
-    );
+    assert_eq!(proof.recovery_mode, HarnessRecoveryMode::FailClosed);
+    assert_eq!(proof.recovery_target, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    assert!(proof.recovery_available);
+    assert!(proof.recovery_blockers.is_empty());
     assert_eq!(proof.rollback_target, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
     assert!(proof.rollback_available);
     assert!(proof.activation_blockers.is_empty());
@@ -1214,7 +1327,7 @@ fn blessed_live_handoff_proof_selects_workflow_canary_with_rollback() {
 }
 
 #[test]
-fn runtime_selector_decision_keeps_legacy_default_while_routing_canary() {
+fn runtime_selector_decision_blocks_default_with_workflow_recovery_while_routing_canary() {
     let decision = default_harness_runtime_selector_decision();
 
     assert_eq!(
@@ -1227,7 +1340,7 @@ fn runtime_selector_decision_keeps_legacy_default_while_routing_canary() {
     );
     assert_eq!(
         decision.production_default_selector,
-        HarnessLiveHandoffSelector::LegacyRuntime
+        HarnessLiveHandoffSelector::WorkflowRecoveryBlocked
     );
     assert!(decision.canary_eligible);
     assert!(decision.canary_blockers.is_empty());
@@ -1236,10 +1349,13 @@ fn runtime_selector_decision_keeps_legacy_default_while_routing_canary() {
         decision.actual_runtime_authority,
         "blessed_workflow_activation_canary"
     );
+    assert_eq!(decision.recovery_mode, HarnessRecoveryMode::FailClosed);
     assert_eq!(
-        decision.fallback_selector,
-        HarnessLiveHandoffSelector::LegacyRuntime
+        decision.recovery_target,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
     );
+    assert!(decision.recovery_available);
+    assert!(decision.recovery_blockers.is_empty());
     assert_eq!(
         decision.rollback_target,
         DEFAULT_AGENT_HARNESS_ACTIVATION_ID
@@ -1823,8 +1939,8 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     );
     assert!(!dispatch.model_execution_low_level_invocation_deferred);
     assert_eq!(
-        dispatch.model_execution_fallback_selector,
-        "legacy_runtime_model_invocation"
+        dispatch.model_execution_recovery_mode,
+        HarnessRecoveryMode::FailClosed
     );
     assert_eq!(
         dispatch.model_provider_canary_mode,
@@ -1833,11 +1949,11 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.model_provider_canary_ready);
     assert_eq!(
         dispatch.model_provider_canary_candidate_output_hash,
-        dispatch.model_provider_canary_legacy_output_hash
+        dispatch.model_provider_canary_prior_workflow_output_hash
     );
     assert!(dispatch.model_provider_canary_output_hash_matches);
     assert!(dispatch.model_provider_canary_transcript_matches);
-    assert!(dispatch.model_provider_canary_fallback_retained);
+    assert!(dispatch.model_provider_canary_recovery_ready);
     assert!(dispatch.model_provider_canary_rollback_available);
     assert_eq!(
         dispatch.model_provider_gated_visible_output_mode,
@@ -1890,7 +2006,7 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     );
     assert_eq!(
         dispatch.model_provider_gated_visible_output_rollback_target,
-        "legacy_runtime_model_invocation"
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
     );
     assert!(dispatch.model_provider_gated_visible_output_rollback_available);
     assert_eq!(
@@ -1902,11 +2018,11 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
         dispatch.workflow_provider_visible_output_hash
     );
     assert_eq!(
-        dispatch.legacy_visible_output_hash,
+        dispatch.prior_workflow_visible_output_hash,
         dispatch.selected_visible_output_hash
     );
-    assert!(dispatch.legacy_visible_output_computed);
-    assert!(dispatch.legacy_visible_output_hash_matches_selected);
+    assert!(dispatch.prior_workflow_visible_output_computed);
+    assert!(dispatch.prior_workflow_visible_output_hash_matches_selected);
     assert!(dispatch.selected_visible_output_authority_matches_transcript);
     assert!(dispatch.visible_output_divergence_class.is_none());
     assert!(dispatch.model_provider_gated_visible_output_rollback_drill_enabled);
@@ -1914,7 +2030,7 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.model_provider_gated_visible_output_rollback_drill_failure_injected);
     assert_ne!(
         dispatch.model_provider_gated_visible_output_rollback_drill_injected_output_hash,
-        dispatch.legacy_visible_output_hash
+        dispatch.prior_workflow_visible_output_hash
     );
     assert!(dispatch.model_provider_gated_visible_output_rollback_drill_output_hash_diverges);
     assert_eq!(
@@ -1922,12 +2038,12 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
         "provider_output_hash_divergence"
     );
     assert_eq!(
-        dispatch.model_provider_gated_visible_output_rollback_drill_fallback_authority,
-        "legacy_runtime_model_invocation"
+        dispatch.model_provider_gated_visible_output_rollback_drill_recovery_mode,
+        HarnessRecoveryMode::FailClosed
     );
     assert_eq!(
         dispatch.model_provider_gated_visible_output_rollback_drill_selected_authority,
-        "legacy_runtime_model_invocation"
+        "workflow_model_recovery_fail_closed"
     );
     assert!(dispatch.model_provider_gated_visible_output_rollback_drill_transcript_unchanged);
     assert!(dispatch.model_provider_gated_visible_output_rollback_drill_rollback_executed);
@@ -2071,7 +2187,7 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.output_writer_visible_write_committed);
     assert!(dispatch.output_writer_visible_write_visible);
     assert!(dispatch.output_writer_visible_write_identity_checkpoint_persisted);
-    assert!(dispatch.output_writer_visible_write_legacy_duplicate_suppressed);
+    assert!(dispatch.output_writer_visible_write_recovery_duplicate_suppressed);
     assert_eq!(dispatch.authority_tooling_mode, "workflow_live_dry_run");
     assert!(dispatch.authority_tooling_ready);
     assert!(dispatch.authority_tooling_policy_gate_ready);
@@ -2087,8 +2203,8 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.authority_tooling_mutating_tool_calls_blocked);
     assert!(!dispatch.authority_tooling_side_effects_executed);
     assert!(dispatch.authority_tooling_rollback_available);
-    assert!(!dispatch.legacy_transcript_authority_retained);
-    assert!(dispatch.legacy_transcript_fallback_available);
+    assert!(!dispatch.workflow_transcript_recovery_authority_retained);
+    assert!(dispatch.workflow_transcript_recovery_available);
     assert_eq!(
         dispatch.proposed_visible_output_hash,
         dispatch.actual_visible_output_hash
@@ -2115,8 +2231,8 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.visible_transcript_write_target_matches);
     assert!(dispatch.visible_transcript_write_matches);
     assert_eq!(dispatch.visible_transcript_write_divergence_count, 0);
-    assert!(!dispatch.legacy_output_authority_retained);
-    assert!(dispatch.legacy_output_fallback_available);
+    assert!(!dispatch.workflow_output_recovery_authority_retained);
+    assert!(dispatch.workflow_output_recovery_available);
     assert!(dispatch.mutating_turns_blocked);
     assert_eq!(
         dispatch.executor_ref,
@@ -2144,7 +2260,7 @@ fn canary_execution_boundary_uses_workflow_node_executor_with_rollback_drill() {
     );
     assert_eq!(
         boundary.production_default_selector,
-        HarnessLiveHandoffSelector::LegacyRuntime
+        HarnessLiveHandoffSelector::WorkflowRecoveryBlocked
     );
     assert_eq!(boundary.execution_mode, HarnessExecutionMode::Live);
     assert_eq!(boundary.executor_kind, "workflow_node_executor");
@@ -2168,12 +2284,18 @@ fn canary_execution_boundary_uses_workflow_node_executor_with_rollback_drill() {
     assert!(boundary.rollback_drill.rollback_executed);
     assert_eq!(
         boundary.rollback_drill.rollback_selector,
-        HarnessLiveHandoffSelector::LegacyRuntime
+        HarnessLiveHandoffSelector::WorkflowRecoveryBlocked
     );
     assert_eq!(
-        boundary.rollback_drill.fallback_authority,
-        "existing_runtime_service"
+        boundary.rollback_drill.recovery_mode,
+        HarnessRecoveryMode::FailClosed
     );
+    assert_eq!(
+        boundary.rollback_drill.recovery_target,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+    );
+    assert!(boundary.rollback_drill.recovery_available);
+    assert!(boundary.rollback_drill.recovery_blockers.is_empty());
     assert_eq!(boundary.rollback_drill.drill_status, "passed");
 
     let boundaries = default_harness_canary_execution_boundaries();
