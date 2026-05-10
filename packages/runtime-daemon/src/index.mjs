@@ -13,6 +13,24 @@ import {
 } from "./model-mounting.mjs";
 
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
+const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
+const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.v1";
+const RUN_EVENT_TO_TTI_EVENT = {
+  run_started: "turn.started",
+  task_state: "item.completed",
+  uncertainty: "item.completed",
+  probe: "item.completed",
+  postcondition_synthesized: "item.completed",
+  semantic_impact: "item.completed",
+  delta: "item.delta",
+  stop_condition: "item.completed",
+  quality_ledger: "item.completed",
+  artifact: "item.completed",
+  completed: "turn.completed",
+  canceled: "turn.canceled",
+  failed: "turn.failed",
+  error: "turn.failed",
+};
 
 export async function startRuntimeDaemonService(options = {}) {
   const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
@@ -148,6 +166,137 @@ export class AgentgresRuntimeStateStore {
     this.runs.set(run.id, run);
     this.writeRun(run, "run.create");
     return run;
+  }
+
+  createThread(request = {}) {
+    const options = request.options ?? request;
+    const agent = this.createAgent(options);
+    return this.threadForAgent(agent);
+  }
+
+  listThreads() {
+    return this.listAgents().map((agent) => this.threadForAgent(agent));
+  }
+
+  getThread(threadId) {
+    return this.threadForAgent(this.agentForThread(threadId));
+  }
+
+  resumeThread(threadId) {
+    const agent = this.agentForThread(threadId);
+    const updated = this.updateAgent(agent.id, "active", "thread.resume");
+    return this.threadForAgent(updated);
+  }
+
+  forkThread(threadId, request = {}) {
+    const source = this.getThread(threadId);
+    const options = {
+      ...(request.options ?? {}),
+      local: {
+        cwd: request.options?.local?.cwd ?? source.workspace ?? this.defaultCwd,
+      },
+      model: request.options?.model ? request.options.model : { id: source.model_route },
+    };
+    const fork = this.createAgent(options);
+    const thread = this.threadForAgent(fork);
+    return {
+      ...thread,
+      source_thread_id: source.thread_id,
+      forked_from_seq: source.latest_seq,
+    };
+  }
+
+  createTurn(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const prompt = request.prompt ?? request.message ?? request.input ?? "";
+    const run = this.createRun(agent.id, {
+      mode: request.mode ?? "send",
+      prompt,
+      options: request.options ?? {},
+    });
+    return this.turnForRun(run);
+  }
+
+  listTurns(threadId) {
+    const agent = this.agentForThread(threadId);
+    return this.listRuns(agent.id).map((run) => this.turnForRun(run));
+  }
+
+  getTurn(threadId, turnId) {
+    const turn = this.listTurns(threadId).find((candidate) => candidate.turn_id === turnId);
+    if (!turn) throw notFound(`Turn not found: ${turnId}`, { threadId, turnId });
+    return turn;
+  }
+
+  eventsForThread(threadId, sinceSeq = 0) {
+    const agent = this.agentForThread(threadId);
+    let seq = 0;
+    const events = [];
+    for (const run of this.listRuns(agent.id)) {
+      const turnId = turnIdForRun(run.id);
+      for (const event of run.events) {
+        seq += 1;
+        const envelope = ttiEnvelopeForRunEvent({
+          event,
+          seq,
+          threadId: threadIdForAgent(agent.id),
+          turnId,
+        });
+        if (envelope.seq > sinceSeq) events.push(envelope);
+      }
+    }
+    return events;
+  }
+
+  threadForAgent(agent) {
+    const runs = this.listRuns(agent.id);
+    const latestRun = runs.at(-1);
+    return {
+      schema_version: RUNTIME_TTI_SCHEMA_VERSION,
+      thread_id: threadIdForAgent(agent.id),
+      session_id: agent.id,
+      created_at_ms: Date.parse(agent.createdAt) || 0,
+      updated_at_ms: Math.max(
+        Date.parse(agent.updatedAt) || 0,
+        ...runs.map((run) => Date.parse(run.updatedAt) || 0),
+      ),
+      workspace: agent.cwd,
+      title: latestRun?.objective ?? agent.cwd,
+      mode: "agent",
+      approval_mode: "suggest",
+      model_route: agent.modelId,
+      latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
+      latest_seq: this.eventsForThread(threadIdForAgent(agent.id), 0).at(-1)?.seq ?? 0,
+      archived: agent.status === "archived",
+      workflow_graph_id: null,
+      harness_binding_id: null,
+      agentgres_projection_ref: `agents/${agent.id}.json`,
+      evidence_refs: ["agentgres_canonical_operation_log", "runtime_tti_projection"],
+    };
+  }
+
+  turnForRun(run) {
+    return {
+      schema_version: RUNTIME_TTI_SCHEMA_VERSION,
+      turn_id: turnIdForRun(run.id),
+      thread_id: threadIdForAgent(run.agentId),
+      status: lifecycleStatusForRun(run.status),
+      started_at_ms: Date.parse(run.createdAt) || 0,
+      completed_at_ms: TERMINAL_EVENT_TYPES.has(run.status) || run.status === "completed"
+        ? Date.parse(run.updatedAt) || 0
+        : null,
+      usage: null,
+      error_summary: run.status === "failed" ? run.result : null,
+      stop_reason: run.trace?.stopCondition?.reason ?? null,
+      rollback_snapshot_id: null,
+      quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
+      workflow_execution_ref: null,
+      evidence_refs: ["agentgres_canonical_operation_log", `run:${run.id}`],
+    };
+  }
+
+  agentForThread(threadId) {
+    return this.getAgent(agentIdForThread(threadId));
   }
 
   getRun(runId) {
@@ -514,6 +663,18 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/agents") {
       writeJsonResponse(response, store.listAgents());
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/threads") {
+      writeJsonResponse(response, store.createThread(await readBody(request)));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/threads") {
+      writeJsonResponse(response, store.listThreads());
+      return;
+    }
+    if (segments[0] === "v1" && segments[1] === "threads" && segments[2]) {
+      await handleThreadRoute({ request, response, store, url, segments });
       return;
     }
     if (segments[0] === "v1" && segments[1] === "agents" && segments[2]) {
@@ -2322,6 +2483,44 @@ async function handleAgentRoute({ request, response, store, segments }) {
   throw notFound("Agent route not found.", { agentId, action, method: request.method });
 }
 
+async function handleThreadRoute({ request, response, store, url, segments }) {
+  const threadId = decodeURIComponent(segments[2]);
+  const action = segments[3];
+  if (request.method === "GET" && !action) {
+    writeJsonResponse(response, {
+      ...store.getThread(threadId),
+      turns: store.listTurns(threadId),
+    });
+    return;
+  }
+  if (request.method === "POST" && action === "resume") {
+    writeJsonResponse(response, store.resumeThread(threadId));
+    return;
+  }
+  if (request.method === "POST" && action === "fork") {
+    writeJsonResponse(response, store.forkThread(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "turns" && !segments[4]) {
+    writeJsonResponse(response, store.createTurn(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "turns" && !segments[4]) {
+    writeJsonResponse(response, store.listTurns(threadId));
+    return;
+  }
+  if (request.method === "GET" && action === "turns" && segments[4] && !segments[5]) {
+    writeJsonResponse(response, store.getTurn(threadId, decodeURIComponent(segments[4])));
+    return;
+  }
+  if (request.method === "GET" && action === "events") {
+    const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
+    writeSse(response, store.eventsForThread(threadId, sinceSeq));
+    return;
+  }
+  throw notFound("Thread route not found.", { threadId, action, method: request.method });
+}
+
 async function handleRunRoute({ request, response, store, url, segments }) {
   const runId = decodeURIComponent(segments[2]);
   const action = segments[3];
@@ -2760,6 +2959,106 @@ function makeEvent(runId, agentId, index, type, summary, data) {
     summary,
     data,
   };
+}
+
+function threadIdForAgent(agentId) {
+  return agentId.startsWith("agent_") ? `thread_${agentId.slice("agent_".length)}` : `thread_${agentId}`;
+}
+
+function agentIdForThread(threadId) {
+  return threadId.startsWith("thread_") ? `agent_${threadId.slice("thread_".length)}` : threadId;
+}
+
+function turnIdForRun(runId) {
+  return runId.startsWith("run_") ? `turn_${runId.slice("run_".length)}` : `turn_${runId}`;
+}
+
+function lifecycleStatusForRun(status) {
+  switch (status) {
+    case "queued":
+      return "queued";
+    case "running":
+      return "in_progress";
+    case "canceled":
+      return "canceled";
+    case "failed":
+    case "error":
+      return "failed";
+    case "completed":
+    default:
+      return "completed";
+  }
+}
+
+function ttiEnvelopeForRunEvent({ event, seq, threadId, turnId }) {
+  const eventKind = RUN_EVENT_TO_TTI_EVENT[event.type] ?? `item.${event.type}`;
+  return {
+    id: String(seq),
+    schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+    event_id: `${threadId}:seq:${String(seq).padStart(8, "0")}`,
+    seq,
+    parent_seq: seq > 1 ? seq - 1 : null,
+    timestamp_ms: Date.parse(event.createdAt) || 0,
+    thread_id: threadId,
+    turn_id: turnId,
+    item_id: `${turnId}:item:${String(seq).padStart(3, "0")}`,
+    event: eventKind,
+    actor: event.type === "delta" ? "assistant" : "runtime",
+    component_kind: componentKindForRunEvent(event.type),
+    workflow_node_id: workflowNodeForRunEvent(event.type),
+    payload_schema_version: RUNTIME_TTI_SCHEMA_VERSION,
+    payload_summary: {
+      legacy_event_id: event.id,
+      legacy_event_type: event.type,
+      run_id: event.runId,
+      summary: event.summary,
+    },
+    receipt_refs: receiptRefsForRunEvent(event),
+    artifact_refs: artifactRefsForRunEvent(event),
+    redaction_profile: "internal",
+  };
+}
+
+function componentKindForRunEvent(type) {
+  switch (type) {
+    case "task_state":
+      return "task_state";
+    case "uncertainty":
+      return "uncertainty_gate";
+    case "probe":
+      return "probe_runner";
+    case "postcondition_synthesized":
+      return "postcondition_synthesizer";
+    case "semantic_impact":
+      return "semantic_impact_analyzer";
+    case "quality_ledger":
+      return "quality_ledger";
+    case "artifact":
+      return "artifact_store";
+    case "completed":
+    case "canceled":
+      return "completion_gate";
+    case "delta":
+      return "output_writer";
+    case "run_started":
+    default:
+      return "runtime_thread";
+  }
+}
+
+function workflowNodeForRunEvent(type) {
+  return `runtime.${componentKindForRunEvent(type).replace(/_/g, "-")}`;
+}
+
+function receiptRefsForRunEvent(event) {
+  if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
+  if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];
+  return [];
+}
+
+function artifactRefsForRunEvent(event) {
+  if (event.type === "artifact") return event.data?.artifactNames ?? [];
+  return [];
 }
 
 function terminalCount(events) {
