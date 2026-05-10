@@ -101,7 +101,7 @@ const workflowNodeDetailGrid = fs.readFileSync(
 );
 const workflowRailPanel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -187,7 +187,7 @@ const workflowDefaults = fs.readFileSync(
 );
 const harnessWorkflow = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/harness-workflow.ts",
+    "../../../../../packages/agent-ide/src/runtime/harness-workflow/core.ts",
     import.meta.url,
   ),
   "utf8",
@@ -215,7 +215,7 @@ const graphRuntimeTypes = fs.readFileSync(
 );
 const guiHarnessValidation = fs.readFileSync(
   new URL(
-    "../../../../../scripts/run-autopilot-gui-harness-validation.mjs",
+    "../../../../../scripts/lib/autopilot-gui-harness-validation/core.mjs",
     import.meta.url,
   ),
   "utf8",
