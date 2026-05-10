@@ -126,7 +126,7 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
     label: "Dogfooding dashboard",
     dashboard: "dogfooding-dashboard.md",
     anchors: [
-      sourceAnchor("crates/types/src/app/harness.rs", [
+      sourceAnchor("crates/types/src/app/harness/components.rs", [
         "HarnessComponentKind",
         "GuiHarnessValidator",
         "kernel_ref",
@@ -189,7 +189,7 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
         "CLEAN_CHAT_UX_REQUIREMENTS",
         "RUNTIME_CONSISTENCY_REQUIREMENTS",
       ]),
-      sourceAnchor("scripts/run-autopilot-gui-harness-validation.mjs", [
+      sourceAnchor("scripts/lib/autopilot-gui-harness-validation/core.mjs", [
         "buildGuiEvidenceAssessment",
         "screenshot",
         "runtime-artifacts.json",
@@ -381,7 +381,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     sourceAnchor("apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
       "Default Agent Harness",
     ]),
-    sourceAnchor("crates/types/src/app/harness.rs", ["kernel_ref"]),
+    sourceAnchor("crates/types/src/app/harness/components.rs", ["kernel_ref"]),
   ]),
   betterAgent("harness_adapter", 2136, "Harness adapter tests", [
     sourceAnchor("crates/types/src/app/runtime_contracts.rs", ["HarnessTraceAdapter"]),
@@ -1029,7 +1029,7 @@ function buildDogfoodingDashboard(readiness) {
       [
         ["CLI", "crates/cli/src/commands/agent.rs"],
         ["API/runtime", "crates/services/src/agentic/runtime/substrate.rs"],
-        ["Harness", "crates/types/src/app/harness.rs"],
+        ["Harness", "crates/types/src/app/harness/components.rs"],
         ["Workflow compositor", "apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts"],
         ["Benchmarks", "scripts/run-agent-model-matrix.mjs"],
         ["Desktop UI", "scripts/run-autopilot-gui-harness-validation.mjs"],
