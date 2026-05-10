@@ -1275,9 +1275,51 @@ export interface WorkflowHarnessRollbackRestoreCanary {
   createdAtMs: number;
 }
 
+export type WorkflowHarnessForkMutationCanaryStatus =
+  | "passed"
+  | "blocked"
+  | "not_run"
+  | string;
+
+export type WorkflowHarnessForkMutationKind =
+  | "budget_gate_limit"
+  | "retry_bound"
+  | "verifier_threshold"
+  | string;
+
+export interface WorkflowHarnessForkMutationCanary {
+  schemaVersion: "workflow.harness.fork-mutation-canary.v1" | string;
+  canaryId: string;
+  mutationId: string;
+  mutationKind: WorkflowHarnessForkMutationKind;
+  mutationScope: "workflow_policy" | "component_config" | string;
+  workflowId: string;
+  harnessWorkflowId: string;
+  componentId: string;
+  workflowNodeId: string;
+  targetPath: string;
+  beforeValue: string;
+  afterValue: string;
+  diffHash: string;
+  proposalId: string;
+  status: WorkflowHarnessForkMutationCanaryStatus;
+  canaryStatus: WorkflowHarnessActivationCanaryStatus;
+  replayFixtureRefs: string[];
+  receiptRefs: string[];
+  nodeAttemptIds: string[];
+  nodeAttempts?: WorkflowHarnessNodeAttemptRecord[];
+  evidenceRefs: string[];
+  policyDecision: string;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  blockers: string[];
+  createdAtMs: number;
+}
+
 export interface WorkflowHarnessPackageEvidenceLink {
   kind:
     | "activation"
+    | "fork_mutation_canary"
     | "canary_boundary"
     | "rollback_drill"
     | "rollback_restore"
@@ -1296,12 +1338,18 @@ export interface WorkflowHarnessPackageEvidenceManifest {
   activationState?: WorkflowHarnessActivationState;
   harnessHash: string;
   workflowContentHash: string;
+  reviewedPackageSnapshotHash?: string | null;
   rollbackTarget?: string;
+  policyPosture?: WorkflowHarnessForkActivationRecord["policyPosture"];
   componentVersionSet: Record<string, string>;
   evidenceRefs: string[];
   receiptRefs: string[];
   replayFixtureRefs: string[];
   nodeAttemptIds: string[];
+  forkMutationCanary?: WorkflowHarnessForkMutationCanary;
+  forkMutationCanaryReceiptRefs: string[];
+  forkMutationCanaryReplayFixtureRefs: string[];
+  forkMutationCanaryNodeAttemptIds: string[];
   canaryBoundaryIds: string[];
   rollbackDrillIds: string[];
   workerHandoffNodeAttemptIds: string[];
@@ -1339,6 +1387,7 @@ export interface WorkflowHarnessForkActivationRecord {
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
+  forkMutationCanary?: WorkflowHarnessForkMutationCanary;
   packageManifest?: WorkflowHarnessPackageEvidenceManifest;
   mintedAtMs?: number;
 }
@@ -1702,6 +1751,7 @@ export interface WorkflowHarnessForkActivationCandidate {
   rollbackTarget: string;
   rollbackAvailable: boolean;
   rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary;
+  forkMutationCanary: WorkflowHarnessForkMutationCanary;
   workerBindingPreview: WorkflowHarnessWorkerBinding;
   revisionBindingPreview: WorkflowRevisionBinding;
   evidenceRefs: string[];
@@ -1808,6 +1858,167 @@ export interface WorkflowHarnessRuntimeSelectorDecision {
   evidenceRefs: string[];
 }
 
+export interface WorkflowHarnessCognitionNodeAuthorityGate {
+  schemaVersion:
+    | "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1"
+    | string;
+  gateId: "cognition-node-authority" | string;
+  authorityMode: "node_authoritative" | string;
+  authoritative: boolean;
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  requiredExecutionMode: "live" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_default"
+    | string;
+  adapterMode: "workflow_component_adapter_live" | string;
+  componentKinds: WorkflowHarnessComponentKind[];
+  liveReadyComponentKinds: WorkflowHarnessComponentKind[];
+  actionFrameIds: string[];
+  attemptIds: string[];
+  receiptIds: string[];
+  replayFixtureRefs: string[];
+  fallbackAvailable: boolean;
+  fallbackRef: "existing_runtime_service" | string;
+  blockers: string[];
+  policyDecision:
+    | "allow_node_authoritative_cognition"
+    | "block_node_authoritative_cognition"
+    | string;
+}
+
+export interface WorkflowHarnessRoutingModelNodeAuthorityGate {
+  schemaVersion:
+    | "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1"
+    | string;
+  gateId: "routing-model-node-authority" | string;
+  authorityMode: "gated_node_authoritative" | string;
+  authoritative: boolean;
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  requiredExecutionMode: "gated" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_default"
+    | string;
+  adapterMode: "workflow_component_adapter_gated" | string;
+  componentKinds: WorkflowHarnessComponentKind[];
+  shadowReadyComponentKinds: WorkflowHarnessComponentKind[];
+  actionFrameIds: string[];
+  attemptIds: string[];
+  receiptIds: string[];
+  replayFixtureRefs: string[];
+  shadowAttemptIds: string[];
+  shadowReceiptIds: string[];
+  shadowReplayFixtureRefs: string[];
+  divergenceClasses: WorkflowHarnessDivergenceClass[];
+  shadowDivergenceClasses: WorkflowHarnessDivergenceClass[];
+  providerCanaryReady: boolean;
+  visibleOutputSelected: boolean;
+  visibleOutputAuthority: "workflow_model_provider_call" | string;
+  readOnlyCapabilityRoutingReady: boolean;
+  rollbackAvailable: boolean;
+  fallbackAvailable: boolean;
+  fallbackRef: "legacy_runtime_model_invocation" | string;
+  blockers: string[];
+  policyDecision:
+    | "allow_gated_node_authoritative_routing_model"
+    | "block_gated_node_authoritative_routing_model"
+    | string;
+}
+
+export interface WorkflowHarnessVerificationOutputNodeAuthorityGate {
+  schemaVersion:
+    | "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1"
+    | string;
+  gateId: "verification-output-node-authority" | string;
+  authorityMode: "gated_node_authoritative" | string;
+  authoritative: boolean;
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  requiredExecutionMode: "gated" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_default"
+    | string;
+  adapterMode: "workflow_component_adapter_gated" | string;
+  componentKinds: WorkflowHarnessComponentKind[];
+  shadowReadyComponentKinds: WorkflowHarnessComponentKind[];
+  actionFrameIds: string[];
+  attemptIds: string[];
+  receiptIds: string[];
+  replayFixtureRefs: string[];
+  shadowAttemptIds: string[];
+  shadowReceiptIds: string[];
+  shadowReplayFixtureRefs: string[];
+  divergenceClasses: WorkflowHarnessDivergenceClass[];
+  shadowDivergenceClasses: WorkflowHarnessDivergenceClass[];
+  outputWriterHandoffReady: boolean;
+  outputWriterMaterializationCanaryReady: boolean;
+  outputWriterStagedWriteCanaryReady: boolean;
+  outputWriterVisibleWriteReady: boolean;
+  outputWriterVisibleWriteCommitted: boolean;
+  rollbackAvailable: boolean;
+  fallbackAvailable: boolean;
+  fallbackRef: "legacy_runtime_output_writer" | string;
+  blockers: string[];
+  policyDecision:
+    | "allow_gated_node_authoritative_verification_output"
+    | "block_gated_node_authoritative_verification_output"
+    | string;
+}
+
+export interface WorkflowHarnessAuthorityToolingNodeAuthorityGate {
+  schemaVersion:
+    | "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1"
+    | string;
+  gateId: "authority-tooling-node-authority" | string;
+  authorityMode: "gated_node_authoritative" | string;
+  authoritative: boolean;
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  requiredExecutionMode: "gated" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_default"
+    | string;
+  adapterMode: "workflow_component_adapter_gated" | string;
+  componentKinds: WorkflowHarnessComponentKind[];
+  shadowReadyComponentKinds: WorkflowHarnessComponentKind[];
+  actionFrameIds: string[];
+  attemptIds: string[];
+  receiptIds: string[];
+  replayFixtureRefs: string[];
+  shadowAttemptIds: string[];
+  shadowReceiptIds: string[];
+  shadowReplayFixtureRefs: string[];
+  divergenceClasses: WorkflowHarnessDivergenceClass[];
+  shadowDivergenceClasses: WorkflowHarnessDivergenceClass[];
+  readOnlyRouteAccepted: boolean;
+  destructiveRouteDenied: boolean;
+  mutatingToolCallsBlocked: boolean;
+  sideEffectsExecuted: boolean;
+  policyGateReady: boolean;
+  toolRouterReady: boolean;
+  dryRunSimulatorReady: boolean;
+  approvalGateReady: boolean;
+  gateLiveReady: boolean;
+  readOnlyAuthorityCanaryReady: boolean;
+  rollbackAvailable: boolean;
+  fallbackAvailable: boolean;
+  fallbackRef: "legacy_runtime_tool_authority" | string;
+  blockers: string[];
+  policyDecision:
+    | "allow_gated_node_authoritative_authority_tooling"
+    | "block_gated_node_authoritative_authority_tooling"
+    | string;
+}
+
 export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   schemaVersion: "workflow.harness.default-runtime-dispatch.v1" | string;
   dispatchId: string;
@@ -1884,6 +2095,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   routingModelShadowActionFrameIds?: string[];
   routingModelShadowComponentKinds?: WorkflowHarnessComponentKind[];
   routingModelShadowDivergenceClasses?: WorkflowHarnessDivergenceClass[];
+  routingModelAuthorityProof?: Record<string, unknown>;
   verificationOutputAdapterMode: "workflow_component_adapter_gated" | string;
   verificationOutputAttemptIds: string[];
   verificationOutputReceiptIds: string[];
@@ -1902,6 +2114,8 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   verificationOutputShadowActionFrameIds?: string[];
   verificationOutputShadowComponentKinds?: WorkflowHarnessComponentKind[];
   verificationOutputShadowDivergenceClasses?: WorkflowHarnessDivergenceClass[];
+  verificationOutputAuthorityProof?: Record<string, unknown>;
+  authorityToolingAuthorityProof?: Record<string, unknown>;
   authorityToolingAdapterMode: "workflow_component_adapter_gated" | string;
   authorityToolingAttemptIds: string[];
   authorityToolingReceiptIds: string[];
@@ -2016,8 +2230,26 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
     activationId: string | null;
     workerBindingActivationId: string | null;
     rollbackTarget: string | null;
-    defaultDispatchActivationBlockers: string[];
+    reviewedPackageSnapshotHash: string | null;
+    reviewedWorkflowContentHash: string | null;
+    reviewedHarnessWorkflowId: string | null;
+  reviewedReplayFixtureRefs: string[];
+  reviewedWorkerHandoffNodeAttemptIds: string[];
+  reviewedWorkerHandoffReceiptIds: string[];
+  reviewedForkMutationCanaryId?: string | null;
+  reviewedForkMutationCanaryStatus?: string | null;
+  reviewedForkMutationCanaryDiffHash?: string | null;
+  reviewedForkMutationCanaryReceiptRefs?: string[];
+  reviewedForkMutationCanaryReplayFixtureRefs?: string[];
+  reviewedForkMutationCanaryNodeAttemptIds?: string[];
+  reviewedForkMutationCanaryRollbackTarget?: string | null;
+  reviewedPolicyPosture: string | null;
+  defaultDispatchActivationBlockers: string[];
   };
+  cognitionNodeAuthorityGate?: WorkflowHarnessCognitionNodeAuthorityGate;
+  routingModelNodeAuthorityGate?: WorkflowHarnessRoutingModelNodeAuthorityGate;
+  verificationOutputNodeAuthorityGate?: WorkflowHarnessVerificationOutputNodeAuthorityGate;
+  authorityToolingNodeAuthorityGate?: WorkflowHarnessAuthorityToolingNodeAuthorityGate;
   cognitionExecutionMode: "workflow_synchronous_envelope" | string;
   cognitionExecutionReady: boolean;
   promptAssemblyMode: "workflow_synchronous_envelope" | string;
@@ -2392,6 +2624,9 @@ export interface WorkflowHarnessPackageEvidenceGateClickProof {
     receiptRefCount: number;
     replayFixtureRefCount: number;
     rollbackRestoreReceiptRefCount: number;
+    forkMutationCanaryReceiptRefCount: number;
+    forkMutationCanaryReplayFixtureRefCount: number;
+    forkMutationCanaryNodeAttemptCount: number;
     workerHandoffNodeAttemptCount: number;
     workerHandoffReceiptCount: number;
     deepLinkCount: number;
@@ -2399,12 +2634,18 @@ export interface WorkflowHarnessPackageEvidenceGateClickProof {
   };
   selectedRefs: {
     evidenceRef: string | null;
-    receiptRef: string | null;
-    replayFixtureRef: string | null;
-    nodeAttemptId: string | null;
-    packageDeepLinkRef: string | null;
-    packageDeepLinkHash: string | null;
-  };
+	    receiptRef: string | null;
+	    replayFixtureRef: string | null;
+	    nodeAttemptId: string | null;
+	    mutationCanaryId?: string | null;
+	    mutationCanaryReceiptRef?: string | null;
+	    mutationCanaryReplayFixtureRef?: string | null;
+	    mutationCanaryNodeAttemptId?: string | null;
+	    mutationCanaryDiffHash?: string | null;
+	    mutationCanaryRollbackTarget?: string | null;
+	    packageDeepLinkRef: string | null;
+	    packageDeepLinkHash: string | null;
+	  };
   before: {
     hash: string | null;
     railTestId: string | null;
@@ -2412,11 +2653,14 @@ export interface WorkflowHarnessPackageEvidenceGateClickProof {
   };
   restored: {
     evidenceState: Record<string, string>;
-    receiptState: Record<string, string>;
-    replayState: Record<string, string>;
-    nodeAttemptState: Record<string, string>;
-    packageDeepLinkState: Record<string, string>;
-  };
+	    receiptState: Record<string, string>;
+	    replayState: Record<string, string>;
+	    nodeAttemptState: Record<string, string>;
+	    mutationCanaryState?: Record<string, string>;
+	    mutationCanaryNodeAttemptState?: Record<string, string>;
+	    mutationCanaryTimelineAttemptId?: string | null;
+	    packageDeepLinkState: Record<string, string>;
+	  };
   clicked: boolean;
   passed: boolean;
   blockers: string[];
@@ -2470,12 +2714,14 @@ export interface WorkflowHarnessPackageImportReviewProof {
       disabled: boolean;
       evidenceReady: boolean;
       blockerCount: number;
+      integrityBlockerCount?: number;
     };
     incomplete: {
       present: boolean;
       disabled: boolean;
       evidenceReady: boolean;
       blockerCount: number;
+      integrityBlockerCount?: number;
     };
   };
   sourceWorkflowPath: string | null;
@@ -2502,6 +2748,13 @@ export interface WorkflowHarnessPackageImportActivationHandoffProof {
       handoffDecision: string | null;
       activationIdPreview: string | null;
       canaryStatus: string | null;
+      mutationCanaryId?: string | null;
+      mutationCanaryStatus?: string | null;
+      mutationCanaryDiffHash?: string | null;
+      mutationCanaryReceiptRef?: string | null;
+      mutationCanaryReplayFixtureRef?: string | null;
+      mutationCanaryNodeAttemptId?: string | null;
+      mutationCanaryRollbackTarget?: string | null;
       rollbackTarget: string | null;
       workerBindingId: string | null;
       mintable: boolean;
@@ -2515,6 +2768,13 @@ export interface WorkflowHarnessPackageImportActivationHandoffProof {
       handoffDecision: string | null;
       activationIdPreview: string | null;
       canaryStatus: string | null;
+      mutationCanaryId?: string | null;
+      mutationCanaryStatus?: string | null;
+      mutationCanaryDiffHash?: string | null;
+      mutationCanaryReceiptRef?: string | null;
+      mutationCanaryReplayFixtureRef?: string | null;
+      mutationCanaryNodeAttemptId?: string | null;
+      mutationCanaryRollbackTarget?: string | null;
       rollbackTarget: string | null;
       workerBindingId: string | null;
       mintable: boolean;
@@ -2523,6 +2783,7 @@ export interface WorkflowHarnessPackageImportActivationHandoffProof {
   deepLinks: {
     activationId: Record<string, string>;
     canary: Record<string, string>;
+    mutationCanary?: Record<string, string>;
     rollbackRestore: Record<string, string>;
     workerBinding: Record<string, string>;
   };
@@ -2549,6 +2810,13 @@ export interface WorkflowHarnessPackageImportActivationApplyProof {
     handoffDecision: string | null;
     activationIdPreview: string | null;
     canaryStatus: string | null;
+    mutationCanaryId?: string | null;
+    mutationCanaryStatus?: string | null;
+    mutationCanaryDiffHash?: string | null;
+    mutationCanaryReceiptRef?: string | null;
+    mutationCanaryReplayFixtureRef?: string | null;
+    mutationCanaryNodeAttemptId?: string | null;
+    mutationCanaryRollbackTarget?: string | null;
     rollbackTarget: string | null;
     workerBindingId: string | null;
     mintable: boolean;
@@ -2574,11 +2842,35 @@ export interface WorkflowHarnessPackageImportActivationApplyProof {
     workerHandoffReceiptIds: string[];
     workerHandoffNodeAttemptIds: string[];
     workerHandoffReplayFixtureRefs: string[];
+    reviewedPackageSnapshotHash: string | null;
+    reviewedWorkflowContentHash: string | null;
+    reviewedActivationId: string | null;
+    reviewedHarnessWorkflowId: string | null;
+    reviewedWorkerBindingActivationId: string | null;
+    reviewedRollbackTarget: string | null;
+    reviewedReplayFixtureRefs: string[];
+    reviewedWorkerHandoffNodeAttemptIds: string[];
+    reviewedWorkerHandoffReceiptIds: string[];
+    reviewedForkMutationCanaryId?: string | null;
+    reviewedForkMutationCanaryStatus?: string | null;
+    reviewedForkMutationCanaryDiffHash?: string | null;
+    reviewedForkMutationCanaryReceiptRefs?: string[];
+    reviewedForkMutationCanaryReplayFixtureRefs?: string[];
+    reviewedForkMutationCanaryNodeAttemptIds?: string[];
+    reviewedForkMutationCanaryRollbackTarget?: string | null;
+    reviewedPolicyPosture: string | null;
     statusMessage: string;
   } | null;
   workerHandoff: {
     deepLinkHash: string | null;
     selectedState: Record<string, string>;
+    timelineVisible: boolean;
+    selectedAttemptId: string | null;
+  };
+  mutationCanary?: {
+    deepLinkHash: string | null;
+    selectedState: Record<string, string>;
+    nodeAttemptState: Record<string, string>;
     timelineVisible: boolean;
     selectedAttemptId: string | null;
   };
@@ -2591,10 +2883,68 @@ export interface WorkflowHarnessPackageImportActivationApplyProof {
     handoffDecision: string | null;
     activationIdPreview: string | null;
     canaryStatus: string | null;
+    mutationCanaryId?: string | null;
+    mutationCanaryStatus?: string | null;
+    mutationCanaryDiffHash?: string | null;
+    mutationCanaryReceiptRef?: string | null;
+    mutationCanaryReplayFixtureRef?: string | null;
+    mutationCanaryNodeAttemptId?: string | null;
+    mutationCanaryRollbackTarget?: string | null;
     rollbackTarget: string | null;
     workerBindingId: string | null;
     mintable: boolean;
   };
+  passed: boolean;
+  blockers: string[];
+}
+
+export interface WorkflowHarnessPackageImportActivationReplayIntegrityProof {
+  schemaVersion:
+    | "workflow.harness.package-import-activation-replay-integrity-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  sourceWorkflowPath: string | null;
+  importedWorkflowPath: string | null;
+  cases: Array<{
+    caseId: string;
+    mutationKind:
+      | "snapshot_hash_mismatch"
+      | "workflow_hash_mismatch"
+      | "activation_id_mismatch"
+      | "worker_binding_mismatch"
+      | "rollback_target_mismatch"
+      | "replay_fixture_mismatch"
+      | "fork_mutation_canary_mismatch"
+      | "policy_posture_mismatch"
+      | string;
+    expectedBlocker: string;
+    railState: Record<string, string>;
+    action: {
+      present: boolean;
+      disabled: boolean;
+      evidenceReady: boolean;
+      blockerCount: number;
+      integrityBlockerCount: number;
+      handoffPresent: boolean;
+      handoffDecision: string | null;
+      activationIdPreview: string | null;
+      canaryStatus: string | null;
+      mutationCanaryId?: string | null;
+      mutationCanaryStatus?: string | null;
+      mutationCanaryDiffHash?: string | null;
+      mutationCanaryReceiptRef?: string | null;
+      mutationCanaryReplayFixtureRef?: string | null;
+      mutationCanaryNodeAttemptId?: string | null;
+      mutationCanaryRollbackTarget?: string | null;
+      rollbackTarget: string | null;
+      workerBindingId: string | null;
+      mintable: boolean;
+    };
+    runtimeBlockers: string[];
+    defaultLivePromotionBlockers: string[];
+    passed: boolean;
+  }>;
   passed: boolean;
   blockers: string[];
 }
@@ -2997,6 +3347,15 @@ export interface WorkflowHarnessNodeBinding {
   };
 }
 
+export interface WorkflowHarnessLiveGuiProbeDiagnostics {
+  schemaVersion: "workflow.harness.live-gui-probe-diagnostics.v1" | string;
+  status: "blocked" | "passed" | string;
+  phase: string;
+  error?: string;
+  proofWorkflowPath?: string;
+  generatedAtMs: number;
+}
+
 export interface WorkflowHarnessMetadata {
   schemaVersion: "workflow.harness.v1" | string;
   harnessWorkflowId: string;
@@ -3022,10 +3381,12 @@ export interface WorkflowHarnessMetadata {
   promotionTransitions?: WorkflowHarnessPromotionTransitionAttempt[];
   replayDrills?: WorkflowHarnessReplayDrillResult[];
   replayGates?: WorkflowHarnessReplayGateResult[];
+  forkMutationCanary?: WorkflowHarnessForkMutationCanary;
   revisionBinding?: WorkflowRevisionBinding;
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
+  liveGuiProbeDiagnostics?: WorkflowHarnessLiveGuiProbeDiagnostics;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
@@ -3052,6 +3413,7 @@ export interface WorkflowHarnessMetadata {
   packageImportReviewProof?: WorkflowHarnessPackageImportReviewProof;
   packageImportActivationHandoffProof?: WorkflowHarnessPackageImportActivationHandoffProof;
   packageImportActivationApplyProof?: WorkflowHarnessPackageImportActivationApplyProof;
+  packageImportActivationReplayIntegrityProof?: WorkflowHarnessPackageImportActivationReplayIntegrityProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;
@@ -3100,6 +3462,23 @@ export interface WorkflowHarnessWorkerBindingRegistryRecord {
   activationId: string;
   activationHash: string;
   harnessHash: string;
+  reviewedPackageSnapshotHash: string | null;
+  reviewedWorkflowContentHash: string | null;
+  reviewedActivationId: string | null;
+  reviewedHarnessWorkflowId: string | null;
+  reviewedWorkerBindingActivationId: string | null;
+  reviewedRollbackTarget: string | null;
+  reviewedReplayFixtureRefs: string[];
+  reviewedWorkerHandoffNodeAttemptIds: string[];
+  reviewedWorkerHandoffReceiptIds: string[];
+  reviewedForkMutationCanaryId?: string | null;
+  reviewedForkMutationCanaryStatus?: string | null;
+  reviewedForkMutationCanaryDiffHash?: string | null;
+  reviewedForkMutationCanaryReceiptRefs?: string[];
+  reviewedForkMutationCanaryReplayFixtureRefs?: string[];
+  reviewedForkMutationCanaryNodeAttemptIds?: string[];
+  reviewedForkMutationCanaryRollbackTarget?: string | null;
+  reviewedPolicyPosture: string | null;
   componentVersionSet: Record<string, string>;
   rollbackTarget: string;
   readinessProofId: string;
@@ -3136,6 +3515,23 @@ export interface WorkflowHarnessWorkerAttachRequest {
   activationId: string;
   activationHash: string;
   harnessHash: string;
+  reviewedPackageSnapshotHash: string | null;
+  reviewedWorkflowContentHash: string | null;
+  reviewedActivationId: string | null;
+  reviewedHarnessWorkflowId: string | null;
+  reviewedWorkerBindingActivationId: string | null;
+  reviewedRollbackTarget: string | null;
+  reviewedReplayFixtureRefs: string[];
+  reviewedWorkerHandoffNodeAttemptIds: string[];
+  reviewedWorkerHandoffReceiptIds: string[];
+  reviewedForkMutationCanaryId?: string | null;
+  reviewedForkMutationCanaryStatus?: string | null;
+  reviewedForkMutationCanaryDiffHash?: string | null;
+  reviewedForkMutationCanaryReceiptRefs?: string[];
+  reviewedForkMutationCanaryReplayFixtureRefs?: string[];
+  reviewedForkMutationCanaryNodeAttemptIds?: string[];
+  reviewedForkMutationCanaryRollbackTarget?: string | null;
+  reviewedPolicyPosture: string | null;
   componentVersionSet: Record<string, string>;
   rollbackTarget: string;
   readinessProofId: string;
@@ -3157,6 +3553,23 @@ export interface WorkflowHarnessWorkerAttachReceipt {
   activationId: string;
   activationHash: string;
   harnessHash: string;
+  reviewedPackageSnapshotHash: string | null;
+  reviewedWorkflowContentHash: string | null;
+  reviewedActivationId: string | null;
+  reviewedHarnessWorkflowId: string | null;
+  reviewedWorkerBindingActivationId: string | null;
+  reviewedRollbackTarget: string | null;
+  reviewedReplayFixtureRefs: string[];
+  reviewedWorkerHandoffNodeAttemptIds: string[];
+  reviewedWorkerHandoffReceiptIds: string[];
+  reviewedForkMutationCanaryId?: string | null;
+  reviewedForkMutationCanaryStatus?: string | null;
+  reviewedForkMutationCanaryDiffHash?: string | null;
+  reviewedForkMutationCanaryReceiptRefs?: string[];
+  reviewedForkMutationCanaryReplayFixtureRefs?: string[];
+  reviewedForkMutationCanaryNodeAttemptIds?: string[];
+  reviewedForkMutationCanaryRollbackTarget?: string | null;
+  reviewedPolicyPosture: string | null;
   componentVersionSet: Record<string, string>;
   rollbackTarget: string;
   rollbackAvailable: boolean;
@@ -3827,7 +4240,20 @@ export interface WorkflowPackageImportActivationHandoff {
   rollbackTarget: string | null;
   rollbackAvailable: boolean;
   rollbackRestoreCanaryStatus: string | null;
+  forkMutationCanaryId?: string | null;
+  forkMutationCanaryStatus?: string | null;
+  forkMutationCanaryDiffHash?: string | null;
+  forkMutationCanaryReceiptRefs?: string[];
+  forkMutationCanaryReplayFixtureRefs?: string[];
+  forkMutationCanaryNodeAttemptIds?: string[];
+  forkMutationCanaryRollbackTarget?: string | null;
   workerBinding: WorkflowHarnessWorkerBinding | null;
+  workflowContentHash: string | null;
+  reviewedPackageSnapshotHash: string | null;
+  policyPosture: WorkflowHarnessForkActivationRecord["policyPosture"] | null;
+  replayFixtureRefs: string[];
+  workerHandoffNodeAttemptIds: string[];
+  workerHandoffReceiptIds: string[];
   gateCount: number;
   passedGateCount: number;
   blockerCount: number;
@@ -3837,6 +4263,7 @@ export interface WorkflowPackageImportActivationHandoff {
   deepLinkTargets: {
     activationId: string | null;
     canary: string | null;
+    mutationCanary?: string | null;
     rollbackRestore: string | null;
     rollbackTarget: string | null;
     workerBindingId: string | null;
@@ -3856,7 +4283,22 @@ export interface WorkflowPackageImportReview {
     workflowContentHash: string | null;
     activationId: string | null;
     harnessWorkflowId: string | null;
+    harnessHash: string | null;
+    reviewedPackageSnapshotHash: string | null;
+    workerBindingActivationId: string | null;
+    workerBindingWorkflowId: string | null;
+    policyPosture: WorkflowHarnessForkActivationRecord["policyPosture"] | null;
     rollbackTarget: string | null;
+    forkMutationCanaryId?: string | null;
+    forkMutationCanaryStatus?: string | null;
+    forkMutationCanaryDiffHash?: string | null;
+    forkMutationCanaryReceiptRefs?: string[];
+    forkMutationCanaryReplayFixtureRefs?: string[];
+    forkMutationCanaryNodeAttemptIds?: string[];
+    forkMutationCanaryRollbackTarget?: string | null;
+    replayFixtureRefs: string[];
+    workerHandoffNodeAttemptIds: string[];
+    workerHandoffReceiptIds: string[];
     portable: boolean;
     readinessStatus: WorkflowValidationResult["status"] | null;
     fileCount: number;
@@ -3879,6 +4321,9 @@ export interface WorkflowPackageImportReview {
     receiptRefCount: number;
     replayFixtureRefCount: number;
     rollbackRestoreReceiptRefCount: number;
+    forkMutationCanaryReceiptRefCount?: number;
+    forkMutationCanaryReplayFixtureRefCount?: number;
+    forkMutationCanaryNodeAttemptCount?: number;
     workerHandoffNodeAttemptCount: number;
     workerHandoffReceiptCount: number;
     deepLinkCount: number;

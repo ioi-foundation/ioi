@@ -1522,6 +1522,115 @@ fn runtime_harness_worker_attach_receipt(
     if request_string("harnessHash") != record_string("harnessHash") {
         blockers.push("worker_attach_harness_hash_mismatch".to_string());
     }
+    if record_string("reviewedPackageSnapshotHash")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_snapshot_hash_missing".to_string());
+    }
+    if request_string("reviewedPackageSnapshotHash") != record_string("reviewedPackageSnapshotHash")
+    {
+        blockers.push("worker_attach_reviewed_package_snapshot_hash_mismatch".to_string());
+    }
+    if record_string("reviewedWorkflowContentHash")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_workflow_hash_missing".to_string());
+    }
+    if request_string("reviewedWorkflowContentHash") != record_string("reviewedWorkflowContentHash")
+    {
+        blockers.push("worker_attach_reviewed_package_workflow_hash_mismatch".to_string());
+    }
+    if record_string("reviewedActivationId")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_activation_missing".to_string());
+    }
+    if record_string("reviewedWorkerBindingActivationId")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_worker_binding_missing".to_string());
+    }
+    if record_string("reviewedActivationId") != record_string("reviewedWorkerBindingActivationId")
+        || request_string("reviewedActivationId") != record_string("reviewedActivationId")
+        || request_string("reviewedWorkerBindingActivationId")
+            != record_string("reviewedWorkerBindingActivationId")
+    {
+        blockers.push("worker_attach_reviewed_package_activation_mismatch".to_string());
+    }
+    if record_string("reviewedHarnessWorkflowId")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_workflow_id_missing".to_string());
+    }
+    if request_string("reviewedHarnessWorkflowId") != record_string("reviewedHarnessWorkflowId") {
+        blockers.push("worker_attach_reviewed_package_workflow_id_mismatch".to_string());
+    }
+    if record_string("reviewedRollbackTarget")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_rollback_target_missing".to_string());
+    }
+    if record_string("reviewedRollbackTarget") != record_string("rollbackTarget")
+        || request_string("reviewedRollbackTarget") != record_string("reviewedRollbackTarget")
+    {
+        blockers.push("worker_attach_reviewed_package_rollback_target_mismatch".to_string());
+    }
+    let reviewed_replay_fixture_refs =
+        runtime_harness_value_string_array(registry_record.get("reviewedReplayFixtureRefs"));
+    let requested_reviewed_replay_fixture_refs =
+        runtime_harness_value_string_array(attach_request.get("reviewedReplayFixtureRefs"));
+    if reviewed_replay_fixture_refs.is_empty() {
+        blockers.push("worker_attach_reviewed_package_replay_fixture_missing".to_string());
+    }
+    if !runtime_harness_string_sets_match(
+        &requested_reviewed_replay_fixture_refs,
+        &reviewed_replay_fixture_refs,
+    ) {
+        blockers.push("worker_attach_reviewed_package_replay_fixture_mismatch".to_string());
+    }
+    let reviewed_worker_handoff_node_attempt_ids = runtime_harness_value_string_array(
+        registry_record.get("reviewedWorkerHandoffNodeAttemptIds"),
+    );
+    let requested_reviewed_worker_handoff_node_attempt_ids = runtime_harness_value_string_array(
+        attach_request.get("reviewedWorkerHandoffNodeAttemptIds"),
+    );
+    if reviewed_worker_handoff_node_attempt_ids.is_empty() {
+        blockers.push("worker_attach_reviewed_package_worker_attempt_missing".to_string());
+    }
+    if !runtime_harness_string_sets_match(
+        &requested_reviewed_worker_handoff_node_attempt_ids,
+        &reviewed_worker_handoff_node_attempt_ids,
+    ) {
+        blockers.push("worker_attach_reviewed_package_worker_attempt_mismatch".to_string());
+    }
+    let reviewed_worker_handoff_receipt_ids =
+        runtime_harness_value_string_array(registry_record.get("reviewedWorkerHandoffReceiptIds"));
+    let requested_reviewed_worker_handoff_receipt_ids =
+        runtime_harness_value_string_array(attach_request.get("reviewedWorkerHandoffReceiptIds"));
+    if reviewed_worker_handoff_receipt_ids.is_empty() {
+        blockers.push("worker_attach_reviewed_package_worker_receipt_missing".to_string());
+    }
+    if !runtime_harness_string_sets_match(
+        &requested_reviewed_worker_handoff_receipt_ids,
+        &reviewed_worker_handoff_receipt_ids,
+    ) {
+        blockers.push("worker_attach_reviewed_package_worker_receipt_mismatch".to_string());
+    }
+    if record_string("reviewedPolicyPosture")
+        .unwrap_or_default()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_policy_posture_missing".to_string());
+    }
+    if request_string("reviewedPolicyPosture") != record_string("reviewedPolicyPosture") {
+        blockers.push("worker_attach_reviewed_package_policy_posture_mismatch".to_string());
+    }
     if attach_request.get("componentVersionSet") != registry_record.get("componentVersionSet") {
         blockers.push("worker_attach_component_version_set_mismatch".to_string());
     }
@@ -1716,6 +1825,16 @@ fn runtime_harness_worker_attach_receipt(
         "activationId": request_string("activationId").unwrap_or_default(),
         "activationHash": request_string("activationHash").unwrap_or_default(),
         "harnessHash": request_string("harnessHash").unwrap_or_default(),
+        "reviewedPackageSnapshotHash": request_string("reviewedPackageSnapshotHash").unwrap_or_default(),
+        "reviewedWorkflowContentHash": request_string("reviewedWorkflowContentHash").unwrap_or_default(),
+        "reviewedActivationId": request_string("reviewedActivationId").unwrap_or_default(),
+        "reviewedHarnessWorkflowId": request_string("reviewedHarnessWorkflowId").unwrap_or_default(),
+        "reviewedWorkerBindingActivationId": request_string("reviewedWorkerBindingActivationId").unwrap_or_default(),
+        "reviewedRollbackTarget": request_string("reviewedRollbackTarget").unwrap_or_default(),
+        "reviewedReplayFixtureRefs": requested_reviewed_replay_fixture_refs,
+        "reviewedWorkerHandoffNodeAttemptIds": requested_reviewed_worker_handoff_node_attempt_ids,
+        "reviewedWorkerHandoffReceiptIds": requested_reviewed_worker_handoff_receipt_ids,
+        "reviewedPolicyPosture": request_string("reviewedPolicyPosture").unwrap_or_default(),
         "componentVersionSet": attach_request.get("componentVersionSet").cloned().unwrap_or_else(|| json!({})),
         "rollbackTarget": request_string("rollbackTarget").unwrap_or_default(),
         "rollbackAvailable": rollback_available,
@@ -1751,7 +1870,13 @@ fn runtime_harness_worker_attach_receipt(
             record_string("rollbackLiveShadowComparisonGateId").unwrap_or_default(),
             record_string("rollbackActivationId").unwrap_or_default(),
             record_string("rollbackHarnessHash").unwrap_or_default(),
-            record_string("canaryResultId").unwrap_or_default()
+            record_string("canaryResultId").unwrap_or_default(),
+            record_string("reviewedPackageSnapshotHash").unwrap_or_default(),
+            record_string("reviewedWorkflowContentHash").unwrap_or_default(),
+            record_string("reviewedActivationId").unwrap_or_default(),
+            record_string("reviewedHarnessWorkflowId").unwrap_or_default(),
+            record_string("reviewedWorkerBindingActivationId").unwrap_or_default(),
+            record_string("reviewedRollbackTarget").unwrap_or_default()
         ]
     })
 }
@@ -1788,6 +1913,25 @@ fn runtime_harness_worker_attach_lifecycle_events(
             "activationId": activation_id,
             "activationHash": activation_hash,
             "harnessHash": harness_hash,
+            "reviewedPackageSnapshotHash": record_string("reviewedPackageSnapshotHash").unwrap_or_default(),
+            "reviewedWorkflowContentHash": record_string("reviewedWorkflowContentHash").unwrap_or_default(),
+            "reviewedActivationId": record_string("reviewedActivationId").unwrap_or_default(),
+            "reviewedHarnessWorkflowId": record_string("reviewedHarnessWorkflowId").unwrap_or_default(),
+            "reviewedWorkerBindingActivationId": record_string("reviewedWorkerBindingActivationId").unwrap_or_default(),
+            "reviewedRollbackTarget": record_string("reviewedRollbackTarget").unwrap_or_default(),
+            "reviewedReplayFixtureRefs": registry_record
+                .get("reviewedReplayFixtureRefs")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+            "reviewedWorkerHandoffNodeAttemptIds": registry_record
+                .get("reviewedWorkerHandoffNodeAttemptIds")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+            "reviewedWorkerHandoffReceiptIds": registry_record
+                .get("reviewedWorkerHandoffReceiptIds")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+            "reviewedPolicyPosture": record_string("reviewedPolicyPosture").unwrap_or_default(),
             "componentVersionSet": component_version_set.clone(),
             "rollbackTarget": rollback_target,
             "readinessProofId": readiness_proof_id,
@@ -2013,7 +2157,9 @@ fn runtime_harness_worker_session_record(
     if registry_record
         .get("rollbackReadinessProofId")
         .and_then(Value::as_str)
-        != registry_record.get("readinessProofId").and_then(Value::as_str)
+        != registry_record
+            .get("readinessProofId")
+            .and_then(Value::as_str)
     {
         blockers.push("worker_session_rollback_readiness_proof_mismatch".to_string());
     }
@@ -2373,14 +2519,18 @@ fn runtime_harness_worker_launch_envelope(worker_session_record: &Value, phase: 
     if worker_session_record
         .get("rollbackActivationId")
         .and_then(Value::as_str)
-        != worker_session_record.get("activationId").and_then(Value::as_str)
+        != worker_session_record
+            .get("activationId")
+            .and_then(Value::as_str)
     {
         blockers.push("worker_launch_rollback_activation_mismatch".to_string());
     }
     if worker_session_record
         .get("rollbackHarnessHash")
         .and_then(Value::as_str)
-        != worker_session_record.get("harnessHash").and_then(Value::as_str)
+        != worker_session_record
+            .get("harnessHash")
+            .and_then(Value::as_str)
     {
         blockers.push("worker_launch_rollback_harness_hash_mismatch".to_string());
     }
@@ -2621,7 +2771,9 @@ fn runtime_harness_worker_handoff_receipt(
         || worker_session_record
             .get("rollbackActivationId")
             .and_then(Value::as_str)
-            != worker_session_record.get("activationId").and_then(Value::as_str)
+            != worker_session_record
+                .get("activationId")
+                .and_then(Value::as_str)
     {
         blockers.push("worker_handoff_rollback_activation_mismatch".to_string());
     }
@@ -2634,7 +2786,9 @@ fn runtime_harness_worker_handoff_receipt(
         || worker_session_record
             .get("rollbackHarnessHash")
             .and_then(Value::as_str)
-            != worker_session_record.get("harnessHash").and_then(Value::as_str)
+            != worker_session_record
+                .get("harnessHash")
+                .and_then(Value::as_str)
     {
         blockers.push("worker_handoff_rollback_harness_hash_mismatch".to_string());
     }
@@ -3022,13 +3176,12 @@ fn runtime_harness_default_runtime_binding(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    let live_handoff_live_shadow_comparison_gate_id =
-        live_handoff_live_promotion_readiness_proof
-            .and_then(|proof| proof.get("liveShadowComparisonGate"))
-            .and_then(|gate| gate.get("gateId"))
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string();
+    let live_handoff_live_shadow_comparison_gate_id = live_handoff_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("liveShadowComparisonGate"))
+        .and_then(|gate| gate.get("gateId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     let dispatch_live_shadow_comparison_gate_id = dispatch_live_promotion_readiness_proof
         .and_then(|proof| proof.get("liveShadowComparisonGate"))
         .and_then(|gate| gate.get("gateId"))
@@ -3256,6 +3409,17 @@ fn runtime_harness_default_runtime_binding(
         "requiredInvariantIds": required_invariant_ids.clone(),
         "invariantBlockers": invariant_blockers.clone()
     });
+    let reviewed_package_snapshot_hash =
+        format!("stable-fnv1a32:runtime-reviewed-package:{sid}:{turn_id}");
+    let reviewed_replay_fixture_refs = vec![format!(
+        "harness-reviewed-package:fixture:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}:{turn_id}"
+    )];
+    let reviewed_worker_handoff_node_attempt_ids = vec![format!(
+        "harness-reviewed-package:worker-attempt:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}:{turn_id}"
+    )];
+    let reviewed_worker_handoff_receipt_ids = vec![format!(
+        "harness-reviewed-package:worker-receipt:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}:{turn_id}"
+    )];
     let worker_binding_registry_record = json!({
         "schemaVersion": "workflow.harness.worker-binding-registry.v1",
         "registryRecordId": format!(
@@ -3265,6 +3429,16 @@ fn runtime_harness_default_runtime_binding(
         "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "activationHash": DEFAULT_AGENT_HARNESS_HASH,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedPackageSnapshotHash": reviewed_package_snapshot_hash,
+        "reviewedWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "reviewedHarnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "reviewedWorkerBindingActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "reviewedRollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "reviewedReplayFixtureRefs": reviewed_replay_fixture_refs,
+        "reviewedWorkerHandoffNodeAttemptIds": reviewed_worker_handoff_node_attempt_ids,
+        "reviewedWorkerHandoffReceiptIds": reviewed_worker_handoff_receipt_ids,
+        "reviewedPolicyPosture": "canary",
         "componentVersionSet": component_version_set.clone(),
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
@@ -3297,6 +3471,46 @@ fn runtime_harness_default_runtime_binding(
         "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "activationHash": DEFAULT_AGENT_HARNESS_HASH,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedPackageSnapshotHash": worker_binding_registry_record
+            .get("reviewedPackageSnapshotHash")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedWorkflowContentHash": worker_binding_registry_record
+            .get("reviewedWorkflowContentHash")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedActivationId": worker_binding_registry_record
+            .get("reviewedActivationId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedHarnessWorkflowId": worker_binding_registry_record
+            .get("reviewedHarnessWorkflowId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedWorkerBindingActivationId": worker_binding_registry_record
+            .get("reviewedWorkerBindingActivationId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedRollbackTarget": worker_binding_registry_record
+            .get("reviewedRollbackTarget")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedReplayFixtureRefs": worker_binding_registry_record
+            .get("reviewedReplayFixtureRefs")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "reviewedWorkerHandoffNodeAttemptIds": worker_binding_registry_record
+            .get("reviewedWorkerHandoffNodeAttemptIds")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "reviewedWorkerHandoffReceiptIds": worker_binding_registry_record
+            .get("reviewedWorkerHandoffReceiptIds")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "reviewedPolicyPosture": worker_binding_registry_record
+            .get("reviewedPolicyPosture")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
         "componentVersionSet": component_version_set,
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
@@ -5104,7 +5318,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
         "nodeAttemptIds": node_attempt_ids,
         "nodeAttempts": attempts,
         "receiptIds": receipt_ids,
-        "replayFixtureRefs": replay_fixture_refs,
+        "replayFixtureRefs": replay_fixture_refs.clone(),
         "activationBlockers": activation_blockers,
         "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "rollbackAvailable": true,
@@ -5578,6 +5792,16 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         .collect::<Vec<_>>();
     let readiness_proof_id =
         format!("harness-fork-activation-readiness:{harness_workflow_id}:{activation_id}");
+    let reviewed_package_snapshot_hash = format!("stable-fnv1a32:fork-reviewed-package:{sid}");
+    let reviewed_replay_fixture_refs = vec![format!(
+        "harness-reviewed-package:fixture:{harness_workflow_id}:{activation_id}"
+    )];
+    let reviewed_worker_handoff_node_attempt_ids = vec![format!(
+        "harness-reviewed-package:worker-attempt:{harness_workflow_id}:{activation_id}"
+    )];
+    let reviewed_worker_handoff_receipt_ids = vec![format!(
+        "harness-reviewed-package:worker-receipt:{harness_workflow_id}:{activation_id}"
+    )];
     let worker_binding = json!({
         "harnessWorkflowId": harness_workflow_id,
         "harnessActivationId": activation_id,
@@ -5602,6 +5826,16 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "activationId": activation_id,
         "activationHash": DEFAULT_AGENT_HARNESS_HASH,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedPackageSnapshotHash": reviewed_package_snapshot_hash,
+        "reviewedWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedActivationId": activation_id,
+        "reviewedHarnessWorkflowId": harness_workflow_id,
+        "reviewedWorkerBindingActivationId": activation_id,
+        "reviewedRollbackTarget": rollback_target,
+        "reviewedReplayFixtureRefs": reviewed_replay_fixture_refs,
+        "reviewedWorkerHandoffNodeAttemptIds": reviewed_worker_handoff_node_attempt_ids,
+        "reviewedWorkerHandoffReceiptIds": reviewed_worker_handoff_receipt_ids,
+        "reviewedPolicyPosture": "canary",
         "componentVersionSet": component_version_set.clone(),
         "rollbackTarget": rollback_target,
         "readinessProofId": readiness_proof_id,
@@ -12220,7 +12454,7 @@ fn runtime_harness_default_runtime_dispatch(
         && verification_output_shadow_divergence_classes
             .iter()
             .all(|value| value == "none");
-    let verification_output_proof = json!({
+    let mut verification_output_proof = json!({
         "schemaVersion": "workflow.harness.verification-output-envelope.v1",
         "mode": "workflow_synchronous_envelope",
         "adapterMode": "workflow_component_adapter_gated",
@@ -12257,7 +12491,7 @@ fn runtime_harness_default_runtime_dispatch(
         && authority_tooling_shadow_divergence_classes
             .iter()
             .all(|value| value == "none");
-    let authority_tooling_adapter_proof = json!({
+    let mut authority_tooling_adapter_proof = json!({
         "schemaVersion": "workflow.harness.authority-tooling-adapter-envelope.v1",
         "mode": "workflow_synchronous_envelope",
         "adapterMode": "workflow_component_adapter_gated",
@@ -12687,6 +12921,17 @@ fn runtime_harness_default_runtime_dispatch(
         } else {
             live_promotion_readiness_blockers.clone()
         };
+    let reviewed_package_snapshot_hash =
+        format!("stable-fnv1a32:runtime-reviewed-package:{sid}:{turn_id}");
+    let reviewed_replay_fixture_refs = vec![format!(
+        "harness-reviewed-package:fixture:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}:{turn_id}"
+    )];
+    let reviewed_worker_handoff_node_attempt_ids = vec![format!(
+        "harness-reviewed-package:worker-attempt:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}:{turn_id}"
+    )];
+    let reviewed_worker_handoff_receipt_ids = vec![format!(
+        "harness-reviewed-package:worker-receipt:{DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}:{sid}:{turn_id}"
+    )];
     let worker_binding_registry_record = json!({
         "schemaVersion": "workflow.harness.worker-binding-registry.v1",
         "registryRecordId": format!(
@@ -12697,6 +12942,16 @@ fn runtime_harness_default_runtime_dispatch(
         "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "activationHash": DEFAULT_AGENT_HARNESS_HASH,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedPackageSnapshotHash": reviewed_package_snapshot_hash,
+        "reviewedWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "reviewedHarnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "reviewedWorkerBindingActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "reviewedRollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "reviewedReplayFixtureRefs": reviewed_replay_fixture_refs,
+        "reviewedWorkerHandoffNodeAttemptIds": reviewed_worker_handoff_node_attempt_ids,
+        "reviewedWorkerHandoffReceiptIds": reviewed_worker_handoff_receipt_ids,
+        "reviewedPolicyPosture": "canary",
         "componentVersionSet": live_handoff
             .get("componentVersionSet")
             .cloned()
@@ -12770,6 +13025,46 @@ fn runtime_harness_default_runtime_dispatch(
         "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         "activationHash": DEFAULT_AGENT_HARNESS_HASH,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "reviewedPackageSnapshotHash": worker_binding_registry_record
+            .get("reviewedPackageSnapshotHash")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedWorkflowContentHash": worker_binding_registry_record
+            .get("reviewedWorkflowContentHash")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedActivationId": worker_binding_registry_record
+            .get("reviewedActivationId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedHarnessWorkflowId": worker_binding_registry_record
+            .get("reviewedHarnessWorkflowId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedWorkerBindingActivationId": worker_binding_registry_record
+            .get("reviewedWorkerBindingActivationId")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedRollbackTarget": worker_binding_registry_record
+            .get("reviewedRollbackTarget")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "reviewedReplayFixtureRefs": worker_binding_registry_record
+            .get("reviewedReplayFixtureRefs")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "reviewedWorkerHandoffNodeAttemptIds": worker_binding_registry_record
+            .get("reviewedWorkerHandoffNodeAttemptIds")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "reviewedWorkerHandoffReceiptIds": worker_binding_registry_record
+            .get("reviewedWorkerHandoffReceiptIds")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "reviewedPolicyPosture": worker_binding_registry_record
+            .get("reviewedPolicyPosture")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
         "componentVersionSet": worker_binding_registry_record
             .get("componentVersionSet")
             .cloned()
@@ -12911,6 +13206,961 @@ fn runtime_harness_default_runtime_dispatch(
     replay_fixture_refs.sort();
     replay_fixture_refs.dedup();
     dispatch_node_attempts.extend(worker_handoff_node_attempts.clone());
+    let cognition_node_authority_component_kinds = vec![
+        "planner".to_string(),
+        "prompt_assembler".to_string(),
+        "task_state".to_string(),
+    ];
+    let cognition_node_authority_attempt_ids = cognition_execution_adapter_results
+        .iter()
+        .filter_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("attemptId"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let mut cognition_node_authority_receipt_ids = cognition_execution_adapter_results
+        .iter()
+        .flat_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("receiptIds"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    cognition_node_authority_receipt_ids.sort();
+    cognition_node_authority_receipt_ids.dedup();
+    let mut cognition_node_authority_replay_fixture_refs = cognition_execution_adapter_results
+        .iter()
+        .filter_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("replay"))
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    cognition_node_authority_replay_fixture_refs.sort();
+    cognition_node_authority_replay_fixture_refs.dedup();
+    let mut cognition_node_authority_blockers = Vec::<String>::new();
+    if !dispatch_accepted {
+        cognition_node_authority_blockers
+            .push("cognition_node_authority_dispatch_not_live".to_string());
+    }
+    if !cognition_execution_ready {
+        cognition_node_authority_blockers
+            .push("cognition_node_authority_execution_not_ready".to_string());
+    }
+    if cognition_execution_adapter_results.len() < cognition_node_authority_component_kinds.len() {
+        cognition_node_authority_blockers
+            .push("cognition_node_authority_adapter_result_missing".to_string());
+    }
+    if cognition_execution_action_frame_ids.len() < cognition_node_authority_component_kinds.len() {
+        cognition_node_authority_blockers
+            .push("cognition_node_authority_action_frame_missing".to_string());
+    }
+    for component_kind in &cognition_node_authority_component_kinds {
+        if !cognition_execution_live_ready_component_kinds.contains(component_kind) {
+            cognition_node_authority_blockers.push(format!(
+                "cognition_node_authority_live_ready_missing:{component_kind}"
+            ));
+        }
+        let result = cognition_execution_adapter_results.iter().find(|result| {
+            result
+                .get("actionFrame")
+                .and_then(|frame| frame.get("componentKind"))
+                .and_then(Value::as_str)
+                == Some(component_kind.as_str())
+        });
+        let Some(result) = result else {
+            cognition_node_authority_blockers.push(format!(
+                "cognition_node_authority_result_missing:{component_kind}"
+            ));
+            continue;
+        };
+        let action_frame = result.get("actionFrame").unwrap_or(&Value::Null);
+        let node_attempt = result.get("nodeAttempt").unwrap_or(&Value::Null);
+        if action_frame.get("executionMode").and_then(Value::as_str) != Some("live")
+            || action_frame.get("readiness").and_then(Value::as_str) != Some("live_ready")
+            || node_attempt.get("executionMode").and_then(Value::as_str) != Some("live")
+            || node_attempt.get("status").and_then(Value::as_str) != Some("live")
+        {
+            cognition_node_authority_blockers.push(format!(
+                "cognition_node_authority_result_not_live:{component_kind}"
+            ));
+        }
+        if action_frame.get("nodeId").and_then(Value::as_str)
+            != node_attempt.get("workflowNodeId").and_then(Value::as_str)
+        {
+            cognition_node_authority_blockers.push(format!(
+                "cognition_node_authority_node_mismatch:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("receiptIds")
+            .and_then(Value::as_array)
+            .map(|receipts| receipts.is_empty())
+            .unwrap_or(true)
+        {
+            cognition_node_authority_blockers.push(format!(
+                "cognition_node_authority_receipt_missing:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("replay")
+            .and_then(|replay| replay.get("fixtureRef"))
+            .and_then(Value::as_str)
+            .map(str::is_empty)
+            .unwrap_or(true)
+        {
+            cognition_node_authority_blockers.push(format!(
+                "cognition_node_authority_replay_fixture_missing:{component_kind}"
+            ));
+        }
+    }
+    cognition_node_authority_blockers.sort();
+    cognition_node_authority_blockers.dedup();
+    let cognition_node_authority_gate = json!({
+        "schemaVersion": "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1",
+        "gateId": "cognition-node-authority",
+        "authorityMode": "node_authoritative",
+        "authoritative": cognition_node_authority_blockers.is_empty(),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "requiredExecutionMode": "live",
+        "runtimeAuthority": if dispatch_accepted {
+            "blessed_workflow_activation_default"
+        } else {
+            "existing_runtime_service"
+        },
+        "adapterMode": "workflow_component_adapter_live",
+        "componentKinds": cognition_node_authority_component_kinds.clone(),
+        "liveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+        "actionFrameIds": cognition_execution_action_frame_ids.clone(),
+        "attemptIds": cognition_node_authority_attempt_ids,
+        "receiptIds": cognition_node_authority_receipt_ids,
+        "replayFixtureRefs": cognition_node_authority_replay_fixture_refs,
+        "fallbackAvailable": true,
+        "fallbackRef": "existing_runtime_service",
+        "blockers": cognition_node_authority_blockers.clone(),
+        "policyDecision": if cognition_node_authority_blockers.is_empty() {
+            "allow_node_authoritative_cognition"
+        } else {
+            "block_node_authoritative_cognition"
+        }
+    });
+    let routing_model_node_authority_component_kinds = vec![
+        "model_router".to_string(),
+        "model_call".to_string(),
+        "tool_router".to_string(),
+    ];
+    let routing_model_node_authority_attempt_ids = routing_model_adapter_results
+        .iter()
+        .filter_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("attemptId"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let mut routing_model_node_authority_receipt_ids = routing_model_adapter_results
+        .iter()
+        .flat_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("receiptIds"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    routing_model_node_authority_receipt_ids.sort();
+    routing_model_node_authority_receipt_ids.dedup();
+    let mut routing_model_node_authority_replay_fixture_refs = routing_model_adapter_results
+        .iter()
+        .filter_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("replay"))
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    routing_model_node_authority_replay_fixture_refs.sort();
+    routing_model_node_authority_replay_fixture_refs.dedup();
+    let mut routing_model_node_authority_blockers = Vec::<String>::new();
+    if !dispatch_accepted {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_dispatch_not_live".to_string());
+    }
+    if routing_model_adapter_results.len() < routing_model_node_authority_component_kinds.len() {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_adapter_result_missing".to_string());
+    }
+    if routing_model_action_frame_ids.len() < routing_model_node_authority_component_kinds.len() {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_action_frame_missing".to_string());
+    }
+    if routing_model_shadow_attempt_ids.len() < routing_model_node_authority_component_kinds.len() {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_shadow_attempt_missing".to_string());
+    }
+    if routing_model_shadow_receipt_ids.len() < routing_model_node_authority_component_kinds.len() {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_shadow_receipt_missing".to_string());
+    }
+    if routing_model_shadow_replay_fixture_refs.len()
+        < routing_model_node_authority_component_kinds.len()
+    {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_shadow_replay_fixture_missing".to_string());
+    }
+    if !routing_model_divergence_classes
+        .iter()
+        .all(|value| value == "none")
+        || !routing_model_shadow_divergence_classes
+            .iter()
+            .all(|value| value == "none")
+    {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_divergence_not_clear".to_string());
+    }
+    if !model_provider_canary_ready {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_provider_canary_not_ready".to_string());
+    }
+    if !model_provider_canary_output_hash_matches {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_provider_output_hash_mismatch".to_string());
+    }
+    if !model_provider_canary_transcript_matches {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_provider_transcript_mismatch".to_string());
+    }
+    if !model_provider_gated_visible_output_ready || !model_provider_gated_visible_output_selected {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_visible_output_not_selected".to_string());
+    }
+    if selected_visible_output_authority != "workflow_model_provider_call" {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_visible_output_not_workflow".to_string());
+    }
+    if !visible_output_selected_authority_matches_transcript {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_transcript_authority_mismatch".to_string());
+    }
+    if !visible_output_legacy_hash_matches_selected {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_legacy_hash_mismatch".to_string());
+    }
+    if !model_provider_canary_rollback_available {
+        routing_model_node_authority_blockers
+            .push("routing_model_node_authority_rollback_not_ready".to_string());
+    }
+    for component_kind in &routing_model_node_authority_component_kinds {
+        if !routing_model_component_kinds.contains(component_kind) {
+            routing_model_node_authority_blockers.push(format!(
+                "routing_model_node_authority_component_missing:{component_kind}"
+            ));
+        }
+        let result = routing_model_adapter_results.iter().find(|result| {
+            result
+                .get("actionFrame")
+                .and_then(|frame| frame.get("componentKind"))
+                .and_then(Value::as_str)
+                == Some(component_kind.as_str())
+        });
+        let Some(result) = result else {
+            routing_model_node_authority_blockers.push(format!(
+                "routing_model_node_authority_result_missing:{component_kind}"
+            ));
+            continue;
+        };
+        let action_frame = result.get("actionFrame").unwrap_or(&Value::Null);
+        let node_attempt = result.get("nodeAttempt").unwrap_or(&Value::Null);
+        if action_frame.get("executionMode").and_then(Value::as_str) != Some("gated")
+            || action_frame.get("readiness").and_then(Value::as_str) != Some("shadow_ready")
+            || node_attempt.get("executionMode").and_then(Value::as_str) != Some("gated")
+            || node_attempt.get("status").and_then(Value::as_str) != Some("gated")
+        {
+            routing_model_node_authority_blockers.push(format!(
+                "routing_model_node_authority_result_not_gated:{component_kind}"
+            ));
+        }
+        if action_frame.get("nodeId").and_then(Value::as_str)
+            != node_attempt.get("workflowNodeId").and_then(Value::as_str)
+        {
+            routing_model_node_authority_blockers.push(format!(
+                "routing_model_node_authority_node_mismatch:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("receiptIds")
+            .and_then(Value::as_array)
+            .map(|receipts| receipts.is_empty())
+            .unwrap_or(true)
+        {
+            routing_model_node_authority_blockers.push(format!(
+                "routing_model_node_authority_receipt_missing:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("replay")
+            .and_then(|replay| replay.get("fixtureRef"))
+            .and_then(Value::as_str)
+            .map(str::is_empty)
+            .unwrap_or(true)
+        {
+            routing_model_node_authority_blockers.push(format!(
+                "routing_model_node_authority_replay_fixture_missing:{component_kind}"
+            ));
+        }
+    }
+    routing_model_node_authority_blockers.sort();
+    routing_model_node_authority_blockers.dedup();
+    let routing_model_node_authority_gate = json!({
+        "schemaVersion": "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1",
+        "gateId": "routing-model-node-authority",
+        "authorityMode": "gated_node_authoritative",
+        "authoritative": routing_model_node_authority_blockers.is_empty(),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "requiredExecutionMode": "gated",
+        "runtimeAuthority": if dispatch_accepted {
+            "blessed_workflow_activation_default"
+        } else {
+            "existing_runtime_service"
+        },
+        "adapterMode": "workflow_component_adapter_gated",
+        "componentKinds": routing_model_node_authority_component_kinds.clone(),
+        "shadowReadyComponentKinds": routing_model_component_kinds.clone(),
+        "actionFrameIds": routing_model_action_frame_ids.clone(),
+        "attemptIds": routing_model_node_authority_attempt_ids,
+        "receiptIds": routing_model_node_authority_receipt_ids,
+        "replayFixtureRefs": routing_model_node_authority_replay_fixture_refs,
+        "shadowAttemptIds": routing_model_shadow_attempt_ids.clone(),
+        "shadowReceiptIds": routing_model_shadow_receipt_ids.clone(),
+        "shadowReplayFixtureRefs": routing_model_shadow_replay_fixture_refs.clone(),
+        "divergenceClasses": routing_model_divergence_classes.clone(),
+        "shadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
+        "providerCanaryReady": model_provider_canary_ready,
+        "visibleOutputSelected": model_provider_gated_visible_output_selected,
+        "visibleOutputAuthority": selected_visible_output_authority,
+        "readOnlyCapabilityRoutingReady": read_only_capability_routing_ready,
+        "rollbackAvailable": model_provider_canary_rollback_available,
+        "fallbackAvailable": true,
+        "fallbackRef": "legacy_runtime_model_invocation",
+        "blockers": routing_model_node_authority_blockers.clone(),
+        "policyDecision": if routing_model_node_authority_blockers.is_empty() {
+            "allow_gated_node_authoritative_routing_model"
+        } else {
+            "block_gated_node_authoritative_routing_model"
+        }
+    });
+    let verification_output_node_authority_component_kinds = vec![
+        "postcondition_synthesizer".to_string(),
+        "verifier".to_string(),
+        "completion_gate".to_string(),
+        "receipt_writer".to_string(),
+        "quality_ledger".to_string(),
+        "output_writer".to_string(),
+    ];
+    let verification_output_node_authority_attempt_ids = verification_output_adapter_results
+        .iter()
+        .filter_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("attemptId"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let mut verification_output_node_authority_receipt_ids = verification_output_adapter_results
+        .iter()
+        .flat_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("receiptIds"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    verification_output_node_authority_receipt_ids.sort();
+    verification_output_node_authority_receipt_ids.dedup();
+    let mut verification_output_node_authority_replay_fixture_refs =
+        verification_output_adapter_results
+            .iter()
+            .filter_map(|result| {
+                result
+                    .get("nodeAttempt")
+                    .and_then(|attempt| attempt.get("replay"))
+                    .and_then(|replay| replay.get("fixtureRef"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .collect::<Vec<_>>();
+    verification_output_node_authority_replay_fixture_refs.sort();
+    verification_output_node_authority_replay_fixture_refs.dedup();
+    let mut verification_output_node_authority_blockers = Vec::<String>::new();
+    if !dispatch_accepted {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_dispatch_not_live".to_string());
+    }
+    if verification_output_adapter_results.len()
+        < verification_output_node_authority_component_kinds.len()
+    {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_adapter_result_missing".to_string());
+    }
+    if verification_output_action_frame_ids.len()
+        < verification_output_node_authority_component_kinds.len()
+    {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_action_frame_missing".to_string());
+    }
+    if verification_output_shadow_attempt_ids.len()
+        < verification_output_node_authority_component_kinds.len()
+    {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_shadow_attempt_missing".to_string());
+    }
+    if verification_output_shadow_receipt_ids.len()
+        < verification_output_node_authority_component_kinds.len()
+    {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_shadow_receipt_missing".to_string());
+    }
+    if verification_output_shadow_replay_fixture_refs.len()
+        < verification_output_node_authority_component_kinds.len()
+    {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_shadow_replay_fixture_missing".to_string());
+    }
+    if !verification_output_divergence_classes
+        .iter()
+        .all(|value| value == "none")
+        || !verification_output_shadow_divergence_classes
+            .iter()
+            .all(|value| value == "none")
+    {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_divergence_not_clear".to_string());
+    }
+    if !output_writer_handoff_ready {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_handoff_not_ready".to_string());
+    }
+    if !output_writer_materialization_canary_ready {
+        verification_output_node_authority_blockers.push(
+            "verification_output_node_authority_materialization_canary_not_ready".to_string(),
+        );
+    }
+    if !output_writer_staged_write_canary_ready {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_staged_write_canary_not_ready".to_string());
+    }
+    if !output_writer_visible_write_ready {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_visible_write_not_ready".to_string());
+    }
+    if !output_writer_visible_write_committed {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_visible_write_not_committed".to_string());
+    }
+    if !output_writer_staged_write_rollback_verified {
+        verification_output_node_authority_blockers
+            .push("verification_output_node_authority_rollback_not_ready".to_string());
+    }
+    for component_kind in &verification_output_node_authority_component_kinds {
+        if !verification_output_component_kinds.contains(component_kind) {
+            verification_output_node_authority_blockers.push(format!(
+                "verification_output_node_authority_component_missing:{component_kind}"
+            ));
+        }
+        let result = verification_output_adapter_results.iter().find(|result| {
+            result
+                .get("actionFrame")
+                .and_then(|frame| frame.get("componentKind"))
+                .and_then(Value::as_str)
+                == Some(component_kind.as_str())
+        });
+        let Some(result) = result else {
+            verification_output_node_authority_blockers.push(format!(
+                "verification_output_node_authority_result_missing:{component_kind}"
+            ));
+            continue;
+        };
+        let action_frame = result.get("actionFrame").unwrap_or(&Value::Null);
+        let node_attempt = result.get("nodeAttempt").unwrap_or(&Value::Null);
+        if action_frame.get("executionMode").and_then(Value::as_str) != Some("gated")
+            || action_frame.get("readiness").and_then(Value::as_str) != Some("shadow_ready")
+            || node_attempt.get("executionMode").and_then(Value::as_str) != Some("gated")
+            || node_attempt.get("status").and_then(Value::as_str) != Some("gated")
+        {
+            verification_output_node_authority_blockers.push(format!(
+                "verification_output_node_authority_result_not_gated:{component_kind}"
+            ));
+        }
+        if action_frame.get("nodeId").and_then(Value::as_str)
+            != node_attempt.get("workflowNodeId").and_then(Value::as_str)
+        {
+            verification_output_node_authority_blockers.push(format!(
+                "verification_output_node_authority_node_mismatch:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("receiptIds")
+            .and_then(Value::as_array)
+            .map(|receipts| receipts.is_empty())
+            .unwrap_or(true)
+        {
+            verification_output_node_authority_blockers.push(format!(
+                "verification_output_node_authority_receipt_missing:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("replay")
+            .and_then(|replay| replay.get("fixtureRef"))
+            .and_then(Value::as_str)
+            .map(str::is_empty)
+            .unwrap_or(true)
+        {
+            verification_output_node_authority_blockers.push(format!(
+                "verification_output_node_authority_replay_fixture_missing:{component_kind}"
+            ));
+        }
+    }
+    verification_output_node_authority_blockers.sort();
+    verification_output_node_authority_blockers.dedup();
+    let verification_output_node_authority_gate = json!({
+        "schemaVersion": "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1",
+        "gateId": "verification-output-node-authority",
+        "authorityMode": "gated_node_authoritative",
+        "authoritative": verification_output_node_authority_blockers.is_empty(),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "requiredExecutionMode": "gated",
+        "runtimeAuthority": if dispatch_accepted {
+            "blessed_workflow_activation_default"
+        } else {
+            "existing_runtime_service"
+        },
+        "adapterMode": "workflow_component_adapter_gated",
+        "componentKinds": verification_output_node_authority_component_kinds.clone(),
+        "shadowReadyComponentKinds": verification_output_component_kinds.clone(),
+        "actionFrameIds": verification_output_action_frame_ids.clone(),
+        "attemptIds": verification_output_node_authority_attempt_ids,
+        "receiptIds": verification_output_node_authority_receipt_ids,
+        "replayFixtureRefs": verification_output_node_authority_replay_fixture_refs,
+        "shadowAttemptIds": verification_output_shadow_attempt_ids.clone(),
+        "shadowReceiptIds": verification_output_shadow_receipt_ids.clone(),
+        "shadowReplayFixtureRefs": verification_output_shadow_replay_fixture_refs.clone(),
+        "divergenceClasses": verification_output_divergence_classes.clone(),
+        "shadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
+        "outputWriterHandoffReady": output_writer_handoff_ready,
+        "outputWriterMaterializationCanaryReady": output_writer_materialization_canary_ready,
+        "outputWriterStagedWriteCanaryReady": output_writer_staged_write_canary_ready,
+        "outputWriterVisibleWriteReady": output_writer_visible_write_ready,
+        "outputWriterVisibleWriteCommitted": output_writer_visible_write_committed,
+        "rollbackAvailable": output_writer_staged_write_rollback_verified,
+        "fallbackAvailable": true,
+        "fallbackRef": "legacy_runtime_output_writer",
+        "blockers": verification_output_node_authority_blockers.clone(),
+        "policyDecision": if verification_output_node_authority_blockers.is_empty() {
+            "allow_gated_node_authoritative_verification_output"
+        } else {
+            "block_gated_node_authoritative_verification_output"
+        }
+    });
+    if let Some(proof) = verification_output_proof.as_object_mut() {
+        proof.insert(
+            "nodeAuthorityGate".to_string(),
+            verification_output_node_authority_gate.clone(),
+        );
+        proof.insert(
+            "authorityMode".to_string(),
+            verification_output_node_authority_gate
+                .get("authorityMode")
+                .cloned()
+                .unwrap_or_else(|| json!("")),
+        );
+        proof.insert(
+            "authoritative".to_string(),
+            verification_output_node_authority_gate
+                .get("authoritative")
+                .cloned()
+                .unwrap_or_else(|| json!(false)),
+        );
+        proof.insert(
+            "nodeAuthorityBlockers".to_string(),
+            verification_output_node_authority_gate
+                .get("blockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+        );
+        proof.insert(
+            "policyDecision".to_string(),
+            verification_output_node_authority_gate
+                .get("policyDecision")
+                .cloned()
+                .unwrap_or_else(|| json!("block_gated_node_authoritative_verification_output")),
+        );
+    }
+    let authority_tooling_node_authority_component_kinds = vec![
+        "policy_gate".to_string(),
+        "approval_gate".to_string(),
+        "dry_run_simulator".to_string(),
+        "mcp_provider".to_string(),
+        "mcp_tool_call".to_string(),
+        "tool_call".to_string(),
+        "connector_call".to_string(),
+        "wallet_capability".to_string(),
+    ];
+    let authority_tooling_node_authority_attempt_ids = authority_tooling_adapter_results
+        .iter()
+        .filter_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("attemptId"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<Vec<_>>();
+    let mut authority_tooling_node_authority_receipt_ids = authority_tooling_adapter_results
+        .iter()
+        .flat_map(|result| {
+            result
+                .get("nodeAttempt")
+                .and_then(|attempt| attempt.get("receiptIds"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    authority_tooling_node_authority_receipt_ids.sort();
+    authority_tooling_node_authority_receipt_ids.dedup();
+    let mut authority_tooling_node_authority_replay_fixture_refs =
+        authority_tooling_adapter_results
+            .iter()
+            .filter_map(|result| {
+                result
+                    .get("nodeAttempt")
+                    .and_then(|attempt| attempt.get("replay"))
+                    .and_then(|replay| replay.get("fixtureRef"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .collect::<Vec<_>>();
+    authority_tooling_node_authority_replay_fixture_refs.sort();
+    authority_tooling_node_authority_replay_fixture_refs.dedup();
+    let mut authority_tooling_node_authority_blockers = Vec::<String>::new();
+    if !dispatch_accepted {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_dispatch_not_live".to_string());
+    }
+    if authority_tooling_adapter_results.len()
+        < authority_tooling_node_authority_component_kinds.len()
+    {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_adapter_result_missing".to_string());
+    }
+    if authority_tooling_action_frame_ids.len()
+        < authority_tooling_node_authority_component_kinds.len()
+    {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_action_frame_missing".to_string());
+    }
+    if authority_tooling_shadow_attempt_ids.len()
+        < authority_tooling_node_authority_component_kinds.len()
+    {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_shadow_attempt_missing".to_string());
+    }
+    if authority_tooling_shadow_receipt_ids.len()
+        < authority_tooling_node_authority_component_kinds.len()
+    {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_shadow_receipt_missing".to_string());
+    }
+    if authority_tooling_shadow_replay_fixture_refs.len()
+        < authority_tooling_node_authority_component_kinds.len()
+    {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_shadow_replay_fixture_missing".to_string());
+    }
+    if !authority_tooling_divergence_classes
+        .iter()
+        .all(|value| value == "none")
+        || !authority_tooling_shadow_divergence_classes
+            .iter()
+            .all(|value| value == "none")
+    {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_divergence_not_clear".to_string());
+    }
+    if !authority_tooling_read_only_route_accepted {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_read_only_route_not_accepted".to_string());
+    }
+    if !authority_tooling_destructive_route_denied {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_destructive_route_not_denied".to_string());
+    }
+    if !authority_tooling_mutating_tool_calls_blocked {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_mutating_tools_not_blocked".to_string());
+    }
+    if authority_tooling_side_effects_executed {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_side_effects_executed".to_string());
+    }
+    if !authority_tooling_policy_gate_ready {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_policy_gate_not_ready".to_string());
+    }
+    if !authority_tooling_tool_router_ready {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_tool_router_not_ready".to_string());
+    }
+    if !authority_tooling_dry_run_simulator_ready {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_dry_run_not_ready".to_string());
+    }
+    if !authority_tooling_approval_gate_ready {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_approval_gate_not_ready".to_string());
+    }
+    if !authority_tooling_gate_live_ready {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_gate_live_not_ready".to_string());
+    }
+    if !authority_tooling_read_only_authority_canary_ready {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_read_only_canary_not_ready".to_string());
+    }
+    if !authority_tooling_rollback_available {
+        authority_tooling_node_authority_blockers
+            .push("authority_tooling_node_authority_rollback_not_ready".to_string());
+    }
+    for component_kind in &authority_tooling_node_authority_component_kinds {
+        if !authority_tooling_component_kinds.contains(component_kind) {
+            authority_tooling_node_authority_blockers.push(format!(
+                "authority_tooling_node_authority_component_missing:{component_kind}"
+            ));
+        }
+        let result = authority_tooling_adapter_results.iter().find(|result| {
+            result
+                .get("actionFrame")
+                .and_then(|frame| frame.get("componentKind"))
+                .and_then(Value::as_str)
+                == Some(component_kind.as_str())
+        });
+        let Some(result) = result else {
+            authority_tooling_node_authority_blockers.push(format!(
+                "authority_tooling_node_authority_result_missing:{component_kind}"
+            ));
+            continue;
+        };
+        let action_frame = result.get("actionFrame").unwrap_or(&Value::Null);
+        let node_attempt = result.get("nodeAttempt").unwrap_or(&Value::Null);
+        if action_frame.get("executionMode").and_then(Value::as_str) != Some("gated")
+            || action_frame.get("readiness").and_then(Value::as_str) != Some("shadow_ready")
+            || node_attempt.get("executionMode").and_then(Value::as_str) != Some("gated")
+            || node_attempt.get("status").and_then(Value::as_str) != Some("gated")
+        {
+            authority_tooling_node_authority_blockers.push(format!(
+                "authority_tooling_node_authority_result_not_gated:{component_kind}"
+            ));
+        }
+        if action_frame.get("nodeId").and_then(Value::as_str)
+            != node_attempt.get("workflowNodeId").and_then(Value::as_str)
+        {
+            authority_tooling_node_authority_blockers.push(format!(
+                "authority_tooling_node_authority_node_mismatch:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("receiptIds")
+            .and_then(Value::as_array)
+            .map(|receipts| receipts.is_empty())
+            .unwrap_or(true)
+        {
+            authority_tooling_node_authority_blockers.push(format!(
+                "authority_tooling_node_authority_receipt_missing:{component_kind}"
+            ));
+        }
+        if node_attempt
+            .get("replay")
+            .and_then(|replay| replay.get("fixtureRef"))
+            .and_then(Value::as_str)
+            .map(str::is_empty)
+            .unwrap_or(true)
+        {
+            authority_tooling_node_authority_blockers.push(format!(
+                "authority_tooling_node_authority_replay_fixture_missing:{component_kind}"
+            ));
+        }
+    }
+    authority_tooling_node_authority_blockers.sort();
+    authority_tooling_node_authority_blockers.dedup();
+    let authority_tooling_node_authority_gate = json!({
+        "schemaVersion": "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1",
+        "gateId": "authority-tooling-node-authority",
+        "authorityMode": "gated_node_authoritative",
+        "authoritative": authority_tooling_node_authority_blockers.is_empty(),
+        "workflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "activationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "requiredExecutionMode": "gated",
+        "runtimeAuthority": if dispatch_accepted {
+            "blessed_workflow_activation_default"
+        } else {
+            "existing_runtime_service"
+        },
+        "adapterMode": "workflow_component_adapter_gated",
+        "componentKinds": authority_tooling_node_authority_component_kinds.clone(),
+        "shadowReadyComponentKinds": authority_tooling_component_kinds.clone(),
+        "actionFrameIds": authority_tooling_action_frame_ids.clone(),
+        "attemptIds": authority_tooling_node_authority_attempt_ids,
+        "receiptIds": authority_tooling_node_authority_receipt_ids,
+        "replayFixtureRefs": authority_tooling_node_authority_replay_fixture_refs,
+        "shadowAttemptIds": authority_tooling_shadow_attempt_ids.clone(),
+        "shadowReceiptIds": authority_tooling_shadow_receipt_ids.clone(),
+        "shadowReplayFixtureRefs": authority_tooling_shadow_replay_fixture_refs.clone(),
+        "divergenceClasses": authority_tooling_divergence_classes.clone(),
+        "shadowDivergenceClasses": authority_tooling_shadow_divergence_classes.clone(),
+        "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+        "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+        "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+        "sideEffectsExecuted": authority_tooling_side_effects_executed,
+        "policyGateReady": authority_tooling_policy_gate_ready,
+        "toolRouterReady": authority_tooling_tool_router_ready,
+        "dryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
+        "approvalGateReady": authority_tooling_approval_gate_ready,
+        "gateLiveReady": authority_tooling_gate_live_ready,
+        "readOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
+        "rollbackAvailable": authority_tooling_rollback_available,
+        "fallbackAvailable": true,
+        "fallbackRef": "legacy_runtime_tool_authority",
+        "blockers": authority_tooling_node_authority_blockers.clone(),
+        "policyDecision": if authority_tooling_node_authority_blockers.is_empty() {
+            "allow_gated_node_authoritative_authority_tooling"
+        } else {
+            "block_gated_node_authoritative_authority_tooling"
+        }
+    });
+    if let Some(proof) = authority_tooling_adapter_proof.as_object_mut() {
+        proof.insert(
+            "nodeAuthorityGate".to_string(),
+            authority_tooling_node_authority_gate.clone(),
+        );
+        proof.insert(
+            "authorityMode".to_string(),
+            authority_tooling_node_authority_gate
+                .get("authorityMode")
+                .cloned()
+                .unwrap_or_else(|| json!("")),
+        );
+        proof.insert(
+            "authoritative".to_string(),
+            authority_tooling_node_authority_gate
+                .get("authoritative")
+                .cloned()
+                .unwrap_or_else(|| json!(false)),
+        );
+        proof.insert(
+            "nodeAuthorityBlockers".to_string(),
+            authority_tooling_node_authority_gate
+                .get("blockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+        );
+        proof.insert(
+            "ready".to_string(),
+            authority_tooling_node_authority_gate
+                .get("authoritative")
+                .cloned()
+                .unwrap_or_else(|| json!(false)),
+        );
+        proof.insert(
+            "policyDecision".to_string(),
+            authority_tooling_node_authority_gate
+                .get("policyDecision")
+                .cloned()
+                .unwrap_or_else(|| json!("block_gated_node_authoritative_authority_tooling")),
+        );
+    }
+    let authority_tooling_authority_proof = json!({
+        "schemaVersion": "workflow.harness.authority-tooling-authority-envelope.v1",
+        "mode": "workflow_synchronous_envelope",
+        "adapterMode": "workflow_component_adapter_gated",
+        "adapterResultCount": authority_tooling_adapter_results.len(),
+        "actionFrameIds": authority_tooling_action_frame_ids.clone(),
+        "componentKinds": authority_tooling_component_kinds.clone(),
+        "divergenceClasses": authority_tooling_divergence_classes.clone(),
+        "shadowAdapterMode": "workflow_component_adapter_shadow",
+        "shadowAdapterResultCount": authority_tooling_shadow_adapter_results.len(),
+        "shadowAttemptIds": authority_tooling_shadow_attempt_ids.clone(),
+        "shadowReceiptIds": authority_tooling_shadow_receipt_ids.clone(),
+        "shadowReplayFixtureRefs": authority_tooling_shadow_replay_fixture_refs.clone(),
+        "shadowActionFrameIds": authority_tooling_shadow_action_frame_ids.clone(),
+        "shadowComponentKinds": authority_tooling_shadow_component_kinds.clone(),
+        "shadowDivergenceClasses": authority_tooling_shadow_divergence_classes.clone(),
+        "nodeAuthorityGate": authority_tooling_node_authority_gate.clone(),
+        "authorityMode": authority_tooling_node_authority_gate
+            .get("authorityMode")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "authoritative": authority_tooling_node_authority_gate
+            .get("authoritative")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        "nodeAuthorityBlockers": authority_tooling_node_authority_gate
+            .get("blockers")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+        "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+        "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+        "sideEffectsExecuted": authority_tooling_side_effects_executed,
+        "gateLiveReady": authority_tooling_gate_live_ready,
+        "readOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
+        "rollbackAvailable": authority_tooling_rollback_available,
+        "ready": authority_tooling_node_authority_gate
+            .get("authoritative")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        "attemptIds": authority_tooling_attempt_ids.clone(),
+        "receiptIds": authority_tooling_receipt_ids.clone(),
+        "replayFixtureRefs": authority_tooling_replay_fixture_refs.clone(),
+        "policyDecision": authority_tooling_node_authority_gate
+            .get("policyDecision")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+    });
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -12986,6 +14236,7 @@ fn runtime_harness_default_runtime_dispatch(
         "routingModelShadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
         "routingModelShadowComponentKinds": routing_model_shadow_component_kinds.clone(),
         "routingModelShadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
+        "routingModelNodeAuthorityGate": routing_model_node_authority_gate.clone(),
         "verificationOutputAdapterMode": "workflow_component_adapter_gated",
         "verificationOutputAttemptIds": verification_output_attempt_ids.clone(),
         "verificationOutputReceiptIds": verification_output_receipt_ids.clone(),
@@ -13002,6 +14253,8 @@ fn runtime_harness_default_runtime_dispatch(
         "verificationOutputShadowActionFrameIds": verification_output_shadow_action_frame_ids.clone(),
         "verificationOutputShadowComponentKinds": verification_output_shadow_component_kinds.clone(),
         "verificationOutputShadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
+        "verificationOutputNodeAuthorityGate": verification_output_node_authority_gate.clone(),
+        "authorityToolingNodeAuthorityGate": authority_tooling_node_authority_gate.clone(),
         "authorityToolingAdapterMode": "workflow_component_adapter_gated",
         "authorityToolingAttemptIds": authority_tooling_attempt_ids.clone(),
         "authorityToolingReceiptIds": authority_tooling_receipt_ids.clone(),
@@ -13123,8 +14376,42 @@ fn runtime_harness_default_runtime_dispatch(
             } else {
                 Value::Null
             },
+            "reviewedWorkflowContentHash": if reviewed_import_activation_apply_proof_passed {
+                Value::String(DEFAULT_AGENT_HARNESS_HASH.to_string())
+            } else {
+                Value::Null
+            },
+            "reviewedHarnessWorkflowId": if reviewed_import_activation_apply_proof_passed {
+                Value::String(DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string())
+            } else {
+                Value::Null
+            },
+            "reviewedReplayFixtureRefs": if reviewed_import_activation_apply_proof_passed {
+                replay_fixture_refs.clone()
+            } else {
+                Vec::<String>::new()
+            },
+            "reviewedWorkerHandoffNodeAttemptIds": if reviewed_import_activation_apply_proof_passed {
+                worker_handoff_node_attempt_ids.clone()
+            } else {
+                Vec::<String>::new()
+            },
+            "reviewedWorkerHandoffReceiptIds": if reviewed_import_activation_apply_proof_passed {
+                worker_handoff_receipt_ids.clone()
+            } else {
+                Vec::<String>::new()
+            },
+            "reviewedPolicyPosture": if reviewed_import_activation_apply_proof_passed {
+                Value::String("canary".to_string())
+            } else {
+                Value::Null
+            },
             "defaultDispatchActivationBlockers": default_dispatch_activation_blockers
         },
+        "cognitionNodeAuthorityGate": cognition_node_authority_gate.clone(),
+        "routingModelNodeAuthorityGate": routing_model_node_authority_gate.clone(),
+        "verificationOutputNodeAuthorityGate": verification_output_node_authority_gate.clone(),
+        "authorityToolingNodeAuthorityGate": authority_tooling_node_authority_gate.clone(),
         "acceptedDecisionKeys": [
             "planning_state",
             "prompt_envelope",
@@ -13188,6 +14475,54 @@ fn runtime_harness_default_runtime_dispatch(
             "cognitionExecutionAdapterResultCount": cognition_execution_adapter_results.len(),
             "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
             "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+            "cognitionNodeAuthorityMode": cognition_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "cognitionNodeAuthorityAuthoritative": cognition_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "cognitionNodeAuthorityPolicyDecision": cognition_node_authority_gate
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "routingModelNodeAuthorityMode": routing_model_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "routingModelNodeAuthorityAuthoritative": routing_model_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "routingModelNodeAuthorityPolicyDecision": routing_model_node_authority_gate
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "verificationOutputNodeAuthorityMode": verification_output_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "verificationOutputNodeAuthorityAuthoritative": verification_output_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "verificationOutputNodeAuthorityPolicyDecision": verification_output_node_authority_gate
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "authorityToolingNodeAuthorityMode": authority_tooling_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "authorityToolingNodeAuthorityAuthoritative": authority_tooling_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "authorityToolingNodeAuthorityPolicyDecision": authority_tooling_node_authority_gate
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
             "cognitionExecutionShadowAdapterMode": "workflow_component_adapter_shadow",
             "cognitionExecutionShadowAdapterResultCount": cognition_execution_shadow_adapter_results.len(),
             "cognitionExecutionShadowAttemptIds": cognition_execution_shadow_attempt_ids.clone(),
@@ -13224,6 +14559,7 @@ fn runtime_harness_default_runtime_dispatch(
             "routingModelShadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
             "routingModelShadowComponentKinds": routing_model_shadow_component_kinds.clone(),
             "routingModelShadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
+            "routingModelNodeAuthorityGate": routing_model_node_authority_gate.clone(),
             "verificationOutputAdapterMode": "workflow_component_adapter_gated",
             "verificationOutputAdapterResultCount": verification_output_adapter_results.len(),
             "verificationOutputAttemptIds": verification_output_attempt_ids.clone(),
@@ -13240,6 +14576,8 @@ fn runtime_harness_default_runtime_dispatch(
             "verificationOutputShadowActionFrameIds": verification_output_shadow_action_frame_ids.clone(),
             "verificationOutputShadowComponentKinds": verification_output_shadow_component_kinds.clone(),
             "verificationOutputShadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
+            "verificationOutputNodeAuthorityGate": verification_output_node_authority_gate.clone(),
+            "authorityToolingNodeAuthorityGate": authority_tooling_node_authority_gate.clone(),
             "authorityToolingAdapterMode": "workflow_component_adapter_gated",
             "authorityToolingAdapterResultCount": authority_tooling_adapter_results.len(),
             "authorityToolingAttemptIds": authority_tooling_attempt_ids.clone(),
@@ -13417,6 +14755,10 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
         "cognitionExecutionGateComponentKinds": cognition_execution_gate_component_kinds.clone(),
         "cognitionExecutionGateDivergenceClasses": cognition_execution_gate_divergence_classes.clone(),
+        "cognitionNodeAuthorityGate": cognition_node_authority_gate.clone(),
+        "routingModelNodeAuthorityGate": routing_model_node_authority_gate.clone(),
+        "verificationOutputNodeAuthorityGate": verification_output_node_authority_gate.clone(),
+        "authorityToolingNodeAuthorityGate": authority_tooling_node_authority_gate.clone(),
         "cognitionExecutionProof": {
             "schemaVersion": "workflow.harness.cognition-execution-envelope.v1",
             "mode": "workflow_synchronous_envelope",
@@ -13441,6 +14783,19 @@ fn runtime_harness_default_runtime_dispatch(
             "gateActionFrameIds": cognition_execution_gate_action_frame_ids,
             "gateComponentKinds": cognition_execution_gate_component_kinds,
             "gateDivergenceClasses": cognition_execution_gate_divergence_classes,
+            "nodeAuthorityGate": cognition_node_authority_gate.clone(),
+            "authorityMode": cognition_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "authoritative": cognition_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "nodeAuthorityBlockers": cognition_node_authority_gate
+                .get("blockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
             "promptAssemblyMode": "workflow_synchronous_envelope",
             "promptHash": prompt_assembly_prompt_hash,
             "promptHashMatches": prompt_assembly_prompt_hash_matches,
@@ -13623,6 +14978,96 @@ fn runtime_harness_default_runtime_dispatch(
                 "retain_workflow_transcript_authority_outside_provider_visible_output_gate"
             }
         },
+        "routingModelAuthorityProof": {
+            "schemaVersion": "workflow.harness.routing-model-authority-envelope.v1",
+            "mode": "workflow_synchronous_envelope",
+            "adapterMode": "workflow_component_adapter_gated",
+            "adapterResultCount": routing_model_adapter_results.len(),
+            "actionFrameIds": routing_model_action_frame_ids.clone(),
+            "componentKinds": routing_model_component_kinds.clone(),
+            "divergenceClasses": routing_model_divergence_classes.clone(),
+            "shadowAdapterMode": "workflow_component_adapter_shadow",
+            "shadowAdapterResultCount": routing_model_shadow_adapter_results.len(),
+            "shadowAttemptIds": routing_model_shadow_attempt_ids.clone(),
+            "shadowReceiptIds": routing_model_shadow_receipt_ids.clone(),
+            "shadowReplayFixtureRefs": routing_model_shadow_replay_fixture_refs.clone(),
+            "shadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
+            "shadowComponentKinds": routing_model_shadow_component_kinds.clone(),
+            "shadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
+            "nodeAuthorityGate": routing_model_node_authority_gate.clone(),
+            "authorityMode": routing_model_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "authoritative": routing_model_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "nodeAuthorityBlockers": routing_model_node_authority_gate
+                .get("blockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+            "visibleOutputAuthority": selected_visible_output_authority,
+            "readOnlyCapabilityRoutingReady": read_only_capability_routing_ready,
+            "rollbackAvailable": model_provider_canary_rollback_available,
+            "ready": routing_model_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "attemptIds": routing_model_attempt_ids.clone(),
+            "receiptIds": routing_model_receipt_ids.clone(),
+            "replayFixtureRefs": routing_model_replay_fixture_refs.clone(),
+            "policyDecision": routing_model_node_authority_gate
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+        },
+        "verificationOutputAuthorityProof": {
+            "schemaVersion": "workflow.harness.verification-output-authority-envelope.v1",
+            "mode": "workflow_synchronous_envelope",
+            "adapterMode": "workflow_component_adapter_gated",
+            "adapterResultCount": verification_output_adapter_results.len(),
+            "actionFrameIds": verification_output_action_frame_ids.clone(),
+            "componentKinds": verification_output_component_kinds.clone(),
+            "divergenceClasses": verification_output_divergence_classes.clone(),
+            "shadowAdapterMode": "workflow_component_adapter_shadow",
+            "shadowAdapterResultCount": verification_output_shadow_adapter_results.len(),
+            "shadowAttemptIds": verification_output_shadow_attempt_ids.clone(),
+            "shadowReceiptIds": verification_output_shadow_receipt_ids.clone(),
+            "shadowReplayFixtureRefs": verification_output_shadow_replay_fixture_refs.clone(),
+            "shadowActionFrameIds": verification_output_shadow_action_frame_ids.clone(),
+            "shadowComponentKinds": verification_output_shadow_component_kinds.clone(),
+            "shadowDivergenceClasses": verification_output_shadow_divergence_classes.clone(),
+            "nodeAuthorityGate": verification_output_node_authority_gate.clone(),
+            "authorityMode": verification_output_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "authoritative": verification_output_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "nodeAuthorityBlockers": verification_output_node_authority_gate
+                .get("blockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+            "outputWriterHandoffReady": output_writer_handoff_ready,
+            "outputWriterVisibleWriteReady": output_writer_visible_write_ready,
+            "outputWriterVisibleWriteCommitted": output_writer_visible_write_committed,
+            "rollbackAvailable": output_writer_staged_write_rollback_verified,
+            "ready": verification_output_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "attemptIds": verification_output_attempt_ids.clone(),
+            "receiptIds": verification_output_receipt_ids.clone(),
+            "replayFixtureRefs": verification_output_replay_fixture_refs.clone(),
+            "policyDecision": verification_output_node_authority_gate
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+        },
+        "authorityToolingAuthorityProof": authority_tooling_authority_proof.clone(),
         "modelProviderCanaryProof": {
             "schemaVersion": "workflow.harness.model-provider-call-canary.v1",
             "mode": model_provider_canary_mode,
@@ -13666,6 +15111,19 @@ fn runtime_harness_default_runtime_dispatch(
             "routingModelShadowActionFrameIds": routing_model_shadow_action_frame_ids.clone(),
             "routingModelShadowComponentKinds": routing_model_shadow_component_kinds.clone(),
             "routingModelShadowDivergenceClasses": routing_model_shadow_divergence_classes.clone(),
+            "nodeAuthorityGate": routing_model_node_authority_gate.clone(),
+            "authorityMode": routing_model_node_authority_gate
+                .get("authorityMode")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "authoritative": routing_model_node_authority_gate
+                .get("authoritative")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            "nodeAuthorityBlockers": routing_model_node_authority_gate
+                .get("blockers")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
             "providerCanaryReady": model_provider_canary_ready,
             "providerCanaryAttemptIds": model_provider_canary_attempt_ids,
             "providerCanaryReceiptIds": model_provider_canary_receipt_ids,
@@ -16642,6 +18100,51 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     })
                     .unwrap_or(false)
                 && dispatch
+                    .get("cognitionNodeAuthorityGate")
+                    .map(|gate| {
+                        gate.get("schemaVersion").and_then(Value::as_str)
+                            == Some(
+                                "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1",
+                            )
+                            && gate.get("authorityMode").and_then(Value::as_str)
+                                == Some("node_authoritative")
+                            && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                            && gate.get("policyDecision").and_then(Value::as_str)
+                                == Some("allow_node_authoritative_cognition")
+                            && gate
+                                .get("blockers")
+                                .and_then(Value::as_array)
+                                .map(|items| items.is_empty())
+                                .unwrap_or(false)
+                            && gate
+                                .get("componentKinds")
+                                .and_then(Value::as_array)
+                                .map(|items| {
+                                    let component_kinds =
+                                        items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                                    component_kinds.contains(&"planner")
+                                        && component_kinds.contains(&"prompt_assembler")
+                                        && component_kinds.contains(&"task_state")
+                                })
+                                .unwrap_or(false)
+                            && gate
+                                .get("attemptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 3)
+                                .unwrap_or(false)
+                            && gate
+                                .get("receiptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 3)
+                                .unwrap_or(false)
+                            && gate
+                                .get("replayFixtureRefs")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 3)
+                                .unwrap_or(false)
+                    })
+                    .unwrap_or(false)
+                && dispatch
                     .get("cognitionExecutionGateAdapterMode")
                     .and_then(Value::as_str)
                     == Some("workflow_component_adapter_gated")
@@ -16779,6 +18282,57 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     })
                     .unwrap_or(false)
                 && dispatch
+                    .get("routingModelNodeAuthorityGate")
+                    .map(|gate| {
+                        gate.get("schemaVersion").and_then(Value::as_str)
+                            == Some(
+                                "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1",
+                            )
+                            && gate.get("authorityMode").and_then(Value::as_str)
+                                == Some("gated_node_authoritative")
+                            && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                            && gate.get("policyDecision").and_then(Value::as_str)
+                                == Some("allow_gated_node_authoritative_routing_model")
+                            && gate
+                                .get("blockers")
+                                .and_then(Value::as_array)
+                                .map(|items| items.is_empty())
+                                .unwrap_or(false)
+                            && gate
+                                .get("componentKinds")
+                                .and_then(Value::as_array)
+                                .map(|items| {
+                                    let component_kinds =
+                                        items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                                    component_kinds.contains(&"model_router")
+                                        && component_kinds.contains(&"model_call")
+                                        && component_kinds.contains(&"tool_router")
+                                })
+                                .unwrap_or(false)
+                            && gate
+                                .get("attemptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 3)
+                                .unwrap_or(false)
+                            && gate
+                                .get("receiptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 3)
+                                .unwrap_or(false)
+                            && gate
+                                .get("replayFixtureRefs")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 3)
+                                .unwrap_or(false)
+                            && gate.get("visibleOutputAuthority").and_then(Value::as_str)
+                                == Some("workflow_model_provider_call")
+                            && gate.get("providerCanaryReady").and_then(Value::as_bool)
+                                == Some(true)
+                            && gate.get("rollbackAvailable").and_then(Value::as_bool)
+                                == Some(true)
+                    })
+                    .unwrap_or(false)
+                && dispatch
                     .get("verificationOutputAdapterMode")
                     .and_then(Value::as_str)
                     == Some("workflow_component_adapter_gated")
@@ -16859,6 +18413,62 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     })
                     .unwrap_or(false)
                 && dispatch
+                    .get("verificationOutputNodeAuthorityGate")
+                    .map(|gate| {
+                        gate.get("schemaVersion").and_then(Value::as_str)
+                            == Some(
+                                "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1",
+                            )
+                            && gate.get("authorityMode").and_then(Value::as_str)
+                                == Some("gated_node_authoritative")
+                            && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                            && gate.get("policyDecision").and_then(Value::as_str)
+                                == Some("allow_gated_node_authoritative_verification_output")
+                            && gate
+                                .get("blockers")
+                                .and_then(Value::as_array)
+                                .map(|items| items.is_empty())
+                                .unwrap_or(false)
+                            && gate
+                                .get("componentKinds")
+                                .and_then(Value::as_array)
+                                .map(|items| {
+                                    let component_kinds =
+                                        items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                                    component_kinds.contains(&"postcondition_synthesizer")
+                                        && component_kinds.contains(&"verifier")
+                                        && component_kinds.contains(&"completion_gate")
+                                        && component_kinds.contains(&"receipt_writer")
+                                        && component_kinds.contains(&"quality_ledger")
+                                        && component_kinds.contains(&"output_writer")
+                                })
+                                .unwrap_or(false)
+                            && gate
+                                .get("attemptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 6)
+                                .unwrap_or(false)
+                            && gate
+                                .get("receiptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 6)
+                                .unwrap_or(false)
+                            && gate
+                                .get("replayFixtureRefs")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 6)
+                                .unwrap_or(false)
+                            && gate.get("outputWriterHandoffReady").and_then(Value::as_bool)
+                                == Some(true)
+                            && gate
+                                .get("outputWriterVisibleWriteCommitted")
+                                .and_then(Value::as_bool)
+                                == Some(true)
+                            && gate.get("rollbackAvailable").and_then(Value::as_bool)
+                                == Some(true)
+                    })
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingAdapterMode")
                     .and_then(Value::as_str)
                     == Some("workflow_component_adapter_gated")
@@ -16927,6 +18537,71 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     })
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingNodeAuthorityGate")
+                    .map(|gate| {
+                        gate.get("schemaVersion").and_then(Value::as_str)
+                            == Some(
+                                "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1",
+                            )
+                            && gate.get("authorityMode").and_then(Value::as_str)
+                                == Some("gated_node_authoritative")
+                            && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                            && gate.get("policyDecision").and_then(Value::as_str)
+                                == Some("allow_gated_node_authoritative_authority_tooling")
+                            && gate
+                                .get("blockers")
+                                .and_then(Value::as_array)
+                                .map(|items| items.is_empty())
+                                .unwrap_or(false)
+                            && gate
+                                .get("componentKinds")
+                                .and_then(Value::as_array)
+                                .map(|items| {
+                                    let component_kinds =
+                                        items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                                    component_kinds.contains(&"policy_gate")
+                                        && component_kinds.contains(&"approval_gate")
+                                        && component_kinds.contains(&"dry_run_simulator")
+                                        && component_kinds.contains(&"mcp_provider")
+                                        && component_kinds.contains(&"mcp_tool_call")
+                                        && component_kinds.contains(&"tool_call")
+                                        && component_kinds.contains(&"connector_call")
+                                        && component_kinds.contains(&"wallet_capability")
+                                })
+                                .unwrap_or(false)
+                            && gate
+                                .get("attemptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 8)
+                                .unwrap_or(false)
+                            && gate
+                                .get("receiptIds")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 8)
+                                .unwrap_or(false)
+                            && gate
+                                .get("replayFixtureRefs")
+                                .and_then(Value::as_array)
+                                .map(|items| items.len() >= 8)
+                                .unwrap_or(false)
+                            && gate.get("readOnlyRouteAccepted").and_then(Value::as_bool)
+                                == Some(true)
+                            && gate.get("destructiveRouteDenied").and_then(Value::as_bool)
+                                == Some(true)
+                            && gate.get("mutatingToolCallsBlocked").and_then(Value::as_bool)
+                                == Some(true)
+                            && gate.get("sideEffectsExecuted").and_then(Value::as_bool)
+                                == Some(false)
+                            && gate.get("gateLiveReady").and_then(Value::as_bool) == Some(true)
+                            && gate
+                                .get("readOnlyAuthorityCanaryReady")
+                                .and_then(Value::as_bool)
+                                == Some(true)
+                            && gate.get("rollbackAvailable").and_then(Value::as_bool)
+                                == Some(true)
+                    })
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingAdapterProof")
                     .and_then(|proof| proof.get("ready"))
                     .and_then(Value::as_bool)
@@ -16935,7 +18610,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .get("authorityToolingAdapterProof")
                     .and_then(|proof| proof.get("policyDecision"))
                     .and_then(Value::as_str)
-                    == Some("accept_workflow_authority_tooling_adapter_envelope")
+                    == Some("allow_gated_node_authoritative_authority_tooling")
                 && dispatch
                     .get("modelExecutionAttemptIds")
                     .and_then(Value::as_array)
@@ -17286,6 +18961,99 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
         })
         .unwrap_or(false);
+    let harness_cognition_node_authority_passed = harness_default_runtime_dispatch
+        .as_ref()
+        .and_then(|dispatch| dispatch.get("cognitionNodeAuthorityGate"))
+        .map(|gate| {
+            gate.get("schemaVersion").and_then(Value::as_str)
+                == Some("workflow.harness.default-runtime-dispatch.cognition-node-authority.v1")
+                && gate.get("authorityMode").and_then(Value::as_str) == Some("node_authoritative")
+                && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                && gate.get("policyDecision").and_then(Value::as_str)
+                    == Some("allow_node_authoritative_cognition")
+                && gate
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
+    let harness_routing_model_node_authority_passed = harness_default_runtime_dispatch
+        .as_ref()
+        .and_then(|dispatch| dispatch.get("routingModelNodeAuthorityGate"))
+        .map(|gate| {
+            gate.get("schemaVersion").and_then(Value::as_str)
+                == Some("workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1")
+                && gate.get("authorityMode").and_then(Value::as_str)
+                    == Some("gated_node_authoritative")
+                && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                && gate.get("policyDecision").and_then(Value::as_str)
+                    == Some("allow_gated_node_authoritative_routing_model")
+                && gate
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && gate.get("visibleOutputAuthority").and_then(Value::as_str)
+                    == Some("workflow_model_provider_call")
+                && gate.get("providerCanaryReady").and_then(Value::as_bool) == Some(true)
+                && gate.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+        })
+        .unwrap_or(false);
+    let harness_verification_output_node_authority_passed = harness_default_runtime_dispatch
+        .as_ref()
+        .and_then(|dispatch| dispatch.get("verificationOutputNodeAuthorityGate"))
+        .map(|gate| {
+            gate.get("schemaVersion").and_then(Value::as_str)
+                == Some(
+                    "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1",
+                )
+                && gate.get("authorityMode").and_then(Value::as_str)
+                    == Some("gated_node_authoritative")
+                && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                && gate.get("policyDecision").and_then(Value::as_str)
+                    == Some("allow_gated_node_authoritative_verification_output")
+                && gate
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && gate.get("outputWriterVisibleWriteCommitted").and_then(Value::as_bool)
+                    == Some(true)
+                && gate.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_node_authority_passed =
+        harness_default_runtime_dispatch
+            .as_ref()
+            .and_then(|dispatch| dispatch.get("authorityToolingNodeAuthorityGate"))
+            .map(|gate| {
+                gate.get("schemaVersion").and_then(Value::as_str)
+                == Some(
+                    "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1",
+                )
+                && gate.get("authorityMode").and_then(Value::as_str)
+                    == Some("gated_node_authoritative")
+                && gate.get("authoritative").and_then(Value::as_bool) == Some(true)
+                && gate.get("policyDecision").and_then(Value::as_str)
+                    == Some("allow_gated_node_authoritative_authority_tooling")
+                && gate
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && gate.get("readOnlyRouteAccepted").and_then(Value::as_bool) == Some(true)
+                && gate.get("destructiveRouteDenied").and_then(Value::as_bool) == Some(true)
+                && gate.get("mutatingToolCallsBlocked").and_then(Value::as_bool) == Some(true)
+                && gate.get("sideEffectsExecuted").and_then(Value::as_bool) == Some(false)
+                && gate.get("gateLiveReady").and_then(Value::as_bool) == Some(true)
+                && gate
+                    .get("readOnlyAuthorityCanaryReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && gate.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+            })
+            .unwrap_or(false);
     let harness_selector_reviewed_import_activation_apply_invariant =
         harness_selector_default_promoted
             && harness_live_handoff_default_promoted
@@ -18544,6 +20312,10 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch": harness_default_runtime_dispatch,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_cognition_node_authority_passed": harness_cognition_node_authority_passed,
+            "harness_routing_model_node_authority_passed": harness_routing_model_node_authority_passed,
+            "harness_verification_output_node_authority_passed": harness_verification_output_node_authority_passed,
+            "harness_authority_tooling_node_authority_passed": harness_authority_tooling_node_authority_passed,
             "harness_live_promotion_readiness": harness_live_promotion_readiness,
             "harness_default_runtime_binding": harness_default_runtime_binding,
             "harness_default_runtime_binding_matched": harness_default_runtime_binding_matched,
@@ -18633,6 +20405,10 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_default_promoted": harness_live_handoff_default_promoted,
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_cognition_node_authority_passed": harness_cognition_node_authority_passed,
+            "harness_routing_model_node_authority_passed": harness_routing_model_node_authority_passed,
+            "harness_verification_output_node_authority_passed": harness_verification_output_node_authority_passed,
+            "harness_authority_tooling_node_authority_passed": harness_authority_tooling_node_authority_passed,
             "harness_live_promotion_readiness": harness_live_promotion_readiness,
             "harness_default_runtime_binding_matched": harness_default_runtime_binding_matched,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,

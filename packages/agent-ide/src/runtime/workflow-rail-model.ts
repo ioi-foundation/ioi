@@ -20,6 +20,7 @@ import type {
   WorkflowValidationIssue,
   WorkflowValidationResult,
 } from "../types/graph";
+import { workflowHarnessForkMutationCanaryNodeAttempts } from "./harness-workflow";
 import {
   workflowValuePreview,
   type WorkflowValuePreview,
@@ -270,6 +271,8 @@ export interface WorkflowHarnessNodeAttemptInspection {
   replayRedactionPolicy: string;
   evidenceRefs: string[];
   shadowComparison?: WorkflowHarnessNodeAttemptComparisonInspection | null;
+  mutationDiffHash?: string | null;
+  rollbackTarget?: string | null;
   payloadPreview: WorkflowValuePreview;
 }
 
@@ -551,6 +554,32 @@ export function resolveWorkflowHarnessNodeAttemptInspection({
     );
   }
 
+  const forkMutationCanary =
+    harnessActivationRecord?.forkMutationCanary ??
+    workflow.metadata.harness?.forkMutationCanary ??
+    null;
+  const forkMutationCanaryAttempts =
+    workflowHarnessForkMutationCanaryNodeAttempts(forkMutationCanary);
+  const forkMutationCanaryAttempt =
+    forkMutationCanaryAttempts.find(
+      (attempt) => attempt.attemptId === nodeAttemptId,
+    ) ?? null;
+  if (forkMutationCanary && forkMutationCanaryAttempt) {
+    return {
+      ...workflowHarnessNodeAttemptInspectionFromAttempt(
+        forkMutationCanaryAttempt,
+        {
+          workflow,
+          runId: forkMutationCanary.canaryId,
+          sourceKind: "fork_mutation_canary",
+          sourceLabel: "Fork mutation canary node attempt",
+        },
+      ),
+      mutationDiffHash: forkMutationCanary.diffHash,
+      rollbackTarget: forkMutationCanary.rollbackTarget,
+    };
+  }
+
   const selectedHarnessGroupGatedRun = selectedHarnessGroup
     ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
         (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
@@ -665,6 +694,13 @@ export function resolveWorkflowHarnessReceiptInspection({
     harnessActivationRecord?.workerHandoffNodeAttempts ??
     workflow.metadata.harness?.workerHandoffNodeAttempts ??
     [];
+  const forkMutationCanary =
+    harnessActivationRecord?.forkMutationCanary ??
+    workflow.metadata.harness?.forkMutationCanary ??
+    harnessActivationCandidate?.forkMutationCanary ??
+    null;
+  const forkMutationCanaryAttempts =
+    workflowHarnessForkMutationCanaryNodeAttempts(forkMutationCanary);
   const selectedHarnessGroupGatedRun = selectedHarnessGroup
     ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
         (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
@@ -753,6 +789,38 @@ export function resolveWorkflowHarnessReceiptInspection({
       createdAtMs: null,
       evidenceRefs: gatedRun.evidenceRefs,
       payload: gatedRun,
+    });
+  }
+
+  if (forkMutationCanary?.receiptRefs.includes(receiptRef)) {
+    const receiptIndex = forkMutationCanary.receiptRefs.indexOf(receiptRef);
+    const attempt =
+      forkMutationCanaryAttempts[receiptIndex] ??
+      forkMutationCanaryAttempts[0] ??
+      null;
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "fork_mutation_canary",
+      sourceLabel: "Fork mutation canary receipt",
+      status: forkMutationCanary.status,
+      producerComponent: forkMutationCanary.componentId,
+      policyDecision: forkMutationCanary.policyDecision,
+      attemptId:
+        attempt?.attemptId ??
+        forkMutationCanary.nodeAttemptIds[receiptIndex] ??
+        "attempt pending",
+      replayFixtureRef:
+        attempt?.replay.fixtureRef ??
+        forkMutationCanary.replayFixtureRefs[receiptIndex] ??
+        "replay fixture pending",
+      nodeId: forkMutationCanary.workflowNodeId,
+      nodeLabel: workflowNodeName(workflow, forkMutationCanary.workflowNodeId),
+      runId: forkMutationCanary.canaryId,
+      inputHash: attempt?.inputHash ?? "mutation input hash pending",
+      outputHash: attempt?.outputHash ?? forkMutationCanary.diffHash,
+      createdAtMs: forkMutationCanary.createdAtMs,
+      evidenceRefs: forkMutationCanary.evidenceRefs,
+      payload: forkMutationCanary,
     });
   }
 
@@ -1092,6 +1160,12 @@ export function resolveWorkflowHarnessReplayInspection({
     harnessActivationRecord?.workerHandoffNodeAttempts ??
     workflow.metadata.harness?.workerHandoffNodeAttempts ??
     [];
+  const forkMutationCanary =
+    harnessActivationRecord?.forkMutationCanary ??
+    workflow.metadata.harness?.forkMutationCanary ??
+    null;
+  const forkMutationCanaryAttempts =
+    workflowHarnessForkMutationCanaryNodeAttempts(forkMutationCanary);
   const selectedHarnessGroupGatedRun = selectedHarnessGroup
     ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
         (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
@@ -1283,6 +1357,41 @@ export function resolveWorkflowHarnessReplayInspection({
       ...makeReplayEnvelopeDetails(activationWorkerHandoffAttempt.replay),
       evidenceRefs: activationWorkerHandoffAttempt.evidenceRefs,
       payload: activationWorkerHandoffAttempt,
+    });
+  }
+
+  if (forkMutationCanary?.replayFixtureRefs.includes(replayFixtureRef)) {
+    const replayIndex =
+      forkMutationCanary.replayFixtureRefs.indexOf(replayFixtureRef);
+    const attempt =
+      forkMutationCanaryAttempts[replayIndex] ??
+      forkMutationCanaryAttempts[0] ??
+      null;
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: "fork_mutation_canary",
+      sourceLabel: "Fork mutation canary replay fixture",
+      status: forkMutationCanary.status,
+      producerComponent: forkMutationCanary.componentId,
+      policyDecision: forkMutationCanary.policyDecision,
+      attemptId:
+        attempt?.attemptId ??
+        forkMutationCanary.nodeAttemptIds[replayIndex] ??
+        "attempt pending",
+      receiptRef:
+        attempt?.receiptIds[0] ??
+        forkMutationCanary.receiptRefs[replayIndex] ??
+        "receipt pending",
+      nodeId: forkMutationCanary.workflowNodeId,
+      nodeLabel: workflowNodeName(workflow, forkMutationCanary.workflowNodeId),
+      runId: forkMutationCanary.canaryId,
+      executionMode: attempt?.executionMode ?? "gated",
+      readiness: attempt?.readiness ?? "live_ready",
+      inputHash: attempt?.inputHash ?? "mutation input hash pending",
+      outputHash: attempt?.outputHash ?? forkMutationCanary.diffHash,
+      ...makeReplayEnvelopeDetails(attempt?.replay ?? null),
+      evidenceRefs: forkMutationCanary.evidenceRefs,
+      payload: forkMutationCanary,
     });
   }
 
