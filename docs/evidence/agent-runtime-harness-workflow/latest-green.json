@@ -1,19 +1,19 @@
 {
   "schemaVersion": "ioi.evidence.agent-runtime-harness-workflow.latest-green.v1",
-  "updatedAt": "2026-05-10T02:36:32.856Z",
+  "updatedAt": "2026-05-10T03:13:46.190Z",
   "status": "green",
   "canonical": true,
   "scope": "default agent runtime harness as live workflow substrate",
   "guiEvidence": {
     "kind": "autopilot-gui-harness-validation",
-    "result": "docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json",
-    "liveGuiInteractionProof": "docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/promotion-transition-live-gui-interaction-proof.json",
+    "result": "docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json",
+    "liveGuiInteractionProof": "docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/promotion-transition-live-gui-interaction-proof.json",
     "validationOk": true
   },
   "runtimeP3Evidence": {
     "kind": "agent-runtime-p3-validation",
-    "dashboardIndex": "docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json",
-    "redactedDiagnostics": "docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/redacted-diagnostic-bundle.json",
+    "dashboardIndex": "docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json",
+    "redactedDiagnostics": "docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/redacted-diagnostic-bundle.json",
     "incompleteItems": 0
   },
   "validatedClaims": {

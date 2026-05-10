@@ -8,9 +8,9 @@ agent-runtime-harness-as-workflow master guide.
 - Machine-readable index:
   `docs/evidence/agent-runtime-harness-workflow/latest-green.json`
 - Full retained GUI harness result:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json`
 - Runtime P3 dashboard:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json`
 
 ## What It Proves
 

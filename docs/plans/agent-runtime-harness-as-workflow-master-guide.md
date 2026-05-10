@@ -85,9 +85,9 @@ comparison deep-link proof, plus fork mutation canary node inspector and
 activation-gate timeline proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json`
 
 This supersedes the earlier 2026-05-10 mutation-canary checkpoint by proving
 the reviewed package snapshot all the way through package import activation
@@ -595,9 +595,9 @@ composer wiring, `harness-workflow-activation`, IDE build, Rust harness tests,
 `test:agent-runtime-p3`, the full retained GUI harness run, and
 `validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
 is
-`docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json`;
+`docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json`;
 the P3 bundle is
-`docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json`.
+`docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json`.
 
 This changes the system from "the fork mutation canary is inspectable" to "the
 reviewed mutation canary is part of the live worker binding identity and active
