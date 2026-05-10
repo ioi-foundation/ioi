@@ -30,7 +30,7 @@ export const DEFAULT_LIVE_PROMOTION_INVARIANTS = Object.freeze([
     artifact: "harness_package_import_activation_apply",
     runtimeConsistency: "harness_package_import_activation_apply_present",
     description:
-      "Default-live promotion requires a same-session reviewed import activation apply proof: click, minted activation id, validated workflow state, worker binding, rollback/revision binding, audit, receipts, replay refs, and worker-handoff deep-link restoration.",
+      "Default-live promotion requires a same-session reviewed import activation apply proof: click, minted activation id, validated workflow state, worker binding, rollback/revision binding, audit, receipts, replay refs, package identity/replay/policy integrity, and worker-handoff deep-link restoration.",
   }),
 ]);
 
@@ -123,10 +123,16 @@ export const REQUIRED_GUI_ARTIFACTS = Object.freeze([
   "quality_ledger",
   "harness_shadow_run",
   "harness_gated_cognition",
+  "harness_cognition_node_authority",
+  "harness_routing_model_node_authority",
   "harness_gated_routing_model",
+  "harness_verification_output_node_authority",
+  "harness_authority_tooling_node_authority",
   "harness_gated_verification_output",
   "harness_gated_authority_tooling",
   "harness_fork_activation",
+  "harness_fork_mutation_canary",
+  "harness_fork_mutation_canary_node_inspector",
   "harness_rollback_restore_canary",
   "harness_rollback_restore_canary_ui",
   "harness_package_evidence_manifest",
@@ -136,6 +142,7 @@ export const REQUIRED_GUI_ARTIFACTS = Object.freeze([
   "harness_package_import_review_mode",
   "harness_package_import_activation_handoff",
   "harness_package_import_activation_apply",
+  "harness_package_import_activation_replay_integrity",
   "harness_promotion_transition_gui_behavior",
   "harness_promotion_transition_live_gui_interaction",
   "harness_route_stateful_deep_link_replay",
@@ -162,6 +169,7 @@ export const REQUIRED_GUI_ARTIFACTS = Object.freeze([
   "harness_live_promotion_readiness",
   "harness_chat_runtime_binding",
   "harness_default_runtime_rollback_live_shadow_gate_bound",
+  "harness_worker_binding_registry_reviewed_package_bound",
   "harness_active_runtime_rollback_proof_workbench",
   "harness_active_runtime_rollback_execution_workbench",
   "harness_active_runtime_rollback_apply_execution",
@@ -203,10 +211,16 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "scorecard_matches_stop_reason",
   "harness_shadow_attempts_present",
   "harness_gated_cognition_present",
+  "harness_cognition_node_authority_present",
+  "harness_routing_model_node_authority_present",
   "harness_gated_routing_model_present",
+  "harness_verification_output_node_authority_present",
+  "harness_authority_tooling_node_authority_present",
   "harness_gated_verification_output_present",
   "harness_gated_authority_tooling_present",
   "harness_fork_activation_present",
+  "harness_fork_mutation_canary_present",
+  "harness_fork_mutation_canary_node_inspector_present",
   "harness_rollback_restore_canary_present",
   "harness_rollback_restore_canary_receipts_present",
   "harness_activation_audit_receipts_present",
@@ -219,6 +233,8 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "harness_package_import_review_mode_present",
   "harness_package_import_activation_handoff_present",
   "harness_package_import_activation_apply_present",
+  "harness_package_import_activation_mutation_canary_bound_present",
+  "harness_package_import_activation_replay_integrity_present",
   "harness_promotion_transition_gui_behavior_present",
   "harness_promotion_transition_live_gui_interaction_present",
   "harness_route_stateful_deep_link_replay_present",
@@ -246,6 +262,7 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "harness_live_promotion_readiness_present",
   "harness_chat_runtime_binding_matches_workflow_activation",
   "harness_default_runtime_rollback_live_shadow_gate_bound",
+  "harness_worker_binding_registry_reviewed_package_bound",
   "harness_active_runtime_rollback_proof_workbench_present",
   "harness_active_runtime_rollback_execution_workbench_present",
   "harness_active_runtime_rollback_apply_execution_present",
@@ -311,6 +328,19 @@ function hasEntries(value) {
   return Array.isArray(value) && value.length > 0;
 }
 
+function stringSetEquals(left, right) {
+  const normalize = (value) =>
+    Array.isArray(value)
+      ? [...new Set(value.filter((entry) => typeof entry === "string"))].sort()
+      : [];
+  const leftItems = normalize(left);
+  const rightItems = normalize(right);
+  return (
+    leftItems.length === rightItems.length &&
+    leftItems.every((entry, index) => entry === rightItems[index])
+  );
+}
+
 export function validateDefaultLivePromotionInvariants(result) {
   const failures = [];
   const promotionProof = result?.uiAssertions?.promotionTransitionLiveGui;
@@ -318,6 +348,11 @@ export function validateDefaultLivePromotionInvariants(result) {
   const action = proof?.activationAction;
   const activationResult = proof?.activationResult;
   const workerHandoff = proof?.workerHandoff;
+  const reviewedImportActivationApplyGate =
+    promotionProof?.defaultDispatch?.reviewedImportActivationApplyGate ?? null;
+  const review = proof?.review;
+  const reviewedSource = review?.source ?? {};
+  const reviewedHandoff = review?.activationHandoff ?? {};
   const selectedState = workerHandoff?.selectedState ?? {};
   const firstWorkerHandoffAttempt =
     activationResult?.workerHandoffNodeAttemptIds?.[0] ?? null;
@@ -381,6 +416,218 @@ export function validateDefaultLivePromotionInvariants(result) {
       "default live promotion invariant failed: rollback target does not match reviewed handoff",
     );
   }
+  if (!isNonEmptyString(reviewedSource?.workflowContentHash)) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package workflow hash is missing",
+    );
+  }
+  if (
+    reviewedSource?.reviewedPackageSnapshotHash &&
+    (activationResult?.reviewedPackageSnapshotHash !==
+      reviewedSource.reviewedPackageSnapshotHash ||
+      reviewedHandoff?.reviewedPackageSnapshotHash !==
+        reviewedSource.reviewedPackageSnapshotHash)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package snapshot hash does not match the activation proof",
+    );
+  }
+  if (
+    reviewedSource?.workflowContentHash &&
+    (activationResult?.reviewedWorkflowContentHash !==
+      reviewedSource.workflowContentHash ||
+      reviewedHandoff?.workflowContentHash !== reviewedSource.workflowContentHash)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package workflow hash does not match the activation proof",
+    );
+  }
+  if (
+    reviewedSource?.activationId &&
+    (activationResult?.reviewedActivationId !== reviewedSource.activationId ||
+      activationId !== reviewedSource.activationId)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package activation id does not match the minted activation",
+    );
+  }
+  if (
+    reviewedSource?.workerBindingActivationId &&
+    (activationResult?.reviewedWorkerBindingActivationId !==
+      reviewedSource.workerBindingActivationId ||
+      activationResult?.workerBindingActivationId !==
+        reviewedSource.workerBindingActivationId)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package worker binding does not match the minted binding",
+    );
+  }
+  if (
+    reviewedSource?.rollbackTarget &&
+    (activationResult?.reviewedRollbackTarget !== reviewedSource.rollbackTarget ||
+      activationResult?.rollbackTarget !== reviewedSource.rollbackTarget)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package rollback target does not match the minted rollback target",
+    );
+  }
+	  if (
+	    reviewedSource?.policyPosture &&
+	    (activationResult?.reviewedPolicyPosture !== reviewedSource.policyPosture ||
+	      reviewedHandoff?.policyPosture !== reviewedSource.policyPosture)
+	  ) {
+    failures.push(
+	      "default live promotion invariant failed: reviewed package policy posture does not match the activation proof",
+	    );
+	  }
+  if (!isNonEmptyString(reviewedSource?.forkMutationCanaryId)) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary id is missing",
+    );
+  }
+  if (
+    reviewedSource?.forkMutationCanaryId &&
+    (activationResult?.reviewedForkMutationCanaryId !==
+      reviewedSource.forkMutationCanaryId ||
+      reviewedHandoff?.forkMutationCanaryId !==
+        reviewedSource.forkMutationCanaryId ||
+      action?.mutationCanaryId !== reviewedSource.forkMutationCanaryId)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary id does not match the activation proof",
+    );
+  }
+  if (
+    reviewedSource?.forkMutationCanaryStatus &&
+    (activationResult?.reviewedForkMutationCanaryStatus !==
+      reviewedSource.forkMutationCanaryStatus ||
+      reviewedHandoff?.forkMutationCanaryStatus !==
+        reviewedSource.forkMutationCanaryStatus ||
+      action?.mutationCanaryStatus !== reviewedSource.forkMutationCanaryStatus)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary status does not match the activation proof",
+    );
+  }
+  if (
+    reviewedSource?.forkMutationCanaryDiffHash &&
+    (activationResult?.reviewedForkMutationCanaryDiffHash !==
+      reviewedSource.forkMutationCanaryDiffHash ||
+      reviewedHandoff?.forkMutationCanaryDiffHash !==
+        reviewedSource.forkMutationCanaryDiffHash ||
+      action?.mutationCanaryDiffHash !==
+        reviewedSource.forkMutationCanaryDiffHash)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary diff does not match the activation proof",
+    );
+  }
+  if (
+    hasEntries(reviewedSource?.forkMutationCanaryReceiptRefs) &&
+    !stringSetEquals(
+      activationResult?.reviewedForkMutationCanaryReceiptRefs,
+      reviewedSource.forkMutationCanaryReceiptRefs,
+    )
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary receipts do not match the activation proof",
+    );
+  }
+  if (
+    hasEntries(reviewedSource?.forkMutationCanaryReplayFixtureRefs) &&
+    !stringSetEquals(
+      activationResult?.reviewedForkMutationCanaryReplayFixtureRefs,
+      reviewedSource.forkMutationCanaryReplayFixtureRefs,
+    )
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary replay fixtures do not match the activation proof",
+    );
+  }
+  if (
+    hasEntries(reviewedSource?.forkMutationCanaryNodeAttemptIds) &&
+    !stringSetEquals(
+      activationResult?.reviewedForkMutationCanaryNodeAttemptIds,
+      reviewedSource.forkMutationCanaryNodeAttemptIds,
+    )
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary node attempts do not match the activation proof",
+    );
+  }
+  if (
+    reviewedSource?.forkMutationCanaryRollbackTarget &&
+    (activationResult?.reviewedForkMutationCanaryRollbackTarget !==
+      reviewedSource.forkMutationCanaryRollbackTarget ||
+      reviewedHandoff?.forkMutationCanaryRollbackTarget !==
+        reviewedSource.forkMutationCanaryRollbackTarget ||
+      action?.mutationCanaryRollbackTarget !==
+        reviewedSource.forkMutationCanaryRollbackTarget)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package fork mutation canary rollback target does not match the activation proof",
+    );
+  }
+  if (
+    hasEntries(reviewedSource?.replayFixtureRefs) &&
+    !activationResult?.workerHandoffReplayFixtureRefs?.every((fixtureRef) =>
+      reviewedSource.replayFixtureRefs.includes(fixtureRef),
+    )
+  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed package replay fixtures do not cover worker handoff replay fixtures",
+    );
+  }
+  if (
+    activationResult &&
+    (reviewedImportActivationApplyGate?.reviewedPackageSnapshotHash !==
+      activationResult.reviewedPackageSnapshotHash ||
+      reviewedImportActivationApplyGate?.reviewedWorkflowContentHash !==
+      activationResult.reviewedWorkflowContentHash ||
+      reviewedImportActivationApplyGate?.reviewedHarnessWorkflowId !==
+        activationResult.reviewedHarnessWorkflowId ||
+      reviewedImportActivationApplyGate?.reviewedPolicyPosture !==
+        activationResult.reviewedPolicyPosture ||
+      !stringSetEquals(
+        reviewedImportActivationApplyGate?.reviewedReplayFixtureRefs,
+        activationResult.reviewedReplayFixtureRefs,
+      ) ||
+      !stringSetEquals(
+        reviewedImportActivationApplyGate?.reviewedWorkerHandoffNodeAttemptIds,
+        activationResult.reviewedWorkerHandoffNodeAttemptIds,
+      ) ||
+	      !stringSetEquals(
+	        reviewedImportActivationApplyGate?.reviewedWorkerHandoffReceiptIds,
+	        activationResult.reviewedWorkerHandoffReceiptIds,
+	      ) ||
+      reviewedImportActivationApplyGate?.reviewedForkMutationCanaryId !==
+        activationResult.reviewedForkMutationCanaryId ||
+      reviewedImportActivationApplyGate?.reviewedForkMutationCanaryStatus !==
+        activationResult.reviewedForkMutationCanaryStatus ||
+      reviewedImportActivationApplyGate?.reviewedForkMutationCanaryDiffHash !==
+        activationResult.reviewedForkMutationCanaryDiffHash ||
+      !stringSetEquals(
+        reviewedImportActivationApplyGate?.reviewedForkMutationCanaryReceiptRefs,
+        activationResult.reviewedForkMutationCanaryReceiptRefs,
+      ) ||
+      !stringSetEquals(
+        reviewedImportActivationApplyGate
+          ?.reviewedForkMutationCanaryReplayFixtureRefs,
+        activationResult.reviewedForkMutationCanaryReplayFixtureRefs,
+      ) ||
+      !stringSetEquals(
+        reviewedImportActivationApplyGate
+          ?.reviewedForkMutationCanaryNodeAttemptIds,
+        activationResult.reviewedForkMutationCanaryNodeAttemptIds,
+      ) ||
+      reviewedImportActivationApplyGate
+        ?.reviewedForkMutationCanaryRollbackTarget !==
+        activationResult.reviewedForkMutationCanaryRollbackTarget)
+	  ) {
+    failures.push(
+      "default live promotion invariant failed: reviewed import gate does not match the reviewed package snapshot",
+    );
+  }
   if (
     activationResult?.revisionBindingActivationId !== activationId ||
     !isNonEmptyString(activationResult?.activationRecordRevisionBindingHash) ||
@@ -415,8 +662,8 @@ export function validateDefaultLivePromotionInvariants(result) {
       "default live promotion invariant failed: worker-handoff receipt, node attempt, or replay refs are missing",
     );
   }
-  if (
-    selectedState["data-selected-activation-gate-id"] !== "worker-handoff" ||
+	  if (
+	    selectedState["data-selected-activation-gate-id"] !== "worker-handoff" ||
     selectedState["data-selected-activation-gate-node-attempt-id"] !==
       firstWorkerHandoffAttempt ||
     workerHandoff?.selectedAttemptId !== firstWorkerHandoffAttempt ||
@@ -424,11 +671,32 @@ export function validateDefaultLivePromotionInvariants(result) {
     workerHandoff?.deepLinkHash?.includes("activationGateNodeAttemptId=") !== true
   ) {
     failures.push(
-      "default live promotion invariant failed: worker-handoff deep link did not restore the gate, selected attempt, and timeline",
+	      "default live promotion invariant failed: worker-handoff deep link did not restore the gate, selected attempt, and timeline",
+	    );
+	  }
+  const firstMutationCanaryAttempt =
+    activationResult?.reviewedForkMutationCanaryNodeAttemptIds?.[0] ?? null;
+  const mutationCanary = proof?.mutationCanary;
+  if (
+    firstMutationCanaryAttempt &&
+    (mutationCanary?.selectedState?.["data-selected-activation-gate-id"] !==
+      "mutation-canary" ||
+      mutationCanary?.selectedState?.[
+        "data-selected-activation-gate-node-attempt-id"
+      ] !== firstMutationCanaryAttempt ||
+      mutationCanary?.nodeAttemptState?.["data-node-attempt-id"] !==
+        firstMutationCanaryAttempt ||
+      mutationCanary?.selectedAttemptId !== firstMutationCanaryAttempt ||
+      mutationCanary?.timelineVisible !== true ||
+      mutationCanary?.deepLinkHash?.includes("activationGateNodeAttemptId=") !==
+        true)
+  ) {
+    failures.push(
+      "default live promotion invariant failed: fork mutation canary deep link did not restore the gate, node attempt inspector, and timeline",
     );
   }
-  if (
-    proof?.incompleteAction?.disabled !== true ||
+	  if (
+	    proof?.incompleteAction?.disabled !== true ||
     proof?.incompleteAction?.mintable !== false
   ) {
     failures.push(

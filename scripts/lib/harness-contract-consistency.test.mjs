@@ -197,13 +197,13 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessWorkerBindingRegistryRecord/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerBindingRegistryRecord[\s\S]*registryRecordId: string[\s\S]*activationHash: string[\s\S]*bindingStatus: WorkflowHarnessWorkerBindingStatus[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\][\s\S]*workerBinding: WorkflowHarnessWorkerBinding/,
+    /WorkflowHarnessWorkerBindingRegistryRecord[\s\S]*registryRecordId: string[\s\S]*activationHash: string[\s\S]*reviewedPackageSnapshotHash: string \| null[\s\S]*reviewedWorkflowContentHash: string \| null[\s\S]*reviewedReplayFixtureRefs: string\[\][\s\S]*bindingStatus: WorkflowHarnessWorkerBindingStatus[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\][\s\S]*workerBinding: WorkflowHarnessWorkerBinding/,
   );
   assert.match(graph, /WorkflowHarnessWorkerAttachRequest/);
   assert.match(graph, /WorkflowHarnessWorkerAttachReceipt/);
   assert.match(
     graph,
-    /WorkflowHarnessWorkerAttachReceipt[\s\S]*receiptId: string[\s\S]*registryRecordId: string[\s\S]*attachStatus: WorkflowHarnessWorkerAttachStatus[\s\S]*accepted: boolean[\s\S]*workerBinding: WorkflowHarnessWorkerBinding[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/,
+    /WorkflowHarnessWorkerAttachReceipt[\s\S]*receiptId: string[\s\S]*reviewedPackageSnapshotHash: string \| null[\s\S]*reviewedReplayFixtureRefs: string\[\][\s\S]*registryRecordId: string[\s\S]*attachStatus: WorkflowHarnessWorkerAttachStatus[\s\S]*accepted: boolean[\s\S]*workerBinding: WorkflowHarnessWorkerBinding[\s\S]*requiredInvariantIds\?: string\[\][\s\S]*invariantBlockers\?: string\[\]/,
   );
   assert.match(
     graph,
@@ -232,6 +232,42 @@ test("TS harness fork activation contract records blocked and canary-validated p
     graph,
     /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*cognitionExecutionAdapterMode[\s\S]*cognitionExecutionAdapterResults[\s\S]*WorkflowHarnessComponentAdapterResult/,
   );
+  assert.match(graph, /WorkflowHarnessCognitionNodeAuthorityGate/);
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*cognitionNodeAuthorityGate\?: WorkflowHarnessCognitionNodeAuthorityGate/,
+  );
+  assert.match(
+    workflow,
+    /makeCognitionNodeAuthorityGate[\s\S]*node_authoritative[\s\S]*allow_node_authoritative_cognition/,
+  );
+  assert.match(graph, /WorkflowHarnessRoutingModelNodeAuthorityGate/);
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*routingModelNodeAuthorityGate\?: WorkflowHarnessRoutingModelNodeAuthorityGate/,
+  );
+  assert.match(
+    workflow,
+    /makeRoutingModelNodeAuthorityGate[\s\S]*gated_node_authoritative[\s\S]*allow_gated_node_authoritative_routing_model/,
+  );
+  assert.match(graph, /WorkflowHarnessVerificationOutputNodeAuthorityGate/);
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*verificationOutputNodeAuthorityGate\?: WorkflowHarnessVerificationOutputNodeAuthorityGate/,
+  );
+  assert.match(
+    workflow,
+    /makeVerificationOutputNodeAuthorityGate[\s\S]*gated_node_authoritative[\s\S]*allow_gated_node_authoritative_verification_output/,
+  );
+  assert.match(graph, /WorkflowHarnessAuthorityToolingNodeAuthorityGate/);
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*authorityToolingNodeAuthorityGate\?: WorkflowHarnessAuthorityToolingNodeAuthorityGate/,
+  );
+  assert.match(
+    workflow,
+    /makeAuthorityToolingNodeAuthorityGate[\s\S]*gated_node_authoritative[\s\S]*allow_gated_node_authoritative_authority_tooling/,
+  );
   assert.match(
     graph,
     /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*cognitionExecutionGateAdapterMode[\s\S]*cognitionExecutionGateAdapterResults[\s\S]*WorkflowHarnessDivergenceClass/,
@@ -254,7 +290,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   );
   assert.match(
     graph,
-    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*defaultLivePromotionInvariantIds: string\[\][\s\S]*reviewedImportActivationApplyGate\?:/,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*defaultLivePromotionInvariantIds: string\[\][\s\S]*reviewedImportActivationApplyGate\?:[\s\S]*reviewedPackageSnapshotHash[\s\S]*reviewedWorkflowContentHash[\s\S]*reviewedReplayFixtureRefs[\s\S]*reviewedPolicyPosture/,
   );
   assert.match(
     graph,
@@ -348,12 +384,18 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /routingModelAdapterMode: "workflow_component_adapter_gated"/,
     /routingModelAdapterResults/,
     /routingModelComponentKinds/,
+    /routingModelNodeAuthorityGate/,
+    /routingModelAuthorityProof/,
     /verificationOutputAdapterMode: "workflow_component_adapter_gated"/,
     /verificationOutputAdapterResults/,
     /verificationOutputComponentKinds/,
+    /verificationOutputNodeAuthorityGate/,
+    /verificationOutputAuthorityProof/,
     /authorityToolingAdapterMode: "workflow_component_adapter_gated"/,
     /authorityToolingAdapterResults/,
     /authorityToolingComponentKinds/,
+    /authorityToolingNodeAuthorityGate/,
+    /authorityToolingAuthorityProof/,
     /cognitionExecutionMode: "workflow_synchronous_envelope"/,
     /promptAssemblyMode: "workflow_synchronous_envelope"/,
     /modelExecutionMode: "workflow_synchronous_envelope"/,
@@ -381,11 +423,11 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /verificationOutputProof:/,
     /workflow\.harness\.verification-output-envelope\.v1/,
     /componentKinds: verificationOutputComponentKinds/,
-    /accept_workflow_verification_output_adapter_envelope/,
+    /policyDecision: verificationOutputNodeAuthorityGate\.policyDecision/,
     /authorityToolingAdapterProof:/,
     /workflow\.harness\.authority-tooling-adapter-envelope\.v1/,
     /componentKinds: authorityToolingComponentKinds/,
-    /accept_workflow_authority_tooling_adapter_envelope/,
+    /policyDecision: authorityToolingNodeAuthorityGate\.policyDecision/,
     /makeHarnessLivePromotionReadinessProof/,
     /workflow\.harness\.live-promotion-readiness\.v1/,
     /invalidForkLiveActivationBlocked/,

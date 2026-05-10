@@ -67,6 +67,19 @@ const REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID =
       invariant.artifact === "harness_package_import_activation_apply",
   )?.id ?? "reviewed_import_activation_apply";
 
+function sameStringSet(left, right) {
+  const normalize = (value) =>
+    Array.isArray(value)
+      ? [...new Set(value.filter((entry) => typeof entry === "string"))].sort()
+      : [];
+  const leftItems = normalize(left);
+  const rightItems = normalize(right);
+  return (
+    leftItems.length === rightItems.length &&
+    leftItems.every((entry, index) => entry === rightItems[index])
+  );
+}
+
 function parseArgs(argv) {
   const args = {
     contractOnly: false,
@@ -515,6 +528,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessGatedAuthorityToolingCount: 0,
     harnessForkActivationBlockedCount: 0,
     harnessForkActivationMintedCount: 0,
+    harnessForkMutationCanaryReadyCount: 0,
+    harnessForkMutationCanaryReceiptCount: 0,
+    harnessForkMutationCanaryReplayCount: 0,
+    harnessForkMutationCanaryNodeAttemptCount: 0,
     harnessForkHandoffTimelineBoundCount: 0,
     harnessRollbackRestoreCanaryBlockedCount: 0,
     harnessRollbackRestoreCanaryReadyCount: 0,
@@ -539,8 +556,17 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessDefaultRuntimeBindingCount: 0,
     harnessDefaultRuntimeBindingMatchedCount: 0,
     harnessDefaultRuntimeRollbackLiveShadowGateBoundCount: 0,
+    harnessWorkerBindingRegistryReviewedPackageBoundCount: 0,
     harnessWorkerLaunchReviewedImportActivationInvariantCount: 0,
     harnessDefaultRuntimeBindingSamples: [],
+    harnessCognitionNodeAuthorityCount: 0,
+    harnessCognitionNodeAuthoritySamples: [],
+    harnessRoutingModelNodeAuthorityCount: 0,
+    harnessRoutingModelNodeAuthoritySamples: [],
+    harnessVerificationOutputNodeAuthorityCount: 0,
+    harnessVerificationOutputNodeAuthoritySamples: [],
+    harnessAuthorityToolingNodeAuthorityCount: 0,
+    harnessAuthorityToolingNodeAuthoritySamples: [],
     harnessLiveTurnNodeTimelineCount: 0,
     harnessLiveTurnNodeTimelineScenarios: [],
     harnessLiveTurnNodeTimelineSamples: [],
@@ -574,6 +600,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     },
     collectionErrors: [],
   };
+  const harnessCognitionNodeAuthorityKeys = new Set();
+  const harnessRoutingModelNodeAuthorityKeys = new Set();
+  const harnessVerificationOutputNodeAuthorityKeys = new Set();
+  const harnessAuthorityToolingNodeAuthorityKeys = new Set();
   const harnessLiveTurnNodeTimelineKeys = new Set();
   const harnessLiveTurnNodeInspectorKeys = new Set();
   const harnessLiveShadowComparisonKeys = new Set();
@@ -602,6 +632,193 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         typeof result?.nodeAttempt?.replay?.fixtureRef === "string" &&
         result.nodeAttempt.replay.fixtureRef.length > 0,
     );
+  const cognitionNodeAuthorityReady = (dispatch) => {
+    const gate = dispatch?.cognitionNodeAuthorityGate;
+    return (
+      gate?.schemaVersion ===
+        "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1" &&
+      gate?.gateId === "cognition-node-authority" &&
+      gate?.authorityMode === "node_authoritative" &&
+      gate?.authoritative === true &&
+      gate?.workflowId === dispatch?.workflowId &&
+      gate?.activationId === dispatch?.activationId &&
+      gate?.harnessHash === dispatch?.harnessHash &&
+      gate?.requiredExecutionMode === "live" &&
+      gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
+      gate?.adapterMode === "workflow_component_adapter_live" &&
+      gate?.fallbackAvailable === true &&
+      gate?.fallbackRef === "existing_runtime_service" &&
+      gate?.policyDecision === "allow_node_authoritative_cognition" &&
+      Array.isArray(gate?.blockers) &&
+      gate.blockers.length === 0 &&
+      ["planner", "prompt_assembler", "task_state"].every(
+        (componentKind) =>
+          gate.componentKinds?.includes(componentKind) &&
+          gate.liveReadyComponentKinds?.includes(componentKind),
+      ) &&
+      stringArrayLength(gate.actionFrameIds) >= 3 &&
+      stringArrayLength(gate.attemptIds) >= 3 &&
+      stringArrayLength(gate.receiptIds) >= 3 &&
+      stringArrayLength(gate.replayFixtureRefs) >= 3
+    );
+  };
+  const routingModelNodeAuthorityReady = (dispatch) => {
+    const gate = dispatch?.routingModelNodeAuthorityGate;
+    return (
+      gate?.schemaVersion ===
+        "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1" &&
+      gate?.gateId === "routing-model-node-authority" &&
+      gate?.authorityMode === "gated_node_authoritative" &&
+      gate?.authoritative === true &&
+      gate?.workflowId === dispatch?.workflowId &&
+      gate?.activationId === dispatch?.activationId &&
+      gate?.harnessHash === dispatch?.harnessHash &&
+      gate?.requiredExecutionMode === "gated" &&
+      gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
+      gate?.adapterMode === "workflow_component_adapter_gated" &&
+      gate?.fallbackAvailable === true &&
+      gate?.fallbackRef === "legacy_runtime_model_invocation" &&
+      gate?.policyDecision ===
+        "allow_gated_node_authoritative_routing_model" &&
+      gate?.providerCanaryReady === true &&
+      gate?.visibleOutputSelected === true &&
+      gate?.visibleOutputAuthority === "workflow_model_provider_call" &&
+      gate?.rollbackAvailable === true &&
+      Array.isArray(gate?.blockers) &&
+      gate.blockers.length === 0 &&
+      ["model_router", "model_call", "tool_router"].every(
+        (componentKind) =>
+          gate.componentKinds?.includes(componentKind) &&
+          gate.shadowReadyComponentKinds?.includes(componentKind),
+      ) &&
+      stringArrayLength(gate.actionFrameIds) >= 3 &&
+      stringArrayLength(gate.attemptIds) >= 3 &&
+      stringArrayLength(gate.receiptIds) >= 3 &&
+      stringArrayLength(gate.replayFixtureRefs) >= 3 &&
+      stringArrayLength(gate.shadowAttemptIds) >= 3 &&
+      stringArrayLength(gate.shadowReceiptIds) >= 3 &&
+      stringArrayLength(gate.shadowReplayFixtureRefs) >= 3 &&
+      (gate.divergenceClasses ?? []).every(
+        (divergenceClass) => divergenceClass === "none",
+      ) &&
+      (gate.shadowDivergenceClasses ?? []).every(
+        (divergenceClass) => divergenceClass === "none",
+      )
+    );
+  };
+  const verificationOutputNodeAuthorityReady = (dispatch) => {
+    const gate = dispatch?.verificationOutputNodeAuthorityGate;
+    return (
+      gate?.schemaVersion ===
+        "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1" &&
+      gate?.gateId === "verification-output-node-authority" &&
+      gate?.authorityMode === "gated_node_authoritative" &&
+      gate?.authoritative === true &&
+      gate?.workflowId === dispatch?.workflowId &&
+      gate?.activationId === dispatch?.activationId &&
+      gate?.harnessHash === dispatch?.harnessHash &&
+      gate?.requiredExecutionMode === "gated" &&
+      gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
+      gate?.adapterMode === "workflow_component_adapter_gated" &&
+      gate?.fallbackAvailable === true &&
+      gate?.fallbackRef === "legacy_runtime_output_writer" &&
+      gate?.policyDecision ===
+        "allow_gated_node_authoritative_verification_output" &&
+      gate?.outputWriterHandoffReady === true &&
+      gate?.outputWriterMaterializationCanaryReady === true &&
+      gate?.outputWriterStagedWriteCanaryReady === true &&
+      gate?.outputWriterVisibleWriteReady === true &&
+      gate?.outputWriterVisibleWriteCommitted === true &&
+      gate?.rollbackAvailable === true &&
+      Array.isArray(gate?.blockers) &&
+      gate.blockers.length === 0 &&
+      [
+        "postcondition_synthesizer",
+        "verifier",
+        "completion_gate",
+        "receipt_writer",
+        "quality_ledger",
+        "output_writer",
+      ].every(
+        (componentKind) =>
+          gate.componentKinds?.includes(componentKind) &&
+          gate.shadowReadyComponentKinds?.includes(componentKind),
+      ) &&
+      stringArrayLength(gate.actionFrameIds) >= 6 &&
+      stringArrayLength(gate.attemptIds) >= 6 &&
+      stringArrayLength(gate.receiptIds) >= 6 &&
+      stringArrayLength(gate.replayFixtureRefs) >= 6 &&
+      stringArrayLength(gate.shadowAttemptIds) >= 6 &&
+      stringArrayLength(gate.shadowReceiptIds) >= 6 &&
+      stringArrayLength(gate.shadowReplayFixtureRefs) >= 6 &&
+      (gate.divergenceClasses ?? []).every(
+        (divergenceClass) => divergenceClass === "none",
+      ) &&
+      (gate.shadowDivergenceClasses ?? []).every(
+        (divergenceClass) => divergenceClass === "none",
+      )
+    );
+  };
+  const authorityToolingNodeAuthorityReady = (dispatch) => {
+    const gate = dispatch?.authorityToolingNodeAuthorityGate;
+    return (
+      gate?.schemaVersion ===
+        "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1" &&
+      gate?.gateId === "authority-tooling-node-authority" &&
+      gate?.authorityMode === "gated_node_authoritative" &&
+      gate?.authoritative === true &&
+      gate?.workflowId === dispatch?.workflowId &&
+      gate?.activationId === dispatch?.activationId &&
+      gate?.harnessHash === dispatch?.harnessHash &&
+      gate?.requiredExecutionMode === "gated" &&
+      gate?.runtimeAuthority === "blessed_workflow_activation_default" &&
+      gate?.adapterMode === "workflow_component_adapter_gated" &&
+      gate?.fallbackAvailable === true &&
+      gate?.fallbackRef === "legacy_runtime_tool_authority" &&
+      gate?.policyDecision ===
+        "allow_gated_node_authoritative_authority_tooling" &&
+      gate?.readOnlyRouteAccepted === true &&
+      gate?.destructiveRouteDenied === true &&
+      gate?.mutatingToolCallsBlocked === true &&
+      gate?.sideEffectsExecuted === false &&
+      gate?.policyGateReady === true &&
+      gate?.toolRouterReady === true &&
+      gate?.dryRunSimulatorReady === true &&
+      gate?.approvalGateReady === true &&
+      gate?.gateLiveReady === true &&
+      gate?.readOnlyAuthorityCanaryReady === true &&
+      gate?.rollbackAvailable === true &&
+      Array.isArray(gate?.blockers) &&
+      gate.blockers.length === 0 &&
+      [
+        "policy_gate",
+        "approval_gate",
+        "dry_run_simulator",
+        "mcp_provider",
+        "mcp_tool_call",
+        "tool_call",
+        "connector_call",
+        "wallet_capability",
+      ].every(
+        (componentKind) =>
+          gate.componentKinds?.includes(componentKind) &&
+          gate.shadowReadyComponentKinds?.includes(componentKind),
+      ) &&
+      stringArrayLength(gate.actionFrameIds) >= 8 &&
+      stringArrayLength(gate.attemptIds) >= 8 &&
+      stringArrayLength(gate.receiptIds) >= 8 &&
+      stringArrayLength(gate.replayFixtureRefs) >= 8 &&
+      stringArrayLength(gate.shadowAttemptIds) >= 8 &&
+      stringArrayLength(gate.shadowReceiptIds) >= 8 &&
+      stringArrayLength(gate.shadowReplayFixtureRefs) >= 8 &&
+      (gate.divergenceClasses ?? []).every(
+        (divergenceClass) => divergenceClass === "none",
+      ) &&
+      (gate.shadowDivergenceClasses ?? []).every(
+        (divergenceClass) => divergenceClass === "none",
+      )
+    );
+  };
   const extractInspectableHarnessAttempt = (dispatch) => {
     const resultSources = [
       dispatch?.cognitionExecutionAdapterResults,
@@ -750,6 +967,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       dispatch.readOnlyCapabilityRoutingProof?.policyDecision,
       dispatch.authorityToolingProof?.policyDecision,
       dispatch.authorityToolingAdapterProof?.policyDecision,
+      dispatch.cognitionNodeAuthorityGate?.policyDecision,
+      dispatch.routingModelNodeAuthorityGate?.policyDecision,
+      dispatch.verificationOutputNodeAuthorityGate?.policyDecision,
+      dispatch.authorityToolingNodeAuthorityGate?.policyDecision,
     ].filter((decision) => typeof decision === "string" && decision.length > 0);
     const liveTurnTimelineReady =
       dispatch.schemaVersion ===
@@ -777,6 +998,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         "live",
         3,
       ) &&
+      cognitionNodeAuthorityReady(dispatch) &&
+      routingModelNodeAuthorityReady(dispatch) &&
+      verificationOutputNodeAuthorityReady(dispatch) &&
+      authorityToolingNodeAuthorityReady(dispatch) &&
       adapterResultsReady(
         dispatch.cognitionExecutionGateAdapterResults,
         "gated",
@@ -836,6 +1061,115 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       `${scenario}:${artifactId ?? "runtime-evidence-projection"}`;
     if (harnessLiveTurnNodeTimelineKeys.has(timelineKey)) return;
     harnessLiveTurnNodeTimelineKeys.add(timelineKey);
+    if (!harnessCognitionNodeAuthorityKeys.has(timelineKey)) {
+      harnessCognitionNodeAuthorityKeys.add(timelineKey);
+      summary.harnessCognitionNodeAuthorityCount += 1;
+      if (summary.harnessCognitionNodeAuthoritySamples.length < 8) {
+        summary.harnessCognitionNodeAuthoritySamples.push({
+          artifactId,
+          dispatchId: dispatch.dispatchId ?? null,
+          scenario,
+          gateId: dispatch.cognitionNodeAuthorityGate?.gateId ?? null,
+          authorityMode:
+            dispatch.cognitionNodeAuthorityGate?.authorityMode ?? null,
+          policyDecision:
+            dispatch.cognitionNodeAuthorityGate?.policyDecision ?? null,
+          componentKinds:
+            dispatch.cognitionNodeAuthorityGate?.componentKinds ?? [],
+          attemptIds: dispatch.cognitionNodeAuthorityGate?.attemptIds ?? [],
+          receiptIds: dispatch.cognitionNodeAuthorityGate?.receiptIds ?? [],
+          replayFixtureRefs:
+            dispatch.cognitionNodeAuthorityGate?.replayFixtureRefs ?? [],
+        });
+      }
+    }
+    if (!harnessRoutingModelNodeAuthorityKeys.has(timelineKey)) {
+      harnessRoutingModelNodeAuthorityKeys.add(timelineKey);
+      summary.harnessRoutingModelNodeAuthorityCount += 1;
+      if (summary.harnessRoutingModelNodeAuthoritySamples.length < 8) {
+        summary.harnessRoutingModelNodeAuthoritySamples.push({
+          artifactId,
+          dispatchId: dispatch.dispatchId ?? null,
+          scenario,
+          gateId: dispatch.routingModelNodeAuthorityGate?.gateId ?? null,
+          authorityMode:
+            dispatch.routingModelNodeAuthorityGate?.authorityMode ?? null,
+          policyDecision:
+            dispatch.routingModelNodeAuthorityGate?.policyDecision ?? null,
+          componentKinds:
+            dispatch.routingModelNodeAuthorityGate?.componentKinds ?? [],
+          attemptIds: dispatch.routingModelNodeAuthorityGate?.attemptIds ?? [],
+          receiptIds: dispatch.routingModelNodeAuthorityGate?.receiptIds ?? [],
+          replayFixtureRefs:
+            dispatch.routingModelNodeAuthorityGate?.replayFixtureRefs ?? [],
+          visibleOutputAuthority:
+            dispatch.routingModelNodeAuthorityGate?.visibleOutputAuthority ??
+            null,
+        });
+      }
+    }
+    if (!harnessVerificationOutputNodeAuthorityKeys.has(timelineKey)) {
+      harnessVerificationOutputNodeAuthorityKeys.add(timelineKey);
+      summary.harnessVerificationOutputNodeAuthorityCount += 1;
+      if (summary.harnessVerificationOutputNodeAuthoritySamples.length < 8) {
+        summary.harnessVerificationOutputNodeAuthoritySamples.push({
+          artifactId,
+          dispatchId: dispatch.dispatchId ?? null,
+          scenario,
+          gateId: dispatch.verificationOutputNodeAuthorityGate?.gateId ?? null,
+          authorityMode:
+            dispatch.verificationOutputNodeAuthorityGate?.authorityMode ?? null,
+          policyDecision:
+            dispatch.verificationOutputNodeAuthorityGate?.policyDecision ?? null,
+          componentKinds:
+            dispatch.verificationOutputNodeAuthorityGate?.componentKinds ?? [],
+          attemptIds:
+            dispatch.verificationOutputNodeAuthorityGate?.attemptIds ?? [],
+          receiptIds:
+            dispatch.verificationOutputNodeAuthorityGate?.receiptIds ?? [],
+          replayFixtureRefs:
+            dispatch.verificationOutputNodeAuthorityGate?.replayFixtureRefs ??
+            [],
+          outputWriterVisibleWriteCommitted:
+            dispatch.verificationOutputNodeAuthorityGate
+              ?.outputWriterVisibleWriteCommitted ?? null,
+        });
+      }
+    }
+    if (!harnessAuthorityToolingNodeAuthorityKeys.has(timelineKey)) {
+      harnessAuthorityToolingNodeAuthorityKeys.add(timelineKey);
+      summary.harnessAuthorityToolingNodeAuthorityCount += 1;
+      if (summary.harnessAuthorityToolingNodeAuthoritySamples.length < 8) {
+        summary.harnessAuthorityToolingNodeAuthoritySamples.push({
+          artifactId,
+          dispatchId: dispatch.dispatchId ?? null,
+          scenario,
+          gateId: dispatch.authorityToolingNodeAuthorityGate?.gateId ?? null,
+          authorityMode:
+            dispatch.authorityToolingNodeAuthorityGate?.authorityMode ?? null,
+          policyDecision:
+            dispatch.authorityToolingNodeAuthorityGate?.policyDecision ?? null,
+          componentKinds:
+            dispatch.authorityToolingNodeAuthorityGate?.componentKinds ?? [],
+          attemptIds:
+            dispatch.authorityToolingNodeAuthorityGate?.attemptIds ?? [],
+          receiptIds:
+            dispatch.authorityToolingNodeAuthorityGate?.receiptIds ?? [],
+          replayFixtureRefs:
+            dispatch.authorityToolingNodeAuthorityGate?.replayFixtureRefs ??
+            [],
+          readOnlyRouteAccepted:
+            dispatch.authorityToolingNodeAuthorityGate?.readOnlyRouteAccepted ??
+            null,
+          destructiveRouteDenied:
+            dispatch.authorityToolingNodeAuthorityGate?.destructiveRouteDenied ??
+            null,
+          sideEffectsExecuted:
+            dispatch.authorityToolingNodeAuthorityGate?.sideEffectsExecuted ??
+            null,
+        });
+      }
+    }
     summary.harnessLiveTurnNodeTimelineCount += 1;
     addScenario(summary.harnessLiveTurnNodeTimelineScenarios, scenario);
     if (summary.harnessLiveTurnNodeTimelineSamples.length < 8) {
@@ -1120,6 +1454,46 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerBindingRegistryRecord.activationHash ?? null,
               harnessHash:
                 binding.workerBindingRegistryRecord.harnessHash ?? null,
+              reviewedPackageSnapshotHash:
+                binding.workerBindingRegistryRecord
+                  .reviewedPackageSnapshotHash ?? null,
+              reviewedWorkflowContentHash:
+                binding.workerBindingRegistryRecord
+                  .reviewedWorkflowContentHash ?? null,
+              reviewedActivationId:
+                binding.workerBindingRegistryRecord.reviewedActivationId ??
+                null,
+              reviewedHarnessWorkflowId:
+                binding.workerBindingRegistryRecord
+                  .reviewedHarnessWorkflowId ?? null,
+              reviewedWorkerBindingActivationId:
+                binding.workerBindingRegistryRecord
+                  .reviewedWorkerBindingActivationId ?? null,
+              reviewedRollbackTarget:
+                binding.workerBindingRegistryRecord.reviewedRollbackTarget ??
+                null,
+              reviewedReplayFixtureRefs: Array.isArray(
+                binding.workerBindingRegistryRecord.reviewedReplayFixtureRefs,
+              )
+                ? binding.workerBindingRegistryRecord.reviewedReplayFixtureRefs
+                : null,
+              reviewedWorkerHandoffNodeAttemptIds: Array.isArray(
+                binding.workerBindingRegistryRecord
+                  .reviewedWorkerHandoffNodeAttemptIds,
+              )
+                ? binding.workerBindingRegistryRecord
+                    .reviewedWorkerHandoffNodeAttemptIds
+                : null,
+              reviewedWorkerHandoffReceiptIds: Array.isArray(
+                binding.workerBindingRegistryRecord
+                  .reviewedWorkerHandoffReceiptIds,
+              )
+                ? binding.workerBindingRegistryRecord
+                    .reviewedWorkerHandoffReceiptIds
+                : null,
+              reviewedPolicyPosture:
+                binding.workerBindingRegistryRecord.reviewedPolicyPosture ??
+                null,
               rollbackTarget:
                 binding.workerBindingRegistryRecord.rollbackTarget ?? null,
               readinessProofId:
@@ -1193,6 +1567,22 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 binding.workerAttachReceipt.rollbackHarnessHash ?? null,
               rollbackPolicyDecision:
                 binding.workerAttachReceipt.rollbackPolicyDecision ?? null,
+              reviewedPackageSnapshotHash:
+                binding.workerAttachReceipt.reviewedPackageSnapshotHash ??
+                null,
+              reviewedWorkflowContentHash:
+                binding.workerAttachReceipt.reviewedWorkflowContentHash ??
+                null,
+              reviewedActivationId:
+                binding.workerAttachReceipt.reviewedActivationId ?? null,
+              reviewedWorkerBindingActivationId:
+                binding.workerAttachReceipt
+                  .reviewedWorkerBindingActivationId ?? null,
+              reviewedReplayFixtureRefs: Array.isArray(
+                binding.workerAttachReceipt.reviewedReplayFixtureRefs,
+              )
+                ? binding.workerAttachReceipt.reviewedReplayFixtureRefs
+                : null,
               blockers: Array.isArray(binding.workerAttachReceipt.blockers)
                 ? binding.workerAttachReceipt.blockers
                 : null,
@@ -1536,6 +1926,46 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     if (workerLaunchReviewedImportActivationInvariantBound) {
       summary.harnessWorkerLaunchReviewedImportActivationInvariantCount += 1;
     }
+    const reviewedPackageSnapshotBound =
+      typeof binding.workerBindingRegistryRecord
+        ?.reviewedPackageSnapshotHash === "string" &&
+      binding.workerBindingRegistryRecord.reviewedPackageSnapshotHash.length >
+        0 &&
+      binding.workerBindingRegistryRecord.reviewedWorkflowContentHash ===
+        binding.workerAttachReceipt?.reviewedWorkflowContentHash &&
+      binding.workerBindingRegistryRecord.reviewedActivationId ===
+        binding.workerAttachReceipt?.reviewedActivationId &&
+      binding.workerBindingRegistryRecord.reviewedWorkerBindingActivationId ===
+        binding.workerAttachReceipt?.reviewedWorkerBindingActivationId &&
+      binding.workerBindingRegistryRecord.reviewedActivationId ===
+        binding.workerBindingRegistryRecord
+          .reviewedWorkerBindingActivationId &&
+      binding.workerBindingRegistryRecord.reviewedRollbackTarget ===
+        binding.workerBindingRegistryRecord.rollbackTarget &&
+      binding.workerBindingRegistryRecord.reviewedPolicyPosture ===
+        "canary" &&
+      Array.isArray(
+        binding.workerBindingRegistryRecord.reviewedReplayFixtureRefs,
+      ) &&
+      binding.workerBindingRegistryRecord.reviewedReplayFixtureRefs.length >
+        0 &&
+      Array.isArray(
+        binding.workerBindingRegistryRecord
+          .reviewedWorkerHandoffNodeAttemptIds,
+      ) &&
+      binding.workerBindingRegistryRecord.reviewedWorkerHandoffNodeAttemptIds
+        .length > 0 &&
+      Array.isArray(
+        binding.workerBindingRegistryRecord.reviewedWorkerHandoffReceiptIds,
+      ) &&
+      binding.workerBindingRegistryRecord.reviewedWorkerHandoffReceiptIds
+        .length > 0 &&
+      Array.isArray(binding.workerAttachReceipt?.reviewedReplayFixtureRefs) &&
+      binding.workerAttachReceipt.reviewedReplayFixtureRefs.length > 0;
+    sample.reviewedPackageSnapshotBound = reviewedPackageSnapshotBound;
+    if (reviewedPackageSnapshotBound) {
+      summary.harnessWorkerBindingRegistryReviewedPackageBoundCount += 1;
+    }
     const expectedRollbackGateId = "p0-live-shadow-comparison-gate";
     const expectedRollbackPolicyDecision =
       "allow_default_harness_worker_rollback_from_live_shadow_gate";
@@ -1622,6 +2052,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.invalidForkLiveActivationBlocked === true &&
       rollbackFromLiveShadowGateBound &&
       workerLaunchReviewedImportActivationInvariantBound &&
+      reviewedPackageSnapshotBound &&
       binding.workerBindingAuthorityReady === true &&
       Array.isArray(binding.workerBindingAuthorityBlockers) &&
       binding.workerBindingAuthorityBlockers.length === 0 &&
@@ -1927,6 +2358,35 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         fork.activationRollbackExecution?.receiptRefs,
         "harnessRollbackExecutionReceiptCount",
       );
+      const mutationCanary = fork.forkMutationCanary;
+      if (
+        mutationCanary &&
+        typeof mutationCanary === "object" &&
+        mutationCanary.schemaVersion ===
+          "workflow.harness.fork-mutation-canary.v1" &&
+        mutationCanary.status === "passed" &&
+        mutationCanary.canaryStatus === "passed" &&
+        mutationCanary.rollbackAvailable === true &&
+        Array.isArray(mutationCanary.blockers) &&
+        mutationCanary.blockers.length === 0
+      ) {
+        summary.harnessForkMutationCanaryReadyCount += 1;
+        summary.harnessForkMutationCanaryReceiptCount += Array.isArray(
+          mutationCanary.receiptRefs,
+        )
+          ? mutationCanary.receiptRefs.length
+          : 0;
+        summary.harnessForkMutationCanaryReplayCount += Array.isArray(
+          mutationCanary.replayFixtureRefs,
+        )
+          ? mutationCanary.replayFixtureRefs.length
+          : 0;
+        summary.harnessForkMutationCanaryNodeAttemptCount += Array.isArray(
+          mutationCanary.nodeAttemptIds,
+        )
+          ? mutationCanary.nodeAttemptIds.length
+          : 0;
+      }
       if (
         hasRestoreCanaryReceiptRef(
           fork.activationRollbackExecution?.restoreReceiptBindingRef,
@@ -2522,6 +2982,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 result?.actionFrame?.readiness === "live_ready" &&
                 result?.nodeAttempt?.status === "live",
             ) &&
+            cognitionNodeAuthorityReady(dispatch) &&
+            routingModelNodeAuthorityReady(dispatch) &&
+            verificationOutputNodeAuthorityReady(dispatch) &&
+            authorityToolingNodeAuthorityReady(dispatch) &&
             Array.isArray(dispatch.cognitionExecutionActionFrameIds) &&
             dispatch.cognitionExecutionActionFrameIds.length >= 3 &&
             Array.isArray(dispatch.cognitionExecutionLiveReadyComponentKinds) &&
@@ -2707,9 +3171,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingShadowDivergenceClasses.every(
               (kind) => kind === "none",
             ) &&
+            authorityToolingNodeAuthorityReady(dispatch) &&
             dispatch.authorityToolingAdapterProof?.ready === true &&
             dispatch.authorityToolingAdapterProof?.policyDecision ===
-              "accept_workflow_authority_tooling_adapter_envelope" &&
+              "allow_gated_node_authoritative_authority_tooling" &&
             dispatchLivePromotionReadinessReady &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
@@ -3024,6 +3489,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 result?.actionFrame?.readiness === "live_ready" &&
                 result?.nodeAttempt?.status === "live",
             ) &&
+            cognitionNodeAuthorityReady(dispatch) &&
+            routingModelNodeAuthorityReady(dispatch) &&
+            verificationOutputNodeAuthorityReady(dispatch) &&
+            authorityToolingNodeAuthorityReady(dispatch) &&
             Array.isArray(dispatch.cognitionExecutionActionFrameIds) &&
             dispatch.cognitionExecutionActionFrameIds.length >= 3 &&
             Array.isArray(dispatch.cognitionExecutionLiveReadyComponentKinds) &&
@@ -3209,9 +3678,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingShadowDivergenceClasses.every(
               (kind) => kind === "none",
             ) &&
+            authorityToolingNodeAuthorityReady(dispatch) &&
             dispatch.authorityToolingAdapterProof?.ready === true &&
             dispatch.authorityToolingAdapterProof?.policyDecision ===
-              "accept_workflow_authority_tooling_adapter_envelope" &&
+              "allow_gated_node_authoritative_authority_tooling" &&
             Array.isArray(dispatch.modelExecutionAttemptIds) &&
             dispatch.modelExecutionAttemptIds.length >= 5 &&
             Array.isArray(dispatch.modelExecutionReceiptIds) &&
@@ -3421,6 +3891,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_gated_cognition_passed === true) {
           summary.harnessGatedCognitionCount += 1;
         }
+        if (digest.harness_cognition_node_authority_passed === true) {
+          summary.harnessCognitionNodeAuthorityCount += 1;
+        }
+        if (digest.harness_routing_model_node_authority_passed === true) {
+          summary.harnessRoutingModelNodeAuthorityCount += 1;
+        }
+        if (digest.harness_verification_output_node_authority_passed === true) {
+          summary.harnessVerificationOutputNodeAuthorityCount += 1;
+        }
+        if (digest.harness_authority_tooling_node_authority_passed === true) {
+          summary.harnessAuthorityToolingNodeAuthorityCount += 1;
+        }
         if (digest.harness_gated_routing_model_passed === true) {
           summary.harnessGatedRoutingModelCount += 1;
         }
@@ -3435,6 +3917,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         }
         if (digest.harness_fork_activation_minted === true) {
           summary.harnessForkActivationMintedCount += 1;
+        }
+        if (digest.harness_fork_mutation_canary_ready === true) {
+          summary.harnessForkMutationCanaryReadyCount += 1;
         }
         if (digest.harness_rollback_restore_canary_blocked === true) {
           summary.harnessRollbackRestoreCanaryBlockedCount += 1;
@@ -3687,6 +4172,22 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_gated_cognition_passed === true) {
             summary.harnessGatedCognitionCount += 1;
           }
+          if (metadata.harness_cognition_node_authority_passed === true) {
+            summary.harnessCognitionNodeAuthorityCount += 1;
+          }
+          if (metadata.harness_routing_model_node_authority_passed === true) {
+            summary.harnessRoutingModelNodeAuthorityCount += 1;
+          }
+          if (
+            metadata.harness_verification_output_node_authority_passed === true
+          ) {
+            summary.harnessVerificationOutputNodeAuthorityCount += 1;
+          }
+          if (
+            metadata.harness_authority_tooling_node_authority_passed === true
+          ) {
+            summary.harnessAuthorityToolingNodeAuthorityCount += 1;
+          }
           if (metadata.harness_gated_routing_model_passed === true) {
             summary.harnessGatedRoutingModelCount += 1;
           }
@@ -3701,6 +4202,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
           if (metadata.harness_fork_activation_minted === true) {
             summary.harnessForkActivationMintedCount += 1;
+          }
+          if (metadata.harness_fork_mutation_canary_ready === true) {
+            summary.harnessForkMutationCanaryReadyCount += 1;
           }
           if (metadata.harness_fork_activation) {
             noteRollbackRestoreCanaryProof(metadata.harness_fork_activation);
@@ -3967,16 +4471,27 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ),
     harnessPackageEvidenceManifest:
       /WorkflowHarnessPackageEvidenceManifest/.test(graph) &&
+      /WorkflowHarnessForkMutationCanary/.test(graph) &&
+      /nodeAttempts\?: WorkflowHarnessNodeAttemptRecord/.test(graph) &&
       /workflow\.harness\.package-evidence-manifest\.v1/.test(graph) &&
+      /workflow\.harness\.fork-mutation-canary\.v1/.test(graph) &&
       /harnessPackageManifest\?: WorkflowHarnessPackageEvidenceManifest/.test(
         graph,
       ) &&
       /makeWorkflowHarnessPackageEvidenceManifest/.test(harnessWorkflow) &&
+      /makeWorkflowHarnessForkMutationCanary/.test(harnessWorkflow) &&
+      /makeWorkflowHarnessForkMutationCanaryNodeAttempt/.test(
+        harnessWorkflow,
+      ) &&
+      /workflowHarnessForkMutationCanaryNodeAttempts/.test(harnessWorkflow) &&
+      /workflowHarnessForkMutationCanaryReady/.test(harnessWorkflow) &&
       /withWorkflowHarnessPackageManifest/.test(harnessWorkflow) &&
       /harnessWorkbenchDeepLinkHash/.test(harnessWorkflow) &&
+      /fork_mutation_canary/.test(harnessWorkflow) &&
       /rollback_restore/.test(harnessWorkflow) &&
       /worker_handoff/.test(harnessWorkflow) &&
       /data-harness-package-manifest-present/.test(rail) &&
+      /data-harness-package-fork-mutation-receipt-count/.test(rail) &&
       /data-harness-package-receipt-ref-count/.test(rail) &&
       /data-harness-package-replay-fixture-ref-count/.test(rail) &&
       /data-harness-package-deep-link-count/.test(rail) &&
@@ -3985,12 +4500,20 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /packageManifest/.test(restoreCommand),
     harnessPackageEvidenceGate:
       /workflowHarnessPackageEvidenceReview/.test(validation) &&
+      /harness_fork_mutation_canary_not_passed/.test(validation) &&
+      /package_manifest_fork_mutation_canary_missing/.test(validation) &&
       /harness_package_manifest_incomplete/.test(validation) &&
       /package_manifest_receipts_missing/.test(validation) &&
       /package_manifest_replay_fixtures_missing/.test(validation) &&
       /package_manifest_rollback_restore_receipts_missing/.test(validation) &&
       /gateId: "package-evidence"/.test(validation) &&
+      /gateId: "mutation-canary"/.test(validation) &&
+      /id: "mutation-canary"/.test(rail) &&
       /id: "package-evidence"/.test(rail) &&
+      /workflow-harness-fork-mutation-canary/.test(rail) &&
+      /workflow-harness-gate-action-mutation-canary/.test(rail) &&
+      /data-mutation-diff-hash/.test(rail) &&
+      /data-rollback-target/.test(rail) &&
       /"package-evidence": makeReadinessGateAction/.test(rail) &&
       /commandTestId: `workflow-harness-gate-action-\$\{gateId\}`/.test(rail) &&
       /workflow-harness-package-evidence-review/.test(rail) &&
@@ -4133,6 +4656,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationGateEvidenceRef/.test(controller) &&
       /activation-gate-canary-boundary/.test(controller) &&
       /activation-gate-canary-rollback-drill/.test(controller) &&
+      /activation-gate-mutation-canary-node-attempt/.test(controller) &&
       /activationGateNodeAttemptId/.test(controller) &&
       /activationGateReceiptRef/.test(controller) &&
       /activationGateReplayFixtureRef/.test(controller) &&
@@ -4142,10 +4666,12 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationGateRollbackRestoreClickProof/.test(controller) &&
       /activationIdGateClickProof/.test(controller) &&
       /packageEvidenceGateClickProof/.test(controller) &&
+      /mutationCanaryNodeAttemptState/.test(controller) &&
       /packageEvidenceImportRoundTripProof/.test(controller) &&
       /packageImportReviewProof/.test(controller) &&
       /packageImportActivationHandoffProof/.test(controller) &&
       /packageImportActivationApplyProof/.test(controller) &&
+      /packageImportActivationReplayIntegrityProof/.test(controller) &&
       /workflow-harness-package-import-handoff/.test(rail) &&
       /workflow-harness-package-import-handoff-activation-link/.test(rail) &&
       /workflow-harness-package-import-handoff-canary-link/.test(rail) &&
@@ -4490,8 +5016,72 @@ function buildGuiEvidenceAssessment({
     summary.harnessForkActivationBlockedCount > 0 &&
     summary.harnessForkActivationMintedCount > 0 &&
     summary.harnessForkHandoffTimelineBoundCount > 0;
-  const hasHarnessRollbackRestoreCanary =
+  const packageManifestHasForkMutationCanary = (manifest) =>
+    (manifest?.forkMutationCanaryReceiptRefCount ?? 0) > 0 &&
+    (manifest?.forkMutationCanaryReplayFixtureRefCount ?? 0) > 0 &&
+    (manifest?.forkMutationCanaryNodeAttemptCount ?? 0) > 0;
+  const packageReviewHasForkMutationCanary = (review) =>
+    (review?.evidence?.forkMutationCanaryReceiptRefCount ?? 0) > 0 &&
+    (review?.evidence?.forkMutationCanaryReplayFixtureRefCount ?? 0) > 0 &&
+    (review?.evidence?.forkMutationCanaryNodeAttemptCount ?? 0) > 0;
+  const hasHarnessForkMutationCanaryGuiProof =
+    packageManifestHasForkMutationCanary(
+      promotionTransitionLiveGuiInteractionProof?.proof
+        ?.packageEvidenceGateClickProof?.manifest,
+    ) ||
+    packageManifestHasForkMutationCanary(
+      promotionTransitionLiveGuiInteractionProof?.proof
+        ?.packageEvidenceImportRoundTripProof?.validImport?.manifest,
+    ) ||
+    packageReviewHasForkMutationCanary(
+      promotionTransitionLiveGuiInteractionProof?.proof?.packageImportReviewProof
+        ?.review,
+    ) ||
+    packageReviewHasForkMutationCanary(
+      promotionTransitionLiveGuiInteractionProof?.proof
+        ?.packageImportActivationHandoffProof?.review,
+    ) ||
+    packageReviewHasForkMutationCanary(
+      promotionTransitionLiveGuiInteractionProof?.proof
+        ?.packageImportActivationApplyProof?.review,
+    );
+  const hasHarnessForkMutationCanary =
     hasHarnessForkActivation &&
+    ((summary.harnessForkMutationCanaryReadyCount > 0 &&
+      summary.harnessForkMutationCanaryReceiptCount > 0 &&
+      summary.harnessForkMutationCanaryReplayCount > 0 &&
+      summary.harnessForkMutationCanaryNodeAttemptCount > 0) ||
+      hasHarnessForkMutationCanaryGuiProof);
+  const forkMutationCanaryNodeInspectorState =
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.packageEvidenceGateClickProof?.restored
+      ?.mutationCanaryNodeAttemptState ?? null;
+  const forkMutationCanaryNodeInspectorRefs =
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.packageEvidenceGateClickProof?.selectedRefs ?? {};
+  const hasHarnessForkMutationCanaryNodeInspector =
+    hasHarnessForkMutationCanary &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activationGateMutationCanaryNodeInspectorDeepLink === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.packageEvidenceGateClickProof === true &&
+    forkMutationCanaryNodeInspectorState?.["data-node-attempt-source-kind"] ===
+      "fork_mutation_canary" &&
+    forkMutationCanaryNodeInspectorState?.["data-component-kind"] ===
+      "budget_gate" &&
+    forkMutationCanaryNodeInspectorState?.["data-node-attempt-id"] ===
+      forkMutationCanaryNodeInspectorRefs?.mutationCanaryNodeAttemptId &&
+    String(
+      forkMutationCanaryNodeInspectorState?.["data-receipt-refs"] ?? "",
+    ).includes(forkMutationCanaryNodeInspectorRefs?.mutationCanaryReceiptRef) &&
+    forkMutationCanaryNodeInspectorState?.["data-replay-fixture-ref"] ===
+      forkMutationCanaryNodeInspectorRefs?.mutationCanaryReplayFixtureRef &&
+    forkMutationCanaryNodeInspectorState?.["data-mutation-diff-hash"] ===
+      forkMutationCanaryNodeInspectorRefs?.mutationCanaryDiffHash &&
+    forkMutationCanaryNodeInspectorState?.["data-rollback-target"] ===
+      forkMutationCanaryNodeInspectorRefs?.mutationCanaryRollbackTarget;
+  const hasHarnessRollbackRestoreCanary =
+    hasHarnessForkMutationCanary &&
     summary.harnessRollbackRestoreCanaryBlockedCount > 0 &&
     summary.harnessRollbackRestoreCanaryReadyCount > 0;
   const hasHarnessRollbackRestoreCanaryReceipts =
@@ -4533,10 +5123,41 @@ function buildGuiEvidenceAssessment({
     hasHarnessPackageImportReviewMode &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.packageImportActivationHandoffProof === true;
-  const hasHarnessPackageImportActivationApply =
-    hasHarnessPackageImportActivationHandoff &&
+	  const hasHarnessPackageImportActivationApply =
+	    hasHarnessPackageImportActivationHandoff &&
+	    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+	      ?.packageImportActivationApplyProof === true;
+  const applyProofActivationResult =
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.packageImportActivationApplyProof?.activationResult ?? null;
+  const applyProofMutationCanary =
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.packageImportActivationApplyProof?.mutationCanary ?? null;
+  const hasHarnessPackageImportActivationMutationCanaryBinding =
+    hasHarnessPackageImportActivationApply &&
+    typeof applyProofActivationResult?.reviewedForkMutationCanaryId ===
+      "string" &&
+    applyProofActivationResult.reviewedForkMutationCanaryId.length > 0 &&
+    applyProofActivationResult.reviewedForkMutationCanaryStatus === "passed" &&
+    typeof applyProofActivationResult.reviewedForkMutationCanaryDiffHash ===
+      "string" &&
+    (applyProofActivationResult.reviewedForkMutationCanaryReceiptRefs?.length ??
+      0) > 0 &&
+    (applyProofActivationResult
+      .reviewedForkMutationCanaryReplayFixtureRefs?.length ?? 0) > 0 &&
+    (applyProofActivationResult.reviewedForkMutationCanaryNodeAttemptIds
+      ?.length ?? 0) > 0 &&
+    typeof applyProofActivationResult
+      .reviewedForkMutationCanaryRollbackTarget === "string" &&
+    applyProofMutationCanary?.selectedState?.[
+      "data-selected-activation-gate-id"
+    ] === "mutation-canary" &&
+    applyProofMutationCanary?.nodeAttemptState?.["data-node-attempt-id"] ===
+      applyProofActivationResult.reviewedForkMutationCanaryNodeAttemptIds?.[0];
+	  const hasHarnessPackageImportActivationReplayIntegrity =
+	    hasHarnessPackageImportActivationApply &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
-      ?.packageImportActivationApplyProof === true;
+      ?.packageImportActivationReplayIntegrityProof === true;
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
@@ -4651,6 +5272,7 @@ function buildGuiEvidenceAssessment({
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
     summary.harnessLivePromotionReadinessCount > 0 &&
     summary.harnessActivationIdGateClickProofRuntimeCount > 0 &&
+    summary.harnessAuthorityToolingNodeAuthorityCount > 0 &&
     summary.harnessAuthorityToolingGateLiveCount > 0 &&
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
@@ -4661,6 +5283,140 @@ function buildGuiEvidenceAssessment({
     promotionTransitionLiveGuiInteractionProof?.proof?.runtimeSelector ?? null;
   const workflowProofDefaultDispatch =
     promotionTransitionLiveGuiInteractionProof?.proof?.defaultDispatch ?? null;
+  const workflowProofCognitionNodeAuthorityGate =
+    workflowProofDefaultDispatch?.cognitionNodeAuthorityGate ?? null;
+  const workflowProofRoutingModelNodeAuthorityGate =
+    workflowProofDefaultDispatch?.routingModelNodeAuthorityGate ?? null;
+  const workflowProofVerificationOutputNodeAuthorityGate =
+    workflowProofDefaultDispatch?.verificationOutputNodeAuthorityGate ?? null;
+  const workflowProofAuthorityToolingNodeAuthorityGate =
+    workflowProofDefaultDispatch?.authorityToolingNodeAuthorityGate ?? null;
+  const hasHarnessCognitionNodeAuthority =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessCognitionNodeAuthorityCount > 0 &&
+    workflowProofCognitionNodeAuthorityGate?.schemaVersion ===
+      "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1" &&
+    workflowProofCognitionNodeAuthorityGate?.authorityMode ===
+      "node_authoritative" &&
+    workflowProofCognitionNodeAuthorityGate?.authoritative === true &&
+    workflowProofCognitionNodeAuthorityGate?.policyDecision ===
+      "allow_node_authoritative_cognition" &&
+    Array.isArray(workflowProofCognitionNodeAuthorityGate?.blockers) &&
+    workflowProofCognitionNodeAuthorityGate.blockers.length === 0 &&
+    ["planner", "prompt_assembler", "task_state"].every(
+      (componentKind) =>
+        workflowProofCognitionNodeAuthorityGate?.componentKinds?.includes(
+          componentKind,
+        ) &&
+        workflowProofCognitionNodeAuthorityGate?.liveReadyComponentKinds?.includes(
+          componentKind,
+        ),
+    );
+  const hasHarnessRoutingModelNodeAuthority =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessRoutingModelNodeAuthorityCount > 0 &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.routingModelNodeAuthorityBound === true &&
+    workflowProofRoutingModelNodeAuthorityGate?.schemaVersion ===
+      "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1" &&
+    workflowProofRoutingModelNodeAuthorityGate?.authorityMode ===
+      "gated_node_authoritative" &&
+    workflowProofRoutingModelNodeAuthorityGate?.authoritative === true &&
+    workflowProofRoutingModelNodeAuthorityGate?.policyDecision ===
+      "allow_gated_node_authoritative_routing_model" &&
+    workflowProofRoutingModelNodeAuthorityGate?.visibleOutputAuthority ===
+      "workflow_model_provider_call" &&
+    workflowProofRoutingModelNodeAuthorityGate?.providerCanaryReady === true &&
+    workflowProofRoutingModelNodeAuthorityGate?.rollbackAvailable === true &&
+    Array.isArray(workflowProofRoutingModelNodeAuthorityGate?.blockers) &&
+    workflowProofRoutingModelNodeAuthorityGate.blockers.length === 0 &&
+    ["model_router", "model_call", "tool_router"].every(
+      (componentKind) =>
+        workflowProofRoutingModelNodeAuthorityGate?.componentKinds?.includes(
+          componentKind,
+        ) &&
+        workflowProofRoutingModelNodeAuthorityGate?.shadowReadyComponentKinds?.includes(
+          componentKind,
+        ),
+    );
+  const hasHarnessVerificationOutputNodeAuthority =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessVerificationOutputNodeAuthorityCount > 0 &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.verificationOutputNodeAuthorityBound === true &&
+    workflowProofVerificationOutputNodeAuthorityGate?.schemaVersion ===
+      "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1" &&
+    workflowProofVerificationOutputNodeAuthorityGate?.authorityMode ===
+      "gated_node_authoritative" &&
+    workflowProofVerificationOutputNodeAuthorityGate?.authoritative === true &&
+    workflowProofVerificationOutputNodeAuthorityGate?.policyDecision ===
+      "allow_gated_node_authoritative_verification_output" &&
+    workflowProofVerificationOutputNodeAuthorityGate
+      ?.outputWriterVisibleWriteCommitted === true &&
+    workflowProofVerificationOutputNodeAuthorityGate?.rollbackAvailable ===
+      true &&
+    Array.isArray(workflowProofVerificationOutputNodeAuthorityGate?.blockers) &&
+    workflowProofVerificationOutputNodeAuthorityGate.blockers.length === 0 &&
+    [
+      "postcondition_synthesizer",
+      "verifier",
+      "completion_gate",
+      "receipt_writer",
+      "quality_ledger",
+      "output_writer",
+    ].every(
+      (componentKind) =>
+        workflowProofVerificationOutputNodeAuthorityGate?.componentKinds?.includes(
+          componentKind,
+        ) &&
+        workflowProofVerificationOutputNodeAuthorityGate?.shadowReadyComponentKinds?.includes(
+          componentKind,
+        ),
+    );
+  const hasHarnessAuthorityToolingNodeAuthority =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessAuthorityToolingNodeAuthorityCount > 0 &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.authorityToolingNodeAuthorityBound === true &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.schemaVersion ===
+      "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1" &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.authorityMode ===
+      "gated_node_authoritative" &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.authoritative === true &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.policyDecision ===
+      "allow_gated_node_authoritative_authority_tooling" &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.readOnlyRouteAccepted ===
+      true &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.destructiveRouteDenied ===
+      true &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.mutatingToolCallsBlocked ===
+      true &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.sideEffectsExecuted ===
+      false &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.gateLiveReady === true &&
+    workflowProofAuthorityToolingNodeAuthorityGate
+      ?.readOnlyAuthorityCanaryReady === true &&
+    workflowProofAuthorityToolingNodeAuthorityGate?.rollbackAvailable === true &&
+    Array.isArray(workflowProofAuthorityToolingNodeAuthorityGate?.blockers) &&
+    workflowProofAuthorityToolingNodeAuthorityGate.blockers.length === 0 &&
+    [
+      "policy_gate",
+      "approval_gate",
+      "dry_run_simulator",
+      "mcp_provider",
+      "mcp_tool_call",
+      "tool_call",
+      "connector_call",
+      "wallet_capability",
+    ].every(
+      (componentKind) =>
+        workflowProofAuthorityToolingNodeAuthorityGate?.componentKinds?.includes(
+          componentKind,
+        ) &&
+        workflowProofAuthorityToolingNodeAuthorityGate?.shadowReadyComponentKinds?.includes(
+          componentKind,
+        ),
+    );
   const runtimeBindingHasReviewedImportActivationInvariant = (binding) =>
     binding?.workerLaunchReviewedImportActivationInvariantBound === true;
   const runtimeBindingHasRollbackLiveShadowGate = (binding) =>
@@ -5256,11 +6012,22 @@ function buildGuiEvidenceAssessment({
       scorecard_matches_stop_reason: hasScorecard && hasStopReason,
       harness_shadow_attempts_present: hasHarnessShadow,
       harness_gated_cognition_present: hasHarnessGatedCognition,
+      harness_cognition_node_authority_present:
+        hasHarnessCognitionNodeAuthority,
+      harness_routing_model_node_authority_present:
+        hasHarnessRoutingModelNodeAuthority,
+      harness_verification_output_node_authority_present:
+        hasHarnessVerificationOutputNodeAuthority,
+      harness_authority_tooling_node_authority_present:
+        hasHarnessAuthorityToolingNodeAuthority,
       harness_gated_routing_model_present: hasHarnessGatedRoutingModel,
       harness_gated_verification_output_present:
         hasHarnessGatedVerificationOutput,
       harness_gated_authority_tooling_present: hasHarnessGatedAuthorityTooling,
       harness_fork_activation_present: hasHarnessForkActivation,
+      harness_fork_mutation_canary_present: hasHarnessForkMutationCanary,
+      harness_fork_mutation_canary_node_inspector_present:
+        hasHarnessForkMutationCanaryNodeInspector,
       harness_fork_handoff_timeline_present:
         summary.harnessForkHandoffTimelineBoundCount > 0,
       harness_rollback_restore_canary_present: hasHarnessRollbackRestoreCanary,
@@ -5283,8 +6050,12 @@ function buildGuiEvidenceAssessment({
         hasHarnessPackageImportReviewMode,
       harness_package_import_activation_handoff_present:
         hasHarnessPackageImportActivationHandoff,
-      harness_package_import_activation_apply_present:
-        hasHarnessPackageImportActivationApply,
+	      harness_package_import_activation_apply_present:
+	        hasHarnessPackageImportActivationApply,
+      harness_package_import_activation_mutation_canary_bound_present:
+        hasHarnessPackageImportActivationMutationCanaryBinding,
+	      harness_package_import_activation_replay_integrity_present:
+        hasHarnessPackageImportActivationReplayIntegrity,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -5335,12 +6106,22 @@ function buildGuiEvidenceAssessment({
         hasHarnessWorkerLaunchReviewedImportActivationInvariantNegativeEnforcement,
       harness_default_runtime_dispatch_present:
         hasHarnessDefaultRuntimeDispatch,
+      harness_cognition_node_authority_present:
+        hasHarnessCognitionNodeAuthority,
+      harness_routing_model_node_authority_present:
+        hasHarnessRoutingModelNodeAuthority,
+      harness_verification_output_node_authority_present:
+        hasHarnessVerificationOutputNodeAuthority,
+      harness_authority_tooling_node_authority_present:
+        hasHarnessAuthorityToolingNodeAuthority,
       harness_live_promotion_readiness_present:
         hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
         hasHarnessChatRuntimeBinding,
       harness_default_runtime_rollback_live_shadow_gate_bound:
         summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount > 0,
+      harness_worker_binding_registry_reviewed_package_bound:
+        summary.harnessWorkerBindingRegistryReviewedPackageBoundCount > 0,
       harness_active_runtime_rollback_proof_workbench_present:
         hasHarnessActiveRuntimeRollbackProofWorkbench,
       harness_active_runtime_rollback_execution_workbench_present:
@@ -5410,6 +6191,8 @@ function buildGuiEvidenceAssessment({
       hasHarnessGatedVerificationOutput,
       hasHarnessGatedAuthorityTooling,
       hasHarnessForkActivation,
+      hasHarnessForkMutationCanary,
+      hasHarnessForkMutationCanaryNodeInspector,
       hasHarnessForkHandoffTimeline:
         summary.harnessForkHandoffTimelineBoundCount > 0,
       hasHarnessRollbackRestoreCanary,
@@ -5424,6 +6207,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessPackageImportReviewMode,
       hasHarnessPackageImportActivationHandoff,
       hasHarnessPackageImportActivationApply,
+      hasHarnessPackageImportActivationReplayIntegrity,
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessRouteStatefulDeepLinkReplay,
@@ -5485,6 +6269,22 @@ function buildGuiEvidenceAssessment({
         summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
       harnessLivePromotionReadinessCount:
         summary.harnessLivePromotionReadinessCount,
+      harnessCognitionNodeAuthorityCount:
+        summary.harnessCognitionNodeAuthorityCount,
+      harnessCognitionNodeAuthoritySamples:
+        summary.harnessCognitionNodeAuthoritySamples,
+      harnessRoutingModelNodeAuthorityCount:
+        summary.harnessRoutingModelNodeAuthorityCount,
+      harnessRoutingModelNodeAuthoritySamples:
+        summary.harnessRoutingModelNodeAuthoritySamples,
+      harnessVerificationOutputNodeAuthorityCount:
+        summary.harnessVerificationOutputNodeAuthorityCount,
+      harnessVerificationOutputNodeAuthoritySamples:
+        summary.harnessVerificationOutputNodeAuthoritySamples,
+      harnessAuthorityToolingNodeAuthorityCount:
+        summary.harnessAuthorityToolingNodeAuthorityCount,
+      harnessAuthorityToolingNodeAuthoritySamples:
+        summary.harnessAuthorityToolingNodeAuthoritySamples,
       harnessLiveTurnNodeTimelineCount:
         summary.harnessLiveTurnNodeTimelineCount,
       harnessLiveTurnNodeTimelineScenarios:
@@ -5534,6 +6334,14 @@ function buildGuiEvidenceAssessment({
         summary.harnessForkActivationBlockedCount,
       harnessForkActivationMintedCount:
         summary.harnessForkActivationMintedCount,
+      harnessForkMutationCanaryReadyCount:
+        summary.harnessForkMutationCanaryReadyCount,
+      harnessForkMutationCanaryReceiptCount:
+        summary.harnessForkMutationCanaryReceiptCount,
+      harnessForkMutationCanaryReplayCount:
+        summary.harnessForkMutationCanaryReplayCount,
+      harnessForkMutationCanaryNodeAttemptCount:
+        summary.harnessForkMutationCanaryNodeAttemptCount,
       harnessForkHandoffTimelineBoundCount:
         summary.harnessForkHandoffTimelineBoundCount,
       harnessRollbackRestoreCanaryBlockedCount:
@@ -5580,6 +6388,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessDefaultRuntimeBindingMatchedCount,
       harnessDefaultRuntimeRollbackLiveShadowGateBoundCount:
         summary.harnessDefaultRuntimeRollbackLiveShadowGateBoundCount,
+      harnessWorkerBindingRegistryReviewedPackageBoundCount:
+        summary.harnessWorkerBindingRegistryReviewedPackageBoundCount,
       harnessDefaultRuntimeBindingSamples:
         summary.harnessDefaultRuntimeBindingSamples,
       harnessAuthorityToolingReadOnlyCanaryCount:
@@ -5811,6 +6621,15 @@ async function waitForHarnessPromotionLiveWorkflow(
       try {
         const workflow = JSON.parse(readFileSync(proofWorkflowPath, "utf8"));
         latest = { workflow, error: null };
+        const liveGuiProbeDiagnostics =
+          workflow.metadata?.harness?.liveGuiProbeDiagnostics ?? null;
+        if (liveGuiProbeDiagnostics?.status === "blocked") {
+          return {
+            ...latest,
+            blocked: true,
+            liveGuiProbeDiagnostics,
+          };
+        }
         const cluster = workflow.metadata?.harness?.promotionClusters?.find(
           (candidate) => candidate.clusterId === "cognition",
         );
@@ -5939,6 +6758,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
     );
     const transitions = workflow?.metadata?.harness?.promotionTransitions ?? [];
     const audit = workflow?.metadata?.harness?.activationAudit ?? [];
+    const liveGuiProbeDiagnostics =
+      workflow?.metadata?.harness?.liveGuiProbeDiagnostics ?? null;
     const selector =
       workflow?.metadata?.harness?.runtimeSelectorDecision ?? null;
     const liveHandoff = workflow?.metadata?.harness?.liveHandoffProof ?? null;
@@ -6070,6 +6891,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.packageImportActivationHandoffProof ?? null;
     const packageImportActivationApplyProof =
       workflow?.metadata?.harness?.packageImportActivationApplyProof ?? null;
+    const packageImportActivationReplayIntegrityProof =
+      workflow?.metadata?.harness
+        ?.packageImportActivationReplayIntegrityProof ?? null;
     const activationGateCollectEvidenceClickProof =
       workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ??
       null;
@@ -6169,6 +6993,11 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
     const activationGateNodeAttemptDeepLinkCase =
       activationGateDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "activation-gate-node-attempt",
+      ) ?? null;
+    const activationGateMutationCanaryNodeAttemptDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) =>
+          replayCase.id === "activation-gate-mutation-canary-node-attempt",
       ) ?? null;
     const activationGateWorkerInvariantDeepLinkCase =
       liveActivationGateDeepLinkProof?.cases?.find(
@@ -6854,6 +7683,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         activationGateNodeAttemptDeepLinkCase?.hash ??
         activationIdGateClickProof?.mintedActivation?.workerHandoffDeepLink ??
         null,
+      activationGateMutationCanaryNodeAttempt:
+        activationGateMutationCanaryNodeAttemptDeepLinkCase?.hash ?? null,
       activationGateReceipt: activationGateReceiptDeepLinkCase?.hash ?? null,
       activationGateReplay: activationGateReplayDeepLinkCase?.hash ?? null,
       activationGateCanaryBoundary:
@@ -7140,6 +7971,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
     const reviewedImportActivationApplyRollbackTarget =
       packageImportActivationApplyProof?.activationAction?.rollbackTarget ??
       null;
+    const reviewedImportActivationApplyResult =
+      packageImportActivationApplyProof?.activationResult ?? null;
     const selectorReviewedImportActivationApplyInvariant =
       selector?.defaultLivePromotionInvariantIds?.includes(
         REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT_ID,
@@ -7201,6 +8034,25 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         reviewedImportActivationApplyActivationId &&
       reviewedImportActivationApplyGate?.rollbackTarget ===
         reviewedImportActivationApplyRollbackTarget &&
+      reviewedImportActivationApplyGate?.reviewedWorkflowContentHash ===
+        reviewedImportActivationApplyResult?.reviewedWorkflowContentHash &&
+      reviewedImportActivationApplyGate?.reviewedHarnessWorkflowId ===
+        reviewedImportActivationApplyResult?.reviewedHarnessWorkflowId &&
+      reviewedImportActivationApplyGate?.reviewedPolicyPosture ===
+        reviewedImportActivationApplyResult?.reviewedPolicyPosture &&
+      sameStringSet(
+        reviewedImportActivationApplyGate?.reviewedReplayFixtureRefs,
+        reviewedImportActivationApplyResult?.reviewedReplayFixtureRefs,
+      ) &&
+      sameStringSet(
+        reviewedImportActivationApplyGate?.reviewedWorkerHandoffNodeAttemptIds,
+        reviewedImportActivationApplyResult
+          ?.reviewedWorkerHandoffNodeAttemptIds,
+      ) &&
+      sameStringSet(
+        reviewedImportActivationApplyGate?.reviewedWorkerHandoffReceiptIds,
+        reviewedImportActivationApplyResult?.reviewedWorkerHandoffReceiptIds,
+      ) &&
       (
         reviewedImportActivationApplyGate?.defaultDispatchActivationBlockers ??
         []
@@ -7292,6 +8144,159 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       selectorReviewedImportActivationApplyInvariant,
       liveHandoffReviewedImportActivationApplyInvariant,
       defaultDispatchReviewedImportActivationApplyInvariant,
+      cognitionNodeAuthorityBound:
+        defaultDispatch?.cognitionNodeAuthorityGate?.schemaVersion ===
+          "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1" &&
+        defaultDispatch?.cognitionNodeAuthorityGate?.authorityMode ===
+          "node_authoritative" &&
+        defaultDispatch?.cognitionNodeAuthorityGate?.authoritative === true &&
+        defaultDispatch?.cognitionNodeAuthorityGate?.policyDecision ===
+          "allow_node_authoritative_cognition" &&
+        (defaultDispatch?.cognitionNodeAuthorityGate?.blockers ?? []).length ===
+          0 &&
+        ["planner", "prompt_assembler", "task_state"].every(
+          (componentKind) =>
+            (
+              defaultDispatch?.cognitionNodeAuthorityGate?.componentKinds ?? []
+            ).includes(componentKind) &&
+            (
+              defaultDispatch?.cognitionNodeAuthorityGate
+                ?.liveReadyComponentKinds ?? []
+            ).includes(componentKind),
+        ) &&
+        (defaultDispatch?.cognitionNodeAuthorityGate?.attemptIds ?? [])
+          .length >= 3 &&
+        (defaultDispatch?.cognitionNodeAuthorityGate?.receiptIds ?? [])
+          .length >= 3 &&
+        (defaultDispatch?.cognitionNodeAuthorityGate?.replayFixtureRefs ?? [])
+          .length >= 3,
+      routingModelNodeAuthorityBound:
+        defaultDispatch?.routingModelNodeAuthorityGate?.schemaVersion ===
+          "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1" &&
+        defaultDispatch?.routingModelNodeAuthorityGate?.authorityMode ===
+          "gated_node_authoritative" &&
+        defaultDispatch?.routingModelNodeAuthorityGate?.authoritative === true &&
+        defaultDispatch?.routingModelNodeAuthorityGate?.policyDecision ===
+          "allow_gated_node_authoritative_routing_model" &&
+        defaultDispatch?.routingModelNodeAuthorityGate
+          ?.visibleOutputAuthority === "workflow_model_provider_call" &&
+        defaultDispatch?.routingModelNodeAuthorityGate?.providerCanaryReady ===
+          true &&
+        defaultDispatch?.routingModelNodeAuthorityGate?.rollbackAvailable ===
+          true &&
+        (defaultDispatch?.routingModelNodeAuthorityGate?.blockers ?? [])
+          .length === 0 &&
+        ["model_router", "model_call", "tool_router"].every(
+          (componentKind) =>
+            (
+              defaultDispatch?.routingModelNodeAuthorityGate?.componentKinds ??
+              []
+            ).includes(componentKind) &&
+            (
+              defaultDispatch?.routingModelNodeAuthorityGate
+                ?.shadowReadyComponentKinds ?? []
+            ).includes(componentKind),
+        ) &&
+        (defaultDispatch?.routingModelNodeAuthorityGate?.attemptIds ?? [])
+          .length >= 3 &&
+        (defaultDispatch?.routingModelNodeAuthorityGate?.receiptIds ?? [])
+          .length >= 3 &&
+        (defaultDispatch?.routingModelNodeAuthorityGate?.replayFixtureRefs ?? [])
+          .length >= 3,
+      verificationOutputNodeAuthorityBound:
+        defaultDispatch?.verificationOutputNodeAuthorityGate?.schemaVersion ===
+          "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1" &&
+        defaultDispatch?.verificationOutputNodeAuthorityGate?.authorityMode ===
+          "gated_node_authoritative" &&
+        defaultDispatch?.verificationOutputNodeAuthorityGate?.authoritative ===
+          true &&
+        defaultDispatch?.verificationOutputNodeAuthorityGate?.policyDecision ===
+          "allow_gated_node_authoritative_verification_output" &&
+        defaultDispatch?.verificationOutputNodeAuthorityGate
+          ?.outputWriterVisibleWriteCommitted === true &&
+        defaultDispatch?.verificationOutputNodeAuthorityGate?.rollbackAvailable ===
+          true &&
+        (defaultDispatch?.verificationOutputNodeAuthorityGate?.blockers ?? [])
+          .length === 0 &&
+        [
+          "postcondition_synthesizer",
+          "verifier",
+          "completion_gate",
+          "receipt_writer",
+          "quality_ledger",
+          "output_writer",
+        ].every(
+          (componentKind) =>
+            (
+              defaultDispatch?.verificationOutputNodeAuthorityGate
+                ?.componentKinds ?? []
+            ).includes(componentKind) &&
+            (
+              defaultDispatch?.verificationOutputNodeAuthorityGate
+                ?.shadowReadyComponentKinds ?? []
+            ).includes(componentKind),
+        ) &&
+        (defaultDispatch?.verificationOutputNodeAuthorityGate?.attemptIds ?? [])
+          .length >= 6 &&
+        (defaultDispatch?.verificationOutputNodeAuthorityGate?.receiptIds ?? [])
+          .length >= 6 &&
+        (
+          defaultDispatch?.verificationOutputNodeAuthorityGate
+            ?.replayFixtureRefs ?? []
+        ).length >= 6,
+      authorityToolingNodeAuthorityBound:
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.schemaVersion ===
+          "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1" &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.authorityMode ===
+          "gated_node_authoritative" &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.authoritative ===
+          true &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.policyDecision ===
+          "allow_gated_node_authoritative_authority_tooling" &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate
+          ?.readOnlyRouteAccepted === true &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate
+          ?.destructiveRouteDenied === true &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate
+          ?.mutatingToolCallsBlocked === true &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.sideEffectsExecuted ===
+          false &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.gateLiveReady ===
+          true &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate
+          ?.readOnlyAuthorityCanaryReady === true &&
+        defaultDispatch?.authorityToolingNodeAuthorityGate?.rollbackAvailable ===
+          true &&
+        (defaultDispatch?.authorityToolingNodeAuthorityGate?.blockers ?? [])
+          .length === 0 &&
+        [
+          "policy_gate",
+          "approval_gate",
+          "dry_run_simulator",
+          "mcp_provider",
+          "mcp_tool_call",
+          "tool_call",
+          "connector_call",
+          "wallet_capability",
+        ].every(
+          (componentKind) =>
+            (
+              defaultDispatch?.authorityToolingNodeAuthorityGate
+                ?.componentKinds ?? []
+            ).includes(componentKind) &&
+            (
+              defaultDispatch?.authorityToolingNodeAuthorityGate
+                ?.shadowReadyComponentKinds ?? []
+            ).includes(componentKind),
+        ) &&
+        (defaultDispatch?.authorityToolingNodeAuthorityGate?.attemptIds ?? [])
+          .length >= 8 &&
+        (defaultDispatch?.authorityToolingNodeAuthorityGate?.receiptIds ?? [])
+          .length >= 8 &&
+        (
+          defaultDispatch?.authorityToolingNodeAuthorityGate
+            ?.replayFixtureRefs ?? []
+        ).length >= 8,
       livePromotionReadinessBound:
         defaultDispatch?.livePromotionReadinessProof?.schemaVersion ===
           "workflow.harness.live-promotion-readiness.v1" &&
@@ -7449,10 +8454,25 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             routeStatefulDeepLinks.activationGateNodeAttempt?.includes(
               "activationGateNodeAttemptId=",
             ) === true)),
-      activationGateWorkerInvariantDeepLink:
-        activationGateWorkerInvariantDeepLinkRestored,
-      workerInvariantNegativeEnforcement,
-      activationGateNodeTimelineDeepLink:
+	      activationGateWorkerInvariantDeepLink:
+	        activationGateWorkerInvariantDeepLinkRestored,
+	      workerInvariantNegativeEnforcement,
+	      activationGateMutationCanaryNodeInspectorDeepLink:
+	        activationGateMutationCanaryNodeAttemptDeepLinkCase?.passed === true &&
+	        activationGateMutationCanaryNodeAttemptDeepLinkCase
+	          ?.selectedRailTestId === "workflow-harness-node-attempt-inspector" &&
+	        activationGateMutationCanaryNodeAttemptDeepLinkCase
+	          ?.observedSelectedState?.["data-node-attempt-source-kind"] ===
+	          "fork_mutation_canary" &&
+	        activationGateMutationCanaryNodeAttemptDeepLinkCase
+	          ?.observedSelectedState?.["data-component-kind"] === "budget_gate" &&
+	        routeStatefulDeepLinks.activationGateMutationCanaryNodeAttempt?.includes(
+	          "activationGateId=mutation-canary",
+	        ) === true &&
+	        routeStatefulDeepLinks.activationGateMutationCanaryNodeAttempt?.includes(
+	          "nodeAttemptId=",
+	        ) === true,
+	      activationGateNodeTimelineDeepLink:
         activationIdGateClickProof?.mintedActivation
           ?.workerHandoffTimelineVisible === true &&
         activationIdGateClickProof?.mintedActivation
@@ -7518,6 +8538,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         packageEvidenceGateClickProof.manifest?.replayFixtureRefCount > 0 &&
         packageEvidenceGateClickProof.manifest?.rollbackRestoreReceiptRefCount >
           0 &&
+        packageEvidenceGateClickProof.manifest
+          ?.forkMutationCanaryReceiptRefCount > 0 &&
+        packageEvidenceGateClickProof.manifest
+          ?.forkMutationCanaryReplayFixtureRefCount > 0 &&
+        packageEvidenceGateClickProof.manifest
+          ?.forkMutationCanaryNodeAttemptCount > 0 &&
         packageEvidenceGateClickProof.manifest?.workerHandoffNodeAttemptCount >
           0 &&
         packageEvidenceGateClickProof.manifest?.workerHandoffReceiptCount > 0 &&
@@ -7538,6 +8564,49 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         packageEvidenceGateClickProof.restored?.nodeAttemptState?.[
           "data-selected-activation-gate-node-attempt-id"
         ] === packageEvidenceGateClickProof.selectedRefs.nodeAttemptId &&
+        typeof packageEvidenceGateClickProof.selectedRefs
+          ?.mutationCanaryNodeAttemptId === "string" &&
+        packageEvidenceGateClickProof.restored?.mutationCanaryState?.[
+          "data-selected-activation-gate-id"
+        ] === "mutation-canary" &&
+        packageEvidenceGateClickProof.restored?.mutationCanaryState?.[
+          "data-selected-activation-gate-node-attempt-id"
+        ] ===
+          packageEvidenceGateClickProof.selectedRefs
+            .mutationCanaryNodeAttemptId &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryNodeAttemptState?.["data-node-attempt-id"] ===
+          packageEvidenceGateClickProof.selectedRefs
+            .mutationCanaryNodeAttemptId &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryNodeAttemptState?.["data-node-attempt-source-kind"] ===
+          "fork_mutation_canary" &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryNodeAttemptState?.["data-component-kind"] ===
+          "budget_gate" &&
+        String(
+          packageEvidenceGateClickProof.restored
+            ?.mutationCanaryNodeAttemptState?.["data-receipt-refs"] ?? "",
+        ).includes(
+          packageEvidenceGateClickProof.selectedRefs
+            ?.mutationCanaryReceiptRef ?? "__missing__",
+        ) &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryNodeAttemptState?.["data-replay-fixture-ref"] ===
+          packageEvidenceGateClickProof.selectedRefs
+            ?.mutationCanaryReplayFixtureRef &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryNodeAttemptState?.["data-mutation-diff-hash"] ===
+          packageEvidenceGateClickProof.selectedRefs
+            ?.mutationCanaryDiffHash &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryNodeAttemptState?.["data-rollback-target"] ===
+          packageEvidenceGateClickProof.selectedRefs
+            ?.mutationCanaryRollbackTarget &&
+        packageEvidenceGateClickProof.restored
+          ?.mutationCanaryTimelineAttemptId ===
+          packageEvidenceGateClickProof.selectedRefs
+            .mutationCanaryNodeAttemptId &&
         typeof packageEvidenceGateClickProof.selectedRefs
           ?.packageDeepLinkHash === "string" &&
         packageEvidenceGateClickProof.selectedRefs.packageDeepLinkHash.startsWith(
@@ -7574,6 +8643,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           ?.replayFixtureRefCount > 0 &&
         packageEvidenceImportRoundTripProof.validImport?.manifest
           ?.rollbackRestoreReceiptRefCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.forkMutationCanaryReceiptRefCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.forkMutationCanaryReplayFixtureRefCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.forkMutationCanaryNodeAttemptCount > 0 &&
         packageEvidenceImportRoundTripProof.validImport?.manifest
           ?.workerHandoffNodeAttemptCount > 0 &&
         packageEvidenceImportRoundTripProof.validImport?.manifest
@@ -7615,6 +8690,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           "receipts",
           "replay-fixtures",
           "rollback-restore",
+          "fork-mutation-canary",
           "worker-handoff-attempts",
           "worker-handoff-receipts",
           "deep-links",
@@ -7704,12 +8780,20 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         packageImportActivationHandoffProof.deepLinks?.activationId?.[
           "data-selected-activation-gate-id"
         ] === "activation-id" &&
-        packageImportActivationHandoffProof.deepLinks?.canary?.[
+	        packageImportActivationHandoffProof.deepLinks?.canary?.[
+	          "data-selected-activation-gate-id"
+	        ] === "canary" &&
+        packageImportActivationHandoffProof.deepLinks?.mutationCanary?.[
           "data-selected-activation-gate-id"
-        ] === "canary" &&
-        packageImportActivationHandoffProof.deepLinks?.rollbackRestore?.[
-          "data-selected-activation-gate-id"
-        ] === "rollback-restore" &&
+        ] === "mutation-canary" &&
+        packageImportActivationHandoffProof.deepLinks?.mutationCanary?.[
+          "data-selected-activation-gate-node-attempt-id"
+        ] ===
+          packageImportActivationHandoffProof.activationAction.valid
+            .mutationCanaryNodeAttemptId &&
+	        packageImportActivationHandoffProof.deepLinks?.rollbackRestore?.[
+	          "data-selected-activation-gate-id"
+	        ] === "rollback-restore" &&
         packageImportActivationHandoffProof.deepLinks?.workerBinding?.[
           "data-selected-worker-binding-id"
         ] ===
@@ -7765,9 +8849,33 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           ?.workerHandoffNodeAttemptIds?.length ?? 0) > 0 &&
         (packageImportActivationApplyProof.activationResult
           ?.workerHandoffReplayFixtureRefs?.length ?? 0) > 0 &&
-        packageImportActivationApplyProof.workerHandoff?.selectedState?.[
-          "data-selected-activation-gate-id"
-        ] === "worker-handoff" &&
+	        typeof packageImportActivationApplyProof.activationResult
+	          ?.reviewedPackageSnapshotHash === "string" &&
+	        packageImportActivationApplyProof.activationResult
+	          .reviewedPackageSnapshotHash.length > 0 &&
+        typeof packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryId === "string" &&
+        packageImportActivationApplyProof.activationResult
+          .reviewedForkMutationCanaryId.length > 0 &&
+        packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryStatus === "passed" &&
+        typeof packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryDiffHash === "string" &&
+        packageImportActivationApplyProof.activationResult
+          .reviewedForkMutationCanaryDiffHash.length > 0 &&
+        (packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryReceiptRefs?.length ?? 0) > 0 &&
+        (packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryReplayFixtureRefs?.length ?? 0) > 0 &&
+        (packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryNodeAttemptIds?.length ?? 0) > 0 &&
+        typeof packageImportActivationApplyProof.activationResult
+          ?.reviewedForkMutationCanaryRollbackTarget === "string" &&
+        packageImportActivationApplyProof.activationResult
+          .reviewedForkMutationCanaryRollbackTarget.length > 0 &&
+	        packageImportActivationApplyProof.workerHandoff?.selectedState?.[
+	          "data-selected-activation-gate-id"
+	        ] === "worker-handoff" &&
         packageImportActivationApplyProof.workerHandoff?.selectedState?.[
           "data-selected-activation-gate-node-attempt-id"
         ] ===
@@ -7775,11 +8883,49 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             .workerHandoffNodeAttemptIds[0] &&
         packageImportActivationApplyProof.workerHandoff?.timelineVisible ===
           true &&
-        packageImportActivationApplyProof.workerHandoff?.selectedAttemptId ===
+	        packageImportActivationApplyProof.workerHandoff?.selectedAttemptId ===
+	          packageImportActivationApplyProof.activationResult
+	            .workerHandoffNodeAttemptIds[0] &&
+        packageImportActivationApplyProof.mutationCanary?.selectedState?.[
+          "data-selected-activation-gate-id"
+        ] === "mutation-canary" &&
+        packageImportActivationApplyProof.mutationCanary?.selectedState?.[
+          "data-selected-activation-gate-node-attempt-id"
+        ] ===
           packageImportActivationApplyProof.activationResult
-            .workerHandoffNodeAttemptIds[0] &&
-        packageImportActivationApplyProof.incompleteAction?.disabled === true &&
-        packageImportActivationApplyProof.incompleteAction?.mintable === false,
+            .reviewedForkMutationCanaryNodeAttemptIds[0] &&
+        packageImportActivationApplyProof.mutationCanary?.nodeAttemptState?.[
+          "data-node-attempt-id"
+        ] ===
+          packageImportActivationApplyProof.activationResult
+            .reviewedForkMutationCanaryNodeAttemptIds[0] &&
+        packageImportActivationApplyProof.mutationCanary?.timelineVisible ===
+          true &&
+        packageImportActivationApplyProof.mutationCanary?.selectedAttemptId ===
+          packageImportActivationApplyProof.activationResult
+            .reviewedForkMutationCanaryNodeAttemptIds[0] &&
+	        packageImportActivationApplyProof.incompleteAction?.disabled === true &&
+	        packageImportActivationApplyProof.incompleteAction?.mintable === false,
+        packageImportActivationReplayIntegrityProof:
+          packageImportActivationReplayIntegrityProof?.passed === true &&
+	          (packageImportActivationReplayIntegrityProof.cases?.length ?? 0) ===
+	          8 &&
+        packageImportActivationReplayIntegrityProof.cases?.every(
+          (negativeCase) =>
+            negativeCase.passed === true &&
+            negativeCase.action?.present === true &&
+            negativeCase.action?.disabled === true &&
+            negativeCase.action?.integrityBlockerCount > 0 &&
+            negativeCase.railState?.[
+              "data-package-import-activation-enabled"
+            ] === "false" &&
+            negativeCase.runtimeBlockers?.includes(
+              negativeCase.expectedBlocker,
+            ) === true &&
+            negativeCase.defaultLivePromotionBlockers?.includes(
+              negativeCase.expectedBlocker,
+            ) === true,
+        ) === true,
       activationGateCollectEvidenceClickProof:
         activationGateCollectEvidenceClickProof?.passed === true &&
         activationGateCollectEvidenceClickProof.clicked === true &&
@@ -7944,6 +9090,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       screenshot: screenshot.path,
       screenshotError: screenshot.stderr || null,
       liveWorkflowError: liveWorkflow.error ?? null,
+      liveGuiProbeDiagnostics,
       clusters: clusterIds.map((clusterId) => {
         const cluster = clusterById.get(clusterId);
         return {
@@ -8062,6 +9209,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             activationIdGate: defaultDispatch.activationIdGate ?? null,
             reviewedImportActivationApplyGate:
               defaultDispatch.reviewedImportActivationApplyGate ?? null,
+            cognitionNodeAuthorityGate:
+              defaultDispatch.cognitionNodeAuthorityGate ?? null,
+            routingModelNodeAuthorityGate:
+              defaultDispatch.routingModelNodeAuthorityGate ?? null,
+            verificationOutputNodeAuthorityGate:
+              defaultDispatch.verificationOutputNodeAuthorityGate ?? null,
+            authorityToolingNodeAuthorityGate:
+              defaultDispatch.authorityToolingNodeAuthorityGate ?? null,
             liveShadowComparisonGate:
               defaultDispatch.liveShadowComparisonGate ?? null,
             liveShadowComparisonGateReady:
@@ -8223,6 +9378,35 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             activationId: workerBindingRegistry.activationId ?? null,
             activationHash: workerBindingRegistry.activationHash ?? null,
             harnessHash: workerBindingRegistry.harnessHash ?? null,
+            reviewedPackageSnapshotHash:
+              workerBindingRegistry.reviewedPackageSnapshotHash ?? null,
+            reviewedWorkflowContentHash:
+              workerBindingRegistry.reviewedWorkflowContentHash ?? null,
+            reviewedActivationId:
+              workerBindingRegistry.reviewedActivationId ?? null,
+            reviewedHarnessWorkflowId:
+              workerBindingRegistry.reviewedHarnessWorkflowId ?? null,
+            reviewedWorkerBindingActivationId:
+              workerBindingRegistry.reviewedWorkerBindingActivationId ?? null,
+            reviewedRollbackTarget:
+              workerBindingRegistry.reviewedRollbackTarget ?? null,
+            reviewedReplayFixtureRefs: Array.isArray(
+              workerBindingRegistry.reviewedReplayFixtureRefs,
+            )
+              ? workerBindingRegistry.reviewedReplayFixtureRefs
+              : [],
+            reviewedWorkerHandoffNodeAttemptIds: Array.isArray(
+              workerBindingRegistry.reviewedWorkerHandoffNodeAttemptIds,
+            )
+              ? workerBindingRegistry.reviewedWorkerHandoffNodeAttemptIds
+              : [],
+            reviewedWorkerHandoffReceiptIds: Array.isArray(
+              workerBindingRegistry.reviewedWorkerHandoffReceiptIds,
+            )
+              ? workerBindingRegistry.reviewedWorkerHandoffReceiptIds
+              : [],
+            reviewedPolicyPosture:
+              workerBindingRegistry.reviewedPolicyPosture ?? null,
             rollbackTarget: workerBindingRegistry.rollbackTarget ?? null,
             readinessProofId: workerBindingRegistry.readinessProofId ?? null,
             rollbackReadinessProofId:
@@ -8270,6 +9454,19 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               workerAttachReceipt.rollbackHarnessHash ?? null,
             rollbackPolicyDecision:
               workerAttachReceipt.rollbackPolicyDecision ?? null,
+            reviewedPackageSnapshotHash:
+              workerAttachReceipt.reviewedPackageSnapshotHash ?? null,
+            reviewedWorkflowContentHash:
+              workerAttachReceipt.reviewedWorkflowContentHash ?? null,
+            reviewedActivationId:
+              workerAttachReceipt.reviewedActivationId ?? null,
+            reviewedWorkerBindingActivationId:
+              workerAttachReceipt.reviewedWorkerBindingActivationId ?? null,
+            reviewedReplayFixtureRefs: Array.isArray(
+              workerAttachReceipt.reviewedReplayFixtureRefs,
+            )
+              ? workerAttachReceipt.reviewedReplayFixtureRefs
+              : [],
           }
         : null,
       workerAttachLifecycle: workerAttachLifecycle.map((event) => ({
@@ -8718,6 +9915,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       packageImportReviewProof,
       packageImportActivationHandoffProof,
       packageImportActivationApplyProof,
+      packageImportActivationReplayIntegrityProof,
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
       activationIdGateClickProof,
@@ -8972,6 +10170,35 @@ async function runGuiValidation(args, outputRoot) {
       promotionTransitionGuiBehaviorProof,
       promotionTransitionLiveGuiInteractionProof,
     });
+    const packageManifestHasForkMutationCanary = (manifest) =>
+      (manifest?.forkMutationCanaryReceiptRefCount ?? 0) > 0 &&
+      (manifest?.forkMutationCanaryReplayFixtureRefCount ?? 0) > 0 &&
+      (manifest?.forkMutationCanaryNodeAttemptCount ?? 0) > 0;
+    const packageReviewHasForkMutationCanary = (review) =>
+      (review?.evidence?.forkMutationCanaryReceiptRefCount ?? 0) > 0 &&
+      (review?.evidence?.forkMutationCanaryReplayFixtureRefCount ?? 0) > 0 &&
+      (review?.evidence?.forkMutationCanaryNodeAttemptCount ?? 0) > 0;
+    const promotionForkMutationCanaryArtifact =
+      packageManifestHasForkMutationCanary(
+        promotionTransitionLiveGuiInteractionProof.proof
+          ?.packageEvidenceGateClickProof?.manifest,
+      ) ||
+      packageManifestHasForkMutationCanary(
+        promotionTransitionLiveGuiInteractionProof.proof
+          ?.packageEvidenceImportRoundTripProof?.validImport?.manifest,
+      ) ||
+      packageReviewHasForkMutationCanary(
+        promotionTransitionLiveGuiInteractionProof.proof?.packageImportReviewProof
+          ?.review,
+      ) ||
+      packageReviewHasForkMutationCanary(
+        promotionTransitionLiveGuiInteractionProof.proof
+          ?.packageImportActivationHandoffProof?.review,
+      ) ||
+      packageReviewHasForkMutationCanary(
+        promotionTransitionLiveGuiInteractionProof.proof
+          ?.packageImportActivationApplyProof?.review,
+      );
     return {
       schemaVersion: autopilotGuiHarnessContract().schemaVersion,
       launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
@@ -9028,6 +10255,23 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessGatedCognitionCount > 0
             ? runtimeArtifacts.path
             : false,
+        harness_cognition_node_authority:
+          runtimeArtifacts.summary.harnessCognitionNodeAuthorityCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_routing_model_node_authority:
+          runtimeArtifacts.summary.harnessRoutingModelNodeAuthorityCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_verification_output_node_authority:
+          runtimeArtifacts.summary.harnessVerificationOutputNodeAuthorityCount >
+          0
+            ? runtimeArtifacts.path
+            : false,
+        harness_authority_tooling_node_authority:
+          runtimeArtifacts.summary.harnessAuthorityToolingNodeAuthorityCount > 0
+            ? runtimeArtifacts.path
+            : false,
         harness_gated_routing_model:
           runtimeArtifacts.summary.harnessGatedRoutingModelCount > 0
             ? runtimeArtifacts.path
@@ -9045,6 +10289,20 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessForkActivationMintedCount > 0 &&
           runtimeArtifacts.summary.harnessForkHandoffTimelineBoundCount > 0
             ? runtimeArtifacts.path
+            : false,
+        harness_fork_mutation_canary:
+          (runtimeArtifacts.summary.harnessForkMutationCanaryReadyCount > 0 &&
+            runtimeArtifacts.summary.harnessForkMutationCanaryReceiptCount > 0 &&
+            runtimeArtifacts.summary.harnessForkMutationCanaryReplayCount > 0 &&
+            runtimeArtifacts.summary.harnessForkMutationCanaryNodeAttemptCount >
+              0) ||
+          promotionForkMutationCanaryArtifact
+            ? runtimeArtifacts.path
+            : false,
+        harness_fork_mutation_canary_node_inspector:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.packageEvidenceGateClickProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_rollback_restore_canary:
           runtimeArtifacts.summary.harnessRollbackRestoreCanaryBlockedCount >
@@ -9093,6 +10351,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_package_import_activation_apply:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.packageImportActivationApplyProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_package_import_activation_replay_integrity:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.packageImportActivationReplayIntegrityProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_promotion_transition_gui_behavior:
@@ -9254,6 +10517,11 @@ async function runGuiValidation(args, outputRoot) {
             .harnessDefaultRuntimeRollbackLiveShadowGateBoundCount > 0 &&
           guiEvidence.runtimeConsistency
             .harness_default_runtime_rollback_live_shadow_gate_bound === true
+            ? runtimeArtifacts.path
+            : false,
+        harness_worker_binding_registry_reviewed_package_bound:
+          runtimeArtifacts.summary
+            .harnessWorkerBindingRegistryReviewedPackageBoundCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_active_runtime_rollback_proof_workbench:
