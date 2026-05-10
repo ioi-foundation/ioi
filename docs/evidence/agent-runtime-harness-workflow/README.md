@@ -8,13 +8,21 @@ agent-runtime-harness-as-workflow master guide.
 - Machine-readable index:
   `docs/evidence/agent-runtime-harness-workflow/latest-green.json`
 - Full retained GUI harness result:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-31-02-121Z/result.json`
 - Runtime P3 dashboard:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-10T03-37-47-231Z/dashboard-index.json`
 
 ## What It Proves
 
+- The default harness is the live workflow-backed runtime substrate for the
+  retained path.
+- P0 runtime components are workflow-addressable and backed by TS/Rust
+  contracts.
+- Live turns expose node timeline, inspector, receipts, replay status, and
+  live-vs-shadow comparison.
 - Package import activation apply is green.
+- Invalid fork activation is blocked, while valid package/import activation can
+  mint an activation id.
 - Reviewed fork mutation canary identity is bound into the package snapshot.
 - Worker attach, resume, and rollback lifecycle is accepted.
 - Active runtime rollback proof, dry-run, apply execution, and negative apply

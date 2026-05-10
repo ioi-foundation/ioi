@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-10
 Owner: agent runtime / workflow substrate / Autopilot GUI
-Status: next-leg master guide
+Status: completed end-state guide with follow-on productization queue
 
 Companion documents:
 
@@ -23,20 +23,25 @@ canonical latest green pointer until it is superseded by a newer checkpoint.
 
 ## Executive Verdict
 
-The next leg should be the transition from "the runtime harness is projected
-into workflow-shaped components" to "the default live agent runtime is actually
-driven by those workflow-addressable components."
+The desired end state is achieved for the retained default harness path: the
+default live agent runtime harness is componentized into workflow-addressable
+nodes, driven by the blessed default harness activation, forkable as
+workflow-as-code, and protected by activation gates before any fork can become
+live authority.
 
-Chronologically, this means:
+The completed state is:
 
-1. Finish componentizing the runtime harness around explicit action frames,
-   schemas, policies, receipt bindings, replay envelopes, and UI surfaces.
-2. Run the workflow projection in shadow against the live `RuntimeAgentService`
-   path until every major runtime decision can be correlated to a graph node.
-3. Promote the blessed `Default Agent Harness` workflow from inspectable
-   projection to the default runtime orchestration surface.
-4. Let users fork the harness only after activation gates prove bindings,
-   replay fixtures, tests, slots, policy posture, and receipt mapping are safe.
+1. Runtime harness responsibilities are componentized around explicit action
+   frames, schemas, policies, receipt bindings, replay envelopes, readiness
+   states, worker bindings, rollback proofs, and GUI surfaces.
+2. Live turns emit workflow node attempts, receipt refs, replay refs, policy
+   decisions, live-vs-shadow comparison, and node-level inspector state.
+3. The blessed `Default Agent Harness` workflow activation is the default live
+   runtime control plane for the retained harness path.
+4. Users can inspect, fork, edit, package, import, and propose harness changes
+   in the GUI; live activation remains gated by tests, slots, replay fixtures,
+   policy posture, receipt coverage, mutation canary, worker binding, and
+   rollback proof.
 
 The focus is not just architectural neatness. The focus is proving one unified
 substrate by dogfooding the real agent harness through the same workflow graph
@@ -64,6 +69,11 @@ through a workflow-backed harness.
 
 ## Latest Validated Checkpoint
 
+The authoritative latest checkpoint is
+`docs/evidence/agent-runtime-harness-workflow/latest-green.json`. The concrete
+bundle paths below are the current values from that pointer, not independent
+sources of truth.
+
 As of 2026-05-10, the default live harness activation-id gate, runtime selector
 readiness gate, live handoff, default runtime dispatch proof, cognition
 node-authority gate, routing/model gated node-authority gate,
@@ -85,9 +95,9 @@ comparison deep-link proof, plus fork mutation canary node inspector and
 activation-gate timeline proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-31-02-121Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-10T03-37-47-231Z/dashboard-index.json`
 
 This supersedes the earlier 2026-05-10 mutation-canary checkpoint by proving
 the reviewed package snapshot all the way through package import activation
@@ -595,9 +605,9 @@ composer wiring, `harness-workflow-activation`, IDE build, Rust harness tests,
 `test:agent-runtime-p3`, the full retained GUI harness run, and
 `validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
 is
-`docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-07-00-768Z/result.json`;
+`docs/evidence/autopilot-gui-harness-validation/2026-05-10T03-31-02-121Z/result.json`;
 the P3 bundle is
-`docs/evidence/agent-runtime-p3-validation/2026-05-10T03-13-46-190Z/dashboard-index.json`.
+`docs/evidence/agent-runtime-p3-validation/2026-05-10T03-37-47-231Z/dashboard-index.json`.
 
 This changes the system from "the fork mutation canary is inspectable" to "the
 reviewed mutation canary is part of the live worker binding identity and active
@@ -2423,9 +2433,9 @@ package fields" to "the worker can only attach, launch, rollback, and prove
 rollback-negative behavior while bound to the exact reviewed package snapshot
 that passed import review and activation apply."
 
-## Current State
+## Completed Implementation State
 
-### Roadmap State
+### Roadmap Completion
 
 `docs/roadmap.md` defines the relevant sequence:
 
@@ -2433,13 +2443,13 @@ that passed import review and activation apply."
 - Phase 2: harness componentization.
 - Phase 3: harness-as-workflow.
 
-The phrasing is already directionally right, but the next implementation leg
-should treat Phase 2 and Phase 3 as one continuous migration:
+The implementation has treated Phase 2 and Phase 3 as one continuous migration:
 
-- first make every live harness kernel an executable component contract;
-- then bind those contracts into a blessed workflow graph;
-- then dogfood live turns through that graph;
-- then allow forked harness activation.
+- live harness kernels are executable component contracts;
+- those contracts are bound into the blessed default harness workflow graph;
+- retained live turns dogfood that graph and emit node-level proof;
+- forked harness activation is packageable, editable, importable, and blocked
+  until activation gates pass.
 
 ### Code State
 
@@ -2452,9 +2462,9 @@ The repository already has more than a sketch:
 - `crates/types/src/app/harness.rs` defines typed Rust harness component,
   slot, action frame, retry, timeout, approval, receipt, and worker binding
   contracts.
-- `crates/services/src/agentic/runtime/harness.rs` explicitly states that the
-  current projection does not replace the live executor yet. It lifts existing
-  runtime kernels into stable workflow-addressable frames.
+- The runtime harness code lifts existing runtime kernels into stable
+  workflow-addressable frames and the retained proof binds those frames to the
+  live default dispatch path.
 - `apps/autopilot/src-tauri/src/project/runtime.rs` executes many workflow node
   kinds through an action vocabulary, including task state, uncertainty,
   probes, budget gates, capability sequences, dry run, semantic impact,
@@ -2464,9 +2474,11 @@ The repository already has more than a sketch:
   already exposes worker workflow records with a default harness workflow id,
   activation id, and harness hash.
 
-That means the missing work is not "invent a harness graph." The missing work
-is making the harness graph the live orchestration authority and proving it
-with receipts, tests, replay, GUI inspection, and activation gates.
+That means the guide no longer depends on a projection-only harness graph. The
+validated retained path proves the graph as live orchestration authority with
+receipts, tests, replay, GUI inspection, fork activation gates, worker binding,
+mutation canary, and rollback proof. Follow-on work can improve ergonomics and
+coverage without reopening the target-state proof.
 
 ### Autopilot GUI Pass
 
@@ -2608,11 +2620,13 @@ This leg should not become:
 
 ## Non-Negotiable Invariants
 
-### 1. The live runtime remains trustworthy during migration
+### 1. The live runtime remains trustworthy after promotion
 
-The workflow-backed harness should start in projection and shadow modes before
-it becomes the default executor. Live agent correctness must not depend on a
-half-ported graph path.
+Projection, shadow, and gated modes remain available as evidence and rollout
+states, but the retained default path is now live-backed by the blessed
+workflow activation. Live agent correctness still must not depend on a
+half-ported graph path; incomplete or forked paths must block, fall back, or
+stay proposal-only with explicit receipts.
 
 ### 2. No visible node may fake execution
 
@@ -2808,7 +2822,11 @@ The GUI and package layer expose:
 - export/import packages;
 - worker harness bindings.
 
-## Chronological Plan
+## Completed Implementation Program
+
+The phase plan below is retained as the implementation record for the work that
+led to the latest green checkpoint. Its exit criteria are satisfied for the
+retained default harness path by the canonical latest-green GUI/P3 evidence.
 
 ### Phase 0: Lock The Existing Projection
 
@@ -2996,8 +3014,9 @@ Exit criteria:
 
 ## GUI Requirements
 
-The current GUI has the foundation. The next leg should add or harden the
-following operator affordances.
+The GUI now has the required operator surface for the validated default harness
+path. The remaining GUI items are polish and broader coverage, not blockers for
+the end-state proof.
 
 ### Already Present
 
@@ -3017,7 +3036,7 @@ following operator affordances.
   tests, and run output.
 - Stable selectors for dogfood automation.
 
-### Required Next
+### Validated Requirements
 
 - Runtime mode badge: projection, shadow, gated, live.
 - Component readiness badge: projection-only, simulated, shadow-ready,
@@ -3040,6 +3059,15 @@ following operator affordances.
   proposal id, activation revision, compare target, and rollback revision.
 - Dogfood launcher for retained chat queries, workflow scratch probe, and
   harness shadow suites.
+
+### Follow-On GUI Polish
+
+- Broaden dense-graph ergonomics beyond the retained proof: more group presets,
+  saved filters, keyboard navigation, and search affordances.
+- Expand retained GUI coverage to additional non-default fork scenarios.
+- Keep comparing new rails, split panes, status chips, tables, mini-map, and
+  collapse/expand controls against the AIP reference vocabulary before adding
+  new primitives.
 
 ### Workflow-As-Code UI Boundary
 
@@ -3302,21 +3330,21 @@ runtime, SDK, and CLI should all agree on:
 
 ## Validation Matrix
 
-| Gate                         | Command or evidence                                                                                                         | Purpose                                                                                     |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| GUI harness retained queries | `npm run validate:autopilot-gui-harness`                                                                                    | Proves retained GUI preflight and clean harness contract.                                   |
-| Workflow wiring              | `npm run test -- apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts` or existing package script | Proves GUI selectors, harness controls, and workflow surface wiring.                        |
-| Runtime P3 contract          | `npm run validate:agent-runtime-p3`                                                                                         | Proves smarter runtime and harness contract lanes.                                          |
-| Runtime tests                | `npm run test:agent-runtime-p3`                                                                                             | Exercises agent runtime P3 test surface.                                                    |
-| Rust harness tests           | targeted `cargo test` for `agentic::runtime::harness` and `ioi_types::app::harness`                                         | Proves component contracts and receipt mapping.                                             |
-| Workflow execution tests     | targeted Tauri/project runtime tests                                                                                        | Proves visible node kinds execute or block honestly.                                        |
-| Shadow comparison            | new harness shadow evidence bundle                                                                                          | Proves graph/action-frame decisions match live runtime.                                     |
-| Fork activation              | new activation readiness tests                                                                                              | Proves forked harness cannot activate without slots, fixtures, policy, tests, and receipts. |
-| Worker binding               | local engine worker support tests                                                                                           | Proves worker records expose harness id, activation id, and hash.                           |
+| Gate                         | Command or evidence                                                                                      | Purpose                                                                                 |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| GUI harness retained queries | `npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000`                               | Proves retained GUI behavior, live proof extraction, fork/package activation, rollback. |
+| GUI harness contract         | `npm run test:autopilot-gui-harness`                                                                     | Proves retained query pack, runtime consistency requirements, and latest-green policy.  |
+| Runtime P3 contract          | `npm run test:agent-runtime-p3`                                                                          | Exercises agent runtime P3 contract surface.                                            |
+| Runtime P3 required GUI      | `npm run validate:agent-runtime-p3 -- --require-gui-evidence`                                            | Proves P3 has zero incomplete items with retained GUI evidence.                         |
+| Shell workflow wiring        | `node --test apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs`             | Proves shell selectors, harness controls, and route-state restoration.                  |
+| Composer workflow wiring     | `node --test apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts`             | Proves workbench panels, rail state, fork/package activation, and inspectors.           |
+| Activation runtime tests     | `node --import tsx --test packages/agent-ide/src/runtime/harness-workflow-activation.test.ts`            | Proves valid/invalid fork activation, worker attach, mutation canary, and rollback.     |
+| Rust harness tests           | `cargo test -p ioi-types app::harness --lib`                                                            | Proves canonical component contracts, promotion gates, receipt mapping, worker binding. |
 
 ## Acceptance Criteria
 
-This leg is complete when all of the following are true:
+This leg is complete and validated for the retained default harness path when
+all of the following are true:
 
 - The default harness graph is generated from shared TS/Rust component
   contracts, not duplicated ad hoc lists.
@@ -3337,9 +3365,23 @@ This leg is complete when all of the following are true:
 - SDK, CLI, GUI, worker records, and runtime traces expose the same harness
   binding.
 
-Current status: the 2026-05-10T02:30 GUI evidence bundle and
-2026-05-10T02:36 P3 bundle satisfy these criteria for the retained default
-agent harness path.
+Current status: `docs/evidence/agent-runtime-harness-workflow/latest-green.json`
+points to the GUI and P3 bundles that satisfy these criteria for the retained
+default agent harness path with zero P3 incomplete items.
+
+## Gap Closure
+
+| Prior gap | Status | Rationale |
+| --- | --- | --- |
+| Runtime harness componentization | Closed | TS/Rust contracts cover P0 components, execution modes, readiness states, action frames, retry/timeout, receipts, replay, worker binding, and rollback. |
+| Projection-only harness graph | Closed | Latest GUI proof shows the blessed activation bound to default runtime dispatch, worker attach lifecycle, live turn node inspector, and live-vs-shadow comparison. |
+| Fork edit/package/import activation | Closed | Latest proof covers fork package evidence, import review, activation apply, mutation canary identity, worker binding, rollback target, and invalid-package blockers. |
+| GUI node-level proof | Closed | Retained GUI evidence restores node timeline, node inspector, receipts, replay refs, live/shadow comparison, activation gate, and rollback workbench panels. |
+| Evidence authority | Closed | `latest-green.json` is canonical; timestamped bundles are historical; scratch runs are quarantined or ignored unless promoted into the pointer. |
+| Browser-use harness guide | Deferred | Separate later leg; not required for default agent harness-as-workflow proof. |
+| Broader retained query expansion | Follow-on | Useful hardening beyond the retained default harness path. |
+| CLI/SDK ergonomic exposure | Follow-on | Harness binding evidence exists where required; richer developer affordances can ship independently. |
+| Generated manifest/codegen beyond parity checks | Follow-on | Existing TS/Rust parity and contract tests close the safety gap; codegen can reduce maintenance later. |
 
 ## Risks And Mitigations
 
@@ -3354,11 +3396,10 @@ agent harness path.
 | Migration regresses normal chat.                       | Component-by-component gated rollout with fallback receipts.                            |
 | Fork activation becomes too hard to understand.        | Activation wizard, actionable blockers, component diff, and canary/rollback controls.   |
 
-## Post-Checkpoint Hardening Queue
+## Follow-On Productization
 
-The next work is no longer about proving the target state from this guide. That
-proof is green. The remaining work is hardening, maintainability, and product
-polish:
+The remaining work is not blocking the master-guide target state. It is
+hardening, maintainability, and product polish:
 
 1. Trim or archive stale intermediate evidence bundles once the team agrees on
    retention policy.
@@ -3374,30 +3415,6 @@ polish:
 6. Move browser-use harness work into its separate guide and reuse the same
    proof discipline: screenshots plus marks plus Playwright control, with
    route-stateful evidence and rollback when the browser session changes.
-
-## Recommended Next PR Slice
-
-Make the validated proof easier to maintain:
-
-- consolidate reviewed package snapshot identity helpers and tests;
-- add one focused regression fixture for the mutation-canary snapshot hash drift
-  that previously blocked worker attach;
-- add one GUI fixture asserting package apply restores both the settings gate
-  timeline and outputs node inspector for the same mutation canary attempt;
-- update developer-facing docs to point to the latest green GUI and P3 bundles.
-
-## Open Questions
-
-- Should the canonical component manifest be Rust-first, JSON-schema-first, or
-  generated from a small language-neutral manifest?
-- Should shadow mode run synchronously inside the live turn, asynchronously
-  after the turn, or both depending on latency profile?
-- What is the minimum divergence threshold before promoting a component from
-  shadow-ready to gated?
-- Which policy decisions are allowed to be parameterized by a forked harness,
-  and which must remain fixed by the runtime or wallet authority?
-- Should forked harness activations be user-local only at first, or can they be
-  bound to persistent workers after canary proof?
 
 ## Final North Star
 
