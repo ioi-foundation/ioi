@@ -16,7 +16,9 @@ mod components;
 mod core;
 mod promotion;
 mod receipts;
+mod replay;
 mod serde_bridge;
+mod slots;
 mod worker_binding;
 
 pub use activation::*;

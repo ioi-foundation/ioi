@@ -12,6 +12,36 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function readMany(relativePaths) {
+  return relativePaths.map(read).join("\n");
+}
+
+function readRustHarnessContract() {
+  return readMany([
+    "crates/types/src/app/harness/core.rs",
+    "crates/types/src/app/harness/promotion.rs",
+    "crates/types/src/app/harness/components.rs",
+    "crates/types/src/app/harness/worker_binding.rs",
+    "crates/types/src/app/harness/activation.rs",
+    "crates/types/src/app/harness/receipts.rs",
+    "crates/types/src/app/harness/serde_bridge.rs",
+  ]);
+}
+
+function readTsHarnessWorkflow() {
+  return read("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+}
+
+function readWorkflowRailPanel() {
+  return read(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+  );
+}
+
+function readGuiHarnessValidation() {
+  return read("scripts/lib/autopilot-gui-harness-validation/core.mjs");
+}
+
 function rustImplBlock(source, implName) {
   const start = source.indexOf(`impl ${implName}`);
   assert.notEqual(start, -1, `missing Rust impl ${implName}`);
@@ -39,7 +69,7 @@ function tsUnionValues(source, typeName) {
 }
 
 test("TS harness component and mode unions match Rust canonical contract", () => {
-  const rust = read("crates/types/src/app/harness.rs");
+  const rust = readRustHarnessContract();
   const graph = read("packages/agent-ide/src/types/graph.ts");
 
   assert.deepEqual(
@@ -73,7 +103,7 @@ test("TS harness component and mode unions match Rust canonical contract", () =>
 });
 
 test("TS harness projection carries canonical mode, readiness, replay, clusters, and prompt assembler", () => {
-  const workflow = read("packages/agent-ide/src/runtime/harness-workflow.ts");
+  const workflow = readTsHarnessWorkflow();
   assert.match(workflow, /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*projection/);
   assert.match(
     workflow,
@@ -110,17 +140,13 @@ test("TS harness projection carries canonical mode, readiness, replay, clusters,
 
 test("TS harness fork activation contract records blocked and canary-validated paths", () => {
   const graph = read("packages/agent-ide/src/types/graph.ts");
-  const workflow = read("packages/agent-ide/src/runtime/harness-workflow.ts");
+  const workflow = readTsHarnessWorkflow();
   const validation = read(
     "packages/agent-ide/src/runtime/workflow-validation.ts",
   );
-  const guiValidation = read(
-    "scripts/run-autopilot-gui-harness-validation.mjs",
-  );
-  const rail = read(
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
-  );
-  const rust = read("crates/types/src/app/harness.rs");
+  const guiValidation = readGuiHarnessValidation();
+  const rail = readWorkflowRailPanel();
+  const rust = readRustHarnessContract();
   const serviceHarness = read("crates/services/src/agentic/runtime/harness.rs");
 
   assert.match(graph, /WorkflowHarnessForkActivationRecord/);

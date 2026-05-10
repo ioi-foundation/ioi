@@ -1933,4 +1933,3 @@ pub fn default_harness_node_attempt_for_worker_handoff_receipt(
         replay,
     }
 }
-
