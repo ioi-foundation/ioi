@@ -37,7 +37,7 @@ test("refactor facades stay thin and module directories exist", () => {
     ["crates/types/src/app/harness/mod.rs", 48],
     ["packages/agent-ide/src/runtime/harness-workflow.ts", 8],
     ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx", 8],
-    ["scripts/run-autopilot-gui-harness-validation.mjs", 8],
+    ["scripts/run-autopilot-gui-harness-validation.mjs", 12],
     ["apps/autopilot/src-tauri/src/orchestrator/store/mod.rs", 32],
   ]) {
     assertFacade(relativePath, maxLines);

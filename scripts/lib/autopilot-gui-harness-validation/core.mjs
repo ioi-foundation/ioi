@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
@@ -4396,11 +4397,11 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
 
 export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx";
   const validationPath =
     "packages/agent-ide/src/runtime/workflow-validation.ts";
   const harnessWorkflowPath =
-    "packages/agent-ide/src/runtime/harness-workflow.ts";
+    "packages/agent-ide/src/runtime/harness-workflow/core.ts";
   const railModelPath = "packages/agent-ide/src/runtime/workflow-rail-model.ts";
   const controllerPath =
     "packages/agent-ide/src/WorkflowComposer/controller.tsx";
@@ -10664,7 +10665,7 @@ async function runGuiValidation(args, outputRoot) {
   }
 }
 
-async function main() {
+export async function main() {
   const args = parseArgs(process.argv.slice(2));
   const outputRoot = resolve(repoRoot, args.outputRoot, timestamp());
   if (args.contractOnly) {
@@ -10709,11 +10710,16 @@ async function main() {
   return validation.ok ? 0 : 1;
 }
 
-main()
-  .then((code) => {
-    process.exitCode = code;
-  })
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
+  main()
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+}
