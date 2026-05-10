@@ -956,7 +956,7 @@ npm run test:subagents
 npm run test:agentgres-runtime-state
 npm run test:workflow-compositor-dogfood
 npm run test:hosted-workers
-npm run validate:architectural-improvements-broad
+npm run validate:runtime-complete-plus
 AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000
 ```
 
