@@ -67,34 +67,34 @@ import type {
   WorkflowTestCase,
 } from "../../types/graph";
 import { normalizeGlobalConfig, slugify } from "../workflow-defaults";
-
-export const DEFAULT_AGENT_HARNESS_WORKFLOW_ID = "default-agent-harness";
-export const DEFAULT_AGENT_HARNESS_VERSION = "2026.04.default-harness.v1";
-export const DEFAULT_AGENT_HARNESS_HASH =
-  "sha256:default-agent-harness-component-projection-v1";
-export const DEFAULT_AGENT_HARNESS_ACTIVATION_ID =
-  "activation:default-agent-harness:blessed-readonly";
-export const DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID =
-  "p0-live-shadow-comparison-gate";
-export const DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET =
-  DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
-export const DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS = Object.freeze([
-  "harness_activation_not_validated",
-  "required_slots_unbound",
-  "replay_fixtures_missing",
-  "canary_not_run",
-  "activation_review_incomplete",
-]);
-const DEFAULT_AGENT_HARNESS_FORK_MUTATION_TARGET_PATH =
-  "global_config.policy.maxSteps";
-const DEFAULT_AGENT_HARNESS_FORK_MUTATION_BEFORE_VALUE = "80";
-const DEFAULT_AGENT_HARNESS_FORK_MUTATION_AFTER_VALUE = "64";
-export const DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS =
-  5 * 60 * 1000;
-export const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT =
-  "reviewed_import_activation_apply";
-export const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS =
-  5 * 60 * 1000;
+import {
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+  DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS,
+  DEFAULT_AGENT_HARNESS_FORK_MUTATION_AFTER_VALUE,
+  DEFAULT_AGENT_HARNESS_FORK_MUTATION_BEFORE_VALUE,
+  DEFAULT_AGENT_HARNESS_FORK_MUTATION_TARGET_PATH,
+  DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
+  DEFAULT_AGENT_HARNESS_HASH,
+  DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID,
+  DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+  DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS,
+  DEFAULT_AGENT_HARNESS_VERSION,
+  DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+} from "./constants";
+export {
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
+  DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS,
+  DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
+  DEFAULT_AGENT_HARNESS_HASH,
+  DEFAULT_AGENT_HARNESS_LIVE_SHADOW_COMPARISON_GATE_ID,
+  DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
+  DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS,
+  DEFAULT_AGENT_HARNESS_VERSION,
+  DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+} from "./constants";
+import { stableContentHash } from "./hashing";
 
 const HARNESS_INPUT_SCHEMA = {
   type: "object",
@@ -789,29 +789,6 @@ export function harnessForkActivationId(workflowId: string): string {
     /^sha256:/,
     "",
   ).slice(0, 12)}`;
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .filter((key) => record[key] !== undefined)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
-    .join(",")}}`;
-}
-
-function stableContentHash(value: unknown): string {
-  const input = stableStringify(value);
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `stable-fnv1a32:${hash.toString(16).padStart(8, "0")}`;
 }
 
 export function workflowHarnessSourceContentHash(

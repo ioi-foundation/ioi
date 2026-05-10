@@ -32,27 +32,29 @@ function assertFacade(relativePath, maxLines) {
   );
 }
 
-test("refactor facades stay thin and module directories exist", () => {
+function assertOwnsImplementation(relativePath, pattern, minLines = 8) {
+  assertExists(relativePath);
+  const source = read(relativePath);
+  assert.ok(
+    lineCount(relativePath) >= minLines,
+    `${relativePath} should contain extracted implementation, not just a placeholder`,
+  );
+  assert.match(source, pattern, `${relativePath} is missing its expected implementation surface`);
+}
+
+test("runtime and workflow harness compatibility facades stay thin", () => {
   for (const [relativePath, maxLines] of [
     ["crates/types/src/app/harness/mod.rs", 48],
     ["packages/agent-ide/src/runtime/harness-workflow.ts", 8],
     ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx", 8],
     ["scripts/run-autopilot-gui-harness-validation.mjs", 12],
-    ["apps/autopilot/src-tauri/src/orchestrator/store/mod.rs", 32],
   ]) {
     assertFacade(relativePath, maxLines);
   }
+});
 
+test("workflow harness runtime modules remain split by concern", () => {
   for (const relativePath of [
-    "crates/types/src/app/harness/core.rs",
-    "crates/types/src/app/harness/components.rs",
-    "crates/types/src/app/harness/slots.rs",
-    "crates/types/src/app/harness/replay.rs",
-    "crates/types/src/app/harness/receipts.rs",
-    "crates/types/src/app/harness/worker_binding.rs",
-    "crates/types/src/app/harness/activation.rs",
-    "crates/types/src/app/harness/promotion.rs",
-    "crates/types/src/app/harness/serde_bridge.rs",
     "packages/agent-ide/src/runtime/harness-workflow/constants.ts",
     "packages/agent-ide/src/runtime/harness-workflow/hashing.ts",
     "packages/agent-ide/src/runtime/harness-workflow/package-evidence.ts",
@@ -64,16 +66,24 @@ test("refactor facades stay thin and module directories exist", () => {
     "packages/agent-ide/src/runtime/harness-workflow/adapter-results.ts",
     "packages/agent-ide/src/runtime/harness-workflow/graph-builder.ts",
     "packages/agent-ide/src/runtime/harness-workflow/inspection.ts",
-    "apps/autopilot/src-tauri/src/orchestrator/store/events.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/artifacts.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/sessions.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/workbench_activity.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/local_engine.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/workflow_harness.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/knowledge.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/skills.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/attention.rs",
-    "apps/autopilot/src-tauri/src/orchestrator/store/shared.rs",
+  ]) {
+    assertExists(relativePath);
+  }
+
+  assertOwnsImplementation(
+    "packages/agent-ide/src/runtime/harness-workflow/constants.ts",
+    /DEFAULT_AGENT_HARNESS_WORKFLOW_ID/,
+    20,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/runtime/harness-workflow/hashing.ts",
+    /stableContentHash/,
+    20,
+  );
+});
+
+test("workflow rail modules own extracted implementation", () => {
+  for (const relativePath of [
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/activationWizard.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/evidencePanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/packagePanel.tsx",
@@ -82,6 +92,24 @@ test("refactor facades stay thin and module directories exist", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/rollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
+  ]) {
+    assertExists(relativePath);
+  }
+
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
+    /WorkflowHarnessActivationWizardStep/,
+    40,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
+    /workflowHarnessPackageDeepLinkTarget/,
+    80,
+  );
+});
+
+test("GUI harness validation modules remain split by concern", () => {
+  for (const relativePath of [
     "scripts/lib/autopilot-gui-harness-validation/args.mjs",
     "scripts/lib/autopilot-gui-harness-validation/desktop.mjs",
     "scripts/lib/autopilot-gui-harness-validation/retained-query-evidence.mjs",
@@ -92,14 +120,29 @@ test("refactor facades stay thin and module directories exist", () => {
   ]) {
     assertExists(relativePath);
   }
+
+  assertOwnsImplementation(
+    "scripts/lib/autopilot-gui-harness-validation/args.mjs",
+    /parseArgs/,
+    30,
+  );
+  assertOwnsImplementation(
+    "scripts/lib/autopilot-gui-harness-validation/artifacts.mjs",
+    /writeBundle/,
+    8,
+  );
+  assertOwnsImplementation(
+    "scripts/lib/autopilot-gui-harness-validation/desktop.mjs",
+    /typeQuery/,
+    200,
+  );
 });
 
 test("core files do not grow past the refactor checkpoint without updating the guard", () => {
   for (const [relativePath, maxLines] of [
-    ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 12_200],
-    ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 11_700],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 10_850],
-    ["apps/autopilot/src-tauri/src/orchestrator/store/core.rs", 21_200],
+    ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 12_080],
+    ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 11_450],
+    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 10_750],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,

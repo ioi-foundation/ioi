@@ -7,7 +7,6 @@ import type {
   WorkflowCheckpoint,
   WorkflowConnectionClass,
   WorkflowHarnessActivationCandidateGateResult,
-  WorkflowHarnessComponentKind,
   WorkflowDogfoodRun,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
@@ -25,7 +24,6 @@ import type {
   WorkflowValidationIssue,
   WorkflowTestRunResult,
   WorkflowValidationResult,
-  WorkflowRevisionBinding,
 } from "../../../types/graph";
 import { workflowInterruptPreview } from "../../../runtime/workflow-bottom-panel-model";
 import {
@@ -73,217 +71,24 @@ import {
   workflowTimeLabel,
 } from "../../../runtime/workflow-rail-model";
 
-type WorkflowHarnessAuthorityGateProofView = {
-  id: "policy-gate" | "destructive-denial" | "approval-gate";
-  label: string;
-  componentKind: Extract<
-    WorkflowHarnessComponentKind,
-    "policy_gate" | "approval_gate"
-  >;
-  node: Node | null;
-  ready: boolean;
-  status: "live_ready" | "blocked";
-  attemptIds: string[];
-  receiptIds: string[];
-  replayFixtureRefs: string[];
-  policyDecision: string;
-  blockerState: string;
-  componentId: string;
-  runId: string;
-  selectedPanel: WorkflowRightPanel;
-};
-
-function workflowProofStringArray(
-  proof: Record<string, unknown> | null | undefined,
-  key: string,
-  fallback: string[] = [],
-): string[] {
-  const value = proof?.[key];
-  if (!Array.isArray(value)) return fallback;
-  return value.filter((item): item is string => typeof item === "string");
-}
-
-function workflowProofString(
-  proof: Record<string, unknown> | null | undefined,
-  key: string,
-  fallback: string,
-): string {
-  const value = proof?.[key];
-  return typeof value === "string" ? value : fallback;
-}
-
-function workflowProofBoolean(
-  proof: Record<string, unknown> | null | undefined,
-  key: string,
-  fallback: boolean,
-): boolean {
-  const value = proof?.[key];
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function workflowHarnessAuthorityGateBlockerState(
-  gate: Pick<
-    WorkflowHarnessAuthorityGateProofView,
-    "ready" | "attemptIds" | "receiptIds" | "replayFixtureRefs"
-  >,
-): string {
-  if (gate.ready) return "none";
-  if (gate.attemptIds.length === 0) return "missing attempt";
-  if (gate.receiptIds.length === 0) return "missing receipt";
-  if (gate.replayFixtureRefs.length === 0) return "missing replay fixture";
-  return "needs activation review";
-}
-
-type WorkflowHarnessWorkbenchDeepLinkTarget = {
-  panel?: WorkflowRightPanel;
-  groupId?: string;
-  componentId?: string;
-  runId?: string;
-  selectorDecisionId?: string;
-  dispatchId?: string;
-  workerBindingId?: string;
-  nodeAttemptId?: string;
-  receiptRef?: string;
-  replayFixtureRef?: string;
-  rollbackTarget?: string;
-  revisionBindingKind?: "current" | "candidate" | "rollback" | string;
-  revisionBindingRef?: string;
-  activationBlockerIndex?: string;
-  activationBlockerRef?: string;
-  activationAuditEventId?: string;
-  activationGateId?: string;
-  activationGateEvidenceRef?: string;
-  activationGateNodeAttemptId?: string;
-  activationGateReceiptRef?: string;
-  activationGateReplayFixtureRef?: string;
-};
-
-type WorkflowHarnessActivationGateActionKind =
-  | "inspect_blocker"
-  | "check_readiness"
-  | "review_proposal"
-  | "run_activation_dry_run"
-  | "run_replay_gate"
-  | "run_rollback_drill"
-  | "mint_activation";
-
-type WorkflowHarnessActivationGateActionImpact =
-  | "inspect"
-  | "collect_evidence"
-  | "clear_blocker"
-  | "mint_activation";
-
-type WorkflowHarnessActivationGateAction = {
-  actionId: string;
-  kind: WorkflowHarnessActivationGateActionKind;
-  impact: WorkflowHarnessActivationGateActionImpact;
-  label: string;
-  detail: string;
-  commandTestId: string;
-  disabled: boolean;
-  disabledReason?: string;
-  onRun?: () => void;
-};
-
-type WorkflowHarnessActivationWizardStep = {
-  id: string;
-  label: string;
-  ready: boolean;
-  value: string;
-  detail: string;
-  evidenceRefs: string[];
-  nodeAttemptIds?: string[];
-  receiptRefs?: string[];
-  replayFixtureRefs?: string[];
-  requiredInvariantIds?: string[];
-  invariantBlockers?: string[];
-  gateAction: WorkflowHarnessActivationGateAction;
-};
-
-function workflowHarnessUniqueStrings(
-  values: Array<string | null | undefined>,
-): string[] {
-  return Array.from(
-    new Set(
-      values.filter(
-        (value): value is string =>
-          typeof value === "string" && value.length > 0,
-      ),
-    ),
-  );
-}
-
-function workflowHarnessInvariantIds(
-  ...lists: Array<readonly string[] | null | undefined>
-): string[] {
-  return workflowHarnessUniqueStrings(
-    lists.flatMap((list) => (Array.isArray(list) ? [...list] : [])),
-  );
-}
-
-function workflowHarnessHasReviewedImportActivationInvariant(
-  invariantIds: readonly string[] | null | undefined,
-): boolean {
-  return Boolean(
-    invariantIds?.includes(
-      DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
-    ),
-  );
-}
-
-function workflowHarnessInvariantBlockers(
-  ...lists: Array<readonly string[] | null | undefined>
-): string[] {
-  return workflowHarnessInvariantIds(...lists);
-}
-
-function workflowHarnessPackageDeepLinkTarget(
-  link: { kind?: string; ref?: string } | null | undefined,
-): WorkflowHarnessWorkbenchDeepLinkTarget | null {
-  if (!link?.ref) return null;
-  if (link.kind === "activation") {
-    return { panel: "settings", workerBindingId: link.ref };
-  }
-  if (link.kind === "canary_boundary" || link.kind === "rollback_drill") {
-    return {
-      panel: "settings",
-      activationGateId: "canary",
-      activationGateEvidenceRef: link.ref,
-    };
-  }
-  if (link.kind === "rollback_restore") {
-    return {
-      panel: "settings",
-      receiptRef: link.ref,
-      activationGateId: "rollback-restore",
-      activationGateReceiptRef: link.ref,
-    };
-  }
-  if (link.kind === "worker_handoff") {
-    return {
-      panel: "settings",
-      activationGateId: "worker-handoff",
-      activationGateNodeAttemptId: link.ref,
-      nodeAttemptId: link.ref,
-    };
-  }
-  return {
-    panel: "settings",
-    activationGateId: "package-evidence",
-    activationGateEvidenceRef: link.ref,
-  };
-}
-
-function workflowRevisionBindingDeepLinkRef(
-  binding: WorkflowRevisionBinding | null | undefined,
-): string | null {
-  return (
-    binding?.activatedRevision ??
-    binding?.workflowContentHash ??
-    binding?.activationId ??
-    null
-  );
-}
+import type {
+  WorkflowHarnessActivationGateAction,
+  WorkflowHarnessActivationWizardStep,
+  WorkflowHarnessAuthorityGateProofView,
+  WorkflowHarnessWorkbenchDeepLinkTarget,
+} from "./types";
+import {
+  workflowHarnessAuthorityGateBlockerState,
+  workflowHarnessHasReviewedImportActivationInvariant,
+  workflowHarnessInvariantBlockers,
+  workflowHarnessInvariantIds,
+  workflowHarnessPackageDeepLinkTarget,
+  workflowHarnessUniqueStrings,
+  workflowProofBoolean,
+  workflowProofString,
+  workflowProofStringArray,
+  workflowRevisionBindingDeepLinkRef,
+} from "./statusPrimitives";
 
 export function WorkflowRailPanel({
   panel,
