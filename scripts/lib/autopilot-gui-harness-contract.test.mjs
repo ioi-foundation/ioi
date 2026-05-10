@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
@@ -12,6 +15,14 @@ import {
   validateAutopilotGuiHarnessResult,
   validateDefaultLivePromotionInvariants,
 } from "./autopilot-gui-harness-contract.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, "../..");
+
+function readRepo(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
 
 function reviewedImportActivationApplyProof(overrides = {}) {
   const activationId =
@@ -938,4 +949,28 @@ test("blocked result records external blocker without pretending validation pass
   assert.equal(blocked.blocked, true);
   assert.equal(validation.ok, false);
   assert.ok(validation.failures.some((failure) => failure.includes("missing retained query")));
+});
+
+test("master guide uses latest-green as completed end-state authority", () => {
+  const latest = JSON.parse(
+    readRepo("docs/evidence/agent-runtime-harness-workflow/latest-green.json"),
+  );
+  const readme = readRepo("docs/evidence/agent-runtime-harness-workflow/README.md");
+  const guide = readRepo(
+    "docs/plans/agent-runtime-harness-as-workflow-master-guide.md",
+  );
+
+  assert.equal(latest.status, "green");
+  assert.equal(latest.canonical, true);
+  assert.equal(latest.guiEvidence.validationOk, true);
+  assert.equal(latest.runtimeP3Evidence.incompleteItems, 0);
+  assert.ok(readme.includes(latest.guiEvidence.result));
+  assert.ok(readme.includes(latest.runtimeP3Evidence.dashboardIndex));
+  assert.ok(guide.includes("docs/evidence/agent-runtime-harness-workflow/latest-green.json"));
+  assert.ok(guide.includes("## Gap Closure"));
+  assert.ok(guide.includes("## Follow-On Productization"));
+  assert.ok(!guide.includes("## Open Questions"));
+  assert.ok(!guide.includes("## Recommended Next PR Slice"));
+  assert.ok(!guide.includes("The next leg should be"));
+  assert.ok(!guide.includes("Current status: the 2026-05-10T02"));
 });
