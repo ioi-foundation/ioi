@@ -846,6 +846,30 @@ pub struct HarnessWorkerBindingRegistryRecord {
     pub activation_id: String,
     pub activation_hash: String,
     pub harness_hash: String,
+    pub reviewed_package_snapshot_hash: String,
+    pub reviewed_workflow_content_hash: String,
+    pub reviewed_activation_id: String,
+    pub reviewed_harness_workflow_id: String,
+    pub reviewed_worker_binding_activation_id: String,
+    pub reviewed_rollback_target: String,
+    pub reviewed_replay_fixture_refs: Vec<String>,
+    pub reviewed_worker_handoff_node_attempt_ids: Vec<String>,
+    pub reviewed_worker_handoff_receipt_ids: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_id: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_status: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_diff_hash: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_replay_fixture_refs: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_node_attempt_ids: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_rollback_target: String,
+    pub reviewed_policy_posture: String,
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub readiness_proof_id: String,
@@ -897,6 +921,30 @@ pub struct HarnessWorkerAttachRequest {
     pub activation_id: String,
     pub activation_hash: String,
     pub harness_hash: String,
+    pub reviewed_package_snapshot_hash: String,
+    pub reviewed_workflow_content_hash: String,
+    pub reviewed_activation_id: String,
+    pub reviewed_harness_workflow_id: String,
+    pub reviewed_worker_binding_activation_id: String,
+    pub reviewed_rollback_target: String,
+    pub reviewed_replay_fixture_refs: Vec<String>,
+    pub reviewed_worker_handoff_node_attempt_ids: Vec<String>,
+    pub reviewed_worker_handoff_receipt_ids: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_id: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_status: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_diff_hash: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_replay_fixture_refs: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_node_attempt_ids: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_rollback_target: String,
+    pub reviewed_policy_posture: String,
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub readiness_proof_id: String,
@@ -919,6 +967,30 @@ pub struct HarnessWorkerAttachReceipt {
     pub activation_id: String,
     pub activation_hash: String,
     pub harness_hash: String,
+    pub reviewed_package_snapshot_hash: String,
+    pub reviewed_workflow_content_hash: String,
+    pub reviewed_activation_id: String,
+    pub reviewed_harness_workflow_id: String,
+    pub reviewed_worker_binding_activation_id: String,
+    pub reviewed_rollback_target: String,
+    pub reviewed_replay_fixture_refs: Vec<String>,
+    pub reviewed_worker_handoff_node_attempt_ids: Vec<String>,
+    pub reviewed_worker_handoff_receipt_ids: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_id: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_status: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_diff_hash: String,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_replay_fixture_refs: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_node_attempt_ids: Vec<String>,
+    #[serde(default)]
+    pub reviewed_fork_mutation_canary_rollback_target: String,
+    pub reviewed_policy_posture: String,
     pub component_version_set: Vec<HarnessComponentVersionBinding>,
     pub rollback_target: String,
     pub rollback_available: bool,
@@ -1209,7 +1281,146 @@ pub struct HarnessReviewedImportActivationApplyGate {
     pub activation_id: Option<String>,
     pub worker_binding_activation_id: Option<String>,
     pub rollback_target: Option<String>,
+    pub reviewed_workflow_content_hash: Option<String>,
+    pub reviewed_harness_workflow_id: Option<String>,
+    pub reviewed_replay_fixture_refs: Vec<String>,
+    pub reviewed_worker_handoff_node_attempt_ids: Vec<String>,
+    pub reviewed_worker_handoff_receipt_ids: Vec<String>,
+    pub reviewed_policy_posture: Option<String>,
     pub default_dispatch_activation_blockers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessCognitionNodeAuthorityGate {
+    pub schema_version: String,
+    pub gate_id: String,
+    pub authority_mode: String,
+    pub authoritative: bool,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub required_execution_mode: HarnessExecutionMode,
+    pub runtime_authority: String,
+    pub adapter_mode: String,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub live_ready_component_kinds: Vec<HarnessComponentKind>,
+    pub action_frame_ids: Vec<String>,
+    pub attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub fallback_available: bool,
+    pub fallback_ref: String,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessRoutingModelNodeAuthorityGate {
+    pub schema_version: String,
+    pub gate_id: String,
+    pub authority_mode: String,
+    pub authoritative: bool,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub required_execution_mode: HarnessExecutionMode,
+    pub runtime_authority: String,
+    pub adapter_mode: String,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub shadow_ready_component_kinds: Vec<HarnessComponentKind>,
+    pub action_frame_ids: Vec<String>,
+    pub attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub shadow_attempt_ids: Vec<String>,
+    pub shadow_receipt_ids: Vec<String>,
+    pub shadow_replay_fixture_refs: Vec<String>,
+    pub divergence_classes: Vec<HarnessDivergenceClass>,
+    pub shadow_divergence_classes: Vec<HarnessDivergenceClass>,
+    pub provider_canary_ready: bool,
+    pub visible_output_selected: bool,
+    pub visible_output_authority: String,
+    pub read_only_capability_routing_ready: bool,
+    pub rollback_available: bool,
+    pub fallback_available: bool,
+    pub fallback_ref: String,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessVerificationOutputNodeAuthorityGate {
+    pub schema_version: String,
+    pub gate_id: String,
+    pub authority_mode: String,
+    pub authoritative: bool,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub required_execution_mode: HarnessExecutionMode,
+    pub runtime_authority: String,
+    pub adapter_mode: String,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub shadow_ready_component_kinds: Vec<HarnessComponentKind>,
+    pub action_frame_ids: Vec<String>,
+    pub attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub shadow_attempt_ids: Vec<String>,
+    pub shadow_receipt_ids: Vec<String>,
+    pub shadow_replay_fixture_refs: Vec<String>,
+    pub divergence_classes: Vec<HarnessDivergenceClass>,
+    pub shadow_divergence_classes: Vec<HarnessDivergenceClass>,
+    pub output_writer_handoff_ready: bool,
+    pub output_writer_materialization_canary_ready: bool,
+    pub output_writer_staged_write_canary_ready: bool,
+    pub output_writer_visible_write_ready: bool,
+    pub output_writer_visible_write_committed: bool,
+    pub rollback_available: bool,
+    pub fallback_available: bool,
+    pub fallback_ref: String,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessAuthorityToolingNodeAuthorityGate {
+    pub schema_version: String,
+    pub gate_id: String,
+    pub authority_mode: String,
+    pub authoritative: bool,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub required_execution_mode: HarnessExecutionMode,
+    pub runtime_authority: String,
+    pub adapter_mode: String,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub shadow_ready_component_kinds: Vec<HarnessComponentKind>,
+    pub action_frame_ids: Vec<String>,
+    pub attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub shadow_attempt_ids: Vec<String>,
+    pub shadow_receipt_ids: Vec<String>,
+    pub shadow_replay_fixture_refs: Vec<String>,
+    pub divergence_classes: Vec<HarnessDivergenceClass>,
+    pub shadow_divergence_classes: Vec<HarnessDivergenceClass>,
+    pub read_only_route_accepted: bool,
+    pub destructive_route_denied: bool,
+    pub mutating_tool_calls_blocked: bool,
+    pub side_effects_executed: bool,
+    pub policy_gate_ready: bool,
+    pub tool_router_ready: bool,
+    pub dry_run_simulator_ready: bool,
+    pub approval_gate_ready: bool,
+    pub gate_live_ready: bool,
+    pub read_only_authority_canary_ready: bool,
+    pub rollback_available: bool,
+    pub fallback_available: bool,
+    pub fallback_ref: String,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -1382,6 +1593,10 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub reviewed_import_activation_apply_proof_blockers: Vec<String>,
     pub reviewed_import_activation_apply_activation_id: Option<String>,
     pub reviewed_import_activation_apply_gate: HarnessReviewedImportActivationApplyGate,
+    pub cognition_node_authority_gate: HarnessCognitionNodeAuthorityGate,
+    pub routing_model_node_authority_gate: HarnessRoutingModelNodeAuthorityGate,
+    pub verification_output_node_authority_gate: HarnessVerificationOutputNodeAuthorityGate,
+    pub authority_tooling_node_authority_gate: HarnessAuthorityToolingNodeAuthorityGate,
     pub cognition_execution_mode: String,
     pub cognition_execution_ready: bool,
     pub prompt_assembly_mode: String,
@@ -1579,6 +1794,73 @@ pub struct HarnessCanaryExecutionBoundary {
     pub rollback_drill: HarnessCanaryRollbackDrill,
     pub policy_decision: String,
     pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessForkMutationCanaryStatus {
+    Passed,
+    Blocked,
+    NotRun,
+}
+
+impl HarnessForkMutationCanaryStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Passed => "passed",
+            Self::Blocked => "blocked",
+            Self::NotRun => "not_run",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessForkMutationKind {
+    BudgetGateLimit,
+    RetryBound,
+    VerifierThreshold,
+}
+
+impl HarnessForkMutationKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BudgetGateLimit => "budget_gate_limit",
+            Self::RetryBound => "retry_bound",
+            Self::VerifierThreshold => "verifier_threshold",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessForkMutationCanary {
+    pub schema_version: String,
+    pub canary_id: String,
+    pub mutation_id: String,
+    pub mutation_kind: HarnessForkMutationKind,
+    pub mutation_scope: String,
+    pub workflow_id: String,
+    pub harness_workflow_id: String,
+    pub component_id: String,
+    pub workflow_node_id: String,
+    pub target_path: String,
+    pub before_value: String,
+    pub after_value: String,
+    pub diff_hash: String,
+    pub proposal_id: String,
+    pub status: HarnessForkMutationCanaryStatus,
+    pub canary_status: HarnessForkMutationCanaryStatus,
+    pub replay_fixture_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub node_attempt_ids: Vec<String>,
+    #[serde(default)]
+    pub node_attempts: Vec<HarnessNodeAttemptRecord>,
+    pub evidence_refs: Vec<String>,
+    pub policy_decision: String,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub blockers: Vec<String>,
+    pub created_at_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -2465,6 +2747,24 @@ pub fn default_harness_worker_binding_registry_record() -> HarnessWorkerBindingR
         activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         activation_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        reviewed_package_snapshot_hash:
+            "stable-fnv1a32:default-agent-harness-reviewed-package-projection".to_string(),
+        reviewed_workflow_content_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        reviewed_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_harness_workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        reviewed_worker_binding_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_replay_fixture_refs: Vec::new(),
+        reviewed_worker_handoff_node_attempt_ids: Vec::new(),
+        reviewed_worker_handoff_receipt_ids: Vec::new(),
+        reviewed_fork_mutation_canary_id: String::new(),
+        reviewed_fork_mutation_canary_status: String::new(),
+        reviewed_fork_mutation_canary_diff_hash: String::new(),
+        reviewed_fork_mutation_canary_receipt_refs: Vec::new(),
+        reviewed_fork_mutation_canary_replay_fixture_refs: Vec::new(),
+        reviewed_fork_mutation_canary_node_attempt_ids: Vec::new(),
+        reviewed_fork_mutation_canary_rollback_target: String::new(),
+        reviewed_policy_posture: String::new(),
         component_version_set: default_harness_component_version_set(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         readiness_proof_id: String::new(),
@@ -2473,8 +2773,8 @@ pub fn default_harness_worker_binding_registry_record() -> HarnessWorkerBindingR
         rollback_live_shadow_comparison_gate_ready: false,
         rollback_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         rollback_harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
-        rollback_policy_decision:
-            "block_default_harness_worker_rollback_from_live_shadow_gate".to_string(),
+        rollback_policy_decision: "block_default_harness_worker_rollback_from_live_shadow_gate"
+            .to_string(),
         canary_result_id: "harness-canary-result:default-agent-harness:not-run".to_string(),
         policy_decision: "retain_legacy_runtime_default".to_string(),
         binding_status: HarnessWorkerBindingStatus::Projection,
@@ -2513,7 +2813,7 @@ pub fn bound_default_harness_worker_binding_registry_record(
     worker_binding.required_invariant_ids =
         vec![DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT.to_string()];
     worker_binding.invariant_blockers.clear();
-    HarnessWorkerBindingRegistryRecord {
+    let mut record = HarnessWorkerBindingRegistryRecord {
         schema_version: "workflow.harness.worker-binding-registry.v1".to_string(),
         registry_record_id: format!(
             "harness-worker-binding-registry:{}:{}:{}",
@@ -2525,6 +2825,47 @@ pub fn bound_default_harness_worker_binding_registry_record(
         activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         activation_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        reviewed_package_snapshot_hash:
+            "stable-fnv1a32:default-agent-harness-reviewed-package-bound".to_string(),
+        reviewed_workflow_content_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        reviewed_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_harness_workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        reviewed_worker_binding_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_replay_fixture_refs: vec![format!(
+            "harness-reviewed-package:fixture:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        )],
+        reviewed_worker_handoff_node_attempt_ids: vec![format!(
+            "harness-reviewed-package:worker-attempt:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        )],
+        reviewed_worker_handoff_receipt_ids: vec![format!(
+            "harness-reviewed-package:worker-receipt:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        )],
+        reviewed_fork_mutation_canary_id: format!(
+            "harness-reviewed-package:fork-mutation-canary:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        ),
+        reviewed_fork_mutation_canary_status: "passed".to_string(),
+        reviewed_fork_mutation_canary_diff_hash:
+            "stable-fnv1a32:default-reviewed-fork-mutation-canary".to_string(),
+        reviewed_fork_mutation_canary_receipt_refs: vec![format!(
+            "harness-reviewed-package:fork-mutation-canary-receipt:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        )],
+        reviewed_fork_mutation_canary_replay_fixture_refs: vec![format!(
+            "harness-reviewed-package:fork-mutation-canary-fixture:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        )],
+        reviewed_fork_mutation_canary_node_attempt_ids: vec![format!(
+            "harness-reviewed-package:fork-mutation-canary-attempt:{}:{}",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID, DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+        )],
+        reviewed_fork_mutation_canary_rollback_target:
+            DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        reviewed_policy_posture: "canary".to_string(),
         component_version_set: default_harness_component_version_set(),
         rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         rollback_readiness_proof_id: readiness_proof_id.clone(),
@@ -2532,8 +2873,8 @@ pub fn bound_default_harness_worker_binding_registry_record(
         rollback_live_shadow_comparison_gate_ready: true,
         rollback_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
         rollback_harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
-        rollback_policy_decision:
-            "allow_default_harness_worker_rollback_from_live_shadow_gate".to_string(),
+        rollback_policy_decision: "allow_default_harness_worker_rollback_from_live_shadow_gate"
+            .to_string(),
         readiness_proof_id,
         canary_result_id: "harness-canary-result:default-agent-harness:passed".to_string(),
         policy_decision,
@@ -2544,7 +2885,10 @@ pub fn bound_default_harness_worker_binding_registry_record(
         ],
         invariant_blockers: Vec::new(),
         worker_binding,
-    }
+    };
+    record.reviewed_package_snapshot_hash =
+        harness_worker_binding_registry_reviewed_package_snapshot_hash(&record);
+    record
 }
 
 pub fn default_harness_worker_attach_request(
@@ -2567,6 +2911,37 @@ pub fn default_harness_worker_attach_request(
         activation_id: record.activation_id.clone(),
         activation_hash: record.activation_hash.clone(),
         harness_hash: record.harness_hash.clone(),
+        reviewed_package_snapshot_hash: record.reviewed_package_snapshot_hash.clone(),
+        reviewed_workflow_content_hash: record.reviewed_workflow_content_hash.clone(),
+        reviewed_activation_id: record.reviewed_activation_id.clone(),
+        reviewed_harness_workflow_id: record.reviewed_harness_workflow_id.clone(),
+        reviewed_worker_binding_activation_id: record.reviewed_worker_binding_activation_id.clone(),
+        reviewed_rollback_target: record.reviewed_rollback_target.clone(),
+        reviewed_replay_fixture_refs: record.reviewed_replay_fixture_refs.clone(),
+        reviewed_worker_handoff_node_attempt_ids: record
+            .reviewed_worker_handoff_node_attempt_ids
+            .clone(),
+        reviewed_worker_handoff_receipt_ids: record.reviewed_worker_handoff_receipt_ids.clone(),
+        reviewed_fork_mutation_canary_id: record.reviewed_fork_mutation_canary_id.clone(),
+        reviewed_fork_mutation_canary_status: record
+            .reviewed_fork_mutation_canary_status
+            .clone(),
+        reviewed_fork_mutation_canary_diff_hash: record
+            .reviewed_fork_mutation_canary_diff_hash
+            .clone(),
+        reviewed_fork_mutation_canary_receipt_refs: record
+            .reviewed_fork_mutation_canary_receipt_refs
+            .clone(),
+        reviewed_fork_mutation_canary_replay_fixture_refs: record
+            .reviewed_fork_mutation_canary_replay_fixture_refs
+            .clone(),
+        reviewed_fork_mutation_canary_node_attempt_ids: record
+            .reviewed_fork_mutation_canary_node_attempt_ids
+            .clone(),
+        reviewed_fork_mutation_canary_rollback_target: record
+            .reviewed_fork_mutation_canary_rollback_target
+            .clone(),
+        reviewed_policy_posture: record.reviewed_policy_posture.clone(),
         component_version_set: record.component_version_set.clone(),
         rollback_target: record.rollback_target.clone(),
         readiness_proof_id: record.readiness_proof_id.clone(),
@@ -2611,6 +2986,118 @@ fn harness_invariant_sets_match(left: &[String], right: &[String]) -> bool {
     left == right
 }
 
+fn harness_stable_json_string(value: &str) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_string())
+}
+
+fn harness_stable_json_string_array(values: &[String]) -> String {
+    let values = values
+        .iter()
+        .filter(|value| !value.is_empty())
+        .collect::<std::collections::BTreeSet<_>>();
+    format!(
+        "[{}]",
+        values
+            .iter()
+            .map(|value| harness_stable_json_string(value))
+            .collect::<Vec<_>>()
+            .join(",")
+    )
+}
+
+fn harness_stable_fnv1a32(input: &str) -> String {
+    let hash = input.as_bytes().iter().fold(0x811c9dc5_u32, |hash, byte| {
+        (hash ^ u32::from(*byte)).wrapping_mul(0x01000193)
+    });
+    format!("stable-fnv1a32:{hash:08x}")
+}
+
+pub fn harness_reviewed_package_snapshot_hash(
+    reviewed_workflow_content_hash: &str,
+    reviewed_activation_id: &str,
+    reviewed_harness_workflow_id: &str,
+    reviewed_worker_binding_activation_id: &str,
+    reviewed_rollback_target: &str,
+    reviewed_replay_fixture_refs: &[String],
+    reviewed_worker_handoff_node_attempt_ids: &[String],
+    reviewed_worker_handoff_receipt_ids: &[String],
+    reviewed_fork_mutation_canary_id: &str,
+    reviewed_fork_mutation_canary_status: &str,
+    reviewed_fork_mutation_canary_diff_hash: &str,
+    reviewed_fork_mutation_canary_receipt_refs: &[String],
+    reviewed_fork_mutation_canary_replay_fixture_refs: &[String],
+    reviewed_fork_mutation_canary_node_attempt_ids: &[String],
+    reviewed_fork_mutation_canary_rollback_target: &str,
+    reviewed_policy_posture: &str,
+) -> String {
+    let input = format!(
+        "{{\"reviewedActivationId\":{},\"reviewedForkMutationCanaryDiffHash\":{},\"reviewedForkMutationCanaryId\":{},\"reviewedForkMutationCanaryNodeAttemptIds\":{},\"reviewedForkMutationCanaryReceiptRefs\":{},\"reviewedForkMutationCanaryReplayFixtureRefs\":{},\"reviewedForkMutationCanaryRollbackTarget\":{},\"reviewedForkMutationCanaryStatus\":{},\"reviewedHarnessWorkflowId\":{},\"reviewedPolicyPosture\":{},\"reviewedReplayFixtureRefs\":{},\"reviewedRollbackTarget\":{},\"reviewedWorkerBindingActivationId\":{},\"reviewedWorkerHandoffNodeAttemptIds\":{},\"reviewedWorkerHandoffReceiptIds\":{},\"reviewedWorkflowContentHash\":{},\"schemaVersion\":\"workflow.harness.reviewed-package-snapshot.v1\"}}",
+        harness_stable_json_string(reviewed_activation_id),
+        harness_stable_json_string(reviewed_fork_mutation_canary_diff_hash),
+        harness_stable_json_string(reviewed_fork_mutation_canary_id),
+        harness_stable_json_string_array(reviewed_fork_mutation_canary_node_attempt_ids),
+        harness_stable_json_string_array(reviewed_fork_mutation_canary_receipt_refs),
+        harness_stable_json_string_array(reviewed_fork_mutation_canary_replay_fixture_refs),
+        harness_stable_json_string(reviewed_fork_mutation_canary_rollback_target),
+        harness_stable_json_string(reviewed_fork_mutation_canary_status),
+        harness_stable_json_string(reviewed_harness_workflow_id),
+        harness_stable_json_string(reviewed_policy_posture),
+        harness_stable_json_string_array(reviewed_replay_fixture_refs),
+        harness_stable_json_string(reviewed_rollback_target),
+        harness_stable_json_string(reviewed_worker_binding_activation_id),
+        harness_stable_json_string_array(reviewed_worker_handoff_node_attempt_ids),
+        harness_stable_json_string_array(reviewed_worker_handoff_receipt_ids),
+        harness_stable_json_string(reviewed_workflow_content_hash),
+    );
+    harness_stable_fnv1a32(&input)
+}
+
+pub fn harness_worker_binding_registry_reviewed_package_snapshot_hash(
+    record: &HarnessWorkerBindingRegistryRecord,
+) -> String {
+    harness_reviewed_package_snapshot_hash(
+        &record.reviewed_workflow_content_hash,
+        &record.reviewed_activation_id,
+        &record.reviewed_harness_workflow_id,
+        &record.reviewed_worker_binding_activation_id,
+        &record.reviewed_rollback_target,
+        &record.reviewed_replay_fixture_refs,
+        &record.reviewed_worker_handoff_node_attempt_ids,
+        &record.reviewed_worker_handoff_receipt_ids,
+        &record.reviewed_fork_mutation_canary_id,
+        &record.reviewed_fork_mutation_canary_status,
+        &record.reviewed_fork_mutation_canary_diff_hash,
+        &record.reviewed_fork_mutation_canary_receipt_refs,
+        &record.reviewed_fork_mutation_canary_replay_fixture_refs,
+        &record.reviewed_fork_mutation_canary_node_attempt_ids,
+        &record.reviewed_fork_mutation_canary_rollback_target,
+        &record.reviewed_policy_posture,
+    )
+}
+
+pub fn harness_worker_attach_request_reviewed_package_snapshot_hash(
+    request: &HarnessWorkerAttachRequest,
+) -> String {
+    harness_reviewed_package_snapshot_hash(
+        &request.reviewed_workflow_content_hash,
+        &request.reviewed_activation_id,
+        &request.reviewed_harness_workflow_id,
+        &request.reviewed_worker_binding_activation_id,
+        &request.reviewed_rollback_target,
+        &request.reviewed_replay_fixture_refs,
+        &request.reviewed_worker_handoff_node_attempt_ids,
+        &request.reviewed_worker_handoff_receipt_ids,
+        &request.reviewed_fork_mutation_canary_id,
+        &request.reviewed_fork_mutation_canary_status,
+        &request.reviewed_fork_mutation_canary_diff_hash,
+        &request.reviewed_fork_mutation_canary_receipt_refs,
+        &request.reviewed_fork_mutation_canary_replay_fixture_refs,
+        &request.reviewed_fork_mutation_canary_node_attempt_ids,
+        &request.reviewed_fork_mutation_canary_rollback_target,
+        &request.reviewed_policy_posture,
+    )
+}
+
 pub fn resolve_harness_worker_binding(
     record: &HarnessWorkerBindingRegistryRecord,
     request: &HarnessWorkerAttachRequest,
@@ -2646,6 +3133,163 @@ pub fn resolve_harness_worker_binding(
     if request.harness_hash != record.harness_hash {
         blockers.push("worker_attach_harness_hash_mismatch".to_string());
     }
+    if record.reviewed_package_snapshot_hash.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_snapshot_hash_missing".to_string());
+    }
+    let expected_record_snapshot_hash =
+        harness_worker_binding_registry_reviewed_package_snapshot_hash(record);
+    if record.reviewed_package_snapshot_hash != expected_record_snapshot_hash {
+        blockers.push("worker_attach_reviewed_package_snapshot_hash_mismatch".to_string());
+    }
+    let expected_request_snapshot_hash =
+        harness_worker_attach_request_reviewed_package_snapshot_hash(request);
+    if request.reviewed_package_snapshot_hash != expected_request_snapshot_hash {
+        blockers.push("worker_attach_reviewed_package_snapshot_hash_mismatch".to_string());
+    }
+    if request.reviewed_package_snapshot_hash != record.reviewed_package_snapshot_hash {
+        blockers.push("worker_attach_reviewed_package_snapshot_hash_mismatch".to_string());
+    }
+    if record.reviewed_workflow_content_hash.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_workflow_hash_missing".to_string());
+    }
+    if request.reviewed_workflow_content_hash != record.reviewed_workflow_content_hash {
+        blockers.push("worker_attach_reviewed_package_workflow_hash_mismatch".to_string());
+    }
+    if record.reviewed_activation_id.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_activation_missing".to_string());
+    }
+    if record
+        .reviewed_worker_binding_activation_id
+        .trim()
+        .is_empty()
+    {
+        blockers.push("worker_attach_reviewed_package_worker_binding_missing".to_string());
+    }
+    if record.reviewed_activation_id != record.reviewed_worker_binding_activation_id
+        || request.reviewed_activation_id != record.reviewed_activation_id
+        || request.reviewed_worker_binding_activation_id
+            != record.reviewed_worker_binding_activation_id
+    {
+        blockers.push("worker_attach_reviewed_package_activation_mismatch".to_string());
+    }
+    if record.reviewed_harness_workflow_id.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_workflow_id_missing".to_string());
+    }
+    if request.reviewed_harness_workflow_id != record.reviewed_harness_workflow_id {
+        blockers.push("worker_attach_reviewed_package_workflow_id_mismatch".to_string());
+    }
+    if record.reviewed_rollback_target.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_rollback_target_missing".to_string());
+    }
+    if record.reviewed_rollback_target != record.rollback_target
+        || request.reviewed_rollback_target != record.reviewed_rollback_target
+    {
+        blockers.push("worker_attach_reviewed_package_rollback_target_mismatch".to_string());
+    }
+    if record.reviewed_replay_fixture_refs.is_empty() {
+        blockers.push("worker_attach_reviewed_package_replay_fixture_missing".to_string());
+    }
+    if request.reviewed_replay_fixture_refs != record.reviewed_replay_fixture_refs {
+        blockers.push("worker_attach_reviewed_package_replay_fixture_mismatch".to_string());
+    }
+    if record.reviewed_worker_handoff_node_attempt_ids.is_empty() {
+        blockers.push("worker_attach_reviewed_package_worker_attempt_missing".to_string());
+    }
+    if request.reviewed_worker_handoff_node_attempt_ids
+        != record.reviewed_worker_handoff_node_attempt_ids
+    {
+        blockers.push("worker_attach_reviewed_package_worker_attempt_mismatch".to_string());
+    }
+    if record.reviewed_worker_handoff_receipt_ids.is_empty() {
+        blockers.push("worker_attach_reviewed_package_worker_receipt_missing".to_string());
+    }
+    if request.reviewed_worker_handoff_receipt_ids != record.reviewed_worker_handoff_receipt_ids {
+        blockers.push("worker_attach_reviewed_package_worker_receipt_mismatch".to_string());
+    }
+    if record.reviewed_fork_mutation_canary_id.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_fork_mutation_canary_missing".to_string());
+    }
+    if request.reviewed_fork_mutation_canary_id != record.reviewed_fork_mutation_canary_id {
+        blockers.push("worker_attach_reviewed_package_fork_mutation_canary_mismatch".to_string());
+    }
+    if record.reviewed_fork_mutation_canary_status != "passed" {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_not_passed".to_string(),
+        );
+    }
+    if request.reviewed_fork_mutation_canary_status != record.reviewed_fork_mutation_canary_status {
+        blockers
+            .push("worker_attach_reviewed_package_fork_mutation_canary_status_mismatch".to_string());
+    }
+    if record.reviewed_fork_mutation_canary_diff_hash.trim().is_empty() {
+        blockers
+            .push("worker_attach_reviewed_package_fork_mutation_canary_diff_missing".to_string());
+    }
+    if request.reviewed_fork_mutation_canary_diff_hash
+        != record.reviewed_fork_mutation_canary_diff_hash
+    {
+        blockers
+            .push("worker_attach_reviewed_package_fork_mutation_canary_diff_mismatch".to_string());
+    }
+    if record
+        .reviewed_fork_mutation_canary_receipt_refs
+        .is_empty()
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_receipt_missing".to_string(),
+        );
+    }
+    if request.reviewed_fork_mutation_canary_receipt_refs
+        != record.reviewed_fork_mutation_canary_receipt_refs
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_receipt_mismatch".to_string(),
+        );
+    }
+    if record
+        .reviewed_fork_mutation_canary_replay_fixture_refs
+        .is_empty()
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_replay_missing".to_string(),
+        );
+    }
+    if request.reviewed_fork_mutation_canary_replay_fixture_refs
+        != record.reviewed_fork_mutation_canary_replay_fixture_refs
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_replay_mismatch".to_string(),
+        );
+    }
+    if record
+        .reviewed_fork_mutation_canary_node_attempt_ids
+        .is_empty()
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_attempt_missing".to_string(),
+        );
+    }
+    if request.reviewed_fork_mutation_canary_node_attempt_ids
+        != record.reviewed_fork_mutation_canary_node_attempt_ids
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_attempt_mismatch".to_string(),
+        );
+    }
+    if record.reviewed_fork_mutation_canary_rollback_target != record.rollback_target
+        || request.reviewed_fork_mutation_canary_rollback_target
+            != record.reviewed_fork_mutation_canary_rollback_target
+    {
+        blockers.push(
+            "worker_attach_reviewed_package_fork_mutation_canary_rollback_mismatch".to_string(),
+        );
+    }
+    if record.reviewed_policy_posture.trim().is_empty() {
+        blockers.push("worker_attach_reviewed_package_policy_posture_missing".to_string());
+    }
+    if request.reviewed_policy_posture != record.reviewed_policy_posture {
+        blockers.push("worker_attach_reviewed_package_policy_posture_mismatch".to_string());
+    }
     if !harness_component_version_sets_match(
         &request.component_version_set,
         &record.component_version_set,
@@ -2672,14 +3316,23 @@ pub fn resolve_harness_worker_binding(
     {
         blockers.push("worker_attach_rollback_readiness_proof_mismatch".to_string());
     }
-    if request.rollback_live_shadow_comparison_gate_id.trim().is_empty()
-        || record.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+    if request
+        .rollback_live_shadow_comparison_gate_id
+        .trim()
+        .is_empty()
+        || record
+            .rollback_live_shadow_comparison_gate_id
+            .trim()
+            .is_empty()
     {
         blockers.push("worker_attach_rollback_live_shadow_gate_missing".to_string());
     }
     if request.rollback_live_shadow_comparison_gate_id
         != record.rollback_live_shadow_comparison_gate_id
-        || record.worker_binding.live_shadow_comparison_gate_id.as_deref()
+        || record
+            .worker_binding
+            .live_shadow_comparison_gate_id
+            .as_deref()
             != Some(record.rollback_live_shadow_comparison_gate_id.as_str())
     {
         blockers.push("worker_attach_rollback_live_shadow_gate_mismatch".to_string());
@@ -2700,7 +3353,8 @@ pub fn resolve_harness_worker_binding(
     {
         blockers.push("worker_attach_rollback_harness_hash_mismatch".to_string());
     }
-    if request.rollback_policy_decision != "allow_default_harness_worker_rollback_from_live_shadow_gate"
+    if request.rollback_policy_decision
+        != "allow_default_harness_worker_rollback_from_live_shadow_gate"
         || record.rollback_policy_decision
             != "allow_default_harness_worker_rollback_from_live_shadow_gate"
         || record.worker_binding.rollback_policy_decision.as_deref()
@@ -2792,6 +3446,39 @@ pub fn resolve_harness_worker_binding(
         activation_id: request.activation_id.clone(),
         activation_hash: request.activation_hash.clone(),
         harness_hash: request.harness_hash.clone(),
+        reviewed_package_snapshot_hash: request.reviewed_package_snapshot_hash.clone(),
+        reviewed_workflow_content_hash: request.reviewed_workflow_content_hash.clone(),
+        reviewed_activation_id: request.reviewed_activation_id.clone(),
+        reviewed_harness_workflow_id: request.reviewed_harness_workflow_id.clone(),
+        reviewed_worker_binding_activation_id: request
+            .reviewed_worker_binding_activation_id
+            .clone(),
+        reviewed_rollback_target: request.reviewed_rollback_target.clone(),
+        reviewed_replay_fixture_refs: request.reviewed_replay_fixture_refs.clone(),
+        reviewed_worker_handoff_node_attempt_ids: request
+            .reviewed_worker_handoff_node_attempt_ids
+            .clone(),
+        reviewed_worker_handoff_receipt_ids: request.reviewed_worker_handoff_receipt_ids.clone(),
+        reviewed_fork_mutation_canary_id: request.reviewed_fork_mutation_canary_id.clone(),
+        reviewed_fork_mutation_canary_status: request
+            .reviewed_fork_mutation_canary_status
+            .clone(),
+        reviewed_fork_mutation_canary_diff_hash: request
+            .reviewed_fork_mutation_canary_diff_hash
+            .clone(),
+        reviewed_fork_mutation_canary_receipt_refs: request
+            .reviewed_fork_mutation_canary_receipt_refs
+            .clone(),
+        reviewed_fork_mutation_canary_replay_fixture_refs: request
+            .reviewed_fork_mutation_canary_replay_fixture_refs
+            .clone(),
+        reviewed_fork_mutation_canary_node_attempt_ids: request
+            .reviewed_fork_mutation_canary_node_attempt_ids
+            .clone(),
+        reviewed_fork_mutation_canary_rollback_target: request
+            .reviewed_fork_mutation_canary_rollback_target
+            .clone(),
+        reviewed_policy_posture: request.reviewed_policy_posture.clone(),
         component_version_set: request.component_version_set.clone(),
         rollback_target: request.rollback_target.clone(),
         rollback_available: request.rollback_target == record.rollback_target
@@ -2833,6 +3520,16 @@ pub fn resolve_harness_worker_binding(
             record.rollback_activation_id.clone(),
             record.rollback_harness_hash.clone(),
             record.canary_result_id.clone(),
+            record.reviewed_package_snapshot_hash.clone(),
+            record.reviewed_workflow_content_hash.clone(),
+            record.reviewed_activation_id.clone(),
+            record.reviewed_harness_workflow_id.clone(),
+            record.reviewed_worker_binding_activation_id.clone(),
+            record.reviewed_rollback_target.clone(),
+            record.reviewed_fork_mutation_canary_id.clone(),
+            record.reviewed_fork_mutation_canary_status.clone(),
+            record.reviewed_fork_mutation_canary_diff_hash.clone(),
+            record.reviewed_fork_mutation_canary_rollback_target.clone(),
         ],
     }
 }
@@ -2966,7 +3663,11 @@ pub fn default_harness_worker_session_record(
     if record.rollback_readiness_proof_id != record.readiness_proof_id {
         blockers.push("worker_session_rollback_readiness_proof_mismatch".to_string());
     }
-    if record.rollback_live_shadow_comparison_gate_id.trim().is_empty() {
+    if record
+        .rollback_live_shadow_comparison_gate_id
+        .trim()
+        .is_empty()
+    {
         blockers.push("worker_session_rollback_live_shadow_gate_missing".to_string());
     }
     if !record.rollback_live_shadow_comparison_gate_ready {
@@ -3192,7 +3893,11 @@ pub fn default_harness_worker_launch_envelope(
     if record.rollback_readiness_proof_id != record.readiness_proof_id {
         blockers.push("worker_launch_rollback_readiness_proof_mismatch".to_string());
     }
-    if record.rollback_live_shadow_comparison_gate_id.trim().is_empty() {
+    if record
+        .rollback_live_shadow_comparison_gate_id
+        .trim()
+        .is_empty()
+    {
         blockers.push("worker_launch_rollback_live_shadow_gate_missing".to_string());
     }
     if !record.rollback_live_shadow_comparison_gate_ready {
@@ -3324,7 +4029,10 @@ pub fn resolve_harness_worker_handoff_receipt(
     }
     if envelope.rollback_live_shadow_comparison_gate_id
         != record.rollback_live_shadow_comparison_gate_id
-        || record.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+        || record
+            .rollback_live_shadow_comparison_gate_id
+            .trim()
+            .is_empty()
     {
         blockers.push("worker_handoff_rollback_live_shadow_gate_mismatch".to_string());
     }
@@ -4232,7 +4940,414 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             activation_id: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
             worker_binding_activation_id: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
             rollback_target: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+            reviewed_workflow_content_hash: Some(DEFAULT_AGENT_HARNESS_HASH.to_string()),
+            reviewed_harness_workflow_id: Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string()),
+            reviewed_replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-planner".to_string()
+            ],
+            reviewed_worker_handoff_node_attempt_ids: vec![
+                "harness-canary:attempt-planner".to_string()
+            ],
+            reviewed_worker_handoff_receipt_ids: vec![
+                "harness-default-dispatch:receipt-planner".to_string()
+            ],
+            reviewed_policy_posture: Some("canary".to_string()),
             default_dispatch_activation_blockers: Vec::new(),
+        },
+        cognition_node_authority_gate: HarnessCognitionNodeAuthorityGate {
+            schema_version: "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1"
+                .to_string(),
+            gate_id: "cognition-node-authority".to_string(),
+            authority_mode: "node_authoritative".to_string(),
+            authoritative: true,
+            workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+            activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+            required_execution_mode: HarnessExecutionMode::Live,
+            runtime_authority: "blessed_workflow_activation_default".to_string(),
+            adapter_mode: "workflow_component_adapter_live".to_string(),
+            component_kinds: vec![
+                HarnessComponentKind::Planner,
+                HarnessComponentKind::PromptAssembler,
+                HarnessComponentKind::TaskState,
+            ],
+            live_ready_component_kinds: vec![
+                HarnessComponentKind::Planner,
+                HarnessComponentKind::PromptAssembler,
+                HarnessComponentKind::TaskState,
+            ],
+            action_frame_ids: vec![
+                "harness.planner:planner".to_string(),
+                "harness.prompt_assembler:prompt_assembler".to_string(),
+                "harness.task_state:task_state".to_string(),
+            ],
+            attempt_ids: vec![
+                "harness-default-dispatch:attempt-planner_envelope".to_string(),
+                "harness-default-dispatch:attempt-prompt_assembler_envelope".to_string(),
+                "harness-default-dispatch:attempt-task_state_envelope".to_string(),
+            ],
+            receipt_ids: vec![
+                "harness-default-dispatch:receipt-planner_envelope".to_string(),
+                "harness-default-dispatch:receipt-prompt_assembler_envelope".to_string(),
+                "harness-default-dispatch:receipt-task_state_envelope".to_string(),
+            ],
+            replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-planner_envelope".to_string(),
+                "harness-default-dispatch:fixture-prompt_assembler_envelope".to_string(),
+                "harness-default-dispatch:fixture-task_state_envelope".to_string(),
+            ],
+            fallback_available: true,
+            fallback_ref: "existing_runtime_service".to_string(),
+            blockers: Vec::new(),
+            policy_decision: "allow_node_authoritative_cognition".to_string(),
+        },
+        routing_model_node_authority_gate: HarnessRoutingModelNodeAuthorityGate {
+            schema_version:
+                "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1"
+                    .to_string(),
+            gate_id: "routing-model-node-authority".to_string(),
+            authority_mode: "gated_node_authoritative".to_string(),
+            authoritative: true,
+            workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+            activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+            required_execution_mode: HarnessExecutionMode::Gated,
+            runtime_authority: "blessed_workflow_activation_default".to_string(),
+            adapter_mode: "workflow_component_adapter_gated".to_string(),
+            component_kinds: vec![
+                HarnessComponentKind::ModelRouter,
+                HarnessComponentKind::ModelCall,
+                HarnessComponentKind::ToolRouter,
+            ],
+            shadow_ready_component_kinds: vec![
+                HarnessComponentKind::ModelRouter,
+                HarnessComponentKind::ModelCall,
+                HarnessComponentKind::ToolRouter,
+            ],
+            action_frame_ids: vec![
+                "harness.model_router:ioi.agent-harness.model_router.v1".to_string(),
+                "harness.model_call:ioi.agent-harness.model_call.v1".to_string(),
+                "harness.tool_router:ioi.agent-harness.tool_router.v1".to_string(),
+            ],
+            attempt_ids: vec![
+                "harness-default-dispatch:attempt-routing_model_model_router_envelope".to_string(),
+                "harness-default-dispatch:attempt-routing_model_model_call_envelope".to_string(),
+                "harness-default-dispatch:attempt-routing_model_tool_router_envelope".to_string(),
+            ],
+            receipt_ids: vec![
+                "harness-default-dispatch:receipt-routing_model_model_router_envelope".to_string(),
+                "harness-default-dispatch:receipt-routing_model_model_call_envelope".to_string(),
+                "harness-default-dispatch:receipt-routing_model_tool_router_envelope".to_string(),
+            ],
+            replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-routing_model_model_router_envelope".to_string(),
+                "harness-default-dispatch:fixture-routing_model_model_call_envelope".to_string(),
+                "harness-default-dispatch:fixture-routing_model_tool_router_envelope".to_string(),
+            ],
+            shadow_attempt_ids: vec![
+                "harness-default-dispatch:attempt-routing_model_model_router_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-routing_model_model_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-routing_model_tool_router_envelope_shadow"
+                    .to_string(),
+            ],
+            shadow_receipt_ids: vec![
+                "harness-default-dispatch:receipt-routing_model_model_router_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-routing_model_model_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-routing_model_tool_router_envelope_shadow"
+                    .to_string(),
+            ],
+            shadow_replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-routing_model_model_router_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-routing_model_model_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-routing_model_tool_router_envelope_shadow"
+                    .to_string(),
+            ],
+            divergence_classes: vec![HarnessDivergenceClass::None],
+            shadow_divergence_classes: vec![HarnessDivergenceClass::None],
+            provider_canary_ready: true,
+            visible_output_selected: true,
+            visible_output_authority: "workflow_model_provider_call".to_string(),
+            read_only_capability_routing_ready: true,
+            rollback_available: true,
+            fallback_available: true,
+            fallback_ref: "legacy_runtime_model_invocation".to_string(),
+            blockers: Vec::new(),
+            policy_decision: "allow_gated_node_authoritative_routing_model".to_string(),
+        },
+        verification_output_node_authority_gate: HarnessVerificationOutputNodeAuthorityGate {
+            schema_version:
+                "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1"
+                    .to_string(),
+            gate_id: "verification-output-node-authority".to_string(),
+            authority_mode: "gated_node_authoritative".to_string(),
+            authoritative: true,
+            workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+            activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+            required_execution_mode: HarnessExecutionMode::Gated,
+            runtime_authority: "blessed_workflow_activation_default".to_string(),
+            adapter_mode: "workflow_component_adapter_gated".to_string(),
+            component_kinds: vec![
+                HarnessComponentKind::PostconditionSynthesizer,
+                HarnessComponentKind::Verifier,
+                HarnessComponentKind::CompletionGate,
+                HarnessComponentKind::ReceiptWriter,
+                HarnessComponentKind::QualityLedger,
+                HarnessComponentKind::OutputWriter,
+            ],
+            shadow_ready_component_kinds: vec![
+                HarnessComponentKind::PostconditionSynthesizer,
+                HarnessComponentKind::Verifier,
+                HarnessComponentKind::CompletionGate,
+                HarnessComponentKind::ReceiptWriter,
+                HarnessComponentKind::QualityLedger,
+                HarnessComponentKind::OutputWriter,
+            ],
+            action_frame_ids: vec![
+                "harness.postcondition_synthesizer:ioi.agent-harness.postcondition_synthesizer.v1"
+                    .to_string(),
+                "harness.verifier:ioi.agent-harness.verifier.v1".to_string(),
+                "harness.completion_gate:ioi.agent-harness.completion_gate.v1".to_string(),
+                "harness.receipt_writer:ioi.agent-harness.receipt_writer.v1".to_string(),
+                "harness.quality_ledger:ioi.agent-harness.quality_ledger.v1".to_string(),
+                "harness.output_writer:ioi.agent-harness.output_writer.v1".to_string(),
+            ],
+            attempt_ids: vec![
+                "harness-default-dispatch:attempt-verification_output_postcondition_synthesizer_envelope".to_string(),
+                "harness-default-dispatch:attempt-verification_output_verifier_envelope".to_string(),
+                "harness-default-dispatch:attempt-verification_output_completion_gate_envelope".to_string(),
+                "harness-default-dispatch:attempt-verification_output_receipt_writer_envelope".to_string(),
+                "harness-default-dispatch:attempt-verification_output_quality_ledger_envelope".to_string(),
+                "harness-default-dispatch:attempt-verification_output_output_writer_envelope".to_string(),
+            ],
+            receipt_ids: vec![
+                "harness-default-dispatch:receipt-verification_output_postcondition_synthesizer_envelope".to_string(),
+                "harness-default-dispatch:receipt-verification_output_verifier_envelope".to_string(),
+                "harness-default-dispatch:receipt-verification_output_completion_gate_envelope".to_string(),
+                "harness-default-dispatch:receipt-verification_output_receipt_writer_envelope".to_string(),
+                "harness-default-dispatch:receipt-verification_output_quality_ledger_envelope".to_string(),
+                "harness-default-dispatch:receipt-verification_output_output_writer_envelope".to_string(),
+            ],
+            replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-verification_output_postcondition_synthesizer_envelope".to_string(),
+                "harness-default-dispatch:fixture-verification_output_verifier_envelope".to_string(),
+                "harness-default-dispatch:fixture-verification_output_completion_gate_envelope".to_string(),
+                "harness-default-dispatch:fixture-verification_output_receipt_writer_envelope".to_string(),
+                "harness-default-dispatch:fixture-verification_output_quality_ledger_envelope".to_string(),
+                "harness-default-dispatch:fixture-verification_output_output_writer_envelope".to_string(),
+            ],
+            shadow_attempt_ids: vec![
+                "harness-default-dispatch:attempt-verification_output_postcondition_synthesizer_envelope_shadow".to_string(),
+                "harness-default-dispatch:attempt-verification_output_verifier_envelope_shadow".to_string(),
+                "harness-default-dispatch:attempt-verification_output_completion_gate_envelope_shadow".to_string(),
+                "harness-default-dispatch:attempt-verification_output_receipt_writer_envelope_shadow".to_string(),
+                "harness-default-dispatch:attempt-verification_output_quality_ledger_envelope_shadow".to_string(),
+                "harness-default-dispatch:attempt-verification_output_output_writer_envelope_shadow".to_string(),
+            ],
+            shadow_receipt_ids: vec![
+                "harness-default-dispatch:receipt-verification_output_postcondition_synthesizer_envelope_shadow".to_string(),
+                "harness-default-dispatch:receipt-verification_output_verifier_envelope_shadow".to_string(),
+                "harness-default-dispatch:receipt-verification_output_completion_gate_envelope_shadow".to_string(),
+                "harness-default-dispatch:receipt-verification_output_receipt_writer_envelope_shadow".to_string(),
+                "harness-default-dispatch:receipt-verification_output_quality_ledger_envelope_shadow".to_string(),
+                "harness-default-dispatch:receipt-verification_output_output_writer_envelope_shadow".to_string(),
+            ],
+            shadow_replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-verification_output_postcondition_synthesizer_envelope_shadow".to_string(),
+                "harness-default-dispatch:fixture-verification_output_verifier_envelope_shadow".to_string(),
+                "harness-default-dispatch:fixture-verification_output_completion_gate_envelope_shadow".to_string(),
+                "harness-default-dispatch:fixture-verification_output_receipt_writer_envelope_shadow".to_string(),
+                "harness-default-dispatch:fixture-verification_output_quality_ledger_envelope_shadow".to_string(),
+                "harness-default-dispatch:fixture-verification_output_output_writer_envelope_shadow".to_string(),
+            ],
+            divergence_classes: vec![HarnessDivergenceClass::None],
+            shadow_divergence_classes: vec![HarnessDivergenceClass::None],
+            output_writer_handoff_ready: true,
+            output_writer_materialization_canary_ready: true,
+            output_writer_staged_write_canary_ready: true,
+            output_writer_visible_write_ready: true,
+            output_writer_visible_write_committed: true,
+            rollback_available: true,
+            fallback_available: true,
+            fallback_ref: "legacy_runtime_output_writer".to_string(),
+            blockers: Vec::new(),
+            policy_decision: "allow_gated_node_authoritative_verification_output".to_string(),
+        },
+        authority_tooling_node_authority_gate: HarnessAuthorityToolingNodeAuthorityGate {
+            schema_version:
+                "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1"
+                    .to_string(),
+            gate_id: "authority-tooling-node-authority".to_string(),
+            authority_mode: "gated_node_authoritative".to_string(),
+            authoritative: true,
+            workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+            activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+            required_execution_mode: HarnessExecutionMode::Gated,
+            runtime_authority: "blessed_workflow_activation_default".to_string(),
+            adapter_mode: "workflow_component_adapter_gated".to_string(),
+            component_kinds: vec![
+                HarnessComponentKind::PolicyGate,
+                HarnessComponentKind::ApprovalGate,
+                HarnessComponentKind::DryRunSimulator,
+                HarnessComponentKind::McpProvider,
+                HarnessComponentKind::McpToolCall,
+                HarnessComponentKind::ToolCall,
+                HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::WalletCapability,
+            ],
+            shadow_ready_component_kinds: vec![
+                HarnessComponentKind::PolicyGate,
+                HarnessComponentKind::ApprovalGate,
+                HarnessComponentKind::DryRunSimulator,
+                HarnessComponentKind::McpProvider,
+                HarnessComponentKind::McpToolCall,
+                HarnessComponentKind::ToolCall,
+                HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::WalletCapability,
+            ],
+            action_frame_ids: vec![
+                "harness.policy_gate:ioi.agent-harness.policy_gate.v1".to_string(),
+                "harness.approval_gate:ioi.agent-harness.approval_gate.v1".to_string(),
+                "harness.dry_run_simulator:ioi.agent-harness.dry_run_simulator.v1"
+                    .to_string(),
+                "harness.mcp_provider:ioi.agent-harness.mcp_provider.v1".to_string(),
+                "harness.mcp_tool_call:ioi.agent-harness.mcp_tool_call.v1".to_string(),
+                "harness.tool_call:ioi.agent-harness.tool_call.v1".to_string(),
+                "harness.connector_call:ioi.agent-harness.connector_call.v1".to_string(),
+                "harness.wallet_capability:ioi.agent-harness.wallet_capability.v1".to_string(),
+            ],
+            attempt_ids: vec![
+                "harness-default-dispatch:attempt-authority_tooling_policy_gate_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_approval_gate_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_mcp_provider_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_tool_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_connector_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_wallet_capability_envelope"
+                    .to_string(),
+            ],
+            receipt_ids: vec![
+                "harness-default-dispatch:receipt-authority_tooling_policy_gate_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_approval_gate_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_dry_run_simulator_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_mcp_provider_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_tool_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_connector_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_wallet_capability_envelope"
+                    .to_string(),
+            ],
+            replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-authority_tooling_policy_gate_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_approval_gate_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_dry_run_simulator_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_mcp_provider_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_tool_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_connector_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_wallet_capability_envelope"
+                    .to_string(),
+            ],
+            shadow_attempt_ids: vec![
+                "harness-default-dispatch:attempt-authority_tooling_policy_gate_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_approval_gate_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_mcp_provider_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_tool_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_connector_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_wallet_capability_envelope_shadow"
+                    .to_string(),
+            ],
+            shadow_receipt_ids: vec![
+                "harness-default-dispatch:receipt-authority_tooling_policy_gate_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_approval_gate_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_dry_run_simulator_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_mcp_provider_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_tool_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_connector_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_wallet_capability_envelope_shadow"
+                    .to_string(),
+            ],
+            shadow_replay_fixture_refs: vec![
+                "harness-default-dispatch:fixture-authority_tooling_policy_gate_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_approval_gate_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_dry_run_simulator_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_mcp_provider_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_tool_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_connector_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_wallet_capability_envelope_shadow"
+                    .to_string(),
+            ],
+            divergence_classes: vec![HarnessDivergenceClass::None],
+            shadow_divergence_classes: vec![HarnessDivergenceClass::None],
+            read_only_route_accepted: true,
+            destructive_route_denied: true,
+            mutating_tool_calls_blocked: true,
+            side_effects_executed: false,
+            policy_gate_ready: true,
+            tool_router_ready: true,
+            dry_run_simulator_ready: true,
+            approval_gate_ready: true,
+            gate_live_ready: true,
+            read_only_authority_canary_ready: true,
+            rollback_available: true,
+            fallback_available: true,
+            fallback_ref: "legacy_runtime_tool_authority".to_string(),
+            blockers: Vec::new(),
+            policy_decision: "allow_gated_node_authoritative_authority_tooling".to_string(),
         },
         cognition_execution_mode: "workflow_synchronous_envelope".to_string(),
         cognition_execution_ready: true,
@@ -4587,6 +5702,40 @@ pub fn validate_harness_worker_binding_registry_record(
     if record.harness_hash.trim().is_empty() {
         return Err(HarnessBindingError::MissingHash);
     }
+    if record.binding_status == HarnessWorkerBindingStatus::Bound
+        && (record.reviewed_package_snapshot_hash.trim().is_empty()
+            || record.reviewed_workflow_content_hash.trim().is_empty()
+            || record.reviewed_activation_id.trim().is_empty()
+            || record.reviewed_harness_workflow_id.trim().is_empty()
+            || record
+                .reviewed_worker_binding_activation_id
+                .trim()
+                .is_empty()
+            || record.reviewed_activation_id != record.reviewed_worker_binding_activation_id
+            || record.reviewed_rollback_target != record.rollback_target
+	            || record.reviewed_replay_fixture_refs.is_empty()
+	            || record.reviewed_worker_handoff_node_attempt_ids.is_empty()
+	            || record.reviewed_worker_handoff_receipt_ids.is_empty()
+            || record.reviewed_fork_mutation_canary_id.trim().is_empty()
+            || record.reviewed_fork_mutation_canary_status != "passed"
+            || record
+                .reviewed_fork_mutation_canary_diff_hash
+                .trim()
+                .is_empty()
+            || record
+                .reviewed_fork_mutation_canary_receipt_refs
+                .is_empty()
+            || record
+                .reviewed_fork_mutation_canary_replay_fixture_refs
+                .is_empty()
+            || record
+                .reviewed_fork_mutation_canary_node_attempt_ids
+                .is_empty()
+            || record.reviewed_fork_mutation_canary_rollback_target != record.rollback_target
+	            || record.reviewed_policy_posture.trim().is_empty())
+    {
+        return Err(HarnessBindingError::RegistryWorkerBindingMismatch);
+    }
     validate_harness_worker_binding(&record.worker_binding)?;
     if record.worker_binding.harness_workflow_id != record.workflow_id
         || record.worker_binding.harness_activation_id.as_deref()
@@ -4598,9 +5747,15 @@ pub fn validate_harness_worker_binding_registry_record(
     if record.binding_status == HarnessWorkerBindingStatus::Bound
         && (record.readiness_proof_id.trim().is_empty()
             || record.rollback_readiness_proof_id != record.readiness_proof_id
-            || record.rollback_live_shadow_comparison_gate_id.trim().is_empty()
+            || record
+                .rollback_live_shadow_comparison_gate_id
+                .trim()
+                .is_empty()
             || !record.rollback_live_shadow_comparison_gate_ready
-            || record.worker_binding.live_shadow_comparison_gate_id.as_deref()
+            || record
+                .worker_binding
+                .live_shadow_comparison_gate_id
+                .as_deref()
                 != Some(record.rollback_live_shadow_comparison_gate_id.as_str())
             || !record.worker_binding.live_shadow_comparison_gate_ready
             || record.rollback_activation_id != record.activation_id

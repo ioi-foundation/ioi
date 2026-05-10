@@ -25,6 +25,8 @@ import {
   harnessForkActivationId,
   harnessSlotsForWorkflow,
   workflowRevisionBindingFor,
+  workflowHarnessForkMutationCanaryReady,
+  workflowHarnessForkMutationCanaryRefs,
   workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
   workflowIsHarness,
@@ -128,6 +130,26 @@ function workflowHarnessPackageEvidenceReview(
   const workerHandoffReceiptIds = Array.isArray(manifest.workerHandoffReceiptIds)
     ? manifest.workerHandoffReceiptIds
     : [];
+  const forkMutationCanary =
+    manifest.forkMutationCanary ??
+    activationRecord?.forkMutationCanary ??
+    harness?.forkMutationCanary ??
+    null;
+  const forkMutationCanaryReceiptRefs = Array.isArray(
+    manifest.forkMutationCanaryReceiptRefs,
+  )
+    ? manifest.forkMutationCanaryReceiptRefs
+    : (forkMutationCanary?.receiptRefs ?? []);
+  const forkMutationCanaryReplayFixtureRefs = Array.isArray(
+    manifest.forkMutationCanaryReplayFixtureRefs,
+  )
+    ? manifest.forkMutationCanaryReplayFixtureRefs
+    : (forkMutationCanary?.replayFixtureRefs ?? []);
+  const forkMutationCanaryNodeAttemptIds = Array.isArray(
+    manifest.forkMutationCanaryNodeAttemptIds,
+  )
+    ? manifest.forkMutationCanaryNodeAttemptIds
+    : (forkMutationCanary?.nodeAttemptIds ?? []);
   const rollbackRestoreReceiptRefs = Array.isArray(
     manifest.rollbackRestoreReceiptRefs,
   )
@@ -148,6 +170,18 @@ function workflowHarnessPackageEvidenceReview(
         ...(deepLinks.length > 0
           ? []
           : ["package_manifest_deep_links_missing"]),
+        ...(workflowHarnessForkMutationCanaryReady(forkMutationCanary)
+          ? []
+          : ["package_manifest_fork_mutation_canary_missing"]),
+        ...(forkMutationCanaryReceiptRefs.length > 0
+          ? []
+          : ["package_manifest_fork_mutation_canary_receipts_missing"]),
+        ...(forkMutationCanaryReplayFixtureRefs.length > 0
+          ? []
+          : ["package_manifest_fork_mutation_canary_replay_missing"]),
+        ...(forkMutationCanaryNodeAttemptIds.length > 0
+          ? []
+          : ["package_manifest_fork_mutation_canary_attempts_missing"]),
         ...(workerHandoffNodeAttemptIds.length > 0
           ? []
           : ["package_manifest_worker_handoff_attempts_missing"]),
@@ -176,6 +210,10 @@ function workflowHarnessPackageEvidenceReview(
       ...evidenceRefs,
       ...receiptRefs,
       ...replayFixtureRefs,
+      ...workflowHarnessForkMutationCanaryRefs(forkMutationCanary),
+      ...forkMutationCanaryReceiptRefs,
+      ...forkMutationCanaryReplayFixtureRefs,
+      ...forkMutationCanaryNodeAttemptIds,
       ...rollbackRestoreReceiptRefs,
       ...workerHandoffNodeAttemptIds,
       ...workerHandoffReceiptIds,
@@ -1324,10 +1362,25 @@ export function evaluateWorkflowActivationReadiness(
       });
     }
     const activationRecord = harness?.activationRecord;
+    const forkMutationCanary =
+      activationRecord?.forkMutationCanary ??
+      harness?.forkMutationCanary ??
+      harness?.packageManifest?.forkMutationCanary ??
+      null;
+    if (!workflowHarnessForkMutationCanaryReady(forkMutationCanary)) {
+      addReadinessIssue({
+        code: "harness_fork_mutation_canary_not_passed",
+        message:
+          "Harness forks need a passing proposal-bound mutation canary with receipt, replay, node-attempt, and rollback refs before activation can mint.",
+      });
+    }
     const activationRecordValidated =
       activationRecord?.activationState === "validated" &&
       activationRecord.activationId === harness?.activationId &&
       activationRecord.canaryStatus === "passed" &&
+      workflowHarnessForkMutationCanaryReady(
+        activationRecord.forkMutationCanary,
+      ) &&
       activationRecord.rollbackAvailable === true &&
       activationRecord.liveAuthorityTransferred === false &&
       activationRecord.workerBinding?.harnessActivationId === harness?.activationId;
@@ -1620,6 +1673,15 @@ export function createWorkflowHarnessActivationCandidate(
   const rollbackRestoreReady =
     rollbackRestoreCanary.status === "passed" ||
     rollbackRestoreCanary.status === "not_required";
+  const forkMutationCanary =
+    activationRecord?.forkMutationCanary ??
+    harness?.forkMutationCanary ??
+    harness?.packageManifest?.forkMutationCanary ??
+    null;
+  const forkMutationCanaryReady =
+    workflowHarnessForkMutationCanaryReady(forkMutationCanary);
+  const forkMutationCanaryRefs =
+    workflowHarnessForkMutationCanaryRefs(forkMutationCanary);
   const policyPostureReady =
     harness?.aiMutationMode === "proposal_only" &&
     (workflow.global_config.environmentProfile?.mockBindingPolicy ?? "block") === "block" &&
@@ -1695,6 +1757,17 @@ export function createWorkflowHarnessActivationCandidate(
       value: activationRecord?.policyPosture ?? "proposal_only",
       detail: "Policy must keep self-mutation proposal-only and block unreviewed live access.",
       evidenceRefs: activationGateProposal ? [activationGateProposal.id] : [],
+    },
+    {
+      gateId: "mutation-canary",
+      label: "Mutation canary",
+      status: forkMutationCanaryReady ? "passed" : "blocked",
+      value: forkMutationCanary
+        ? `${forkMutationCanary.mutationKind}:${forkMutationCanary.status}`
+        : "missing",
+      detail:
+        "A real fork workflow diff must be proposal-bound, replayed, receipted, node-attempted, and rollback-safe.",
+      evidenceRefs: forkMutationCanaryRefs,
     },
     {
       gateId: "receipt-coverage",
@@ -1809,6 +1882,35 @@ export function createWorkflowHarnessActivationCandidate(
     rollbackTarget: activationRecord?.rollbackTarget ?? "",
     rollbackAvailable: rollbackReady,
     rollbackRestoreCanary,
+    forkMutationCanary:
+      forkMutationCanary ??
+      ({
+        schemaVersion: "workflow.harness.fork-mutation-canary.v1",
+        canaryId: "missing",
+        mutationId: "missing",
+        mutationKind: "budget_gate_limit",
+        mutationScope: "workflow_policy",
+        workflowId,
+        harnessWorkflowId: harness?.harnessWorkflowId ?? workflowId,
+        componentId: "ioi.agent-harness.budget_gate.v1",
+        workflowNodeId: "harness.budget_gate",
+        targetPath: "global_config.policy.maxSteps",
+        beforeValue: "",
+        afterValue: "",
+        diffHash: "",
+        proposalId: activationGateProposal?.id ?? "",
+        status: "blocked",
+        canaryStatus: "not_run",
+        replayFixtureRefs: [],
+        receiptRefs: [],
+        nodeAttemptIds: [],
+        evidenceRefs: [],
+        policyDecision: "block_missing_fork_mutation_canary",
+        rollbackTarget: activationRecord?.rollbackTarget ?? "",
+        rollbackAvailable: false,
+        blockers: ["harness_fork_mutation_canary_not_passed"],
+        createdAtMs,
+      }),
     workerBindingPreview,
     revisionBindingPreview,
     evidenceRefs: [

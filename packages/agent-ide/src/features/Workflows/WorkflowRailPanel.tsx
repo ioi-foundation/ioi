@@ -40,6 +40,7 @@ import {
   workflowHarnessWorkerSessionBlockers,
   workflowHarnessWorkerBinding,
   workflowHarnessWorkerBindingRegistryBlockers,
+  workflowHarnessForkMutationCanaryNodeAttempts,
   workflowIsBlessedHarness,
   workflowIsHarness,
   workflowIsHarnessFork,
@@ -559,6 +560,16 @@ export function WorkflowRailPanel({
     (harnessCanaryExecutionBoundary ? [harnessCanaryExecutionBoundary] : []);
   const harnessDefaultRuntimeDispatchProof =
     workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const harnessCognitionNodeAuthorityGate =
+    harnessDefaultRuntimeDispatchProof?.cognitionNodeAuthorityGate ?? null;
+  const harnessRoutingModelNodeAuthorityGate =
+    harnessDefaultRuntimeDispatchProof?.routingModelNodeAuthorityGate ?? null;
+  const harnessVerificationOutputNodeAuthorityGate =
+    harnessDefaultRuntimeDispatchProof?.verificationOutputNodeAuthorityGate ??
+    null;
+  const harnessAuthorityToolingNodeAuthorityGate =
+    harnessDefaultRuntimeDispatchProof?.authorityToolingNodeAuthorityGate ??
+    null;
   const harnessLivePromotionReadinessProof =
     harnessDefaultRuntimeDispatchProof?.livePromotionReadinessProof ?? null;
   const harnessSelectorLivePromotionReadinessProof =
@@ -1107,6 +1118,27 @@ export function WorkflowRailPanel({
                   receipt.requiredInvariantIds,
                 ) && (receipt.invariantBlockers ?? []).length === 0,
             );
+          const workerRegistryReviewedPackageBound =
+            Boolean(workerBindingRegistryRecord?.reviewedPackageSnapshotHash) &&
+            workerBindingRegistryRecord?.reviewedWorkflowContentHash ===
+              workerAttachReceipt?.reviewedWorkflowContentHash &&
+            workerBindingRegistryRecord?.reviewedActivationId ===
+              workerAttachReceipt?.reviewedActivationId &&
+            workerBindingRegistryRecord?.reviewedWorkerBindingActivationId ===
+              workerAttachReceipt?.reviewedWorkerBindingActivationId &&
+            workerBindingRegistryRecord?.reviewedActivationId ===
+              workerBindingRegistryRecord
+                ?.reviewedWorkerBindingActivationId &&
+            workerBindingRegistryRecord?.reviewedRollbackTarget ===
+              workerBindingRegistryRecord?.rollbackTarget &&
+            workerBindingRegistryRecord?.reviewedPolicyPosture === "canary" &&
+            (workerBindingRegistryRecord?.reviewedReplayFixtureRefs?.length ??
+              0) > 0 &&
+            (workerBindingRegistryRecord
+              ?.reviewedWorkerHandoffNodeAttemptIds?.length ?? 0) > 0 &&
+            (workerBindingRegistryRecord?.reviewedWorkerHandoffReceiptIds
+              ?.length ?? 0) > 0 &&
+            (workerAttachReceipt?.reviewedReplayFixtureRefs?.length ?? 0) > 0;
           const workerInvariantBlockers = workflowHarnessInvariantBlockers(
             workerBindingInvariantBlockers,
             workerRegistryInvariantBlockers,
@@ -1183,6 +1215,9 @@ export function WorkflowRailPanel({
               : [
                   "worker_launch_reviewed_import_activation_invariant_not_bound",
                 ]),
+            ...(workerRegistryReviewedPackageBound
+              ? []
+              : ["worker_registry_reviewed_package_snapshot_not_bound"]),
             ...workerBindingRegistryBlockers,
             ...workerAttachBlockers,
             ...workerSessionBlockers,
@@ -1234,6 +1269,7 @@ export function WorkflowRailPanel({
             workerBindingAuthorityReady,
             workerBindingAuthorityBlockers,
             workerLaunchReviewedImportInvariantBound,
+            workerRegistryReviewedPackageBound,
             workerBindingRequiredInvariantIds,
             workerBindingInvariantBlockers,
             workerRegistryRequiredInvariantIds,
@@ -1921,9 +1957,9 @@ export function WorkflowRailPanel({
     harnessActivationWorkerHandoffReceiptStatuses.has("launched") &&
     harnessActivationWorkerHandoffReceiptStatuses.has("resumed") &&
     harnessActivationWorkerHandoffReceiptStatuses.has("rollback_handoff_ready");
-  const harnessActivationWorkerHandoffTimelineReady =
-    harnessActivationWorkerLaunchHandoffReady &&
-    harnessActivationWorkerHandoffNodeAttempts.length >= 3 &&
+	  const harnessActivationWorkerHandoffTimelineReady =
+	    harnessActivationWorkerLaunchHandoffReady &&
+	    harnessActivationWorkerHandoffNodeAttempts.length >= 3 &&
     harnessActivationWorkerHandoffNodeAttemptIds.length >= 3 &&
     harnessActivationWorkerHandoffReplayFixtureRefs.length >= 3 &&
     harnessActivationWorkerHandoffNodeAttempts.every(
@@ -1933,18 +1969,46 @@ export function WorkflowRailPanel({
         attempt.receiptIds.some((receiptId) =>
           harnessActivationWorkerHandoffReceiptIds.includes(receiptId),
         ) &&
-        Boolean(attempt.replay.fixtureRef),
-    );
-  const harnessActivationReady =
-    !harnessForkWorkflow ||
-    Boolean(
-      workflow.metadata.harness?.activationId &&
-      workflow.metadata.harness?.activationState === "validated" &&
-      harnessActivationRecord?.activationState === "validated" &&
-      harnessActivationRecord.canaryStatus === "passed" &&
-      harnessActivationRecord.rollbackAvailable === true &&
-      harnessActivationRecord.liveAuthorityTransferred === false &&
-      harnessActivationWorkerHandoffTimelineReady,
+	        Boolean(attempt.replay.fixtureRef),
+	    );
+		  const harnessForkMutationCanary =
+		    harnessActivationRecord?.forkMutationCanary ??
+		    workflow.metadata.harness?.forkMutationCanary ??
+		    harnessActivationCandidate?.forkMutationCanary ??
+		    null;
+  const harnessForkMutationCanaryNodeAttempts =
+    workflowHarnessForkMutationCanaryNodeAttempts(harnessForkMutationCanary);
+  const harnessForkMutationCanaryNodeAttemptIds =
+    harnessForkMutationCanaryNodeAttempts.map((attempt) => attempt.attemptId);
+  const harnessActivationGateNodeAttempts = Array.from(
+    new Map(
+      [
+        ...harnessActivationWorkerHandoffNodeAttempts,
+        ...harnessForkMutationCanaryNodeAttempts,
+      ].map((attempt) => [attempt.attemptId, attempt]),
+    ).values(),
+  );
+		  const harnessForkMutationCanaryReady = Boolean(
+		    harnessForkMutationCanary &&
+		      harnessForkMutationCanary.status === "passed" &&
+		      harnessForkMutationCanary.canaryStatus === "passed" &&
+		      harnessForkMutationCanary.rollbackAvailable === true &&
+		      harnessForkMutationCanary.receiptRefs.length > 0 &&
+		      harnessForkMutationCanary.replayFixtureRefs.length > 0 &&
+		      harnessForkMutationCanaryNodeAttempts.length > 0 &&
+		      harnessForkMutationCanary.blockers.length === 0,
+		  );
+	  const harnessActivationReady =
+	    !harnessForkWorkflow ||
+	    Boolean(
+	      workflow.metadata.harness?.activationId &&
+	      workflow.metadata.harness?.activationState === "validated" &&
+	      harnessActivationRecord?.activationState === "validated" &&
+	      harnessActivationRecord.canaryStatus === "passed" &&
+	      harnessForkMutationCanaryReady &&
+	      harnessActivationRecord.rollbackAvailable === true &&
+	      harnessActivationRecord.liveAuthorityTransferred === false &&
+	      harnessActivationWorkerHandoffTimelineReady,
     );
   const harnessActivationIssues = [
     ...(readinessResult?.errors ?? []),
@@ -1960,9 +2024,10 @@ export function WorkflowRailPanel({
         .filter((issue) =>
           [
             "harness_required_slot_unbound",
-            "harness_activation_not_validated",
-            "harness_self_mutation_not_proposal_only",
-            "harness_package_manifest_incomplete",
+	            "harness_activation_not_validated",
+	            "harness_self_mutation_not_proposal_only",
+	            "harness_fork_mutation_canary_not_passed",
+	            "harness_package_manifest_incomplete",
             "missing_replay_fixture",
             "missing_unit_tests",
             "mcp_access_not_reviewed",
@@ -2047,6 +2112,25 @@ export function WorkflowRailPanel({
   )
     ? harnessPackageManifest.rollbackRestoreReceiptRefs
     : [];
+  const harnessPackageForkMutationCanary =
+    harnessPackageManifest?.forkMutationCanary ?? harnessForkMutationCanary;
+  const harnessPackageForkMutationCanaryReceiptRefs = Array.isArray(
+    harnessPackageManifest?.forkMutationCanaryReceiptRefs,
+  )
+    ? harnessPackageManifest.forkMutationCanaryReceiptRefs
+    : (harnessPackageForkMutationCanary?.receiptRefs ?? []);
+  const harnessPackageForkMutationCanaryReplayFixtureRefs = Array.isArray(
+    harnessPackageManifest?.forkMutationCanaryReplayFixtureRefs,
+  )
+    ? harnessPackageManifest.forkMutationCanaryReplayFixtureRefs
+    : (harnessPackageForkMutationCanary?.replayFixtureRefs ?? []);
+	  const harnessPackageForkMutationCanaryNodeAttemptIds = Array.isArray(
+	    harnessPackageManifest?.forkMutationCanaryNodeAttemptIds,
+	  )
+	    ? harnessPackageManifest.forkMutationCanaryNodeAttemptIds
+	    : workflowHarnessForkMutationCanaryNodeAttempts(
+	        harnessPackageForkMutationCanary,
+	      ).map((attempt) => attempt.attemptId);
   const harnessPackageEvidenceGate =
     harnessActivationCandidate?.gateResults.find(
       (gate) => gate.gateId === "package-evidence",
@@ -2056,11 +2140,14 @@ export function WorkflowRailPanel({
     : !harnessPackageManifestRequired ||
       Boolean(
         harnessPackageManifest &&
-        harnessPackageReceiptRefValues.length > 0 &&
-        harnessPackageReplayFixtureRefValues.length > 0 &&
-        harnessPackageDeepLinks.length > 0 &&
-        harnessPackageWorkerHandoffNodeAttemptIds.length > 0 &&
-        harnessPackageWorkerHandoffReceiptIds.length > 0 &&
+	        harnessPackageReceiptRefValues.length > 0 &&
+	        harnessPackageReplayFixtureRefValues.length > 0 &&
+	        harnessPackageDeepLinks.length > 0 &&
+	        harnessPackageForkMutationCanaryReceiptRefs.length > 0 &&
+	        harnessPackageForkMutationCanaryReplayFixtureRefs.length > 0 &&
+	        harnessPackageForkMutationCanaryNodeAttemptIds.length > 0 &&
+	        harnessPackageWorkerHandoffNodeAttemptIds.length > 0 &&
+	        harnessPackageWorkerHandoffReceiptIds.length > 0 &&
         harnessPackageRollbackRestoreReceiptRefs.length > 0,
       );
   const harnessPackageEvidenceRefs = workflowUniqueReceiptRefs([
@@ -2070,6 +2157,11 @@ export function WorkflowRailPanel({
     ...harnessPackageEvidenceRefValues,
     ...harnessPackageReceiptRefValues,
     ...harnessPackageRollbackRestoreReceiptRefs,
+    ...harnessPackageForkMutationCanaryReceiptRefs,
+    ...harnessPackageForkMutationCanaryReplayFixtureRefs,
+    ...harnessPackageForkMutationCanaryNodeAttemptIds,
+    harnessPackageForkMutationCanary?.canaryId,
+    harnessPackageForkMutationCanary?.diffHash,
     ...harnessPackageWorkerHandoffNodeAttemptIds,
     ...harnessPackageWorkerHandoffReceiptIds,
     ...harnessPackageDeepLinks.map((link) => link?.ref),
@@ -2122,6 +2214,29 @@ export function WorkflowRailPanel({
       kind: "receipt",
     },
     {
+      id: "fork-mutation-canary",
+      label: "Mutation canary",
+      ready:
+        Boolean(harnessPackageForkMutationCanary) &&
+        harnessPackageForkMutationCanary?.status === "passed" &&
+        harnessPackageForkMutationCanaryReceiptRefs.length > 0 &&
+        harnessPackageForkMutationCanaryReplayFixtureRefs.length > 0 &&
+        harnessPackageForkMutationCanaryNodeAttemptIds.length > 0,
+      value:
+        harnessPackageForkMutationCanary?.mutationKind ??
+        `${harnessPackageForkMutationCanaryReceiptRefs.length}`,
+      detail: "proposal-bound workflow diff canary refs",
+      refs: workflowUniqueReceiptRefs([
+        harnessPackageForkMutationCanary?.canaryId,
+        harnessPackageForkMutationCanary?.mutationId,
+        harnessPackageForkMutationCanary?.diffHash,
+        ...harnessPackageForkMutationCanaryReceiptRefs,
+        ...harnessPackageForkMutationCanaryReplayFixtureRefs,
+        ...harnessPackageForkMutationCanaryNodeAttemptIds,
+      ]),
+      kind: "mutation_canary",
+    },
+    {
       id: "worker-handoff-attempts",
       label: "Handoff attempts",
       ready: harnessPackageWorkerHandoffNodeAttemptIds.length > 0,
@@ -2159,10 +2274,78 @@ export function WorkflowRailPanel({
     packageImportActivationHandoff?.workerBinding?.harnessActivationId ??
     packageImportActivationHandoff?.workerBinding?.harnessWorkflowId ??
     "";
+  const packageImportReplayIntegrityBlockers = workflowUniqueReceiptRefs([
+    packageImportReview?.source.reviewedPackageSnapshotHash &&
+    packageImportActivationHandoff?.reviewedPackageSnapshotHash &&
+    packageImportReview.source.reviewedPackageSnapshotHash !==
+      packageImportActivationHandoff.reviewedPackageSnapshotHash
+      ? "package_import_activation_replay_integrity_snapshot_hash_mismatch"
+      : null,
+    !packageImportReview?.source.workflowContentHash
+      ? "package_import_activation_replay_integrity_workflow_hash_missing"
+      : packageImportActivationHandoff?.workflowContentHash &&
+          packageImportActivationHandoff.workflowContentHash !==
+            packageImportReview.source.workflowContentHash
+        ? "package_import_activation_replay_integrity_workflow_hash_mismatch"
+        : null,
+    packageImportReview?.source.activationId &&
+    packageImportActivationHandoff?.activationIdPreview &&
+    packageImportReview.source.activationId !==
+      packageImportActivationHandoff.activationIdPreview
+      ? "package_import_activation_replay_integrity_activation_id_mismatch"
+      : null,
+    packageImportReview?.source.workerBindingActivationId &&
+    packageImportHandoffWorkerBindingId &&
+    packageImportReview.source.workerBindingActivationId !==
+      packageImportHandoffWorkerBindingId
+      ? "package_import_activation_replay_integrity_worker_binding_mismatch"
+      : null,
+    packageImportReview?.source.rollbackTarget &&
+    packageImportActivationHandoff?.rollbackTarget &&
+    packageImportReview.source.rollbackTarget !==
+      packageImportActivationHandoff.rollbackTarget
+      ? "package_import_activation_replay_integrity_rollback_target_mismatch"
+      : null,
+	    packageImportReview?.source.policyPosture &&
+	    packageImportActivationHandoff?.policyPosture &&
+	    packageImportReview.source.policyPosture !==
+	      packageImportActivationHandoff.policyPosture
+	      ? "package_import_activation_replay_integrity_policy_posture_mismatch"
+	      : null,
+    packageImportReview?.source.forkMutationCanaryId &&
+    packageImportActivationHandoff?.forkMutationCanaryId &&
+    packageImportReview.source.forkMutationCanaryId !==
+      packageImportActivationHandoff.forkMutationCanaryId
+      ? "package_import_activation_replay_integrity_fork_mutation_canary_mismatch"
+      : null,
+    packageImportReview?.source.forkMutationCanaryDiffHash &&
+    packageImportActivationHandoff?.forkMutationCanaryDiffHash &&
+    packageImportReview.source.forkMutationCanaryDiffHash !==
+      packageImportActivationHandoff.forkMutationCanaryDiffHash
+      ? "package_import_activation_replay_integrity_fork_mutation_canary_diff_mismatch"
+      : null,
+    packageImportReview?.source.forkMutationCanaryRollbackTarget &&
+    packageImportActivationHandoff?.forkMutationCanaryRollbackTarget &&
+    packageImportReview.source.forkMutationCanaryRollbackTarget !==
+      packageImportActivationHandoff.forkMutationCanaryRollbackTarget
+      ? "package_import_activation_replay_integrity_fork_mutation_canary_rollback_mismatch"
+      : null,
+	    (packageImportReview?.source.replayFixtureRefs?.length ?? 0) === 0
+      ? "package_import_activation_replay_integrity_replay_fixture_missing"
+      : packageImportActivationHandoff?.replayFixtureRefs?.length &&
+          !packageImportActivationHandoff.replayFixtureRefs.every((fixtureRef) =>
+            (packageImportReview?.source.replayFixtureRefs ?? []).includes(
+              fixtureRef,
+            ),
+          )
+        ? "package_import_activation_replay_integrity_replay_fixture_mismatch"
+        : null,
+  ]);
   const packageImportActivationEnabled =
     Boolean(packageImportReview) &&
     harnessPackageEvidenceReady &&
     harnessPackageEvidenceBlockerCount === 0 &&
+    packageImportReplayIntegrityBlockers.length === 0 &&
     (packageImportActivationHandoff?.mintable ?? true) &&
     readinessResult?.status !== "blocked" &&
     Boolean(onApplyHarnessActivationCandidate);
@@ -2328,8 +2511,8 @@ export function WorkflowRailPanel({
             : "replay gate unavailable",
           onRun: onRunHarnessReplayGate,
         },
-    "policy-posture": activationGateProposal
-      ? {
+	    "policy-posture": activationGateProposal
+	      ? {
           actionId: "activation-gate-action:policy-posture:review-proposal",
           kind: "review_proposal",
           impact: "clear_blocker",
@@ -2344,9 +2527,23 @@ export function WorkflowRailPanel({
           label: "Check policy",
           detail:
             "Re-run policy posture checks for mutation mode, mocks, and MCP review.",
-          blocker: policyPostureBlocker,
-        }),
-    "receipt-coverage": makeReadinessGateAction({
+	          blocker: policyPostureBlocker,
+	        }),
+	    "mutation-canary": {
+	      actionId: "activation-gate-action:mutation-canary:run-dry-run",
+	      kind: "run_activation_dry_run",
+	      impact: "collect_evidence",
+	      label: "Run mutation canary",
+	      detail:
+	        "Refresh the proposal-bound workflow diff canary and its receipt, replay, node-attempt, and rollback refs.",
+	      commandTestId: "workflow-harness-gate-action-mutation-canary",
+	      disabled: !onRunHarnessActivationDryRun,
+	      disabledReason: onRunHarnessActivationDryRun
+	        ? undefined
+	        : "dry run unavailable",
+	      onRun: onRunHarnessActivationDryRun,
+	    },
+	    "receipt-coverage": makeReadinessGateAction({
       gateId: "receipt-coverage",
       label: "Check receipts",
       detail: "Re-run receipt coverage checks for harness component bindings.",
@@ -2499,6 +2696,25 @@ export function WorkflowRailPanel({
           : null,
       ]),
       gateAction: harnessActivationGateActions["policy-posture"],
+    },
+    {
+      id: "mutation-canary",
+      label: "Mutation canary",
+      ready: harnessForkMutationCanaryReady,
+      value: harnessForkMutationCanary
+        ? `${harnessForkMutationCanary.mutationKind}:${harnessForkMutationCanary.status}`
+        : "missing",
+      detail: "real workflow diff canaried with receipt, replay, and rollback refs",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        harnessForkMutationCanary?.canaryId,
+        harnessForkMutationCanary?.mutationId,
+        harnessForkMutationCanary?.diffHash,
+        ...(harnessForkMutationCanary?.evidenceRefs ?? []),
+      ]),
+      receiptRefs: harnessForkMutationCanary?.receiptRefs ?? [],
+      replayFixtureRefs: harnessForkMutationCanary?.replayFixtureRefs ?? [],
+	      nodeAttemptIds: harnessForkMutationCanaryNodeAttemptIds,
+      gateAction: harnessActivationGateActions["mutation-canary"],
     },
     {
       id: "receipt-coverage",
@@ -2672,7 +2888,7 @@ export function WorkflowRailPanel({
         (step) => step.id === selectedHarnessActivationGateId,
       ) ?? null)
     : null;
-  const selectedHarnessActivationGateInspection:
+	  const selectedHarnessActivationGateInspection:
     | (WorkflowHarnessActivationCandidateGateResult & {
         sourceKind: "activation_candidate" | "wizard_step";
         nodeAttemptIds: string[];
@@ -2732,9 +2948,19 @@ export function WorkflowRailPanel({
         sourceKind: selectedHarnessCandidateGate
           ? "activation_candidate"
           : "wizard_step",
-      }
-    : null;
-  const selectedHarnessCanaryBoundary =
+	      }
+	    : null;
+  const selectedHarnessActivationGateNodeAttempt =
+    harnessActivationGateNodeAttempts.find(
+      (attempt) =>
+        attempt.attemptId === selectedHarnessActivationGateNodeAttemptId ||
+        attempt.attemptId === selectedHarnessNodeAttemptId,
+    ) ?? null;
+  const selectedHarnessActivationGateMutationCanary =
+    selectedHarnessActivationGateInspection?.gateId === "mutation-canary"
+      ? harnessForkMutationCanary
+      : null;
+	  const selectedHarnessCanaryBoundary =
     selectedHarnessActivationGateId === "canary"
       ? (harnessCanaryExecutionBoundaries.find(
           (boundary) =>
@@ -4438,6 +4664,14 @@ export function WorkflowRailPanel({
                     </dd>
                   </div>
                   <div>
+                    <dt>Package</dt>
+                    <dd>
+                      {harnessActiveRuntimeBinding.workerRegistryReviewedPackageBound
+                        ? "bound"
+                        : "blocked"}
+                    </dd>
+                  </div>
+                  <div>
                     <dt>Registry</dt>
                     <dd>
                       {harnessActiveRuntimeBinding.workerBindingRegistryStatus}
@@ -4504,6 +4738,23 @@ export function WorkflowRailPanel({
                       ? "true"
                       : "false"
                   }
+                  data-worker-registry-reviewed-package-bound={
+                    harnessActiveRuntimeBinding.workerRegistryReviewedPackageBound
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-registry-reviewed-package-snapshot-hash={
+                    harnessActiveRuntimeBinding.workerBindingRegistryRecord
+                      ?.reviewedPackageSnapshotHash ?? ""
+                  }
+                  data-worker-registry-reviewed-package-workflow-hash={
+                    harnessActiveRuntimeBinding.workerBindingRegistryRecord
+                      ?.reviewedWorkflowContentHash ?? ""
+                  }
+                  data-worker-registry-reviewed-package-replay-fixtures={(
+                    harnessActiveRuntimeBinding.workerBindingRegistryRecord
+                      ?.reviewedReplayFixtureRefs ?? []
+                  ).join(",")}
                   data-worker-binding-required-invariant-ids={harnessActiveRuntimeBinding.workerBindingRequiredInvariantIds.join(
                     ",",
                   )}
@@ -4709,6 +4960,11 @@ export function WorkflowRailPanel({
                     registry{" "}
                     {harnessActiveRuntimeBinding.workerBindingRegistryRecord
                       ?.registryRecordId ?? "missing"}
+                  </small>
+                  <small>
+                    package snapshot{" "}
+                    {harnessActiveRuntimeBinding.workerBindingRegistryRecord
+                      ?.reviewedPackageSnapshotHash ?? "missing"}
                   </small>
                   <small>
                     attach{" "}
@@ -6266,10 +6522,73 @@ export function WorkflowRailPanel({
                           : "blocked"}
                       </small>
                     </article>
-                    <article
-                      className="workflow-output-row"
-                      data-testid="workflow-harness-activation-candidate-worker-binding"
-                    >
+	                    <article
+	                      className="workflow-output-row"
+	                      data-testid="workflow-harness-fork-mutation-canary"
+	                      data-harness-fork-mutation-canary-id={
+	                        harnessActivationCandidate.forkMutationCanary.canaryId
+	                      }
+	                      data-harness-fork-mutation-status={
+	                        harnessActivationCandidate.forkMutationCanary.status
+	                      }
+	                      data-harness-fork-mutation-kind={
+	                        harnessActivationCandidate.forkMutationCanary
+	                          .mutationKind
+	                      }
+	                      data-harness-fork-mutation-diff-hash={
+	                        harnessActivationCandidate.forkMutationCanary.diffHash
+	                      }
+	                      data-harness-fork-mutation-receipt-count={
+	                        harnessActivationCandidate.forkMutationCanary
+	                          .receiptRefs.length
+	                      }
+	                      data-harness-fork-mutation-replay-count={
+	                        harnessActivationCandidate.forkMutationCanary
+	                          .replayFixtureRefs.length
+	                      }
+	                      data-harness-fork-mutation-node-attempt-count={
+	                        harnessActivationCandidate.forkMutationCanary
+	                          .nodeAttemptIds.length
+	                      }
+	                    >
+	                      <strong>
+	                        {
+	                          harnessActivationCandidate.forkMutationCanary
+	                            .mutationKind
+	                        }
+	                      </strong>
+	                      <span>
+	                        {
+	                          harnessActivationCandidate.forkMutationCanary
+	                            .targetPath
+	                        }
+	                        {" · "}
+	                        {
+	                          harnessActivationCandidate.forkMutationCanary
+	                            .status
+	                        }
+	                      </span>
+	                      <small>
+	                        {
+	                          harnessActivationCandidate.forkMutationCanary
+	                            .beforeValue
+	                        }
+	                        {" -> "}
+	                        {
+	                          harnessActivationCandidate.forkMutationCanary
+	                            .afterValue
+	                        }
+	                        {" · "}
+	                        {
+	                          harnessActivationCandidate.forkMutationCanary
+	                            .policyDecision
+	                        }
+	                      </small>
+	                    </article>
+	                    <article
+	                      className="workflow-output-row"
+	                      data-testid="workflow-harness-activation-candidate-worker-binding"
+	                    >
                       <strong>
                         {
                           harnessActivationCandidate.workerBindingPreview
@@ -6500,12 +6819,61 @@ export function WorkflowRailPanel({
                     data-selected-node-attempt-id={
                       selectedHarnessNodeAttemptId ?? ""
                     }
-                    data-selected-activation-gate-node-attempt-id={
-                      selectedHarnessActivationGateNodeAttemptId ?? ""
-                    }
-                    data-selected-activation-gate-receipt-ref={
-                      selectedHarnessActivationGateReceiptRef ?? ""
-                    }
+	                    data-selected-activation-gate-node-attempt-id={
+	                      selectedHarnessActivationGateNodeAttemptId ?? ""
+	                    }
+	                    data-node-attempt-id={
+	                      selectedHarnessActivationGateNodeAttempt?.attemptId ??
+	                      selectedHarnessActivationGateNodeAttemptId ??
+	                      ""
+	                    }
+	                    data-component-kind={
+	                      selectedHarnessActivationGateNodeAttempt
+	                        ?.componentKind ?? ""
+	                    }
+	                    data-component-id={
+	                      selectedHarnessActivationGateNodeAttempt?.componentId ??
+	                      ""
+	                    }
+	                    data-policy-decision={
+	                      selectedHarnessActivationGateNodeAttempt
+	                        ?.policyDecision ??
+	                      selectedHarnessActivationGateMutationCanary
+	                        ?.policyDecision ??
+	                      ""
+	                    }
+	                    data-receipt-refs={
+	                      selectedHarnessActivationGateNodeAttempt
+	                        ?.receiptIds.join("|") ??
+	                      selectedHarnessActivationGateInspection.receiptRefs.join(
+	                        "|",
+	                      )
+	                    }
+	                    data-replay-fixture-ref={
+	                      selectedHarnessActivationGateNodeAttempt?.replay
+	                        .fixtureRef ??
+	                      selectedHarnessActivationGateInspection
+	                        .replayFixtureRefs[0] ??
+	                      ""
+	                    }
+	                    data-input-hash={
+	                      selectedHarnessActivationGateNodeAttempt?.inputHash ?? ""
+	                    }
+	                    data-output-hash={
+	                      selectedHarnessActivationGateNodeAttempt?.outputHash ??
+	                      ""
+	                    }
+	                    data-mutation-diff-hash={
+	                      selectedHarnessActivationGateMutationCanary?.diffHash ??
+	                      ""
+	                    }
+	                    data-rollback-target={
+	                      selectedHarnessActivationGateMutationCanary
+	                        ?.rollbackTarget ?? ""
+	                    }
+	                    data-selected-activation-gate-receipt-ref={
+	                      selectedHarnessActivationGateReceiptRef ?? ""
+	                    }
                     data-selected-activation-gate-replay-fixture-ref={
                       selectedHarnessActivationGateReplayFixtureRef ?? ""
                     }
@@ -6639,12 +7007,24 @@ export function WorkflowRailPanel({
                         data-harness-package-replay-fixture-ref-count={
                           harnessPackageReplayFixtureRefValues.length
                         }
-                        data-harness-package-rollback-restore-ref-count={
-                          harnessPackageRollbackRestoreReceiptRefs.length
-                        }
-                        data-harness-package-worker-handoff-attempt-count={
-                          harnessPackageWorkerHandoffNodeAttemptIds.length
-                        }
+	                        data-harness-package-rollback-restore-ref-count={
+	                          harnessPackageRollbackRestoreReceiptRefs.length
+	                        }
+	                        data-harness-package-fork-mutation-canary-id={
+	                          harnessPackageForkMutationCanary?.canaryId ?? ""
+	                        }
+	                        data-harness-package-fork-mutation-receipt-count={
+	                          harnessPackageForkMutationCanaryReceiptRefs.length
+	                        }
+	                        data-harness-package-fork-mutation-replay-count={
+	                          harnessPackageForkMutationCanaryReplayFixtureRefs.length
+	                        }
+	                        data-harness-package-fork-mutation-attempt-count={
+	                          harnessPackageForkMutationCanaryNodeAttemptIds.length
+	                        }
+	                        data-harness-package-worker-handoff-attempt-count={
+	                          harnessPackageWorkerHandoffNodeAttemptIds.length
+	                        }
                         data-harness-package-worker-handoff-receipt-count={
                           harnessPackageWorkerHandoffReceiptIds.length
                         }
@@ -6671,6 +7051,57 @@ export function WorkflowRailPanel({
                             data-package-import-source-activation-id={
                               packageImportReview.source.activationId ?? ""
                             }
+                            data-package-import-source-workflow-content-hash={
+                              packageImportReview.source.workflowContentHash ??
+                              ""
+                            }
+                            data-package-import-source-harness-hash={
+                              packageImportReview.source.harnessHash ?? ""
+                            }
+                            data-package-import-source-worker-binding-id={
+                              packageImportReview.source
+                                .workerBindingActivationId ?? ""
+                            }
+	                            data-package-import-source-policy-posture={
+	                              packageImportReview.source.policyPosture ?? ""
+	                            }
+                            data-package-import-source-mutation-canary-id={
+                              packageImportReview.source.forkMutationCanaryId ??
+                              ""
+                            }
+                            data-package-import-source-mutation-canary-status={
+                              packageImportReview.source
+                                .forkMutationCanaryStatus ?? ""
+                            }
+                            data-package-import-source-mutation-canary-diff-hash={
+                              packageImportReview.source
+                                .forkMutationCanaryDiffHash ?? ""
+                            }
+                            data-package-import-source-mutation-canary-receipt-ref={
+                              packageImportReview.source
+                                .forkMutationCanaryReceiptRefs?.[0] ?? ""
+                            }
+                            data-package-import-source-mutation-canary-replay-fixture-ref={
+                              packageImportReview.source
+                                .forkMutationCanaryReplayFixtureRefs?.[0] ??
+                              ""
+                            }
+                            data-package-import-source-mutation-canary-node-attempt-id={
+                              packageImportReview.source
+                                .forkMutationCanaryNodeAttemptIds?.[0] ?? ""
+                            }
+                            data-package-import-source-mutation-canary-rollback-target={
+                              packageImportReview.source
+                                .forkMutationCanaryRollbackTarget ?? ""
+                            }
+	                            data-package-import-source-reviewed-package-snapshot-hash={
+	                              packageImportReview.source.reviewedPackageSnapshotHash ??
+	                              ""
+                            }
+                            data-package-import-source-replay-fixture-count={
+                              packageImportReview.source.replayFixtureRefs
+                                ?.length ?? 0
+                            }
                             data-package-import-imported-workflow-path={
                               packageImportReview.imported.workflowPath
                             }
@@ -6691,6 +7122,12 @@ export function WorkflowRailPanel({
                             }
                             data-package-import-activation-enabled={
                               packageImportActivationEnabled ? "true" : "false"
+                            }
+                            data-package-import-replay-integrity-blocker-count={
+                              packageImportReplayIntegrityBlockers.length
+                            }
+                            data-package-import-replay-integrity-blockers={
+                              packageImportReplayIntegrityBlockers.join(",")
                             }
                           >
                             <strong>Import review</strong>
@@ -6749,13 +7186,42 @@ export function WorkflowRailPanel({
                                   packageImportActivationHandoff.activationIdPreview ??
                                   ""
                                 }
-                                data-package-import-handoff-canary-status={
-                                  packageImportActivationHandoff.canaryStatus ??
+	                                data-package-import-handoff-canary-status={
+	                                  packageImportActivationHandoff.canaryStatus ??
+	                                  ""
+	                                }
+	                                data-package-import-handoff-mutation-canary-id={
+	                                  packageImportActivationHandoff
+	                                    .forkMutationCanaryId ?? ""
+	                                }
+		                                data-package-import-handoff-mutation-canary-status={
+		                                  packageImportActivationHandoff
+		                                    .forkMutationCanaryStatus ?? ""
+		                                }
+                                data-package-import-handoff-mutation-canary-diff-hash={
+                                  packageImportActivationHandoff
+                                    .forkMutationCanaryDiffHash ?? ""
+                                }
+                                data-package-import-handoff-mutation-canary-receipt-ref={
+                                  packageImportActivationHandoff
+                                    .forkMutationCanaryReceiptRefs?.[0] ?? ""
+                                }
+                                data-package-import-handoff-mutation-canary-replay-fixture-ref={
+                                  packageImportActivationHandoff
+                                    .forkMutationCanaryReplayFixtureRefs?.[0] ??
                                   ""
                                 }
-                                data-package-import-handoff-rollback-target={
-                                  packageImportActivationHandoff.rollbackTarget ??
-                                  ""
+                                data-package-import-handoff-mutation-canary-node-attempt-id={
+                                  packageImportActivationHandoff
+                                    .forkMutationCanaryNodeAttemptIds?.[0] ?? ""
+                                }
+                                data-package-import-handoff-mutation-canary-rollback-target={
+                                  packageImportActivationHandoff
+                                    .forkMutationCanaryRollbackTarget ?? ""
+                                }
+	                                data-package-import-handoff-rollback-target={
+	                                  packageImportActivationHandoff.rollbackTarget ??
+	                                  ""
                                 }
                                 data-package-import-handoff-rollback-available={
                                   packageImportActivationHandoff.rollbackAvailable
@@ -6773,10 +7239,32 @@ export function WorkflowRailPanel({
                                   packageImportActivationHandoff.workerBinding
                                     ?.harnessHash ?? ""
                                 }
+                                data-package-import-handoff-workflow-content-hash={
+                                  packageImportActivationHandoff.workflowContentHash ??
+                                  ""
+                                }
+                                data-package-import-handoff-policy-posture={
+                                  packageImportActivationHandoff.policyPosture ??
+                                  ""
+                                }
+                                data-package-import-handoff-reviewed-package-snapshot-hash={
+                                  packageImportActivationHandoff.reviewedPackageSnapshotHash ??
+                                  ""
+                                }
+                                data-package-import-handoff-replay-fixture-count={
+                                  packageImportActivationHandoff
+                                    .replayFixtureRefs?.length ?? 0
+                                }
                                 data-package-import-handoff-mintable={
                                   packageImportActivationHandoff.mintable
                                     ? "true"
                                     : "false"
+                                }
+                                data-package-import-handoff-replay-integrity-blocker-count={
+                                  packageImportReplayIntegrityBlockers.length
+                                }
+                                data-package-import-handoff-replay-integrity-blockers={
+                                  packageImportReplayIntegrityBlockers.join(",")
                                 }
                                 data-package-import-handoff-blocker-count={
                                   packageImportActivationHandoff.blockerCount
@@ -6812,10 +7300,14 @@ export function WorkflowRailPanel({
                                       "activation id blocked"}
                                   </span>
                                   <small>
-                                    canary{" "}
-                                    {packageImportActivationHandoff.canaryStatus ??
-                                      "not_run"}{" "}
-                                    · rollback{" "}
+	                                    canary{" "}
+	                                    {packageImportActivationHandoff.canaryStatus ??
+	                                      "not_run"}{" "}
+	                                    · mutation{" "}
+	                                    {packageImportActivationHandoff
+	                                      .forkMutationCanaryStatus ??
+	                                      "not_run"}{" "}
+	                                    · rollback{" "}
                                     {packageImportActivationHandoff.rollbackTarget ??
                                       "not set"}{" "}
                                     · worker{" "}
@@ -6866,11 +7358,52 @@ export function WorkflowRailPanel({
                                           undefined,
                                       })
                                     }
-                                  >
-                                    <code>canary</code>
-                                  </button>
+	                                  >
+	                                    <code>canary</code>
+	                                  </button>
                                   <button
                                     type="button"
+                                    className="workflow-harness-ref-button"
+                                    data-testid="workflow-harness-package-import-handoff-mutation-canary-link"
+                                    disabled={
+                                      !packageImportActivationHandoff
+                                        .deepLinkTargets.mutationCanary ||
+                                      !packageImportActivationHandoff
+                                        .forkMutationCanaryNodeAttemptIds?.[0]
+                                    }
+                                    onClick={() =>
+                                      onCopyHarnessDeepLink?.({
+                                        panel: "outputs",
+                                        activationGateId: "mutation-canary",
+                                        activationGateEvidenceRef:
+                                          packageImportActivationHandoff
+                                            .deepLinkTargets.mutationCanary ??
+                                          undefined,
+                                        activationGateNodeAttemptId:
+                                          packageImportActivationHandoff
+                                            .forkMutationCanaryNodeAttemptIds?.[0],
+                                        nodeAttemptId:
+                                          packageImportActivationHandoff
+                                            .forkMutationCanaryNodeAttemptIds?.[0],
+                                        activationGateReceiptRef:
+                                          packageImportActivationHandoff
+                                            .forkMutationCanaryReceiptRefs?.[0],
+                                        receiptRef:
+                                          packageImportActivationHandoff
+                                            .forkMutationCanaryReceiptRefs?.[0],
+                                        activationGateReplayFixtureRef:
+                                          packageImportActivationHandoff
+                                            .forkMutationCanaryReplayFixtureRefs?.[0],
+                                        replayFixtureRef:
+                                          packageImportActivationHandoff
+                                            .forkMutationCanaryReplayFixtureRefs?.[0],
+                                      })
+                                    }
+                                  >
+                                    <code>mutation</code>
+                                  </button>
+	                                  <button
+	                                    type="button"
                                     className="workflow-harness-ref-button"
                                     data-testid="workflow-harness-package-import-handoff-rollback-link"
                                     disabled={
@@ -6993,9 +7526,32 @@ export function WorkflowRailPanel({
                                         row.kind !== "receipt" &&
                                         row.kind !== "replay"
                                       }
-                                      onClick={() => {
-                                        if (row.kind === "receipt") {
-                                          onCopyHarnessDeepLink
+	                                      onClick={() => {
+	                                        if (row.kind === "mutation_canary") {
+	                                          onCopyHarnessDeepLink?.({
+	                                            panel: "settings",
+	                                            activationGateId:
+	                                              "mutation-canary",
+	                                            activationGateEvidenceRef:
+	                                              harnessPackageForkMutationCanary
+	                                                ?.canaryId ?? ref,
+	                                            activationGateReceiptRef:
+	                                              harnessPackageForkMutationCanaryReceiptRefs[0],
+	                                            receiptRef:
+	                                              harnessPackageForkMutationCanaryReceiptRefs[0],
+	                                            activationGateReplayFixtureRef:
+	                                              harnessPackageForkMutationCanaryReplayFixtureRefs[0],
+	                                            replayFixtureRef:
+	                                              harnessPackageForkMutationCanaryReplayFixtureRefs[0],
+	                                            activationGateNodeAttemptId:
+	                                              harnessPackageForkMutationCanaryNodeAttemptIds[0],
+	                                            nodeAttemptId:
+	                                              harnessPackageForkMutationCanaryNodeAttemptIds[0],
+	                                          });
+	                                          return;
+	                                        }
+	                                        if (row.kind === "receipt") {
+	                                          onCopyHarnessDeepLink
                                             ? onCopyHarnessDeepLink({
                                                 panel: "settings",
                                                 activationGateId:
@@ -7162,30 +7718,54 @@ export function WorkflowRailPanel({
                           "|",
                         )}
                       >
-                        {harnessActivationWorkerHandoffNodeAttempts
-                          .filter((attempt) =>
-                            selectedHarnessActivationGateInspection.nodeAttemptIds.includes(
-                              attempt.attemptId,
-                            ),
-                          )
-                          .map((attempt) => (
-                            <li
-                              key={attempt.attemptId}
-                              className={`is-${attempt.status} ${
-                                selectedHarnessActivationGateNodeAttemptId ===
+	                        {harnessActivationGateNodeAttempts
+	                          .filter((attempt) =>
+	                            selectedHarnessActivationGateInspection.nodeAttemptIds.includes(
+	                              attempt.attemptId,
+	                            ),
+	                          )
+	                          .map((attempt) => {
+	                            const attemptMutationCanary =
+	                              harnessForkMutationCanaryNodeAttemptIds.includes(
+	                                attempt.attemptId,
+	                              )
+	                                ? harnessForkMutationCanary
+	                                : null;
+	                            return (
+	                            <li
+	                              key={attempt.attemptId}
+	                              className={`is-${attempt.status} ${
+	                                selectedHarnessActivationGateNodeAttemptId ===
                                   attempt.attemptId ||
                                 selectedHarnessNodeAttemptId ===
                                   attempt.attemptId
                                   ? "is-active"
                                   : ""
                               }`}
-                              data-testid={`workflow-harness-activation-gate-node-timeline-${attempt.attemptId}`}
-                              data-node-attempt-id={attempt.attemptId}
-                              data-receipt-refs={attempt.receiptIds.join("|")}
-                              data-replay-fixture-ref={
-                                attempt.replay.fixtureRef ?? ""
-                              }
-                            >
+	                              data-testid={`workflow-harness-activation-gate-node-timeline-${attempt.attemptId}`}
+	                              data-node-attempt-id={attempt.attemptId}
+	                              data-workflow-node-id={attempt.workflowNodeId}
+	                              data-component-kind={attempt.componentKind}
+	                              data-component-id={attempt.componentId}
+	                              data-execution-mode={attempt.executionMode}
+	                              data-readiness={attempt.readiness}
+	                              data-status={attempt.status}
+	                              data-policy-decision={
+	                                attempt.policyDecision ?? ""
+	                              }
+	                              data-receipt-refs={attempt.receiptIds.join("|")}
+	                              data-replay-fixture-ref={
+	                                attempt.replay.fixtureRef ?? ""
+	                              }
+	                              data-input-hash={attempt.inputHash ?? ""}
+	                              data-output-hash={attempt.outputHash ?? ""}
+	                              data-mutation-diff-hash={
+	                                attemptMutationCanary?.diffHash ?? ""
+	                              }
+	                              data-rollback-target={
+	                                attemptMutationCanary?.rollbackTarget ?? ""
+	                              }
+	                            >
                               <strong>{attempt.componentKind}</strong>
                               <span>
                                 {attempt.executionMode} · {attempt.readiness} ·{" "}
@@ -7193,10 +7773,11 @@ export function WorkflowRailPanel({
                               </span>
                               <small>
                                 {attempt.receiptIds.length} receipts ·{" "}
-                                {attempt.replay.fixtureRef ?? "replay pending"}
-                              </small>
-                            </li>
-                          ))}
+	                                {attempt.replay.fixtureRef ?? "replay pending"}
+	                              </small>
+	                            </li>
+	                            );
+	                          })}
                       </ol>
                     ) : null}
                     {selectedHarnessActivationGateInspection.receiptRefs
@@ -7440,6 +8021,152 @@ export function WorkflowRailPanel({
               <article
                 className="workflow-output-row"
                 data-testid="workflow-harness-default-runtime-dispatch"
+                data-cognition-node-authority-mode={
+                  harnessCognitionNodeAuthorityGate?.authorityMode ?? ""
+                }
+                data-cognition-node-authority-authoritative={
+                  harnessCognitionNodeAuthorityGate?.authoritative
+                    ? "true"
+                    : "false"
+                }
+                data-cognition-node-authority-policy-decision={
+                  harnessCognitionNodeAuthorityGate?.policyDecision ?? ""
+                }
+                data-cognition-node-authority-blockers={(
+                  harnessCognitionNodeAuthorityGate?.blockers ?? []
+                ).join(",")}
+                data-cognition-node-authority-component-kinds={(
+                  harnessCognitionNodeAuthorityGate?.componentKinds ?? []
+                ).join(",")}
+                data-cognition-node-authority-action-frame-ids={(
+                  harnessCognitionNodeAuthorityGate?.actionFrameIds ?? []
+                ).join(",")}
+                data-cognition-node-authority-attempt-ids={(
+                  harnessCognitionNodeAuthorityGate?.attemptIds ?? []
+                ).join(",")}
+                data-cognition-node-authority-receipt-ids={(
+                  harnessCognitionNodeAuthorityGate?.receiptIds ?? []
+                ).join(",")}
+                data-cognition-node-authority-replay-fixture-refs={(
+                  harnessCognitionNodeAuthorityGate?.replayFixtureRefs ?? []
+                ).join(",")}
+                data-routing-model-node-authority-mode={
+                  harnessRoutingModelNodeAuthorityGate?.authorityMode ?? ""
+                }
+                data-routing-model-node-authority-authoritative={
+                  harnessRoutingModelNodeAuthorityGate?.authoritative
+                    ? "true"
+                    : "false"
+                }
+                data-routing-model-node-authority-policy-decision={
+                  harnessRoutingModelNodeAuthorityGate?.policyDecision ?? ""
+                }
+                data-routing-model-node-authority-visible-output-authority={
+                  harnessRoutingModelNodeAuthorityGate?.visibleOutputAuthority ??
+                  ""
+                }
+                data-routing-model-node-authority-blockers={(
+                  harnessRoutingModelNodeAuthorityGate?.blockers ?? []
+                ).join(",")}
+                data-routing-model-node-authority-component-kinds={(
+                  harnessRoutingModelNodeAuthorityGate?.componentKinds ?? []
+                ).join(",")}
+                data-routing-model-node-authority-action-frame-ids={(
+                  harnessRoutingModelNodeAuthorityGate?.actionFrameIds ?? []
+                ).join(",")}
+                data-routing-model-node-authority-attempt-ids={(
+                  harnessRoutingModelNodeAuthorityGate?.attemptIds ?? []
+                ).join(",")}
+                data-routing-model-node-authority-receipt-ids={(
+                  harnessRoutingModelNodeAuthorityGate?.receiptIds ?? []
+                ).join(",")}
+                data-routing-model-node-authority-replay-fixture-refs={(
+                  harnessRoutingModelNodeAuthorityGate?.replayFixtureRefs ?? []
+                ).join(",")}
+                data-verification-output-node-authority-mode={
+                  harnessVerificationOutputNodeAuthorityGate?.authorityMode ??
+                  ""
+                }
+                data-verification-output-node-authority-authoritative={
+                  harnessVerificationOutputNodeAuthorityGate?.authoritative
+                    ? "true"
+                    : "false"
+                }
+                data-verification-output-node-authority-policy-decision={
+                  harnessVerificationOutputNodeAuthorityGate?.policyDecision ??
+                  ""
+                }
+                data-verification-output-node-authority-visible-write-committed={
+                  harnessVerificationOutputNodeAuthorityGate?.outputWriterVisibleWriteCommitted
+                    ? "true"
+                    : "false"
+                }
+                data-verification-output-node-authority-blockers={(
+                  harnessVerificationOutputNodeAuthorityGate?.blockers ?? []
+                ).join(",")}
+                data-verification-output-node-authority-component-kinds={(
+                  harnessVerificationOutputNodeAuthorityGate?.componentKinds ??
+                  []
+                ).join(",")}
+                data-verification-output-node-authority-action-frame-ids={(
+                  harnessVerificationOutputNodeAuthorityGate?.actionFrameIds ??
+                  []
+                ).join(",")}
+                data-verification-output-node-authority-attempt-ids={(
+                  harnessVerificationOutputNodeAuthorityGate?.attemptIds ?? []
+                ).join(",")}
+                data-verification-output-node-authority-receipt-ids={(
+                  harnessVerificationOutputNodeAuthorityGate?.receiptIds ?? []
+                ).join(",")}
+                data-verification-output-node-authority-replay-fixture-refs={(
+                  harnessVerificationOutputNodeAuthorityGate?.replayFixtureRefs ??
+                  []
+                ).join(",")}
+                data-authority-tooling-node-authority-mode={
+                  harnessAuthorityToolingNodeAuthorityGate?.authorityMode ?? ""
+                }
+                data-authority-tooling-node-authority-authoritative={
+                  harnessAuthorityToolingNodeAuthorityGate?.authoritative
+                    ? "true"
+                    : "false"
+                }
+                data-authority-tooling-node-authority-policy-decision={
+                  harnessAuthorityToolingNodeAuthorityGate?.policyDecision ?? ""
+                }
+                data-authority-tooling-node-authority-read-only-route-accepted={
+                  harnessAuthorityToolingNodeAuthorityGate?.readOnlyRouteAccepted
+                    ? "true"
+                    : "false"
+                }
+                data-authority-tooling-node-authority-destructive-route-denied={
+                  harnessAuthorityToolingNodeAuthorityGate?.destructiveRouteDenied
+                    ? "true"
+                    : "false"
+                }
+                data-authority-tooling-node-authority-side-effects-executed={
+                  harnessAuthorityToolingNodeAuthorityGate?.sideEffectsExecuted
+                    ? "true"
+                    : "false"
+                }
+                data-authority-tooling-node-authority-blockers={(
+                  harnessAuthorityToolingNodeAuthorityGate?.blockers ?? []
+                ).join(",")}
+                data-authority-tooling-node-authority-component-kinds={(
+                  harnessAuthorityToolingNodeAuthorityGate?.componentKinds ?? []
+                ).join(",")}
+                data-authority-tooling-node-authority-action-frame-ids={(
+                  harnessAuthorityToolingNodeAuthorityGate?.actionFrameIds ?? []
+                ).join(",")}
+                data-authority-tooling-node-authority-attempt-ids={(
+                  harnessAuthorityToolingNodeAuthorityGate?.attemptIds ?? []
+                ).join(",")}
+                data-authority-tooling-node-authority-receipt-ids={(
+                  harnessAuthorityToolingNodeAuthorityGate?.receiptIds ?? []
+                ).join(",")}
+                data-authority-tooling-node-authority-replay-fixture-refs={(
+                  harnessAuthorityToolingNodeAuthorityGate?.replayFixtureRefs ??
+                  []
+                ).join(",")}
                 data-worker-attach-lifecycle-complete={
                   harnessDefaultRuntimeDispatchProof.workerAttachLifecycleComplete
                     ? "true"
@@ -7565,6 +8292,46 @@ export function WorkflowRailPanel({
                       .length
                   }{" "}
                   attempts
+                </small>
+                <small>
+                  cognition{" "}
+                  {harnessCognitionNodeAuthorityGate?.authoritative
+                    ? "node authoritative"
+                    : "authority blocked"}{" "}
+                  ·{" "}
+                  {harnessCognitionNodeAuthorityGate?.componentKinds.length ??
+                    0}{" "}
+                  nodes
+                </small>
+                <small>
+                  routing/model{" "}
+                  {harnessRoutingModelNodeAuthorityGate?.authoritative
+                    ? "gated node authority"
+                    : "authority blocked"}{" "}
+                  ·{" "}
+                  {harnessRoutingModelNodeAuthorityGate?.componentKinds.length ??
+                    0}{" "}
+                  nodes
+                </small>
+                <small>
+                  verification/output{" "}
+                  {harnessVerificationOutputNodeAuthorityGate?.authoritative
+                    ? "gated node authority"
+                    : "authority blocked"}{" "}
+                  ·{" "}
+                  {harnessVerificationOutputNodeAuthorityGate?.componentKinds
+                    .length ?? 0}{" "}
+                  nodes
+                </small>
+                <small>
+                  authority/tooling{" "}
+                  {harnessAuthorityToolingNodeAuthorityGate?.authoritative
+                    ? "gated node authority"
+                    : "authority blocked"}{" "}
+                  ·{" "}
+                  {harnessAuthorityToolingNodeAuthorityGate?.componentKinds
+                    .length ?? 0}{" "}
+                  nodes
                 </small>
                 <small>
                   worker lifecycle{" "}
@@ -8980,13 +9747,19 @@ export function WorkflowRailPanel({
           data-replay-fixture-ref={
             selectedHarnessNodeAttemptInspection.replayFixtureRef
           }
-          data-replay-determinism={
-            selectedHarnessNodeAttemptInspection.replayDeterminism
-          }
-          data-input-hash={selectedHarnessNodeAttemptInspection.inputHash}
-          data-output-hash={selectedHarnessNodeAttemptInspection.outputHash}
-          data-shadow-comparison-live-attempt-id={
-            selectedHarnessNodeAttemptInspection.shadowComparison
+	          data-replay-determinism={
+	            selectedHarnessNodeAttemptInspection.replayDeterminism
+	          }
+	          data-input-hash={selectedHarnessNodeAttemptInspection.inputHash}
+	          data-output-hash={selectedHarnessNodeAttemptInspection.outputHash}
+	          data-mutation-diff-hash={
+	            selectedHarnessNodeAttemptInspection.mutationDiffHash ?? ""
+	          }
+	          data-rollback-target={
+	            selectedHarnessNodeAttemptInspection.rollbackTarget ?? ""
+	          }
+	          data-shadow-comparison-live-attempt-id={
+	            selectedHarnessNodeAttemptInspection.shadowComparison
               ?.liveAttemptId ?? ""
           }
           data-shadow-comparison-shadow-attempt-id={
@@ -9048,13 +9821,24 @@ export function WorkflowRailPanel({
           <article className="workflow-output-row">
             <strong>Replay fixture</strong>
             <span>{selectedHarnessNodeAttemptInspection.replayFixtureRef}</span>
-            <small>
-              {selectedHarnessNodeAttemptInspection.inputHash}
-              {" · "}
-              {selectedHarnessNodeAttemptInspection.outputHash}
-            </small>
-          </article>
-        </section>
+	            <small>
+	              {selectedHarnessNodeAttemptInspection.inputHash}
+	              {" · "}
+	              {selectedHarnessNodeAttemptInspection.outputHash}
+	            </small>
+	            {selectedHarnessNodeAttemptInspection.mutationDiffHash ||
+	            selectedHarnessNodeAttemptInspection.rollbackTarget ? (
+	              <small>
+	                diff{" "}
+	                {selectedHarnessNodeAttemptInspection.mutationDiffHash ??
+	                  "not recorded"}{" "}
+	                · rollback{" "}
+	                {selectedHarnessNodeAttemptInspection.rollbackTarget ??
+	                  "not recorded"}
+	              </small>
+	            ) : null}
+	          </article>
+	        </section>
       ) : null}
       {selectedHarnessNodeAttemptInspection?.shadowComparison ? (
         <section
