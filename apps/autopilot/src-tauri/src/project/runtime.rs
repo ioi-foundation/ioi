@@ -470,7 +470,7 @@ fn workflow_live_authority_approval_gate(
         .unwrap_or_default();
     let is_authority_approval_gate = logic.get("authorityGateKind").and_then(Value::as_str)
         == Some("approval_gate")
-        || approval_mode == "legacy_runtime_required";
+        || approval_mode == "workflow_recovery_required";
     if !is_authority_approval_gate {
         return Ok(None);
     }
@@ -509,7 +509,7 @@ fn workflow_live_authority_approval_gate(
         "policyDecision": logic
             .get("policyDecision")
             .and_then(Value::as_str)
-            .unwrap_or("require_legacy_approval_for_mutating_tooling"),
+            .unwrap_or("require_workflow_approval_for_mutating_tooling"),
         "receiptKind": "authority_approval_gate_receipt",
         "rollbackTarget": logic.get("rollbackTarget").cloned().unwrap_or(Value::Null),
         "input": input

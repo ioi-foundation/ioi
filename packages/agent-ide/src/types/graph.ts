@@ -1759,10 +1759,14 @@ export interface WorkflowHarnessForkActivationCandidate {
 }
 
 export type WorkflowHarnessLiveHandoffSelector =
-  | "legacy_runtime"
+  | "workflow_recovery_blocked"
   | "blessed_workflow_gated"
   | "blessed_workflow_live_canary"
   | "blessed_workflow_live_default";
+
+export type WorkflowHarnessRecoveryMode =
+  | "fail_closed"
+  | "restore_prior_workflow_activation";
 
 export interface WorkflowHarnessDefaultPromotionGate {
   configKey: string;
@@ -1797,10 +1801,13 @@ export interface WorkflowHarnessLiveHandoffProof {
   executionBoundaryExecutor?: string;
   defaultAuthorityTransferred: boolean;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_canary"
     | string;
-  fallbackSelector: WorkflowHarnessLiveHandoffSelector;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   rollbackTarget: string;
   rollbackAvailable: boolean;
   policyDecision: string;
@@ -1836,10 +1843,13 @@ export interface WorkflowHarnessRuntimeSelectorDecision {
   harnessHash: string;
   executionMode: WorkflowHarnessExecutionMode;
   actualRuntimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_canary"
     | string;
-  fallbackSelector: WorkflowHarnessLiveHandoffSelector;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   rollbackTarget: string;
   rollbackAvailable: boolean;
   policyDecision: string;
@@ -1870,7 +1880,7 @@ export interface WorkflowHarnessCognitionNodeAuthorityGate {
   harnessHash: string;
   requiredExecutionMode: "live" | string;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_default"
     | string;
   adapterMode: "workflow_component_adapter_live" | string;
@@ -1880,8 +1890,10 @@ export interface WorkflowHarnessCognitionNodeAuthorityGate {
   attemptIds: string[];
   receiptIds: string[];
   replayFixtureRefs: string[];
-  fallbackAvailable: boolean;
-  fallbackRef: "existing_runtime_service" | string;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   blockers: string[];
   policyDecision:
     | "allow_node_authoritative_cognition"
@@ -1901,7 +1913,7 @@ export interface WorkflowHarnessRoutingModelNodeAuthorityGate {
   harnessHash: string;
   requiredExecutionMode: "gated" | string;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_default"
     | string;
   adapterMode: "workflow_component_adapter_gated" | string;
@@ -1921,8 +1933,10 @@ export interface WorkflowHarnessRoutingModelNodeAuthorityGate {
   visibleOutputAuthority: "workflow_model_provider_call" | string;
   readOnlyCapabilityRoutingReady: boolean;
   rollbackAvailable: boolean;
-  fallbackAvailable: boolean;
-  fallbackRef: "legacy_runtime_model_invocation" | string;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   blockers: string[];
   policyDecision:
     | "allow_gated_node_authoritative_routing_model"
@@ -1942,7 +1956,7 @@ export interface WorkflowHarnessVerificationOutputNodeAuthorityGate {
   harnessHash: string;
   requiredExecutionMode: "gated" | string;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_default"
     | string;
   adapterMode: "workflow_component_adapter_gated" | string;
@@ -1963,8 +1977,10 @@ export interface WorkflowHarnessVerificationOutputNodeAuthorityGate {
   outputWriterVisibleWriteReady: boolean;
   outputWriterVisibleWriteCommitted: boolean;
   rollbackAvailable: boolean;
-  fallbackAvailable: boolean;
-  fallbackRef: "legacy_runtime_output_writer" | string;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   blockers: string[];
   policyDecision:
     | "allow_gated_node_authoritative_verification_output"
@@ -1984,7 +2000,7 @@ export interface WorkflowHarnessAuthorityToolingNodeAuthorityGate {
   harnessHash: string;
   requiredExecutionMode: "gated" | string;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_default"
     | string;
   adapterMode: "workflow_component_adapter_gated" | string;
@@ -2010,8 +2026,10 @@ export interface WorkflowHarnessAuthorityToolingNodeAuthorityGate {
   gateLiveReady: boolean;
   readOnlyAuthorityCanaryReady: boolean;
   rollbackAvailable: boolean;
-  fallbackAvailable: boolean;
-  fallbackRef: "legacy_runtime_tool_authority" | string;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   blockers: string[];
   policyDecision:
     | "allow_gated_node_authoritative_authority_tooling"
@@ -2030,7 +2048,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   harnessHash: string;
   executionMode: WorkflowHarnessExecutionMode;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_default"
     | string;
   dispatchScope:
@@ -2265,19 +2283,19 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   modelExecutionOutputHash: string;
   modelExecutionOutputHashMatches: boolean;
   modelExecutionProviderInvocationMode:
-    | "legacy_fallback_invocation"
+    | "workflow_recovery_fail_closed_invocation"
     | "workflow_provider_canary"
     | string;
   modelExecutionLowLevelInvocationDeferred: boolean;
-  modelExecutionFallbackSelector: "legacy_runtime_model_invocation" | string;
+  modelExecutionRecoveryMode: WorkflowHarnessRecoveryMode;
   modelExecutionLatencyMs: number;
   modelProviderCanaryMode: "workflow_provider_canary" | string;
   modelProviderCanaryReady: boolean;
   modelProviderCanaryCandidateOutputHash: string;
-  modelProviderCanaryLegacyOutputHash: string;
+  modelProviderCanaryPriorWorkflowOutputHash: string;
   modelProviderCanaryOutputHashMatches: boolean;
   modelProviderCanaryTranscriptMatches: boolean;
-  modelProviderCanaryFallbackRetained: boolean;
+  modelProviderCanaryRecoveryReady: boolean;
   modelProviderCanaryRollbackAvailable: boolean;
   modelProviderCanaryProof?: Record<string, unknown>;
   modelProviderGatedVisibleOutputMode:
@@ -2313,9 +2331,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   selectedVisibleOutputAuthority: "workflow_model_provider_call" | string;
   selectedVisibleOutputHash: string;
   workflowProviderVisibleOutputHash: string;
-  legacyVisibleOutputHash: string;
-  legacyVisibleOutputComputed: boolean;
-  legacyVisibleOutputHashMatchesSelected: boolean;
+  priorWorkflowVisibleOutputHash: string;
+  priorWorkflowVisibleOutputComputed: boolean;
+  priorWorkflowVisibleOutputHashMatchesSelected: boolean;
   selectedVisibleOutputAuthorityMatchesTranscript: boolean;
   visibleOutputDivergenceClass?: string | null;
   modelProviderGatedVisibleOutputProof?: Record<string, unknown>;
@@ -2327,11 +2345,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   modelProviderGatedVisibleOutputRollbackDrillDivergenceClass:
     | "provider_output_hash_divergence"
     | string;
-  modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority:
-    | "legacy_runtime_model_invocation"
-    | string;
+  modelProviderGatedVisibleOutputRollbackDrillRecoveryMode: WorkflowHarnessRecoveryMode;
   modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority:
-    | "legacy_runtime_model_invocation"
+    | "workflow_model_recovery_fail_closed"
     | string;
   modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged: boolean;
   modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted: boolean;
@@ -2374,7 +2390,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   workerHandoffNodeAttempts: WorkflowHarnessNodeAttemptRecord[];
   workerHandoffReplayFixtureRefs: string[];
   modelExecutionProof?: Record<string, unknown>;
-  outputAuthority: "existing_runtime_service" | string;
+  outputAuthority: "workflow_recovery_fail_closed" | string;
   outputWriterDeferred: boolean;
   outputWriterStatus:
     | "deferred"
@@ -2411,7 +2427,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   outputWriterVisibleWriteCommitted: boolean;
   outputWriterVisibleWriteVisible: boolean;
   outputWriterVisibleWriteIdentityCheckpointPersisted: boolean;
-  outputWriterVisibleWriteLegacyDuplicateSuppressed: boolean;
+  outputWriterVisibleWriteRecoveryDuplicateSuppressed: boolean;
   authorityToolingMode: "workflow_live_dry_run" | string;
   authorityToolingReady: boolean;
   authorityToolingPolicyGateReady: boolean;
@@ -2449,8 +2465,8 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingSideEffectsExecuted: boolean;
   authorityToolingRollbackAvailable: boolean;
   authorityToolingProof?: Record<string, unknown>;
-  legacyTranscriptAuthorityRetained: boolean;
-  legacyTranscriptFallbackAvailable?: boolean;
+  workflowTranscriptRecoveryAuthorityRetained: boolean;
+  workflowTranscriptRecoveryAvailable?: boolean;
   proposedVisibleOutputHash: string;
   actualVisibleOutputHash: string;
   outputHashAlgorithm: "runtime_prompt_hash:v1" | string;
@@ -2460,8 +2476,8 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   workflowTranscriptWriteCandidate?: Record<string, unknown>;
   workflowTranscriptWriteRecord?: Record<string, unknown>;
   visibleTranscriptWriteProof?: Record<string, unknown>;
-  legacyTranscriptFallbackProof?: Record<string, unknown>;
-  legacyTranscriptWriteRecord?: Record<string, unknown>;
+  workflowTranscriptRecoveryProof?: Record<string, unknown>;
+  workflowTranscriptRecoveryRecord?: Record<string, unknown>;
   stagedTranscriptWriteRecord?: Record<string, unknown>;
   stagedTranscriptWriteProof?: Record<string, unknown>;
   transcriptMaterializationContentHashMatches: boolean;
@@ -2502,8 +2518,8 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
     receiptBindingMatches: boolean;
     targetMatches: boolean;
     candidateCommitted: boolean;
-    legacyCommitted: boolean;
-    legacyDuplicateSuppressed?: boolean;
+    priorWorkflowCommitted: boolean;
+    recoveryDuplicateSuppressed?: boolean;
     matches: boolean;
     divergenceClass?: "transcript_materialization_divergence" | null | string;
   };
@@ -2516,7 +2532,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
     workflowWriteCommitted: boolean;
     workflowWriteVisible: boolean;
     identityCheckpointPersisted: boolean;
-    legacyDuplicateSuppressed: boolean;
+    recoveryDuplicateSuppressed: boolean;
     matches: boolean;
     divergenceClass?: "visible_transcript_write_divergence" | null | string;
   };
@@ -2527,8 +2543,8 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
     matches: boolean;
     divergenceClass?: "output_hash_divergence" | null | string;
   };
-  legacyOutputAuthorityRetained: boolean;
-  legacyOutputFallbackAvailable?: boolean;
+  workflowOutputRecoveryAuthorityRetained: boolean;
+  workflowOutputRecoveryAvailable?: boolean;
   mutatingTurnsBlocked: boolean;
   rollbackTarget: string;
   rollbackAvailable: boolean;
@@ -3179,7 +3195,10 @@ export interface WorkflowHarnessCanaryRollbackDrill {
   observedFailure?: boolean;
   rollbackExecuted: boolean;
   rollbackSelector: WorkflowHarnessLiveHandoffSelector;
-  fallbackAuthority: "existing_runtime_service" | string;
+  recoveryMode: WorkflowHarnessRecoveryMode;
+  recoveryTarget: string;
+  recoveryAvailable: boolean;
+  recoveryBlockers: string[];
   rollbackTarget: string;
   rollbackAvailable: boolean;
   drillStatus: "not_run" | "passed" | "failed" | string;
@@ -3200,7 +3219,7 @@ export interface WorkflowHarnessCanaryExecutionBoundary {
   harnessHash: string;
   executionMode: WorkflowHarnessExecutionMode;
   runtimeAuthority:
-    | "existing_runtime_service"
+    | "workflow_recovery_fail_closed"
     | "blessed_workflow_activation_canary"
     | string;
   executorKind: "workflow_node_executor" | string;
@@ -3433,7 +3452,7 @@ export interface WorkflowHarnessWorkerBinding {
   harnessActivationId?: string;
   harnessHash: string;
   executionMode?: WorkflowHarnessExecutionMode;
-  source: "default" | "fork" | "legacy";
+  source: "default" | "fork" | "recovery";
   selectorDecisionId?: string;
   defaultDispatchId?: string;
   rollbackTarget?: string;

@@ -8,7 +8,6 @@ pub mod execution; // Points to execution/mod.rs now
 pub mod harness;
 pub mod kernel;
 pub mod keys;
-pub(crate) mod legacy;
 pub mod middleware;
 pub(crate) mod resolver;
 pub mod runtime_secret;
@@ -17,6 +16,7 @@ pub mod substrate;
 pub mod tools;
 pub mod types;
 pub mod utils;
+pub(crate) mod work_graph_goal;
 pub(crate) mod worker_context;
 pub mod worker_templates;
 

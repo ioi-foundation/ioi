@@ -590,7 +590,7 @@ const withClusterReadiness = (
       activationId,
       activationState: "validated",
       canaryStatus: "passed",
-      rollbackTarget: "legacy_runtime",
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       rollbackAvailable: true,
       liveAuthorityTransferred: false,
       workerBinding,
@@ -704,11 +704,11 @@ const withClusterReadiness = (
   });
   const rollbackSelectedWorkflow = recordWorkflowHarnessRollbackTargetSelection(
     dryRunWorkflow,
-    "legacy_runtime",
+    DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     { nowMs: 2_175 },
   );
   const result = applyWorkflowHarnessActivationCandidate(rollbackSelectedWorkflow, candidate, {
-    rollbackTarget: "legacy_runtime",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     nowMs: 2_200,
   });
 
@@ -778,7 +778,7 @@ const withClusterReadiness = (
         ),
     ),
   );
-  assert.equal(result.workflow.metadata.harness?.activationRecord?.rollbackTarget, "legacy_runtime");
+  assert.equal(result.workflow.metadata.harness?.activationRecord?.rollbackTarget, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
   assert.equal(
     result.workflow.metadata.harness?.activationRecord?.rollbackRestoreCanary?.status,
     "not_required",
@@ -824,7 +824,7 @@ const withClusterReadiness = (
   );
   assert.equal(packageManifest.activationId, candidate.activationIdPreview);
   assert.equal(packageManifest.activationState, "validated");
-  assert.equal(packageManifest.rollbackTarget, "legacy_runtime");
+  assert.equal(packageManifest.rollbackTarget, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
   assert.equal(
     packageManifest.reviewedPackageSnapshotHash,
     result.workflow.metadata.harness?.activationRecord?.workerBindingRegistryRecord
@@ -856,7 +856,7 @@ const withClusterReadiness = (
   );
 
   const rollbackDrill = executeWorkflowHarnessRollbackDrill(result.workflow, {
-    rollbackTarget: "legacy_runtime",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     nowMs: 2_300,
   });
   assert.equal(rollbackDrill.executed, true);
@@ -884,7 +884,7 @@ const withClusterReadiness = (
   assert.ok(rollbackDrillAudit[rollbackDrillAudit.length - 1]?.receiptRefs.includes(mintableReceiptRef));
 
   const rollbackExecution = executeWorkflowHarnessRevisionRollback(result.workflow, {
-    rollbackTarget: "legacy_runtime",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     restoreResult: {
       restored: true,
       blockers: [],
@@ -1660,7 +1660,7 @@ const withClusterReadiness = (
     defaultPromotionGateAuthorityTransferred: true,
   });
   assert.equal(selector.selectedSelector, "blessed_workflow_live_canary");
-  assert.equal(selector.productionDefaultSelector, "legacy_runtime");
+  assert.equal(selector.productionDefaultSelector, "workflow_recovery_blocked");
   assert.equal(selector.livePromotionReadinessReady, false);
   assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, [
     "activation_id_gate_click_proof_missing",
@@ -1680,7 +1680,7 @@ const withClusterReadiness = (
   });
   assert.equal(handoff.selector, "blessed_workflow_live_canary");
   assert.equal(handoff.defaultAuthorityTransferred, false);
-  assert.equal(handoff.productionDefaultSelector, "legacy_runtime");
+  assert.equal(handoff.productionDefaultSelector, "workflow_recovery_blocked");
   assert.equal(handoff.livePromotionReadinessReady, false);
   assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, [
     "activation_id_gate_click_proof_missing",
@@ -1714,7 +1714,7 @@ const withClusterReadiness = (
   assert.equal(missingProofDispatch.activationIdGate?.workerBindingActivationId, "");
   assert.equal(missingProofDispatch.drivesRuntimeDecision, false);
   assert.equal(missingProofDispatch.executionMode, "gated");
-  assert.equal(missingProofDispatch.runtimeAuthority, "existing_runtime_service");
+  assert.equal(missingProofDispatch.runtimeAuthority, "workflow_recovery_fail_closed");
   assert.equal(
     missingProofDispatch.livePromotionReadinessProof.allClustersReady,
     true,

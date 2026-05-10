@@ -29,6 +29,7 @@ import type {
 } from "../../types/graph";
 import { workflowInterruptPreview } from "../../runtime/workflow-bottom-panel-model";
 import {
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   DEFAULT_AGENT_HARNESS_COMPONENTS,
   DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
   harnessNodeEvidenceSummary,
@@ -1649,7 +1650,7 @@ export function WorkflowRailPanel({
           policyDecision: workflowProofString(
             harnessAuthorityToolingProof,
             "approvalGatePolicyDecision",
-            "require_legacy_approval_for_mutating_tooling",
+            "require_governed_approval_for_mutating_tooling",
           ),
           componentId:
             harnessAuthorityApprovalGateNode?.runtimeBinding?.componentId ??
@@ -3111,7 +3112,7 @@ export function WorkflowRailPanel({
   const harnessBindingRollbackTarget =
     harnessActivationRecord?.rollbackTarget ??
     workflow.metadata.harness?.forkedFrom?.harnessWorkflowId ??
-    (blessedHarnessWorkflow ? "legacy_runtime" : "not set");
+    (blessedHarnessWorkflow ? DEFAULT_AGENT_HARNESS_ACTIVATION_ID : "not set");
   const harnessBindingRollbackHash =
     workflow.metadata.harness?.forkedFrom?.harnessHash ??
     harnessActivationRecord?.harnessHash ??
@@ -3127,7 +3128,7 @@ export function WorkflowRailPanel({
         harnessActivationCandidate?.rollbackTarget,
         harnessActivationRecord?.rollbackTarget,
         workflow.metadata.harness?.forkedFrom?.harnessWorkflowId,
-        "legacy_runtime",
+        blessedHarnessWorkflow ? DEFAULT_AGENT_HARNESS_ACTIVATION_ID : null,
       ].filter((target): target is string => Boolean(target)),
     ),
   );
