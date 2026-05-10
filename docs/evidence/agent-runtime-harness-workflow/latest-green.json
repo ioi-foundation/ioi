@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "ioi.evidence.agent-runtime-harness-workflow.latest-green.v1",
+  "updatedAt": "2026-05-10T02:36:32.856Z",
+  "status": "green",
+  "canonical": true,
+  "scope": "default agent runtime harness as live workflow substrate",
+  "guiEvidence": {
+    "kind": "autopilot-gui-harness-validation",
+    "result": "docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json",
+    "liveGuiInteractionProof": "docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/promotion-transition-live-gui-interaction-proof.json",
+    "validationOk": true
+  },
+  "runtimeP3Evidence": {
+    "kind": "agent-runtime-p3-validation",
+    "dashboardIndex": "docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json",
+    "redactedDiagnostics": "docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/redacted-diagnostic-bundle.json",
+    "incompleteItems": 0
+  },
+  "validatedClaims": {
+    "packageImportActivationApply": true,
+    "reviewedForkMutationCanaryBound": true,
+    "workerAttachAccepted": true,
+    "workerAttachLifecycleComplete": true,
+    "workerSessionRecordBound": true,
+    "activeRuntimeRollbackProofWorkbench": true,
+    "activeRuntimeRollbackExecutionWorkbench": true,
+    "activeRuntimeRollbackApplyExecution": true,
+    "activeRuntimeRollbackNegativeApply": true
+  },
+  "commands": [
+    "npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000",
+    "npm run test:agent-runtime-p3",
+    "npm run validate:agent-runtime-p3 -- --require-gui-evidence",
+    "npm run test:autopilot-gui-harness",
+    "node --import tsx --test packages/agent-ide/src/runtime/harness-workflow-activation.test.ts",
+    "node --test apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts",
+    "node --test apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs",
+    "cargo test -p ioi-types app::harness --lib"
+  ],
+  "checkpointIndexValidation": {
+    "commands": [
+      "node -e \"JSON.parse(require('fs').readFileSync('docs/evidence/agent-runtime-harness-workflow/latest-green.json','utf8')); console.log('latest-green.json valid')\"",
+      "git diff --check",
+      "npm run test:autopilot-gui-harness"
+    ]
+  },
+  "historicalPolicy": {
+    "note": "Timestamped evidence bundles under docs/evidence/autopilot-gui-harness-validation and docs/evidence/agent-runtime-p3-validation are retained as historical run records. Treat this file as the canonical latest green pointer until superseded.",
+    "deleteHistoricalBundles": false
+  }
+}
