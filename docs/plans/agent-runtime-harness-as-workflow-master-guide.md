@@ -1,6 +1,6 @@
 # Agent Runtime Harness-As-Workflow Master Guide
 
-Last updated: 2026-05-09
+Last updated: 2026-05-10
 Owner: agent runtime / workflow substrate / Autopilot GUI
 Status: next-leg master guide
 
@@ -11,54 +11,15 @@ Companion documents:
 - `docs/plans/meta-harness-master-guide.md`
 - `docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md`
 - `docs/specs/runtime/harness-change-workflow.md`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-29-56-082Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T12-22-46-391Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T12-28-29-887Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-02-20-661Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-36-28-167Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-18-42-111Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-26-30-948Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T15-56-37-565Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-03-01-399Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-22-36-710Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-30-23-659Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-55-16-241Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-01-20-170Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T17-41-29-444Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-12-02-920Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-29-45-194Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T19-36-51-457Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-54-02-426Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-00-06-942Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T20-27-59-060Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-34-19-262Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T00-32-20-635Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-09T00-40-30-002Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T01-19-51-435Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-09T01-26-16-362Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T03-45-10-002Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-09T03-51-29-908Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T04-11-07-040Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-09T04-17-19-806Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T11-45-40-808Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-09T11-51-57-558Z/dashboard-index.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-09T12-12-40-027Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-09T12-19-21-195Z/dashboard-index.json`
+- `docs/evidence/agent-runtime-harness-workflow/README.md`
+- `docs/evidence/agent-runtime-harness-workflow/latest-green.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
+
+Historical timestamped GUI and P3 evidence bundles remain under
+`docs/evidence/autopilot-gui-harness-validation/` and
+`docs/evidence/agent-runtime-p3-validation/`. Treat
+`docs/evidence/agent-runtime-harness-workflow/latest-green.json` as the
+canonical latest green pointer until it is superseded by a newer checkpoint.
 
 ## Executive Verdict
 
@@ -103,27 +64,42 @@ through a workflow-backed harness.
 
 ## Latest Validated Checkpoint
 
-As of 2026-05-09, the default live harness activation-id gate, runtime selector
-readiness gate, live handoff, default runtime dispatch proof, durable worker
-binding authority proof, worker binding registry proof, worker attach lifecycle
-timeline, worker session record, runtime-checkpoint worker session
-persistence, persisted worker-session launch authority, typed worker
-launch/resume/rollback envelopes, durable worker handoff receipts, worker
-launch reviewed-import activation invariant binding, rollback handoff
-authority, worker handoff node timeline/replay fixture binding, gated
-verification/output adapter proof, gated authority/tooling adapter proof, fork
-activation handoff timeline proof, fork handoff deep-link proof,
+As of 2026-05-10, the default live harness activation-id gate, runtime selector
+readiness gate, live handoff, default runtime dispatch proof, cognition
+node-authority gate, routing/model gated node-authority gate,
+verification/output gated node-authority gate, authority/tooling gated
+node-authority gate, durable worker binding authority proof, worker binding
+registry proof, worker attach lifecycle timeline, worker session record,
+runtime-checkpoint worker session persistence, persisted worker-session launch
+authority, typed worker launch/resume/rollback envelopes, durable worker
+handoff receipts, worker launch reviewed-import activation invariant binding,
+rollback handoff authority, worker handoff node timeline/replay fixture binding,
+gated verification/output adapter proof, gated authority/tooling adapter proof,
+fork activation handoff timeline proof, fork handoff deep-link proof,
 canary/rollback route-state proof, fork package evidence manifest proof,
 package evidence activation gate proof, and live package-evidence click-through
-proof, package evidence export/import round-trip proof, and user-facing import
-review mode proof, live-turn node inspector proof, live-turn node inspector
-deep-link restoration proof, and live-vs-shadow comparison deep-link proof have
-a green end-to-end checkpoint:
+proof, fork mutation canary proof, package evidence export/import round-trip
+proof, and user-facing import review mode proof, live-turn node inspector proof,
+live-turn node inspector deep-link restoration proof, and live-vs-shadow
+comparison deep-link proof, plus fork mutation canary node inspector and
+activation-gate timeline proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T06-00-43-156Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-09T06-06-54-656Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json`
+
+This supersedes the earlier 2026-05-10 mutation-canary checkpoint by proving
+the reviewed package snapshot all the way through package import activation
+apply, default runtime dispatch, worker registry, worker attach lifecycle,
+worker session launch authority, active runtime rollback dry-run, active
+rollback apply, and negative rollback cases. The latest GUI result has
+`validation.ok: true`, `packageImportActivationApplyProof.passed: true`,
+`workerAttach.accepted: true`, `workerAttachLifecycleComplete: true`,
+`activeRuntimeRollbackProofWorkbench: true`,
+`activeRuntimeRollbackExecutionWorkbench: true`,
+`activeRuntimeRollbackApplyExecution: true`, and
+`activeRuntimeRollbackNegativeApply: true`.
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -173,6 +149,12 @@ attempt id, shadow attempt id, workflow node id, `planner` component kind,
 `divergence=none`, `blocking=false`, live and shadow receipt refs, live and
 shadow replay fixture refs, and matching input/output hashes. Runtime
 consistency now also requires `harness_live_shadow_comparison_present: true`.
+The package-evidence path now additionally proves the fork mutation canary as a
+real node attempt: `harness_fork_mutation_canary_node_inspector_present: true`,
+`data-node-attempt-source-kind=fork_mutation_canary`,
+`data-component-kind=budget_gate`, the mutation canary receipt ref, replay
+fixture ref, diff hash, and rollback target are all restored from the same
+workbench route.
 Normal retained live runtime artifacts now also emit the same comparison
 directly from the Rust/orchestrator default dispatch path:
 `harnessLiveShadowComparisonCount: 6` for `retained_harness_dogfooding`, with
@@ -182,8 +164,58 @@ shadow attempts, distinct live/shadow receipt refs, distinct live/shadow
 replay fixture refs, and matching input/output hashes. Runtime consistency now
 treats `harness_live_shadow_comparison_present` as a cognition plus
 routing/model coverage gate, not a single-sample existence check. It further
-proves
-the fork activation wizard uses the same substrate:
+proves the cognition triplet is explicitly node-authoritative before wider
+default-runtime promotion: the retained result carries
+`harness_cognition_node_authority_present: true`,
+`cognitionNodeAuthorityBound: true`, and a
+`cognitionNodeAuthorityGate` with `authorityMode: node_authoritative`,
+`policyDecision: allow_node_authoritative_cognition`, no blockers, live
+`planner`, `prompt_assembler`, and `task_state` component kinds, attempt ids,
+receipt ids, replay fixture refs, and the right-rail
+`data-cognition-node-authority-*` attributes. It also proves the routing/model
+triplet is under gated workflow-node authority before model output authority is
+allowed to count as workflow-owned:
+`harness_routing_model_node_authority_present: true`,
+`routingModelNodeAuthorityBound: true`, and a `routingModelNodeAuthorityGate`
+with `authorityMode: gated_node_authoritative`,
+`requiredExecutionMode: gated`,
+`policyDecision: allow_gated_node_authoritative_routing_model`, no blockers,
+`model_router`, `model_call`, and `tool_router` component kinds, attempt ids,
+receipt ids, replay fixture refs, `visibleOutputAuthority:
+workflow_model_provider_call`, provider canary readiness, rollback availability,
+and the right-rail `data-routing-model-node-authority-*` attributes. The same
+checkpoint proves the verification/output sextet is under gated workflow-node
+authority before transcript completion, receipts, ledger projection, and visible
+write authority are allowed to count as workflow-owned:
+`harness_verification_output_node_authority_present: true`,
+`verificationOutputNodeAuthorityBound: true`, and a
+`verificationOutputNodeAuthorityGate` with `authorityMode:
+gated_node_authoritative`, `requiredExecutionMode: gated`,
+`policyDecision: allow_gated_node_authoritative_verification_output`, no
+blockers, `postcondition_synthesizer`, `verifier`, `completion_gate`,
+`receipt_writer`, `quality_ledger`, and `output_writer` component kinds, attempt
+ids, receipt ids, replay fixture refs, shadow attempt/receipt/replay refs, zero
+divergence, output-writer handoff/materialization/staged-write readiness,
+`outputWriterVisibleWriteCommitted: true`, rollback availability, and the
+right-rail `data-verification-output-node-authority-*` attributes. It also
+proves the authority/tooling octet is under gated workflow-node authority before
+tool, connector, MCP, wallet, policy, or approval authority can count as
+workflow-owned: `harness_authority_tooling_node_authority_present: true`,
+`authorityToolingNodeAuthorityBound: true`, and an
+`authorityToolingNodeAuthorityGate` with `authorityMode:
+gated_node_authoritative`, `requiredExecutionMode: gated`,
+`policyDecision: allow_gated_node_authoritative_authority_tooling`, no
+blockers, `policy_gate`, `approval_gate`, `dry_run_simulator`, `mcp_provider`,
+`mcp_tool_call`, `tool_call`, `connector_call`, and `wallet_capability`
+component kinds, attempt ids, receipt ids, replay fixture refs, read-only route
+acceptance, destructive-route denial, and zero unapproved side effects. The
+retained runtime evidence records `harnessAuthorityToolingNodeAuthorityCount:
+4`, `harnessAuthorityToolingGateLiveCount: 5`,
+`harnessDefaultRuntimeDispatchReadonlyCount: 5`,
+`harnessDefaultRuntimeBindingMatchedCount: 5`, and read-only capability routing
+coverage for `retained_repo_grounded_answer`, `retained_source_heavy_synthesis`,
+and `retained_probe_behavior` with matching no-mutation proof. The same
+checkpoint proves the fork activation wizard uses the same substrate:
 `harnessForkHandoffTimelineBoundCount: 3` and
 `harness_fork_handoff_timeline_present: true`, with validated fork activation
 carrying a worker session, launch envelopes, handoff receipts, gated
@@ -203,13 +235,20 @@ deep links in `harness-package-evidence.json`; the retained GUI evidence marks
 `harness_package_evidence_gate_click_proof_present: true`. The package-evidence
 activation gate now restores in the right rail, shows manifest/category rows,
 and deep-links to preserved receipt, replay, worker handoff, and package proof
-refs. The GUI proof also exports a validated fork package, imports it into a
-fresh root, verifies the imported package-evidence gate remains ready, then
-loads an intentionally incomplete imported package state and proves actionable
-missing rows plus `harness_package_manifest_incomplete`. Imported packages now
-open into a source/import package review surface, return the portable manifest
-from the Tauri import API, and expose activation only when package evidence is
-green; the retained GUI evidence marks
+refs. Package manifests now also carry
+`workflow.harness.fork-mutation-canary.v1` for a real proposal-only budget-gate
+policy diff, including receipt refs, replay fixture refs, node attempt ids,
+diff hash, rollback target, policy decision, and a `fork_mutation_canary`
+deep-link. The retained package evidence proof requires one mutation canary
+receipt, replay fixture, and node attempt in both direct package-gate click
+proof and package export/import round-trip proof. The GUI proof also exports a
+validated fork package, imports it into a fresh root, verifies the imported
+package-evidence gate remains ready, then loads an intentionally incomplete
+imported package state and proves actionable missing rows plus
+`harness_package_manifest_incomplete`, including the `fork-mutation-canary`
+missing row. Imported packages now open into a source/import package review
+surface, return the portable manifest from the Tauri import API, and expose
+activation only when package evidence is green; the retained GUI evidence marks
 `harness_package_import_review_mode_present: true`. Reviewed imports also show a
 first-class activation handoff with preserved activation id, canary, rollback,
 and worker binding routes; the retained GUI evidence marks
@@ -228,6 +267,375 @@ selector falls back to canary/legacy if the proof is missing, stale, or blocked,
 and the dispatch proof exposes a
 `reviewedImportActivationApplyGate` with activation id, worker binding id,
 rollback target, proof blockers, and default-dispatch blockers.
+
+### 2026-05-09 Cognition Node Authority Gate Slice
+
+The current tactical slice makes the live cognition triplet explicitly
+node-authoritative before any broader default-runtime behavior is moved:
+
+- Rust now has a canonical `HarnessCognitionNodeAuthorityGate` bound into
+  `HarnessDefaultRuntimeDispatchProof`.
+- TypeScript now mirrors the same gate as
+  `WorkflowHarnessCognitionNodeAuthorityGate`.
+- Default dispatch generation computes
+  `cognitionNodeAuthorityGate.schemaVersion =
+  workflow.harness.default-runtime-dispatch.cognition-node-authority.v1`,
+  `authorityMode = node_authoritative`, `requiredExecutionMode = live`,
+  `runtimeAuthority = blessed_workflow_activation_default`, empty blockers,
+  and `policyDecision = allow_node_authoritative_cognition`.
+- The gate is driven by the three live adapter results for `planner`,
+  `prompt_assembler`, and `task_state`; it requires live action frames,
+  live-ready components, node attempt ids, receipt ids, replay fixture refs,
+  fallback availability, matching workflow id, activation id, and harness hash.
+- The Autopilot right rail exposes the gate through
+  `data-cognition-node-authority-*` attributes and a visible cognition
+  authority row on `workflow-harness-default-runtime-dispatch`.
+- Retained validation now treats
+  `harness_cognition_node_authority_present` and
+  `harness_cognition_node_authority` as required runtime/GUI evidence.
+
+Validation is green for `test:autopilot-gui-harness`,
+`harness-contract-consistency`, shell wiring, workflow composer wiring, IDE
+build, TypeScript typecheck, `cargo check -p autopilot`, all Rust `ioi-types`
+harness tests, the full retained GUI harness run, `test:agent-runtime-p3`, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T17-19-56-752Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T17-28-30-560Z/dashboard-index.json`.
+
+### 2026-05-09 Routing/Model Node Authority Gate Slice
+
+The next promotion slice makes the routing/model triplet explicitly owned by
+workflow nodes under gated authority:
+
+- Rust now has a canonical `HarnessRoutingModelNodeAuthorityGate` bound into
+  `HarnessDefaultRuntimeDispatchProof`.
+- TypeScript mirrors the same gate as
+  `WorkflowHarnessRoutingModelNodeAuthorityGate`.
+- Default dispatch generation computes
+  `routingModelNodeAuthorityGate.schemaVersion =
+  workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1`,
+  `authorityMode = gated_node_authoritative`, `requiredExecutionMode = gated`,
+  `runtimeAuthority = blessed_workflow_activation_default`, empty blockers, and
+  `policyDecision = allow_gated_node_authoritative_routing_model`.
+- The gate is driven by the gated adapter results for `model_router`,
+  `model_call`, and `tool_router`; it requires action frames, shadow-ready
+  component identities, node attempt ids, receipt ids, replay fixture refs,
+  shadow attempt/receipt/replay refs, zero divergence, provider canary
+  readiness, selected visible output authority
+  `workflow_model_provider_call`, transcript/hash agreement, fallback
+  availability, and rollback availability.
+- Read-only capability routing evidence is carried as context but is not a
+  blocker for this gate, because retained model-output authority and
+  read-only tool-routing cohorts are deliberately different slices.
+- The Autopilot right rail exposes the gate through
+  `data-routing-model-node-authority-*` attributes and a visible
+  routing/model authority row on `workflow-harness-default-runtime-dispatch`.
+- Retained validation now treats
+  `harness_routing_model_node_authority_present` and
+  `harness_routing_model_node_authority` as required runtime/GUI evidence.
+
+Validation is green for `test:autopilot-gui-harness`,
+`harness-contract-consistency`, shell wiring, workflow composer wiring, IDE
+build, TypeScript typecheck, `cargo check -p autopilot`, all Rust `ioi-types`
+harness tests, the full retained GUI harness run, `test:agent-runtime-p3`, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T17-47-26-161Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T17-59-07-497Z/dashboard-index.json`.
+
+This moves routing/model from "gated adapter and live/shadow evidence exists"
+to "the default dispatch can only claim workflow-owned model routing/output
+authority when the three routing/model nodes have gated node-authority,
+receipts, replay, canary, visible-output, and rollback proof." The next
+chronological slice should apply the same explicit node-authority pattern to the
+verification/completion/output cluster, then to authority/tooling.
+
+### 2026-05-09 Verification/Output Node Authority Gate Slice
+
+The latest promotion slice makes the end-of-turn verification/output sextet
+explicitly owned by workflow nodes under gated authority:
+
+- Rust now has a canonical `HarnessVerificationOutputNodeAuthorityGate` bound
+  into `HarnessDefaultRuntimeDispatchProof`.
+- TypeScript mirrors the same gate as
+  `WorkflowHarnessVerificationOutputNodeAuthorityGate`.
+- Default dispatch generation computes
+  `verificationOutputNodeAuthorityGate.schemaVersion =
+  workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1`,
+  `authorityMode = gated_node_authoritative`, `requiredExecutionMode = gated`,
+  `runtimeAuthority = blessed_workflow_activation_default`, empty blockers, and
+  `policyDecision = allow_gated_node_authoritative_verification_output`.
+- The gate is driven by the gated adapter results for
+  `postcondition_synthesizer`, `verifier`, `completion_gate`, `receipt_writer`,
+  `quality_ledger`, and `output_writer`; it requires action frames,
+  shadow-ready component identities, node attempt ids, receipt ids, replay
+  fixture refs, shadow attempt/receipt/replay refs, zero divergence, output
+  writer handoff readiness, materialization canary readiness, staged-write
+  canary readiness, committed visible write readiness, fallback availability,
+  and rollback availability.
+- The Autopilot right rail exposes the gate through
+  `data-verification-output-node-authority-*` attributes and a visible
+  verification/output authority row on
+  `workflow-harness-default-runtime-dispatch`.
+- Retained validation now treats
+  `harness_verification_output_node_authority_present` and
+  `harness_verification_output_node_authority` as required runtime/GUI
+  evidence.
+
+Validation is green for `test:autopilot-gui-harness`,
+`harness-contract-consistency`, shell wiring, workflow composer wiring, IDE
+build, TypeScript typecheck, `cargo check -p autopilot`, all Rust `ioi-types`
+harness tests, the full retained GUI harness run, `test:agent-runtime-p3`, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T22-31-00-788Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T22-42-07-081Z/dashboard-index.json`.
+
+This moves verification/output from "gated adapter and live/shadow evidence
+exists" to "the default dispatch can only claim workflow-owned completion,
+receipt, quality-ledger, and visible-write authority when all six
+verification/output nodes have gated node-authority, receipts, replay, zero
+divergence, visible-write commit proof, and rollback proof." The next
+chronological slice should apply the same explicit node-authority pattern to
+authority/tooling.
+
+### 2026-05-09 Authority/Tooling Node Authority Gate Slice
+
+The latest promotion slice closes the final P0 node-authority gap by making the
+authority/tooling octet explicitly owned by workflow nodes under gated
+authority:
+
+- Rust now has a canonical `HarnessAuthorityToolingNodeAuthorityGate` bound into
+  `HarnessDefaultRuntimeDispatchProof`.
+- TypeScript mirrors the same gate as
+  `WorkflowHarnessAuthorityToolingNodeAuthorityGate`.
+- Default dispatch generation computes
+  `authorityToolingNodeAuthorityGate.schemaVersion =
+  workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1`,
+  `authorityMode = gated_node_authoritative`, `requiredExecutionMode = gated`,
+  `runtimeAuthority = blessed_workflow_activation_default`, empty blockers, and
+  `policyDecision = allow_gated_node_authoritative_authority_tooling`.
+- The gate is driven by the gated adapter results for `policy_gate`,
+  `approval_gate`, `dry_run_simulator`, `mcp_provider`, `mcp_tool_call`,
+  `tool_call`, `connector_call`, and `wallet_capability`; it requires action
+  frames, shadow-ready component identities, node attempt ids, receipt ids,
+  replay fixture refs, accepted read-only routing, denied destructive routing,
+  wallet dry-run proof, zero unapproved side effects, and rollback availability.
+- The Autopilot right rail exposes the gate through
+  `data-authority-tooling-node-authority-*` attributes and a visible
+  authority/tooling authority row on
+  `workflow-harness-default-runtime-dispatch`.
+- Retained validation now treats
+  `harness_authority_tooling_node_authority_present` and
+  `harness_authority_tooling_node_authority` as required runtime/GUI evidence.
+- The GUI promotion proof captures `liveGuiProbeDiagnostics` when the live proof
+  script blocks before writing its main proof workflow, so future failures name
+  the failing phase instead of collapsing into an empty validation bundle.
+
+Validation is green for `test:autopilot-gui-harness`,
+`harness-contract-consistency`, shell wiring, workflow composer wiring, IDE
+build, TypeScript typecheck, `cargo check -p autopilot`, all Rust `ioi-types`
+harness tests, the full retained GUI harness run, `test:agent-runtime-p3`, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-09T23-44-17-612Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-09T23-53-23-263Z/dashboard-index.json`.
+
+This moves authority/tooling from "gated adapter, live/shadow comparison, and
+canary evidence exists" to "the default dispatch can only claim workflow-owned
+tooling authority when all eight authority/tooling nodes have gated
+node-authority, receipts, replay, accepted read-only routing, destructive-route
+denial, dry-run wallet proof, and zero unapproved side effects." With cognition,
+routing/model, verification/output, and authority/tooling all explicitly
+node-authoritative, the chronological focus can move from P0 authority closure
+to hardening packaged activation ergonomics, replay diagnostics, and user-facing
+fork mutation workflows.
+
+### 2026-05-10 Fork Mutation Canary Package Proof Slice
+
+The latest packaging slice turns fork activation from "a validated fork can
+carry activation evidence" into "a fork must prove at least one real
+workflow-as-code mutation can be proposed, packaged, replayed, receipted,
+rolled back, and reviewed through the same GUI substrate":
+
+- Rust now carries canonical `HarnessForkMutationCanary`,
+  `HarnessForkMutationCanaryStatus`, and `HarnessForkMutationKind` types.
+- TypeScript mirrors the canary as `WorkflowHarnessForkMutationCanary` and
+  threads it through harness metadata, activation records, activation
+  candidates, package manifests, package import reviews, and import activation
+  handoffs.
+- `forkDefaultAgentHarnessWorkflow` now performs a harmless real fork mutation:
+  `global_config.policy.maxSteps` changes from `80` to `64` for the budget gate.
+  The mutation is proposal-bound, diff-hashed, policy-labeled
+  `allow_proposal_only_budget_gate_limit_canary`, and bound to rollback target
+  `activation:default-agent-harness:blessed-readonly`.
+- Package evidence manifests now include the canary object plus
+  `forkMutationCanaryReceiptRefs`, `forkMutationCanaryReplayFixtureRefs`, and
+  `forkMutationCanaryNodeAttemptIds`. Package deep links include a
+  `fork_mutation_canary` route that restores the mutation canary gate, receipt,
+  replay fixture, and node attempt.
+- The activation wizard now includes a `mutation-canary` gate, and the right
+  rail shows the canary id, mutation kind, before/after values, diff hash,
+  receipt count, replay count, node-attempt count, policy decision, rollback
+  target, and blockers.
+- Package export/import review now treats mutation-canary evidence as required.
+  Invalid/incomplete packages expose `fork-mutation-canary` as a first-class
+  missing row; valid packages must preserve mutation canary counts through
+  export, import, review, handoff, activation apply, and replay-integrity proof.
+- The retained GUI harness validator now requires
+  `harness_fork_mutation_canary`, and its package gate and round-trip checks
+  fail unless the canary has receipt, replay, and node-attempt coverage.
+- The deep-link writer now falls back from rapid `history.replaceState` calls
+  to same-document URL replacement, so dense route-state proof playback does
+  not trip Chromium's history throttling while exercising complex workbench
+  panels.
+
+Validation is green for `test:autopilot-gui-harness`,
+`test:agent-runtime-p3`, shell wiring, workflow composer wiring, IDE build,
+TypeScript typecheck/build paths, the targeted Rust fork-mutation canary
+round-trip test, the full retained GUI harness run, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-10T00-48-05-632Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-10T00-54-20-307Z/dashboard-index.json`.
+
+This changes fork activation from "package evidence is preserved" to "a real
+fork mutation is part of the preservation contract." The next chronological
+slice should make the mutation canary itself inspectable as an execution
+timeline row, not only as package evidence: select the `mutation-canary` gate,
+open the canary node attempt, compare live/gated replay metadata, and prove the
+rollback target from the same route.
+
+### 2026-05-10 Fork Mutation Canary Node Inspector Slice
+
+The follow-up slice closes the gap named above: mutation canary evidence is no
+longer only a package manifest row. It is now a first-class node-attempt
+inspection and deep-link target:
+
+- Rust `HarnessForkMutationCanary` now carries `node_attempts`, and the
+  canonical type test asserts the mutation canary attempt is bound to the
+  `budget_gate` component in `gated` execution mode.
+- TypeScript `WorkflowHarnessForkMutationCanary` carries `nodeAttempts`, and
+  the runtime creates a deterministic `WorkflowHarnessNodeAttemptRecord` for the
+  budget-gate max-step mutation with input/output hashes, policy decision,
+  receipt refs, replay fixture, diff hash, readiness, and rollback target.
+- The rail model resolves mutation canary attempts, receipts, and replay
+  fixtures from activation/package evidence, with source kind
+  `fork_mutation_canary`.
+- The `mutation-canary` activation gate now renders the canary node attempt in
+  the gate timeline with component id/kind, execution mode, readiness, policy,
+  receipts, replay, input/output hashes, diff hash, and rollback target.
+- Package evidence click-through now proves two linked surfaces: the settings
+  rail restores the `mutation-canary` activation gate and timeline row, then the
+  outputs rail restores `workflow-harness-node-attempt-inspector` for the exact
+  same mutation canary attempt id.
+- Route-stateful deep-link proof now includes
+  `activation-gate-mutation-canary-node-attempt`, and runtime consistency
+  requires `harness_fork_mutation_canary_node_inspector_present: true`.
+
+Validation is green for `test:autopilot-gui-harness`, shell wiring, workflow
+composer wiring, `harness-workflow-activation`, IDE build, the targeted Rust
+fork-mutation canary test, `cargo fmt --check`, the full retained GUI harness
+run, `test:agent-runtime-p3`, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-10T01-36-55-405Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-10T01-45-23-776Z/dashboard-index.json`.
+
+This changes the fork mutation canary from "packaged and reviewable" to
+"inspectable as a node in the same workbench substrate as live runtime turns."
+The next chronological slice should use that node-attempt substrate to prove
+mutation canaries across package import activation apply and active worker
+binding rollback/canary flows, so a forked harness can show one continuous
+chain from workflow-as-code diff to activation, worker binding, canary, and
+rollback.
+
+### 2026-05-10 Reviewed Snapshot And Active Rollback Binding Slice
+
+This slice closes that chain. The reviewed package snapshot is now carried
+through the import apply result, default runtime dispatch proof, worker binding
+registry, worker attach request/receipt, worker session, launch envelopes, and
+rollback workbench without dropping the fork mutation canary identity:
+
+- Rust and TypeScript contracts now include reviewed fork mutation canary id,
+  status, diff hash, receipt refs, replay fixture refs, node-attempt ids, and
+  rollback target on worker registry, attach request, attach receipt, package
+  import source, activation handoff, activation action, activation result, and
+  default runtime dispatch proof.
+- The reviewed package snapshot hash includes the mutation canary fields, so a
+  worker cannot attach to a package whose mutation canary identity drifted after
+  review.
+- Package import activation apply now proves the mutation canary in two GUI
+  surfaces: the settings rail restores the `mutation-canary` activation gate
+  and node timeline, and the outputs rail restores
+  `workflow-harness-node-attempt-inspector` for the same node attempt.
+- The default live promotion workbench now preserves the reviewed mutation
+  canary fields when rebuilding the worker registry from the default dispatch
+  proof. That prevents a registry hash from being carried forward while the
+  attach request silently recomputes a different reviewed snapshot.
+- The live GUI proof now shows accepted attach/resume/rollback lifecycle
+  receipts, an accepted worker session record, launch/resume/rollback envelopes,
+  handoff receipts, node timeline binding, and active rollback workbench state
+  derived from the same reviewed package snapshot.
+- Active runtime rollback is now proven end to end: the workbench restores the
+  rollback proof, dry-run passes with a canary result, apply records a rollback
+  receipt and `active_runtime_rollback_applied` audit event, and six negative
+  rollback cases block stale or detached proof inputs with matching GUI/runtime
+  blocker codes.
+
+Validation is green for `test:autopilot-gui-harness`, shell wiring, workflow
+composer wiring, `harness-workflow-activation`, IDE build, Rust harness tests,
+`test:agent-runtime-p3`, the full retained GUI harness run, and
+`validate:agent-runtime-p3 -- --require-gui-evidence`. The retained GUI bundle
+is
+`docs/evidence/autopilot-gui-harness-validation/2026-05-10T02-30-06-087Z/result.json`;
+the P3 bundle is
+`docs/evidence/agent-runtime-p3-validation/2026-05-10T02-36-32-856Z/dashboard-index.json`.
+
+This changes the system from "the fork mutation canary is inspectable" to "the
+reviewed mutation canary is part of the live worker binding identity and active
+rollback proof." At this checkpoint, the master-guide target state for a proven
+unified substrate is validated end to end through Autopilot GUI retained
+evidence.
+
+### 2026-05-10 Regression Hardening Slice
+
+The first post-checkpoint hardening slice turns the two most recent failure
+modes into focused regression coverage:
+
+- `harness-workflow-activation.test.ts` now asserts that the canonical reviewed
+  package snapshot accepts worker attach with no blockers, then fails attach if
+  the reviewed fork mutation canary diff drifts or if mutation canary identity
+  fields are dropped while retaining the old snapshot hash.
+- `workflowComposerWiring.test.ts` now asserts package import activation apply
+  restores the mutation canary on two distinct GUI surfaces: the settings rail
+  for the activation gate timeline and the outputs rail for
+  `workflow-harness-node-attempt-inspector`.
+
+This keeps future refactors from accidentally preserving a stale reviewed
+package hash while losing canary identity, or from collapsing the GUI proof back
+into a single panel that cannot prove both timeline and inspector state.
+
+### 2026-05-10 Evidence Checkpoint Index Slice
+
+The latest green proof is now surfaced through a small canonical evidence
+index instead of a long companion-document list of timestamped runs:
+
+- `docs/evidence/agent-runtime-harness-workflow/latest-green.json` is the
+  machine-readable pointer to the current green GUI and P3 bundles.
+- `docs/evidence/agent-runtime-harness-workflow/README.md` explains what the
+  checkpoint proves and how historical timestamped bundles should be treated.
+
+This does not delete historical evidence. It separates the current blessed
+proof surface from retained run history so future reviewers can quickly answer
+"what is the latest complete green checkpoint?" without losing auditability.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -1835,12 +2243,185 @@ Runtime P3 with required GUI evidence is green at
 
 This changes rollback from "applied through an audited workbench action" to
 "applied only when the dry-run proof is still live-bound, with stale and
-detached proof attempts visibly and contractually blocked." The next
-chronological slice should move from rollback proof guardrails to import/package
-activation replay: prove that a forked harness package cannot activate live
-unless its imported workflow hash, activation id, worker binding, rollback
-target, replay fixtures, and policy posture all match the reviewed package
-manifest.
+detached proof attempts visibly and contractually blocked."
+
+### 2026-05-09 Package Import Activation Replay Integrity Slice
+
+Reviewed package activation now carries a replay-integrity negative suite, not
+only a happy-path apply proof:
+
+- `workflow.harness.package-evidence-manifest.v1` includes the package policy
+  posture alongside workflow hash, activation id, worker binding, rollback
+  target, replay fixtures, worker handoff attempts, and worker handoff receipts.
+- `workflow.package-import-review.v1` snapshots those manifest values into the
+  reviewed source identity and mirrors the reviewed workflow hash, policy
+  posture, replay fixtures, worker handoff attempts, and handoff receipts into
+  `workflow.package-import-activation-handoff.v1`.
+- The package import rail exposes integrity blockers through
+  `data-package-import-replay-integrity-blocker-count` and keeps
+  `workflow-harness-package-import-activate` disabled when the reviewed source
+  and activation handoff disagree.
+- The live GUI probe now records
+  `workflow.harness.package-import-activation-replay-integrity-proof.v1` with
+  six negative cases: workflow hash mismatch, activation id mismatch, worker
+  binding mismatch, rollback target mismatch, replay fixture mismatch, and
+  policy posture mismatch.
+- Each negative case proves the rail-visible action is present but disabled,
+  the rail reports an integrity blocker, the runtime
+  `workflowHarnessPackageImportActivationApplyProofBlockers` helper emits the
+  expected blocker, and default-live promotion carries the same blocker through
+  `defaultLivePromotionInvariantBlockers`.
+- The positive reviewed import apply proof now binds the minted activation to
+  the reviewed package snapshot with `reviewedWorkflowContentHash`,
+  `reviewedActivationId`, `reviewedHarnessWorkflowId`,
+  `reviewedWorkerBindingActivationId`, `reviewedRollbackTarget`,
+  reviewed replay refs, reviewed worker handoff refs, and
+  `reviewedPolicyPosture`.
+- The default-dispatch `reviewedImportActivationApplyGate` now carries the
+  reviewed package snapshot directly: workflow content hash, harness workflow
+  id, replay fixture refs, worker handoff attempt/receipt refs, and policy
+  posture. This keeps the live gate self-describing instead of forcing later
+  audits to reconstruct package identity from sidecar proof objects.
+- The retained GUI contract now requires
+  `harness_package_import_activation_replay_integrity`, and runtime consistency
+  requires `harness_package_import_activation_replay_integrity_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T15-17-01-235Z/`;
+  all eight retained queries passed and
+  `promotion-transition-live-gui-interaction-proof.json` reports
+  `packageImportActivationReplayIntegrityProof.passed: true`.
+- The replay-integrity proof records all six negative cases with the
+  activation action present but disabled, one rail-visible integrity blocker
+  per case, matching runtime blockers, and matching
+  `defaultLivePromotionInvariantBlockers`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T15-25-39-061Z/dashboard-index.json`.
+
+This changes package activation from "a reviewed import can be committed" to
+"a reviewed import can be committed only when the package identity, replay
+fixtures, worker handoff bindings, rollback target, and policy posture still
+match the reviewed manifest."
+
+### 2026-05-09 Worker Registry Reviewed Package Enforcement Slice
+
+The worker binding registry is now also the reviewed package enforcement
+surface. A live worker may not attach, resume, or rollback solely because its
+workflow id, activation id, hash, component versions, and rollback target
+match; it must also carry the reviewed package snapshot that authorized the
+activation:
+
+- `WorkflowHarnessWorkerBindingRegistryRecord`,
+  `WorkflowHarnessWorkerAttachRequest`, and
+  `WorkflowHarnessWorkerAttachReceipt` now carry
+  `reviewedPackageSnapshotHash`, reviewed workflow content hash, reviewed
+  activation id, reviewed harness workflow id, reviewed worker binding
+  activation id, reviewed rollback target, reviewed replay fixture refs,
+  reviewed worker handoff attempt/receipt refs, and reviewed policy posture.
+- The TS resolver computes a stable reviewed-package snapshot hash and rejects
+  attach/resume/rollback when any reviewed package field drifts from the
+  registry record or when required reviewed replay, handoff, policy, or
+  rollback evidence is missing.
+- Rust canonical harness contracts now mirror the reviewed package fields on
+  `HarnessWorkerBindingRegistryRecord`, `HarnessWorkerAttachRequest`, and
+  `HarnessWorkerAttachReceipt`; the Rust resolver blocks mismatched reviewed
+  package snapshots and bound registries with missing reviewed package
+  evidence.
+- Default dispatch now copies the reviewed import activation apply proof into
+  the worker registry and attach receipts, so the live default worker binding
+  is tied to the package identity that was reviewed and activated.
+- The Workflows right rail exposes a `Package` status next to `Invariant`,
+  `Registry`, `Attach`, and `Lifecycle`, and emits DOM evidence for the
+  reviewed package snapshot hash, workflow hash, replay fixture refs, and bound
+  status.
+- The retained GUI validator now requires
+  `harness_worker_binding_registry_reviewed_package_bound` and counts
+  `harnessWorkerBindingRegistryReviewedPackageBoundCount` before accepting a
+  matched default runtime binding.
+- Focused validation is green for
+  `npx tsx --test packages/agent-ide/src/runtime/harness-workflow-activation.test.ts`,
+  `cargo test -p ioi-types app::harness`, `npm run build --workspace=@ioi/agent-ide`,
+  `node --test scripts/lib/harness-contract-consistency.test.mjs`,
+  `node --test apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs`,
+  `npx tsx --test apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts`,
+  and `npm run test:autopilot-gui-harness`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T15-59-05-806Z/`;
+  all eight retained queries passed, runtime consistency reports
+  `harness_worker_binding_registry_reviewed_package_bound: true`, and
+  `runtime-artifacts.json` reports
+  `harnessWorkerBindingRegistryReviewedPackageBoundCount: 6`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T16-05-47-517Z/dashboard-index.json`.
+
+This changes worker binding from "the registry accepted this worker identity"
+to "the registry accepted this worker identity only while it is still bound to
+the reviewed package activation snapshot that supplied its replay, handoff,
+rollback, and policy proof." The next chronological slice should regenerate
+the activation package identity into the forked persistent-worker registry so
+package import, activation apply, worker attach, and rollback all share one
+reviewed identity envelope.
+
+### 2026-05-09 Reviewed Package Snapshot Propagation Slice
+
+The reviewed package activation identity is now regenerated from the actual
+package evidence envelope and propagated into the persistent-worker path:
+
+- `workflow.harness.package-evidence-manifest.v1` derives
+  `reviewedPackageSnapshotHash` from the manifest fields that the import
+  review actually shows: activation revision hash, activation id, harness
+  workflow id, worker binding activation id, rollback target, replay fixtures,
+  worker handoff attempts, worker handoff receipts, and policy posture.
+- Direct fork activation now precomputes the deterministic worker launch,
+  resume, and rollback handoff refs before binding the registry, so locally
+  minted forks and exported packages agree on the same reviewed snapshot
+  envelope.
+- Imported package review carries the reviewed snapshot hash into
+  `workflow.package-import-review.v1`,
+  `workflow.package-import-activation-handoff.v1`, the activation apply result,
+  default runtime dispatch, worker registry, worker attach receipt, worker
+  session, launch envelopes, rollback workbench, and negative rollback apply
+  proof.
+- Replay integrity now has seven retained negative cases, adding
+  `snapshot_hash_mismatch` to the prior workflow hash, activation id, worker
+  binding, rollback target, replay fixture, and policy posture cases.
+- Rust canonical harness code now exposes
+  `harness_reviewed_package_snapshot_hash`,
+  `harness_worker_binding_registry_reviewed_package_snapshot_hash`, and
+  `harness_worker_attach_request_reviewed_package_snapshot_hash`, using the
+  same stable FNV reviewed snapshot identity as the TS runtime path. Worker
+  attach now rejects a stale snapshot hash even when the copied request and
+  registry strings match.
+- The GUI rail exposes source and handoff snapshot hashes with
+  `data-package-import-source-reviewed-package-snapshot-hash` and
+  `data-package-import-handoff-reviewed-package-snapshot-hash`, and disables
+  activation when those hashes diverge.
+- The full retained GUI proof now reports `workerAttachBound: true`,
+  `workerAttachLifecycleComplete: true`, `workerSessionRecordBound: true`,
+  `workerLaunchHandoffBound: true`, `workerHandoffNodeTimelineBound: true`,
+  `activeRuntimeRollbackProofWorkbench: true`,
+  `activeRuntimeRollbackExecutionWorkbench: true`,
+  `activeRuntimeRollbackApplyExecution: true`, and
+  `activeRuntimeRollbackNegativeApply: true` while the reviewed package
+  snapshot remains bound.
+- Focused validation is green for
+  `npx tsx --test packages/agent-ide/src/runtime/harness-workflow-activation.test.ts`,
+  `node --test scripts/lib/harness-contract-consistency.test.mjs`,
+  `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`,
+  `node --test apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs`,
+  `npx tsx --test apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts`,
+  `npm run build --workspace=@ioi/agent-ide`,
+  `npm run test:autopilot-gui-harness`,
+  `cargo test -p ioi-types app::harness --quiet`, and
+  `cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml --quiet`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-09T16-47-56-192Z/`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-09T16-55-17-631Z/dashboard-index.json`.
+
+This changes reviewed package activation from "the worker carries reviewed
+package fields" to "the worker can only attach, launch, rollback, and prove
+rollback-negative behavior while bound to the exact reviewed package snapshot
+that passed import review and activation apply."
 
 ## Current State
 
@@ -2756,6 +3337,10 @@ This leg is complete when all of the following are true:
 - SDK, CLI, GUI, worker records, and runtime traces expose the same harness
   binding.
 
+Current status: the 2026-05-10T02:30 GUI evidence bundle and
+2026-05-10T02:36 P3 bundle satisfy these criteria for the retained default
+agent harness path.
+
 ## Risks And Mitigations
 
 | Risk                                                   | Mitigation                                                                              |
@@ -2769,52 +3354,37 @@ This leg is complete when all of the following are true:
 | Migration regresses normal chat.                       | Component-by-component gated rollout with fallback receipts.                            |
 | Fork activation becomes too hard to understand.        | Activation wizard, actionable blockers, component diff, and canary/rollback controls.   |
 
-## Immediate Work Queue
+## Post-Checkpoint Hardening Queue
 
-1. Add a harness execution mode model shared by TS workflow metadata and Rust
-   activation records: `projection`, `shadow`, `gated`, `live`.
-2. Add a component readiness status model:
-   `projection_only`, `simulated`, `shadow_ready`, `live_ready`.
-3. Create a shared harness component manifest test that compares TS
-   `DEFAULT_AGENT_HARNESS_COMPONENTS` with Rust `default_agent_harness_components`.
-4. Add component-level fixtures for P0 components.
-5. Add receipt correlation coverage for planner, routing, workload, approval,
-   policy, verifier, completion, and output events.
-6. Add a shadow runner that consumes live turn state and emits graph decision
-   diffs.
-7. Extend the GUI node inspector with harness node receipts, live/shadow
-   comparison, replay status, and activation blockers.
-8. Add collapsible harness groups with typed boundary ports, rollup badges,
-   inner-node search/focus, and preserved group metadata.
-9. Add deep-linkable expanded harness state for group id, component id, run id,
-   replay fixture id, and selected rail/bottom panel.
-10. Add harness-specific right rail modes for receipts/outputs, search,
-    live-vs-shadow changes, activation posture, runtime settings,
-    schedules/triggers, component tree, tests, sources/inputs, policy, and
-    capabilities.
-11. Add row-level expanded workbench status for component run state, replay
-    state, deprecation/version warnings, policy blockers, preview/dry-run
-    availability, and upgrade/proposal affordances.
-12. Add a fork activation wizard and block live worker binding until activation
-    id minting succeeds.
-13. Add a retained dogfood run where the default agent edits workflow code while
-    the harness graph shadows the turn.
-14. Promote gated graph authority one P0 component cluster at a time.
+The next work is no longer about proving the target state from this guide. That
+proof is green. The remaining work is hardening, maintainability, and product
+polish:
 
-## Recommended First PR Slice
+1. Trim or archive stale intermediate evidence bundles once the team agrees on
+   retention policy.
+2. Broaden the retained query pack beyond the current default harness
+   dogfooding scenario.
+3. Add CLI/SDK affordances that expose the same activation id, worker binding,
+   rollback target, replay fixture, and receipt refs that the GUI now shows.
+4. Convert the remaining handwritten TS/Rust parity checks into generated
+   contract fixtures if the manifest stabilizes.
+5. Continue GUI polish on dense-workflow ergonomics: collapsible groups,
+   mini-map status rollups, split-pane persistence, and searchable node
+   timelines.
+6. Move browser-use harness work into its separate guide and reuse the same
+   proof discipline: screenshots plus marks plus Playwright control, with
+   route-stateful evidence and rollback when the browser session changes.
 
-The first implementation slice should be deliberately small:
+## Recommended Next PR Slice
 
-- introduce `harnessExecutionMode` and `componentRuntimeStatus` fields;
-- surface them in the default harness workflow metadata and GUI badges;
-- add validation that default harness components exist in both TS and Rust;
-- add a read-only GUI note explaining projection vs shadow vs gated vs live;
-- extend `validate:autopilot-gui-harness` expectations to capture the mode
-  badge.
+Make the validated proof easier to maintain:
 
-That slice will not make the harness live-driven yet, but it creates the
-language the rest of the migration needs and prevents the current projection
-from being over-claimed.
+- consolidate reviewed package snapshot identity helpers and tests;
+- add one focused regression fixture for the mutation-canary snapshot hash drift
+  that previously blocked worker attach;
+- add one GUI fixture asserting package apply restores both the settings gate
+  timeline and outputs node inspector for the same mutation canary attempt;
+- update developer-facing docs to point to the latest green GUI and P3 bundles.
 
 ## Open Questions
 
