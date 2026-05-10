@@ -178,6 +178,13 @@ const workflowSchema = fs.readFileSync(
   ),
   "utf8",
 );
+const workflowCodingRoutes = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-coding-routes.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workflowDefaults = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/runtime/workflow-defaults.ts",
@@ -244,6 +251,10 @@ const tauriLib = fs.readFileSync(
 );
 const projectCommands = fs.readFileSync(
   new URL("../../../src-tauri/src/project/commands.rs", import.meta.url),
+  "utf8",
+);
+const projectRuntime = fs.readFileSync(
+  new URL("../../../src-tauri/src/project/runtime.rs", import.meta.url),
   "utf8",
 );
 const graphState = fs.readFileSync(
@@ -597,6 +608,102 @@ assert.match(
   executionSubstrate,
   /AgentActionKind[\s\S]*source_input[\s\S]*model_binding[\s\S]*model_call[\s\S]*adapter_connector[\s\S]*plugin_tool[\s\S]*output/,
   "Workflow UI authoring should use shared action substrate vocabulary instead of node-local routing strings",
+);
+
+assert.match(
+  executionSubstrate,
+  /case "skill_context"[\s\S]*return "skill_context"/,
+  "Skill Context nodes should be first-class workflow action kinds in the shared action substrate",
+);
+
+assert.match(
+  graphTypes,
+  /interface WorkflowSkillContextConfig[\s\S]*mode: "discover" \| "pinned"[\s\S]*goalSource\?: "workflow_goal" \| "node_input" \| "static"[\s\S]*pinnedSkills\?: WorkflowSkillContextPinnedSkill\[\]/,
+  "Workflow schema should expose first-class skill context node config",
+);
+
+assert.match(
+  nodeRegistry,
+  /type: "skill_context"[\s\S]*token: "SK"[\s\S]*executorId: "workflow\.skill_context"[\s\S]*creatorId: "skill_context\.discover"[\s\S]*creatorId: "skill_context\.pinned"/,
+  "Workflow node registry should expose discover and pinned Skill Context creator variants",
+);
+
+assert.match(
+  workflowComposerUi,
+  /data-testid="workflow-skill-context-mode"[\s\S]*data-testid="workflow-skill-context-pinned-skills"[\s\S]*data-testid="workflow-skill-context-include-markdown"/,
+  "Workflow config UI should expose Skill Context mode, pinned lookup, and guidance controls",
+);
+
+assert.match(
+  tauriRuntime,
+  /listWorkflowSkillCatalog[\s\S]*getSkillCatalog\(\)[\s\S]*getSkillDetail\(skill\.skill_hash\)[\s\S]*workflowOptionsWithSkillCatalog/,
+  "Workflow runtime should populate skill context from the runtime skill registry catalog/detail APIs",
+);
+
+assert.match(
+  projectCommands,
+  /WorkflowSkillResolver::from_options\(options\.as_ref\(\)\)[\s\S]*execute_workflow_project/,
+  "Tauri workflow run commands should pass the runtime skill resolver into execution",
+);
+
+assert.match(
+  projectRuntime,
+  /struct WorkflowSkillResolver[\s\S]*resolve_skill_context[\s\S]*workflow\.skill-context\.v1[\s\S]*workflow\.skill_context\.discovery\.v1[\s\S]*workflow\.skill_context\.read\.v1/,
+  "Workflow execution should emit receipt-backed skill context artifacts from a resolver abstraction",
+);
+
+assert.match(
+  harnessTools,
+  /"workflow\.catalog\.skills"[\s\S]*listWorkflowSkillCatalog[\s\S]*Workflow skill catalog loaded through runtime registry API/,
+  "Workflow harness tools should expose the runtime skill catalog for scripted proof flows",
+);
+
+assert.match(
+  graphTypes,
+  /interface WorkflowCodingRouteContract[\s\S]*routeId: WorkflowCodingRouteId[\s\S]*phases: WorkflowCodingRoutePhaseId\[\][\s\S]*phaseDetails\?: WorkflowCodingRoutePhase\[\][\s\S]*gates: WorkflowCodingRouteGate\[\]/,
+  "Workflow schema should expose typed coding route contracts and phase topology",
+);
+
+assert.match(
+  graphTypes,
+  /interface WorkflowCodingRouteGateResult[\s\S]*status: WorkflowCodingRouteGateStatus[\s\S]*blockingRequirements: string\[\][\s\S]*interface WorkflowCodingRouteBenchmarkResult[\s\S]*interface WorkflowCodingRoutePromotionDecision[\s\S]*interface WorkflowCodingRouteRunSummary/,
+  "Workflow schema should expose typed gate, benchmark, promotion, and route run summary objects",
+);
+
+assert.match(
+  workflowCodingRoutes,
+  /(?=[\s\S]*WORKFLOW_CODING_ROUTE_CONTRACTS)(?=[\s\S]*coding\.template\.build)(?=[\s\S]*coding\.template\.debug)(?=[\s\S]*coding\.template\.review)(?=[\s\S]*coding\.route\.gate\.v1)(?=[\s\S]*coding\.route\.benchmark\.v1)(?=[\s\S]*coding\.route\.promotion\.v1)(?=[\s\S]*componentKind: "verifier")/,
+  "Workflow route catalog should define build, debug, and review contracts with gate, benchmark, promotion, and phase evidence",
+);
+
+assert.match(
+  templates,
+  /coding\.template\.build[\s\S]*skill-context-route[\s\S]*edge-skill-context-model-context[\s\S]*coding\.template\.debug[\s\S]*coding\.template\.review/,
+  "Workflow template catalog should expose build, debug, and review routes with explicit skill context edges",
+);
+
+assert.match(
+  projectRuntime,
+  /workflow_classify_coding_route[\s\S]*coding\.template\.review[\s\S]*coding\.template\.debug[\s\S]*coding\.template\.build[\s\S]*workflow_coding_route_evidence_from_run[\s\S]*workflow_coding_route_benchmark_results[\s\S]*workflow_coding_route_promotion_decisions[\s\S]*coding\.route\.promotion\.v1/,
+  "Workflow runtime should classify coding routes and emit route, benchmark, and promotion evidence from execution",
+);
+
+assert.match(
+  harnessTools,
+  /"workflow\.catalog\.coding_routes"[\s\S]*listWorkflowCodingRoutes[\s\S]*"workflow\.skills\.import_pack"[\s\S]*importWorkflowSkillPack/,
+  "Workflow harness tools should expose coding route contracts and thin Draft skill-pack import",
+);
+
+assert.match(
+  tauriRuntime,
+  /(?=[\s\S]*listWorkflowCodingRoutes)(?=[\s\S]*WORKFLOW_CODING_ROUTE_CONTRACTS)(?=[\s\S]*workflowDraftSkillsFromSources)(?=[\s\S]*importWorkflowSkillPack)(?=[\s\S]*addSkillSource)(?=[\s\S]*syncSkillSource)(?=[\s\S]*applyWorkflowPromotionDecisions)/,
+  "Autopilot runtime should provide route catalog access, Draft skill-pack import, and promotion metadata updates through registry APIs",
+);
+
+assert.match(
+  workflowBottomShelf,
+  /data-testid="workflow-route-evidence"[\s\S]*routeRunSummary[\s\S]*workflow-route-promotion-summary[\s\S]*workflow-route-selected-skill[\s\S]*workflow-route-gate[\s\S]*workflow-route-promotion/,
+  "Workflow run details should expose route preset, selected skills, gate status, promotion decisions, and evidence refs",
 );
 
 assert.match(

@@ -1,4 +1,5 @@
 import type { Node } from "../types/graph";
+import { WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA } from "./workflow-node-registry";
 
 export interface WorkflowSchemaFieldReference {
   path: string;
@@ -74,6 +75,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "output" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
+      node.type === "skill_context" ||
       node.type === "parser" ||
       node.type === "adapter" ||
       node.type === "plugin_tool" ||
@@ -96,6 +98,7 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
   if (logic.payload !== undefined) return schemaFromSample(logic.payload);
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
+  if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;
   if (node.type === "parser") return { type: "object" };
   if (node.type === "adapter") return { type: "object", properties: { response: { type: "object" } } };
   if (node.type === "plugin_tool") return { type: "object", properties: { result: { type: "object" } } };

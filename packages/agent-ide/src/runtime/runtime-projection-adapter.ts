@@ -66,6 +66,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "model_binding";
     case "model_call":
       return "model_call";
+    case "skill_context":
+      return "skill_context";
     case "parser":
       return "parser";
     case "adapter":
@@ -126,6 +128,7 @@ export function workflowNodeTypeForActionKind(kind: AgentActionKind): string {
     case "probe":
     case "budget_gate":
     case "capability_sequence":
+    case "skill_context":
     case "dry_run":
     case "semantic_impact":
     case "postcondition_synthesis":

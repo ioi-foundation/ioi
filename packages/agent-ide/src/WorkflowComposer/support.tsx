@@ -484,6 +484,7 @@ export function workflowConfigSectionForNodeKind(
       "function",
       "model_call",
       "model_binding",
+      "skill_context",
       "adapter",
       "plugin_tool",
       "parser",

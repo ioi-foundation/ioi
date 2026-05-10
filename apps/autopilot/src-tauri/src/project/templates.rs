@@ -112,6 +112,11 @@ pub(super) fn workflow_node(
             json!(["output", "error", "retry"]),
             json!({ "in": "prompt", "out": "message" }),
         ),
+        "skill_context" => (
+            json!(["input"]),
+            json!(["output", "error"]),
+            json!({ "in": "payload", "out": "payload" }),
+        ),
         "parser" => (
             json!([]),
             json!(["parser"]),
@@ -205,6 +210,21 @@ pub(super) fn workflow_node(
         "model_call" => json!({
             "modelRef": if metric_value == "vision" { "vision" } else { "reasoning" },
             "prompt": format!("Run the {} step.", name)
+        }),
+        "skill_context" => json!({
+            "skillContext": {
+                "mode": "discover",
+                "goalSource": "node_input",
+                "goal": "",
+                "minScoreBps": 6500,
+                "maxSkills": 3,
+                "onNoMatch": "warn",
+                "pinnedSkills": [],
+                "onMissingPinned": "block",
+                "includeMarkdown": true,
+                "guidanceMaxChars": 1800
+            },
+            "outputSchema": workflow_skill_context_output_schema()
         }),
         "model_binding" => json!({
             "modelRef": if metric_value == "vision" { "vision" } else { "reasoning" },
@@ -350,6 +370,7 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
         ("function", "Functions", "Function"),
         ("model_binding", "Models", "Model Binding"),
         ("model_call", "Models", "Model"),
+        ("skill_context", "Context", "Skill Context"),
         ("parser", "Models", "Output Parser"),
         ("adapter", "Connectors", "Adapter"),
         ("plugin_tool", "Tools", "Plugin Tool"),
@@ -363,6 +384,29 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
         ("test_assertion", "Tests", "Test Assertion"),
         ("proposal", "Proposals", "Proposal"),
     ]
+}
+
+pub(super) fn workflow_skill_context_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "mode",
+            "selectedSkills",
+            "promptContext",
+            "evidenceRefs"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "mode": { "type": "string" },
+            "goal": { "type": "string" },
+            "selectedSkills": { "type": "array" },
+            "promptContext": { "type": "string" },
+            "evidenceRefs": { "type": "array" }
+        }
+    })
 }
 
 fn workflow_scaffold(
@@ -548,6 +592,30 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
             None,
         ),
         workflow_scaffold(
+            "workflow.skill_context.discover",
+            "skill_context",
+            "Context",
+            "Discover skills",
+            "Resolve runtime skills deterministically from workflow or node input goal text.",
+            "Skills",
+            "discover",
+            json!({ "skillContext": { "mode": "discover", "goalSource": "node_input", "goal": "", "minScoreBps": 6500, "maxSkills": 3, "onNoMatch": "warn", "pinnedSkills": [], "onMissingPinned": "block", "includeMarkdown": true, "guidanceMaxChars": 1800 }, "outputSchema": workflow_skill_context_output_schema() }),
+            json!({}),
+            None,
+        ),
+        workflow_scaffold(
+            "workflow.skill_context.pinned",
+            "skill_context",
+            "Context",
+            "Pinned skill",
+            "Attach one or more pinned runtime skills by skill hash or deterministic name lookup.",
+            "Skills",
+            "pinned",
+            json!({ "skillContext": { "mode": "pinned", "goalSource": "node_input", "goal": "", "minScoreBps": 6500, "maxSkills": 3, "onNoMatch": "warn", "pinnedSkills": [{ "skillHash": "", "name": "", "required": true }], "onMissingPinned": "block", "includeMarkdown": true, "guidanceMaxChars": 1800 }, "outputSchema": workflow_skill_context_output_schema() }),
+            json!({}),
+            None,
+        ),
+        workflow_scaffold(
             "workflow.output.inline",
             "output",
             "Outputs",
@@ -599,7 +667,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
             node_type,
-            "source" | "trigger" | "adapter" | "plugin_tool" | "output"
+            "source" | "trigger" | "adapter" | "plugin_tool" | "skill_context" | "output"
         ) {
             continue;
         }
@@ -645,6 +713,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
     let schema_required = matches!(
         node_type,
         "function"
+            | "skill_context"
             | "model_call"
             | "parser"
             | "adapter"
@@ -656,6 +725,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
     let connection_classes: Vec<&str> = match node_type {
         "model_binding" => vec!["model"],
         "model_call" => vec!["data", "model", "memory", "tool", "parser"],
+        "skill_context" => vec!["data", "error"],
         "parser" => vec!["data", "parser"],
         "plugin_tool" => vec!["data", "tool", "error"],
         "adapter" => vec!["data", "error"],
@@ -705,6 +775,226 @@ pub(super) fn workflow_edge_port(id: &str, from: &str, to: &str, from_port: &str
         "connectionClass": "data",
         "data": { "connectionClass": "data" }
     })
+}
+
+pub(super) fn workflow_edge_ports(
+    id: &str,
+    from: &str,
+    to: &str,
+    from_port: &str,
+    to_port: &str,
+) -> Value {
+    json!({
+        "id": id,
+        "from": from,
+        "to": to,
+        "fromPort": from_port,
+        "toPort": to_port,
+        "type": "data",
+        "connectionClass": "data",
+        "data": { "connectionClass": "data" }
+    })
+}
+
+pub(super) fn workflow_coding_route_contract(route_id: &str) -> Value {
+    match route_id {
+        "coding.template.debug" => json!({
+            "schemaVersion": "workflow.coding-route.v1",
+            "routeId": "coding.template.debug",
+            "label": "Debug",
+            "taskClass": "debug",
+            "riskLevel": "normal",
+            "phases": ["coding.intake", "coding.context", "coding.define", "coding.verify", "coding.review", "coding.closeout"],
+            "phaseDetails": [
+                { "phaseId": "coding.intake", "label": "Intake", "componentKind": "context", "required": true, "gateIds": [] },
+                { "phaseId": "coding.context", "label": "Context", "componentKind": "context", "required": true, "gateIds": [] },
+                { "phaseId": "coding.define", "label": "Define", "componentKind": "planner", "required": true, "gateIds": ["route.debug.repro"] },
+                { "phaseId": "coding.verify", "label": "Verify", "componentKind": "verifier", "required": true, "gateIds": ["route.verify.execution"] },
+                { "phaseId": "coding.review", "label": "Review", "componentKind": "reviewer", "required": true, "gateIds": [] },
+                { "phaseId": "coding.closeout", "label": "Closeout", "componentKind": "merge_verdict", "required": true, "gateIds": [] }
+            ],
+            "requiredSkillSelectors": [{ "mode": "discover", "names": ["debugging", "regression", "test-driven-development"], "required": false }],
+            "optionalSkillSelectors": [{ "mode": "discover", "names": ["incremental-implementation"], "required": false }],
+            "evidenceRequirements": [
+                "coding.route.classification.v1",
+                "coding.route.phase.start.v1",
+                "coding.route.phase.complete.v1",
+                "coding.route.skill_selection.v1",
+                "coding.route.gate.v1",
+                "coding.route.benchmark.v1",
+                "coding.route.promotion.v1"
+            ],
+            "gates": [
+                { "gateId": "route.debug.repro", "label": "Failure reproduction", "phaseId": "coding.define", "evidenceKind": "execution", "required": true, "status": "skipped", "operatorOverrideAllowed": false, "blockingRequirements": ["reproduction or diagnostic evidence"] },
+                { "gateId": "route.verify.execution", "label": "Verification evidence", "phaseId": "coding.verify", "evidenceKind": "execution", "required": true, "status": "skipped", "operatorOverrideAllowed": false, "blockingRequirements": ["node execution evidence"] }
+            ],
+            "skipRules": ["Do not ship without a verified repro or equivalent diagnostic evidence."],
+            "failureBehavior": "block"
+        }),
+        "coding.template.review" => json!({
+            "schemaVersion": "workflow.coding-route.v1",
+            "routeId": "coding.template.review",
+            "label": "Review",
+            "taskClass": "review",
+            "riskLevel": "normal",
+            "phases": ["coding.intake", "coding.context", "coding.review", "coding.verify", "coding.closeout"],
+            "phaseDetails": [
+                { "phaseId": "coding.intake", "label": "Intake", "componentKind": "context", "required": true, "gateIds": [] },
+                { "phaseId": "coding.context", "label": "Context", "componentKind": "context", "required": true, "gateIds": [] },
+                { "phaseId": "coding.review", "label": "Review", "componentKind": "reviewer", "required": true, "gateIds": ["route.review.findings"] },
+                { "phaseId": "coding.verify", "label": "Verify", "componentKind": "verifier", "required": true, "gateIds": ["route.verify.execution"] },
+                { "phaseId": "coding.closeout", "label": "Closeout", "componentKind": "merge_verdict", "required": true, "gateIds": [] }
+            ],
+            "requiredSkillSelectors": [{ "mode": "discover", "names": ["code-review", "security-review", "test-review"], "required": false }],
+            "optionalSkillSelectors": [{ "mode": "discover", "names": ["incremental-implementation"], "required": false }],
+            "evidenceRequirements": [
+                "coding.route.classification.v1",
+                "coding.route.phase.start.v1",
+                "coding.route.phase.complete.v1",
+                "coding.route.skill_selection.v1",
+                "coding.route.gate.v1",
+                "coding.route.benchmark.v1",
+                "coding.route.promotion.v1"
+            ],
+            "gates": [
+                { "gateId": "route.review.findings", "label": "Finding evidence", "phaseId": "coding.review", "evidenceKind": "execution", "required": true, "status": "skipped", "operatorOverrideAllowed": false, "blockingRequirements": ["findings or explicit no-findings evidence"] },
+                { "gateId": "route.verify.execution", "label": "Verification evidence", "phaseId": "coding.verify", "evidenceKind": "execution", "required": true, "status": "skipped", "operatorOverrideAllowed": false, "blockingRequirements": ["node execution evidence"] }
+            ],
+            "skipRules": ["Do not treat skill guidance as review findings without runtime evidence."],
+            "failureBehavior": "block"
+        }),
+        _ => json!({
+            "schemaVersion": "workflow.coding-route.v1",
+            "routeId": "coding.template.build",
+            "label": "Build",
+            "taskClass": "build",
+            "riskLevel": "normal",
+            "phases": ["coding.intake", "coding.context", "coding.plan", "coding.build", "coding.verify", "coding.closeout"],
+            "phaseDetails": [
+                { "phaseId": "coding.intake", "label": "Intake", "componentKind": "context", "required": true, "gateIds": [] },
+                { "phaseId": "coding.context", "label": "Context", "componentKind": "context", "required": true, "gateIds": [] },
+                { "phaseId": "coding.plan", "label": "Plan", "componentKind": "planner", "required": true, "gateIds": ["route.build.plan"] },
+                { "phaseId": "coding.build", "label": "Build", "componentKind": "builder", "required": true, "gateIds": [] },
+                { "phaseId": "coding.verify", "label": "Verify", "componentKind": "verifier", "required": true, "gateIds": ["route.verify.execution"] },
+                { "phaseId": "coding.closeout", "label": "Closeout", "componentKind": "merge_verdict", "required": true, "gateIds": [] }
+            ],
+            "requiredSkillSelectors": [{ "mode": "discover", "names": ["incremental-implementation", "test-driven-development"], "required": false }],
+            "optionalSkillSelectors": [{ "mode": "discover", "names": ["code-review"], "required": false }],
+            "evidenceRequirements": [
+                "coding.route.classification.v1",
+                "coding.route.phase.start.v1",
+                "coding.route.phase.complete.v1",
+                "coding.route.skill_selection.v1",
+                "coding.route.gate.v1",
+                "coding.route.benchmark.v1",
+                "coding.route.promotion.v1"
+            ],
+            "gates": [
+                { "gateId": "route.build.plan", "label": "Implementation plan", "phaseId": "coding.plan", "evidenceKind": "execution", "required": true, "status": "skipped", "operatorOverrideAllowed": false, "blockingRequirements": ["planning evidence"] },
+                { "gateId": "route.verify.execution", "label": "Verification evidence", "phaseId": "coding.verify", "evidenceKind": "execution", "required": true, "status": "skipped", "operatorOverrideAllowed": false, "blockingRequirements": ["node execution evidence"] }
+            ],
+            "skipRules": ["Do not bypass explicit skill_context attachment for model context."],
+            "failureBehavior": "block"
+        }),
+    }
+}
+
+fn workflow_coding_route_source_node(route_id: &str, request: &str) -> Value {
+    let mut node = workflow_node(
+        "source-coding-goal",
+        "source",
+        "Coding goal",
+        90,
+        180,
+        "Input",
+        "manual",
+    );
+    if let Some(logic) = node
+        .get_mut("config")
+        .and_then(|config| config.get_mut("logic"))
+        .and_then(Value::as_object_mut)
+    {
+        logic.insert(
+            "payload".to_string(),
+            json!({
+                "request": request,
+                "routeId": route_id
+            }),
+        );
+        logic.insert(
+            "schema".to_string(),
+            json!({
+                "type": "object",
+                "required": ["request"],
+                "properties": {
+                    "request": { "type": "string" },
+                    "routeId": { "type": "string" }
+                }
+            }),
+        );
+    }
+    node
+}
+
+fn workflow_coding_route_skill_context_node(_route_id: &str, goal: &str) -> Value {
+    let mut node = workflow_node(
+        "skill-context-route",
+        "skill_context",
+        "Runtime skill context",
+        340,
+        170,
+        "Skills",
+        "registry",
+    );
+    if let Some(logic) = node
+        .get_mut("config")
+        .and_then(|config| config.get_mut("logic"))
+        .and_then(Value::as_object_mut)
+    {
+        logic.insert(
+            "skillContext".to_string(),
+            json!({
+                "mode": "discover",
+                "goalSource": "static",
+                "goal": goal,
+                "minScoreBps": 4500,
+                "maxSkills": 3,
+                "onNoMatch": "warn",
+                "allowDraftForBenchmark": true,
+                "pinnedSkills": [],
+                "onMissingPinned": "block",
+                "includeMarkdown": true,
+                "guidanceMaxChars": 1800
+            }),
+        );
+        logic.insert(
+            "outputSchema".to_string(),
+            workflow_skill_context_output_schema(),
+        );
+    }
+    node
+}
+
+fn workflow_coding_route_model_node(route_id: &str, prompt: &str) -> Value {
+    let mut node = workflow_node(
+        "model-route-worker",
+        "model_call",
+        "Route worker",
+        610,
+        170,
+        "Model",
+        "reasoning",
+    );
+    if let Some(logic) = node
+        .get_mut("config")
+        .and_then(|config| config.get_mut("logic"))
+        .and_then(Value::as_object_mut)
+    {
+        logic.insert("modelRef".to_string(), json!("reasoning"));
+        logic.insert("routeId".to_string(), json!(route_id));
+        logic.insert("prompt".to_string(), json!(prompt));
+    }
+    node
 }
 
 pub(super) fn workflow_function_node(id: &str, name: &str, x: i64, y: i64, code: &str) -> Value {
@@ -816,6 +1106,192 @@ pub(super) fn template_workflow_seed(
     Vec<WorkflowTestCase>,
 )> {
     let seed = match template_id {
+        "coding.template.build" => (
+            "Coding route build",
+            "agent_workflow",
+            "local",
+            vec![
+                workflow_coding_route_source_node(
+                    "coding.template.build",
+                    "Implement the requested coding change with explicit verification evidence.",
+                ),
+                workflow_coding_route_skill_context_node(
+                    "coding.template.build",
+                    "incremental implementation test driven development focused verification",
+                ),
+                workflow_coding_route_model_node(
+                    "coding.template.build",
+                    "Run the build route. Use the attached runtime skill context only as bounded guidance. Produce implementation, verification, and closeout evidence.",
+                ),
+                workflow_node(
+                    "output-route-report",
+                    "output",
+                    "Route report",
+                    880,
+                    180,
+                    "Output",
+                    "report",
+                ),
+            ],
+            vec![
+                workflow_edge(
+                    "edge-goal-skill-context",
+                    "source-coding-goal",
+                    "skill-context-route",
+                ),
+                workflow_edge(
+                    "edge-goal-model",
+                    "source-coding-goal",
+                    "model-route-worker",
+                ),
+                workflow_edge_ports(
+                    "edge-skill-context-model-context",
+                    "skill-context-route",
+                    "model-route-worker",
+                    "output",
+                    "context",
+                ),
+                workflow_edge(
+                    "edge-model-route-output",
+                    "model-route-worker",
+                    "output-route-report",
+                ),
+            ],
+            vec![workflow_test(
+                "test-coding-build-route",
+                "Build route has explicit skill context and output path",
+                vec![
+                    "source-coding-goal",
+                    "skill-context-route",
+                    "model-route-worker",
+                    "output-route-report",
+                ],
+            )],
+        ),
+        "coding.template.debug" => (
+            "Coding route debug",
+            "agent_workflow",
+            "local",
+            vec![
+                workflow_coding_route_source_node(
+                    "coding.template.debug",
+                    "Debug the reported failure by reproducing, isolating, fixing, and verifying it.",
+                ),
+                workflow_coding_route_skill_context_node(
+                    "coding.template.debug",
+                    "debugging regression reproduction test driven verification",
+                ),
+                workflow_coding_route_model_node(
+                    "coding.template.debug",
+                    "Run the debug route. Use the attached runtime skill context only as bounded guidance. Produce reproduction, fix, verification, and closeout evidence.",
+                ),
+                workflow_node(
+                    "output-route-report",
+                    "output",
+                    "Route report",
+                    880,
+                    180,
+                    "Output",
+                    "report",
+                ),
+            ],
+            vec![
+                workflow_edge(
+                    "edge-goal-skill-context",
+                    "source-coding-goal",
+                    "skill-context-route",
+                ),
+                workflow_edge(
+                    "edge-goal-model",
+                    "source-coding-goal",
+                    "model-route-worker",
+                ),
+                workflow_edge_ports(
+                    "edge-skill-context-model-context",
+                    "skill-context-route",
+                    "model-route-worker",
+                    "output",
+                    "context",
+                ),
+                workflow_edge(
+                    "edge-model-route-output",
+                    "model-route-worker",
+                    "output-route-report",
+                ),
+            ],
+            vec![workflow_test(
+                "test-coding-debug-route",
+                "Debug route has explicit skill context and output path",
+                vec![
+                    "source-coding-goal",
+                    "skill-context-route",
+                    "model-route-worker",
+                    "output-route-report",
+                ],
+            )],
+        ),
+        "coding.template.review" => (
+            "Coding route review",
+            "agent_workflow",
+            "local",
+            vec![
+                workflow_coding_route_source_node(
+                    "coding.template.review",
+                    "Review the requested change and report grounded findings, risks, and verification gaps.",
+                ),
+                workflow_coding_route_skill_context_node(
+                    "coding.template.review",
+                    "code review security review test review verification evidence",
+                ),
+                workflow_coding_route_model_node(
+                    "coding.template.review",
+                    "Run the review route. Use the attached runtime skill context only as bounded guidance. Lead with findings, verification evidence, and residual risk.",
+                ),
+                workflow_node(
+                    "output-route-report",
+                    "output",
+                    "Route report",
+                    880,
+                    180,
+                    "Output",
+                    "report",
+                ),
+            ],
+            vec![
+                workflow_edge(
+                    "edge-goal-skill-context",
+                    "source-coding-goal",
+                    "skill-context-route",
+                ),
+                workflow_edge(
+                    "edge-goal-model",
+                    "source-coding-goal",
+                    "model-route-worker",
+                ),
+                workflow_edge_ports(
+                    "edge-skill-context-model-context",
+                    "skill-context-route",
+                    "model-route-worker",
+                    "output",
+                    "context",
+                ),
+                workflow_edge(
+                    "edge-model-route-output",
+                    "model-route-worker",
+                    "output-route-report",
+                ),
+            ],
+            vec![workflow_test(
+                "test-coding-review-route",
+                "Review route has explicit skill context and output path",
+                vec![
+                    "source-coding-goal",
+                    "skill-context-route",
+                    "model-route-worker",
+                    "output-route-report",
+                ],
+            )],
+        ),
         "basic-agent-answer" => (
             "Basic agent answer",
             "agent_workflow",
@@ -2107,6 +2583,17 @@ pub(super) fn workflow_project_from_template(
     workflow.edges = edges;
     if let Some(meta) = workflow.global_config.get_mut("meta") {
         meta["description"] = json!(format!("Workflow template: {}", template_id));
+    }
+    if matches!(
+        template_id,
+        "coding.template.build" | "coding.template.debug" | "coding.template.review"
+    ) {
+        if let Some(config) = workflow.global_config.as_object_mut() {
+            config.insert(
+                "codingRoute".to_string(),
+                workflow_coding_route_contract(template_id),
+            );
+        }
     }
     Ok((workflow, tests))
 }

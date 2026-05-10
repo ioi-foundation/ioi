@@ -4,6 +4,7 @@ import type {
   CreateWorkflowProjectRequest,
   CreateWorkflowProposalRequest,
   ImportWorkflowPackageRequest,
+  WorkflowSkillPackImportRequest,
   WorkflowCheckpointForkRequest,
   WorkflowProject,
   WorkflowResumeRequest,
@@ -27,6 +28,9 @@ export type WorkflowHarnessToolName =
   | "workflow.function.dry_run"
   | "workflow.catalog.scaffolds"
   | "workflow.catalog.models"
+  | "workflow.catalog.coding_routes"
+  | "workflow.catalog.skills"
+  | "workflow.skills.import_pack"
   | "workflow.catalog.tools"
   | "workflow.catalog.connectors"
   | "workflow.catalog.delivery_targets"
@@ -291,6 +295,48 @@ export function createWorkflowHarnessTools(runtime: AgentWorkbenchRuntime) {
           usedRuntimeApi: "listWorkflowModelBindings",
           status: "ok" as const,
           message: "Workflow model binding catalog loaded through runtime API.",
+        },
+      };
+    },
+
+    async listSkillCatalog(projectRoot: string) {
+      const listWorkflowSkillCatalog = requireApi(runtime, "listWorkflowSkillCatalog");
+      const value = await listWorkflowSkillCatalog(projectRoot);
+      return {
+        value,
+        evidence: {
+          toolName: "workflow.catalog.skills" as const,
+          usedRuntimeApi: "listWorkflowSkillCatalog",
+          status: "ok" as const,
+          message: "Workflow skill catalog loaded through runtime registry API.",
+        },
+      };
+    },
+
+    async listCodingRoutes(projectRoot: string) {
+      const listWorkflowCodingRoutes = requireApi(runtime, "listWorkflowCodingRoutes");
+      const value = await listWorkflowCodingRoutes(projectRoot);
+      return {
+        value,
+        evidence: {
+          toolName: "workflow.catalog.coding_routes" as const,
+          usedRuntimeApi: "listWorkflowCodingRoutes",
+          status: "ok" as const,
+          message: "Workflow coding route contract catalog loaded through runtime API.",
+        },
+      };
+    },
+
+    async importSkillPack(request: WorkflowSkillPackImportRequest) {
+      const importWorkflowSkillPack = requireApi(runtime, "importWorkflowSkillPack");
+      const value = await importWorkflowSkillPack(request);
+      return {
+        value,
+        evidence: {
+          toolName: "workflow.skills.import_pack" as const,
+          usedRuntimeApi: "importWorkflowSkillPack",
+          status: value.status === "blocked" ? "blocked" as const : "ok" as const,
+          message: value.message,
         },
       };
     },

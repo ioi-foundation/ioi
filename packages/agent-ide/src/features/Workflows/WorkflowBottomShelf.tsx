@@ -740,6 +740,112 @@ export function WorkflowBottomShelf({
                   </div>
                 </section>
               ) : null}
+              {lastRunResult.routeEvidence?.length || lastRunResult.routeRunSummary ? (
+                <section className="workflow-run-comparison workflow-run-comparison--bottom" data-testid="workflow-route-evidence">
+                  <strong>
+                    Route{" "}
+                    {lastRunResult.routeRunSummary?.routePreset ??
+                      lastRunResult.routeEvidence?.find((evidence) => evidence.evidenceKind === "coding.route.classification.v1")?.routeId ??
+                      "classified"}
+                  </strong>
+                  <dl>
+                    <div>
+                      <dt>Phase</dt>
+                      <dd>
+                        {lastRunResult.routeRunSummary?.currentPhase ??
+                          lastRunResult.routeEvidence?.find((evidence) => evidence.evidenceKind === "coding.route.phase.complete.v1")?.phaseId ??
+                          "recorded"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Skills</dt>
+                      <dd>
+                        {lastRunResult.routeRunSummary?.selectedSkills.length ??
+                          lastRunResult.routeEvidence?.find((evidence) => evidence.evidenceKind === "coding.route.skill_selection.v1")?.selectedSkillHashes?.length ??
+                          0}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Gate</dt>
+                      <dd>
+                        {lastRunResult.routeRunSummary?.gateResults[0]?.status ??
+                          lastRunResult.routeEvidence?.find((evidence) => evidence.evidenceKind === "coding.route.gate.v1")?.status ??
+                          "pending"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Promotion</dt>
+                      <dd>{lastRunResult.routeRunSummary?.promotionDecisions[0]?.decision ?? "recorded"}</dd>
+                    </div>
+                  </dl>
+                  {lastRunResult.routeRunSummary ? (
+                    <div className="workflow-run-comparison-list" data-testid="workflow-route-promotion-summary">
+                      {lastRunResult.routeRunSummary.selectedSkills.slice(0, 5).map((skill) => (
+                        <article
+                          key={skill.skillHash}
+                          className="workflow-run-comparison-node"
+                          data-testid={`workflow-route-selected-skill-${skill.skillHash}`}
+                        >
+                          <strong>{skill.name}</strong>
+                          <span>
+                            {skill.lifecycleState} - {skill.phaseId} - score {skill.score}
+                          </span>
+                          <small>{skill.skillHash}</small>
+                        </article>
+                      ))}
+                      {lastRunResult.routeRunSummary.gateResults.slice(0, 3).map((gate) => (
+                        <article
+                          key={gate.gateId}
+                          className={`workflow-run-comparison-node is-${gate.status}`}
+                          data-testid={`workflow-route-gate-${gate.gateId}`}
+                        >
+                          <strong>{gate.gateId}</strong>
+                          <span>{gate.reason}</span>
+                          <small>
+                            {gate.phaseId} - {gate.blockingRequirements.length
+                              ? gate.blockingRequirements.join(", ")
+                              : "no blockers"}
+                          </small>
+                        </article>
+                      ))}
+                      {lastRunResult.routeRunSummary.promotionDecisions.slice(0, 5).map((decision) => (
+                        <article
+                          key={decision.decisionId}
+                          className={`workflow-run-comparison-node is-${decision.decision === "promote" || decision.decision === "retain_promoted" ? "pass" : decision.decision === "demote" || decision.decision === "mark_stale" ? "block" : "warn"}`}
+                          data-testid={`workflow-route-promotion-${decision.skillHash}`}
+                        >
+                          <strong>{decision.decision}</strong>
+                          <span>
+                            {decision.skillName}: {decision.fromLifecycleState} {" -> "} {decision.toLifecycleState}
+                          </span>
+                          <small>{decision.reason}</small>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="workflow-run-comparison-list" data-testid="workflow-route-evidence-list">
+                    {lastRunResult.routeEvidence?.slice(0, 8).map((evidence, index) => (
+                      <article
+                        key={`${evidence.evidenceKind}-${evidence.phaseId ?? evidence.routeId}-${index}`}
+                        className={`workflow-run-comparison-node is-${evidence.status}`}
+                        data-testid={`workflow-route-evidence-${index}`}
+                      >
+                        <strong>{evidence.evidenceKind}</strong>
+                        <span>{evidence.summary}</span>
+                        <small>
+                          {evidence.phaseId ?? evidence.routeId}
+                          {evidence.selectedSkillHashes?.length
+                            ? ` · ${evidence.selectedSkillHashes.join(", ")}`
+                            : ""}
+                          {evidence.evidenceRefs?.length
+                            ? ` · ${evidence.evidenceRefs.slice(0, 3).join(", ")}`
+                            : ""}
+                        </small>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
               <div className="workflow-run-attempt-grid" data-testid="workflow-run-node-attempts">
                 {lastRunResult.nodeRuns.map((nodeRun) => {
                   const childLineage = workflowNodeRunChildLineage(nodeRun);

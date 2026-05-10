@@ -217,6 +217,63 @@ pub(super) fn validate_workflow_project_bundle(
                 message: "Subgraph nodes need a workflow path binding.".to_string(),
             });
         }
+        if action_kind == ActionKind::SkillContext {
+            let skill_config = logic.get("skillContext").unwrap_or(&logic);
+            let mode = skill_config
+                .get("mode")
+                .and_then(Value::as_str)
+                .unwrap_or("discover");
+            if !matches!(mode, "discover" | "pinned") {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "invalid_skill_context_mode".to_string(),
+                    message: "Skill Context mode must be discover or pinned.".to_string(),
+                });
+            }
+            if mode == "pinned" {
+                let pins = skill_config
+                    .get("pinnedSkills")
+                    .and_then(Value::as_array)
+                    .map(Vec::len)
+                    .unwrap_or(0);
+                let on_missing = skill_config
+                    .get("onMissingPinned")
+                    .and_then(Value::as_str)
+                    .unwrap_or("block");
+                if pins == 0 && on_missing == "block" {
+                    missing_config.push(WorkflowValidationIssue {
+                        node_id: Some(node_id.clone()),
+                        code: "missing_pinned_skill".to_string(),
+                        message:
+                            "Pinned Skill Context nodes need at least one pinned runtime skill."
+                                .to_string(),
+                    });
+                }
+            } else {
+                let max_skills = skill_config
+                    .get("maxSkills")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(3);
+                if max_skills == 0 || max_skills > 10 {
+                    execution_readiness_issues.push(WorkflowValidationIssue {
+                        node_id: Some(node_id.clone()),
+                        code: "invalid_skill_context_max_skills".to_string(),
+                        message: "Skill Context maxSkills must be between 1 and 10.".to_string(),
+                    });
+                }
+                let min_score = skill_config
+                    .get("minScoreBps")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(6500);
+                if min_score > 10_000 {
+                    execution_readiness_issues.push(WorkflowValidationIssue {
+                        node_id: Some(node_id.clone()),
+                        code: "invalid_skill_context_min_score".to_string(),
+                        message: "Skill Context minScoreBps must be at most 10000.".to_string(),
+                    });
+                }
+            }
+        }
         if action_kind == ActionKind::Proposal {
             let targets = logic
                 .get("proposalAction")

@@ -4,6 +4,11 @@ export { AgentEditor } from "./AgentEditor";
 export { WorkflowComposer } from "./WorkflowComposer";
 export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
 export {
+  WORKFLOW_CODING_ROUTE_CONTRACTS,
+  WORKFLOW_CODING_ROUTE_EVIDENCE_KINDS,
+  workflowCodingRouteContract,
+} from "./runtime/workflow-coding-routes";
+export {
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   DEFAULT_AGENT_HARNESS_COMPONENTS,
   DEFAULT_AGENT_HARNESS_HASH,

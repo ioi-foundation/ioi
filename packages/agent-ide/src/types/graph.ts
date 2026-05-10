@@ -10,6 +10,278 @@ export interface WorkflowTestAssertion {
   expression?: string;
 }
 
+export interface WorkflowSkillContextPinnedSkill {
+  skillHash?: string;
+  name?: string;
+  required?: boolean;
+}
+
+export interface WorkflowSkillContextConfig {
+  mode: "discover" | "pinned";
+  goalSource?: "workflow_goal" | "node_input" | "static";
+  goal?: string;
+  minScoreBps?: number;
+  maxSkills?: number;
+  onNoMatch?: "warn" | "block";
+  allowDraftForBenchmark?: boolean;
+  pinnedSkills?: WorkflowSkillContextPinnedSkill[];
+  onMissingPinned?: "warn" | "block";
+  includeMarkdown?: boolean;
+  guidanceMaxChars?: number;
+}
+
+export interface WorkflowSkillContextSelectedSkill {
+  skillHash: string;
+  name: string;
+  description: string;
+  lifecycleState: string;
+  sourceType: string;
+  stale: boolean;
+  relativePath?: string | null;
+  score: number;
+  guidanceHash: string;
+  guidanceMarkdown?: string;
+}
+
+export interface WorkflowSkillContextArtifact {
+  schemaVersion: "workflow.skill-context.v1";
+  status: "attached" | "unavailable" | "blocked";
+  mode: "discover" | "pinned";
+  goal?: string;
+  selectedSkills: WorkflowSkillContextSelectedSkill[];
+  promptContext: string;
+  evidenceRefs: string[];
+}
+
+export interface WorkflowSkillCatalogEntry {
+  skillHash: string;
+  name: string;
+  description: string;
+  lifecycleState: string;
+  sourceType: string;
+  successRateBps?: number;
+  sampleSize?: number;
+  relativePath?: string | null;
+  stale: boolean;
+  markdown?: string | null;
+  sourceId?: string | null;
+  sourceLabel?: string | null;
+  sourceUri?: string | null;
+  contentHash?: string | null;
+  importedAtMs?: number | null;
+  license?: string | null;
+  phaseTags?: WorkflowCodingRoutePhaseId[];
+  routeTags?: WorkflowCodingRouteId[];
+  promotionEvidenceRefs?: string[];
+}
+
+export type WorkflowCodingRouteId =
+  | "coding.template.build"
+  | "coding.template.debug"
+  | "coding.template.review"
+  | "coding.template.ship"
+  | string;
+
+export type WorkflowCodingRoutePhaseId =
+  | "coding.intake"
+  | "coding.context"
+  | "coding.define"
+  | "coding.plan"
+  | "coding.build"
+  | "coding.verify"
+  | "coding.review"
+  | "coding.ship"
+  | "coding.closeout"
+  | string;
+
+export type WorkflowCodingRouteEvidenceKind =
+  | "coding.route.classification.v1"
+  | "coding.route.phase.start.v1"
+  | "coding.route.phase.complete.v1"
+  | "coding.route.skill_selection.v1"
+  | "coding.route.gate.v1"
+  | "coding.route.benchmark.v1"
+  | "coding.route.promotion.v1";
+
+export type WorkflowCodingRouteGateStatus =
+  | "pass"
+  | "warn"
+  | "block"
+  | "skipped";
+
+export interface WorkflowCodingRoutePhase {
+  phaseId: WorkflowCodingRoutePhaseId;
+  label: string;
+  componentKind:
+    | "context"
+    | "planner"
+    | "builder"
+    | "verifier"
+    | "reviewer"
+    | "merge_verdict"
+    | string;
+  required: boolean;
+  gateIds: string[];
+}
+
+export interface WorkflowCodingRouteSkillSelector {
+  mode: "discover" | "pinned";
+  names?: string[];
+  skillHashes?: string[];
+  required?: boolean;
+}
+
+export interface WorkflowCodingRouteGate {
+  gateId: string;
+  label: string;
+  phaseId: WorkflowCodingRoutePhaseId;
+  evidenceKind: string;
+  required: boolean;
+  status?: WorkflowCodingRouteGateStatus | "pending";
+  operatorOverrideAllowed?: boolean;
+  blockingRequirements?: string[];
+}
+
+export interface WorkflowCodingRouteContract {
+  schemaVersion: "workflow.coding-route.v1";
+  routeId: WorkflowCodingRouteId;
+  label: string;
+  taskClass: "build" | "debug" | "review" | "ship" | string;
+  riskLevel: "low" | "normal" | "high";
+  phases: WorkflowCodingRoutePhaseId[];
+  phaseDetails?: WorkflowCodingRoutePhase[];
+  requiredSkillSelectors: WorkflowCodingRouteSkillSelector[];
+  optionalSkillSelectors?: WorkflowCodingRouteSkillSelector[];
+  evidenceRequirements: string[];
+  gates: WorkflowCodingRouteGate[];
+  skipRules?: string[];
+  failureBehavior?: "warn" | "block";
+}
+
+export interface WorkflowCodingRouteGateResult {
+  gateId: string;
+  phaseId: WorkflowCodingRoutePhaseId;
+  status: WorkflowCodingRouteGateStatus;
+  reason: string;
+  evidenceRefs: string[];
+  blockingRequirements: string[];
+  operatorOverrideAllowed: boolean;
+  overrideEvidenceRefs: string[];
+}
+
+export interface WorkflowCodingRouteSkillSelection {
+  skillHash: string;
+  name: string;
+  lifecycleState: string;
+  phaseId: WorkflowCodingRoutePhaseId;
+  routeId: WorkflowCodingRouteId;
+  score: number;
+  sourceType: string;
+  stale: boolean;
+  phaseTags: WorkflowCodingRoutePhaseId[];
+  routeTags: WorkflowCodingRouteId[];
+  evidenceRefs: string[];
+}
+
+export interface WorkflowCodingRouteBenchmarkResult {
+  benchmarkId: string;
+  routeId: WorkflowCodingRouteId;
+  phaseId: WorkflowCodingRoutePhaseId;
+  selectedSkillHash: string;
+  skillLifecycleState: string;
+  inputDescriptor: string;
+  status: WorkflowCodingRouteGateStatus;
+  gateStatus: WorkflowCodingRouteGateStatus;
+  verifierResult?: string;
+  confidenceBeforeBps: number;
+  confidenceAfterBps: number;
+  promotionDecision: string;
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
+export interface WorkflowCodingRoutePromotionDecision {
+  decisionId: string;
+  skillHash: string;
+  skillName: string;
+  routeId: WorkflowCodingRouteId;
+  phaseId: WorkflowCodingRoutePhaseId;
+  fromLifecycleState: string;
+  toLifecycleState: string;
+  stale: boolean;
+  confidenceBeforeBps: number;
+  confidenceAfterBps: number;
+  decision:
+    | "promote"
+    | "retain_promoted"
+    | "demote"
+    | "mark_stale"
+    | "no_change"
+    | string;
+  reason: string;
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
+export interface WorkflowCodingRouteRunSummary {
+  schemaVersion: "workflow.coding-route-run-summary.v1";
+  routeId: WorkflowCodingRouteId;
+  routePreset: WorkflowCodingRouteId;
+  currentPhase?: WorkflowCodingRoutePhaseId;
+  completedPhases: WorkflowCodingRoutePhaseId[];
+  selectedSkills: WorkflowCodingRouteSkillSelection[];
+  gateResults: WorkflowCodingRouteGateResult[];
+  benchmarkResults: WorkflowCodingRouteBenchmarkResult[];
+  promotionDecisions: WorkflowCodingRoutePromotionDecision[];
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
+export interface WorkflowCodingRouteEvidence {
+  schemaVersion: "workflow.coding-route-evidence.v1";
+  evidenceKind: WorkflowCodingRouteEvidenceKind;
+  routeId: WorkflowCodingRouteId;
+  phaseId?: WorkflowCodingRoutePhaseId;
+  status: WorkflowCodingRouteGateStatus | "passed" | "blocked" | "warning";
+  summary: string;
+  evidenceRefs: string[];
+  selectedSkillHashes?: string[];
+  gateId?: string;
+  phaseComponent?: string;
+  gateResult?: WorkflowCodingRouteGateResult;
+  skillSelections?: WorkflowCodingRouteSkillSelection[];
+  benchmarkResults?: WorkflowCodingRouteBenchmarkResult[];
+  promotionDecisions?: WorkflowCodingRoutePromotionDecision[];
+  createdAtMs: number;
+}
+
+export interface WorkflowSkillPackImportRequest {
+  uri: string;
+  label?: string | null;
+  draft?: boolean;
+  provenance?: {
+    sourceType?: "local_path" | "git" | "archive" | string;
+    sourceRef?: string;
+    notes?: string;
+  };
+}
+
+export interface WorkflowSkillPackImportResult {
+  sourceId: string;
+  uri: string;
+  label: string;
+  status: "draft" | "synced" | "blocked" | string;
+  discoveredSkillCount: number;
+  draftSkills?: WorkflowSkillCatalogEntry[];
+  provenance: {
+    sourceType: string;
+    sourceRef: string;
+    importedAs: "draft" | string;
+  };
+  syncedAtMs?: number | null;
+  message: string;
+}
+
 export interface WorkflowNodeViewMacro {
   macroId: string;
   macroLabel: string;
@@ -148,6 +420,7 @@ export interface NodeLogic {
 
   // --- Context ---
   variables?: Record<string, string>;
+  skillContext?: WorkflowSkillContextConfig;
 
   // --- Triggers ---
   triggerKind?: "manual" | "scheduled" | "event";
@@ -557,6 +830,7 @@ export type WorkflowNodeFamily =
   | "triggers"
   | "functions"
   | "models"
+  | "context"
   | "tools"
   | "connectors"
   | "state"
@@ -601,6 +875,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
+  | WorkflowNodeConfigBase<"skill_context">
   | WorkflowNodeConfigBase<"parser">
   | WorkflowNodeConfigBase<"adapter">
   | WorkflowNodeConfigBase<"plugin_tool">
@@ -740,6 +1015,7 @@ export interface GraphGlobalConfig {
   environmentProfile?: GraphEnvironmentProfile;
   modelBindings: Record<string, GraphModelBinding>;
   requiredCapabilities: Record<string, GraphCapabilityRequirement>;
+  codingRoute?: WorkflowCodingRouteContract;
   policy: {
     maxBudget: number;
     maxSteps: number;
@@ -3800,6 +4076,7 @@ export type WorkflowNodeKind =
   | "function"
   | "model_binding"
   | "model_call"
+  | "skill_context"
   | "parser"
   | "adapter"
   | "plugin_tool"
@@ -4086,6 +4363,8 @@ export interface WorkflowRunResult {
   harnessGatedClusterRuns?: WorkflowHarnessGatedClusterRun[];
   verificationEvidence: WorkflowVerificationEvidence[];
   completionRequirements: WorkflowCompletionRequirement[];
+  routeEvidence?: WorkflowCodingRouteEvidence[];
+  routeRunSummary?: WorkflowCodingRouteRunSummary;
   interrupt?: WorkflowInterrupt;
 }
 
