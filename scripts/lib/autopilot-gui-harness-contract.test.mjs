@@ -19,13 +19,73 @@ function reviewedImportActivationApplyProof(overrides = {}) {
   const rollbackTarget = "activation:default-agent-harness:blessed-readonly";
   const workerHandoffAttempt =
     "harness-worker-handoff:attempt:launch:harness-worker-session:package-evidence-import-roundtrip-fork";
+  const workerHandoffReceipt = "harness-worker-handoff-receipt:launch";
+  const workerHandoffFixture = "harness-worker-handoff:fixture:launch";
+  const mutationCanaryId =
+    "harness-fork-mutation-canary:package-evidence-import-roundtrip-fork:budget-gate";
+  const mutationCanaryReceipt =
+    "harness-fork-mutation-canary-receipt:package-evidence-import-roundtrip-fork:budget-gate";
+  const mutationCanaryFixture =
+    "harness-fork-mutation-canary-fixture:package-evidence-import-roundtrip-fork:budget-gate";
+  const mutationCanaryAttempt =
+    "harness-fork-mutation-canary-attempt:package-evidence-import-roundtrip-fork:budget-gate";
+  const mutationCanaryDiffHash = "stable-fnv1a32:mutation-canary";
+  const reviewedWorkflowContentHash = "stable-fnv1a32:8cfd072b";
+  const reviewedPackageSnapshotHash = "stable-fnv1a32:reviewed-package";
   const base = {
     passed: true,
     clicked: true,
+    review: {
+      schemaVersion: "workflow.package-import-review.v1",
+      source: {
+        workflowContentHash: reviewedWorkflowContentHash,
+        reviewedPackageSnapshotHash,
+        activationId,
+        harnessWorkflowId: "package-evidence-import-roundtrip-fork",
+        workerBindingActivationId: activationId,
+        policyPosture: "canary",
+        rollbackTarget,
+        forkMutationCanaryId: mutationCanaryId,
+        forkMutationCanaryStatus: "passed",
+        forkMutationCanaryDiffHash: mutationCanaryDiffHash,
+        forkMutationCanaryReceiptRefs: [mutationCanaryReceipt],
+        forkMutationCanaryReplayFixtureRefs: [mutationCanaryFixture],
+        forkMutationCanaryNodeAttemptIds: [mutationCanaryAttempt],
+        forkMutationCanaryRollbackTarget: rollbackTarget,
+        replayFixtureRefs: [workerHandoffFixture],
+        workerHandoffNodeAttemptIds: [workerHandoffAttempt],
+        workerHandoffReceiptIds: [workerHandoffReceipt],
+      },
+      activationHandoff: {
+        activationIdPreview: activationId,
+        rollbackTarget,
+        workerBinding: {
+          harnessActivationId: activationId,
+        },
+        workflowContentHash: reviewedWorkflowContentHash,
+        reviewedPackageSnapshotHash,
+        policyPosture: "canary",
+        forkMutationCanaryId: mutationCanaryId,
+        forkMutationCanaryStatus: "passed",
+        forkMutationCanaryDiffHash: mutationCanaryDiffHash,
+        forkMutationCanaryReceiptRefs: [mutationCanaryReceipt],
+        forkMutationCanaryReplayFixtureRefs: [mutationCanaryFixture],
+        forkMutationCanaryNodeAttemptIds: [mutationCanaryAttempt],
+        forkMutationCanaryRollbackTarget: rollbackTarget,
+        replayFixtureRefs: [workerHandoffFixture],
+      },
+    },
     activationAction: {
       activationIdPreview: activationId,
       blockerCount: 0,
       canaryStatus: "passed",
+      mutationCanaryId,
+      mutationCanaryStatus: "passed",
+      mutationCanaryDiffHash,
+      mutationCanaryReceiptRef: mutationCanaryReceipt,
+      mutationCanaryReplayFixtureRef: mutationCanaryFixture,
+      mutationCanaryNodeAttemptId: mutationCanaryAttempt,
+      mutationCanaryRollbackTarget: rollbackTarget,
       disabled: false,
       evidenceReady: true,
       handoffDecision: "mintable",
@@ -44,15 +104,32 @@ function reviewedImportActivationApplyProof(overrides = {}) {
       activationRecordWorkerBindingActivationId: activationId,
       rollbackTarget,
       revisionBindingActivationId: activationId,
-      activationRecordRevisionBindingHash: "stable-fnv1a32:8cfd072b",
+      activationRecordRevisionBindingHash: reviewedWorkflowContentHash,
       rollbackRevisionBindingHash: "stable-fnv1a32:8cfd072b",
       latestAuditEventType: "activation_minted",
       latestAuditStatus: "applied",
       receiptRefs: ["activation-receipt:reviewed-import"],
       evidenceRefs: ["candidate:package-evidence-import-roundtrip-fork"],
-      workerHandoffReceiptIds: ["harness-worker-handoff-receipt:launch"],
+      workerHandoffReceiptIds: [workerHandoffReceipt],
       workerHandoffNodeAttemptIds: [workerHandoffAttempt],
-      workerHandoffReplayFixtureRefs: ["harness-worker-handoff:fixture:launch"],
+      workerHandoffReplayFixtureRefs: [workerHandoffFixture],
+      reviewedPackageSnapshotHash,
+      reviewedWorkflowContentHash,
+      reviewedActivationId: activationId,
+      reviewedHarnessWorkflowId: "package-evidence-import-roundtrip-fork",
+      reviewedWorkerBindingActivationId: activationId,
+      reviewedRollbackTarget: rollbackTarget,
+      reviewedReplayFixtureRefs: [workerHandoffFixture],
+      reviewedWorkerHandoffNodeAttemptIds: [workerHandoffAttempt],
+      reviewedWorkerHandoffReceiptIds: [workerHandoffReceipt],
+      reviewedForkMutationCanaryId: mutationCanaryId,
+      reviewedForkMutationCanaryStatus: "passed",
+      reviewedForkMutationCanaryDiffHash: mutationCanaryDiffHash,
+      reviewedForkMutationCanaryReceiptRefs: [mutationCanaryReceipt],
+      reviewedForkMutationCanaryReplayFixtureRefs: [mutationCanaryFixture],
+      reviewedForkMutationCanaryNodeAttemptIds: [mutationCanaryAttempt],
+      reviewedForkMutationCanaryRollbackTarget: rollbackTarget,
+      reviewedPolicyPosture: "canary",
     },
     workerHandoff: {
       deepLinkHash: `#harness-workbench?activationGateNodeAttemptId=${workerHandoffAttempt}`,
@@ -60,6 +137,18 @@ function reviewedImportActivationApplyProof(overrides = {}) {
       selectedState: {
         "data-selected-activation-gate-id": "worker-handoff",
         "data-selected-activation-gate-node-attempt-id": workerHandoffAttempt,
+      },
+      timelineVisible: true,
+    },
+    mutationCanary: {
+      deepLinkHash: `#harness-workbench?activationGateNodeAttemptId=${mutationCanaryAttempt}`,
+      selectedAttemptId: mutationCanaryAttempt,
+      selectedState: {
+        "data-selected-activation-gate-id": "mutation-canary",
+        "data-selected-activation-gate-node-attempt-id": mutationCanaryAttempt,
+      },
+      nodeAttemptState: {
+        "data-node-attempt-id": mutationCanaryAttempt,
       },
       timelineVisible: true,
     },
@@ -87,6 +176,18 @@ function reviewedImportActivationApplyProof(overrides = {}) {
         ...(overrides.workerHandoff?.selectedState ?? {}),
       },
     },
+    mutationCanary: {
+      ...base.mutationCanary,
+      ...(overrides.mutationCanary ?? {}),
+      selectedState: {
+        ...base.mutationCanary.selectedState,
+        ...(overrides.mutationCanary?.selectedState ?? {}),
+      },
+      nodeAttemptState: {
+        ...base.mutationCanary.nodeAttemptState,
+        ...(overrides.mutationCanary?.nodeAttemptState ?? {}),
+      },
+    },
     incompleteAction: {
       ...base.incompleteAction,
       ...(overrides.incompleteAction ?? {}),
@@ -95,12 +196,44 @@ function reviewedImportActivationApplyProof(overrides = {}) {
 }
 
 function promotionInvariantUiAssertions(proof = reviewedImportActivationApplyProof()) {
+  const activationResult = proof.activationResult;
   return {
     promotionTransitionLiveGui: {
       checks: {
         packageImportActivationApplyProof: true,
       },
       packageImportActivationApplyProof: proof,
+      defaultDispatch: {
+        reviewedImportActivationApplyGate: {
+          reviewedPackageSnapshotHash:
+            activationResult?.reviewedPackageSnapshotHash ?? null,
+          reviewedWorkflowContentHash:
+            activationResult?.reviewedWorkflowContentHash ?? null,
+          reviewedHarnessWorkflowId:
+            activationResult?.reviewedHarnessWorkflowId ?? null,
+          reviewedPolicyPosture: activationResult?.reviewedPolicyPosture ?? null,
+          reviewedReplayFixtureRefs:
+            activationResult?.reviewedReplayFixtureRefs ?? [],
+          reviewedWorkerHandoffNodeAttemptIds:
+            activationResult?.reviewedWorkerHandoffNodeAttemptIds ?? [],
+          reviewedWorkerHandoffReceiptIds:
+            activationResult?.reviewedWorkerHandoffReceiptIds ?? [],
+          reviewedForkMutationCanaryId:
+            activationResult?.reviewedForkMutationCanaryId ?? null,
+          reviewedForkMutationCanaryStatus:
+            activationResult?.reviewedForkMutationCanaryStatus ?? null,
+          reviewedForkMutationCanaryDiffHash:
+            activationResult?.reviewedForkMutationCanaryDiffHash ?? null,
+          reviewedForkMutationCanaryReceiptRefs:
+            activationResult?.reviewedForkMutationCanaryReceiptRefs ?? [],
+          reviewedForkMutationCanaryReplayFixtureRefs:
+            activationResult?.reviewedForkMutationCanaryReplayFixtureRefs ?? [],
+          reviewedForkMutationCanaryNodeAttemptIds:
+            activationResult?.reviewedForkMutationCanaryNodeAttemptIds ?? [],
+          reviewedForkMutationCanaryRollbackTarget:
+            activationResult?.reviewedForkMutationCanaryRollbackTarget ?? null,
+        },
+      },
     },
   };
 }
@@ -158,10 +291,20 @@ test("runtime consistency contract requires harness shadow proof", () => {
   const contract = autopilotGuiHarnessContract();
   assert.ok(contract.requiredArtifacts.includes("harness_shadow_run"));
   assert.ok(contract.requiredArtifacts.includes("harness_gated_cognition"));
+  assert.ok(contract.requiredArtifacts.includes("harness_cognition_node_authority"));
+  assert.ok(contract.requiredArtifacts.includes("harness_routing_model_node_authority"));
   assert.ok(contract.requiredArtifacts.includes("harness_gated_routing_model"));
+  assert.ok(contract.requiredArtifacts.includes("harness_verification_output_node_authority"));
+  assert.ok(contract.requiredArtifacts.includes("harness_authority_tooling_node_authority"));
   assert.ok(contract.requiredArtifacts.includes("harness_gated_verification_output"));
   assert.ok(contract.requiredArtifacts.includes("harness_gated_authority_tooling"));
   assert.ok(contract.requiredArtifacts.includes("harness_fork_activation"));
+  assert.ok(contract.requiredArtifacts.includes("harness_fork_mutation_canary"));
+  assert.ok(
+    contract.requiredArtifacts.includes(
+      "harness_fork_mutation_canary_node_inspector",
+    ),
+  );
   assert.ok(contract.requiredArtifacts.includes("harness_rollback_restore_canary"));
   assert.ok(contract.requiredArtifacts.includes("harness_rollback_restore_canary_ui"));
   assert.ok(contract.requiredArtifacts.includes("harness_package_evidence_manifest"));
@@ -171,6 +314,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(contract.requiredArtifacts.includes("harness_package_import_review_mode"));
   assert.ok(contract.requiredArtifacts.includes("harness_package_import_activation_handoff"));
   assert.ok(contract.requiredArtifacts.includes("harness_package_import_activation_apply"));
+  assert.ok(
+    contract.requiredArtifacts.includes(
+      "harness_package_import_activation_replay_integrity",
+    ),
+  );
   assert.ok(contract.requiredArtifacts.includes("harness_promotion_transition_gui_behavior"));
   assert.ok(
     contract.requiredArtifacts.includes(
@@ -269,8 +417,20 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(contract.requiredArtifacts.includes("harness_read_only_capability_routing"));
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_shadow_attempts_present"));
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_gated_cognition_present"));
+  assert.ok(contract.runtimeConsistencyRequirements.includes("harness_cognition_node_authority_present"));
+  assert.ok(contract.runtimeConsistencyRequirements.includes("harness_routing_model_node_authority_present"));
   assert.ok(
     contract.runtimeConsistencyRequirements.includes("harness_gated_routing_model_present"),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_verification_output_node_authority_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_authority_tooling_node_authority_present",
+    ),
   );
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
@@ -284,6 +444,16 @@ test("runtime consistency contract requires harness shadow proof", () => {
   );
   assert.ok(
     contract.runtimeConsistencyRequirements.includes("harness_fork_activation_present"),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_fork_mutation_canary_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_fork_mutation_canary_node_inspector_present",
+    ),
   );
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
@@ -340,9 +510,19 @@ test("runtime consistency contract requires harness shadow proof", () => {
       "harness_package_import_activation_handoff_present",
     ),
   );
+	  assert.ok(
+	    contract.runtimeConsistencyRequirements.includes(
+	      "harness_package_import_activation_apply_present",
+	    ),
+	  );
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
-      "harness_package_import_activation_apply_present",
+      "harness_package_import_activation_mutation_canary_bound_present",
+    ),
+  );
+	  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "harness_package_import_activation_replay_integrity_present",
     ),
   );
   assert.ok(
@@ -644,6 +824,35 @@ test("default-live promotion requires reviewed import activation apply proof", (
   assert.ok(
     invalidWorkerBinding.failures.includes(
       "default live promotion invariant failed: worker binding does not point at the minted activation id",
+    ),
+  );
+
+  const invalidReviewedGate = validateDefaultLivePromotionInvariants({
+    uiAssertions: {
+      promotionTransitionLiveGui: {
+        ...promotionInvariantUiAssertions().promotionTransitionLiveGui,
+        defaultDispatch: {
+          reviewedImportActivationApplyGate: {
+            reviewedPackageSnapshotHash: "stable-fnv1a32:reviewed-package",
+            reviewedWorkflowContentHash: "stable-fnv1a32:mismatch",
+            reviewedHarnessWorkflowId: "package-evidence-import-roundtrip-fork",
+            reviewedPolicyPosture: "canary",
+            reviewedReplayFixtureRefs: ["harness-worker-handoff:fixture:launch"],
+            reviewedWorkerHandoffNodeAttemptIds: [
+              "harness-worker-handoff:attempt:launch:harness-worker-session:package-evidence-import-roundtrip-fork",
+            ],
+            reviewedWorkerHandoffReceiptIds: [
+              "harness-worker-handoff-receipt:launch",
+            ],
+          },
+        },
+      },
+    },
+  });
+  assert.equal(invalidReviewedGate.ok, false);
+  assert.ok(
+    invalidReviewedGate.failures.includes(
+      "default live promotion invariant failed: reviewed import gate does not match the reviewed package snapshot",
     ),
   );
 });

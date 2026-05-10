@@ -760,6 +760,14 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
     assert_eq!(record.activation_id, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
     assert_eq!(record.activation_hash, DEFAULT_AGENT_HARNESS_HASH);
     assert_eq!(record.rollback_target, DEFAULT_AGENT_HARNESS_ACTIVATION_ID);
+    assert_eq!(
+        record.reviewed_activation_id,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+    );
+    assert_eq!(
+        record.reviewed_worker_binding_activation_id,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+    );
     assert!(!record.component_version_set.is_empty());
     assert!(record
         .blockers
@@ -776,8 +784,7 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
     record.readiness_proof_id =
         "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly".to_string();
     record.rollback_readiness_proof_id = record.readiness_proof_id.clone();
-    record.rollback_live_shadow_comparison_gate_id =
-        "p0-live-shadow-comparison-gate".to_string();
+    record.rollback_live_shadow_comparison_gate_id = "p0-live-shadow-comparison-gate".to_string();
     record.rollback_live_shadow_comparison_gate_ready = true;
     record.rollback_activation_id = DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string();
     record.rollback_harness_hash = DEFAULT_AGENT_HARNESS_HASH.to_string();
@@ -798,9 +805,47 @@ fn worker_binding_registry_requires_bound_identity_without_blockers() {
     record.worker_binding.live_shadow_comparison_gate_id =
         Some(record.rollback_live_shadow_comparison_gate_id.clone());
     record.worker_binding.live_shadow_comparison_gate_ready = true;
-    record.worker_binding.rollback_policy_decision =
-        Some(record.rollback_policy_decision.clone());
+    record.worker_binding.rollback_policy_decision = Some(record.rollback_policy_decision.clone());
     record.worker_binding.policy_decision = Some(record.policy_decision.clone());
+    record.reviewed_replay_fixture_refs = vec![
+        "harness-reviewed-package:fixture:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string(),
+    ];
+    record.reviewed_worker_handoff_node_attempt_ids = vec![
+        "harness-reviewed-package:worker-attempt:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string(),
+    ];
+    record.reviewed_worker_handoff_receipt_ids = vec![
+        "harness-reviewed-package:worker-receipt:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string(),
+    ];
+    record.reviewed_fork_mutation_canary_id =
+        "harness-reviewed-package:fork-mutation-canary:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string();
+    record.reviewed_fork_mutation_canary_status = "passed".to_string();
+    record.reviewed_fork_mutation_canary_diff_hash =
+        "stable-fnv1a32:default-reviewed-fork-mutation-canary".to_string();
+    record.reviewed_fork_mutation_canary_receipt_refs = vec![
+        "harness-reviewed-package:fork-mutation-canary-receipt:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string(),
+    ];
+    record.reviewed_fork_mutation_canary_replay_fixture_refs = vec![
+        "harness-reviewed-package:fork-mutation-canary-fixture:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string(),
+    ];
+    record.reviewed_fork_mutation_canary_node_attempt_ids = vec![
+        "harness-reviewed-package:fork-mutation-canary-attempt:default-agent-harness:activation:default-agent-harness:blessed-readonly"
+            .to_string(),
+    ];
+    record.reviewed_fork_mutation_canary_rollback_target =
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string();
+    record.reviewed_policy_posture = "canary".to_string();
+    record.reviewed_package_snapshot_hash =
+        harness_worker_binding_registry_reviewed_package_snapshot_hash(&record);
+    assert_eq!(
+        record.reviewed_package_snapshot_hash,
+        "stable-fnv1a32:1df194e3"
+    );
     validate_harness_worker_binding_registry_record(&record)
         .expect("bound registry record accepts matching worker binding");
     assert!(record.invariant_blockers.is_empty());
@@ -833,6 +878,23 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
         "harness-live-promotion-readiness:default-agent-harness:activation:default-agent-harness:blessed-readonly"
     );
     assert_eq!(receipt.policy_decision, "allow_harness_worker_attach");
+    assert_eq!(
+        receipt.reviewed_package_snapshot_hash,
+        record.reviewed_package_snapshot_hash
+    );
+    assert_eq!(
+        receipt.reviewed_package_snapshot_hash,
+        "stable-fnv1a32:1df194e3"
+    );
+    assert_eq!(
+        receipt.reviewed_activation_id,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+    );
+    assert_eq!(
+        receipt.reviewed_worker_binding_activation_id,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+    );
+    assert!(!receipt.reviewed_replay_fixture_refs.is_empty());
     assert!(receipt.rollback_available);
     assert!(receipt
         .required_invariant_ids
@@ -860,6 +922,45 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
         .blockers
         .iter()
         .any(|blocker| blocker == "worker_attach_activation_hash_mismatch"));
+
+    let mut stale_snapshot_request =
+        default_harness_worker_attach_request(&record, HarnessWorkerAttachStatus::Bound);
+    stale_snapshot_request.reviewed_workflow_content_hash = "sha256:mismatch".to_string();
+    let stale_snapshot_receipt = resolve_harness_worker_binding(&record, &stale_snapshot_request);
+    assert!(!stale_snapshot_receipt.accepted);
+    assert!(stale_snapshot_receipt
+        .blockers
+        .iter()
+        .any(|blocker| blocker == "worker_attach_reviewed_package_workflow_hash_mismatch"));
+    assert!(stale_snapshot_receipt
+        .blockers
+        .iter()
+        .any(|blocker| blocker == "worker_attach_reviewed_package_snapshot_hash_mismatch"));
+
+    let mut stale_hash_request =
+        default_harness_worker_attach_request(&record, HarnessWorkerAttachStatus::Bound);
+    stale_hash_request.reviewed_package_snapshot_hash = "stable-fnv1a32:stale".to_string();
+    let stale_hash_receipt = resolve_harness_worker_binding(&record, &stale_hash_request);
+    assert!(!stale_hash_receipt.accepted);
+    assert!(stale_hash_receipt
+        .blockers
+        .iter()
+        .any(|blocker| blocker == "worker_attach_reviewed_package_snapshot_hash_mismatch"));
+
+    let mut missing_replay_record = record.clone();
+    missing_replay_record.reviewed_replay_fixture_refs.clear();
+    let missing_replay_receipt = resolve_harness_worker_binding(
+        &missing_replay_record,
+        &default_harness_worker_attach_request(
+            &missing_replay_record,
+            HarnessWorkerAttachStatus::Bound,
+        ),
+    );
+    assert!(!missing_replay_receipt.accepted);
+    assert!(missing_replay_receipt
+        .blockers
+        .iter()
+        .any(|blocker| blocker == "worker_attach_registry_invalid"));
 
     let projection_record = default_harness_worker_binding_registry_record();
     let projection_receipt = resolve_harness_worker_binding(
@@ -1215,9 +1316,284 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     );
     assert!(dispatch.reviewed_import_activation_apply_gate.proof_passed);
     assert_eq!(
+        dispatch
+            .reviewed_import_activation_apply_gate
+            .reviewed_workflow_content_hash
+            .as_deref(),
+        Some(DEFAULT_AGENT_HARNESS_HASH)
+    );
+    assert_eq!(
+        dispatch
+            .reviewed_import_activation_apply_gate
+            .reviewed_harness_workflow_id
+            .as_deref(),
+        Some(DEFAULT_AGENT_HARNESS_WORKFLOW_ID)
+    );
+    assert!(!dispatch
+        .reviewed_import_activation_apply_gate
+        .reviewed_replay_fixture_refs
+        .is_empty());
+    assert_eq!(
+        dispatch
+            .reviewed_import_activation_apply_gate
+            .reviewed_policy_posture
+            .as_deref(),
+        Some("canary")
+    );
+    assert_eq!(
         dispatch.dispatch_scope,
         "read_only_cognition_routing_verification_completion_authority_tooling"
     );
+    assert_eq!(
+        dispatch.cognition_node_authority_gate.schema_version,
+        "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1"
+    );
+    assert_eq!(
+        dispatch.cognition_node_authority_gate.authority_mode,
+        "node_authoritative"
+    );
+    assert!(dispatch.cognition_node_authority_gate.authoritative);
+    assert!(dispatch.cognition_node_authority_gate.blockers.is_empty());
+    assert_eq!(
+        dispatch
+            .cognition_node_authority_gate
+            .required_execution_mode,
+        HarnessExecutionMode::Live
+    );
+    assert_eq!(
+        dispatch.cognition_node_authority_gate.runtime_authority,
+        "blessed_workflow_activation_default"
+    );
+    assert_eq!(
+        dispatch.cognition_node_authority_gate.policy_decision,
+        "allow_node_authoritative_cognition"
+    );
+    assert!(dispatch
+        .cognition_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::Planner));
+    assert!(dispatch
+        .cognition_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::PromptAssembler));
+    assert!(dispatch
+        .cognition_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::TaskState));
+    assert_eq!(
+        dispatch.routing_model_node_authority_gate.schema_version,
+        "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1"
+    );
+    assert_eq!(
+        dispatch.routing_model_node_authority_gate.authority_mode,
+        "gated_node_authoritative"
+    );
+    assert!(dispatch.routing_model_node_authority_gate.authoritative);
+    assert!(dispatch
+        .routing_model_node_authority_gate
+        .blockers
+        .is_empty());
+    assert_eq!(
+        dispatch
+            .routing_model_node_authority_gate
+            .required_execution_mode,
+        HarnessExecutionMode::Gated
+    );
+    assert_eq!(
+        dispatch.routing_model_node_authority_gate.runtime_authority,
+        "blessed_workflow_activation_default"
+    );
+    assert_eq!(
+        dispatch.routing_model_node_authority_gate.policy_decision,
+        "allow_gated_node_authoritative_routing_model"
+    );
+    assert_eq!(
+        dispatch
+            .routing_model_node_authority_gate
+            .visible_output_authority,
+        "workflow_model_provider_call"
+    );
+    assert!(
+        dispatch
+            .routing_model_node_authority_gate
+            .provider_canary_ready
+    );
+    assert!(
+        dispatch
+            .routing_model_node_authority_gate
+            .rollback_available
+    );
+    assert!(dispatch
+        .routing_model_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::ModelRouter));
+    assert!(dispatch
+        .routing_model_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::ModelCall));
+    assert!(dispatch
+        .routing_model_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::ToolRouter));
+    assert_eq!(
+        dispatch
+            .verification_output_node_authority_gate
+            .schema_version,
+        "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1"
+    );
+    assert_eq!(
+        dispatch
+            .verification_output_node_authority_gate
+            .authority_mode,
+        "gated_node_authoritative"
+    );
+    assert!(
+        dispatch
+            .verification_output_node_authority_gate
+            .authoritative
+    );
+    assert!(dispatch
+        .verification_output_node_authority_gate
+        .blockers
+        .is_empty());
+    assert_eq!(
+        dispatch
+            .verification_output_node_authority_gate
+            .required_execution_mode,
+        HarnessExecutionMode::Gated
+    );
+    assert_eq!(
+        dispatch
+            .verification_output_node_authority_gate
+            .runtime_authority,
+        "blessed_workflow_activation_default"
+    );
+    assert_eq!(
+        dispatch
+            .verification_output_node_authority_gate
+            .policy_decision,
+        "allow_gated_node_authoritative_verification_output"
+    );
+    assert!(
+        dispatch
+            .verification_output_node_authority_gate
+            .output_writer_visible_write_committed
+    );
+    assert!(
+        dispatch
+            .verification_output_node_authority_gate
+            .rollback_available
+    );
+    assert!(dispatch
+        .verification_output_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::Verifier));
+    assert!(dispatch
+        .verification_output_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::OutputWriter));
+    assert_eq!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .schema_version,
+        "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1"
+    );
+    assert_eq!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .authority_mode,
+        "gated_node_authoritative"
+    );
+    assert!(dispatch.authority_tooling_node_authority_gate.authoritative);
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .blockers
+        .is_empty());
+    assert_eq!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .required_execution_mode,
+        HarnessExecutionMode::Gated
+    );
+    assert_eq!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .runtime_authority,
+        "blessed_workflow_activation_default"
+    );
+    assert_eq!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .policy_decision,
+        "allow_gated_node_authoritative_authority_tooling"
+    );
+    assert!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .read_only_route_accepted
+    );
+    assert!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .destructive_route_denied
+    );
+    assert!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .mutating_tool_calls_blocked
+    );
+    assert!(
+        !dispatch
+            .authority_tooling_node_authority_gate
+            .side_effects_executed
+    );
+    assert!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .gate_live_ready
+    );
+    assert!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .read_only_authority_canary_ready
+    );
+    assert!(
+        dispatch
+            .authority_tooling_node_authority_gate
+            .rollback_available
+    );
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::PolicyGate));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::ApprovalGate));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::DryRunSimulator));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::McpProvider));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::McpToolCall));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::ToolCall));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::ConnectorCall));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
+        .contains(&HarnessComponentKind::WalletCapability));
     assert!(dispatch
         .accepted_cluster_ids
         .contains(&HarnessPromotionClusterId::Cognition));
@@ -1836,4 +2212,97 @@ fn canary_execution_boundary_uses_workflow_node_executor_with_rollback_drill() {
         assert!(boundary.rollback_drill.rollback_executed);
         assert_eq!(boundary.rollback_drill.drill_status, "passed");
     }
+}
+
+#[test]
+fn harness_fork_mutation_canary_carries_receipts_replay_and_rollback() {
+    let canary = HarnessForkMutationCanary {
+        schema_version: "workflow.harness.fork-mutation-canary.v1".to_string(),
+        canary_id: "harness-fork-mutation-canary:demo:budget-gate-max-steps".to_string(),
+        mutation_id: "harness-fork-mutation:demo:budget-gate-max-steps".to_string(),
+        mutation_kind: HarnessForkMutationKind::BudgetGateLimit,
+        mutation_scope: "workflow_policy".to_string(),
+        workflow_id: "demo".to_string(),
+        harness_workflow_id: "demo".to_string(),
+        component_id: "ioi.agent-harness.budget_gate.v1".to_string(),
+        workflow_node_id: "harness.budget_gate".to_string(),
+        target_path: "global_config.policy.maxSteps".to_string(),
+        before_value: "80".to_string(),
+        after_value: "64".to_string(),
+        diff_hash: "stable-fnv1a32:mutation".to_string(),
+        proposal_id: "proposal-demo-activation-gates".to_string(),
+        status: HarnessForkMutationCanaryStatus::Passed,
+        canary_status: HarnessForkMutationCanaryStatus::Passed,
+        replay_fixture_refs: vec![
+            "workflow_mutation_canary:fixture:demo:budget_gate_limit".to_string()
+        ],
+        receipt_refs: vec!["workflow_mutation_canary:receipt:demo:budget_gate_limit".to_string()],
+        node_attempt_ids: vec![
+            "workflow_mutation_canary:attempt:demo:budget_gate_limit".to_string()
+        ],
+        node_attempts: vec![HarnessNodeAttemptRecord {
+            attempt_id: "workflow_mutation_canary:attempt:demo:budget_gate_limit".to_string(),
+            harness_workflow_id: "demo".to_string(),
+            harness_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            harness_hash: "stable-fnv1a32:mutation".to_string(),
+            workflow_node_id: "harness.budget_gate".to_string(),
+            component_id: "ioi.agent-harness.budget_gate.v1".to_string(),
+            component_kind: HarnessComponentKind::BudgetGate,
+            execution_mode: HarnessExecutionMode::Gated,
+            readiness: HarnessComponentReadiness::LiveReady,
+            attempt_index: 1,
+            status: HarnessNodeAttemptStatus::Gated,
+            input_hash: Some("stable-fnv1a32:mutation-input".to_string()),
+            output_hash: Some("stable-fnv1a32:mutation-output".to_string()),
+            error_class: None,
+            policy_decision: Some("allow_proposal_only_budget_gate_limit_canary".to_string()),
+            started_at_ms: Some(1_000),
+            duration_ms: Some(1),
+            receipt_ids: vec!["workflow_mutation_canary:receipt:demo:budget_gate_limit".to_string()],
+            evidence_refs: vec!["stable-fnv1a32:mutation".to_string()],
+            replay: HarnessReplayEnvelope {
+                deterministic_envelope: true,
+                captures_input: true,
+                captures_output: true,
+                captures_policy_decision: true,
+                fixture_ref: Some(
+                    "workflow_mutation_canary:fixture:demo:budget_gate_limit".to_string(),
+                ),
+                determinism: HarnessReplayDeterminism::Deterministic,
+                nondeterminism_reason: None,
+                redaction_policy: "runtime_redacted".to_string(),
+            },
+        }],
+        evidence_refs: vec!["stable-fnv1a32:mutation".to_string()],
+        policy_decision: "allow_proposal_only_budget_gate_limit_canary".to_string(),
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_available: true,
+        blockers: vec![],
+        created_at_ms: 1_000,
+    };
+
+    assert_eq!(
+        canary.schema_version,
+        "workflow.harness.fork-mutation-canary.v1"
+    );
+    assert_eq!(canary.mutation_kind.as_str(), "budget_gate_limit");
+    assert_eq!(canary.status.as_str(), "passed");
+    assert!(canary.rollback_available);
+    assert!(canary.blockers.is_empty());
+    assert_eq!(canary.receipt_refs.len(), 1);
+    assert_eq!(canary.replay_fixture_refs.len(), 1);
+    assert_eq!(canary.node_attempt_ids.len(), 1);
+    assert_eq!(canary.node_attempts.len(), 1);
+    assert_eq!(
+        canary.node_attempts[0].component_kind,
+        HarnessComponentKind::BudgetGate
+    );
+    assert_eq!(
+        canary.node_attempts[0].execution_mode,
+        HarnessExecutionMode::Gated
+    );
+
+    let round_trip =
+        HarnessForkMutationCanary::decode(&mut &canary.encode()[..]).expect("scale round-trip");
+    assert_eq!(round_trip, canary);
 }

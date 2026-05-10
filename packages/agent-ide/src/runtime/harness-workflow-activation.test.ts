@@ -21,12 +21,15 @@ import {
   makeHarnessCanaryExecutionBoundaries,
   makeHarnessForkActivationRecord,
   makeHarnessRuntimeSelectorDecision,
+  makeWorkflowHarnessWorkerAttachRequest,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
+  resolveWorkflowHarnessWorkerBinding,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
   workflowHarnessActivationIdGateClickProofBlockers,
   workflowHarnessPackageImportActivationApplyProofBlockers,
   workflowHarnessPromotionTransitionEligibility,
+  workflowHarnessReviewedPackageSnapshotHash,
   workflowRevisionBindingFor,
 } from "./harness-workflow.ts";
 import {
@@ -136,12 +139,162 @@ const makePackageImportActivationApplyProof = (
     "activation:package-evidence-import-roundtrip-fork:validated-canary:default-agen";
   const workerHandoffAttemptId =
     "harness-worker-handoff:attempt:package-evidence-import-roundtrip-fork:launch";
+  const workerHandoffReceiptId =
+    "harness-worker-handoff:receipt:package-evidence-import-roundtrip-fork:launch";
+  const workerHandoffReplayFixtureRef =
+    "harness-worker-handoff:fixture:package-evidence-import-roundtrip-fork:launch";
+  const forkMutationCanaryId =
+    "harness-fork-mutation-canary:package-evidence-import-roundtrip-fork:budget-gate-limit";
+  const forkMutationCanaryReceiptRef =
+    "harness-fork-mutation-canary-receipt:package-evidence-import-roundtrip-fork:budget-gate-limit";
+  const forkMutationCanaryReplayFixtureRef =
+    "harness-fork-mutation-canary-fixture:package-evidence-import-roundtrip-fork:budget-gate-limit";
+  const forkMutationCanaryNodeAttemptId =
+    "harness-fork-mutation-canary-attempt:package-evidence-import-roundtrip-fork:budget-gate-limit";
+  const forkMutationCanaryDiffHash = "stable-fnv1a32:fork-mutation-canary";
+  const reviewedWorkflowContentHash = "sha256:activation-revision";
+  const reviewedPackageSnapshotHash = workflowHarnessReviewedPackageSnapshotHash({
+    reviewedWorkflowContentHash,
+    reviewedActivationId: activationId,
+    reviewedHarnessWorkflowId: "package-evidence-import-roundtrip-fork",
+    reviewedWorkerBindingActivationId: activationId,
+    reviewedRollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    reviewedReplayFixtureRefs: [workerHandoffReplayFixtureRef],
+    reviewedWorkerHandoffNodeAttemptIds: [workerHandoffAttemptId],
+    reviewedWorkerHandoffReceiptIds: [workerHandoffReceiptId],
+    reviewedForkMutationCanaryId: forkMutationCanaryId,
+    reviewedForkMutationCanaryStatus: "passed",
+    reviewedForkMutationCanaryDiffHash: forkMutationCanaryDiffHash,
+    reviewedForkMutationCanaryReceiptRefs: [forkMutationCanaryReceiptRef],
+    reviewedForkMutationCanaryReplayFixtureRefs: [
+      forkMutationCanaryReplayFixtureRef,
+    ],
+    reviewedForkMutationCanaryNodeAttemptIds: [
+      forkMutationCanaryNodeAttemptId,
+    ],
+    reviewedForkMutationCanaryRollbackTarget:
+      DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    reviewedPolicyPosture: "canary",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  });
   const proof: WorkflowHarnessPackageImportActivationApplyProof = {
     schemaVersion:
       "workflow.harness.package-import-activation-apply-proof.v1",
     method: "unit-test reviewed import activation apply proof",
     generatedAtMs: 10_000,
-    review: null,
+    review: {
+      schemaVersion: "workflow.package-import-review.v1",
+      packagePath: "/repo/target/package",
+      manifestPath: "/repo/target/package/workflow-package.json",
+      importedAtMs: 10_000,
+      source: {
+        workflowName: "Package Evidence Import Roundtrip Fork",
+        workflowSlug: "package-evidence-import-roundtrip-fork",
+        workflowId: "package-evidence-import-roundtrip-fork",
+        sourceWorkflowPath:
+          "/repo/.agents/workflows/package-evidence-import-roundtrip-fork.workflow.json",
+        workflowContentHash: reviewedWorkflowContentHash,
+        activationId,
+        harnessWorkflowId: "package-evidence-import-roundtrip-fork",
+        harnessHash: "sha256:default-agent-harness-component-projection-v1",
+        reviewedPackageSnapshotHash,
+        workerBindingActivationId: activationId,
+        workerBindingWorkflowId: "package-evidence-import-roundtrip-fork",
+        policyPosture: "canary",
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        forkMutationCanaryId,
+        forkMutationCanaryStatus: "passed",
+        forkMutationCanaryDiffHash,
+        forkMutationCanaryReceiptRefs: [forkMutationCanaryReceiptRef],
+        forkMutationCanaryReplayFixtureRefs: [
+          forkMutationCanaryReplayFixtureRef,
+        ],
+        forkMutationCanaryNodeAttemptIds: [forkMutationCanaryNodeAttemptId],
+        forkMutationCanaryRollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        replayFixtureRefs: [workerHandoffReplayFixtureRef],
+        workerHandoffNodeAttemptIds: [workerHandoffAttemptId],
+        workerHandoffReceiptIds: [workerHandoffReceiptId],
+        portable: true,
+        readinessStatus: "passed",
+        fileCount: 2,
+        blockerCount: 0,
+      },
+      imported: {
+        workflowId: "package-evidence-import-roundtrip-fork",
+        workflowName: "Imported Package Evidence Roundtrip Fork",
+        workflowSlug: "package-evidence-import-roundtrip-fork",
+        workflowPath:
+          "/repo/target/import/.agents/workflows/package-evidence-import-roundtrip-fork.workflow.json",
+        testsPath:
+          "/repo/target/import/.agents/workflows/package-evidence-import-roundtrip-fork.tests.json",
+        projectRoot: "/repo/target/import",
+        activationReadinessStatus: "passed",
+      },
+      evidence: {
+        harnessPackageManifestPresent: true,
+        packageEvidenceReady: true,
+        blockerCount: 0,
+        evidenceRefCount: 1,
+        receiptRefCount: 1,
+        replayFixtureRefCount: 1,
+        rollbackRestoreReceiptRefCount: 1,
+        forkMutationCanaryReceiptRefCount: 1,
+        forkMutationCanaryReplayFixtureRefCount: 1,
+        forkMutationCanaryNodeAttemptCount: 1,
+        workerHandoffNodeAttemptCount: 1,
+        workerHandoffReceiptCount: 1,
+        deepLinkCount: 1,
+        missingRows: [],
+      },
+      activationHandoff: {
+        schemaVersion: "workflow.package-import-activation-handoff.v1",
+        candidateId:
+          "candidate:package-evidence-import-roundtrip-fork:package-import-handoff:10000",
+        decision: "mintable",
+        activationIdPreview: activationId,
+        canaryStatus: "passed",
+        forkMutationCanaryId,
+        forkMutationCanaryStatus: "passed",
+        forkMutationCanaryDiffHash,
+        forkMutationCanaryReceiptRefs: [forkMutationCanaryReceiptRef],
+        forkMutationCanaryReplayFixtureRefs: [
+          forkMutationCanaryReplayFixtureRef,
+        ],
+        forkMutationCanaryNodeAttemptIds: [forkMutationCanaryNodeAttemptId],
+        forkMutationCanaryRollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        rollbackAvailable: true,
+        rollbackRestoreCanaryStatus: "passed",
+        workerBinding: {
+          harnessWorkflowId: "package-evidence-import-roundtrip-fork",
+          harnessActivationId: activationId,
+          harnessHash: "sha256:default-agent-harness-component-projection-v1",
+          executionMode: "gated",
+          source: "fork",
+          rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        },
+        workflowContentHash: reviewedWorkflowContentHash,
+        reviewedPackageSnapshotHash,
+        policyPosture: "canary",
+        replayFixtureRefs: [workerHandoffReplayFixtureRef],
+        workerHandoffNodeAttemptIds: [workerHandoffAttemptId],
+        workerHandoffReceiptIds: [workerHandoffReceiptId],
+        gateCount: 8,
+        passedGateCount: 8,
+        blockerCount: 0,
+        blockerCodes: [],
+        packageEvidenceReady: true,
+        mintable: true,
+        deepLinkTargets: {
+          activationId,
+          canary: "canary",
+          mutationCanary: forkMutationCanaryId,
+          rollbackRestore: "rollback-restore",
+          rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+          workerBindingId: activationId,
+        },
+      },
+    },
     clicked: true,
     beforeState: { "data-package-import-activation-enabled": "true" },
     afterState: { "data-workflow-activation-state": "validated" },
@@ -154,6 +307,13 @@ const makePackageImportActivationApplyProof = (
       handoffDecision: "mintable",
       activationIdPreview: activationId,
       canaryStatus: "passed",
+      mutationCanaryId: forkMutationCanaryId,
+      mutationCanaryStatus: "passed",
+      mutationCanaryDiffHash: forkMutationCanaryDiffHash,
+      mutationCanaryReceiptRef: forkMutationCanaryReceiptRef,
+      mutationCanaryReplayFixtureRef: forkMutationCanaryReplayFixtureRef,
+      mutationCanaryNodeAttemptId: forkMutationCanaryNodeAttemptId,
+      mutationCanaryRollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       workerBindingId: activationId,
       mintable: true,
@@ -168,7 +328,7 @@ const makePackageImportActivationApplyProof = (
       activationRecordWorkerBindingActivationId: activationId,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       revisionBindingActivationId: activationId,
-      activationRecordRevisionBindingHash: "sha256:activation-revision",
+      activationRecordRevisionBindingHash: reviewedWorkflowContentHash,
       rollbackRevisionBindingHash: "sha256:rollback-revision",
       activationAuditEventCount: 1,
       latestAuditEventId: "activation-audit:reviewed-import:minted",
@@ -176,13 +336,31 @@ const makePackageImportActivationApplyProof = (
       latestAuditStatus: "applied",
       receiptRefs: ["workflow_activation:reviewed-import"],
       evidenceRefs: ["package-evidence:reviewed-import"],
-      workerHandoffReceiptIds: [
-        "harness-worker-handoff:receipt:package-evidence-import-roundtrip-fork:launch",
-      ],
+      workerHandoffReceiptIds: [workerHandoffReceiptId],
       workerHandoffNodeAttemptIds: [workerHandoffAttemptId],
-      workerHandoffReplayFixtureRefs: [
-        "harness-worker-handoff:fixture:package-evidence-import-roundtrip-fork:launch",
+      workerHandoffReplayFixtureRefs: [workerHandoffReplayFixtureRef],
+      reviewedPackageSnapshotHash,
+      reviewedWorkflowContentHash,
+      reviewedActivationId: activationId,
+      reviewedHarnessWorkflowId: "package-evidence-import-roundtrip-fork",
+      reviewedWorkerBindingActivationId: activationId,
+      reviewedRollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      reviewedReplayFixtureRefs: [workerHandoffReplayFixtureRef],
+      reviewedWorkerHandoffNodeAttemptIds: [workerHandoffAttemptId],
+      reviewedWorkerHandoffReceiptIds: [workerHandoffReceiptId],
+      reviewedForkMutationCanaryId: forkMutationCanaryId,
+      reviewedForkMutationCanaryStatus: "passed",
+      reviewedForkMutationCanaryDiffHash: forkMutationCanaryDiffHash,
+      reviewedForkMutationCanaryReceiptRefs: [forkMutationCanaryReceiptRef],
+      reviewedForkMutationCanaryReplayFixtureRefs: [
+        forkMutationCanaryReplayFixtureRef,
       ],
+      reviewedForkMutationCanaryNodeAttemptIds: [
+        forkMutationCanaryNodeAttemptId,
+      ],
+      reviewedForkMutationCanaryRollbackTarget:
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      reviewedPolicyPosture: "canary",
       statusMessage: "Reviewed import activation applied",
     },
     workerHandoff: {
@@ -195,6 +373,19 @@ const makePackageImportActivationApplyProof = (
       timelineVisible: true,
       selectedAttemptId: workerHandoffAttemptId,
     },
+    mutationCanary: {
+      deepLinkHash: `#harness-workbench?activationGateId=mutation-canary&activationGateNodeAttemptId=${forkMutationCanaryNodeAttemptId}`,
+      selectedState: {
+        "data-selected-activation-gate-id": "mutation-canary",
+        "data-selected-activation-gate-node-attempt-id":
+          forkMutationCanaryNodeAttemptId,
+      },
+      nodeAttemptState: {
+        "data-node-attempt-id": forkMutationCanaryNodeAttemptId,
+      },
+      timelineVisible: true,
+      selectedAttemptId: forkMutationCanaryNodeAttemptId,
+    },
     incompleteAction: {
       present: true,
       disabled: true,
@@ -204,6 +395,13 @@ const makePackageImportActivationApplyProof = (
       handoffDecision: "blocked",
       activationIdPreview: null,
       canaryStatus: "passed",
+      mutationCanaryId: forkMutationCanaryId,
+      mutationCanaryStatus: "passed",
+      mutationCanaryDiffHash: forkMutationCanaryDiffHash,
+      mutationCanaryReceiptRef: forkMutationCanaryReceiptRef,
+      mutationCanaryReplayFixtureRef: forkMutationCanaryReplayFixtureRef,
+      mutationCanaryNodeAttemptId: forkMutationCanaryNodeAttemptId,
+      mutationCanaryRollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       workerBindingId: activationId,
       mintable: false,
@@ -370,6 +568,9 @@ const withClusterReadiness = (
     workerHandoffNodeAttemptIds: [],
     workerHandoffReceiptIds: [],
     rollbackRestoreReceiptRefs: [],
+    forkMutationCanaryReceiptRefs: [],
+    forkMutationCanaryReplayFixtureRefs: [],
+    forkMutationCanaryNodeAttemptIds: [],
   };
   const workerBinding: WorkflowHarnessWorkerBinding = {
     ...fork.workflow.metadata.workerHarnessBinding,
@@ -458,10 +659,15 @@ const withClusterReadiness = (
     activationBlockers: [],
     canaryStatus: "passed",
     rollbackTarget: "activation:default-agent-harness:blessed-readonly",
-    rollbackAvailable: true,
-    evidenceRefs: ["canary:passed", "rollback:drill"],
-    workerBinding,
-    mintedAtMs: 2_000,
+	    rollbackAvailable: true,
+	    evidenceRefs: [
+	      "canary:passed",
+	      "rollback:drill",
+	      ...(fork.workflow.metadata.harness?.forkMutationCanary?.evidenceRefs ?? []),
+	    ],
+	    workerBinding,
+	    forkMutationCanary: fork.workflow.metadata.harness?.forkMutationCanary,
+	    mintedAtMs: 2_000,
   });
   const workflow: WorkflowProject = withPassingPromotionClusterReplayGates({
     ...fork.workflow,
@@ -619,6 +825,11 @@ const withClusterReadiness = (
   assert.equal(packageManifest.activationId, candidate.activationIdPreview);
   assert.equal(packageManifest.activationState, "validated");
   assert.equal(packageManifest.rollbackTarget, "legacy_runtime");
+  assert.equal(
+    packageManifest.reviewedPackageSnapshotHash,
+    result.workflow.metadata.harness?.activationRecord?.workerBindingRegistryRecord
+      ?.reviewedPackageSnapshotHash,
+  );
   assert.equal(packageManifest.workerHandoffNodeAttemptIds.length, 3);
   assert.equal(packageManifest.workerHandoffReceiptIds.length, 3);
   assert.ok(packageManifest.receiptRefs.includes(mintableReceiptRef));
@@ -1120,6 +1331,141 @@ const withClusterReadiness = (
   assert.equal(dispatch.executionMode, "live");
   assert.equal(dispatch.runtimeAuthority, "blessed_workflow_activation_default");
   assert.equal(dispatch.drivesRuntimeDecision, true);
+  assert.equal(
+    dispatch.cognitionNodeAuthorityGate?.schemaVersion,
+    "workflow.harness.default-runtime-dispatch.cognition-node-authority.v1",
+  );
+  assert.equal(dispatch.cognitionNodeAuthorityGate?.authorityMode, "node_authoritative");
+  assert.equal(dispatch.cognitionNodeAuthorityGate?.authoritative, true);
+  assert.deepEqual(dispatch.cognitionNodeAuthorityGate?.blockers, []);
+  assert.equal(
+    dispatch.cognitionNodeAuthorityGate?.policyDecision,
+    "allow_node_authoritative_cognition",
+  );
+  assert.deepEqual(dispatch.cognitionNodeAuthorityGate?.componentKinds, [
+    "planner",
+    "prompt_assembler",
+    "task_state",
+  ]);
+  assert.equal(dispatch.cognitionNodeAuthorityGate?.attemptIds.length, 3);
+  assert.equal(dispatch.cognitionNodeAuthorityGate?.receiptIds.length, 3);
+  assert.equal(dispatch.cognitionNodeAuthorityGate?.replayFixtureRefs.length, 3);
+  assert.equal(
+    dispatch.routingModelNodeAuthorityGate?.schemaVersion,
+    "workflow.harness.default-runtime-dispatch.routing-model-node-authority.v1",
+  );
+  assert.equal(
+    dispatch.routingModelNodeAuthorityGate?.authorityMode,
+    "gated_node_authoritative",
+  );
+  assert.equal(dispatch.routingModelNodeAuthorityGate?.authoritative, true);
+  assert.deepEqual(dispatch.routingModelNodeAuthorityGate?.blockers, []);
+  assert.equal(
+    dispatch.routingModelNodeAuthorityGate?.policyDecision,
+    "allow_gated_node_authoritative_routing_model",
+  );
+  assert.deepEqual(dispatch.routingModelNodeAuthorityGate?.componentKinds, [
+    "model_router",
+    "model_call",
+    "tool_router",
+  ]);
+  assert.equal(
+    dispatch.routingModelNodeAuthorityGate?.visibleOutputAuthority,
+    "workflow_model_provider_call",
+  );
+  assert.equal(dispatch.routingModelNodeAuthorityGate?.providerCanaryReady, true);
+  assert.equal(dispatch.routingModelNodeAuthorityGate?.rollbackAvailable, true);
+  assert.equal(dispatch.routingModelNodeAuthorityGate?.attemptIds.length, 3);
+  assert.equal(dispatch.routingModelNodeAuthorityGate?.receiptIds.length, 3);
+  assert.equal(dispatch.routingModelNodeAuthorityGate?.replayFixtureRefs.length, 3);
+  assert.equal(
+    dispatch.verificationOutputNodeAuthorityGate?.schemaVersion,
+    "workflow.harness.default-runtime-dispatch.verification-output-node-authority.v1",
+  );
+  assert.equal(
+    dispatch.verificationOutputNodeAuthorityGate?.authorityMode,
+    "gated_node_authoritative",
+  );
+  assert.equal(dispatch.verificationOutputNodeAuthorityGate?.authoritative, true);
+  assert.deepEqual(dispatch.verificationOutputNodeAuthorityGate?.blockers, []);
+  assert.equal(
+    dispatch.verificationOutputNodeAuthorityGate?.policyDecision,
+    "allow_gated_node_authoritative_verification_output",
+  );
+  assert.deepEqual(dispatch.verificationOutputNodeAuthorityGate?.componentKinds, [
+    "postcondition_synthesizer",
+    "verifier",
+    "completion_gate",
+    "receipt_writer",
+    "quality_ledger",
+    "output_writer",
+  ]);
+  assert.equal(
+    dispatch.verificationOutputNodeAuthorityGate?.outputWriterVisibleWriteCommitted,
+    true,
+  );
+  assert.equal(
+    dispatch.verificationOutputNodeAuthorityGate?.rollbackAvailable,
+    true,
+  );
+  assert.equal(dispatch.verificationOutputNodeAuthorityGate?.attemptIds.length, 6);
+  assert.equal(dispatch.verificationOutputNodeAuthorityGate?.receiptIds.length, 6);
+  assert.equal(
+    dispatch.verificationOutputNodeAuthorityGate?.replayFixtureRefs.length,
+    6,
+  );
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.schemaVersion,
+    "workflow.harness.default-runtime-dispatch.authority-tooling-node-authority.v1",
+  );
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.authorityMode,
+    "gated_node_authoritative",
+  );
+  assert.equal(dispatch.authorityToolingNodeAuthorityGate?.authoritative, true);
+  assert.deepEqual(dispatch.authorityToolingNodeAuthorityGate?.blockers, []);
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.policyDecision,
+    "allow_gated_node_authoritative_authority_tooling",
+  );
+  assert.deepEqual(dispatch.authorityToolingNodeAuthorityGate?.componentKinds, [
+    "policy_gate",
+    "approval_gate",
+    "dry_run_simulator",
+    "mcp_provider",
+    "mcp_tool_call",
+    "tool_call",
+    "connector_call",
+    "wallet_capability",
+  ]);
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.readOnlyRouteAccepted,
+    true,
+  );
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.destructiveRouteDenied,
+    true,
+  );
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.mutatingToolCallsBlocked,
+    true,
+  );
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.sideEffectsExecuted,
+    false,
+  );
+  assert.equal(dispatch.authorityToolingNodeAuthorityGate?.gateLiveReady, true);
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.readOnlyAuthorityCanaryReady,
+    true,
+  );
+  assert.equal(dispatch.authorityToolingNodeAuthorityGate?.rollbackAvailable, true);
+  assert.equal(dispatch.authorityToolingNodeAuthorityGate?.attemptIds.length, 8);
+  assert.equal(dispatch.authorityToolingNodeAuthorityGate?.receiptIds.length, 8);
+  assert.equal(
+    dispatch.authorityToolingNodeAuthorityGate?.replayFixtureRefs.length,
+    8,
+  );
   assert.equal(dispatch.activationIdGateClickProofPresent, true);
   assert.equal(dispatch.activationIdGateClickProofPassed, true);
   assert.deepEqual(dispatch.activationIdGateClickProofBlockers, []);
@@ -1148,6 +1494,88 @@ const withClusterReadiness = (
   assert.equal(
     dispatch.reviewedImportActivationApplyGate?.invariantId,
     "reviewed_import_activation_apply",
+  );
+  assert.equal(
+    dispatch.reviewedImportActivationApplyGate?.reviewedWorkflowContentHash,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkflowContentHash,
+  );
+  assert.equal(
+    dispatch.reviewedImportActivationApplyGate?.reviewedHarnessWorkflowId,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedHarnessWorkflowId,
+  );
+  assert.deepEqual(
+    dispatch.reviewedImportActivationApplyGate?.reviewedReplayFixtureRefs,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedReplayFixtureRefs,
+  );
+  assert.deepEqual(
+    dispatch.reviewedImportActivationApplyGate
+      ?.reviewedWorkerHandoffNodeAttemptIds,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkerHandoffNodeAttemptIds,
+  );
+  assert.deepEqual(
+    dispatch.reviewedImportActivationApplyGate
+      ?.reviewedWorkerHandoffReceiptIds,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkerHandoffReceiptIds,
+  );
+  assert.equal(
+    dispatch.reviewedImportActivationApplyGate?.reviewedPolicyPosture,
+    packageImportActivationApplyProof.activationResult?.reviewedPolicyPosture,
+  );
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedWorkflowContentHash,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkflowContentHash,
+  );
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedActivationId,
+    packageImportActivationApplyProof.activationResult?.reviewedActivationId,
+  );
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedWorkerBindingActivationId,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkerBindingActivationId,
+  );
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedRollbackTarget,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedRollbackTarget,
+  );
+  assert.deepEqual(
+    dispatch.workerBindingRegistryRecord.reviewedReplayFixtureRefs,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedReplayFixtureRefs,
+  );
+  assert.deepEqual(
+    dispatch.workerBindingRegistryRecord
+      .reviewedWorkerHandoffNodeAttemptIds,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkerHandoffNodeAttemptIds,
+  );
+  assert.deepEqual(
+    dispatch.workerBindingRegistryRecord.reviewedWorkerHandoffReceiptIds,
+    packageImportActivationApplyProof.activationResult
+      ?.reviewedWorkerHandoffReceiptIds,
+  );
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedPolicyPosture,
+    packageImportActivationApplyProof.activationResult?.reviewedPolicyPosture,
+  );
+  assert.equal(
+    dispatch.workerAttachReceipt.reviewedPackageSnapshotHash,
+    dispatch.workerBindingRegistryRecord.reviewedPackageSnapshotHash,
+  );
+  assert.equal(
+    dispatch.workerAttachReceipt.reviewedWorkflowContentHash,
+    dispatch.workerBindingRegistryRecord.reviewedWorkflowContentHash,
+  );
+  assert.deepEqual(
+    dispatch.workerAttachReceipt.reviewedReplayFixtureRefs,
+    dispatch.workerBindingRegistryRecord.reviewedReplayFixtureRefs,
   );
   assert.deepEqual(dispatch.activationBlockers, []);
   assert.equal(
@@ -1390,6 +1818,230 @@ const withClusterReadiness = (
     ).join("\n"),
     /package_import_activation_apply_proof_stale/,
   );
+
+  const replayIntegrityCases = [
+    {
+      blocker:
+        "package_import_activation_replay_integrity_snapshot_hash_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedPackageSnapshotHash: "stable-fnv1a32:mismatch",
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_workflow_hash_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedWorkflowContentHash: "stable-fnv1a32:mismatch",
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_activation_id_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedActivationId: "activation:mismatch",
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_worker_binding_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedWorkerBindingActivationId: "activation:mismatch",
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_rollback_target_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedRollbackTarget: "activation:mismatch",
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_replay_fixture_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          workerHandoffReplayFixtureRefs: [
+            "harness-worker-handoff:fixture:mismatch",
+          ],
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_fork_mutation_canary_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedForkMutationCanaryId:
+            "harness-fork-mutation-canary:mismatch",
+        },
+      }),
+    },
+    {
+      blocker:
+        "package_import_activation_replay_integrity_policy_posture_mismatch",
+      proof: makePackageImportActivationApplyProof({
+        activationResult: {
+          ...validPackageApplyProof.activationResult!,
+          reviewedPolicyPosture: "live",
+        },
+      }),
+    },
+  ];
+  for (const { blocker, proof } of replayIntegrityCases) {
+    const proofBlockers =
+      workflowHarnessPackageImportActivationApplyProofBlockers(proof, {
+        nowMs: 10_100,
+      });
+    assert.ok(proofBlockers.includes(blocker), blocker);
+    const dispatch = makeHarnessDefaultRuntimeDispatchProof({
+      requireActivationIdGateClickProof: false,
+      packageImportActivationApplyProof: proof,
+      packageImportActivationApplyProofNowMs: 10_100,
+    });
+    assert.ok(
+      dispatch.defaultLivePromotionInvariantBlockers.includes(blocker),
+      blocker,
+    );
+    assert.equal(dispatch.drivesRuntimeDecision, false);
+  }
+
+  const dispatch = makeHarnessDefaultRuntimeDispatchProof({
+    requireActivationIdGateClickProof: false,
+    packageImportActivationApplyProof: validPackageApplyProof,
+    packageImportActivationApplyProofNowMs: 10_100,
+  });
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedPackageSnapshotHash,
+    validPackageApplyProof.activationResult?.reviewedPackageSnapshotHash,
+  );
+  assert.equal(
+    dispatch.reviewedImportActivationApplyGate?.reviewedPackageSnapshotHash,
+    validPackageApplyProof.activationResult?.reviewedPackageSnapshotHash,
+  );
+  assert.equal(
+    dispatch.workerBindingRegistryRecord.reviewedForkMutationCanaryId,
+    validPackageApplyProof.activationResult?.reviewedForkMutationCanaryId,
+  );
+  assert.equal(
+    dispatch.reviewedImportActivationApplyGate?.reviewedForkMutationCanaryId,
+    validPackageApplyProof.activationResult?.reviewedForkMutationCanaryId,
+  );
+  assert.equal(dispatch.workerAttachReceipt.accepted, true);
+  assert.deepEqual(dispatch.workerAttachReceipt.blockers, []);
+  assert.equal(
+    dispatch.workerAttachReceipt.reviewedForkMutationCanaryDiffHash,
+    validPackageApplyProof.activationResult
+      ?.reviewedForkMutationCanaryDiffHash,
+  );
+  const staleMutationCanaryRequest = {
+    ...makeWorkflowHarnessWorkerAttachRequest(
+      dispatch.workerBindingRegistryRecord,
+    ),
+    reviewedForkMutationCanaryDiffHash: "stable-fnv1a32:mismatch",
+  };
+  const staleMutationCanaryReceipt = resolveWorkflowHarnessWorkerBinding(
+    dispatch.workerBindingRegistryRecord,
+    staleMutationCanaryRequest,
+  );
+  assert.equal(staleMutationCanaryReceipt.accepted, false);
+  assert.ok(
+    staleMutationCanaryReceipt.blockers.includes(
+      "worker_attach_reviewed_package_fork_mutation_canary_diff_mismatch",
+    ),
+  );
+  assert.ok(
+    staleMutationCanaryReceipt.blockers.includes(
+      "worker_attach_reviewed_package_snapshot_hash_mismatch",
+    ),
+  );
+  const droppedMutationCanaryRecord = {
+    ...dispatch.workerBindingRegistryRecord,
+    reviewedForkMutationCanaryId: null,
+    reviewedForkMutationCanaryStatus: null,
+    reviewedForkMutationCanaryDiffHash: null,
+    reviewedForkMutationCanaryReceiptRefs: [],
+    reviewedForkMutationCanaryReplayFixtureRefs: [],
+    reviewedForkMutationCanaryNodeAttemptIds: [],
+    reviewedForkMutationCanaryRollbackTarget: null,
+  };
+  const droppedMutationCanaryReceipt = resolveWorkflowHarnessWorkerBinding(
+    droppedMutationCanaryRecord,
+    makeWorkflowHarnessWorkerAttachRequest(droppedMutationCanaryRecord),
+  );
+  assert.equal(droppedMutationCanaryReceipt.accepted, false);
+  assert.ok(
+    droppedMutationCanaryReceipt.blockers.includes(
+      "worker_attach_reviewed_package_fork_mutation_canary_missing",
+    ),
+  );
+  assert.ok(
+    droppedMutationCanaryReceipt.blockers.includes(
+      "worker_attach_reviewed_package_fork_mutation_canary_not_passed",
+    ),
+  );
+  assert.ok(
+    droppedMutationCanaryReceipt.blockers.includes(
+      "worker_attach_reviewed_package_snapshot_hash_mismatch",
+    ),
+  );
+  const staleSnapshotRequest = {
+    ...makeWorkflowHarnessWorkerAttachRequest(
+      dispatch.workerBindingRegistryRecord,
+    ),
+    reviewedWorkflowContentHash: "stable-fnv1a32:mismatch",
+  };
+  const staleSnapshotReceipt = resolveWorkflowHarnessWorkerBinding(
+    dispatch.workerBindingRegistryRecord,
+    staleSnapshotRequest,
+  );
+  assert.equal(staleSnapshotReceipt.accepted, false);
+  assert.ok(
+    staleSnapshotReceipt.blockers.includes(
+      "worker_attach_reviewed_package_workflow_hash_mismatch",
+    ),
+  );
+  assert.ok(
+    staleSnapshotReceipt.blockers.includes(
+      "worker_attach_reviewed_package_snapshot_hash_mismatch",
+    ),
+  );
+
+  const missingReplayRecord = {
+    ...dispatch.workerBindingRegistryRecord,
+    reviewedReplayFixtureRefs: [],
+  };
+  const missingReplayReceipt = resolveWorkflowHarnessWorkerBinding(
+    missingReplayRecord,
+    makeWorkflowHarnessWorkerAttachRequest(missingReplayRecord),
+  );
+  assert.equal(missingReplayReceipt.accepted, false);
+  assert.ok(
+    missingReplayReceipt.blockers.includes(
+      "worker_attach_reviewed_package_replay_fixture_missing",
+    ),
+  );
+  assert.ok(
+    missingReplayReceipt.blockers.includes(
+      "worker_attach_reviewed_package_snapshot_hash_mismatch",
+    ),
+  );
 }
 
 {
@@ -1421,11 +2073,16 @@ const withClusterReadiness = (
     activationBlockers: [],
     canaryStatus: "passed",
     rollbackTarget: "activation:default-agent-harness:blessed-readonly",
-    rollbackAvailable: true,
-    evidenceRefs: ["canary:passed", "rollback:drill"],
-    workerBinding,
-    rollbackRevisionBinding,
-    mintedAtMs: 3_000,
+	    rollbackAvailable: true,
+	    evidenceRefs: [
+	      "canary:passed",
+	      "rollback:drill",
+	      ...(fork.workflow.metadata.harness?.forkMutationCanary?.evidenceRefs ?? []),
+	    ],
+	    workerBinding,
+	    rollbackRevisionBinding,
+	    forkMutationCanary: fork.workflow.metadata.harness?.forkMutationCanary,
+	    mintedAtMs: 3_000,
   });
   const workflow: WorkflowProject = withPassingPromotionClusterReplayGates({
     ...fork.workflow,
