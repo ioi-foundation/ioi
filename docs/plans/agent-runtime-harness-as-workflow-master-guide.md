@@ -273,8 +273,8 @@ binding, rollback/revision binding, audit, refs, and worker-handoff deep-link
 restoration.
 That invariant is now consumed by the runtime selector, live handoff, and
 default runtime dispatch proof as `reviewed_import_activation_apply`; the
-selector falls back to canary/legacy if the proof is missing, stale, or blocked,
-and the dispatch proof exposes a
+selector fails closed through workflow recovery if the proof is missing, stale,
+or blocked, and the dispatch proof exposes a
 `reviewedImportActivationApplyGate` with activation id, worker binding id,
 rollback target, proof blockers, and default-dispatch blockers.
 
@@ -1681,8 +1681,8 @@ runtime selection instead of remaining only a result-level validator check:
   and `makeHarnessDefaultRuntimeDispatchProof` all consume
   `WorkflowHarnessPackageImportActivationApplyProof`.
 - If the blessed default selector is requested without a valid same-session
-  reviewed-import activation apply proof, the selector fails closed to
-  canary/legacy and records `package_import_activation_apply_proof_missing`,
+  reviewed-import activation apply proof, the selector fails closed through
+  workflow recovery and records `package_import_activation_apply_proof_missing`,
   stale, or structural blockers.
 - The default dispatch proof now exposes
   `reviewedImportActivationApplyGate` with invariant id
@@ -2945,7 +2945,7 @@ Exit criteria:
 ### Phase 5: Gated Default Harness Execution
 
 Goal: let the workflow activation drive selected low-risk components while the
-legacy runtime path remains fallback authority.
+workflow-native fail-closed recovery remains the only fallback authority.
 
 Build:
 
