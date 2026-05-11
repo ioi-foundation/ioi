@@ -4789,6 +4789,7 @@ export interface WorkflowPortablePackageManifest {
   workflowName: string;
   workflowSlug: string;
   sourceWorkflowPath: string;
+  workflowChromeLocale?: string | null;
   harness?: WorkflowHarnessMetadata;
   harnessPackageManifest?: WorkflowHarnessPackageEvidenceManifest;
   workerHarnessBinding?: WorkflowHarnessWorkerBinding;
@@ -4863,6 +4864,7 @@ export interface WorkflowPackageImportReview {
     workerBindingWorkflowId: string | null;
     policyPosture: WorkflowHarnessForkActivationRecord["policyPosture"] | null;
     rollbackTarget: string | null;
+    workflowChromeLocale: string | null;
     forkMutationCanaryId?: string | null;
     forkMutationCanaryStatus?: string | null;
     forkMutationCanaryDiffHash?: string | null;
@@ -4886,10 +4888,12 @@ export interface WorkflowPackageImportReview {
     testsPath: string;
     projectRoot: string;
     activationReadinessStatus: WorkflowValidationResult["status"] | null;
+    workflowChromeLocale: string | null;
   };
   evidence: {
     harnessPackageManifestPresent: boolean;
     packageEvidenceReady: boolean;
+    workflowChromeLocalePreserved: boolean;
     blockerCount: number;
     evidenceRefCount: number;
     receiptRefCount: number;

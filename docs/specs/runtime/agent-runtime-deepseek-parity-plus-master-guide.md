@@ -1879,6 +1879,34 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T14-34-43-218Z/result.json`
 
+Implementation slice completed 2026-05-11, locale-aware portable package
+evidence:
+
+- Portable workflow package manifests now carry
+  `workflowChromeLocale` alongside source identity, readiness, harness evidence,
+  and worker binding metadata.
+- Package import preserves that locale even for legacy workflow JSON missing the
+  global config field, so React Flow chrome remains stable across checkout
+  boundaries.
+- The package summary and import review surfaces expose source/imported locale
+  data attributes, visible locale rows, and a preservation flag for live
+  autopilot GUI evidence.
+- The workflow file-bundle model now includes the package locale in its portable
+  package status, keeping workflow development environment review surfaces
+  auditable.
+- Static contract coverage now guards the TypeScript manifest/review contracts,
+  React Flow package/import data attributes, file-bundle model status, and the
+  Tauri export/import locale persistence path.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide -- --pretty false`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_portable_package_exports_and_imports_bundle_sidecars -- --nocapture`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T14-47-49-991Z/result.json`
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

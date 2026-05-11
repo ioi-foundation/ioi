@@ -2116,6 +2116,12 @@ pub fn export_workflow_package(
             "harness-package-evidence.json",
         )?);
     }
+    let workflow_chrome_locale = bundle
+        .workflow
+        .global_config
+        .get("workflowChromeLocale")
+        .and_then(Value::as_str)
+        .map(str::to_string);
 
     let manifest = WorkflowPortablePackageManifest {
         schema_version: "workflow.portable-package.v1".to_string(),
@@ -2123,6 +2129,7 @@ pub fn export_workflow_package(
         workflow_name: bundle.workflow.metadata.name.clone(),
         workflow_slug: bundle.workflow.metadata.slug.clone(),
         source_workflow_path: workflow_path.display().to_string(),
+        workflow_chrome_locale,
         harness: bundle.workflow.metadata.harness.clone(),
         harness_package_manifest,
         worker_harness_binding: bundle.workflow.metadata.worker_harness_binding.clone(),
@@ -2185,6 +2192,17 @@ pub fn import_workflow_package(
             if let Some(object) = harness.as_object_mut() {
                 object.insert("packageManifest".to_string(), package_manifest);
             }
+        }
+    }
+    if workflow.global_config.get("workflowChromeLocale").is_none() {
+        if let (Some(locale), Some(config)) = (
+            manifest.workflow_chrome_locale.as_ref(),
+            workflow.global_config.as_object_mut(),
+        ) {
+            config.insert(
+                "workflowChromeLocale".to_string(),
+                Value::String(locale.clone()),
+            );
         }
     }
     let imported_name = request

@@ -2081,7 +2081,7 @@ export function workflowFileBundleItems(
       path: portablePackage?.packagePath ?? `.agents/workflows/${workflow.metadata.slug}.portable/`,
       status: portablePackage
         ? portablePackage.manifest.portable
-          ? "portable"
+          ? `portable · ${portablePackage.manifest.workflowChromeLocale ?? "default"}`
           : `blocked: ${portablePackage.manifest.readinessStatus}`
         : "not exported",
     },

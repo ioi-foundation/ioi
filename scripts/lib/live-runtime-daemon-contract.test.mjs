@@ -1550,6 +1550,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx"),
     "utf8",
   );
+  const workflowRailModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-rail-model.ts"),
+    "utf8",
+  );
   const workflowBottomShelf = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx"),
     "utf8",
@@ -1564,6 +1568,14 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   );
   const workflowValidation = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-validation.ts"),
+    "utf8",
+  );
+  const tauriProjectTypes = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/project/types.rs"),
+    "utf8",
+  );
+  const tauriProjectCommands = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/project/commands.rs"),
     "utf8",
   );
   assert.match(workflowContracts, /memory\.scope/);
@@ -1581,6 +1593,18 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(graphTypes, /workflowChromeLocale\?: string/);
   assert.match(workflowDefaults, /workflowChromeLocale: "en-US"/);
   assert.match(workflowDefaults, /config\?\.workflowChromeLocale/);
+  assert.match(graphTypes, /workflowChromeLocale\?: string \| null/);
+  assert.match(workflowComposerController, /sourceWorkflowChromeLocale/);
+  assert.match(workflowComposerController, /portableManifest\?\.workflowChromeLocale/);
+  assert.match(workflowComposerController, /workflowChromeLocalePreserved/);
+  assert.match(workflowRailPanel, /data-workflow-chrome-locale/);
+  assert.match(workflowRailPanel, /data-package-import-source-chrome-locale/);
+  assert.match(workflowRailPanel, /data-package-import-imported-chrome-locale/);
+  assert.match(workflowRailPanel, /data-package-import-chrome-locale-preserved/);
+  assert.match(workflowRailModel, /manifest\.workflowChromeLocale/);
+  assert.match(tauriProjectTypes, /workflow_chrome_locale: Option<String>/);
+  assert.match(tauriProjectCommands, /get\("workflowChromeLocale"\)/);
+  assert.match(tauriProjectCommands, /manifest\.workflow_chrome_locale/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
