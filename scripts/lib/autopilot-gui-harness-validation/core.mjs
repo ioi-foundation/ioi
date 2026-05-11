@@ -4247,6 +4247,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowPackageLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
+  const projectWorkflowExecutionResultsLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs";
   const projectRepositoryPrLanePath =
     "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs";
   const projectWorkflowValueHelpersPath =
@@ -4282,6 +4284,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowPackageLane = readFileSync(
     resolve(repoRoot, projectWorkflowPackageLanePath),
+    "utf8",
+  );
+  const projectWorkflowExecutionResultsLane = readFileSync(
+    resolve(repoRoot, projectWorkflowExecutionResultsLanePath),
     "utf8",
   );
   const projectRepositoryPrLane = readFileSync(
@@ -4608,6 +4614,26 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow_live_authority_destructive_denial/.test(
         projectWorkflowAuthorityToolingLane,
+      ),
+    workflowExecutionResultsRuntimeLane:
+      /workflow_execution_results_lane/.test(projectRuntime) &&
+      /struct WorkflowRunResultParts/.test(
+        projectWorkflowExecutionResultsLane,
+      ) &&
+      /workflow_finalize_run_result/.test(
+        projectWorkflowExecutionResultsLane,
+      ) &&
+      /workflow_run_result_from_parts/.test(
+        projectWorkflowExecutionResultsLane,
+      ) &&
+      /workflow_completion_requirements/.test(
+        projectWorkflowExecutionResultsLane,
+      ) &&
+      /workflow_verification_evidence_from_node_runs/.test(
+        projectWorkflowExecutionResultsLane,
+      ) &&
+      /workflow_coding_route_evidence_from_run/.test(
+        projectWorkflowExecutionResultsLane,
       ),
     workflowPackageRunOutputSurfaces:
       /export interface WorkflowPackageNodeOutputSummary/.test(railModel) &&
