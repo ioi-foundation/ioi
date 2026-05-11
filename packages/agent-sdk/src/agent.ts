@@ -11,13 +11,19 @@ import type {
 import { Run } from "./run.js";
 import {
   createRuntimeSubstrateClient,
+  type AgentMemoryPathProjection,
   type AgentMemoryProjection,
+  type DeleteMemoryRecordInput,
+  type MemoryPolicyInput,
+  type MemoryPolicyUpdateResult,
   type RememberMemoryInput,
   type RememberMemoryResult,
   type RuntimeAgentRecord,
   type RuntimeArtifact,
   type RuntimeSubstrateClient,
+  type UpdateMemoryRecordInput,
 } from "./substrate-client.js";
+import type { AgentMemoryPolicy } from "./messages.js";
 
 let defaultClient: RuntimeSubstrateClient | undefined;
 
@@ -187,6 +193,26 @@ export class AgentMemory {
 
   list(options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
     return this.client.listMemory(this.agentId, options);
+  }
+
+  edit(memoryId: string, text: string, options: Omit<UpdateMemoryRecordInput, "text"> = {}): Promise<RememberMemoryResult> {
+    return this.client.updateMemory(this.agentId, memoryId, { ...options, text });
+  }
+
+  delete(memoryId: string, options: DeleteMemoryRecordInput = {}): Promise<RememberMemoryResult> {
+    return this.client.deleteMemory(this.agentId, memoryId, options);
+  }
+
+  policy(options: { threadId?: string } = {}): Promise<AgentMemoryPolicy> {
+    return this.client.getMemoryPolicy(this.agentId, options);
+  }
+
+  configure(policy: MemoryPolicyInput): Promise<MemoryPolicyUpdateResult> {
+    return this.client.setMemoryPolicy(this.agentId, policy);
+  }
+
+  path(options: { threadId?: string } = {}): Promise<AgentMemoryPathProjection> {
+    return this.client.memoryPath(this.agentId, options);
   }
 }
 

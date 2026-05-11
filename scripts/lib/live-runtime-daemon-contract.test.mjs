@@ -262,16 +262,90 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(memory.schemaVersion, "ioi.agent-runtime.memory.v1");
     assert.equal(memory.records.length, 1);
     assert.equal(memory.records[0].fact, "The operator prefers focused runtime slices.");
+    assert.equal(memory.policy.injectionEnabled, true);
+
+    const memoryPath = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/path`);
+    assert.match(memoryPath.recordsPath, /memory-records/);
+    assert.match(memoryPath.policiesPath, /memory-policies/);
+
+    const edit = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/${memory.records[0].id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ text: "The operator prefers narrow, validated runtime slices." }),
+    });
+    assert.equal(edit.receipt.kind, "memory_edit");
+    const commandEditTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: `/memory edit ${memory.records[0].id} The operator prefers narrow, command-validated runtime slices.`,
+        mode: "send",
+      }),
+    });
+    assert.equal(commandEditTurn.memory_write_receipt_ids.length, 1);
+    const editedMemory = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`);
+    assert.equal(editedMemory.records[0].fact, "The operator prefers narrow, command-validated runtime slices.");
+
+    const readOnlyPolicy = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/policy`, {
+      method: "PATCH",
+      body: JSON.stringify({ readOnly: true }),
+    });
+    assert.equal(readOnlyPolicy.policy.readOnly, true);
+    const readOnlyBlockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "# remember This should not write.", mode: "send" }),
+    });
+    const readOnlyBlockedRun = await fetchJson(
+      `${daemon.endpoint}/v1/runs/run_${readOnlyBlockedTurn.turn_id.slice("turn_".length)}`,
+    );
+    assert.match(readOnlyBlockedRun.result, /memory_read_only/);
+
+    await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/policy`, {
+      method: "PATCH",
+      body: JSON.stringify({ readOnly: false, writeRequiresApproval: true }),
+    });
+    const approvalBlockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "# remember Approval missing.", mode: "send" }),
+    });
+    const approvalBlockedRun = await fetchJson(
+      `${daemon.endpoint}/v1/runs/run_${approvalBlockedTurn.turn_id.slice("turn_".length)}`,
+    );
+    assert.match(approvalBlockedRun.result, /memory_write_requires_approval/);
+    const approvalTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "# remember Approval granted.",
+        mode: "send",
+        options: { memory: { writeApproved: true } },
+      }),
+    });
+    assert.equal(approvalTurn.memory_write_receipt_ids.length, 1);
+
+    const disableTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "/memory disable", mode: "send" }),
+    });
+    assert.equal(disableTurn.memory_write_receipt_ids.length, 1);
+    const disabledPolicy = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/policy`);
+    assert.equal(disabledPolicy.disabled, true);
+    const enableTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "/memory enable", mode: "send" }),
+    });
+    assert.equal(enableTurn.memory_write_receipt_ids.length, 1);
 
     const showTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
       method: "POST",
-      body: JSON.stringify({ prompt: "/memory show", mode: "send" }),
+      body: JSON.stringify({
+        prompt: "/memory show",
+        mode: "send",
+        options: { memory: { writeRequiresApproval: false } },
+      }),
     });
     const runId = `run_${showTurn.turn_id.slice("turn_".length)}`;
     const trace = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/trace`);
     assert.ok(
       trace.taskState.knownFacts.some((fact) =>
-        fact.includes("The operator prefers focused runtime slices."),
+        fact.includes("The operator prefers narrow, command-validated runtime slices."),
       ),
     );
     assert.ok(trace.memoryRecords.some((record) => record.id === memory.records[0].id));
@@ -289,7 +363,7 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(disabledTrace.memoryRecords.length, 0);
     assert.ok(
       !disabledTrace.taskState.knownFacts.some((fact) =>
-        fact.includes("The operator prefers focused runtime slices."),
+        fact.includes("The operator prefers narrow, command-validated runtime slices."),
       ),
     );
 
@@ -301,6 +375,8 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(memoryEvent.workflow_node_id, "runtime.memory");
     assert.equal(memoryEvent.payload_summary.memory_record_id, memory.records[0].id);
     assert.deepEqual(memoryEvent.receipt_refs, rememberTurn.memory_write_receipt_ids);
+    assert.ok(events.some((event) => event.payload_summary?.event_kind === "MemoryEdit"));
+    assert.ok(events.some((event) => event.payload_summary?.event_kind === "MemoryPolicy"));
   } finally {
     await daemon.close();
   }
@@ -315,6 +391,9 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /\/thinking/);
   assert.match(source, /# remember/);
   assert.match(source, /\/memory show/);
+  assert.match(source, /\/memory disable/);
+  assert.match(source, /\/memory path/);
+  assert.match(source, /memory_policy/);
   assert.match(source, /ModelRouteDecision/);
   assert.match(source, /memory_update/);
   assert.match(source, /reactflow_workflow_node/);
@@ -331,9 +410,13 @@ test("React Flow memory node contracts remain workflow-addressable", () => {
   );
   assert.match(workflowContracts, /memory\.scope/);
   assert.match(workflowContracts, /memory\.remember/);
+  assert.match(workflowContracts, /memory\.policy/);
+  assert.match(workflowContracts, /memory\.path/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_write/);
   assert.match(harnessWorkflow, /memory_policy/);
+  assert.match(harnessWorkflow, /memory\.writeRequiresApproval/);
+  assert.match(harnessWorkflow, /subagent inheritance/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

@@ -598,6 +598,67 @@ export function WorkflowNodeBindingSections({
           </label>
           <label className="workflow-config-checkbox-row">
             <input
+              data-testid="workflow-model-memory-injection-enabled"
+              type="checkbox"
+              checked={logic.memoryInjectionEnabled ?? true}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  memoryInjectionEnabled: event.target.checked,
+                })
+              }
+            />
+            Inject memory
+          </label>
+          <label className="workflow-config-checkbox-row">
+            <input
+              data-testid="workflow-model-memory-read-only"
+              type="checkbox"
+              checked={Boolean(logic.memoryReadOnly)}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  memoryReadOnly: event.target.checked,
+                })
+              }
+            />
+            Read-only memory
+          </label>
+          <label className="workflow-config-checkbox-row">
+            <input
+              data-testid="workflow-model-memory-write-approval"
+              type="checkbox"
+              checked={Boolean(logic.memoryWriteRequiresApproval)}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  memoryWriteRequiresApproval: event.target.checked,
+                })
+              }
+            />
+            Require write approval
+          </label>
+          <label>
+            Subagent memory
+            <select
+              data-testid="workflow-model-memory-subagent-inheritance"
+              value={logic.memorySubagentInheritance ?? "explicit"}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  memorySubagentInheritance: event.target
+                    .value as NonNullable<NodeLogic["memorySubagentInheritance"]>,
+                })
+              }
+            >
+              <option value="none">None</option>
+              <option value="explicit">Explicit</option>
+              <option value="read_only">Read only</option>
+              <option value="full">Full</option>
+            </select>
+          </label>
+          <label className="workflow-config-checkbox-row">
+            <input
               data-testid="workflow-model-structured-validation"
               type="checkbox"
               checked={Boolean(

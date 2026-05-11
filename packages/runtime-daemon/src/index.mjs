@@ -282,35 +282,89 @@ export class AgentgresRuntimeStateStore {
   }
 
   resolveRunMemory(agent, request = {}, prompt = "") {
-    const threadId = threadIdForAgent(agent.id);
+    const memoryOptions = memoryOptionsForRequest(request);
+    const threadId = memoryOptions.threadId ?? memoryOptions.thread_id ?? threadIdForAgent(agent.id);
     const command = parseMemoryCommand(prompt);
-    const disabled = Boolean(request.options?.memory?.disabled ?? request.memory?.disabled);
-    if (disabled) {
+    const paths = this.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+    let policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(memoryOptions),
+    });
+    const policyUpdates = [];
+    const mutations = [];
+    if (command.kind === "disable" || command.kind === "enable") {
+      const update = this.memory.setPolicy({
+        targetType: "thread",
+        targetId: threadId,
+        agent,
+        threadId,
+        workspace: agent.cwd,
+        source: command.kind === "disable" ? "chat_memory_disable" : "chat_memory_enable",
+        updates: {
+          disabled: command.kind === "disable",
+          injectionEnabled: command.kind !== "disable",
+        },
+      });
+      policyUpdates.push(update);
+      mutations.push(update);
+      policy = this.memory.effectivePolicy({
+        agent,
+        threadId,
+        workspace: agent.cwd,
+        overrides: memoryPolicyOverrides(memoryOptions),
+      });
+    }
+    const requestedRemember =
+      memoryOptions.remember ??
+      request.remember ??
+      null;
+    const requestedWrite =
+      command.kind === "remember" ||
+      command.kind === "edit" ||
+      command.kind === "delete" ||
+      Boolean(requestedRemember);
+    const policyBlockReason = memoryWriteBlockReason(policy, memoryOptions, requestedWrite);
+    if (policy.disabled || policy.injectionEnabled === false) {
       return {
         command: command.kind,
         records: [],
-        writes: [],
+        writes: mutations.filter((mutation) => mutation.receipt?.kind === "memory_write"),
+        mutations,
+        policy,
+        policyUpdates,
+        paths,
         injected: false,
-        disabled: true,
+        disabled: Boolean(policy.disabled),
+        policyBlockReason,
       };
     }
-    const requestedRemember =
-      request.options?.memory?.remember ??
-      request.memory?.remember ??
-      request.remember ??
-      null;
     const writes = [];
-    if (command.kind === "remember") {
-      writes.push(this.rememberForAgent(agent, { text: command.text, threadId, source: "chat_hash_remember" }));
-    } else if (requestedRemember) {
-      writes.push(this.rememberForAgent(agent, { text: requestedRemember, threadId, source: "api_remember" }));
+    if (!policyBlockReason && command.kind === "remember") {
+      const write = this.rememberForAgent(agent, { text: command.text, threadId, scope: policy.scope ?? "thread", source: "chat_hash_remember" });
+      writes.push(write);
+      mutations.push({ ...write, operation: "write" });
+    } else if (!policyBlockReason && command.kind === "edit") {
+      mutations.push(this.updateMemoryRecord(command.id, { text: command.text, source: "chat_memory_edit" }));
+    } else if (!policyBlockReason && command.kind === "delete") {
+      mutations.push(this.deleteMemoryRecord(command.id, { source: "chat_memory_delete" }));
+    } else if (!policyBlockReason && requestedRemember) {
+      const write = this.rememberForAgent(agent, { text: requestedRemember, threadId, scope: policy.scope ?? "thread", source: "api_remember", workflow: memoryOptions.workflow ?? memoryOptions });
+      writes.push(write);
+      mutations.push({ ...write, operation: "write" });
     }
     const records = this.memory.list({ agent, threadId, workspace: agent.cwd });
     return {
       command: command.kind,
       records,
       writes,
+      mutations,
+      policy,
+      policyUpdates,
+      paths,
       injected: command.kind !== "remember" && records.length > 0,
+      policyBlockReason,
     };
   }
 
@@ -327,6 +381,16 @@ export class AgentgresRuntimeStateStore {
 
   rememberForThread(threadId, body = {}) {
     const agent = this.agentForThread(threadId);
+    const policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory write blocked by policy.", { threadId, reason: blocked, policy });
+    }
     return this.rememberForAgent(agent, {
       text: body.text ?? body.fact ?? body.memory,
       threadId,
@@ -341,11 +405,75 @@ export class AgentgresRuntimeStateStore {
     return this.memory.projection({ agent, threadId, workspace: agent.cwd });
   }
 
+  memoryPolicyForThread(threadId) {
+    const agent = this.agentForThread(threadId);
+    return this.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
+  }
+
+  setMemoryPolicyForThread(threadId, body = {}) {
+    const agent = this.agentForThread(threadId);
+    return this.memory.setPolicy({
+      targetType: "thread",
+      targetId: threadId,
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      source: body.source ?? "thread_memory_policy_api",
+      updates: memoryPolicyOverrides(body.policy ?? body),
+    });
+  }
+
+  memoryPathForThread(threadId) {
+    const agent = this.agentForThread(threadId);
+    return this.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+  }
+
+  updateMemoryForThread(threadId, memoryId, body = {}) {
+    const agent = this.agentForThread(threadId);
+    const policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory edit blocked by policy.", { threadId, memoryId, reason: blocked, policy });
+    }
+    return this.updateMemoryRecord(memoryId, body);
+  }
+
+  deleteMemoryForThread(threadId, memoryId, body = {}) {
+    const agent = this.agentForThread(threadId);
+    const policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory delete blocked by policy.", { threadId, memoryId, reason: blocked, policy });
+    }
+    return this.deleteMemoryRecord(memoryId, body);
+  }
+
   rememberForAgentId(agentId, body = {}) {
     const agent = this.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory write blocked by policy.", { agentId, threadId, reason: blocked, policy });
+    }
     return this.rememberForAgent(agent, {
       text: body.text ?? body.fact ?? body.memory,
-      threadId: body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id),
+      threadId,
       scope: body.scope ?? "thread",
       source: body.source ?? "agent_memory_api",
       workflow: body.workflow ?? body,
@@ -356,6 +484,79 @@ export class AgentgresRuntimeStateStore {
     const agent = this.getAgent(agentId);
     const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
     return this.memory.projection({ agent, threadId, workspace: agent.cwd });
+  }
+
+  memoryPolicyForAgent(agentId, options = {}) {
+    const agent = this.getAgent(agentId);
+    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
+    return this.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
+  }
+
+  setMemoryPolicyForAgent(agentId, body = {}) {
+    const agent = this.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    return this.memory.setPolicy({
+      targetType: body.targetType ?? body.target_type ?? "thread",
+      targetId: body.targetId ?? body.target_id ?? threadId,
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      source: body.source ?? "agent_memory_policy_api",
+      updates: memoryPolicyOverrides(body.policy ?? body),
+    });
+  }
+
+  memoryPathForAgent(agentId, options = {}) {
+    const agent = this.getAgent(agentId);
+    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
+    return this.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+  }
+
+  updateMemoryForAgentId(agentId, memoryId, body = {}) {
+    const agent = this.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory edit blocked by policy.", { agentId, threadId, memoryId, reason: blocked, policy });
+    }
+    return this.updateMemoryRecord(memoryId, body);
+  }
+
+  deleteMemoryForAgentId(agentId, memoryId, body = {}) {
+    const agent = this.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const policy = this.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory delete blocked by policy.", { agentId, threadId, memoryId, reason: blocked, policy });
+    }
+    return this.deleteMemoryRecord(memoryId, body);
+  }
+
+  updateMemoryRecord(memoryId, body = {}) {
+    return this.memory.updateRecord({
+      id: memoryId,
+      text: body.text ?? body.fact ?? body.memory,
+      source: body.source ?? "memory_edit_api",
+    });
+  }
+
+  deleteMemoryRecord(memoryId, body = {}) {
+    return this.memory.deleteRecord({
+      id: memoryId,
+      source: body.source ?? "memory_delete_api",
+    });
   }
 
   createThread(request = {}) {
@@ -708,6 +909,7 @@ export class AgentgresRuntimeStateStore {
       "tokens",
       "mcp-servers",
       "memory-records",
+      "memory-policies",
     ]) {
       fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
     }
@@ -722,6 +924,7 @@ export class AgentgresRuntimeStateStore {
         artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
+        memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
         quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
         operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
         ...this.modelMounting.writeSchemaRelationSchemas(),
@@ -2654,7 +2857,7 @@ function baseUrlForRequest(request) {
   return host ? `http://${host}` : null;
 }
 
-async function handleAgentRoute({ request, response, store, segments }) {
+async function handleAgentRoute({ request, response, store, url, segments }) {
   const agentId = decodeURIComponent(segments[2]);
   const action = segments[3];
   if (request.method === "GET" && !action) {
@@ -2692,6 +2895,26 @@ async function handleAgentRoute({ request, response, store, segments }) {
   }
   if (request.method === "GET" && action === "runs") {
     writeJsonResponse(response, store.listRuns(agentId));
+    return;
+  }
+  if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
+    writeJsonResponse(response, store.memoryPolicyForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
+    return;
+  }
+  if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
+    writeJsonResponse(response, store.setMemoryPolicyForAgent(agentId, await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "memory" && segments[4] === "path") {
+    writeJsonResponse(response, store.memoryPathForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
+    return;
+  }
+  if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
+    writeJsonResponse(response, store.updateMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "DELETE" && action === "memory" && segments[4]) {
+    writeJsonResponse(response, store.deleteMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "memory") {
@@ -2738,6 +2961,26 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   if (request.method === "GET" && action === "events") {
     const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
     writeSse(response, store.eventsForThread(threadId, sinceSeq));
+    return;
+  }
+  if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
+    writeJsonResponse(response, store.memoryPolicyForThread(threadId));
+    return;
+  }
+  if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
+    writeJsonResponse(response, store.setMemoryPolicyForThread(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "memory" && segments[4] === "path") {
+    writeJsonResponse(response, store.memoryPathForThread(threadId));
+    return;
+  }
+  if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
+    writeJsonResponse(response, store.updateMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "DELETE" && action === "memory" && segments[4]) {
+    writeJsonResponse(response, store.deleteMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "memory") {
@@ -2842,14 +3085,23 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRoute?.receiptId ?? modelRouteDecision?.receiptId ?? `receipt_${runId}_model_route`;
   const memoryRecords = normalizeArray(memory.records);
   const memoryWrites = normalizeArray(memory.writes);
-  const memoryWriteReceipts = memoryWrites.map((write) => write.receipt).filter(Boolean);
+  const memoryMutations = normalizeArray(memory.mutations).length > 0
+    ? normalizeArray(memory.mutations)
+    : memoryWrites.map((write) => ({ ...write, operation: "write" }));
+  const memoryWriteReceipts = memoryMutations.map((write) => write.receipt).filter(Boolean);
   const memoryWriteRecords = memoryWrites.map((write) => write.record).filter(Boolean);
+  const memoryPolicy = memory.policy ?? null;
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
       "Run entered the live local IOI daemon public runtime API",
       "Agentgres v0 is the canonical owner for this run state",
       `Selected model profile: ${selectedModel}`,
+      ...(memoryPolicy
+        ? [
+            `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
+          ]
+        : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -2865,9 +3117,10 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       ...agent.options.hookNames,
       ...normalizeArray(modelRouteDecision?.evidenceRefs),
       modelRouteReceiptId,
+      memoryPolicy?.id,
       ...memoryRecords.map((record) => record.id),
       ...memoryWriteReceipts.map((receipt) => receipt.id),
-    ],
+    ].filter(Boolean),
   };
   const uncertainty = {
     ambiguityLevel: mode === "send" ? "low" : "medium",
@@ -2932,7 +3185,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "AgentMemoryRecord",
       "RuntimeEventEnvelope",
     ],
-    changedPolicies: mode === "dry_run" ? ["authority.preview_only"] : [],
+    changedPolicies: [
+      ...(mode === "dry_run" ? ["authority.preview_only"] : []),
+      ...(memory.policyBlockReason ? [`memory.${memory.policyBlockReason}`] : []),
+      ...normalizeArray(memory.policyUpdates).map(() => "memory.policy"),
+    ],
     affectedTests: ["live-runtime-daemon-contract"],
     affectedDocs: ["docs/plans/architectural-improvements-broad-master-guide.md"],
     riskClass: postconditions.riskClass,
@@ -3030,10 +3287,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       receiptId: modelRouteReceiptId,
     });
   }
-  for (const write of memoryWrites) {
-    addEvent("memory_update", "Memory write recorded", {
-      ...write.record,
-      receiptId: write.receipt?.id ?? null,
+  for (const mutation of memoryMutations) {
+    const operation = mutation.operation ?? "write";
+    addEvent("memory_update", memoryEventSummary(operation), {
+      ...(mutation.record ?? mutation.policy ?? {}),
+      operation,
+      eventKind: memoryEventKind(operation),
+      receiptId: mutation.receipt?.id ?? null,
+      workflowNodeId: mutation.record?.workflowNodeId ?? "runtime.memory-policy",
     });
   }
   addEvent("task_state", "Task state written to Agentgres", taskState);
@@ -3062,6 +3323,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     postconditions,
     semanticImpact,
     modelRouteDecision,
+    memoryPolicy,
     memoryRecords,
     memoryWrites: memoryWriteRecords,
     stopCondition,
@@ -3102,6 +3364,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
+    memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
     result,
@@ -3259,7 +3522,103 @@ function ensureProviderAvailable(runtime, options = {}) {
   }
 }
 
+function memoryOptionsForRequest(request = {}) {
+  return {
+    ...(request.memory ?? {}),
+    ...(request.options?.memory ?? {}),
+  };
+}
+
+function memoryPolicyOverrides(options = {}) {
+  const policy = {};
+  for (const key of [
+    "disabled",
+    "injectionEnabled",
+    "readOnly",
+    "writeRequiresApproval",
+    "retention",
+    "redaction",
+    "subagentInheritance",
+    "scope",
+  ]) {
+    if (options[key] !== undefined) policy[key] = options[key];
+  }
+  if (options.injection_enabled !== undefined) policy.injectionEnabled = options.injection_enabled;
+  if (options.read_only !== undefined) policy.readOnly = options.read_only;
+  if (options.write_requires_approval !== undefined) policy.writeRequiresApproval = options.write_requires_approval;
+  if (options.subagent_inheritance !== undefined) policy.subagentInheritance = options.subagent_inheritance;
+  return policy;
+}
+
+function memoryWriteBlockReason(policy = {}, options = {}, requestedWrite = false) {
+  if (!requestedWrite) return null;
+  if (policy.disabled) return "memory_disabled";
+  if (policy.readOnly) return "memory_read_only";
+  if (policy.writeRequiresApproval && !memoryWriteApproved(options)) {
+    return "memory_write_requires_approval";
+  }
+  return null;
+}
+
+function memoryWriteApproved(options = {}) {
+  return Boolean(
+    options.writeApproved ??
+      options.write_approved ??
+      options.approved ??
+      options.approvalGranted ??
+      options.approval_granted,
+  );
+}
+
+function memoryEventKind(operation = "write") {
+  switch (operation) {
+    case "policy_update":
+      return "MemoryPolicy";
+    case "edit":
+      return "MemoryEdit";
+    case "delete":
+      return "MemoryDelete";
+    case "write":
+    default:
+      return "MemoryWrite";
+  }
+}
+
+function memoryEventSummary(operation = "write") {
+  switch (operation) {
+    case "policy_update":
+      return "Memory policy updated";
+    case "edit":
+      return "Memory record edited";
+    case "delete":
+      return "Memory record deleted";
+    case "write":
+    default:
+      return "Memory write recorded";
+  }
+}
+
 function resultForMode(mode, agent, prompt, source, memory = {}) {
+  if (memory.command === "disable") {
+    return "Memory is disabled for this thread.";
+  }
+  if (memory.command === "enable") {
+    return "Memory is enabled for this thread.";
+  }
+  if (memory.command === "path") {
+    return `Memory records path: ${memory.paths?.recordsPath ?? "unknown"}\nMemory policy path: ${memory.paths?.policiesPath ?? "unknown"}`;
+  }
+  if (memory.policyBlockReason && (memory.command === "remember" || memory.command === "edit" || memory.command === "delete")) {
+    return `Memory write blocked by policy: ${memory.policyBlockReason}.`;
+  }
+  if (memory.command === "edit") {
+    const edited = normalizeArray(memory.mutations).find((mutation) => mutation.operation === "edit")?.record;
+    return edited ? `Edited memory: ${edited.id}` : "No memory was edited.";
+  }
+  if (memory.command === "delete") {
+    const deleted = normalizeArray(memory.mutations).find((mutation) => mutation.operation === "delete")?.record;
+    return deleted ? `Deleted memory: ${deleted.id}` : "No memory was deleted.";
+  }
   if (memory.disabled && (memory.command === "remember" || memory.command === "show")) {
     return "Memory is disabled for this run.";
   }
@@ -3416,8 +3775,10 @@ function payloadSummaryForRunEvent(event) {
   if (event.type === "memory_update") {
     return {
       ...summary,
-      event_kind: "MemoryWrite",
-      memory_record_id: event.data?.id ?? null,
+      event_kind: event.data?.eventKind ?? memoryEventKind(event.data?.operation),
+      memory_operation: event.data?.operation ?? "write",
+      memory_record_id: event.data?.memoryRecordId ?? (event.data?.object === "ioi.agent_memory_record" ? event.data?.id : null),
+      memory_policy_id: event.data?.memoryPolicyId ?? (event.data?.object === "ioi.agent_memory_policy" ? event.data?.id : null),
       memory_scope: event.data?.scope ?? null,
       memory_thread_id: event.data?.threadId ?? null,
       workflow_node_id: event.data?.workflowNodeId ?? null,
@@ -3450,6 +3811,9 @@ function componentKindForRunEvent(eventOrType) {
     case "model_route_decision":
       return "model_router";
     case "memory_update":
+      if (typeof eventOrType !== "string" && eventOrType?.data?.operation === "policy_update") {
+        return "memory_policy";
+      }
       return "memory_write";
     case "task_state":
       return "task_state";

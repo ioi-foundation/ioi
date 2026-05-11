@@ -52,6 +52,7 @@ export interface RuntimeTraceBundle {
   postconditions: PostconditionProjection;
   semanticImpact: SemanticImpactProjection;
   modelRouteDecision?: ModelRouteDecision | null;
+  memoryPolicy?: AgentMemoryPolicy | null;
   memoryRecords?: AgentMemoryRecord[];
   memoryWrites?: AgentMemoryRecord[];
   stopCondition: StopConditionProjection;
@@ -158,6 +159,31 @@ export interface AgentMemoryRecord {
   createdAt: string;
   updatedAt: string;
   evidenceRefs: string[];
+}
+
+export interface AgentMemoryPolicy {
+  schemaVersion: "ioi.agent-runtime.memory-policy.v1";
+  id: string;
+  object: "ioi.agent_memory_policy";
+  targetType: "agent" | "thread" | "workflow" | "subagent" | string;
+  targetId: string;
+  agentId: string | null;
+  threadId: string | null;
+  workspace: string | null;
+  disabled: boolean;
+  injectionEnabled: boolean;
+  readOnly: boolean;
+  writeRequiresApproval: boolean;
+  retention: string;
+  redaction: "none" | "redacted" | string;
+  subagentInheritance: "none" | "explicit" | "read_only" | "full" | string;
+  scope: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  evidenceRefs: string[];
+  effective?: boolean;
+  policyRefs?: string[];
 }
 
 export interface TaskStateProjection {

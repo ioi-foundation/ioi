@@ -387,7 +387,20 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       port("error", "Error", "output", "message", "error", false),
       port("retry", "Retry", "output", "message", "retry", false),
     ],
-    configSchema: { type: "object", required: ["modelRef"] },
+    configSchema: {
+      type: "object",
+      required: ["modelRef"],
+      properties: {
+        memoryKey: { type: "string" },
+        memoryInjectionEnabled: { type: "boolean" },
+        memoryReadOnly: { type: "boolean" },
+        memoryWriteRequiresApproval: { type: "boolean" },
+        memorySubagentInheritance: {
+          type: "string",
+          enum: ["none", "explicit", "read_only", "full"],
+        },
+      },
+    },
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -406,6 +419,10 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       modelPolicy: { privacy: "local_or_enterprise", quality: "adaptive" },
       capability: "chat",
       receiptRequired: true,
+      memoryInjectionEnabled: true,
+      memoryReadOnly: false,
+      memoryWriteRequiresApproval: false,
+      memorySubagentInheritance: "explicit",
       prompt: "Use the input and context to produce the next workflow result.",
       modelBinding: {
         modelRef: "reasoning",

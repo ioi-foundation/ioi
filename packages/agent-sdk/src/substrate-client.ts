@@ -15,6 +15,7 @@ import type {
   SendOptions,
 } from "./options.js";
 import type {
+  AgentMemoryPolicy,
   AgentMemoryRecord,
   AgentQualityLedgerProjection,
   ConversationMessage,
@@ -89,6 +90,7 @@ export interface RuntimeRunRecord {
   trace: RuntimeTraceBundle;
   modelRouteDecision?: ModelRouteDecision | null;
   modelRouteReceiptId?: string | null;
+  memoryPolicy?: AgentMemoryPolicy | null;
   memoryRecords?: AgentMemoryRecord[];
   memoryWriteReceipts?: RuntimeReceipt[];
   result: string;
@@ -100,6 +102,8 @@ export interface AgentMemoryProjection {
   threadId: string | null;
   agentId: string | null;
   workspace: string | null;
+  policy?: AgentMemoryPolicy;
+  paths?: AgentMemoryPathProjection;
   records: AgentMemoryRecord[];
 }
 
@@ -110,11 +114,53 @@ export interface RememberMemoryInput {
   workflowGraphId?: string;
   workflowNodeId?: string;
   workflowNodeType?: string;
+  writeApproved?: boolean;
 }
 
 export interface RememberMemoryResult {
   record: AgentMemoryRecord;
   receipt: RuntimeReceipt;
+}
+
+export interface UpdateMemoryRecordInput {
+  text: string;
+  threadId?: string;
+  writeApproved?: boolean;
+}
+
+export interface DeleteMemoryRecordInput {
+  threadId?: string;
+  writeApproved?: boolean;
+}
+
+export interface MemoryPolicyInput {
+  threadId?: string;
+  targetType?: "agent" | "thread" | "workflow" | "subagent" | string;
+  targetId?: string;
+  disabled?: boolean;
+  injectionEnabled?: boolean;
+  readOnly?: boolean;
+  writeRequiresApproval?: boolean;
+  retention?: string;
+  redaction?: "none" | "redacted" | string;
+  subagentInheritance?: "none" | "explicit" | "read_only" | "full" | string;
+  scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
+}
+
+export interface MemoryPolicyUpdateResult {
+  policy: AgentMemoryPolicy;
+  receipt: RuntimeReceipt;
+}
+
+export interface AgentMemoryPathProjection {
+  schemaVersion: "ioi.agent-runtime.memory.v1";
+  object: "ioi.agent_memory_path_projection";
+  threadId: string | null;
+  agentId: string | null;
+  workspace: string | null;
+  recordsPath: string;
+  policiesPath: string;
+  effectivePolicyId: string;
 }
 
 export interface RuntimeSubstrateClient {
@@ -151,6 +197,11 @@ export interface RuntimeSubstrateClient {
   listTools(): Promise<RuntimeToolCatalogEntry[]>;
   rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
   listMemory(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryProjection>;
+  updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
+  deleteMemory(agentId: string, memoryId: string, input?: DeleteMemoryRecordInput): Promise<RememberMemoryResult>;
+  getMemoryPolicy(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryPolicy>;
+  setMemoryPolicy(agentId: string, input: MemoryPolicyInput): Promise<MemoryPolicyUpdateResult>;
+  memoryPath(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryPathProjection>;
 }
 
 export interface RuntimeSubstrateClientOptions {
@@ -332,6 +383,28 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("listMemory", "GET", `/v1/agents/${encodePath(agentId)}/memory${query}`);
   }
 
+  async updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult> {
+    return this.request("updateMemory", "PATCH", `/v1/agents/${encodePath(agentId)}/memory/${encodePath(memoryId)}`, input);
+  }
+
+  async deleteMemory(agentId: string, memoryId: string, input: DeleteMemoryRecordInput = {}): Promise<RememberMemoryResult> {
+    return this.request("deleteMemory", "DELETE", `/v1/agents/${encodePath(agentId)}/memory/${encodePath(memoryId)}`, input);
+  }
+
+  async getMemoryPolicy(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryPolicy> {
+    const query = options.threadId ? `?threadId=${encodeURIComponent(options.threadId)}` : "";
+    return this.request("getMemoryPolicy", "GET", `/v1/agents/${encodePath(agentId)}/memory/policy${query}`);
+  }
+
+  async setMemoryPolicy(agentId: string, input: MemoryPolicyInput): Promise<MemoryPolicyUpdateResult> {
+    return this.request("setMemoryPolicy", "PATCH", `/v1/agents/${encodePath(agentId)}/memory/policy`, input);
+  }
+
+  async memoryPath(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryPathProjection> {
+    const query = options.threadId ? `?threadId=${encodeURIComponent(options.threadId)}` : "";
+    return this.request("memoryPath", "GET", `/v1/agents/${encodePath(agentId)}/memory/path${query}`);
+  }
+
   private createRun(
     mode: RuntimeRunRecord["mode"],
     agentId: string,
@@ -347,7 +420,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   private async request<T>(
     sdkMethod: string,
-    method: "GET" | "POST" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     route: string,
     body?: unknown,
   ): Promise<T> {
@@ -605,6 +678,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   private readonly agents = new Map<string, RuntimeAgentRecord>();
   private readonly runs = new Map<string, RuntimeRunRecord>();
   private readonly memories = new Map<string, AgentMemoryRecord>();
+  private readonly memoryPolicies = new Map<string, AgentMemoryPolicy>();
 
   constructor(options: RuntimeSubstrateClientOptions = {}) {
     this.cwd = path.resolve(options.cwd ?? process.cwd());
@@ -921,9 +995,19 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult> {
     const agent = await this.getAgent(agentId);
+    const threadId = input.threadId ?? threadIdForAgent(agent.id);
+    const policy = this.memoryPolicyForAgent(agent, threadId, input);
+    const blocked = mockMemoryWriteBlockReason(policy, input, true);
+    if (blocked) {
+      throw new IoiAgentError({
+        code: "policy",
+        message: "Memory write blocked by policy.",
+        details: { agentId, threadId, reason: blocked, policy },
+      });
+    }
     const record = mockMemoryRecord(agent, input.text, {
       scope: input.scope ?? "thread",
-      threadId: input.threadId ?? threadIdForAgent(agent.id),
+      threadId,
       source: "sdk_memory_helper",
       workflowGraphId: input.workflowGraphId ?? null,
       workflowNodeId: input.workflowNodeId ?? "runtime.memory",
@@ -946,8 +1030,91 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       threadId,
       agentId: agent.id,
       workspace: agent.cwd,
+      policy: this.memoryPolicyForAgent(agent, threadId),
+      paths: mockMemoryPath(agent, threadId, this.checkpointDir),
       records: this.memoryForAgent(agent, threadId),
     };
+  }
+
+  async updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult> {
+    const agent = await this.getAgent(agentId);
+    const threadId = input.threadId ?? threadIdForAgent(agent.id);
+    const policy = this.memoryPolicyForAgent(agent, threadId, input);
+    const blocked = mockMemoryWriteBlockReason(policy, input, true);
+    if (blocked) {
+      throw new IoiAgentError({
+        code: "policy",
+        message: "Memory edit blocked by policy.",
+        details: { agentId, threadId, memoryId, reason: blocked, policy },
+      });
+    }
+    const existing = this.memories.get(memoryId);
+    if (!existing) {
+      throw new IoiAgentError({
+        code: "not_found",
+        message: `Memory record not found: ${memoryId}`,
+        details: { memoryId },
+      });
+    }
+    const updated: AgentMemoryRecord = {
+      ...existing,
+      fact: input.text,
+      updatedAt: new Date().toISOString(),
+      source: "sdk_memory_edit",
+      evidenceRefs: [...new Set([...existing.evidenceRefs, "memory.edit"])],
+    };
+    this.persistMemory(updated);
+    return { record: updated, receipt: memoryReceipt(updated, "memory_edit", "edit") };
+  }
+
+  async deleteMemory(agentId: string, memoryId: string, input: DeleteMemoryRecordInput = {}): Promise<RememberMemoryResult> {
+    const agent = await this.getAgent(agentId);
+    const threadId = input.threadId ?? threadIdForAgent(agent.id);
+    const policy = this.memoryPolicyForAgent(agent, threadId, input);
+    const blocked = mockMemoryWriteBlockReason(policy, input, true);
+    if (blocked) {
+      throw new IoiAgentError({
+        code: "policy",
+        message: "Memory delete blocked by policy.",
+        details: { agentId, threadId, memoryId, reason: blocked, policy },
+      });
+    }
+    const existing = this.memories.get(memoryId);
+    if (!existing) {
+      throw new IoiAgentError({
+        code: "not_found",
+        message: `Memory record not found: ${memoryId}`,
+        details: { memoryId },
+      });
+    }
+    this.memories.delete(memoryId);
+    this.rmQuiet(path.join(this.checkpointDir, "memory", `${memoryId}.json`));
+    return { record: existing, receipt: memoryReceipt(existing, "memory_delete", "delete") };
+  }
+
+  async getMemoryPolicy(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryPolicy> {
+    const agent = await this.getAgent(agentId);
+    return this.memoryPolicyForAgent(agent, options.threadId ?? threadIdForAgent(agent.id));
+  }
+
+  async setMemoryPolicy(agentId: string, input: MemoryPolicyInput): Promise<MemoryPolicyUpdateResult> {
+    const agent = await this.getAgent(agentId);
+    const threadId = input.threadId ?? threadIdForAgent(agent.id);
+    const policy = mockMemoryPolicy(agent, {
+      ...this.memoryPolicyForAgent(agent, threadId),
+      ...input,
+      threadId,
+      targetType: input.targetType ?? "thread",
+      targetId: input.targetId ?? threadId,
+      source: "sdk_memory_policy",
+    });
+    this.persistMemoryPolicy(policy);
+    return { policy, receipt: memoryPolicyReceipt(policy) };
+  }
+
+  async memoryPath(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryPathProjection> {
+    const agent = await this.getAgent(agentId);
+    return mockMemoryPath(agent, options.threadId ?? threadIdForAgent(agent.id), this.checkpointDir);
   }
 
   private async createRun(
@@ -1009,6 +1176,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       ["agents", this.agents],
       ["runs", this.runs],
       ["memory", this.memories],
+      ["memory-policies", this.memoryPolicies],
     ] as const) {
       const dir = path.join(this.checkpointDir, kind);
       if (!fs.existsSync(dir)) {
@@ -1039,6 +1207,11 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     writeJson(path.join(this.checkpointDir, "memory", `${record.id}.json`), record);
   }
 
+  private persistMemoryPolicy(policy: AgentMemoryPolicy): void {
+    this.memoryPolicies.set(policy.id, policy);
+    writeJson(path.join(this.checkpointDir, "memory-policies", `${safeFileName(policy.id)}.json`), policy);
+  }
+
   private memoryForAgent(agent: RuntimeAgentRecord, threadId = threadIdForAgent(agent.id)): AgentMemoryRecord[] {
     return [...this.memories.values()]
       .filter(
@@ -1051,40 +1224,117 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
+  private memoryPolicyForAgent(
+    agent: RuntimeAgentRecord,
+    threadId = threadIdForAgent(agent.id),
+    overrides: Partial<MemoryPolicyInput & RememberMemoryInput & UpdateMemoryRecordInput> = {},
+  ): AgentMemoryPolicy {
+    const stored =
+      this.memoryPolicies.get(mockMemoryPolicyId("thread", threadId)) ??
+      this.memoryPolicies.get(mockMemoryPolicyId("agent", agent.id));
+    return mockMemoryPolicy(agent, {
+      ...stored,
+      ...mockPolicyFields(overrides),
+      threadId,
+      targetType: "thread",
+      targetId: threadId,
+      effective: true,
+    });
+  }
+
   private resolveRunMemory(agent: RuntimeAgentRecord, prompt: string, options: SendOptions): MockRunMemory {
-    const threadId = threadIdForAgent(agent.id);
+    const threadId = options.memory?.threadId ?? threadIdForAgent(agent.id);
     const command = parseMockMemoryCommand(prompt);
-    if (options.memory?.disabled) {
+    const policyUpdates: MemoryPolicyUpdateResult[] = [];
+    const mutations: MockMemoryMutation[] = [];
+    let policy = this.memoryPolicyForAgent(agent, threadId, options.memory ?? {});
+    if (command.kind === "disable" || command.kind === "enable") {
+      const nextPolicy = mockMemoryPolicy(agent, {
+        ...policy,
+        threadId,
+        targetType: "thread",
+        targetId: threadId,
+        disabled: command.kind === "disable",
+        injectionEnabled: command.kind !== "disable",
+        source: `sdk_memory_${command.kind}`,
+      });
+      this.persistMemoryPolicy(nextPolicy);
+      const update = { policy: nextPolicy, receipt: memoryPolicyReceipt(nextPolicy) };
+      policyUpdates.push(update);
+      mutations.push({ ...update, operation: "policy_update" });
+      policy = this.memoryPolicyForAgent(agent, threadId, options.memory ?? {});
+    }
+    const requestedRemember = options.memory?.remember;
+    const requestedWrite =
+      command.kind === "remember" ||
+      command.kind === "edit" ||
+      command.kind === "delete" ||
+      Boolean(requestedRemember);
+    const policyBlockReason = mockMemoryWriteBlockReason(policy, options.memory ?? {}, requestedWrite);
+    if (policy.disabled || policy.injectionEnabled === false) {
       return {
         command: command.kind,
         records: [],
         writes: [],
-        disabled: true,
+        mutations,
+        policy,
+        policyUpdates,
+        paths: mockMemoryPath(agent, threadId, this.checkpointDir),
+        disabled: Boolean(policy.disabled),
+        policyBlockReason,
       };
     }
     const writes: RememberMemoryResult[] = [];
-    const requestedRemember = options.memory?.remember;
-    if (command.kind === "remember") {
+    if (!policyBlockReason && command.kind === "remember") {
       const record = mockMemoryRecord(agent, command.text, {
-        scope: "thread",
+        scope: policy.scope ?? "thread",
         threadId,
         source: "chat_hash_remember",
       });
       this.persistMemory(record);
-      writes.push({ record, receipt: memoryReceipt(record) });
-    } else if (requestedRemember) {
+      const write = { record, receipt: memoryReceipt(record) };
+      writes.push(write);
+      mutations.push({ ...write, operation: "write" });
+    } else if (!policyBlockReason && command.kind === "edit") {
+      const existing = this.memories.get(command.id);
+      if (existing) {
+        const record = {
+          ...existing,
+          fact: command.text,
+          source: "sdk_memory_edit",
+          updatedAt: new Date().toISOString(),
+          evidenceRefs: [...new Set([...existing.evidenceRefs, "memory.edit"])],
+        };
+        this.persistMemory(record);
+        mutations.push({ record, receipt: memoryReceipt(record, "memory_edit", "edit"), operation: "edit" });
+      }
+    } else if (!policyBlockReason && command.kind === "delete") {
+      const record = this.memories.get(command.id);
+      if (record) {
+        this.memories.delete(record.id);
+        this.rmQuiet(path.join(this.checkpointDir, "memory", `${record.id}.json`));
+        mutations.push({ record, receipt: memoryReceipt(record, "memory_delete", "delete"), operation: "delete" });
+      }
+    } else if (!policyBlockReason && requestedRemember) {
       const record = mockMemoryRecord(agent, requestedRemember, {
-        scope: "thread",
+        scope: policy.scope ?? "thread",
         threadId,
         source: "sdk_send_memory_option",
       });
       this.persistMemory(record);
-      writes.push({ record, receipt: memoryReceipt(record) });
+      const write = { record, receipt: memoryReceipt(record) };
+      writes.push(write);
+      mutations.push({ ...write, operation: "write" });
     }
     return {
       command: command.kind,
       records: this.memoryForAgent(agent, threadId),
       writes,
+      mutations,
+      policy,
+      policyUpdates,
+      paths: mockMemoryPath(agent, threadId, this.checkpointDir),
+      policyBlockReason,
     };
   }
 
@@ -1249,22 +1499,43 @@ function mockStableHash(value: unknown): string {
 }
 
 interface MockRunMemory {
-  command: "none" | "remember" | "show";
+  command: MockMemoryCommand["kind"];
   records: AgentMemoryRecord[];
   writes: RememberMemoryResult[];
+  mutations?: MockMemoryMutation[];
+  policy?: AgentMemoryPolicy;
+  policyUpdates?: MemoryPolicyUpdateResult[];
+  paths?: AgentMemoryPathProjection;
   disabled?: boolean;
+  policyBlockReason?: string | null;
 }
 
 type MockMemoryCommand =
   | { kind: "none" }
   | { kind: "show" }
-  | { kind: "remember"; text: string };
+  | { kind: "remember"; text: string }
+  | { kind: "disable" }
+  | { kind: "enable" }
+  | { kind: "path" }
+  | { kind: "edit"; id: string; text: string }
+  | { kind: "delete"; id: string };
+
+type MockMemoryMutation =
+  | (RememberMemoryResult & { operation: "write" | "edit" | "delete" })
+  | (MemoryPolicyUpdateResult & { operation: "policy_update" });
 
 function parseMockMemoryCommand(prompt: string): MockMemoryCommand {
   const text = String(prompt ?? "").trim();
   const remember = text.match(/^#\s*remember\s+([\s\S]+)$/i);
   if (remember?.[1]?.trim()) return { kind: "remember", text: remember[1].trim() };
   if (/^\/memory(?:\s+show)?\s*$/i.test(text)) return { kind: "show" };
+  if (/^\/memory\s+disable\s*$/i.test(text)) return { kind: "disable" };
+  if (/^\/memory\s+enable\s*$/i.test(text)) return { kind: "enable" };
+  if (/^\/memory\s+path\s*$/i.test(text)) return { kind: "path" };
+  const edit = text.match(/^\/memory\s+edit\s+(\S+)\s+([\s\S]+)$/i);
+  if (edit?.[1] && edit?.[2]?.trim()) return { kind: "edit", id: edit[1], text: edit[2].trim() };
+  const deletion = text.match(/^\/memory\s+(?:delete|remove|forget)\s+(\S+)\s*$/i);
+  if (deletion?.[1]) return { kind: "delete", id: deletion[1] };
   return { kind: "none" };
 }
 
@@ -1301,14 +1572,141 @@ function mockMemoryRecord(
   };
 }
 
-function memoryReceipt(record: AgentMemoryRecord): RuntimeReceipt {
+function memoryReceipt(
+  record: AgentMemoryRecord,
+  kind: "memory_write" | "memory_edit" | "memory_delete" = "memory_write",
+  operation = "write",
+): RuntimeReceipt {
   return {
-    id: `receipt_${record.id}_write`,
-    kind: "memory_write",
-    summary: `Remembered ${record.scope} memory for ${record.threadId ?? record.agentId}.`,
+    id: `receipt_${record.id}_${operation}`,
+    kind,
+    summary:
+      kind === "memory_write"
+        ? `Remembered ${record.scope} memory for ${record.threadId ?? record.agentId}.`
+        : `${kind === "memory_edit" ? "Edited" : "Deleted"} memory record ${record.id}.`,
     redaction: "none",
-    evidenceRefs: ["agent_memory_store", "memory.write", record.id],
+    evidenceRefs: ["agent_memory_store", `memory.${operation}`, record.id],
   };
+}
+
+function mockMemoryPolicy(agent: RuntimeAgentRecord, fields: Partial<AgentMemoryPolicy> & { threadId?: string } = {}): AgentMemoryPolicy {
+  const now = new Date().toISOString();
+  const targetType = fields.targetType ?? "thread";
+  const threadId = fields.threadId ?? threadIdForAgent(agent.id);
+  const targetId = fields.targetId ?? threadId;
+  return {
+    schemaVersion: "ioi.agent-runtime.memory-policy.v1",
+    id: mockMemoryPolicyId(targetType, targetId),
+    object: "ioi.agent_memory_policy",
+    targetType,
+    targetId,
+    agentId: agent.id,
+    threadId,
+    workspace: agent.cwd,
+    disabled: false,
+    injectionEnabled: true,
+    readOnly: false,
+    writeRequiresApproval: false,
+    retention: "persistent",
+    redaction: "none",
+    subagentInheritance: "explicit",
+    scope: "thread",
+    source: "sdk_memory_policy_default",
+    createdAt: fields.createdAt ?? now,
+    updatedAt: now,
+    evidenceRefs: ["agent_memory_store", "memory.policy"],
+    ...mockPolicyFields(fields),
+    effective: fields.effective,
+    policyRefs: fields.policyRefs,
+  };
+}
+
+function mockPolicyFields(value: object = {}): Partial<AgentMemoryPolicy> {
+  const fields: Partial<AgentMemoryPolicy> = {};
+  const source = value as Record<string, unknown>;
+  for (const key of [
+    "disabled",
+    "injectionEnabled",
+    "readOnly",
+    "writeRequiresApproval",
+    "retention",
+    "redaction",
+    "subagentInheritance",
+    "scope",
+  ] as const) {
+    if (source[key] !== undefined) {
+      (fields as Record<string, unknown>)[key] = source[key];
+    }
+  }
+  return fields;
+}
+
+function memoryPolicyReceipt(policy: AgentMemoryPolicy): RuntimeReceipt {
+  return {
+    id: `receipt_${policy.id}_${mockStableHash(policy.updatedAt).slice(0, 12)}`,
+    kind: "memory_policy",
+    summary: `Updated memory policy for ${policy.targetId}.`,
+    redaction: "none",
+    evidenceRefs: ["agent_memory_store", "memory.policy", policy.id],
+  };
+}
+
+function mockMemoryWriteBlockReason(policy: AgentMemoryPolicy, options: object = {}, requestedWrite = false): string | null {
+  if (!requestedWrite) return null;
+  const source = options as { writeApproved?: unknown };
+  if (policy.disabled) return "memory_disabled";
+  if (policy.readOnly) return "memory_read_only";
+  if (policy.writeRequiresApproval && !source.writeApproved) return "memory_write_requires_approval";
+  return null;
+}
+
+function mockMemoryEventKind(operation: MockMemoryMutation["operation"]): string {
+  switch (operation) {
+    case "policy_update":
+      return "MemoryPolicy";
+    case "edit":
+      return "MemoryEdit";
+    case "delete":
+      return "MemoryDelete";
+    case "write":
+    default:
+      return "MemoryWrite";
+  }
+}
+
+function mockMemoryEventSummary(operation: MockMemoryMutation["operation"]): string {
+  switch (operation) {
+    case "policy_update":
+      return "Memory policy updated";
+    case "edit":
+      return "Memory record edited";
+    case "delete":
+      return "Memory record deleted";
+    case "write":
+    default:
+      return "Memory write recorded";
+  }
+}
+
+function mockMemoryPath(agent: RuntimeAgentRecord, threadId: string, checkpointDir: string): AgentMemoryPathProjection {
+  return {
+    schemaVersion: "ioi.agent-runtime.memory.v1",
+    object: "ioi.agent_memory_path_projection",
+    threadId,
+    agentId: agent.id,
+    workspace: agent.cwd,
+    recordsPath: path.join(checkpointDir, "memory"),
+    policiesPath: path.join(checkpointDir, "memory-policies"),
+    effectivePolicyId: mockMemoryPolicyId("thread", threadId),
+  };
+}
+
+function mockMemoryPolicyId(targetType: string, targetId: string): string {
+  return `memory_policy_${targetType}_${safeFileName(targetId)}`;
+}
+
+function safeFileName(value: string): string {
+  return String(value).replace(/[^a-zA-Z0-9_.-]+/g, "_");
 }
 
 function threadIdForAgent(agentId: string): string {
@@ -1336,14 +1734,21 @@ function buildMockRun(
   const selectedModel = modelRouteDecision.selectedModel ?? options.model?.id ?? agent.modelId;
   const inlineMcpServerNames = Object.keys(options.mcpServers ?? {});
   const memoryRecords = memory.records;
+  const memoryMutations = memory.mutations ?? memory.writes.map((write) => ({ ...write, operation: "write" as const }));
   const memoryWrites = memory.writes.map((write) => write.record);
-  const memoryWriteReceipts = memory.writes.map((write) => write.receipt);
+  const memoryWriteReceipts = memoryMutations.map((write) => write.receipt);
+  const memoryPolicy = memory.policy ?? null;
   const taskState: TaskStateProjection = {
     currentObjective: prompt,
     knownFacts: [
       "SDK run entered through the explicit mock RuntimeSubstrateClient",
       "Authority and trace export are required by the IOI runtime contract",
       `Selected model profile: ${selectedModel}`,
+      ...(memoryPolicy
+        ? [
+            `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
+          ]
+        : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -1357,9 +1762,10 @@ function buildMockRun(
       ...inlineMcpServerNames,
       ...modelRouteDecision.evidenceRefs,
       modelRouteReceiptId,
+      memoryPolicy?.id,
       ...memoryRecords.map((record) => record.id),
       ...memoryWriteReceipts.map((receipt) => receipt.id),
-    ],
+    ].filter((value): value is string => Boolean(value)),
   };
   const uncertainty: UncertaintyProjection = {
     ambiguityLevel: mode === "send" ? "low" : "medium",
@@ -1410,8 +1816,12 @@ function buildMockRun(
   const semanticImpact: SemanticImpactProjection = {
     changedSymbols: [],
     changedApis: mode === "learn" ? ["agent.learn"] : [],
-    changedSchemas: ["IOISDKMessage", "RuntimeTraceBundle", "ModelRouteDecision"],
-    changedPolicies: mode === "dry_run" ? ["authority.preview_only"] : [],
+    changedSchemas: ["IOISDKMessage", "RuntimeTraceBundle", "ModelRouteDecision", "AgentMemoryPolicy"],
+    changedPolicies: [
+      ...(mode === "dry_run" ? ["authority.preview_only"] : []),
+      ...(memory.policyBlockReason ? [`memory.${memory.policyBlockReason}`] : []),
+      ...(memory.policyUpdates?.map(() => "memory.policy") ?? []),
+    ],
     affectedTests: ["cursor-sdk-parity-contract"],
     affectedDocs: ["cursor-sdk-harness-parity-plus-master-guide.md"],
     riskClass: postconditions.riskClass,
@@ -1485,10 +1895,12 @@ function buildMockRun(
     ...modelRouteDecision,
     receiptId: modelRouteReceiptId,
   });
-  for (const write of memory.writes) {
-    addEvent("memory_update", "Memory write recorded", {
-      ...write.record,
-      receiptId: write.receipt.id,
+  for (const mutation of memoryMutations) {
+    addEvent("memory_update", mockMemoryEventSummary(mutation.operation), {
+      ...(("record" in mutation ? mutation.record : mutation.policy) ?? {}),
+      operation: mutation.operation,
+      eventKind: mockMemoryEventKind(mutation.operation),
+      receiptId: mutation.receipt.id,
     });
   }
   addEvent("task_state", "Task state projected", taskState);
@@ -1514,6 +1926,7 @@ function buildMockRun(
     postconditions,
     semanticImpact,
     modelRouteDecision,
+    memoryPolicy,
     memoryRecords,
     memoryWrites,
     stopCondition,
@@ -1558,6 +1971,7 @@ function buildMockRun(
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
+    memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
     result,
@@ -1570,6 +1984,26 @@ function resultForMode(
   prompt: string,
   memory: MockRunMemory = { command: "none", records: [], writes: [] },
 ): string {
+  if (memory.command === "disable") {
+    return "Memory is disabled for this thread.";
+  }
+  if (memory.command === "enable") {
+    return "Memory is enabled for this thread.";
+  }
+  if (memory.command === "path") {
+    return `Memory records path: ${memory.paths?.recordsPath ?? "unknown"}\nMemory policy path: ${memory.paths?.policiesPath ?? "unknown"}`;
+  }
+  if (memory.policyBlockReason && (memory.command === "remember" || memory.command === "edit" || memory.command === "delete")) {
+    return `Memory write blocked by policy: ${memory.policyBlockReason}.`;
+  }
+  if (memory.command === "edit") {
+    const edited = memory.mutations?.find((mutation) => mutation.operation === "edit" && "record" in mutation);
+    return edited && "record" in edited ? `Edited memory: ${edited.record.id}` : "No memory was edited.";
+  }
+  if (memory.command === "delete") {
+    const deleted = memory.mutations?.find((mutation) => mutation.operation === "delete" && "record" in mutation);
+    return deleted && "record" in deleted ? `Deleted memory: ${deleted.record.id}` : "No memory was deleted.";
+  }
   if (memory.disabled && (memory.command === "remember" || memory.command === "show")) {
     return "Memory is disabled for this run.";
   }
