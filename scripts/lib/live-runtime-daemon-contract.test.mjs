@@ -122,7 +122,14 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
       body: JSON.stringify({
         options: {
           local: { cwd },
-          model: { id: "local:auto" },
+          model: {
+            id: "auto",
+            routeId: "route.native-local",
+            reasoningEffort: "low",
+            workflowGraphId: "tti-parity",
+            workflowNodeId: "workflow.model-router",
+            workflowNodeType: "Model Router",
+          },
         },
       }),
     });
@@ -131,6 +138,13 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     assert.match(thread.session_id, /^agent_/);
     assert.equal(thread.latest_seq, 0);
     assert.equal(thread.workspace, cwd);
+    assert.equal(thread.requested_model, "auto");
+    assert.equal(thread.model_route_id, "route.native-local");
+    assert.equal(thread.model_route_decision.eventKind, "ModelRouteDecision");
+    assert.equal(thread.model_route_decision.requestedModelMode, "auto");
+    assert.equal(thread.model_route_decision.selectedModel, "autopilot:native-fixture");
+    assert.equal(thread.model_route_decision.neverSendAutoUpstream, true);
+    assert.equal(thread.model_route_decision.workflowNodeId, "workflow.model-router");
 
     const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
       method: "POST",
@@ -145,6 +159,8 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     assert.equal(turn.status, "completed");
     assert.equal(turn.stop_reason, "evidence_sufficient");
     assert.ok(turn.quality_ledger_ref);
+    assert.equal(turn.model_route_decision.eventKind, "ModelRouteDecision");
+    assert.equal(turn.model_route_decision.selectedModel, "autopilot:native-fixture");
 
     const reloadedThread = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}`);
     assert.equal(reloadedThread.latest_turn_id, turn.turn_id);
@@ -154,7 +170,7 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     const events = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
     );
-    assert.ok(events.length >= 10);
+    assert.ok(events.length >= 11);
     assert.deepEqual(
       events.map((event) => event.seq),
       Array.from({ length: events.length }, (_, index) => index + 1),
@@ -164,6 +180,13 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     assert.equal(events[0].turn_id, turn.turn_id);
     assert.equal(events[0].event, "turn.started");
     assert.equal(events[0].workflow_node_id, "runtime.runtime-thread");
+    const routeEvent = events.find((event) => event.payload_summary?.event_kind === "ModelRouteDecision");
+    assert.equal(routeEvent.component_kind, "model_router");
+    assert.equal(routeEvent.workflow_node_id, "workflow.model-router");
+    assert.equal(routeEvent.payload_summary.selected_model, "autopilot:native-fixture");
+    assert.equal(routeEvent.payload_summary.reasoning_effort, "low");
+    assert.ok(routeEvent.payload_summary.model_route_decision_id);
+    assert.deepEqual(routeEvent.receipt_refs, [thread.model_route_receipt_id]);
     assert.equal(events.at(-1).event, "turn.completed");
     assert.ok(events.some((event) => event.workflow_node_id === "runtime.quality-ledger"));
     assert.ok(events.every((event) => event.payload_summary?.run_id));
@@ -176,6 +199,55 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
   } finally {
     await daemon.close();
   }
+});
+
+test("local daemon emits deterministic model route fallback decisions with receipts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-route-fallback-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-route-fallback-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    daemon.store.modelMounting.upsertRoute({
+      id: "route.unavailable-primary",
+      role: "test_unavailable",
+      privacy: "local_or_enterprise",
+      providerEligibility: ["openai"],
+      fallback: ["endpoint.local.auto"],
+      deniedProviders: [],
+      status: "active",
+    });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        options: {
+          local: { cwd },
+          model: { id: "auto", routeId: "route.unavailable-primary", reasoningEffort: "high" },
+        },
+      }),
+    });
+    assert.equal(thread.model_route_id, "route.local-first");
+    assert.equal(thread.model_route_decision.eventKind, "ModelRouteDecision");
+    assert.equal(thread.model_route_decision.fallbackTriggered, true);
+    assert.equal(thread.model_route_decision.selectedModel, "local:auto");
+    assert.equal(thread.model_route_decision.reasoningEffort, "high");
+    assert.ok(
+      thread.model_route_decision.rejectedCandidates.some(
+        (candidate) => candidate.reason === "provider_not_eligible_for_route",
+      ),
+    );
+    assert.ok(thread.model_route_receipt_id);
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("agent CLI exposes model and thinking control contracts", () => {
+  const source = fs.readFileSync(path.join(root, "crates/cli/src/commands/agent.rs"), "utf8");
+  assert.match(source, /AgentCommands::Model/);
+  assert.match(source, /AgentCommands::Thinking/);
+  assert.match(source, /\/model/);
+  assert.match(source, /\/thinking/);
+  assert.match(source, /ModelRouteDecision/);
+  assert.match(source, /reactflow_workflow_node/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

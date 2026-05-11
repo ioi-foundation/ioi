@@ -2,6 +2,7 @@ import type { StopReason } from "./options.js";
 
 export type IOISDKMessageType =
   | "run_started"
+  | "model_route_decision"
   | "step"
   | "delta"
   | "tool_call"
@@ -49,6 +50,7 @@ export interface RuntimeTraceBundle {
   probes: ProbeProjection[];
   postconditions: PostconditionProjection;
   semanticImpact: SemanticImpactProjection;
+  modelRouteDecision?: ModelRouteDecision | null;
   stopCondition: StopConditionProjection;
   qualityLedger: AgentQualityLedgerProjection;
   scorecard: RuntimeScorecard;
@@ -89,6 +91,51 @@ export interface RuntimeReceipt {
   summary: string;
   redaction: "none" | "redacted";
   evidenceRefs: string[];
+}
+
+export interface ModelRouteDecision {
+  schemaVersion: "ioi.model-route-decision.v1";
+  object: "ioi.model_route_decision";
+  eventKind: "ModelRouteDecision";
+  decisionId: string;
+  routeId: string | null;
+  capability: string;
+  requestedModel: string | null;
+  requestedModelMode: "auto" | "explicit" | "route_default" | string;
+  autoResolved: boolean;
+  selectedModel: string | null;
+  upstreamModel: string | null;
+  neverSendAutoUpstream: boolean;
+  endpointId: string | null;
+  providerId: string | null;
+  providerKind: string | null;
+  providerLabel: string | null;
+  reasoningEffort: string;
+  localRemotePlacement: string;
+  privacyPosture: string;
+  costEstimateUsd: number;
+  costEstimateSource: string;
+  fallbackModel: string | null;
+  fallbackEndpointId: string | null;
+  fallbackAllowed: boolean;
+  fallbackTriggered?: boolean;
+  fallbackReason?: string | null;
+  rationale: string;
+  policyConstraints: Record<string, unknown>;
+  evaluatedCandidateCount: number;
+  rejectedCandidates: Array<{
+    endpointId: string;
+    providerId: string;
+    reason: string | null;
+  }>;
+  workflowGraphId: string | null;
+  workflowNodeId: string | null;
+  workflowNodeType: string | null;
+  responseId: string | null;
+  previousResponseId: string | null;
+  policyHash?: string;
+  evidenceRefs: string[];
+  receiptId?: string;
 }
 
 export interface TaskStateProjection {
@@ -179,6 +226,7 @@ export interface IOIRunResult {
   status: "queued" | "running" | "completed" | "canceled" | "failed" | "blocked";
   result: string;
   stopCondition: StopConditionProjection;
+  routeDecision?: ModelRouteDecision | null;
   trace: RuntimeTraceBundle;
   scorecard: RuntimeScorecard;
   git?: {

@@ -55,8 +55,15 @@ test("explicit mock quickstart streams, waits, inspects, scores, and exports tra
   assert.equal(events.filter((event) => event.type === "completed").length, 1);
   const result = await run.wait();
   assert.equal(result.stopCondition.reason, "evidence_sufficient");
+  assert.equal(result.routeDecision.eventKind, "ModelRouteDecision");
+  assert.equal(result.routeDecision.selectedModel, "local:auto");
   const trace = await run.inspect();
   assert.equal(trace.events.length, events.length);
+  assert.equal(trace.modelRouteDecision.eventKind, "ModelRouteDecision");
+  assert.equal(trace.modelRouteDecision.selectedModel, "local:auto");
+  assert.equal((await run.routeDecision()).decisionId, trace.modelRouteDecision.decisionId);
+  assert.ok(trace.events.some((event) => event.type === "model_route_decision"));
+  assert.ok(trace.receipts.some((receipt) => receipt.kind === "model_route_selection"));
   assert.equal(trace.taskState.currentObjective, "Summarize this repository");
   assert.ok(trace.probes.length > 0);
   assert.ok(trace.taskState.assumptions.some((item) => item.includes("non-authoritative")));
@@ -78,7 +85,7 @@ test("stream reconnect starts after the supplied cursor without duplicating term
   for await (const event of run.stream({ lastEventId: firstBatch.at(-1).id })) {
     secondBatch.push(event);
   }
-  assert.equal(secondBatch[0].type, "postcondition_synthesized");
+  assert.equal(secondBatch[0].type, "probe");
   assert.equal(secondBatch.filter((event) => event.type === "completed").length, 1);
 });
 

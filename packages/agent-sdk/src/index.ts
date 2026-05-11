@@ -31,6 +31,7 @@ export type {
   ConversationMessage,
   IOIRunResult,
   IOISDKMessage,
+  ModelRouteDecision,
   RuntimeAccountProfile,
   RuntimeNodeProfile,
   RuntimeReceipt,

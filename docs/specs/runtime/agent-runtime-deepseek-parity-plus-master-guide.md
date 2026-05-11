@@ -871,6 +871,30 @@ Acceptance evidence:
 - route decision has receipt/evidence;
 - workflow config can pin model or choose auto.
 
+Implementation slice completed 2026-05-11:
+
+- `ModelRouteDecision` now projects through daemon thread, turn, run trace, and
+  TTI event envelopes as a first-class `model_route_decision` item.
+- Agent creation and per-run model overrides resolve through the modular model
+  mounting router, preserving React Flow workflow graph/node ids in the route
+  decision.
+- `model=auto` resolves before provider invocation and deterministic fallback to
+  `route.local-first` emits `fallbackTriggered`, rejected candidates, and a
+  route receipt.
+- SDK types expose `ModelRouteDecision`, `RuntimeTraceBundle.modelRouteDecision`,
+  `IOIRunResult.routeDecision`, and `Run.routeDecision()`.
+- CLI contract scaffolding exposes `agent model --json` and
+  `agent thinking --json` for `/model`, `/thinking`, and React Flow
+  `Model Router` configuration parity.
+
+Validation evidence:
+
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T00-45-58-933Z/result.json`
+
 ### P1. Memory UX
 
 Problem:
