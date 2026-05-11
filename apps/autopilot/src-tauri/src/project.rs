@@ -23,6 +23,7 @@ mod sidecars;
 mod templates;
 pub mod types;
 mod validation;
+mod workflow_approval_interrupt_lane;
 mod workflow_authority_tooling_lane;
 mod workflow_binding_lane;
 mod workflow_coding_route_lane;

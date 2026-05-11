@@ -2698,6 +2698,68 @@ Validation evidence:
   - `runtime-artifacts.json` reports
     `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-11, workflow approval/interrupt lane
+refactor:
+
+- Runtime approval binding, contextual approval previews, interrupt prompts,
+  interrupt notices, and pending interrupt record construction now live in
+  `apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs`.
+- The lane owns `workflow_runtime_approval_binding`,
+  `workflow_runtime_approval_preview`, `workflow_runtime_interrupt_prompt`,
+  `workflow_runtime_interrupt_notice`, and `workflow_runtime_interrupt`.
+- Approval payload construction covers connector/tool side effects, workflow
+  package imports, live GitHub PR creation, and output delivery targets that
+  require approval.
+- `runtime.rs` keeps the execution loop, resume matching, checkpoint writes,
+  event emission, interrupt persistence, thread updates, and final run-result
+  assembly, but delegates approval/interrupt payload construction to the lane.
+- This keeps React Flow approval gates inspectable without moving durable
+  checkpoint/run orchestration into a partial lane too early.
+- The daemon and live GUI source-contract proofs now assert the approval lane
+  directly, preserving graph-configurable human gates, contextual tool/output
+  approvals, package output surfaces, and PR-create output surfaces.
+- `runtime.rs` is reduced to 2,551 lines; the approval/interrupt lane is 152
+  lines.
+
+Validation evidence:
+
+- `cargo test workflow_skill_context --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test coding_route --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_run_interrupt_resume_and_checkpoint_fork_are_durable --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tool_side_effect_pauses_for_contextual_approval --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_output_delivery_pauses_for_contextual_approval --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tests_can_pass_target_outputs_before_downstream_interrupt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs apps/autopilot/src-tauri/src/project/workflow_graph_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs apps/autopilot/src-tauri/src/project/workflow_output_lane.rs apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs`
+- `git diff --check -- apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T21-47-22-432Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true` with
+    `checks.workflowApprovalInterruptRuntimeLane === true`;
+  - `rollback-restore-canary-ui-proof.json` also keeps
+    `checks.workflowOutputRuntimeLane === true`,
+    `checks.workflowBindingRuntimeLane === true`,
+    `checks.workflowGraphExecutionRuntimeLane === true`,
+    `checks.workflowHarnessResultsRuntimeLane === true`,
+    `checks.workflowExecutionResultsRuntimeLane === true`,
+    `checks.workflowAuthorityToolingRuntimeLane === true`,
+    `checks.workflowMemoryRuntimeLane === true`,
+    `checks.workflowPackageRunOutputSurfaces === true`, and
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow comparison component
+    set with `github_pr_create`, `approval_gate`, `policy_gate`,
+    `connector_call`, `mcp_provider`, `mcp_tool_call`, `tool_call`, and
+    `wallet_capability`;
+  - `runtime-artifacts.json` reports
+    `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
