@@ -4243,6 +4243,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
   const projectWorkflowAuthorityToolingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
+  const projectWorkflowApprovalInterruptLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs";
   const projectWorkflowBindingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs";
   const projectWorkflowMemoryLanePath =
@@ -4284,6 +4286,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowAuthorityToolingLane = readFileSync(
     resolve(repoRoot, projectWorkflowAuthorityToolingLanePath),
+    "utf8",
+  );
+  const projectWorkflowApprovalInterruptLane = readFileSync(
+    resolve(repoRoot, projectWorkflowApprovalInterruptLanePath),
     "utf8",
   );
   const projectWorkflowBindingLane = readFileSync(
@@ -4639,6 +4645,25 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_live_authority_destructive_denial/.test(
         projectWorkflowAuthorityToolingLane,
       ),
+    workflowApprovalInterruptRuntimeLane:
+      /workflow_approval_interrupt_lane/.test(projectRuntime) &&
+      /fn workflow_runtime_approval_binding\(/.test(
+        projectWorkflowApprovalInterruptLane,
+      ) &&
+      /fn workflow_runtime_approval_preview\(/.test(
+        projectWorkflowApprovalInterruptLane,
+      ) &&
+      /fn workflow_runtime_interrupt_prompt\(/.test(
+        projectWorkflowApprovalInterruptLane,
+      ) &&
+      /fn workflow_runtime_interrupt_notice\(/.test(
+        projectWorkflowApprovalInterruptLane,
+      ) &&
+      /fn workflow_runtime_interrupt\(/.test(
+        projectWorkflowApprovalInterruptLane,
+      ) &&
+      /WorkflowInterrupt/.test(projectWorkflowApprovalInterruptLane) &&
+      /requiresApproval/.test(projectWorkflowApprovalInterruptLane),
     workflowBindingRuntimeLane:
       /workflow_binding_lane/.test(projectRuntime) &&
       /workflow_node_schema/.test(projectWorkflowBindingLane) &&

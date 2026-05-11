@@ -1589,6 +1589,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowApprovalInterruptLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowBindingLane = fs.readFileSync(
     path.join(
       root,
@@ -1733,6 +1740,29 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowAuthorityToolingLane,
     /workflow_live_authority_destructive_denial/,
   );
+  assert.match(tauriProjectRuntime, /workflow_approval_interrupt_lane/);
+  assert.match(
+    tauriProjectWorkflowApprovalInterruptLane,
+    /fn workflow_runtime_approval_binding\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowApprovalInterruptLane,
+    /fn workflow_runtime_approval_preview\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowApprovalInterruptLane,
+    /fn workflow_runtime_interrupt_prompt\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowApprovalInterruptLane,
+    /fn workflow_runtime_interrupt_notice\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowApprovalInterruptLane,
+    /fn workflow_runtime_interrupt\(/,
+  );
+  assert.match(tauriProjectWorkflowApprovalInterruptLane, /WorkflowInterrupt/);
+  assert.match(tauriProjectWorkflowApprovalInterruptLane, /requiresApproval/);
   assert.match(tauriProjectRuntime, /workflow_binding_lane/);
   assert.match(tauriProjectWorkflowBindingLane, /workflow_node_schema/);
   assert.match(tauriProjectWorkflowBindingLane, /workflow_function_binding/);
