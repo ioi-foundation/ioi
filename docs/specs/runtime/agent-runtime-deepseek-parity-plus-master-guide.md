@@ -2244,6 +2244,40 @@ Validation evidence:
   - `runtime-artifacts.json` keeps the 21-kind live shadow component set with
     `github_pr_create` and `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-11, workflow package lane refactor:
+
+- Workflow package export/import execution now lives in
+  `apps/autopilot/src-tauri/src/project/workflow_package_lane.rs`, matching the
+  repository PR lane pattern and keeping `runtime.rs` focused on dispatch and
+  shared run mechanics.
+- The package lane owns `execute_workflow_package_export_node`,
+  `execute_workflow_package_import_node`, package path resolution, package-path
+  deep input lookup, import review construction, locale preservation checks, and
+  package evidence readiness projection.
+- `workflow_logic_string` moved into `workflow_value_helpers.rs` so package,
+  PR, and runtime dispatch code share the same trimmed workflow config lookup
+  semantics.
+- The daemon and live GUI source-contract proofs now assert that
+  `runtime.rs` dispatches `WorkflowPackageExport` / `WorkflowPackageImport`
+  through `workflow_package_lane.rs`, while the lane retains package output
+  surfaces and `workflowPackageImportReview` evidence.
+
+Validation evidence:
+
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T18-40-25-909Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has
+    `checks.workflowPackageRunOutputSurfaces === true` and
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow component set with
+    `github_pr_create` and `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

@@ -1582,6 +1582,13 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
     path.join(root, "apps/autopilot/src-tauri/src/project/runtime.rs"),
     "utf8",
   );
+  const tauriProjectWorkflowPackageLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectRepositoryPrLane = fs.readFileSync(
     path.join(
       root,
@@ -1694,18 +1701,20 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
   assert.match(tauriProjectRuntime, /ActionKind::WorkflowPackageExport/);
   assert.match(tauriProjectRuntime, /ActionKind::WorkflowPackageImport/);
   assert.match(tauriProjectRuntime, /ActionKind::GithubPrCreate/);
-  assert.match(tauriProjectRuntime, /execute_workflow_package_export_node/);
-  assert.match(tauriProjectRuntime, /execute_workflow_package_import_node/);
+  assert.match(tauriProjectRuntime, /workflow_package_lane/);
+  assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_export_node/);
+  assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_import_node/);
   assert.match(tauriProjectRuntime, /repository_pr_lane/);
   assert.match(tauriProjectRuntime, /workflow_value_helpers/);
+  assert.match(tauriProjectWorkflowPackageLane, /workflow_value_helpers/);
   assert.match(tauriProjectRepositoryPrLane, /workflow_value_helpers/);
   assert.match(tauriProjectRepositoryPrLane, /workflow_github_pr_create_output/);
   assert.match(tauriProjectWorkflowValueHelpers, /workflow_value_at_path/);
   assert.match(tauriProjectWorkflowValueHelpers, /workflow_hash_value_raw_hex/);
-  assert.match(tauriProjectRuntime, /workflow_package_export/);
-  assert.match(tauriProjectRuntime, /workflow_package_import/);
+  assert.match(tauriProjectWorkflowPackageLane, /workflow_package_export/);
+  assert.match(tauriProjectWorkflowPackageLane, /workflow_package_import/);
   assert.match(tauriProjectRepositoryPrLane, /github_pr_create/);
-  assert.match(tauriProjectRuntime, /workflowPackageImportReview/);
+  assert.match(tauriProjectWorkflowPackageLane, /workflowPackageImportReview/);
   assert.match(tauriProjectTemplates, /workflow_package_export/);
   assert.match(tauriProjectTemplates, /workflow_package_import/);
   assert.match(tauriProjectTemplates, /github_pr_create/);

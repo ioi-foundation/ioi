@@ -10,6 +10,15 @@ pub(super) fn workflow_value_string_any(value: &Value, keys: &[&str]) -> Option<
         .map(str::to_string)
 }
 
+pub(super) fn workflow_logic_string(logic: &Value, key: &str) -> Option<String> {
+    logic
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
 pub(super) fn workflow_value_bool_any(value: &Value, keys: &[&str]) -> Option<bool> {
     keys.iter()
         .find_map(|key| value.get(*key).and_then(Value::as_bool))
