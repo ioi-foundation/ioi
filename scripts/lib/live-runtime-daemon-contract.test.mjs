@@ -1578,6 +1578,18 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
     path.join(root, "apps/autopilot/src-tauri/src/project/commands.rs"),
     "utf8",
   );
+  const tauriProjectRuntime = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/project/runtime.rs"),
+    "utf8",
+  );
+  const tauriProjectTemplates = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/project/templates.rs"),
+    "utf8",
+  );
+  const tauriRuntimeProjection = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/runtime_projection.rs"),
+    "utf8",
+  );
   const workflowHarnessTools = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-harness-tools.ts"),
     "utf8",
@@ -1634,6 +1646,20 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
   assert.match(tauriProjectTypes, /workflow_chrome_locale: Option<String>/);
   assert.match(tauriProjectCommands, /get\("workflowChromeLocale"\)/);
   assert.match(tauriProjectCommands, /manifest\.workflow_chrome_locale/);
+  assert.match(tauriProjectRuntime, /ActionKind::WorkflowPackageExport/);
+  assert.match(tauriProjectRuntime, /ActionKind::WorkflowPackageImport/);
+  assert.match(tauriProjectRuntime, /execute_workflow_package_export_node/);
+  assert.match(tauriProjectRuntime, /execute_workflow_package_import_node/);
+  assert.match(tauriProjectRuntime, /workflow_package_export/);
+  assert.match(tauriProjectRuntime, /workflow_package_import/);
+  assert.match(tauriProjectRuntime, /workflowPackageImportReview/);
+  assert.match(tauriProjectTemplates, /workflow_package_export/);
+  assert.match(tauriProjectTemplates, /workflow_package_import/);
+  assert.match(tauriProjectTemplates, /workflow_package_export_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_package_import_output_schema/);
+  assert.match(tauriRuntimeProjection, /WorkflowPackageExport/);
+  assert.match(tauriRuntimeProjection, /WorkflowPackageImport/);
+  assert.match(tauriRuntimeProjection, /output_bundle/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);

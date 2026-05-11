@@ -117,6 +117,16 @@ pub(super) fn workflow_node(
             json!(["output", "error"]),
             json!({ "in": "payload", "out": "payload" }),
         ),
+        "workflow_package_export" => (
+            json!(["workflow"]),
+            json!(["package", "manifest", "readiness", "locale"]),
+            json!({ "in": "state", "out": "output_bundle" }),
+        ),
+        "workflow_package_import" => (
+            json!(["package"]),
+            json!(["review", "imported_workflow", "evidence", "locale"]),
+            json!({ "in": "output_bundle", "out": "state" }),
+        ),
         "parser" => (
             json!([]),
             json!(["parser"]),
@@ -225,6 +235,34 @@ pub(super) fn workflow_node(
                 "guidanceMaxChars": 1800
             },
             "outputSchema": workflow_skill_context_output_schema()
+        }),
+        "workflow_package_export" => json!({
+            "workflowPackageExportEndpoint": "runtime.exportWorkflowPackage",
+            "workflowPackageExportField": "workflowPackageExport",
+            "workflowPackagePath": "{{workflow.path}}",
+            "workflowPackageOutputDir": "",
+            "workflowPackageManifestField": "workflowPackageExport.manifest",
+            "workflowPackageReadinessStatusField": "workflowPackageExport.manifest.readinessStatus",
+            "workflowPackagePortableField": "workflowPackageExport.manifest.portable",
+            "workflowPackageLocaleField": "workflowPackageExport.manifest.workflowChromeLocale",
+            "workflowPackageEvidenceReadyField": "workflowPackageExport.manifest.harnessPackageManifest",
+            "dryRun": false,
+            "mutationExecuted": true,
+            "outputSchema": workflow_package_export_output_schema()
+        }),
+        "workflow_package_import" => json!({
+            "workflowPackageImportEndpoint": "runtime.importWorkflowPackage",
+            "workflowPackagePath": "{{workflowPackageExport.packagePath}}",
+            "workflowPackageProjectRoot": "{{project.root}}",
+            "workflowPackageImportName": "",
+            "workflowPackageImportField": "workflowPackageImport",
+            "workflowPackageImportReviewField": "workflowPackageImportReview",
+            "workflowPackageImportEvidenceReadyField": "workflowPackageImportReview.evidence.packageEvidenceReady",
+            "workflowPackageImportLocalePreservedField": "workflowPackageImportReview.evidence.workflowChromeLocalePreserved",
+            "workflowPackageImportedWorkflowPathField": "workflowPackageImport.imported.workflowPath",
+            "dryRun": false,
+            "mutationExecuted": true,
+            "outputSchema": workflow_package_import_output_schema()
         }),
         "model_binding" => json!({
             "modelRef": if metric_value == "vision" { "vision" } else { "reasoning" },
@@ -371,6 +409,16 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
         ("model_binding", "Models", "Model Binding"),
         ("model_call", "Models", "Model"),
         ("skill_context", "Context", "Skill Context"),
+        (
+            "workflow_package_export",
+            "Tools",
+            "Workflow Package Export",
+        ),
+        (
+            "workflow_package_import",
+            "Tools",
+            "Workflow Package Import",
+        ),
         ("parser", "Models", "Output Parser"),
         ("adapter", "Connectors", "Adapter"),
         ("plugin_tool", "Tools", "Plugin Tool"),
@@ -405,6 +453,59 @@ pub(super) fn workflow_skill_context_output_schema() -> Value {
             "selectedSkills": { "type": "array" },
             "promptContext": { "type": "string" },
             "evidenceRefs": { "type": "array" }
+        }
+    })
+}
+
+pub(super) fn workflow_package_export_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "toolName",
+            "packagePath",
+            "manifest",
+            "portable",
+            "readinessStatus",
+            "workflowChromeLocale",
+            "packageEvidenceReady"
+        ],
+        "properties": {
+            "workflowPackageExport": { "type": "object" },
+            "manifest": { "type": "object" },
+            "packagePath": { "type": "string" },
+            "portable": { "type": "boolean" },
+            "readinessStatus": { "type": "string" },
+            "workflowChromeLocale": { "type": ["string", "null"] },
+            "packageEvidenceReady": { "type": "boolean" }
+        }
+    })
+}
+
+pub(super) fn workflow_package_import_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "toolName",
+            "packagePath",
+            "importedWorkflowPath",
+            "review",
+            "packageEvidenceReady",
+            "workflowChromeLocalePreserved"
+        ],
+        "properties": {
+            "workflowPackageImport": { "type": "object" },
+            "workflowPackageImportReview": { "type": "object" },
+            "review": { "type": "object" },
+            "packagePath": { "type": "string" },
+            "importedWorkflowPath": { "type": "string" },
+            "packageEvidenceReady": { "type": "boolean" },
+            "workflowChromeLocalePreserved": { "type": "boolean" },
+            "sourceWorkflowChromeLocale": { "type": ["string", "null"] },
+            "importedWorkflowChromeLocale": { "type": ["string", "null"] }
         }
     })
 }
@@ -592,6 +693,30 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
             None,
         ),
         workflow_scaffold(
+            "workflow.workflow_package_export",
+            "workflow_package_export",
+            "Tools",
+            "Workflow package export",
+            "Export the current workflow bundle as a portable package.",
+            "Package",
+            "export",
+            json!({ "workflowPackageExportEndpoint": "runtime.exportWorkflowPackage", "workflowPackageExportField": "workflowPackageExport", "workflowPackagePath": "{{workflow.path}}", "workflowPackageOutputDir": "", "workflowPackageManifestField": "workflowPackageExport.manifest", "workflowPackageReadinessStatusField": "workflowPackageExport.manifest.readinessStatus", "workflowPackagePortableField": "workflowPackageExport.manifest.portable", "workflowPackageLocaleField": "workflowPackageExport.manifest.workflowChromeLocale", "workflowPackageEvidenceReadyField": "workflowPackageExport.manifest.harnessPackageManifest", "dryRun": false, "mutationExecuted": true, "outputSchema": workflow_package_export_output_schema() }),
+            json!({ "privilegedActions": ["workflow.package.export"] }),
+            Some(json!({ "sideEffectClass": "write", "requiresApproval": false })),
+        ),
+        workflow_scaffold(
+            "workflow.workflow_package_import",
+            "workflow_package_import",
+            "Tools",
+            "Workflow package import",
+            "Import a portable workflow package and expose package review evidence.",
+            "Package",
+            "import",
+            json!({ "workflowPackageImportEndpoint": "runtime.importWorkflowPackage", "workflowPackagePath": "{{workflowPackageExport.packagePath}}", "workflowPackageProjectRoot": "{{project.root}}", "workflowPackageImportName": "", "workflowPackageImportField": "workflowPackageImport", "workflowPackageImportReviewField": "workflowPackageImportReview", "workflowPackageImportEvidenceReadyField": "workflowPackageImportReview.evidence.packageEvidenceReady", "workflowPackageImportLocalePreservedField": "workflowPackageImportReview.evidence.workflowChromeLocalePreserved", "workflowPackageImportedWorkflowPathField": "workflowPackageImport.imported.workflowPath", "dryRun": false, "mutationExecuted": true, "outputSchema": workflow_package_import_output_schema() }),
+            json!({ "requireHumanGate": true, "privilegedActions": ["workflow.package.import"] }),
+            Some(json!({ "sideEffectClass": "write", "requiresApproval": true })),
+        ),
+        workflow_scaffold(
             "workflow.skill_context.discover",
             "skill_context",
             "Context",
@@ -667,7 +792,14 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
             node_type,
-            "source" | "trigger" | "adapter" | "plugin_tool" | "skill_context" | "output"
+            "source"
+                | "trigger"
+                | "adapter"
+                | "plugin_tool"
+                | "skill_context"
+                | "workflow_package_export"
+                | "workflow_package_import"
+                | "output"
         ) {
             continue;
         }
@@ -700,12 +832,24 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
     };
     let side_effect_class = match node_type {
         "adapter" | "plugin_tool" => "read",
-        "human_gate" | "proposal" => "write",
+        "human_gate" | "proposal" | "workflow_package_export" | "workflow_package_import" => {
+            "write"
+        }
         _ => "none",
     };
-    let requires_approval = matches!(node_type, "human_gate" | "proposal");
+    let requires_approval = matches!(
+        node_type,
+        "human_gate" | "proposal" | "workflow_package_import"
+    );
     let sandboxed = node_type == "function";
-    let supports_dry_run = matches!(node_type, "function" | "adapter" | "plugin_tool");
+    let supports_dry_run = matches!(
+        node_type,
+        "function"
+            | "adapter"
+            | "plugin_tool"
+            | "workflow_package_export"
+            | "workflow_package_import"
+    );
     let supports_mock_binding = matches!(
         node_type,
         "model_binding" | "parser" | "adapter" | "plugin_tool" | "subgraph"
@@ -718,6 +862,8 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "parser"
             | "adapter"
             | "plugin_tool"
+            | "workflow_package_export"
+            | "workflow_package_import"
             | "subgraph"
             | "output"
             | "test_assertion"
@@ -726,6 +872,8 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "model_binding" => vec!["model"],
         "model_call" => vec!["data", "model", "memory", "tool", "parser"],
         "skill_context" => vec!["data", "error"],
+        "workflow_package_export" => vec!["data", "output_bundle"],
+        "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],
         "plugin_tool" => vec!["data", "tool", "error"],
         "adapter" => vec!["data", "error"],

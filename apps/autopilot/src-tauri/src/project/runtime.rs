@@ -62,6 +62,71 @@ fn workflow_sha256_hex(value: &str) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
+fn workflow_project_root_for_path(workflow_path: &Path) -> String {
+    workflow_path
+        .parent()
+        .and_then(|workflows_dir| workflows_dir.parent())
+        .and_then(|agents_dir| {
+            (agents_dir.file_name().and_then(|name| name.to_str()) == Some(".agents"))
+                .then(|| agents_dir.parent())
+                .flatten()
+        })
+        .or_else(|| workflow_path.parent())
+        .unwrap_or_else(|| Path::new("."))
+        .display()
+        .to_string()
+}
+
+fn workflow_logic_string(logic: &Value, key: &str) -> Option<String> {
+    logic
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn workflow_deep_string_field(value: &Value, key: &str) -> Option<String> {
+    if let Some(text) = value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+    {
+        return Some(text.to_string());
+    }
+    match value {
+        Value::Array(items) => items
+            .iter()
+            .find_map(|item| workflow_deep_string_field(item, key)),
+        Value::Object(object) => object
+            .values()
+            .find_map(|item| workflow_deep_string_field(item, key)),
+        _ => None,
+    }
+}
+
+fn workflow_resolved_path_string(
+    logic: &Value,
+    input: &Value,
+    key: &str,
+    workflow_path: &Path,
+) -> Option<String> {
+    let configured = workflow_logic_string(logic, key);
+    match configured.as_deref() {
+        Some("{{workflow.path}}") => Some(workflow_path.display().to_string()),
+        Some("{{project.root}}") => Some(workflow_project_root_for_path(workflow_path)),
+        Some("{{workflowPackageExport.packagePath}}") => {
+            workflow_value_at_path(input, "workflowPackageExport.packagePath")
+                .and_then(|value| value.as_str().map(str::to_string))
+                .or_else(|| workflow_deep_string_field(input, "packagePath"))
+        }
+        Some(value) if value.starts_with("{{") && value.ends_with("}}") => None,
+        Some(value) => Some(value.to_string()),
+        None => None,
+    }
+}
+
 fn workflow_memory_send_options(logic: &Value, node_id: &str) -> Value {
     let injection_enabled =
         workflow_value_bool_any(logic, &["memoryInjectionEnabled", "injectionEnabled"])
@@ -218,12 +283,20 @@ fn workflow_collect_memory_records(value: &Value, records: &mut Vec<Value>) {
 }
 
 fn workflow_memory_record_search_text(record: &Value) -> String {
-    ["fact", "text", "id", "scope", "memoryKey", "workflowNodeId", "source"]
-        .iter()
-        .filter_map(|key| record.get(*key).and_then(Value::as_str))
-        .map(str::to_lowercase)
-        .collect::<Vec<_>>()
-        .join("\n")
+    [
+        "fact",
+        "text",
+        "id",
+        "scope",
+        "memoryKey",
+        "workflowNodeId",
+        "source",
+    ]
+    .iter()
+    .filter_map(|key| record.get(*key).and_then(Value::as_str))
+    .map(str::to_lowercase)
+    .collect::<Vec<_>>()
+    .join("\n")
 }
 
 fn workflow_redacted_memory_record(record: &Value) -> Value {
@@ -1008,10 +1081,7 @@ fn workflow_coding_route_benchmark_results(
                 phase_id: selection.phase_id.clone(),
                 selected_skill_hash: selection.skill_hash.clone(),
                 skill_lifecycle_state: selection.lifecycle_state.clone(),
-                input_descriptor: format!(
-                    "{} route benchmark for {}",
-                    route_id, selection.name
-                ),
+                input_descriptor: format!("{} route benchmark for {}", route_id, selection.name),
                 status: gate.status.clone(),
                 gate_status: gate.status.clone(),
                 verifier_result: Some(if gate.status == "pass" {
@@ -2074,6 +2144,26 @@ pub(super) fn workflow_action_frame(node: &Value) -> ActionFrame {
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
         }),
+        ActionKind::WorkflowPackageExport => Some(ActionBindingRef {
+            binding_type: "workflow_package".to_string(),
+            reference: workflow_logic_string(&logic, "workflowPackagePath"),
+            mock_binding: false,
+            side_effect_class: "write".to_string(),
+            requires_approval: law
+                .get("requireHumanGate")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        }),
+        ActionKind::WorkflowPackageImport => Some(ActionBindingRef {
+            binding_type: "workflow_package".to_string(),
+            reference: workflow_logic_string(&logic, "workflowPackagePath"),
+            mock_binding: false,
+            side_effect_class: "write".to_string(),
+            requires_approval: law
+                .get("requireHumanGate")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        }),
         ActionKind::AdapterConnector => {
             logic
                 .get("connectorBinding")
@@ -2489,6 +2579,12 @@ pub(super) fn workflow_node_declared_output_schema(node: &Value) -> Value {
     if workflow_node_type(node) == "skill_context" {
         return workflow_skill_context_output_schema();
     }
+    if workflow_node_type(node) == "workflow_package_export" {
+        return workflow_package_export_output_schema();
+    }
+    if workflow_node_type(node) == "workflow_package_import" {
+        return workflow_package_import_output_schema();
+    }
     workflow_node_output_schema(node)
         .or_else(|| logic.get("schema").cloned())
         .or_else(|| logic.get("payload").map(workflow_schema_from_sample))
@@ -2699,6 +2795,15 @@ pub(super) fn workflow_default_port_connection_class(
         ("model_call", "input", "tool")
         | ("plugin_tool", "output", "tool")
         | ("subgraph", "output", "tool") => "tool",
+        ("workflow_package_export", "output", "package")
+        | ("workflow_package_import", "input", "package") => "output_bundle",
+        ("workflow_package_export", "output", "manifest")
+        | ("workflow_package_export", "output", "readiness")
+        | ("workflow_package_export", "output", "locale")
+        | ("workflow_package_import", "output", "review")
+        | ("workflow_package_import", "output", "imported_workflow")
+        | ("workflow_package_import", "output", "evidence")
+        | ("workflow_package_import", "output", "locale") => "data",
         ("model_call", "input", "parser") | ("parser", "output", "parser") => "parser",
         ("subgraph", "input", "subgraph") | ("subgraph", "output", "subgraph") => "subgraph",
         ("output", "input", "delivery") => "delivery",
@@ -2947,6 +3052,166 @@ pub(super) fn execute_workflow_tool_binding(
                 .map(|summary| format!("; last run was {}", summary.status))
                 .unwrap_or_default()
         )
+    }))
+}
+
+fn execute_workflow_package_export_node(
+    workflow_path: &Path,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Result<Value, String> {
+    let path = workflow_resolved_path_string(logic, input, "workflowPackagePath", workflow_path)
+        .unwrap_or_else(|| workflow_path.display().to_string());
+    let output_dir =
+        workflow_resolved_path_string(logic, input, "workflowPackageOutputDir", workflow_path);
+    if logic
+        .get("dryRun")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return Ok(json!({
+            "schemaVersion": "workflow.package-export.output.v1",
+            "status": "dry_run",
+            "toolName": "workflow.package.export",
+            "nodeId": node_id,
+            "kind": evidence_kind,
+            "workflowPath": path,
+            "packagePath": output_dir,
+            "portable": false,
+            "readinessStatus": "dry_run",
+            "workflowChromeLocale": Value::Null,
+            "packageEvidenceReady": false,
+            "mutationExecuted": false,
+            "input": input
+        }));
+    }
+    let package = export_workflow_package(path.clone(), output_dir)?;
+    let package_evidence_ready = package.manifest.harness_package_manifest.is_some();
+    let package_path = package.package_path.clone();
+    let manifest_path = package.manifest_path.clone();
+    let manifest = package.manifest.clone();
+    Ok(json!({
+        "schemaVersion": "workflow.package-export.output.v1",
+        "status": if manifest.portable { "ok" } else { "blocked" },
+        "toolName": "workflow.package.export",
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "workflowPath": path,
+        "packagePath": package_path,
+        "manifestPath": manifest_path,
+        "manifest": manifest.clone(),
+        "portable": manifest.portable,
+        "readinessStatus": manifest.readiness_status,
+        "workflowChromeLocale": manifest.workflow_chrome_locale,
+        "packageEvidenceReady": package_evidence_ready,
+        "mutationExecuted": true,
+        "workflowPackageExport": package,
+        "input": input
+    }))
+}
+
+fn execute_workflow_package_import_node(
+    workflow_path: &Path,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Result<Value, String> {
+    let package_path =
+        workflow_resolved_path_string(logic, input, "workflowPackagePath", workflow_path)
+            .or_else(|| workflow_deep_string_field(input, "packagePath"))
+            .ok_or_else(|| "Workflow package import requires a package path.".to_string())?;
+    let project_root =
+        workflow_resolved_path_string(logic, input, "workflowPackageProjectRoot", workflow_path)
+            .unwrap_or_else(|| workflow_project_root_for_path(workflow_path));
+    let import_name = workflow_logic_string(logic, "workflowPackageImportName");
+    if logic
+        .get("dryRun")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return Ok(json!({
+            "schemaVersion": "workflow.package-import.output.v1",
+            "status": "dry_run",
+            "toolName": "workflow.package.import",
+            "nodeId": node_id,
+            "kind": evidence_kind,
+            "packagePath": package_path,
+            "projectRoot": project_root,
+            "importedWorkflowPath": Value::Null,
+            "packageEvidenceReady": false,
+            "workflowChromeLocalePreserved": false,
+            "mutationExecuted": false,
+            "input": input
+        }));
+    }
+    let imported = import_workflow_package(ImportWorkflowPackageRequest {
+        package_path: package_path.clone(),
+        project_root: project_root.clone(),
+        name: import_name,
+    })?;
+    let imported_package = imported.imported_package.clone();
+    let imported_workflow_path = imported.workflow_path.clone();
+    let manifest = imported_package
+        .as_ref()
+        .map(|package| package.manifest.clone());
+    let source_workflow_chrome_locale = manifest
+        .as_ref()
+        .and_then(|item| item.workflow_chrome_locale.clone());
+    let imported_workflow_chrome_locale = imported
+        .workflow
+        .global_config
+        .get("workflowChromeLocale")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let workflow_chrome_locale_preserved =
+        source_workflow_chrome_locale == imported_workflow_chrome_locale;
+    let package_evidence_ready = manifest
+        .as_ref()
+        .and_then(|item| item.harness_package_manifest.as_ref())
+        .is_some();
+    let review = json!({
+        "schemaVersion": "workflow.package-import-review.v1",
+        "source": {
+            "packagePath": package_path.clone(),
+            "workflowChromeLocale": source_workflow_chrome_locale.clone(),
+            "readinessStatus": manifest
+                .as_ref()
+                .map(|item| item.readiness_status.clone())
+                .unwrap_or_else(|| "unknown".to_string())
+        },
+        "imported": {
+            "workflowPath": imported_workflow_path.clone(),
+            "workflowChromeLocale": imported_workflow_chrome_locale.clone()
+        },
+        "evidence": {
+            "packageEvidenceReady": package_evidence_ready,
+            "workflowChromeLocalePreserved": workflow_chrome_locale_preserved
+        }
+    });
+    Ok(json!({
+        "schemaVersion": "workflow.package-import.output.v1",
+        "status": "ok",
+        "toolName": "workflow.package.import",
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "packagePath": package_path,
+        "projectRoot": project_root,
+        "importedWorkflowPath": imported_workflow_path,
+        "review": review.clone(),
+        "packageEvidenceReady": package_evidence_ready,
+        "workflowChromeLocalePreserved": workflow_chrome_locale_preserved,
+        "sourceWorkflowChromeLocale": source_workflow_chrome_locale,
+        "importedWorkflowChromeLocale": imported_workflow_chrome_locale,
+        "mutationExecuted": true,
+        "workflowPackageImport": {
+            "workflowPath": imported.workflow_path,
+            "importedPackage": imported_package
+        },
+        "workflowPackageImportReview": review,
+        "input": input
     }))
 }
 
@@ -3701,6 +3966,22 @@ pub(super) fn workflow_runtime_approval_binding(
                 })
             })
         }
+        ActionKind::WorkflowPackageImport => {
+            let law = workflow_node_law(node);
+            law.get("requireHumanGate")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+                .then(|| {
+                    json!({
+                        "bindingKind": "workflow_package",
+                        "operation": "import",
+                        "packagePath": workflow_logic_string(&logic, "workflowPackagePath"),
+                        "projectRoot": workflow_logic_string(&logic, "workflowPackageProjectRoot"),
+                        "sideEffectClass": "write",
+                        "capabilityScope": ["workflow.package.import", "workflow.package.review"]
+                    })
+                })
+        }
         ActionKind::Output => {
             let delivery_requires_approval = logic
                 .get("deliveryTarget")
@@ -3862,6 +4143,20 @@ pub(super) fn execute_workflow_node(
                 "input": input
             })
         }
+        ActionKind::WorkflowPackageExport => execute_workflow_package_export_node(
+            workflow_path,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        )?,
+        ActionKind::WorkflowPackageImport => execute_workflow_package_import_node(
+            workflow_path,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        )?,
         ActionKind::DryRun => {
             json!({
                 "nodeId": node_id,
@@ -4366,6 +4661,10 @@ pub(super) fn workflow_verification_evidence_from_node_runs(
             node_id: run.node_id.clone(),
             evidence_type: if run.node_type == "skill_context" {
                 "skill_context".to_string()
+            } else if run.node_type == "workflow_package_export" {
+                "workflow_package_export".to_string()
+            } else if run.node_type == "workflow_package_import" {
+                "workflow_package_import".to_string()
             } else {
                 "execution".to_string()
             },
