@@ -1497,11 +1497,11 @@ function createWorkflowPackageImportReview(options: {
   activationCandidate?: WorkflowHarnessForkActivationCandidate | null;
 }): WorkflowPackageImportReview {
   const portableManifest = options.bundle.importedPackage?.manifest ?? null;
-	  const harnessPackageManifest =
-	    portableManifest?.harnessPackageManifest ??
-	    options.bundle.workflow.metadata.harness?.packageManifest ??
-	    options.bundle.workflow.metadata.harness?.activationRecord?.packageManifest ??
-	    null;
+  const harnessPackageManifest =
+    portableManifest?.harnessPackageManifest ??
+    options.bundle.workflow.metadata.harness?.packageManifest ??
+    options.bundle.workflow.metadata.harness?.activationRecord?.packageManifest ??
+    null;
   const activationRecord =
     options.bundle.workflow.metadata.harness?.activationRecord ??
     portableManifest?.harness?.activationRecord ??
@@ -1558,6 +1558,14 @@ function createWorkflowPackageImportReview(options: {
     options.bundle.workflow.metadata.harness?.workerBindingRegistryRecord
       ?.reviewedPackageSnapshotHash ??
     null;
+  const importedWorkflowChromeLocale =
+    typeof options.bundle.workflow.global_config.workflowChromeLocale === "string"
+      ? options.bundle.workflow.global_config.workflowChromeLocale
+      : null;
+  const sourceWorkflowChromeLocale =
+    typeof portableManifest?.workflowChromeLocale === "string"
+      ? portableManifest.workflowChromeLocale
+      : importedWorkflowChromeLocale;
   const manifestPresent =
     harnessPackageManifest?.schemaVersion ===
     "workflow.harness.package-evidence-manifest.v1";
@@ -1599,6 +1607,7 @@ function createWorkflowPackageImportReview(options: {
         null,
       policyPosture: packagePolicyPosture,
       rollbackTarget: harnessPackageManifest?.rollbackTarget ?? null,
+      workflowChromeLocale: sourceWorkflowChromeLocale,
       forkMutationCanaryId: forkMutationCanary?.canaryId ?? null,
       forkMutationCanaryStatus: forkMutationCanary?.status ?? null,
       forkMutationCanaryDiffHash: forkMutationCanary?.diffHash ?? null,
@@ -1627,10 +1636,14 @@ function createWorkflowPackageImportReview(options: {
       testsPath: options.bundle.testsPath,
       projectRoot: options.projectRoot,
       activationReadinessStatus: options.readinessStatus,
+      workflowChromeLocale: importedWorkflowChromeLocale,
     },
     evidence: {
       harnessPackageManifestPresent: manifestPresent,
       packageEvidenceReady: missingRows.length === 0,
+      workflowChromeLocalePreserved:
+        !sourceWorkflowChromeLocale ||
+        sourceWorkflowChromeLocale === importedWorkflowChromeLocale,
       blockerCount: missingRows.length,
       evidenceRefCount,
       receiptRefCount,

@@ -3928,6 +3928,9 @@ export function WorkflowRailPanel({
                 portablePackage.manifest.harnessPackageManifest?.deepLinks
                   .length ?? 0
               }
+              data-workflow-chrome-locale={
+                portablePackage.manifest.workflowChromeLocale ?? ""
+              }
             >
               <strong>
                 {portablePackage.manifest.portable
@@ -3938,6 +3941,10 @@ export function WorkflowRailPanel({
                 {portablePackage.manifest.files.length} files, readiness{" "}
                 {portablePackage.manifest.readinessStatus}
               </span>
+              <small>
+                Chrome locale{" "}
+                {portablePackage.manifest.workflowChromeLocale ?? "default"}
+              </small>
             </article>
           ) : null}
         </section>
@@ -6967,9 +6974,13 @@ export function WorkflowRailPanel({
                               packageImportReview.source
                                 .forkMutationCanaryRollbackTarget ?? ""
                             }
-	                            data-package-import-source-reviewed-package-snapshot-hash={
-	                              packageImportReview.source.reviewedPackageSnapshotHash ??
-	                              ""
+                            data-package-import-source-reviewed-package-snapshot-hash={
+                              packageImportReview.source.reviewedPackageSnapshotHash ??
+                              ""
+                            }
+                            data-package-import-source-chrome-locale={
+                              packageImportReview.source.workflowChromeLocale ??
+                              ""
                             }
                             data-package-import-source-replay-fixture-count={
                               packageImportReview.source.replayFixtureRefs
@@ -6981,12 +6992,22 @@ export function WorkflowRailPanel({
                             data-package-import-imported-workflow-id={
                               packageImportReview.imported.workflowId
                             }
+                            data-package-import-imported-chrome-locale={
+                              packageImportReview.imported
+                                .workflowChromeLocale ?? ""
+                            }
                             data-package-import-readiness-status={
                               packageImportReview.imported
                                 .activationReadinessStatus ?? ""
                             }
                             data-package-import-evidence-ready={
                               packageImportReview.evidence.packageEvidenceReady
+                                ? "true"
+                                : "false"
+                            }
+                            data-package-import-chrome-locale-preserved={
+                              packageImportReview.evidence
+                                .workflowChromeLocalePreserved
                                 ? "true"
                                 : "false"
                             }
@@ -7036,6 +7057,11 @@ export function WorkflowRailPanel({
                                     .sourceWorkflowPath ??
                                     packageImportReview.packagePath}
                                 </small>
+                                <small>
+                                  Chrome locale{" "}
+                                  {packageImportReview.source
+                                    .workflowChromeLocale ?? "default"}
+                                </small>
                               </div>
                               <div>
                                 <strong>Imported</strong>
@@ -7044,6 +7070,11 @@ export function WorkflowRailPanel({
                                 </span>
                                 <small>
                                   {packageImportReview.imported.workflowPath}
+                                </small>
+                                <small>
+                                  Chrome locale{" "}
+                                  {packageImportReview.imported
+                                    .workflowChromeLocale ?? "default"}
                                 </small>
                               </div>
                             </div>

@@ -753,6 +753,8 @@ pub struct WorkflowPortablePackageManifest {
     pub workflow_slug: String,
     pub source_workflow_path: String,
     #[serde(default)]
+    pub workflow_chrome_locale: Option<String>,
+    #[serde(default)]
     pub harness: Option<Value>,
     #[serde(default)]
     pub harness_package_manifest: Option<Value>,

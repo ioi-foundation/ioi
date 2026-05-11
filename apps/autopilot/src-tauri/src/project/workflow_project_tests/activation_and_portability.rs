@@ -539,12 +539,15 @@ fn workflow_dogfood_suite_creates_and_runs_heavy_targets() {
 #[test]
 fn workflow_portable_package_exports_and_imports_bundle_sidecars() {
     let root = temp_root("portable-package");
-    let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
+    let mut bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
         project_root: root.display().to_string(),
         template_id: "heavy-media-transform".to_string(),
         name: Some("Portable Media Transform".to_string()),
     })
     .expect("workflow should instantiate");
+    bundle.workflow.global_config["workflowChromeLocale"] = json!("es-ES");
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow.clone())
+        .expect("workflow chrome locale should persist before export");
     let function_node_id = "function-svg-trace".to_string();
     materialize_workflow_function(bundle.workflow_path.clone(), function_node_id, None)
         .expect("function should materialize");
@@ -576,6 +579,10 @@ fn workflow_portable_package_exports_and_imports_bundle_sidecars() {
     assert_eq!(
         package.manifest.schema_version,
         "workflow.portable-package.v1"
+    );
+    assert_eq!(
+        package.manifest.workflow_chrome_locale.as_deref(),
+        Some("es-ES")
     );
     assert!(PathBuf::from(&package.manifest_path).exists());
     assert!(package
@@ -665,6 +672,18 @@ fn workflow_portable_package_exports_and_imports_bundle_sidecars() {
     assert_eq!(
         imported_package.imported_workflow_path.as_deref(),
         Some(imported.workflow_path.as_str())
+    );
+    assert_eq!(
+        imported_package.manifest.workflow_chrome_locale.as_deref(),
+        Some("es-ES")
+    );
+    assert_eq!(
+        imported
+            .workflow
+            .global_config
+            .get("workflowChromeLocale")
+            .and_then(Value::as_str),
+        Some("es-ES")
     );
     assert_eq!(
         imported_package.manifest.source_workflow_path,
