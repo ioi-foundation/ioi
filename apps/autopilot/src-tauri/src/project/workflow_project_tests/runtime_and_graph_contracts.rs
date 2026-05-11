@@ -370,6 +370,142 @@ fn workflow_shared_executor_lifecycle_covers_successful_node_families() {
 }
 
 #[test]
+fn workflow_package_export_and_import_nodes_execute_through_runtime() {
+    let root = temp_root("package-node-runtime");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Package Node Runtime".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let source = workflow_node(
+        "package-source",
+        "source",
+        "Package source",
+        80,
+        160,
+        "Input",
+        "manual",
+    );
+    let package_export = workflow_node(
+        "package-export",
+        "workflow_package_export",
+        "Export package",
+        300,
+        160,
+        "Package",
+        "export",
+    );
+    let mut package_import = workflow_node(
+        "package-import",
+        "workflow_package_import",
+        "Import package",
+        540,
+        160,
+        "Package",
+        "import",
+    );
+    logic_mut(&mut package_import).insert(
+        "workflowPackageImportName".to_string(),
+        json!("Package Node Runtime Imported"),
+    );
+    let output = workflow_node(
+        "package-output",
+        "output",
+        "Package output",
+        780,
+        160,
+        "Output",
+        "summary",
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.global_config["workflowChromeLocale"] = json!("es-ES");
+    workflow.nodes = vec![source, package_export, package_import, output];
+    workflow.edges = vec![
+        workflow_edge("edge-package-source-export", "package-source", "package-export"),
+        workflow_edge_ports(
+            "edge-package-export-import",
+            "package-export",
+            "package-import",
+            "package",
+            "package",
+        ),
+        workflow_edge(
+            "edge-package-import-output",
+            "package-import",
+            "package-output",
+        ),
+    ];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
+    assert_eq!(run.summary.status, "passed");
+    let export_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "package-export")
+        .expect("package export should run");
+    assert_eq!(export_run.status, "success");
+    let export_output = export_run.output.as_ref().expect("export output");
+    assert_eq!(
+        export_output.get("toolName").and_then(Value::as_str),
+        Some("workflow.package.export")
+    );
+    assert_eq!(
+        export_output
+            .get("workflowChromeLocale")
+            .and_then(Value::as_str),
+        Some("es-ES")
+    );
+    assert!(export_output
+        .get("packagePath")
+        .and_then(Value::as_str)
+        .map(|path| path.ends_with(".portable"))
+        .unwrap_or(false));
+
+    let import_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "package-import")
+        .expect("package import should run");
+    assert_eq!(import_run.status, "success");
+    let import_output = import_run.output.as_ref().expect("import output");
+    assert_eq!(
+        import_output.get("toolName").and_then(Value::as_str),
+        Some("workflow.package.import")
+    );
+    assert_eq!(
+        import_output
+            .get("workflowChromeLocalePreserved")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(import_output
+        .get("importedWorkflowPath")
+        .and_then(Value::as_str)
+        .map(|path| path.ends_with("package-node-runtime-imported.workflow.json"))
+        .unwrap_or(false));
+    assert!(run.verification_evidence.iter().any(|evidence| {
+        evidence.node_id == "package-export"
+            && evidence.evidence_type == "workflow_package_export"
+            && evidence.status == "passed"
+    }));
+    assert!(run.verification_evidence.iter().any(|evidence| {
+        evidence.node_id == "package-import"
+            && evidence.evidence_type == "workflow_package_import"
+            && evidence.status == "passed"
+    }));
+}
+
+#[test]
 fn workflow_skill_context_discovery_attaches_model_context() {
     let root = temp_root("skill-context-discovery");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

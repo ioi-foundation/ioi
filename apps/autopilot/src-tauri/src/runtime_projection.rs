@@ -22,6 +22,8 @@ pub enum ActionKind {
     Probe,
     BudgetGate,
     CapabilitySequence,
+    WorkflowPackageExport,
+    WorkflowPackageImport,
     Function,
     ModelBinding,
     ModelCall,
@@ -59,6 +61,8 @@ impl ActionKind {
             "probe" => Self::Probe,
             "budget_gate" => Self::BudgetGate,
             "capability_sequence" => Self::CapabilitySequence,
+            "workflow_package_export" => Self::WorkflowPackageExport,
+            "workflow_package_import" => Self::WorkflowPackageImport,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -96,6 +100,8 @@ impl ActionKind {
             Self::Probe => "probe",
             Self::BudgetGate => "budget_gate",
             Self::CapabilitySequence => "capability_sequence",
+            Self::WorkflowPackageExport => "workflow_package_export",
+            Self::WorkflowPackageImport => "workflow_package_import",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -133,6 +139,8 @@ impl ActionKind {
             Self::Probe => "probe",
             Self::BudgetGate => "budget",
             Self::CapabilitySequence => "capability_sequence",
+            Self::WorkflowPackageExport => "workflow_package_export",
+            Self::WorkflowPackageImport => "workflow_package_import",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -187,6 +195,8 @@ impl ActionKind {
                 | Self::Proposal
                 | Self::Probe
                 | Self::DryRun
+                | Self::WorkflowPackageExport
+                | Self::WorkflowPackageImport
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -248,6 +258,7 @@ pub enum WorkflowConnectionClass {
     Retry,
     Delivery,
     Subgraph,
+    OutputBundle,
 }
 
 impl WorkflowConnectionClass {
@@ -265,6 +276,7 @@ impl WorkflowConnectionClass {
             "retry" => Some(Self::Retry),
             "delivery" => Some(Self::Delivery),
             "subgraph" => Some(Self::Subgraph),
+            "output_bundle" => Some(Self::OutputBundle),
             _ => None,
         }
     }
@@ -283,6 +295,7 @@ impl WorkflowConnectionClass {
             Self::Retry => "retry",
             Self::Delivery => "delivery",
             Self::Subgraph => "subgraph",
+            Self::OutputBundle => "output_bundle",
         }
     }
 }
@@ -389,6 +402,14 @@ mod tests {
         assert_eq!(ActionKind::from_node_type("trigger"), ActionKind::Trigger);
         assert_eq!(ActionKind::from_node_type("state"), ActionKind::State);
         assert_eq!(ActionKind::from_node_type("subgraph"), ActionKind::Subgraph);
+        assert_eq!(
+            ActionKind::from_node_type("workflow_package_export"),
+            ActionKind::WorkflowPackageExport
+        );
+        assert_eq!(
+            ActionKind::from_node_type("workflow_package_import"),
+            ActionKind::WorkflowPackageImport
+        );
         assert_eq!(ActionKind::from_node_type("proposal"), ActionKind::Proposal);
         assert_eq!(ActionKind::from_node_type("model"), ActionKind::Unknown);
     }
