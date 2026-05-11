@@ -2318,6 +2318,63 @@ Validation evidence:
   - `runtime-artifacts.json` keeps the 21-kind live shadow component set with
     `github_pr_create` and `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-11, authority/tooling lane refactor:
+
+- MCP provider catalog, MCP tool catalog, native tool catalog, connector catalog
+  describe, wallet capability dry-run, authority policy gate, authority
+  approval gate, and destructive-denial execution now live in
+  `apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs`.
+- `runtime.rs` keeps the graph dispatch branches for AdapterConnector,
+  PluginTool, Decision, and HumanGate, but imports the lane-owned helpers for
+  live read-only catalog projection, approval denial, wallet no-grant receipts,
+  and mutation-safe destructive denial.
+- The side-effect live-runtime classifier moved with the authority/tooling lane
+  and is imported by validation so graph readiness checks and runtime execution
+  use one policy source.
+- `workflow_hash_value` moved into `workflow_value_helpers.rs`, preserving the
+  canonical JCS hash behavior used by runtime attempt hashes and authority
+  catalog linkage hashes.
+- The daemon and live GUI source-contract proofs now assert that
+  `workflow_authority_tooling_lane.rs` owns all authority/tooling live helpers
+  while React Flow remains able to configure and inspect the same authority,
+  catalog, connector, and wallet-capability nodes.
+
+Validation evidence:
+
+- `cargo test live_mcp_provider_catalog_executes_read_only_without_mutation --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_mcp_tool_catalog_consumes_provider_catalog_without_tool_execution --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_native_tool_catalog_consumes_mcp_tool_catalog_without_tool_execution --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_connector_catalog_describe_consumes_mcp_tool_catalog_without_connector_execution --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_wallet_capability_dry_run_never_materializes_grant --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_destructive_denial_blocks_without_side_effect --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_approval_gate_denies_without_authority_transfer --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/validation.rs apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T19-23-09-790Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has
+    `checks.workflowAuthorityToolingRuntimeLane === true`,
+    `checks.workflowMemoryRuntimeLane === true`,
+    `checks.workflowPackageRunOutputSurfaces === true`, and
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow component set with
+    `approval_gate`, `policy_gate`, `connector_call`, `mcp_provider`,
+    `mcp_tool_call`, `tool_call`, `wallet_capability`, and `github_pr_create`;
+  - `runtime-artifacts.json` reports
+    `harnessAuthorityToolingProviderCatalogLiveCount === 5`,
+    `harnessAuthorityToolingMcpToolCatalogLiveCount === 5`,
+    `harnessAuthorityToolingNativeToolCatalogLiveCount === 5`,
+    `harnessAuthorityToolingConnectorCatalogLiveCount === 5`,
+    `harnessAuthorityToolingWalletCapabilityLiveDryRunCount === 5`, and
+    `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

@@ -1489,7 +1489,7 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /reactflow_workflow_node/);
 });
 
-test("React Flow memory, doctor, skill, hook, and package node contracts remain workflow-addressable", () => {
+test("React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable", () => {
   const workflowContracts = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
@@ -1582,6 +1582,13 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
     path.join(root, "apps/autopilot/src-tauri/src/project/runtime.rs"),
     "utf8",
   );
+  const tauriProjectWorkflowAuthorityToolingLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowMemoryLane = fs.readFileSync(
     path.join(
       root,
@@ -1651,6 +1658,39 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
   assert.match(tauriProjectWorkflowMemoryLane, /memory_search/);
   assert.match(tauriProjectWorkflowMemoryLane, /memory_list/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_redacted_memory_record/);
+  assert.match(tauriProjectRuntime, /workflow_authority_tooling_lane/);
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_mcp_provider_catalog/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_mcp_tool_catalog/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_native_tool_catalog/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_connector_catalog_describe/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_wallet_capability_dry_run/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_authority_policy_gate/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_authority_approval_gate/,
+  );
+  assert.match(
+    tauriProjectWorkflowAuthorityToolingLane,
+    /workflow_live_authority_destructive_denial/,
+  );
   assert.match(workflowContracts, /runtime\.task/);
   assert.match(workflowContracts, /runtime\.job/);
   assert.match(workflowContracts, /runtime\.checklist/);

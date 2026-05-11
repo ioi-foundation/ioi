@@ -4241,6 +4241,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+  const projectWorkflowAuthorityToolingLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
   const projectWorkflowMemoryLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowPackageLanePath =
@@ -4268,6 +4270,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectRuntime = readFileSync(
     resolve(repoRoot, projectRuntimePath),
+    "utf8",
+  );
+  const projectWorkflowAuthorityToolingLane = readFileSync(
+    resolve(repoRoot, projectWorkflowAuthorityToolingLanePath),
     "utf8",
   );
   const projectWorkflowMemoryLane = readFileSync(
@@ -4577,6 +4583,32 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /memory_search/.test(projectWorkflowMemoryLane) &&
       /memory_list/.test(projectWorkflowMemoryLane) &&
       /workflow_redacted_memory_record/.test(projectWorkflowMemoryLane),
+    workflowAuthorityToolingRuntimeLane:
+      /workflow_authority_tooling_lane/.test(projectRuntime) &&
+      /workflow_live_mcp_provider_catalog/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_mcp_tool_catalog/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_native_tool_catalog/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_connector_catalog_describe/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_wallet_capability_dry_run/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_authority_policy_gate/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_authority_approval_gate/.test(
+        projectWorkflowAuthorityToolingLane,
+      ) &&
+      /workflow_live_authority_destructive_denial/.test(
+        projectWorkflowAuthorityToolingLane,
+      ),
     workflowPackageRunOutputSurfaces:
       /export interface WorkflowPackageNodeOutputSummary/.test(railModel) &&
       /workflowPackageNodeOutputSummary/.test(railModel) &&

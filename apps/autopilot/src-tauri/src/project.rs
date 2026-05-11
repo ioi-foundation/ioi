@@ -23,6 +23,7 @@ mod sidecars;
 mod templates;
 pub mod types;
 mod validation;
+mod workflow_authority_tooling_lane;
 mod workflow_memory_lane;
 mod workflow_package_lane;
 mod workflow_value_helpers;

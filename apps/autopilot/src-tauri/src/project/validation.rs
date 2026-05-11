@@ -1,5 +1,6 @@
 // apps/autopilot/src-tauri/src/project/validation.rs
 
+use super::workflow_authority_tooling_lane::workflow_side_effect_requires_live_runtime;
 use super::*;
 
 pub(super) fn validate_workflow_project_bundle(
