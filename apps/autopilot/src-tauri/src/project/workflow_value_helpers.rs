@@ -68,6 +68,10 @@ pub(super) fn workflow_sha256_hex(value: &str) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
+pub(super) fn workflow_hash_value(value: &Value) -> String {
+    format!("sha256:{}", workflow_hash_value_raw_hex(value))
+}
+
 pub(super) fn workflow_value_at_path(value: &Value, path: &str) -> Option<Value> {
     let mut current = value;
     for segment in path.split('.').filter(|segment| !segment.trim().is_empty()) {
