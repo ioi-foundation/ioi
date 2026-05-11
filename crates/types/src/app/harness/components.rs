@@ -20,6 +20,7 @@ pub enum HarnessComponentKind {
     McpProvider,
     McpToolCall,
     ConnectorCall,
+    GithubPrCreate,
     PolicyGate,
     ApprovalGate,
     WalletCapability,
@@ -58,6 +59,7 @@ impl HarnessComponentKind {
             Self::McpProvider => "mcp_provider",
             Self::McpToolCall => "mcp_tool_call",
             Self::ConnectorCall => "connector_call",
+            Self::GithubPrCreate => "github_pr_create",
             Self::PolicyGate => "policy_gate",
             Self::ApprovalGate => "approval_gate",
             Self::WalletCapability => "wallet_capability",
@@ -112,6 +114,9 @@ impl HarnessComponentKind {
             Self::McpProvider => "crates/services/src/agentic/runtime/tools/mcp.rs",
             Self::McpToolCall => "crates/services/src/agentic/runtime/tools/mcp.rs",
             Self::ConnectorCall => "crates/services/src/agentic/runtime/connectors",
+            Self::GithubPrCreate => {
+                "packages/runtime-daemon/src/index.mjs::buildGithubPrCreatePlan"
+            }
             Self::PolicyGate => "crates/services/src/agentic/runtime/service/handler/execution/execution/firewall_policy.rs",
             Self::ApprovalGate => "crates/services/src/agentic/runtime/service/handler/approvals.rs",
             Self::WalletCapability => "crates/services/src/agentic/runtime/kernel/capability.rs",
@@ -155,6 +160,7 @@ impl HarnessComponentKind {
             Self::McpProvider => "MCP provider",
             Self::McpToolCall => "MCP tool invocation",
             Self::ConnectorCall => "Connector call",
+            Self::GithubPrCreate => "GitHub PR create",
             Self::PolicyGate => "Policy and firewall gate",
             Self::ApprovalGate => "Approval gate",
             Self::WalletCapability => "Wallet capability request",
@@ -331,6 +337,7 @@ pub(super) const DEFAULT_HARNESS_FLOW: &[HarnessComponentKind] = &[
     HarnessComponentKind::McpToolCall,
     HarnessComponentKind::ToolCall,
     HarnessComponentKind::ConnectorCall,
+    HarnessComponentKind::GithubPrCreate,
     HarnessComponentKind::MemoryRead,
     HarnessComponentKind::MemoryWrite,
     HarnessComponentKind::SemanticImpactAnalyzer,
@@ -380,6 +387,7 @@ const AUTHORITY_TOOLING_CLUSTER_COMPONENTS: &[HarnessComponentKind] = &[
     HarnessComponentKind::McpToolCall,
     HarnessComponentKind::ToolCall,
     HarnessComponentKind::ConnectorCall,
+    HarnessComponentKind::GithubPrCreate,
     HarnessComponentKind::WalletCapability,
 ];
 
@@ -403,6 +411,7 @@ const LIVE_SHADOW_COMPARISON_GATE_COMPONENTS: &[HarnessComponentKind] = &[
     HarnessComponentKind::McpToolCall,
     HarnessComponentKind::ToolCall,
     HarnessComponentKind::ConnectorCall,
+    HarnessComponentKind::GithubPrCreate,
     HarnessComponentKind::WalletCapability,
 ];
 
@@ -460,6 +469,7 @@ fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::McpProvider => strings(&["mcp.provider.read", "mcp.catalog.read"]),
         HarnessComponentKind::McpToolCall => strings(&["mcp.tool.invoke"]),
         HarnessComponentKind::ConnectorCall => strings(&["connector.invoke"]),
+        HarnessComponentKind::GithubPrCreate => strings(&["github.pr.create", "github.pr.dry_run"]),
         HarnessComponentKind::PolicyGate => strings(&["policy.evaluate", "capability.lease"]),
         HarnessComponentKind::ApprovalGate => strings(&["approval.request"]),
         HarnessComponentKind::WalletCapability => strings(&["wallet.request", "capability.grant"]),
@@ -516,6 +526,9 @@ fn component_events(kind: HarnessComponentKind) -> Vec<String> {
             strings(&["AgentActionResult", "ExecutionContractReceipt"])
         }
         HarnessComponentKind::ConnectorCall => strings(&["ConnectorInvocation", "WorkloadReceipt"]),
+        HarnessComponentKind::GithubPrCreate => {
+            strings(&["GithubPrCreatePlan", "ExecutionContractReceipt"])
+        }
         HarnessComponentKind::PolicyGate => strings(&["FirewallInterception", "RoutingReceipt"]),
         HarnessComponentKind::ApprovalGate => strings(&["ApprovalRequested", "ApprovalSatisfied"]),
         HarnessComponentKind::WalletCapability => {
@@ -616,6 +629,9 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::ConnectorCall => {
             strings(&["connector_id", "operation", "request_hash", "result_hash"])
         }
+        HarnessComponentKind::GithubPrCreate => {
+            strings(&["plan_id", "request_hash", "authority_scope", "dry_run"])
+        }
         HarnessComponentKind::PolicyGate => {
             strings(&["policy_hash", "decision", "lease_id", "determinism_commit"])
         }
@@ -697,6 +713,7 @@ fn component_readiness(kind: HarnessComponentKind) -> HarnessComponentReadiness 
         | HarnessComponentKind::McpProvider
         | HarnessComponentKind::McpToolCall
         | HarnessComponentKind::ConnectorCall
+        | HarnessComponentKind::GithubPrCreate
         | HarnessComponentKind::PolicyGate
         | HarnessComponentKind::ApprovalGate
         | HarnessComponentKind::WalletCapability
@@ -718,6 +735,7 @@ fn replay_captures_policy_decision(kind: HarnessComponentKind) -> bool {
             | HarnessComponentKind::DryRunSimulator
             | HarnessComponentKind::PolicyGate
             | HarnessComponentKind::ApprovalGate
+            | HarnessComponentKind::GithubPrCreate
             | HarnessComponentKind::WalletCapability
             | HarnessComponentKind::RetryPolicy
             | HarnessComponentKind::CompletionGate
@@ -732,6 +750,7 @@ fn replay_is_intrinsically_nondeterministic(kind: HarnessComponentKind) -> bool 
             | HarnessComponentKind::ToolCall
             | HarnessComponentKind::McpToolCall
             | HarnessComponentKind::ConnectorCall
+            | HarnessComponentKind::GithubPrCreate
             | HarnessComponentKind::WalletCapability
     )
 }
@@ -764,6 +783,7 @@ fn approval_for(kind: HarnessComponentKind) -> HarnessApprovalSemantics {
             | HarnessComponentKind::DryRunSimulator
             | HarnessComponentKind::McpToolCall
             | HarnessComponentKind::ConnectorCall
+            | HarnessComponentKind::GithubPrCreate
             | HarnessComponentKind::ApprovalGate
             | HarnessComponentKind::WalletCapability
             | HarnessComponentKind::MemoryWrite
@@ -795,7 +815,8 @@ pub fn default_harness_component_spec(kind: HarnessComponentKind) -> HarnessComp
         | HarnessComponentKind::ToolCall
         | HarnessComponentKind::DryRunSimulator
         | HarnessComponentKind::McpToolCall
-        | HarnessComponentKind::ConnectorCall => 2,
+        | HarnessComponentKind::ConnectorCall
+        | HarnessComponentKind::GithubPrCreate => 2,
         _ => 1,
     };
     let timeout_ms = match kind {
@@ -804,7 +825,8 @@ pub fn default_harness_component_spec(kind: HarnessComponentKind) -> HarnessComp
         HarnessComponentKind::ToolCall
         | HarnessComponentKind::DryRunSimulator
         | HarnessComponentKind::McpToolCall
-        | HarnessComponentKind::ConnectorCall => 60_000,
+        | HarnessComponentKind::ConnectorCall
+        | HarnessComponentKind::GithubPrCreate => 60_000,
         _ => 30_000,
     };
     HarnessComponentSpec {
@@ -881,7 +903,8 @@ fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> 
         | HarnessComponentKind::ToolCall
         | HarnessComponentKind::McpProvider
         | HarnessComponentKind::McpToolCall
-        | HarnessComponentKind::ConnectorCall => vec![HarnessSlotKind::ToolGrantPolicy],
+        | HarnessComponentKind::ConnectorCall
+        | HarnessComponentKind::GithubPrCreate => vec![HarnessSlotKind::ToolGrantPolicy],
         HarnessComponentKind::BudgetGate => vec![HarnessSlotKind::BudgetPolicy],
         HarnessComponentKind::DryRunSimulator => vec![HarnessSlotKind::DryRunPolicy],
         HarnessComponentKind::PolicyGate
@@ -962,6 +985,7 @@ pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
                 HarnessComponentKind::McpProvider,
                 HarnessComponentKind::McpToolCall,
                 HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::GithubPrCreate,
             ],
             default_component_id: HarnessComponentKind::ToolRouter.component_id(),
             blocks_activation: true,
