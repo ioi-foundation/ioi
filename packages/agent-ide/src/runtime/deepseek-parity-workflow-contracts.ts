@@ -134,6 +134,7 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "repository.issue",
   "repository.pr_attempt",
   "repository.review_gate",
+  "repository.github_pr_create",
 ] as const;
 
 export type DeepSeekParityRequiredNodeType =

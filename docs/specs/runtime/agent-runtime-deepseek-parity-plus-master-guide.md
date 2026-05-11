@@ -1604,6 +1604,38 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-25-31-750Z/result.json`
 
+Implementation slice completed 2026-05-11, GitHub PR create dry-run plan:
+
+- Added a dry-run-only `ioi.agent-runtime.github-pr-create-plan.v1` projection
+  that consumes repository context, branch policy, GitHub context, issue
+  context, PR attempt, and review gate before any GitHub PR creation tool can
+  claim readiness.
+- The plan records target owner/repo, base/head branches, title, body plan,
+  issue link, review status, request payload hash, authority scope requirements,
+  blockers, warnings, and redaction posture.
+- PR creation remains explicitly non-mutating:
+  `dryRun: true`, `mutationAttempted: false`, `mutationExecuted: false`, and
+  `networkLookupPerformed: false`.
+- Request evidence is safe by construction: the projection stores a payload
+  hash and non-secret preview metadata, while keeping request body, token value,
+  authorization header, response body, and network response out of the trace.
+- Each run now emits `GitHubPrCreatePlan` on `runtime.github-pr-create`, with a
+  `github_pr_create_plan` receipt and `github-pr-create-plan.json` artifact.
+- React Flow now has a `github_pr_create` / `GitHubPrCreateNode` contract that
+  consumes the PR workflow lane and exposes status, blockers, request hash,
+  authority, and receipt fields.
+- The default harness routes `github_pr_create` immediately after
+  `review_gate`, giving workflow authors a configurable mutation boundary that
+  is still dry-run/projection-only until authority and review are satisfied.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-38-30-155Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:

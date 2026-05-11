@@ -6526,6 +6526,7 @@ const DEFAULT_AUTHORITY_TOOLING_NODE_AUTHORITY_COMPONENT_KINDS: WorkflowHarnessC
     "mcp_tool_call",
     "tool_call",
     "connector_call",
+    "github_pr_create",
     "wallet_capability",
   ];
 
@@ -7773,6 +7774,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       "mcp_tool_call",
       "tool_call",
       "connector_call",
+      "github_pr_create",
       "wallet_capability",
     ];
   const authorityToolingMutationDeferredComponentKinds: WorkflowHarnessComponentKind[] =
@@ -7781,6 +7783,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       "mcp_tool_call",
       "tool_call",
       "connector_call",
+      "github_pr_create",
       "wallet_capability",
     ];
   const proposedVisibleOutputHash = "sha256:visible-output";
@@ -10221,6 +10224,7 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "issue_context",
   "pr_attempt",
   "review_gate",
+  "github_pr_create",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -10284,6 +10288,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "mcp_tool_call",
     "tool_call",
     "connector_call",
+    "github_pr_create",
     "wallet_capability",
   ],
 };
@@ -10309,6 +10314,7 @@ const HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS: WorkflowHarnessComponentKi
     "mcp_tool_call",
     "tool_call",
     "connector_call",
+    "github_pr_create",
     "wallet_capability",
   ];
 
@@ -10582,6 +10588,29 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Governance",
       icon: "badge-check",
+    }),
+    makeComponent({
+      kind: "github_pr_create",
+      label: "GitHub PR create",
+      description:
+        "Builds the dry-run GitHub PR create request plan, request hash, authority boundary, and blockers without network lookup or mutation.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::githubPrCreatePlanForReviewGate",
+      capabilityScope: [
+        "github.pr.create",
+        "github.pr.preview",
+        "review.gate.evaluate",
+        "repository.diff.read",
+      ],
+      approvalRequired: true,
+      eventKinds: ["GitHubPrCreatePlan"],
+      evidence: [
+        "github_pr_create_plan",
+        "github.pr_create.request_hash",
+        "github.pr_create.authority_scope",
+        "github.pr_create.dry_run",
+      ],
+      group: "Connectors",
+      icon: "git-pull-request-create",
     }),
     makeComponent({
       kind: "skill_registry",
@@ -11128,6 +11157,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "mcp_provider",
       "mcp_tool_call",
       "connector_call",
+      "github_pr_create",
     ],
     defaultComponentId: componentId("tool_router"),
     validation: {
@@ -11151,6 +11181,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "issue_context",
       "pr_attempt",
       "review_gate",
+      "github_pr_create",
       "skill_registry",
       "hook_registry",
       "drift_detector",
@@ -11195,6 +11226,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "connector_call",
       "pr_attempt",
       "review_gate",
+      "github_pr_create",
     ],
     defaultComponentId: componentId("dry_run_simulator"),
     validation: {
@@ -11217,6 +11249,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "gui_harness_validator",
       "pr_attempt",
       "review_gate",
+      "github_pr_create",
     ],
     defaultComponentId: componentId("verifier"),
     validation: {
@@ -11237,6 +11270,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "wallet_capability",
       "pr_attempt",
       "review_gate",
+      "github_pr_create",
     ],
     defaultComponentId: componentId("approval_gate"),
     validation: {
@@ -11329,6 +11363,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "issue_context",
   "pr_attempt",
   "review_gate",
+  "github_pr_create",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -11380,6 +11415,7 @@ const SLOT_BY_KIND: Partial<
   issue_context: ["state_policy", "verifier_policy"],
   pr_attempt: ["state_policy", "verifier_policy", "approval_policy", "dry_run_policy"],
   review_gate: ["state_policy", "verifier_policy", "approval_policy", "dry_run_policy"],
+  github_pr_create: ["state_policy", "verifier_policy", "approval_policy", "dry_run_policy", "tool_grant_policy"],
   skill_registry: ["state_policy"],
   hook_registry: ["state_policy", "verifier_policy"],
   hook_policy: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11526,6 +11562,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "pr_attempt";
     case "review_gate":
       return "review_gate";
+    case "github_pr_create":
+      return "github_pr_create";
     case "skill_registry":
       return "skill";
     case "hook_registry":
@@ -12054,6 +12092,131 @@ function nodeLogicFor(
             networkResponseIncluded: false,
           },
           evidenceRefs: ["review_gate", "repository_context", "branch_policy", "github_context", "pr_attempt"],
+        },
+      };
+    case "github_pr_create":
+      return {
+        ...base,
+        githubPrCreatePlanEndpoint: "/v1/github/pr-create-plan",
+        githubPrCreatePlanField: "githubPrCreatePlan",
+        githubPrCreatePlanStatusField: "githubPrCreatePlan.status",
+        githubPrCreatePlanBlockersField: "githubPrCreatePlan.blockers",
+        githubPrCreatePlanRequestHashField: "githubPrCreatePlan.request.payloadHash",
+        githubPrCreatePlanAuthorityField: "githubPrCreatePlan.authority",
+        githubPrCreatePlanReceiptField: "githubPrCreatePlan.receiptId",
+        repositoryContextField: "repositoryContext",
+        branchPolicyField: "branchPolicy",
+        githubContextField: "githubContext",
+        issueContextField: "issueContext",
+        prAttemptField: "prAttempt",
+        reviewGateField: "reviewGate",
+        dryRun: true,
+        mutationExecuted: false,
+        activationGate: {
+          consumesRepositoryContext: true,
+          consumesBranchPolicy: true,
+          consumesGithubContext: true,
+          consumesIssueContext: true,
+          consumesPrAttempt: true,
+          consumesReviewGate: true,
+          consumesGithubPrCreatePlan: true,
+          githubPrCreatePlanField: "githubPrCreatePlan",
+          githubPrCreatePlanStatusField: "githubPrCreatePlan.status",
+          githubPrCreatePlanBlockersField: "githubPrCreatePlan.blockers",
+        },
+        nodeTypeLabel: "GitHubPrCreateNode",
+        githubPrCreatePlan: {
+          schemaVersion: "ioi.agent-runtime.github-pr-create-plan.v1",
+          object: "ioi.github_pr_create_plan",
+          planId: "github_pr_create_plan_default_harness_empty",
+          runId: null,
+          repositoryContextId: "repoctx_default_harness_empty",
+          branchPolicyId: "branch_policy_default_harness_empty",
+          githubContextId: "github_context_default_harness_empty",
+          issueContextId: "issue_context_default_harness_empty",
+          prAttemptId: "pr_attempt_default_harness_empty",
+          reviewGateId: "review_gate_default_harness_empty",
+          status: "blocked",
+          decision: "blocked",
+          summary:
+            "Default harness GitHub PR create plan is blocked and dry-run only until review and authority are satisfied.",
+          dryRun: true,
+          previewOnly: true,
+          provider: "github",
+          toolName: "github__pr_create",
+          action: "pr_create",
+          repoFullName: null,
+          owner: null,
+          repo: null,
+          baseBranch: null,
+          headBranch: null,
+          title: "Draft PR for working branch",
+          bodyPlan: {
+            included: false,
+            source: "runtime_template",
+            redaction: "body_not_included_in_projection",
+          },
+          issueNumber: null,
+          reviewGateStatus: "blocked",
+          reviewSatisfied: false,
+          authority: {
+            requiredScopes: ["github.pr.create"],
+            grantedScopes: [],
+            missingScopes: ["github.pr.create"],
+            scopeGranted: false,
+            approvalRequired: true,
+            approvalSatisfied: false,
+          },
+          request: {
+            method: "POST",
+            path: null,
+            payloadHash: null,
+            payloadPreview: {
+              owner: null,
+              repo: null,
+              base: null,
+              head: null,
+              title: "Draft PR for working branch",
+              bodyIncluded: false,
+              draft: true,
+              maintainerCanModify: true,
+              issueNumber: null,
+            },
+            bodyIncluded: false,
+            tokenIncluded: false,
+          },
+          blockers: [
+            "review_gate_not_passed",
+            "review_not_satisfied",
+            "missing_authority_scope:github.pr.create",
+            "dry_run_only",
+          ],
+          warnings: ["github_pr_create_plan_dry_run"],
+          networkLookupPerformed: false,
+          mutationAttempted: false,
+          mutationExecuted: false,
+          prNumber: null,
+          prUrl: null,
+          redaction: {
+            profile: "github_pr_create_plan_safe",
+            tokenValueIncluded: false,
+            authorizationHeaderIncluded: false,
+            requestBodyIncluded: false,
+            responseBodyIncluded: false,
+            networkResponseIncluded: false,
+          },
+          evidenceRefs: [
+            "github_pr_create_plan",
+            "github.pr_create.request_hash",
+            "github.pr_create.authority_scope",
+            "github.pr_create.dry_run",
+            "repository_context",
+            "branch_policy",
+            "github_context",
+            "issue_context",
+            "pr_attempt",
+            "review_gate",
+          ],
         },
       };
     case "model_call":

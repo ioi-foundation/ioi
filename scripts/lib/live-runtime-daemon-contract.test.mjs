@@ -346,6 +346,48 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(reviewGate.mutationExecuted, false);
     assert.equal(reviewGate.networkLookupPerformed, false);
 
+    const githubPrCreatePlan = await fetchJson(`${daemon.endpoint}/v1/github/pr-create-plan`);
+    assert.equal(githubPrCreatePlan.schemaVersion, "ioi.agent-runtime.github-pr-create-plan.v1");
+    assert.equal(githubPrCreatePlan.object, "ioi.github_pr_create_plan");
+    assert.equal(githubPrCreatePlan.repositoryContextId, repositoryContext.contextId);
+    assert.equal(githubPrCreatePlan.branchPolicyId, branchPolicy.policyId);
+    assert.equal(githubPrCreatePlan.githubContextId, githubContext.contextId);
+    assert.equal(githubPrCreatePlan.issueContextId, issueContext.contextId);
+    assert.equal(githubPrCreatePlan.prAttemptId, prAttempt.attemptId);
+    assert.equal(githubPrCreatePlan.reviewGateId, reviewGate.gateId);
+    assert.equal(githubPrCreatePlan.status, "blocked");
+    assert.equal(githubPrCreatePlan.decision, "blocked");
+    assert.equal(githubPrCreatePlan.dryRun, true);
+    assert.equal(githubPrCreatePlan.previewOnly, true);
+    assert.equal(githubPrCreatePlan.toolName, "github__pr_create");
+    assert.equal(githubPrCreatePlan.action, "pr_create");
+    assert.equal(githubPrCreatePlan.repoFullName, "ioi-test/ioi");
+    assert.equal(githubPrCreatePlan.baseBranch, branch);
+    assert.equal(githubPrCreatePlan.headBranch, branch);
+    assert.equal(githubPrCreatePlan.issueNumber, null);
+    assert.equal(githubPrCreatePlan.reviewGateStatus, "blocked");
+    assert.equal(githubPrCreatePlan.reviewSatisfied, false);
+    assert.equal(githubPrCreatePlan.bodyPlan.included, false);
+    assert.equal(githubPrCreatePlan.request.method, "POST");
+    assert.equal(githubPrCreatePlan.request.path, "/repos/ioi-test/ioi/pulls");
+    assert.match(githubPrCreatePlan.request.payloadHash, /^[a-f0-9]{64}$/);
+    assert.equal(githubPrCreatePlan.request.bodyIncluded, false);
+    assert.equal(githubPrCreatePlan.request.tokenIncluded, false);
+    assert.deepEqual(githubPrCreatePlan.authority.requiredScopes, ["github.pr.create"]);
+    assert.deepEqual(githubPrCreatePlan.authority.missingScopes, ["github.pr.create"]);
+    assert.equal(githubPrCreatePlan.authority.scopeGranted, false);
+    assert.ok(githubPrCreatePlan.blockers.includes("review_gate_not_passed"));
+    assert.ok(githubPrCreatePlan.blockers.includes("review_not_satisfied"));
+    assert.ok(githubPrCreatePlan.blockers.includes("missing_authority_scope:github.pr.create"));
+    assert.ok(githubPrCreatePlan.blockers.includes("dry_run_only"));
+    assert.equal(githubPrCreatePlan.networkLookupPerformed, false);
+    assert.equal(githubPrCreatePlan.mutationAttempted, false);
+    assert.equal(githubPrCreatePlan.mutationExecuted, false);
+    assert.equal(githubPrCreatePlan.redaction.tokenValueIncluded, false);
+    assert.equal(githubPrCreatePlan.redaction.authorizationHeaderIncluded, false);
+    assert.equal(githubPrCreatePlan.redaction.requestBodyIncluded, false);
+    assert.equal(githubPrCreatePlan.redaction.networkResponseIncluded, false);
+
     const { Agent, createRuntimeSubstrateClient } = await importSdk();
     const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const agent = await Agent.create({ local: { cwd }, substrateClient: client });
@@ -389,18 +431,32 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(trace.reviewGate.reviewRequired, true);
     assert.equal(trace.reviewGate.reviewSatisfied, false);
     assert.ok(trace.reviewGate.blockers.includes("review_not_satisfied"));
+    assert.equal(trace.githubPrCreatePlan.schemaVersion, "ioi.agent-runtime.github-pr-create-plan.v1");
+    assert.equal(trace.githubPrCreatePlan.status, "blocked");
+    assert.equal(trace.githubPrCreatePlan.dryRun, true);
+    assert.equal(trace.githubPrCreatePlan.toolName, "github__pr_create");
+    assert.equal(trace.githubPrCreatePlan.prAttemptId, trace.prAttempt.attemptId);
+    assert.equal(trace.githubPrCreatePlan.reviewGateId, trace.reviewGate.gateId);
+    assert.equal(trace.githubPrCreatePlan.issueContextId, trace.issueContext.contextId);
+    assert.match(trace.githubPrCreatePlan.request.payloadHash, /^[a-f0-9]{64}$/);
+    assert.equal(trace.githubPrCreatePlan.request.bodyIncluded, false);
+    assert.equal(trace.githubPrCreatePlan.request.tokenIncluded, false);
+    assert.equal(trace.githubPrCreatePlan.mutationExecuted, false);
+    assert.equal(trace.githubPrCreatePlan.networkLookupPerformed, false);
     assert.equal(trace.promptAudit.repositoryContextId, trace.repositoryContext.contextId);
     assert.equal(trace.promptAudit.branchPolicyId, trace.branchPolicy.policyId);
     assert.equal(trace.promptAudit.githubContextId, trace.githubContext.contextId);
     assert.equal(trace.promptAudit.issueContextId, trace.issueContext.contextId);
     assert.equal(trace.promptAudit.prAttemptId, trace.prAttempt.attemptId);
     assert.equal(trace.promptAudit.reviewGateId, trace.reviewGate.gateId);
+    assert.equal(trace.promptAudit.githubPrCreatePlanId, trace.githubPrCreatePlan.planId);
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "repository_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "branch_policy"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "github_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "issue_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "pr_attempt"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "review_gate"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "github_pr_create_plan"));
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/artifacts`);
     assert.ok(artifacts.some((artifact) => artifact.name === "repository-context.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "branch-policy.json"));
@@ -413,6 +469,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(prDiffArtifact.mediaType, "text/x-diff");
     assert.match(prDiffArtifact.content, /diff --git/);
     assert.ok(artifacts.some((artifact) => artifact.name === "review-gate.json"));
+    assert.ok(artifacts.some((artifact) => artifact.name === "github-pr-create-plan.json"));
 
     const threadId = `thread_${agent.id.slice("agent_".length)}`;
     const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
@@ -529,6 +586,35 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(reviewGateEvent.payload_summary.network_lookup_performed, false);
     assert.ok(reviewGateEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_review_gate")));
     assert.ok(reviewGateEvent.artifact_refs.includes("review-gate.json"));
+    const githubPrCreatePlanEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "GitHubPrCreatePlan",
+    );
+    assert.ok(githubPrCreatePlanEvent);
+    assert.equal(githubPrCreatePlanEvent.component_kind, "github_pr_create");
+    assert.equal(githubPrCreatePlanEvent.workflow_node_id, "runtime.github-pr-create");
+    assert.equal(githubPrCreatePlanEvent.payload_summary.status, "blocked");
+    assert.equal(githubPrCreatePlanEvent.payload_summary.decision, "blocked");
+    assert.equal(githubPrCreatePlanEvent.payload_summary.dry_run, true);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.tool_name, "github__pr_create");
+    assert.equal(githubPrCreatePlanEvent.payload_summary.repo_full_name, "ioi-test/ioi");
+    assert.equal(githubPrCreatePlanEvent.payload_summary.base_branch, branch);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.head_branch, branch);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.issue_context_id, trace.issueContext.contextId);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.pr_attempt_id, trace.prAttempt.attemptId);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.review_gate_id, trace.reviewGate.gateId);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.review_gate_status, "blocked");
+    assert.equal(githubPrCreatePlanEvent.payload_summary.review_satisfied, false);
+    assert.match(githubPrCreatePlanEvent.payload_summary.request_payload_hash, /^[a-f0-9]{64}$/);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.request_body_included, false);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.request_token_included, false);
+    assert.deepEqual(githubPrCreatePlanEvent.payload_summary.required_authority_scopes, ["github.pr.create"]);
+    assert.deepEqual(githubPrCreatePlanEvent.payload_summary.missing_authority_scopes, ["github.pr.create"]);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.authority_scope_granted, false);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.mutation_attempted, false);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.mutation_executed, false);
+    assert.equal(githubPrCreatePlanEvent.payload_summary.network_lookup_performed, false);
+    assert.ok(githubPrCreatePlanEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_github_pr_create_plan")));
+    assert.ok(githubPrCreatePlanEvent.artifact_refs.includes("github-pr-create-plan.json"));
 
     const serializedProjection = JSON.stringify({
       repositoryContext,
@@ -538,11 +624,13 @@ test("local daemon emits read-only repository context for Git workspaces", async
       issueContext,
       prAttempt,
       reviewGate,
+      githubPrCreatePlan,
       trace,
       events,
     });
     assert.ok(!serializedProjection.includes("user:secret"));
     assert.ok(!serializedProjection.includes("https://user:secret@github.com"));
+    assert.ok(!serializedProjection.includes("Authorization"));
     assert.ok(!serializedProjection.includes("ghp-secret-do-not-print"));
   } finally {
     await daemon.close();
@@ -1341,6 +1429,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /repository\.issue/);
   assert.match(workflowContracts, /repository\.pr_attempt/);
   assert.match(workflowContracts, /repository\.review_gate/);
+  assert.match(workflowContracts, /repository\.github_pr_create/);
   assert.match(workflowContracts, /runtime\.doctor/);
   assert.match(nodeRegistry, /runtime_doctor/);
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
@@ -1370,6 +1459,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /ReviewGateNode/);
   assert.match(nodeRegistry, /\/v1\/review-gate/);
   assert.match(nodeRegistry, /reviewGateReviewersField/);
+  assert.match(nodeRegistry, /github_pr_create/);
+  assert.match(nodeRegistry, /GitHubPrCreateNode/);
+  assert.match(nodeRegistry, /\/v1\/github\/pr-create-plan/);
+  assert.match(nodeRegistry, /githubPrCreatePlanRequestHashField/);
   assert.match(nodeRegistry, /SkillNode/);
   assert.match(nodeRegistry, /SkillPackNode/);
   assert.match(nodeRegistry, /HookNode/);
@@ -1419,6 +1512,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /review_gate/);
   assert.match(harnessWorkflow, /ReviewGateDecision/);
   assert.match(harnessWorkflow, /review\.gate\.evaluate/);
+  assert.match(harnessWorkflow, /github_pr_create/);
+  assert.match(harnessWorkflow, /GitHubPrCreatePlan/);
+  assert.match(harnessWorkflow, /github\.pr\.create/);
+  assert.match(harnessWorkflow, /githubPrCreatePlanRequestHashField/);
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /hook_policy/);
