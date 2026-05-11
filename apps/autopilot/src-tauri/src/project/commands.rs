@@ -1,5 +1,6 @@
 // apps/autopilot/src-tauri/src/project/commands.rs
 
+use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::*;
 use sha2::{Digest, Sha256};
 

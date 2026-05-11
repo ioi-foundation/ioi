@@ -4954,6 +4954,8 @@ export function collectWorkflowSkillContextProof(outputRoot) {
     harnessTools: "packages/agent-ide/src/runtime/workflow-harness-tools.ts",
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectCodingRouteLane:
+      "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
     projectCommands: "apps/autopilot/src-tauri/src/project/commands.rs",
     runtimeTests:
       "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
@@ -4984,11 +4986,14 @@ export function collectWorkflowSkillContextProof(outputRoot) {
       /getSkillDetail\(skill\.skill_hash\)/.test(source.tauriRuntime) &&
       /workflowOptionsWithSkillCatalog/.test(source.tauriRuntime),
     resolverExecution:
-      /struct WorkflowSkillResolver/.test(source.projectRuntime) &&
-      /resolve_skill_context/.test(source.projectRuntime) &&
-      /workflow\.skill-context\.v1/.test(source.projectRuntime) &&
-      /workflow\.skill_context\.discovery\.v1/.test(source.projectRuntime) &&
-      /workflow\.skill_context\.read\.v1/.test(source.projectRuntime),
+      /workflow_coding_route_lane/.test(source.projectRuntime) &&
+      /struct WorkflowSkillResolver/.test(source.projectCodingRouteLane) &&
+      /resolve_skill_context/.test(source.projectCodingRouteLane) &&
+      /workflow\.skill-context\.v1/.test(source.projectCodingRouteLane) &&
+      /workflow\.skill_context\.discovery\.v1/.test(
+        source.projectCodingRouteLane,
+      ) &&
+      /workflow\.skill_context\.read\.v1/.test(source.projectCodingRouteLane),
     runCommandsPassResolver:
       /WorkflowSkillResolver::from_options\(options\.as_ref\(\)\)/.test(
         source.projectCommands,
@@ -5030,6 +5035,8 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectCodingRouteLane:
+      "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
     runtimeTests:
       "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
   };
@@ -5061,11 +5068,14 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
       /edge-skill-context-model-context/.test(source.projectTemplates) &&
       /"context"/.test(source.projectTemplates),
     classifierAndEvidence:
-      /workflow_classify_coding_route/.test(source.projectRuntime) &&
-      /workflow_coding_route_evidence_from_run/.test(source.projectRuntime) &&
-      /coding\.route\.classification\.v1/.test(source.projectRuntime) &&
-      /coding\.route\.skill_selection\.v1/.test(source.projectRuntime) &&
-      /coding\.route\.gate\.v1/.test(source.projectRuntime),
+      /workflow_coding_route_lane/.test(source.projectRuntime) &&
+      /workflow_classify_coding_route/.test(source.projectCodingRouteLane) &&
+      /workflow_coding_route_evidence_from_run/.test(
+        source.projectCodingRouteLane,
+      ) &&
+      /coding\.route\.classification\.v1/.test(source.projectCodingRouteLane) &&
+      /coding\.route\.skill_selection\.v1/.test(source.projectCodingRouteLane) &&
+      /coding\.route\.gate\.v1/.test(source.projectCodingRouteLane),
     harnessCatalogAndImport:
       /"workflow\.catalog\.coding_routes"/.test(source.harnessTools) &&
       /listWorkflowCodingRoutes/.test(source.harnessTools) &&
@@ -5129,6 +5139,8 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectCodingRouteLane:
+      "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
     runtimeTests:
       "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
   };
@@ -5157,13 +5169,18 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
       /componentKind: "reviewer"/.test(source.routeCatalog),
     draftBenchmarkSelection:
       /allowDraftForBenchmark/.test(source.projectTemplates) &&
-      /allowDraftForBenchmark/.test(source.projectRuntime),
+      /allowDraftForBenchmark/.test(source.projectCodingRouteLane),
     promotionRuntime:
-      /workflow_coding_route_benchmark_results/.test(source.projectRuntime) &&
-      /workflow_coding_route_promotion_decisions/.test(source.projectRuntime) &&
-      /workflow_coding_route_run_summary/.test(source.projectRuntime) &&
-      /coding\.route\.benchmark\.v1/.test(source.projectRuntime) &&
-      /coding\.route\.promotion\.v1/.test(source.projectRuntime),
+      /workflow_coding_route_lane/.test(source.projectRuntime) &&
+      /workflow_coding_route_benchmark_results/.test(
+        source.projectCodingRouteLane,
+      ) &&
+      /workflow_coding_route_promotion_decisions/.test(
+        source.projectCodingRouteLane,
+      ) &&
+      /workflow_coding_route_run_summary/.test(source.projectCodingRouteLane) &&
+      /coding\.route\.benchmark\.v1/.test(source.projectCodingRouteLane) &&
+      /coding\.route\.promotion\.v1/.test(source.projectCodingRouteLane),
     draftImportMetadata:
       /workflowDraftSkillsFromSources/.test(source.tauriRuntime) &&
       /runtime_skill_source_draft/.test(source.tauriRuntime) &&

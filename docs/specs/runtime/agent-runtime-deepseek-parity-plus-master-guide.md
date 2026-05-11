@@ -2375,6 +2375,52 @@ Validation evidence:
     `harnessAuthorityToolingWalletCapabilityLiveDryRunCount === 5`, and
     `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-11, workflow coding-route lane refactor:
+
+- Skill-context resolution and coding-route evidence generation now live in
+  `apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs`.
+- The lane owns `WorkflowSkillResolver`, `resolve_skill_context`, route
+  classification, phase selection, skill selection, route gates, benchmark
+  results, promotion decisions, run-summary projection, and verification
+  evidence projection.
+- `runtime.rs` keeps graph dispatch, node lifecycle, and run assembly, but
+  imports the lane-owned skill resolver and route-evidence helpers instead of
+  carrying the coding-route implementation inline.
+- `commands.rs` imports the same resolver for create/run command paths, so
+  direct workflow runs and React Flow triggered runs use one skill catalog
+  resolver.
+- The GUI proof collector and daemon contract test now assert the lane boundary
+  directly while preserving React Flow configurability for Skill Context nodes,
+  coding-route templates, route evidence inspection, draft skill import,
+  benchmark-backed promotion, and forkable promotion evidence.
+- `runtime.rs` is reduced to 3,570 lines and the coding-route lane is 1,171
+  lines, keeping the modular extraction trend visible before the next runtime
+  slice.
+
+Validation evidence:
+
+- `cargo test workflow_skill_context --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test coding_route --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs`
+- `git diff --check -- apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T19-38-33-940Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `workflow-skill-context-proof.json` has `passed === true` with
+    `checks.resolverExecution === true`;
+  - `workflow-coding-route-proof.json` has `passed === true` with
+    `checks.classifierAndEvidence === true`;
+  - `workflow-coding-route-promotion-loop-proof.json` has `passed === true`
+    with `checks.draftBenchmarkSelection === true` and
+    `checks.promotionRuntime === true`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
