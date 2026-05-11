@@ -1,0 +1,192 @@
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+
+const SECRET_REDACTION = "[REDACTED]";
+
+function stableHash(value) {
+  return crypto.createHash("sha256").update(stableStringify(value)).digest("hex");
+}
+
+function stableStringify(value) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+    .join(",")}}`;
+}
+
+function redact(value) {
+  if (typeof value === "string" && value.startsWith("vault://")) return SECRET_REDACTION;
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(redact);
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      /tokenHash|tokenValue|secret|material|apiKey|authorization|header|privateKey|accessToken|refreshToken/i.test(key)
+        ? SECRET_REDACTION
+        : redact(item),
+    ]),
+  );
+}
+
+function emitRemoteBoundaryEvent(baseUrl, route, payload) {
+  if (!baseUrl || typeof fetch !== "function") return;
+  const url = `${String(baseUrl).replace(/\/+$/, "")}/${String(route).replace(/^\/+/, "")}`;
+  const body = JSON.stringify(redact(payload));
+  setTimeout(() => {
+    fetch(url, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body,
+    }).catch(() => {
+      // Audit mirroring is best-effort so local runtime progress is not blocked.
+    });
+  }, 0);
+}
+
+function safeFileName(value) {
+  return String(value).replace(/[^a-z0-9._-]+/gi, "_");
+}
+
+function writeJson(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function listJson(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => path.join(dir, file));
+}
+
+function runtimeError({ status, code, message, details }) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  error.details = details;
+  return error;
+}
+
+function notFound(message, details) {
+  return runtimeError({ status: 404, code: "not_found", message, details });
+}
+
+export class AgentgresModelMountingStore {
+  constructor({ stateDir, appendOperation }) {
+    this.stateDir = path.resolve(stateDir);
+    this.appendOperation = appendOperation;
+  }
+
+  ensureDirs() {
+    for (const dir of [
+      "model-artifacts",
+      "model-endpoints",
+      "model-instances",
+      "model-routes",
+      "model-providers",
+      "model-backends",
+      "backend-processes",
+      "model-downloads",
+      "model-catalog-providers",
+      "oauth-sessions",
+      "oauth-states",
+      "runtime-preferences",
+      "runtime-engine-profiles",
+      "provider-health",
+      "models",
+      "backend-logs",
+      "server-logs",
+      "projections",
+      "lifecycle-events",
+      "tokens",
+      "vault-refs",
+      "mcp-servers",
+      "workflow-bindings",
+      "receipts",
+    ]) {
+      fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
+    }
+  }
+
+  writeMap(dir, map) {
+    for (const record of map.values()) {
+      writeJson(path.join(this.stateDir, dir, `${safeFileName(record.id)}.json`), record);
+    }
+  }
+
+  writeReceipt(receipt) {
+    writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
+    emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
+      port: "AgentgresModelMountingStorePort",
+      kind: "receipt.write",
+      objectId: receipt.id,
+      receiptId: receipt.id,
+      receiptKind: receipt.kind,
+      redaction: receipt.redaction,
+      evidenceRefs: receipt.evidenceRefs,
+    });
+    this.appendOperation?.(receipt.kind, {
+      objectId: receipt.id,
+      receiptId: receipt.id,
+      kind: receipt.kind,
+      evidenceRefs: receipt.evidenceRefs,
+      details: receipt.details,
+    });
+  }
+
+  listReceipts() {
+    const receiptFiles = listJson(path.join(this.stateDir, "receipts"));
+    return receiptFiles
+      .map((filePath) => readJson(filePath))
+      .sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")));
+  }
+
+  getReceipt(receiptId) {
+    const receipt = this.listReceipts().find((item) => item.id === receiptId);
+    if (!receipt) throw notFound(`Receipt not found: ${receiptId}`, { receiptId });
+    return receipt;
+  }
+
+  writeProjection(name, projection) {
+    writeJson(path.join(this.stateDir, "projections", `${safeFileName(name)}.json`), projection);
+    emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
+      port: "AgentgresModelMountingStorePort",
+      kind: "projection.write",
+      objectId: name,
+      projection: name,
+      watermark: projection?.watermark ?? null,
+      source: projection?.source ?? null,
+    });
+  }
+
+  readProjection(name) {
+    const filePath = path.join(this.stateDir, "projections", `${safeFileName(name)}.json`);
+    if (!fs.existsSync(filePath)) {
+      throw notFound(`Projection not found: ${name}`, { projection: name });
+    }
+    return readJson(filePath);
+  }
+
+  adapterStatus() {
+    return {
+      port: "AgentgresModelMountingStorePort",
+      implementation: "local_operation_log",
+      remoteAdapter: process.env.IOI_AGENTGRES_URL
+        ? { configured: true, urlHash: stableHash(process.env.IOI_AGENTGRES_URL) }
+        : { configured: false, failClosed: true },
+      evidenceRefs: ["agentgres_canonical_operation_log", "typed_agentgres_projection_boundary"],
+    };
+  }
+}
