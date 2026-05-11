@@ -1589,6 +1589,13 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
     ),
     "utf8",
   );
+  const tauriProjectWorkflowValueHelpers = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectTemplates = fs.readFileSync(
     path.join(root, "apps/autopilot/src-tauri/src/project/templates.rs"),
     "utf8",
@@ -1690,7 +1697,11 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
   assert.match(tauriProjectRuntime, /execute_workflow_package_export_node/);
   assert.match(tauriProjectRuntime, /execute_workflow_package_import_node/);
   assert.match(tauriProjectRuntime, /repository_pr_lane/);
+  assert.match(tauriProjectRuntime, /workflow_value_helpers/);
+  assert.match(tauriProjectRepositoryPrLane, /workflow_value_helpers/);
   assert.match(tauriProjectRepositoryPrLane, /workflow_github_pr_create_output/);
+  assert.match(tauriProjectWorkflowValueHelpers, /workflow_value_at_path/);
+  assert.match(tauriProjectWorkflowValueHelpers, /workflow_hash_value_raw_hex/);
   assert.match(tauriProjectRuntime, /workflow_package_export/);
   assert.match(tauriProjectRuntime, /workflow_package_import/);
   assert.match(tauriProjectRepositoryPrLane, /github_pr_create/);
