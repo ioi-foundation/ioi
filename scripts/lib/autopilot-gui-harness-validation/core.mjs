@@ -4241,6 +4241,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+  const projectWorkflowPackageLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
   const projectRepositoryPrLanePath =
     "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs";
   const projectWorkflowValueHelpersPath =
@@ -4264,6 +4266,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectRuntime = readFileSync(
     resolve(repoRoot, projectRuntimePath),
+    "utf8",
+  );
+  const projectWorkflowPackageLane = readFileSync(
+    resolve(repoRoot, projectWorkflowPackageLanePath),
     "utf8",
   );
   const projectRepositoryPrLane = readFileSync(
@@ -4575,7 +4581,13 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-selection-package-output-summary/.test(bottomShelf) &&
       /workflowPackageNodeOutputSummary/.test(bottomShelf) &&
       /workflowPackageNodeOutputStatus/.test(bottomShelf) &&
-      /data-package-evidence-ready/.test(bottomShelf),
+      /data-package-evidence-ready/.test(bottomShelf) &&
+      /ActionKind::WorkflowPackageExport/.test(projectRuntime) &&
+      /ActionKind::WorkflowPackageImport/.test(projectRuntime) &&
+      /workflow_package_lane/.test(projectRuntime) &&
+      /execute_workflow_package_export_node/.test(projectWorkflowPackageLane) &&
+      /execute_workflow_package_import_node/.test(projectWorkflowPackageLane) &&
+      /workflowPackageImportReview/.test(projectWorkflowPackageLane),
     workflowGithubPrCreateRunOutputSurfaces:
       /export interface WorkflowGithubPrCreatePlanSummary/.test(railModel) &&
       /workflowGithubPrCreatePlanSummary/.test(railModel) &&
