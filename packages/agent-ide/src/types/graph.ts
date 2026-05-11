@@ -441,6 +441,11 @@ export interface NodeLogic {
   toolContracts?: string[];
   allowMutationWithoutContract?: boolean;
   requireAuthorityScopes?: boolean;
+  hookDryRunOnly?: boolean;
+  requireHookDryRunPlan?: boolean;
+  hookDryRunPlanField?: string;
+  hookDryRunDecisionField?: string;
+  hookPolicyDecisionField?: string;
 
   // --- Triggers ---
   triggerKind?: "manual" | "scheduled" | "event";
@@ -467,6 +472,9 @@ export interface NodeLogic {
     optionalWarningsField?: string;
     skillSetHashField?: string;
     hookSetHashField?: string;
+    hookDryRunPlanField?: string;
+    hookDryRunDecisionField?: string;
+    hookPolicyDecisionField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };
@@ -3586,6 +3594,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_doctor"
   | "skill_registry"
   | "hook_registry"
+  | "hook_policy"
   | "verifier"
   | "semantic_impact_analyzer"
   | "postcondition_synthesizer"

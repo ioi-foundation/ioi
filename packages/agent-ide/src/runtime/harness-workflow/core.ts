@@ -10217,6 +10217,7 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "runtime_doctor",
   "skill_registry",
   "hook_registry",
+  "hook_policy",
   "budget_gate",
   "capability_sequencer",
   "model_router",
@@ -10249,6 +10250,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "runtime_doctor",
     "skill_registry",
     "hook_registry",
+    "hook_policy",
     "uncertainty_gate",
     "budget_gate",
     "capability_sequencer",
@@ -10460,9 +10462,28 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       kernelRef: "packages/runtime-daemon/src/index.mjs::listHooks",
       capabilityScope: ["hook.catalog.read", "workflow.activation.read"],
       eventKinds: ["HookRegistryProjection"],
-      evidence: ["runtime.hooks", "hook.failurePolicy", "hook.authorityScopes", "active_skill_hook_manifest"],
+      evidence: [
+        "runtime.hooks",
+        "hook.failurePolicy",
+        "hook.authorityScopes",
+        "active_skill_hook_manifest",
+        "hook_dry_run_plan",
+        "hook_policy_decision",
+      ],
       group: "Governance",
       icon: "webhook",
+    }),
+    makeComponent({
+      kind: "hook_policy",
+      label: "Hook policy",
+      description:
+        "Projects hook dry-run policy decisions before hook commands are eligible for execution.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::hookDryRunPlanForManifest",
+      capabilityScope: ["hook.policy.preview", "workflow.activation.read"],
+      eventKinds: ["HookDryRunPlan"],
+      evidence: ["hook_dry_run_plan", "hook_policy_decision", "hook_preview_only"],
+      group: "Governance",
+      icon: "shield-check",
     }),
     makeComponent({
       kind: "uncertainty_gate",
@@ -11144,6 +11165,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "runtime_doctor",
   "skill_registry",
   "hook_registry",
+  "hook_policy",
   "task_state",
   "uncertainty_gate",
   "budget_gate",
@@ -11188,6 +11210,7 @@ const SLOT_BY_KIND: Partial<
   runtime_doctor: ["state_policy", "verifier_policy"],
   skill_registry: ["state_policy"],
   hook_registry: ["state_policy", "verifier_policy"],
+  hook_policy: ["state_policy", "verifier_policy", "approval_policy"],
   uncertainty_gate: ["state_policy", "budget_policy"],
   probe_runner: ["verifier_policy", "budget_policy"],
   budget_gate: ["budget_policy"],
@@ -11253,6 +11276,7 @@ function componentCapturesPolicyDecision(
     "policy_gate",
     "approval_gate",
     "wallet_capability",
+    "hook_policy",
     "retry_policy",
     "completion_gate",
     "handoff_bridge",
@@ -11322,6 +11346,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "skill";
     case "hook_registry":
       return "hook";
+    case "hook_policy":
+      return "hook_policy";
     case "uncertainty_gate":
       return "uncertainty_gate";
     case "probe_runner":
