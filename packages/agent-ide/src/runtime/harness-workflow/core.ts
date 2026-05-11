@@ -10215,6 +10215,8 @@ const LIVE_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
 const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "uncertainty_gate",
   "runtime_doctor",
+  "skill_registry",
+  "hook_registry",
   "budget_gate",
   "capability_sequencer",
   "model_router",
@@ -10245,6 +10247,8 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "prompt_assembler",
     "task_state",
     "runtime_doctor",
+    "skill_registry",
+    "hook_registry",
     "uncertainty_gate",
     "budget_gate",
     "capability_sequencer",
@@ -10435,6 +10439,30 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime.doctor", "doctor.blockers", "doctor.redaction"],
       group: "Governance",
       icon: "activity",
+    }),
+    makeComponent({
+      kind: "skill_registry",
+      label: "Skill registry",
+      description:
+        "Discovers governed runtime skills from IOI, Agents, Cursor, Claude, and global skill directories.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::listSkills",
+      capabilityScope: ["skill.catalog.read", "workflow.context.read"],
+      eventKinds: ["SkillRegistryProjection"],
+      evidence: ["runtime.skills", "skill.hashes", "skill.provenance"],
+      group: "State",
+      icon: "book-open",
+    }),
+    makeComponent({
+      kind: "hook_registry",
+      label: "Hook registry",
+      description:
+        "Discovers governed runtime hooks, event subscriptions, failure policy, and authority declarations.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::listHooks",
+      capabilityScope: ["hook.catalog.read", "workflow.activation.read"],
+      eventKinds: ["HookRegistryProjection"],
+      evidence: ["runtime.hooks", "hook.failurePolicy", "hook.authorityScopes"],
+      group: "Governance",
+      icon: "webhook",
     }),
     makeComponent({
       kind: "uncertainty_gate",
@@ -10948,6 +10976,8 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     allowedComponentKinds: [
       "task_state",
       "runtime_doctor",
+      "skill_registry",
+      "hook_registry",
       "drift_detector",
       "memory_read",
       "memory_search",
@@ -11112,6 +11142,8 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "planner",
   "prompt_assembler",
   "runtime_doctor",
+  "skill_registry",
+  "hook_registry",
   "task_state",
   "uncertainty_gate",
   "budget_gate",
@@ -11154,6 +11186,8 @@ const SLOT_BY_KIND: Partial<
   prompt_assembler: ["state_policy"],
   task_state: ["state_policy"],
   runtime_doctor: ["state_policy", "verifier_policy"],
+  skill_registry: ["state_policy"],
+  hook_registry: ["state_policy", "verifier_policy"],
   uncertainty_gate: ["state_policy", "budget_policy"],
   probe_runner: ["verifier_policy", "budget_policy"],
   budget_gate: ["budget_policy"],
@@ -11284,6 +11318,10 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "task_state";
     case "runtime_doctor":
       return "runtime_doctor";
+    case "skill_registry":
+      return "skill";
+    case "hook_registry":
+      return "hook";
     case "uncertainty_gate":
       return "uncertainty_gate";
     case "probe_runner":

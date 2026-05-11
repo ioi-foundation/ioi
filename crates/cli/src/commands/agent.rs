@@ -163,6 +163,18 @@ pub enum AgentCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Inspect daemon-discovered governed runtime skills.
+    Skills {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
+    /// Inspect daemon-discovered governed runtime hooks.
+    Hooks {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Inspect canonical tool contracts and safety metadata.
     Tools {
         #[clap(subcommand)]
@@ -389,6 +401,12 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         AgentCommands::Model { json } => print_model_route_controls(json),
         AgentCommands::Thinking { json } => print_thinking_controls(json),
         AgentCommands::Memory { json } => print_memory_controls(json),
+        AgentCommands::Skills { json } => {
+            print_runtime_catalog(json, "/v1/skills", "skills", "skillCount").await
+        }
+        AgentCommands::Hooks { json } => {
+            print_runtime_catalog(json, "/v1/hooks", "hooks", "hookCount").await
+        }
         AgentCommands::Tools {
             command,
             tool,
@@ -1031,6 +1049,61 @@ async fn print_doctor(json: bool) -> Result<()> {
     Ok(())
 }
 
+async fn print_runtime_catalog(
+    json: bool,
+    route: &str,
+    label: &str,
+    count_field: &str,
+) -> Result<()> {
+    let value = match daemon_request(None, None, Method::GET, route, None).await {
+        Ok(value) => value,
+        Err(error) => {
+            let mut fallback = serde_json::json!({
+                "schemaVersion": if route == "/v1/skills" {
+                    "ioi.agent-runtime.skills.v1"
+                } else {
+                    "ioi.agent-runtime.hooks.v1"
+                },
+                "object": if route == "/v1/skills" {
+                    "ioi.agent_skill_registry_projection"
+                } else {
+                    "ioi.agent_hook_registry_projection"
+                },
+                "status": "degraded",
+                "source": "cli_local_fallback",
+                "daemon": {
+                    "endpoint": std::env::var("IOI_DAEMON_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8765".to_string()),
+                    "route": route,
+                    "reachable": false,
+                    "error": error.to_string(),
+                },
+                "redaction": {
+                    "secretValuesIncluded": false,
+                    "hookCommandsIncluded": false
+                }
+            });
+            if let Some(object) = fallback.as_object_mut() {
+                object.insert(count_field.to_string(), serde_json::json!(0));
+            }
+            fallback
+        }
+    };
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .get("status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let count = value
+        .get(count_field)
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    println!("Agent runtime {label}: {status}");
+    println!("  discovered={count} report: {route} (secrets redacted)");
+    Ok(())
+}
+
 fn local_doctor_fallback(error: Option<String>) -> serde_json::Value {
     let substrate = RuntimeSubstratePortContract::default();
     let gui = AutopilotGuiHarnessValidationContract::default();
@@ -1471,6 +1544,20 @@ mod tests {
         assert!(matches!(
             doctor.command,
             Some(AgentCommands::Doctor { json: true })
+        ));
+
+        let skills = AgentArgs::try_parse_from(["agent", "skills", "--json"])
+            .expect("skills command should parse");
+        assert!(matches!(
+            skills.command,
+            Some(AgentCommands::Skills { json: true })
+        ));
+
+        let hooks = AgentArgs::try_parse_from(["agent", "hooks", "--json"])
+            .expect("hooks command should parse");
+        assert!(matches!(
+            hooks.command,
+            Some(AgentCommands::Hooks { json: true })
         ));
     }
 

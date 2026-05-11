@@ -1222,6 +1222,36 @@ Acceptance evidence:
 - active skill/hook set is visible in TUI and graph;
 - hooks cannot mutate runtime outside declared capabilities.
 
+Implementation slice completed 2026-05-11, read-only skill and hook discovery:
+
+- The daemon now exposes `GET /v1/skills` and `GET /v1/hooks` with governed,
+  read-only projections for workspace IOI, `.agents`, `.cursor`, `.claude`,
+  and global IOI/Agents discovery sources.
+- Cursor-style `SKILL.md` imports are normalized with provenance, trust level,
+  capability scopes, validation status, skill hashes, and active skill-set hash.
+- Hook discovery reads hook JSON files/directories, exposes event subscriptions,
+  configurable failure policy, authority scopes, tool contract declarations, and
+  a mutation policy that blocks work outside declared capabilities.
+- Hook command bodies are never returned; the registry only reports command
+  presence and a hash for audit/debugging.
+- `GET /v1/doctor` now derives the `skills.hooks` check from the daemon-owned
+  catalog instead of a static degraded placeholder.
+- `ioi agent skills --json` and `ioi agent hooks --json` expose the same daemon
+  projections for TUI/CLI inspection, with degraded local fallbacks when the
+  daemon is unreachable.
+- React Flow now has `SkillNode`, `SkillPackNode`, `HookNode`, and
+  `HookPolicyNode` registry entries plus harness components for skill and hook
+  registry discovery.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T04-51-31-990Z/result.json`
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:
