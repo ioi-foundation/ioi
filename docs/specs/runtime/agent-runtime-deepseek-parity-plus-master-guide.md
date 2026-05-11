@@ -1356,6 +1356,34 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-19-58-078Z/result.json`
 
+Implementation slice completed 2026-05-11, hook escalation receipts:
+
+- Blocked hook preview invocations now produce deterministic
+  `HookEscalationReceipt` evidence instead of only appearing as blocked ledger
+  rows.
+- Escalation records preserve the blocked invocation ID, hook ID, event kind,
+  failure policy, blockers, missing declarations, recommended next action, and
+  non-execution proof.
+- Missing hook declarations are reported as first-class receipt details:
+  `authorityScopes` and/or `toolContracts`, with explicit safe placeholders
+  for the declaration fixes required before execution can be requested.
+- The hook invocation ledger now exposes `escalationCount` and `escalations`,
+  and the TTI `HookInvocationLedger` event links both the ledger receipt and
+  any escalation receipt IDs.
+- Receipts, semantic impact, prompt audit, postconditions, and minimum evidence
+  now include the escalation path when blocked hook invocations exist.
+- React Flow `HookPolicyNode` metadata now exposes escalation count, details,
+  and receipt fields so workflow authors can route or display blocked-hook
+  remediation inside the agentic workflow creator.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-25-17-876Z/result.json`
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:
