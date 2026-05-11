@@ -1,4 +1,9 @@
-import type { WorkflowHarnessComponentKind, WorkflowNodeKind } from "../types/graph";
+import type {
+  NodeLogic,
+  WorkflowHarnessComponentKind,
+  WorkflowNodeKind,
+  WorkflowRuntimeUiStringCatalog,
+} from "../types/graph";
 
 export const WORKFLOW_RUNTIME_UI_STRING_CATALOG_SCHEMA_VERSION =
   "ioi.workflow.runtime-ui-string-catalog.v1";
@@ -7,15 +12,22 @@ export const WORKFLOW_RUNTIME_UI_STRING_CATALOG_ID =
   "ioi.workflow.runtime-ui.chrome.v1";
 
 export const WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT = {
+  idle: "Idle",
   queued: "Queued",
   running: "Running",
+  success: "Success",
   completed: "Completed",
+  error: "Error",
   failed: "Failed",
   canceled: "Canceled",
   blocked: "Blocked",
   warning: "Warning",
   passed: "Passed",
   ready: "Ready",
+  needs_attention: "Needs attention",
+  sandboxed: "Sandboxed",
+  approval: "Approval path",
+  not_run: "Not run",
   unavailable: "Unavailable",
   unbound: "Unbound",
   projection_only: "Projection only",
@@ -23,15 +35,22 @@ export const WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT = {
 } as const;
 
 const WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT_ES = {
+  idle: "Inactivo",
   queued: "En cola",
   running: "En curso",
+  success: "Exito",
   completed: "Completado",
+  error: "Error",
   failed: "Error",
   canceled: "Cancelado",
   blocked: "Bloqueado",
   warning: "Advertencia",
   passed: "Aprobado",
   ready: "Listo",
+  needs_attention: "Necesita atencion",
+  sandboxed: "En sandbox",
+  approval: "Ruta de aprobacion",
+  not_run: "Sin ejecutar",
   unavailable: "No disponible",
   unbound: "Sin vincular",
   projection_only: "Solo proyeccion",
@@ -85,6 +104,33 @@ type RuntimeChromeComponentKind = Extract<
 >;
 
 type RuntimeChromeNodeKind = Extract<WorkflowNodeKind, WorkflowRuntimeChromeNodeKind>;
+type WorkflowRuntimeUiStringValues = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
+export interface WorkflowRuntimeNodeChromeSource {
+  id?: string;
+  type?: string;
+  name?: string;
+  label?: string;
+  status?: string | null;
+  config?: {
+    logic?: NodeLogic | null;
+  } | null;
+}
+
+export interface WorkflowRuntimeNodeChromeResult {
+  label: string;
+  ariaLabel: string;
+  statusText: string;
+  statusAnnouncement: string;
+  locale: string;
+  isRuntimeChrome: boolean;
+  modelOutputLocalized: boolean;
+  accessibleStatusValue: string;
+  colorIndependentStatus: boolean;
+}
 
 function chromeStringEntry(
   defaultMessage: string,
@@ -148,6 +194,176 @@ export const WORKFLOW_RUNTIME_UI_STRING_CATALOG = {
     ),
   },
 } as const;
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isNodeChromeSource(
+  value: WorkflowRuntimeNodeChromeSource | NodeLogic | null | undefined,
+): value is WorkflowRuntimeNodeChromeSource {
+  return Boolean(value && typeof value === "object" && "config" in value);
+}
+
+function normalizeRuntimeStatusValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "unknown";
+  return String(value).trim().toLowerCase().replace(/[\s-]+/g, "_") || "unknown";
+}
+
+function humanizeRuntimeStatusValue(value: string): string {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT.unknown;
+}
+
+function runtimeCatalog(
+  catalog?: WorkflowRuntimeUiStringCatalog | null,
+): WorkflowRuntimeUiStringCatalog {
+  return (
+    catalog ??
+    (WORKFLOW_RUNTIME_UI_STRING_CATALOG as unknown as WorkflowRuntimeUiStringCatalog)
+  );
+}
+
+export function normalizeWorkflowRuntimeLocale(
+  locale?: string | null,
+  catalog?: WorkflowRuntimeUiStringCatalog | null,
+): string {
+  const activeCatalog = runtimeCatalog(catalog);
+  const fallbackLocale = activeCatalog.defaultLocale || "en-US";
+  if (!isString(locale)) return fallbackLocale;
+  return activeCatalog.supportedLocales.includes(locale) ? locale : fallbackLocale;
+}
+
+export function workflowRuntimeValueAtPath(
+  source: unknown,
+  path?: string | null,
+): unknown {
+  if (!isString(path)) return undefined;
+  return path.split(".").reduce<unknown>((current, segment) => {
+    if (current === null || current === undefined || segment.length === 0) {
+      return undefined;
+    }
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      return Number.isInteger(index) ? current[index] : undefined;
+    }
+    if (typeof current === "object") {
+      return (current as Record<string, unknown>)[segment];
+    }
+    return undefined;
+  }, source);
+}
+
+export function resolveWorkflowRuntimeUiString(
+  key?: string | null,
+  options: {
+    locale?: string | null;
+    values?: WorkflowRuntimeUiStringValues;
+    fallback?: string | null;
+    catalog?: WorkflowRuntimeUiStringCatalog | null;
+  } = {},
+): string {
+  const catalog = runtimeCatalog(options.catalog);
+  const locale = normalizeWorkflowRuntimeLocale(options.locale, catalog);
+  const entry = isString(key) ? catalog.strings[key] : undefined;
+  const template =
+    entry?.translations?.[locale] ??
+    entry?.translations?.[catalog.defaultLocale] ??
+    entry?.defaultMessage ??
+    options.fallback ??
+    key ??
+    "";
+  return String(template).replace(/\{([a-zA-Z0-9_.-]+)\}/g, (match, name) => {
+    const value = options.values?.[name];
+    return value === null || value === undefined ? match : String(value);
+  });
+}
+
+export function workflowRuntimeAccessibleStatusLabel(
+  value: unknown,
+  locale?: string | null,
+  statusText?: Record<string, string> | null,
+  catalog?: WorkflowRuntimeUiStringCatalog | null,
+): string {
+  const normalized = normalizeRuntimeStatusValue(value);
+  const mappedStatusText =
+    statusText?.[normalized] ??
+    WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT[
+      normalized as keyof typeof WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT
+    ] ??
+    humanizeRuntimeStatusValue(normalized);
+  return resolveWorkflowRuntimeUiString(`runtime.status.${normalized}`, {
+    locale,
+    catalog,
+    fallback: mappedStatusText,
+  });
+}
+
+export function workflowRuntimeNodeChrome(
+  source: WorkflowRuntimeNodeChromeSource | NodeLogic | null | undefined,
+  options: {
+    fallbackLabel?: string | null;
+    locale?: string | null;
+  } = {},
+): WorkflowRuntimeNodeChromeResult {
+  const logic = isNodeChromeSource(source) ? source.config?.logic ?? {} : source ?? {};
+  const catalog = runtimeCatalog(logic.runtimeUiStringCatalog);
+  const locale = normalizeWorkflowRuntimeLocale(
+    logic.workflowChromeLocale ?? options.locale,
+    catalog,
+  );
+  const fallbackLabel =
+    options.fallbackLabel ??
+    (isNodeChromeSource(source)
+      ? source.name ?? source.label ?? source.type ?? "Workflow node"
+      : "Workflow node");
+  const statusValue =
+    workflowRuntimeValueAtPath(logic, logic.accessibleStatusField) ??
+    (isNodeChromeSource(source) ? source.status : undefined) ??
+    workflowRuntimeValueAtPath(logic, "status") ??
+    "unknown";
+  const statusText = workflowRuntimeAccessibleStatusLabel(
+    statusValue,
+    locale,
+    logic.accessibleStatusText,
+    catalog,
+  );
+  const label = resolveWorkflowRuntimeUiString(logic.localeKey, {
+    locale,
+    catalog,
+    fallback: fallbackLabel,
+  });
+  const ariaLabel = resolveWorkflowRuntimeUiString(logic.ariaLabelKey, {
+    locale,
+    catalog,
+    fallback: `${label} node`,
+  });
+  const statusAnnouncement = resolveWorkflowRuntimeUiString(
+    logic.statusAnnouncementKey,
+    {
+      locale,
+      catalog,
+      values: { status: statusText },
+      fallback: `${label} status: ${statusText}`,
+    },
+  );
+  return {
+    label,
+    ariaLabel,
+    statusText,
+    statusAnnouncement,
+    locale,
+    isRuntimeChrome:
+      logic.runtimeUiStringCatalogRef === catalog.catalogId ||
+      Boolean(logic.localeKey || logic.ariaLabelKey || logic.statusAnnouncementKey),
+    modelOutputLocalized: catalog.modelOutputLocalized,
+    accessibleStatusValue: normalizeRuntimeStatusValue(statusValue),
+    colorIndependentStatus: logic.colorIndependentStatus === true,
+  };
+}
 
 export function runtimeNodeChromeLogic(
   kind: WorkflowRuntimeChromeNodeKind,

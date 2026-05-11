@@ -11,6 +11,10 @@ import { PolicyView } from "./views/PolicyView";
 import { SimulationView } from "./views/SimulationView";
 import { GraphConfigView } from "./views/GraphConfigView";
 import { DnaView } from "./views/DnaView";
+import {
+  WORKFLOW_RUNTIME_UI_STRING_CATALOG,
+  workflowRuntimeNodeChrome,
+} from "../../../runtime/workflow-runtime-ui-strings";
 import "./Inspector.css";
 
 interface InspectorProps {
@@ -56,14 +60,49 @@ export function Inspector({
   }
 
   const config = selectedNode.config ?? { logic: {}, law: {} };
+  const runtimeChrome = workflowRuntimeNodeChrome(selectedNode, {
+    fallbackLabel: selectedNode.name ?? selectedNode.type,
+  });
+  const showRuntimeChromeConfig = runtimeChrome.isRuntimeChrome;
 
   return (
     <aside className="inspector-panel">
       <div className="inspector-header">
         <div className="node-identity">
-            <span className="node-type">{selectedNode.type}</span>
+            <span className="node-type">{showRuntimeChromeConfig ? runtimeChrome.label : selectedNode.type}</span>
             <span className="node-id">{selectedNode.id}</span>
         </div>
+        {showRuntimeChromeConfig ? (
+          <div
+            className="runtime-chrome-summary"
+            data-testid="workflow-runtime-chrome-summary"
+            data-runtime-ui-locale={runtimeChrome.locale}
+            data-accessible-status={runtimeChrome.accessibleStatusValue}
+            data-accessible-status-text={runtimeChrome.statusText}
+            data-model-output-localized={runtimeChrome.modelOutputLocalized ? "true" : "false"}
+            aria-live="polite"
+          >
+            <span>{runtimeChrome.statusAnnouncement}</span>
+            <label>
+              <span>Chrome locale</span>
+              <select
+                data-testid="workflow-runtime-chrome-locale"
+                value={runtimeChrome.locale}
+                onChange={(event) =>
+                  onUpdateNode(selectedNode.id, "logic", {
+                    workflowChromeLocale: event.target.value,
+                  })
+                }
+              >
+                {WORKFLOW_RUNTIME_UI_STRING_CATALOG.supportedLocales.map((locale) => (
+                  <option key={locale} value={locale}>
+                    {locale}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
         <div className="inspector-tabs">
             <button className={activeTab === 'logic' ? 'active' : ''} onClick={() => setActiveTab('logic')}>Logic</button>
             <button className={activeTab === 'law' ? 'active' : ''} onClick={() => setActiveTab('law')}>Law</button>

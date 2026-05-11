@@ -514,6 +514,7 @@ export interface NodeLogic {
   nodeTypeLabel?: string;
   runtimeUiStringCatalogRef?: string;
   runtimeUiStringCatalog?: WorkflowRuntimeUiStringCatalog;
+  workflowChromeLocale?: string;
   localeKey?: string;
   ariaLabelKey?: string;
   statusAnnouncementKey?: string;

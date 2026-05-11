@@ -69,6 +69,7 @@ export const DEFAULT_SANDBOX = {
 
 const RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES = {
   runtimeUiStringCatalogRef: { type: "string" },
+  workflowChromeLocale: { type: "string" },
   localeKey: { type: "string" },
   ariaLabelKey: { type: "string" },
   statusAnnouncementKey: { type: "string" },
