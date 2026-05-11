@@ -1510,12 +1510,32 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx"),
     "utf8",
   );
+  const canvas = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Canvas.tsx"),
+    "utf8",
+  );
+  const canvasNodeStyles = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.css"),
+    "utf8",
+  );
   const inspector = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/features/Editor/Inspector/Inspector.tsx"),
     "utf8",
   );
   const workflowRailPanel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx"),
+    "utf8",
+  );
+  const workflowBottomShelf = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx"),
+    "utf8",
+  );
+  const composerPanelStyles = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/WorkflowComposer/styles/composer-panels.css"),
+    "utf8",
+  );
+  const composerShellStyles = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/WorkflowComposer/styles/composer-shell.css"),
     "utf8",
   );
   const workflowValidation = fs.readFileSync(
@@ -1618,10 +1638,20 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowRuntimeUiStrings, /normalizeWorkflowRuntimeLocale/);
   assert.match(workflowRuntimeUiStrings, /workflowRuntimeAccessibleStatusLabel/);
   assert.match(workflowRuntimeUiStrings, /modelOutputLocalized: false/);
+  assert.match(canvas, /onKeyboardSelect/);
+  assert.match(canvas, /nodesFocusable/);
+  assert.match(canvas, /node-enter-space-selects-inspector/);
   assert.match(canvasNode, /workflowRuntimeNodeChrome/);
   assert.match(canvasNode, /aria-label=\{chrome\.ariaLabel\}/);
+  assert.match(canvasNode, /tabIndex=\{0\}/);
+  assert.match(canvasNode, /aria-keyshortcuts="Enter Space"/);
+  assert.match(canvasNode, /data-keyboard-selectable="true"/);
+  assert.match(canvasNode, /handleNodeKeyDown/);
+  assert.match(canvasNode, /event\.key !== "Enter" && event\.key !== " "/);
   assert.match(canvasNode, /data-accessible-status-text=\{chrome\.statusText\}/);
   assert.match(canvasNode, /workflow-canvas-node-accessible-status/);
+  assert.match(canvasNodeStyles, /\.canvas-node:focus-visible/);
+  assert.match(canvasNodeStyles, /\.react-flow__node:focus-visible \.canvas-node/);
   assert.match(inspector, /workflow-runtime-chrome-locale/);
   assert.match(inspector, /workflowChromeLocale/);
   assert.match(inspector, /data-model-output-localized/);
@@ -1630,6 +1660,16 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowRailPanel, /workflow-selected-node-status-announcement/);
   assert.match(workflowRailPanel, /data-accessible-status-text/);
   assert.match(workflowRailPanel, /workflow-run-timeline/);
+  assert.match(workflowRailPanel, /tabIndex=\{0\}/);
+  assert.match(workflowRailPanel, /workflow-selected-node-inspector/);
+  assert.match(workflowBottomShelf, /workflow-bottom-run-timeline/);
+  assert.match(workflowBottomShelf, /workflow-run-event-snapshot/);
+  assert.match(workflowBottomShelf, /tabIndex=\{0\}/);
+  assert.match(composerPanelStyles, /\.workflow-run-timeline li:focus-visible/);
+  assert.match(composerPanelStyles, /\.workflow-run-card:focus-visible/);
+  assert.match(composerShellStyles, /\.workflow-node-inspector:focus-visible/);
+  assert.match(composerShellStyles, /\.workflow-search-result:focus-visible/);
+  assert.match(composerShellStyles, /\.workflow-harness-ref-button:focus-visible/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_search/);
   assert.match(harnessWorkflow, /memory_list/);

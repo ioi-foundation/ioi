@@ -382,6 +382,11 @@
   color: var(--accent-blue);
 }
 
+.workflow-node-group-filter button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 .workflow-node-group-filter button:disabled {
   opacity: 0.45;
 }
@@ -1237,6 +1242,13 @@ button.workflow-run-row.is-active {
   background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
 }
 
+.workflow-search-result:focus-visible,
+.workflow-harness-ref-button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-color: var(--accent-blue);
+}
+
 .workflow-search-result:disabled {
   cursor: default;
   opacity: 0.82;
@@ -1466,6 +1478,11 @@ button.workflow-run-row.is-active {
   gap: 12px;
 }
 
+.workflow-node-inspector:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 4px;
+}
+
 .workflow-node-inspector > header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1514,6 +1531,12 @@ button.workflow-run-row.is-active {
   padding: 0 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.workflow-node-inspector > header button:focus-visible,
+.workflow-node-inspector-lifecycle button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
 }
 
 .workflow-node-inspector-stats {

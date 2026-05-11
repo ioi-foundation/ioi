@@ -878,7 +878,12 @@ export function WorkflowBottomShelf({
               </div>
               <ol className="workflow-run-timeline" data-testid="workflow-bottom-run-timeline">
                 {lastRunResult.events.map((event) => (
-                  <li key={event.id} className={`is-${event.status ?? event.kind}`}>
+                  <li
+                    key={event.id}
+                    className={`is-${event.status ?? event.kind}`}
+                    tabIndex={0}
+                    aria-label={`${workflowEventLabel(event)} ${event.status ?? event.kind}`}
+                  >
                     <strong>{workflowEventLabel(event)}</strong>
                     <span>{event.message ?? workflowNodeName(workflow, event.nodeId)}</span>
                     <small>{workflowTimeLabel(event.createdAtMs)}</small>
@@ -908,7 +913,12 @@ export function WorkflowBottomShelf({
               {runEvents.slice(-8).length > 0 ? (
                 <ol className="workflow-run-timeline" data-testid="workflow-run-event-snapshot">
                   {runEvents.slice(-8).map((event) => (
-                    <li key={event.id} className={`is-${event.status ?? event.kind}`}>
+                    <li
+                      key={event.id}
+                      className={`is-${event.status ?? event.kind}`}
+                      tabIndex={0}
+                      aria-label={`${workflowEventLabel(event)} ${event.status ?? event.kind}`}
+                    >
                       <strong>{workflowEventLabel(event)}</strong>
                       <span>{event.message ?? workflowNodeName(workflow, event.nodeId)}</span>
                       <small>{workflowTimeLabel(event.createdAtMs)}</small>

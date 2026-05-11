@@ -1829,6 +1829,31 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T14-14-20-396Z/result.json`
 
+Implementation slice completed 2026-05-11, keyboard and focus parity:
+
+- The React Flow canvas now injects keyboard selection callbacks into node data
+  and marks the canvas with an explicit keyboard-navigation contract.
+- Canvas nodes are tab stops with `aria-keyshortcuts="Enter Space"`, select the
+  same inspector path on focus or Enter/Space, and expose a visible focus ring
+  independent of selection color.
+- Run rail timeline entries, harness attempt rows, shadow comparison rows, the
+  selected-node inspector, and bottom-shelf run timelines are keyboard
+  focusable with accessible labels.
+- Run cards, attempts, comparison nodes, search results, harness reference
+  buttons, inspector actions, and node group filters now have explicit
+  focus-visible styling.
+- Static contract coverage now guards the canvas keyboard handoff, node
+  Enter/Space behavior, timeline tab stops, selected-node inspector focus
+  target, and focus-visible CSS.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide -- --pretty false`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T14-28-34-383Z/result.json`
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
