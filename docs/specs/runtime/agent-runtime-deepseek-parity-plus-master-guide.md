@@ -1548,6 +1548,35 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T11-51-00-206Z/result.json`
 
+Implementation slice completed 2026-05-11, review gate decision:
+
+- Added a read-only `ioi.agent-runtime.review-gate.v1` decision that consumes
+  repository context, branch policy, GitHub context, and the preview-only PR
+  attempt before any PR creation path can proceed.
+- Review gate now records required reviewers, required checks, PR attempt ID,
+  branch/repo target, blockers, warnings, approval requirements, review
+  satisfaction state, and PR creation allowance.
+- The gate currently fails closed when the PR attempt is blocked or human review
+  is unsatisfied, preserving `mutationAllowed: false`,
+  `prCreationAllowed: false`, `mutationExecuted: false`, and
+  `networkLookupPerformed: false`.
+- Each run now emits `ReviewGateDecision` on `runtime.review-gate`, with receipt
+  refs and a `review-gate.json` artifact.
+- React Flow now has a `review_gate` / `ReviewGateNode` contract that consumes
+  repository context, branch policy, GitHub context, and PR attempt, and exposes
+  review status, blockers, reviewers, checks, and receipt fields.
+- The default harness now routes `review_gate` immediately after `pr_attempt`,
+  satisfying the parity requirement that workflow graphs can require review
+  before PR creation.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-15-17-099Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:

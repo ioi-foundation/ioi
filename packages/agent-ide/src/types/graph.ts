@@ -513,12 +513,21 @@ export interface NodeLogic {
   prAttemptBranchArtifactField?: string;
   prAttemptDiffArtifactField?: string;
   prAttemptReceiptField?: string;
+  reviewGateEndpoint?: string;
+  reviewGate?: unknown;
+  reviewGateField?: string;
+  reviewGateStatusField?: string;
+  reviewGateBlockersField?: string;
+  reviewGateReviewersField?: string;
+  reviewGateChecksField?: string;
+  reviewGateReceiptField?: string;
   activationGate?: {
     consumesDoctorReport?: boolean;
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
     consumesGithubContext?: boolean;
     consumesPrAttempt?: boolean;
+    consumesReviewGate?: boolean;
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
@@ -542,6 +551,9 @@ export interface NodeLogic {
     prAttemptStatusField?: string;
     prAttemptBlockersField?: string;
     prAttemptAuthorityField?: string;
+    reviewGateField?: string;
+    reviewGateStatusField?: string;
+    reviewGateBlockersField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };
@@ -987,6 +999,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"github_context">
   | WorkflowNodeConfigBase<"pr_attempt">
+  | WorkflowNodeConfigBase<"review_gate">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3667,6 +3680,7 @@ export type WorkflowHarnessComponentKind =
   | "branch_policy"
   | "github_context"
   | "pr_attempt"
+  | "review_gate"
   | "skill_registry"
   | "hook_registry"
   | "hook_policy"
@@ -4208,6 +4222,7 @@ export type WorkflowNodeKind =
   | "branch_policy"
   | "github_context"
   | "pr_attempt"
+  | "review_gate"
   | "function"
   | "model_binding"
   | "model_call"

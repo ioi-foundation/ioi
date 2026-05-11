@@ -294,6 +294,37 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.ok(prAttempt.diffArtifact.fileCount >= 1);
     assert.equal(prAttempt.redaction.diffContentInProjection, false);
 
+    const reviewGate = await fetchJson(`${daemon.endpoint}/v1/review-gate`);
+    assert.equal(reviewGate.schemaVersion, "ioi.agent-runtime.review-gate.v1");
+    assert.equal(reviewGate.object, "ioi.review_gate_decision");
+    assert.equal(reviewGate.repositoryContextId, repositoryContext.contextId);
+    assert.equal(reviewGate.branchPolicyId, branchPolicy.policyId);
+    assert.equal(reviewGate.githubContextId, githubContext.contextId);
+    assert.equal(reviewGate.prAttemptId, prAttempt.attemptId);
+    assert.equal(reviewGate.status, "blocked");
+    assert.equal(reviewGate.decision, "blocked");
+    assert.equal(reviewGate.repoFullName, "ioi-test/ioi");
+    assert.equal(reviewGate.branch, branch);
+    assert.equal(reviewGate.defaultBranch, branch);
+    assert.equal(reviewGate.reviewRequired, true);
+    assert.equal(reviewGate.reviewSatisfied, false);
+    assert.equal(reviewGate.approvalRequired, true);
+    assert.equal(reviewGate.approvalSatisfied, false);
+    assert.deepEqual(reviewGate.requiredReviewers, ["code-owner"]);
+    assert.ok(reviewGate.requiredChecks.includes("human_review_satisfied"));
+    assert.ok(reviewGate.blockers.includes("review_not_satisfied"));
+    assert.ok(reviewGate.blockers.includes("pr_attempt_not_ready"));
+    assert.ok(reviewGate.blockers.includes("missing_authority_scope:github.pr.create"));
+    assert.equal(reviewGate.preconditions.prAttemptReady, false);
+    assert.equal(reviewGate.preconditions.diffArtifactAttached, true);
+    assert.equal(reviewGate.preconditions.reviewPolicySatisfied, false);
+    assert.equal(reviewGate.preconditions.networkLookupPerformed, false);
+    assert.equal(reviewGate.preconditions.mutationExecuted, false);
+    assert.equal(reviewGate.mutationAllowed, false);
+    assert.equal(reviewGate.prCreationAllowed, false);
+    assert.equal(reviewGate.mutationExecuted, false);
+    assert.equal(reviewGate.networkLookupPerformed, false);
+
     const { Agent, createRuntimeSubstrateClient } = await importSdk();
     const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const agent = await Agent.create({ local: { cwd }, substrateClient: client });
@@ -324,14 +355,23 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(trace.prAttempt.branchArtifact.artifactName, "pr-branch.json");
     assert.equal(trace.prAttempt.diffArtifact.artifactName, "pr-diff.patch");
     assert.ok(trace.prAttempt.blockers.includes("missing_authority_scope:github.pr.create"));
+    assert.equal(trace.reviewGate.schemaVersion, "ioi.agent-runtime.review-gate.v1");
+    assert.equal(trace.reviewGate.status, "blocked");
+    assert.equal(trace.reviewGate.decision, "blocked");
+    assert.equal(trace.reviewGate.prAttemptId, trace.prAttempt.attemptId);
+    assert.equal(trace.reviewGate.reviewRequired, true);
+    assert.equal(trace.reviewGate.reviewSatisfied, false);
+    assert.ok(trace.reviewGate.blockers.includes("review_not_satisfied"));
     assert.equal(trace.promptAudit.repositoryContextId, trace.repositoryContext.contextId);
     assert.equal(trace.promptAudit.branchPolicyId, trace.branchPolicy.policyId);
     assert.equal(trace.promptAudit.githubContextId, trace.githubContext.contextId);
     assert.equal(trace.promptAudit.prAttemptId, trace.prAttempt.attemptId);
+    assert.equal(trace.promptAudit.reviewGateId, trace.reviewGate.gateId);
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "repository_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "branch_policy"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "github_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "pr_attempt"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "review_gate"));
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/artifacts`);
     assert.ok(artifacts.some((artifact) => artifact.name === "repository-context.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "branch-policy.json"));
@@ -342,6 +382,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.ok(prDiffArtifact);
     assert.equal(prDiffArtifact.mediaType, "text/x-diff");
     assert.match(prDiffArtifact.content, /diff --git/);
+    assert.ok(artifacts.some((artifact) => artifact.name === "review-gate.json"));
 
     const threadId = `thread_${agent.id.slice("agent_".length)}`;
     const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
@@ -419,6 +460,29 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.ok(prAttemptEvent.artifact_refs.includes("pr-attempt.json"));
     assert.ok(prAttemptEvent.artifact_refs.includes("pr-branch.json"));
     assert.ok(prAttemptEvent.artifact_refs.includes("pr-diff.patch"));
+    const reviewGateEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "ReviewGateDecision",
+    );
+    assert.ok(reviewGateEvent);
+    assert.equal(reviewGateEvent.component_kind, "review_gate");
+    assert.equal(reviewGateEvent.workflow_node_id, "runtime.review-gate");
+    assert.equal(reviewGateEvent.payload_summary.status, "blocked");
+    assert.equal(reviewGateEvent.payload_summary.decision, "blocked");
+    assert.equal(reviewGateEvent.payload_summary.repo_full_name, "ioi-test/ioi");
+    assert.equal(reviewGateEvent.payload_summary.branch, branch);
+    assert.equal(reviewGateEvent.payload_summary.default_branch, branch);
+    assert.equal(reviewGateEvent.payload_summary.review_required, true);
+    assert.equal(reviewGateEvent.payload_summary.review_satisfied, false);
+    assert.equal(reviewGateEvent.payload_summary.approval_required, true);
+    assert.equal(reviewGateEvent.payload_summary.approval_satisfied, false);
+    assert.deepEqual(reviewGateEvent.payload_summary.required_reviewers, ["code-owner"]);
+    assert.ok(reviewGateEvent.payload_summary.required_checks.includes("human_review_satisfied"));
+    assert.equal(reviewGateEvent.payload_summary.mutation_allowed, false);
+    assert.equal(reviewGateEvent.payload_summary.pr_creation_allowed, false);
+    assert.equal(reviewGateEvent.payload_summary.mutation_executed, false);
+    assert.equal(reviewGateEvent.payload_summary.network_lookup_performed, false);
+    assert.ok(reviewGateEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_review_gate")));
+    assert.ok(reviewGateEvent.artifact_refs.includes("review-gate.json"));
 
     const serializedProjection = JSON.stringify({
       repositoryContext,
@@ -426,6 +490,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
       branchPolicy,
       githubContext,
       prAttempt,
+      reviewGate,
       trace,
       events,
     });
@@ -1227,6 +1292,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
   assert.match(workflowContracts, /repository\.pr_attempt/);
+  assert.match(workflowContracts, /repository\.review_gate/);
   assert.match(workflowContracts, /runtime\.doctor/);
   assert.match(nodeRegistry, /runtime_doctor/);
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
@@ -1248,6 +1314,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /PrAttemptNode/);
   assert.match(nodeRegistry, /\/v1\/pr-attempts/);
   assert.match(nodeRegistry, /prAttemptAuthorityField/);
+  assert.match(nodeRegistry, /review_gate/);
+  assert.match(nodeRegistry, /ReviewGateNode/);
+  assert.match(nodeRegistry, /\/v1\/review-gate/);
+  assert.match(nodeRegistry, /reviewGateReviewersField/);
   assert.match(nodeRegistry, /SkillNode/);
   assert.match(nodeRegistry, /SkillPackNode/);
   assert.match(nodeRegistry, /HookNode/);
@@ -1291,6 +1361,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /pr_attempt/);
   assert.match(harnessWorkflow, /PrAttemptRecord/);
   assert.match(harnessWorkflow, /github\.pr\.preview/);
+  assert.match(harnessWorkflow, /review_gate/);
+  assert.match(harnessWorkflow, /ReviewGateDecision/);
+  assert.match(harnessWorkflow, /review\.gate\.evaluate/);
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /hook_policy/);
