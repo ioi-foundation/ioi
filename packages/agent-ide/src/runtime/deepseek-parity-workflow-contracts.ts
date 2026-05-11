@@ -128,6 +128,8 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "verification.diagnostics",
   "verification.scorecard",
   "verification.quality_ledger",
+  "runtime.task",
+  "runtime.job",
   "repository.context",
   "repository.branch_policy",
   "repository.github_context",

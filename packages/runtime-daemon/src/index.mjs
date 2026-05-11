@@ -21,6 +21,12 @@ const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.v1";
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
+  runtime_task: "item.completed",
+  job_queued: "item.created",
+  job_started: "item.started",
+  job_completed: "item.completed",
+  job_failed: "item.failed",
+  job_canceled: "item.canceled",
   repository_context: "item.completed",
   branch_policy: "item.completed",
   github_context: "item.completed",
@@ -1055,6 +1061,21 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  listJobs(options = {}) {
+    const agentId = options.agentId ?? options.agent_id ?? undefined;
+    const status = options.status ?? undefined;
+    return this.listRuns(agentId)
+      .map((run) => runtimeJobRecordForRun(run))
+      .filter((job) => !status || job.status === status)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  getJob(jobId) {
+    const job = this.listJobs().find((candidate) => candidate.jobId === jobId || candidate.runId === jobId);
+    if (!job) throw notFound(`Job not found: ${jobId}`, { jobId });
+    return job;
+  }
+
   agentForThread(threadId) {
     return this.getAgent(agentIdForThread(threadId));
   }
@@ -1076,24 +1097,56 @@ export class AgentgresRuntimeStateStore {
   cancelRun(runId) {
     const run = this.getRun(runId);
     const status = run.status === "canceled" ? "canceled" : "canceled";
+    const updatedAt = new Date().toISOString();
     const nonTerminalEvents = run.events.filter((event) => !TERMINAL_EVENT_TYPES.has(event.type));
+    const canceledEvents = [...nonTerminalEvents];
     const canceled = makeEvent(
       run.id,
       run.agentId,
-      nonTerminalEvents.length,
+      canceledEvents.length,
       "canceled",
       "Run canceled",
       { reason: "operator_cancel", priorStatus: run.status },
     );
+    canceledEvents.push(canceled);
     const stopCondition = {
       reason: "marginal_improvement_too_low",
       evidenceSufficient: true,
       rationale:
         "Cancellation became the single terminal event and replay cursor continuity was preserved.",
     };
+    const runtimeTask = runtimeTaskRecord({
+      runId: run.id,
+      agent: { id: run.agentId },
+      prompt: run.objective,
+      mode: run.mode,
+      taskFamily: run.trace?.qualityLedger?.taskFamily ?? taskFamilyForMode(run.mode ?? "send"),
+      selectedStrategy: run.trace?.qualityLedger?.selectedStrategy ?? strategyForMode(run.mode ?? "send"),
+      modelRouteDecision: run.modelRouteDecision ?? run.trace?.modelRouteDecision,
+      activeSkillHookManifest: run.activeSkillHookManifest ?? run.trace?.activeSkillHookManifest,
+      createdAt: run.createdAt,
+      updatedAt,
+      status,
+    });
+    const runtimeJob = runtimeJobRecord({
+      runtimeTask,
+      status,
+      createdAt: run.createdAt,
+      updatedAt,
+      queuedAt: run.runtimeJob?.queuedAt ?? run.createdAt,
+      startedAt: run.runtimeJob?.startedAt ?? run.createdAt,
+      completedAt: updatedAt,
+      lifecycle: ["queued", "started", "canceled"],
+      eventCount: canceledEvents.length,
+      terminalEventCount: terminalCount(canceledEvents),
+      artifactNames: normalizeArray(run.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
+      receiptKinds: normalizeArray(run.receipts).map((receipt) => receipt.kind).filter(Boolean),
+    });
     const trace = {
       ...run.trace,
-      events: [...nonTerminalEvents, canceled],
+      events: canceledEvents,
+      runtimeTask,
+      runtimeJob,
       stopCondition,
       qualityLedger: {
         ...run.trace.qualityLedger,
@@ -1105,9 +1158,11 @@ export class AgentgresRuntimeStateStore {
     const updated = {
       ...run,
       status,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
       events: trace.events,
       trace,
+      runtimeTask: trace.runtimeTask,
+      runtimeJob: trace.runtimeJob,
       result: "Run canceled with terminal event continuity preserved.",
     };
     this.runs.set(runId, updated);
@@ -1146,6 +1201,7 @@ export class AgentgresRuntimeStateStore {
       paths: {
         run: relative(this.stateDir, this.pathFor("runs", `${run.id}.json`)),
         task: relative(this.stateDir, this.pathFor("tasks", `${run.id}.json`)),
+        job: relative(this.stateDir, this.pathFor("jobs", `${runtimeJobRecordForRun(run).jobId}.json`)),
         quality: relative(this.stateDir, this.pathFor("quality", `${run.id}.json`)),
         operationLog: "operation-log.jsonl",
       },
@@ -1415,6 +1471,7 @@ export class AgentgresRuntimeStateStore {
       "agents",
       "runs",
       "tasks",
+      "jobs",
       "artifacts",
       "receipts",
       "quality",
@@ -1445,6 +1502,7 @@ export class AgentgresRuntimeStateStore {
       relationSchemas: {
         runs: ["id", "agentId", "status", "objective", "mode", "createdAt", "updatedAt"],
         tasks: ["runId", "currentObjective", "facts", "constraints", "evidenceRefs"],
+        jobs: ["jobId", "taskId", "runId", "agentId", "status", "createdAt", "updatedAt"],
         artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
@@ -1475,15 +1533,19 @@ export class AgentgresRuntimeStateStore {
   }
 
   writeRun(run, operationKind) {
+    const runtimeTask = runtimeTaskRecordForRun(run);
+    const runtimeJob = runtimeJobRecordForRun(run);
     writeJson(this.pathFor("runs", `${run.id}.json`), run);
     writeJson(this.pathFor("tasks", `${run.id}.json`), {
       runId: run.id,
       agentId: run.agentId,
+      runtimeTask,
       taskState: run.trace.taskState,
       postconditions: run.trace.postconditions,
       semanticImpact: run.trace.semanticImpact,
       projectionWatermark: this.operationCount() + 1,
     });
+    writeJson(this.pathFor("jobs", `${runtimeJob.jobId}.json`), runtimeJob);
     for (const receipt of run.receipts) {
       writeJson(this.pathFor("receipts", `${receipt.id}.json`), { runId: run.id, ...receipt });
     }
@@ -1663,6 +1725,14 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/runs") {
       writeJsonResponse(response, store.listRuns(url.searchParams.get("agentId") ?? undefined));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/jobs") {
+      writeJsonResponse(response, store.listJobs(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (segments[0] === "v1" && segments[1] === "jobs" && segments[2]) {
+      writeJsonResponse(response, store.getJob(decodeURIComponent(segments[2])));
       return;
     }
     if (segments[0] === "v1" && segments[1] === "runs" && segments[2]) {
@@ -3666,6 +3736,30 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     request,
     catalog: skillHookCatalog,
   });
+  const runtimeTask = runtimeTaskRecord({
+    runId,
+    agent,
+    prompt,
+    mode,
+    taskFamily,
+    selectedStrategy,
+    modelRouteDecision,
+    activeSkillHookManifest,
+    createdAt,
+    updatedAt: createdAt,
+    status: "completed",
+  });
+  const runtimeJob = runtimeJobRecord({
+    runtimeTask,
+    agent,
+    status: "completed",
+    createdAt,
+    updatedAt: createdAt,
+    queuedAt: createdAt,
+    startedAt: createdAt,
+    completedAt: createdAt,
+    lifecycle: ["queued", "started", "completed"],
+  });
   const hookDryRunPlan = hookDryRunPlanForManifest({
     runId,
     manifest: activeSkillHookManifest,
@@ -3731,6 +3825,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "Run entered the live local IOI daemon public runtime API",
       "Agentgres v0 is the canonical owner for this run state",
       `Selected model profile: ${selectedModel}`,
+      `Runtime task: id=${runtimeTask.taskId}, family=${runtimeTask.taskFamily}, status=${runtimeTask.status}`,
+      `Runtime job: id=${runtimeJob.jobId}, status=${runtimeJob.status}, queue=${runtimeJob.queueName}`,
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
       `GitHub context: status=${githubContext.status}, repo=${githubContext.repoFullName ?? "none"}, prEligible=${githubContext.prCreationEligible}`,
@@ -3762,6 +3858,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     evidenceRefs: [
       "ioi_daemon_public_runtime_api",
       "agentgres_canonical_operation_log",
+      runtimeTask.taskId,
+      runtimeJob.jobId,
       repositoryContext.contextId,
       branchPolicy.policyId,
       githubContext.contextId,
@@ -3821,6 +3919,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       {
         checkId: "agentgres-operation-log",
         description: "Run, task, receipts, scorecard, and ledger are written to Agentgres v0.",
+        status: "passed",
+      },
+      {
+        checkId: "runtime-job-ledger",
+        description: "Runtime task and job records are durable, replayable, and inspectable through the public jobs API.",
         status: "passed",
       },
       {
@@ -3889,6 +3992,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "trace",
       "scorecard",
       "agentgres_operation_log",
+      "runtime_task",
+      "runtime_job",
       "repository_context",
       "branch_policy",
       "github_context",
@@ -3910,6 +4015,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/agents/{id}/runs",
       "/v1/agents/{id}/memory",
       "/v1/threads/{id}/memory",
+      "/v1/jobs",
+      "/v1/jobs/{id}",
       "/v1/runs/{id}/events",
       "/v1/runs/{id}/trace",
       "/v1/skills",
@@ -3927,6 +4034,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "IOISDKMessage",
       "RuntimeTraceBundle",
       "AgentgresRuntimeStateV0",
+      "RuntimeTaskRecord",
+      "RuntimeJobRecord",
       "RepositoryContext",
       "BranchPolicyDecision",
       "GitHubContext",
@@ -3951,6 +4060,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       ...(subagentMemoryInheritance
         ? [`memory.subagent_inheritance.${subagentMemoryInheritance.mode}`]
         : []),
+      "runtime.jobs.durable_projection",
+      "runtime.tasks.durable_projection",
       "repository.context.read_only",
       "repository.branch_policy.read_only",
       "github.context.read_only",
@@ -4028,6 +4139,32 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     summary: "No external authority scope was required for this bounded local daemon run.",
     redaction: "none",
     evidenceRefs: ["wallet.network", "authority.no_external_scope"],
+  };
+  const runtimeTaskReceipt = {
+    id: `receipt_${runId}_runtime_task`,
+    kind: "runtime_task",
+    summary: runtimeTask.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      runtimeTask.taskId,
+      runtimeTask.threadId,
+      runtimeTask.turnId,
+      "RuntimeTaskNode",
+      "runtime.tasks.durable_projection",
+    ].filter(Boolean),
+  };
+  const runtimeJobReceipt = {
+    id: `receipt_${runId}_runtime_job`,
+    kind: "runtime_job",
+    summary: runtimeJob.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      runtimeJob.jobId,
+      runtimeTask.taskId,
+      `run:${runId}`,
+      "RuntimeJobNode",
+      "runtime.jobs.durable_projection",
+    ].filter(Boolean),
   };
   const repositoryContextReceipt = {
     id: `receipt_${runId}_repository_context`,
@@ -4189,6 +4326,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const receipts = [
     modelRouteReceipt,
     subagentMemoryReceipt,
+    runtimeTaskReceipt,
+    runtimeJobReceipt,
     repositoryContextReceipt,
     branchPolicyReceipt,
     githubContextReceipt,
@@ -4217,6 +4356,30 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const startedEvent = addEvent("run_started", "Run entered local IOI daemon", {
     taskFamily,
     selectedStrategy,
+  });
+  addEvent("runtime_task", "Runtime task record written", {
+    ...runtimeTask,
+    receiptId: runtimeTaskReceipt.id,
+    eventKind: "RuntimeTaskRecord",
+    workflowNodeId: "runtime.runtime-task",
+  });
+  addEvent("job_queued", "Runtime job queued", {
+    ...runtimeJob,
+    status: "queued",
+    lifecycleStatus: "queued",
+    completedAt: null,
+    receiptId: runtimeJobReceipt.id,
+    eventKind: "JobQueued",
+    workflowNodeId: "runtime.runtime-job",
+  });
+  addEvent("job_started", "Runtime job started", {
+    ...runtimeJob,
+    status: "running",
+    lifecycleStatus: "started",
+    completedAt: null,
+    receiptId: runtimeJobReceipt.id,
+    eventKind: "JobStarted",
+    workflowNodeId: "runtime.runtime-job",
   });
   addEvent("repository_context", "Repository context recorded", {
     ...repositoryContext,
@@ -4313,9 +4476,18 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const deltaEvent = addEvent("delta", result, { text: result });
   addEvent("stop_condition", "Stop condition recorded", stopCondition);
   addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
+  addEvent("job_completed", "Runtime job completed", {
+    ...runtimeJob,
+    lifecycleStatus: "completed",
+    receiptId: runtimeJobReceipt.id,
+    eventKind: "JobCompleted",
+    workflowNodeId: "runtime.runtime-job",
+  });
   addEvent("artifact", "Trace and scorecard artifacts recorded", {
     artifactNames: [
       "trace.json",
+      "runtime-task.json",
+      "runtime-job.json",
       "repository-context.json",
       "branch-policy.json",
       "github-context.json",
@@ -4348,6 +4520,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     semanticImpact,
     modelRouteDecision,
     activeSkillHookManifest,
+    runtimeTask,
+    runtimeJob,
     repositoryContext,
     branchPolicy,
     githubContext,
@@ -4361,6 +4535,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       schemaVersion: "ioi.agent-runtime.prompt-audit.v1",
       runId,
       promptHash: doctorHash(prompt),
+      runtimeTaskId: runtimeTask.taskId,
+      runtimeJobId: runtimeJob.jobId,
       repositoryContextId: repositoryContext.contextId,
       branchPolicyId: branchPolicy.policyId,
       githubContextId: githubContext.contextId,
@@ -4382,6 +4558,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       },
       evidenceRefs: [
         "prompt_audit",
+        runtimeTask.taskId,
+        runtimeJob.jobId,
         repositoryContext.contextId,
         branchPolicy.policyId,
         githubContext.contextId,
@@ -4402,6 +4580,22 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   };
   const artifacts = [
     artifact(runId, "trace.json", "application/json", traceReceipt.id, trace, "redacted"),
+    artifact(
+      runId,
+      "runtime-task.json",
+      "application/json",
+      runtimeTaskReceipt.id,
+      runtimeTask,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "runtime-job.json",
+      "application/json",
+      runtimeJobReceipt.id,
+      runtimeJob,
+      "redacted",
+    ),
     artifact(
       runId,
       "repository-context.json",
@@ -4531,6 +4725,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteDecision,
     modelRouteReceiptId,
     activeSkillHookManifest,
+    runtimeTask,
+    runtimeJob,
     repositoryContext,
     branchPolicy,
     githubContext,
@@ -4546,6 +4742,189 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     subagentMemoryInheritance,
     result,
   };
+}
+
+function runtimeTaskRecord({
+  runId,
+  agent,
+  prompt,
+  mode,
+  taskFamily,
+  selectedStrategy,
+  modelRouteDecision,
+  activeSkillHookManifest,
+  createdAt,
+  updatedAt,
+  status,
+} = {}) {
+  const id = runId ?? `run_${doctorHash(String(prompt ?? "task")).slice(0, 12)}`;
+  const agentId = agent?.id ?? null;
+  const promptHash = doctorHash(String(prompt ?? ""));
+  return {
+    schemaVersion: "ioi.agent-runtime.task-record.v1",
+    object: "ioi.runtime_task",
+    taskId: `task_${id}`,
+    runId: id,
+    agentId,
+    threadId: agentId ? threadIdForAgent(agentId) : null,
+    turnId: turnIdForRun(id),
+    status: status ?? "completed",
+    mode: mode ?? "send",
+    taskFamily: taskFamily ?? taskFamilyForMode(mode ?? "send"),
+    selectedStrategy: selectedStrategy ?? strategyForMode(mode ?? "send"),
+    summary: `Runtime task for ${taskFamily ?? taskFamilyForMode(mode ?? "send")} is ${status ?? "completed"}.`,
+    promptHash,
+    promptIncluded: false,
+    objectivePreviewIncluded: false,
+    modelRouteDecisionId: modelRouteDecision?.decisionId ?? null,
+    activeSkillHookManifestId: activeSkillHookManifest?.manifestId ?? null,
+    createdAt: createdAt ?? new Date().toISOString(),
+    updatedAt: updatedAt ?? createdAt ?? new Date().toISOString(),
+    durable: true,
+    replayable: true,
+    workflowNodeId: "runtime.runtime-task",
+    redaction: {
+      profile: "runtime_task_safe",
+      promptIncluded: false,
+      secretValuesIncluded: false,
+    },
+    evidenceRefs: [
+      "runtime_task",
+      "runtime.tasks.durable_projection",
+      "RuntimeTaskNode",
+      `run:${id}`,
+      activeSkillHookManifest?.manifestId,
+    ].filter(Boolean),
+  };
+}
+
+function runtimeTaskRecordForRun(run) {
+  if (run?.runtimeTask) return run.runtimeTask;
+  return runtimeTaskRecord({
+    runId: run?.id,
+    agent: { id: run?.agentId },
+    prompt: run?.objective,
+    mode: run?.mode,
+    taskFamily: run?.trace?.qualityLedger?.taskFamily ?? taskFamilyForMode(run?.mode ?? "send"),
+    selectedStrategy: run?.trace?.qualityLedger?.selectedStrategy ?? strategyForMode(run?.mode ?? "send"),
+    modelRouteDecision: run?.modelRouteDecision ?? run?.trace?.modelRouteDecision,
+    activeSkillHookManifest: run?.activeSkillHookManifest ?? run?.trace?.activeSkillHookManifest,
+    createdAt: run?.createdAt,
+    updatedAt: run?.updatedAt,
+    status: jobStatusForRunStatus(run?.status),
+  });
+}
+
+function runtimeJobRecord({
+  runtimeTask,
+  agent,
+  status,
+  createdAt,
+  updatedAt,
+  queuedAt,
+  startedAt,
+  completedAt,
+  lifecycle,
+  eventCount,
+  terminalEventCount,
+  artifactNames,
+  receiptKinds,
+} = {}) {
+  const task = runtimeTask ?? runtimeTaskRecord();
+  const jobStatus = status ?? "completed";
+  const jobId = `job_${task.runId}`;
+  return {
+    schemaVersion: "ioi.agent-runtime.job-record.v1",
+    object: "ioi.runtime_job",
+    jobId,
+    taskId: task.taskId,
+    runId: task.runId,
+    agentId: task.agentId ?? agent?.id ?? null,
+    threadId: task.threadId,
+    turnId: task.turnId,
+    status: jobStatus,
+    lifecycle: lifecycle ?? jobLifecycleForStatus(jobStatus),
+    summary: `Runtime job ${jobId} is ${jobStatus}.`,
+    queueName: "local-agentgres",
+    runner: "local-daemon-agentgres",
+    jobType: "agent_run",
+    priority: "normal",
+    background: true,
+    durable: true,
+    replayable: true,
+    createdAt: createdAt ?? task.createdAt,
+    updatedAt: updatedAt ?? task.updatedAt,
+    queuedAt: queuedAt ?? createdAt ?? task.createdAt,
+    startedAt: startedAt ?? createdAt ?? task.createdAt,
+    completedAt: completedAt ?? (["completed", "failed", "canceled"].includes(jobStatus) ? updatedAt ?? task.updatedAt : null),
+    progress: {
+      completedSteps: ["completed", "failed", "canceled"].includes(jobStatus) ? 1 : jobStatus === "running" ? 0 : 0,
+      totalSteps: 1,
+      percent: ["completed", "failed", "canceled"].includes(jobStatus) ? 100 : jobStatus === "running" ? 50 : 0,
+    },
+    eventCount: eventCount ?? null,
+    terminalEventCount: terminalEventCount ?? null,
+    artifactNames: artifactNames ?? ["runtime-task.json", "runtime-job.json", "trace.json", "agentgres-projection.json"],
+    receiptKinds: receiptKinds ?? ["runtime_task", "runtime_job", "agentgres_canonical_write"],
+    failure: jobStatus === "failed" ? { reason: "runtime_failed", message: "Runtime job failed." } : null,
+    cancellation: jobStatus === "canceled" ? { reason: "operator_cancel" } : null,
+    retryCount: 0,
+    endpoints: {
+      self: `/v1/jobs/${jobId}`,
+      run: `/v1/runs/${task.runId}`,
+      events: `/v1/runs/${task.runId}/events`,
+      trace: `/v1/runs/${task.runId}/trace`,
+    },
+    workflowNodeId: "runtime.runtime-job",
+    redaction: {
+      profile: "runtime_job_safe",
+      promptIncluded: false,
+      secretValuesIncluded: false,
+    },
+    evidenceRefs: [
+      "runtime_job",
+      "runtime.jobs.durable_projection",
+      "RuntimeJobNode",
+      task.taskId,
+      `run:${task.runId}`,
+    ],
+  };
+}
+
+function runtimeJobRecordForRun(run) {
+  if (run?.runtimeJob) return run.runtimeJob;
+  const task = runtimeTaskRecordForRun(run);
+  const status = jobStatusForRunStatus(run?.status);
+  return runtimeJobRecord({
+    runtimeTask: task,
+    status,
+    createdAt: run?.createdAt,
+    updatedAt: run?.updatedAt,
+    queuedAt: run?.createdAt,
+    startedAt: run?.createdAt,
+    completedAt: ["completed", "failed", "canceled"].includes(status) ? run?.updatedAt : null,
+    lifecycle: jobLifecycleForStatus(status),
+    eventCount: normalizeArray(run?.events).length || null,
+    terminalEventCount: terminalCount(normalizeArray(run?.events)) || null,
+    artifactNames: normalizeArray(run?.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
+    receiptKinds: normalizeArray(run?.receipts).map((receipt) => receipt.kind).filter(Boolean),
+  });
+}
+
+function jobStatusForRunStatus(status) {
+  if (status === "canceled") return "canceled";
+  if (status === "failed" || status === "error") return "failed";
+  if (status === "running" || status === "active") return "running";
+  if (status === "queued" || status === "pending") return "queued";
+  return "completed";
+}
+
+function jobLifecycleForStatus(status) {
+  if (status === "queued") return ["queued"];
+  if (status === "running") return ["queued", "started"];
+  if (status === "failed") return ["queued", "started", "failed"];
+  if (status === "canceled") return ["queued", "started", "canceled"];
+  return ["queued", "started", "completed"];
 }
 
 function repositoryContextForWorkspace({ cwd, contextId, generatedAt } = {}) {
@@ -7014,6 +7393,52 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "repository_context_safe",
     };
   }
+  if (event.type === "runtime_task") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeTaskRecord",
+      task_id: event.data?.taskId ?? null,
+      run_id: event.data?.runId ?? null,
+      agent_id: event.data?.agentId ?? null,
+      thread_id: event.data?.threadId ?? null,
+      turn_id: event.data?.turnId ?? null,
+      status: event.data?.status ?? null,
+      mode: event.data?.mode ?? null,
+      task_family: event.data?.taskFamily ?? null,
+      selected_strategy: event.data?.selectedStrategy ?? null,
+      durable: Boolean(event.data?.durable),
+      replayable: Boolean(event.data?.replayable),
+      prompt_included: Boolean(event.data?.promptIncluded),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "runtime_task_safe",
+    };
+  }
+  if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeJobLifecycle",
+      job_id: event.data?.jobId ?? null,
+      task_id: event.data?.taskId ?? null,
+      run_id: event.data?.runId ?? null,
+      agent_id: event.data?.agentId ?? null,
+      thread_id: event.data?.threadId ?? null,
+      turn_id: event.data?.turnId ?? null,
+      status: event.data?.status ?? null,
+      lifecycle_status: event.data?.lifecycleStatus ?? null,
+      queue_name: event.data?.queueName ?? null,
+      runner: event.data?.runner ?? null,
+      job_type: event.data?.jobType ?? null,
+      background: Boolean(event.data?.background),
+      durable: Boolean(event.data?.durable),
+      replayable: Boolean(event.data?.replayable),
+      queued_at: event.data?.queuedAt ?? null,
+      started_at: event.data?.startedAt ?? null,
+      completed_at: event.data?.completedAt ?? null,
+      progress_percent: event.data?.progress?.percent ?? null,
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "runtime_job_safe",
+    };
+  }
   if (event.type === "branch_policy") {
     return {
       ...summary,
@@ -7255,6 +7680,14 @@ function payloadSummaryForRunEvent(event) {
 function componentKindForRunEvent(eventOrType) {
   const type = typeof eventOrType === "string" ? eventOrType : eventOrType?.type;
   switch (type) {
+    case "runtime_task":
+      return "runtime_task";
+    case "job_queued":
+    case "job_started":
+    case "job_completed":
+    case "job_failed":
+    case "job_canceled":
+      return "runtime_job";
     case "repository_context":
       return "repository_context";
     case "branch_policy":
@@ -7314,6 +7747,12 @@ function workflowNodeForRunEvent(eventOrType) {
   if (
     typeof eventOrType !== "string" &&
     (eventOrType?.type === "model_route_decision" ||
+      eventOrType?.type === "runtime_task" ||
+      eventOrType?.type === "job_queued" ||
+      eventOrType?.type === "job_started" ||
+      eventOrType?.type === "job_completed" ||
+      eventOrType?.type === "job_failed" ||
+      eventOrType?.type === "job_canceled" ||
       eventOrType?.type === "repository_context" ||
       eventOrType?.type === "branch_policy" ||
       eventOrType?.type === "github_context" ||
@@ -7335,6 +7774,12 @@ function workflowNodeForRunEvent(eventOrType) {
 function receiptRefsForRunEvent(event) {
   if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
   if (event.type === "model_route_decision") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "runtime_task") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "repository_context") {
@@ -7381,6 +7826,8 @@ function receiptRefsForRunEvent(event) {
 }
 
 function artifactRefsForRunEvent(event) {
+  if (event.type === "runtime_task") return ["runtime-task.json"];
+  if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") return ["runtime-job.json"];
   if (event.type === "repository_context") return ["repository-context.json"];
   if (event.type === "branch_policy") return ["branch-policy.json"];
   if (event.type === "github_context") return ["github-context.json"];
