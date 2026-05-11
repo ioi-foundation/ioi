@@ -55,6 +55,7 @@ export interface RuntimeTraceBundle {
   memoryPolicy?: AgentMemoryPolicy | null;
   memoryRecords?: AgentMemoryRecord[];
   memoryWrites?: AgentMemoryRecord[];
+  subagentMemoryInheritance?: SubagentMemoryInheritanceProjection | null;
   stopCondition: StopConditionProjection;
   qualityLedger: AgentQualityLedgerProjection;
   scorecard: RuntimeScorecard;
@@ -186,6 +187,34 @@ export interface AgentMemoryPolicy {
   evidenceRefs: string[];
   effective?: boolean;
   policyRefs?: string[];
+}
+
+export interface SubagentMemoryInheritanceProjection {
+  schemaVersion: "ioi.agent-runtime.subagent-memory-inheritance.v1";
+  object: "ioi.subagent_memory_inheritance";
+  parentAgentId: string;
+  subagentName: string | null;
+  threadId: string | null;
+  mode: "none" | "explicit" | "read_only" | "full" | string;
+  requestedMode: string;
+  parentPolicyId: string | null;
+  effectivePolicyId: string;
+  parentPolicy: AgentMemoryPolicy | null;
+  effectivePolicy: AgentMemoryPolicy;
+  filters: {
+    threadId?: string;
+    scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
+    memoryKey?: string;
+    query?: string;
+    q?: string;
+    limit?: number;
+    redaction?: "none" | "redacted" | string;
+  };
+  records: AgentMemoryRecord[];
+  inheritedRecordIds: string[];
+  writeAllowed: boolean;
+  writeBlockReason: string | null;
+  evidenceRefs: string[];
 }
 
 export interface TaskStateProjection {

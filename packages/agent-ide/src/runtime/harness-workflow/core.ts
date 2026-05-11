@@ -10698,6 +10698,25 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       icon: "database",
     }),
     makeComponent({
+      kind: "memory_subagent_inheritance",
+      label: "Subagent memory inheritance",
+      description:
+        "Projects parent memory into subagent handoffs through none, explicit, read-only, or full inheritance policy.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/memory",
+      capabilityScope: ["memory.read", "subagent.spawn"],
+      approvalRequired: true,
+      eventKinds: ["SubagentMemoryInheritance"],
+      evidence: [
+        "memory.subagentInheritance",
+        "memory.inheritedRecordIds",
+        "memory.effectivePolicy",
+        "memory.writeBlockReason",
+      ],
+      group: "State",
+      icon: "database",
+    }),
+    makeComponent({
       kind: "verifier",
       label: "Verifier",
       description:
@@ -11020,7 +11039,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     description:
       "Memory read/write scope, injection, approval, retention, and subagent inheritance behavior.",
     required: true,
-    allowedComponentKinds: ["memory_read", "memory_write"],
+    allowedComponentKinds: ["memory_read", "memory_write", "memory_subagent_inheritance"],
     defaultComponentId: componentId("memory_read"),
     validation: {
       blocksActivation: true,
