@@ -1582,6 +1582,13 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
     path.join(root, "apps/autopilot/src-tauri/src/project/runtime.rs"),
     "utf8",
   );
+  const tauriProjectWorkflowMemoryLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowPackageLane = fs.readFileSync(
     path.join(
       root,
@@ -1638,6 +1645,12 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
+  assert.match(tauriProjectRuntime, /workflow_memory_lane/);
+  assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_send_options/);
+  assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_query_output/);
+  assert.match(tauriProjectWorkflowMemoryLane, /memory_search/);
+  assert.match(tauriProjectWorkflowMemoryLane, /memory_list/);
+  assert.match(tauriProjectWorkflowMemoryLane, /workflow_redacted_memory_record/);
   assert.match(workflowContracts, /runtime\.task/);
   assert.match(workflowContracts, /runtime\.job/);
   assert.match(workflowContracts, /runtime\.checklist/);
