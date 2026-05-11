@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import * as routeDecision from "./model-mounting/route-decision.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
@@ -3105,6 +3106,7 @@ export class ModelMountingState {
       adapterBoundaries: this.adapterBoundaries(),
       lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
       routeReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_route_selection"),
+      routeDecisions: this.modelRouteDecisions(),
       providerHealthReceipts: this.listReceipts().filter((receipt) => receipt.kind === "provider_health"),
       runtimeSurveyReceipts: this.listReceipts().filter((receipt) => receipt.kind === "runtime_survey"),
       invocationReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_invocation"),
@@ -3152,6 +3154,7 @@ export class ModelMountingState {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       source: "agentgres_model_mounting_projection_replay",
       receipt,
+      modelRouteDecision: receipt.details?.modelRouteDecision ?? null,
       route: receipt.details?.routeId ? projection.routes.find((route) => route.id === receipt.details.routeId) ?? null : null,
       endpoint: receipt.details?.endpointId
         ? projection.endpoints.find((endpoint) => endpoint.id === receipt.details.endpointId) ?? null
@@ -3165,6 +3168,13 @@ export class ModelMountingState {
       toolReceipts: normalizeScopes(receipt.details?.toolReceiptIds, []).map((toolReceiptId) => this.getReceipt(toolReceiptId)),
       projectionWatermark: projection.watermark,
     };
+  }
+
+  modelRouteDecisions() {
+    return this.listReceipts()
+      .filter((receipt) => receipt.kind === "model_route_selection")
+      .map(routeDecision.routeDecisionProjectionFromReceipt)
+      .filter(Boolean);
   }
 
   latestProviderHealth(providerId) {
@@ -4991,26 +5001,57 @@ export class ModelMountingState {
     return route;
   }
 
-  testRoute(routeId, body = {}) {
-    const route = this.route(routeId);
-    const selection = this.selectRoute({
-      modelId: body.model ?? body.model_id ?? body.modelId,
-      routeId,
-      capability: body.capability ?? "chat",
-      policy: body.model_policy ?? body.modelPolicy ?? {},
+  routeSelectionReceipt(selection, { body = {}, capability = "chat", responseId = null, previousResponseId = null, evidenceRefs = [] } = {}) {
+    const policy = body.model_policy ?? body.modelPolicy ?? {};
+    const requestedModel = body.model ?? body.model_id ?? body.modelId ?? null;
+    const workflow = routeDecision.workflowContextFromRouteRequest(body);
+    const policyHash = stableHash(policy);
+    const modelRouteDecision = routeDecision.createModelRouteDecision({
+      route: selection.route,
+      endpoint: selection.endpoint,
+      provider: selection.provider,
+      capability,
+      policy,
+      requestedModel,
+      request: body,
+      policyHash,
+      workflow,
+      responseId,
+      previousResponseId,
+      evaluatedCandidates: selection.evaluatedCandidates ?? [],
     });
-    const receipt = this.receipt("model_route_selection", {
-      summary: `Route ${routeId} selected ${selection.endpoint.modelId}.`,
+    return this.receipt("model_route_selection", {
+      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
       redaction: "none",
-      evidenceRefs: ["model_router", routeId, selection.endpoint.id],
+      evidenceRefs: ["model_router", selection.route.id, selection.endpoint.id, ...evidenceRefs],
       details: {
-        routeId,
+        routeId: selection.route.id,
         selectedModel: selection.endpoint.modelId,
         endpointId: selection.endpoint.id,
         providerId: selection.endpoint.providerId,
-        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+        capability,
+        policyHash,
+        responseId,
+        previousResponseId,
+        modelRouteDecisionSchemaVersion: routeDecision.MODEL_ROUTE_DECISION_SCHEMA_VERSION,
+        modelRouteDecisionEventKind: routeDecision.MODEL_ROUTE_DECISION_EVENT_KIND,
+        modelRouteDecisionId: modelRouteDecision.decisionId,
+        modelRouteDecision,
+        ...workflow,
       },
     });
+  }
+
+  testRoute(routeId, body = {}) {
+    const route = this.route(routeId);
+    const capability = body.capability ?? "chat";
+    const selection = this.selectRoute({
+      modelId: body.model ?? body.model_id ?? body.modelId,
+      routeId,
+      capability,
+      policy: body.model_policy ?? body.modelPolicy ?? {},
+    });
+    const receipt = this.routeSelectionReceipt(selection, { body: { ...body, route_id: routeId }, capability });
     const updatedRoute = {
       ...route,
       lastSelectedModel: selection.endpoint.modelId,
@@ -5044,29 +5085,17 @@ export class ModelMountingState {
       policy: body.model_policy ?? body.modelPolicy ?? {},
     });
     const continuationSafety = this.validateContinuationSafety({ previousState, selection, body });
-    const routeReceipt = this.receipt("model_route_selection", {
-      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
-      redaction: "none",
-      evidenceRefs: ["model_router", selection.route.id, selection.endpoint.id],
-      details: {
-        routeId: selection.route.id,
-        selectedModel: selection.endpoint.modelId,
-        endpointId: selection.endpoint.id,
-        providerId: selection.endpoint.providerId,
-        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
-        responseId,
-        previousResponseId,
-      },
-    });
+    const routeReceipt = this.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
     const instance = await this.ensureLoaded(selection.endpoint);
     const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
+    const providerBody = routeDecision.providerRequestBodyForRoute(body, selection.endpoint);
     const providerResult = await this.driverForProvider(selection.provider).invoke({
       state: this,
       provider: selection.provider,
       endpoint: selection.endpoint,
       instance,
       kind,
-      body,
+      body: providerBody,
       input,
       token,
     });
@@ -5171,18 +5200,10 @@ export class ModelMountingState {
       capability: "chat",
       policy: body.model_policy ?? body.modelPolicy ?? {},
     });
-    const routeReceipt = this.receipt("model_route_selection", {
-      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId} for ${operation}.`,
-      redaction: "none",
-      evidenceRefs: ["model_router", "tokenizer_utility", selection.route.id, selection.endpoint.id],
-      details: {
-        routeId: selection.route.id,
-        selectedModel: selection.endpoint.modelId,
-        endpointId: selection.endpoint.id,
-        providerId: selection.endpoint.providerId,
-        capability: "tokenize",
-        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
-      },
+    const routeReceipt = this.routeSelectionReceipt(selection, {
+      body,
+      capability: "tokenize",
+      evidenceRefs: ["tokenizer_utility"],
     });
     const tokens = deterministicTokenizeText(input);
     const promptTokens = Math.max(1, tokens.length);
@@ -5454,29 +5475,17 @@ export class ModelMountingState {
         invocation: await this.invokeModel({ authorization, requiredScope, kind, body }),
       };
     }
-    const routeReceipt = this.receipt("model_route_selection", {
-      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
-      redaction: "none",
-      evidenceRefs: ["model_router", selection.route.id, selection.endpoint.id],
-      details: {
-        routeId: selection.route.id,
-        selectedModel: selection.endpoint.modelId,
-        endpointId: selection.endpoint.id,
-        providerId: selection.endpoint.providerId,
-        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
-        responseId,
-        previousResponseId,
-      },
-    });
+    const routeReceipt = this.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
     const instance = await this.ensureLoaded(selection.endpoint);
     const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
+    const providerBody = routeDecision.providerRequestBodyForRoute(body, selection.endpoint);
     const providerResult = await driver.streamInvoke({
       state: this,
       provider: selection.provider,
       endpoint: selection.endpoint,
       instance,
       kind,
-      body,
+      body: providerBody,
       input,
       token,
     });
@@ -5787,6 +5796,9 @@ export class ModelMountingState {
       model_policy: body.model_policy ?? body.modelPolicy ?? {},
       input: body.input ?? body.prompt ?? "",
       messages: body.messages,
+      workflow_graph_id: body.workflow_graph_id ?? body.workflowGraphId,
+      workflow_node_id: body.workflow_node_id ?? body.workflowNodeId ?? body.node_id ?? body.nodeId,
+      workflow_node_type: body.workflow_node_type ?? body.workflowNodeType ?? node,
     };
     if (node === "Model Router") {
       const routeId = base.route_id ?? "route.local-first";
@@ -5794,7 +5806,7 @@ export class ModelMountingState {
       return {
         node,
         status: "selected",
-        ...(this.testRoute(routeId, { capability, model: base.model, model_policy: base.model_policy })),
+        ...(this.testRoute(routeId, { ...base, capability })),
       };
     }
     if (node === "Local Tool/MCP" || node === "Local Tool / MCP") {
@@ -5987,35 +5999,68 @@ export class ModelMountingState {
 
   selectRoute({ modelId, routeId, capability, policy }) {
     const route = this.routes.get(routeId ?? "route.local-first") ?? this.route("route.local-first");
-    const fallback = modelId
-      ? [this.resolveEndpoint(undefined, modelId).id]
+    const explicitModelId = routeDecision.isAutoModelSelector(modelId) ? null : modelId;
+    const fallback = explicitModelId
+      ? [this.resolveEndpoint(undefined, explicitModelId).id]
       : route.fallback.length > 0
         ? route.fallback
         : ["endpoint.local.auto"];
+    const evaluatedCandidates = [];
     for (const endpointId of fallback) {
       const endpoint = this.endpoint(endpointId);
       const provider = this.provider(endpoint.providerId);
-      if (route.deniedProviders.includes(provider.kind)) continue;
-      if (route.providerEligibility.length > 0 && !route.providerEligibility.includes(provider.kind)) continue;
-      if (policy?.privacy === "local_only" && provider.privacyClass !== "local_private") continue;
+      const candidate = {
+        endpointId,
+        providerId: provider.id,
+        providerKind: provider.kind,
+        modelId: endpoint.modelId,
+        status: "rejected",
+        reason: null,
+      };
+      if (route.deniedProviders.includes(provider.kind)) {
+        candidate.reason = "provider_denied_by_route";
+        evaluatedCandidates.push(candidate);
+        continue;
+      }
+      if (route.providerEligibility.length > 0 && !route.providerEligibility.includes(provider.kind)) {
+        candidate.reason = "provider_not_eligible_for_route";
+        evaluatedCandidates.push(candidate);
+        continue;
+      }
+      if (policy?.privacy === "local_only" && provider.privacyClass !== "local_private") {
+        candidate.reason = "policy_requires_local_only";
+        evaluatedCandidates.push(candidate);
+        continue;
+      }
       if (
         provider.privacyClass === "hosted" &&
         route.privacy === "local_or_enterprise" &&
         !truthy(policy?.allow_hosted_fallback ?? policy?.allowHostedFallback)
       ) {
+        candidate.reason = "hosted_fallback_not_allowed";
+        evaluatedCandidates.push(candidate);
         continue;
       }
       const costCeiling = Number(policy?.max_cost_usd ?? policy?.maxCostUsd ?? route.maxCostUsd ?? Infinity);
       const estimatedCost = Number(endpoint.estimatedCostUsd ?? provider.estimatedCostUsd ?? (provider.privacyClass === "hosted" ? 0.01 : 0));
-      if (Number.isFinite(costCeiling) && estimatedCost > costCeiling) continue;
-      if (!endpoint.capabilities.includes(capability) && capability !== "chat") continue;
-      return { route, endpoint, provider };
+      if (Number.isFinite(costCeiling) && estimatedCost > costCeiling) {
+        candidate.reason = "estimated_cost_exceeds_policy";
+        evaluatedCandidates.push(candidate);
+        continue;
+      }
+      if (!endpoint.capabilities.includes(capability) && capability !== "chat") {
+        candidate.reason = "capability_unavailable";
+        evaluatedCandidates.push(candidate);
+        continue;
+      }
+      evaluatedCandidates.push({ ...candidate, status: "selected", reason: "policy_allowed" });
+      return { route, endpoint, provider, evaluatedCandidates };
     }
     throw runtimeError({
       status: 424,
       code: "external_blocker",
       message: "No model endpoint satisfied the route policy.",
-      details: { routeId: route.id, capability, policy },
+      details: { routeId: route.id, capability, policy, evaluatedCandidates },
     });
   }
 
@@ -7610,6 +7655,7 @@ function nativeInvocationResponseShape(invocation) {
     backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
     receipt_id: invocation.receipt.id,
     route_receipt_id: invocation.routeReceipt.id,
+    route_decision: invocation.routeReceipt?.details?.modelRouteDecision ?? null,
     response_id: invocation.responseId ?? null,
     previous_response_id: invocation.previousResponseId ?? null,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
