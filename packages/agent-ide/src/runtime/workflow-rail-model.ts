@@ -126,6 +126,35 @@ export interface WorkflowPackageNodeOutputSummary {
   importedWorkflowChromeLocale: string | null;
 }
 
+export interface WorkflowGithubPrCreatePlanSummary {
+  status: string;
+  decision: string;
+  toolName: string;
+  action: string;
+  planId: string | null;
+  receiptId: string | null;
+  dryRun: boolean | null;
+  previewOnly: boolean | null;
+  mutationAttempted: boolean | null;
+  mutationExecuted: boolean | null;
+  networkLookupPerformed: boolean | null;
+  requestMethod: string | null;
+  requestPath: string | null;
+  requestPayloadHash: string | null;
+  requestBodyIncluded: boolean | null;
+  requestTokenIncluded: boolean | null;
+  repoFullName: string | null;
+  baseBranch: string | null;
+  headBranch: string | null;
+  reviewGateStatus: string | null;
+  reviewSatisfied: boolean | null;
+  requiredScopes: string[];
+  missingScopes: string[];
+  scopeGranted: boolean | null;
+  blockers: string[];
+  evidenceRefs: string[];
+}
+
 function workflowUnknownRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -349,6 +378,84 @@ export function workflowPackageNodeOutputStatus(
   }
   if (summary.status === "blocked" || summary.packageEvidenceReady === false) {
     return "blocked";
+  }
+  return "warning";
+}
+
+export function workflowGithubPrCreatePlanSummary(
+  nodeType: string | null | undefined,
+  outputValue: unknown,
+): WorkflowGithubPrCreatePlanSummary | null {
+  const output = workflowUnknownRecord(outputValue);
+  const nestedPlan = workflowOutputRecord(output, "githubPrCreatePlan");
+  const plan = Object.keys(nestedPlan).length > 0 ? nestedPlan : output;
+  const hasPlan =
+    nodeType === "github_pr_create" ||
+    workflowOutputString(plan, "schemaVersion") ===
+      "ioi.agent-runtime.github-pr-create-plan.v1" ||
+    workflowOutputString(plan, "object") === "ioi.github_pr_create_plan" ||
+    workflowOutputString(plan, "toolName") === "github__pr_create" ||
+    output.githubPrCreatePlan !== undefined;
+  if (!hasPlan || Object.keys(plan).length === 0) return null;
+
+  const authority = workflowOutputRecord(plan, "authority");
+  const request = workflowOutputRecord(plan, "request");
+
+  return {
+    status: workflowOutputString(plan, "status") ?? "unknown",
+    decision: workflowOutputString(plan, "decision") ?? "unknown",
+    toolName: workflowOutputString(plan, "toolName") ?? "github__pr_create",
+    action: workflowOutputString(plan, "action") ?? "pr_create",
+    planId: workflowOutputString(plan, "planId"),
+    receiptId:
+      workflowOutputString(output, "receiptId") ??
+      workflowOutputString(plan, "receiptId"),
+    dryRun: workflowOutputBoolean(plan, "dryRun"),
+    previewOnly: workflowOutputBoolean(plan, "previewOnly"),
+    mutationAttempted: workflowOutputBoolean(plan, "mutationAttempted"),
+    mutationExecuted: workflowOutputBoolean(plan, "mutationExecuted"),
+    networkLookupPerformed: workflowOutputBoolean(plan, "networkLookupPerformed"),
+    requestMethod: workflowOutputString(request, "method"),
+    requestPath: workflowOutputString(request, "path"),
+    requestPayloadHash:
+      workflowOutputString(request, "payloadHash") ??
+      workflowOutputString(output, "requestPayloadHash"),
+    requestBodyIncluded: workflowOutputBoolean(request, "bodyIncluded"),
+    requestTokenIncluded: workflowOutputBoolean(request, "tokenIncluded"),
+    repoFullName: workflowOutputString(plan, "repoFullName"),
+    baseBranch: workflowOutputString(plan, "baseBranch"),
+    headBranch: workflowOutputString(plan, "headBranch"),
+    reviewGateStatus: workflowOutputString(plan, "reviewGateStatus"),
+    reviewSatisfied: workflowOutputBoolean(plan, "reviewSatisfied"),
+    requiredScopes: workflowStringList(authority.requiredScopes),
+    missingScopes: workflowStringList(authority.missingScopes),
+    scopeGranted: workflowOutputBoolean(authority, "scopeGranted"),
+    blockers: workflowStringList(plan.blockers),
+    evidenceRefs: workflowStringList(plan.evidenceRefs),
+  };
+}
+
+export function workflowGithubPrCreatePlanStatus(
+  summary: WorkflowGithubPrCreatePlanSummary,
+): "ready" | "blocked" | "warning" {
+  if (summary.status === "blocked" || summary.decision === "blocked") {
+    return "blocked";
+  }
+  if (
+    summary.status === "ok" ||
+    summary.status === "passed" ||
+    summary.decision === "allowed" ||
+    summary.decision === "created"
+  ) {
+    return "ready";
+  }
+  if (
+    summary.dryRun === true ||
+    summary.missingScopes.length > 0 ||
+    summary.reviewSatisfied === false ||
+    summary.mutationExecuted === false
+  ) {
+    return "warning";
   }
   return "warning";
 }

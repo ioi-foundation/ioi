@@ -27,6 +27,8 @@ import {
   compareRunRecords,
   workflowDurationLabel,
   workflowEventLabel,
+  workflowGithubPrCreatePlanStatus,
+  workflowGithubPrCreatePlanSummary,
   workflowIssueActionLabel,
   workflowIssueTitle,
   workflowNodeRunChildLineage,
@@ -48,6 +50,12 @@ import {
 } from "../../runtime/workflow-value-preview";
 
 function workflowPackageBottomBoolean(value: boolean | null): string {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "";
+}
+
+function workflowPrCreateBottomBoolean(value: boolean | null): string {
   if (value === true) return "true";
   if (value === false) return "false";
   return "";
@@ -129,6 +137,10 @@ export function WorkflowBottomShelf({
     const packageOutputSummary = workflowPackageNodeOutputSummary(
       selectedNode?.type,
       selectedNodeRun?.output,
+    );
+    const githubPrCreatePlanSummary = workflowGithubPrCreatePlanSummary(
+      selectedNode?.type,
+      selectedNodeRun?.output ?? selectedNode?.config?.logic ?? null,
     );
     return selectedNode ? (
       <div className="workflow-bottom-grid" data-testid="workflow-selection-preview">
@@ -227,6 +239,67 @@ export function WorkflowBottomShelf({
                   ? (packageOutputSummary.importedWorkflowPath ??
                       "imported workflow pending")
                   : (packageOutputSummary.packagePath ?? "package path pending")}
+              </small>
+            </article>
+          ) : null}
+          {githubPrCreatePlanSummary ? (
+            <article
+              className={`workflow-output-row is-${workflowGithubPrCreatePlanStatus(
+                githubPrCreatePlanSummary,
+              )}`}
+              data-testid="workflow-selection-github-pr-create-output-summary"
+              data-github-pr-create-tool-name={
+                githubPrCreatePlanSummary.toolName
+              }
+              data-github-pr-create-status={githubPrCreatePlanSummary.status}
+              data-github-pr-create-decision={
+                githubPrCreatePlanSummary.decision
+              }
+              data-github-pr-create-dry-run={workflowPrCreateBottomBoolean(
+                githubPrCreatePlanSummary.dryRun,
+              )}
+              data-github-pr-create-mutation-executed={workflowPrCreateBottomBoolean(
+                githubPrCreatePlanSummary.mutationExecuted,
+              )}
+              data-github-pr-create-request-hash={
+                githubPrCreatePlanSummary.requestPayloadHash ?? ""
+              }
+              data-github-pr-create-review-gate-status={
+                githubPrCreatePlanSummary.reviewGateStatus ?? ""
+              }
+              data-github-pr-create-review-satisfied={workflowPrCreateBottomBoolean(
+                githubPrCreatePlanSummary.reviewSatisfied,
+              )}
+              data-github-pr-create-missing-scopes={githubPrCreatePlanSummary.missingScopes.join(
+                "|",
+              )}
+              data-github-pr-create-scope-granted={workflowPrCreateBottomBoolean(
+                githubPrCreatePlanSummary.scopeGranted,
+              )}
+              data-github-pr-create-receipt-refs={[
+                githubPrCreatePlanSummary.receiptId,
+                ...(selectedNodeRun?.harnessAttempt?.receiptIds ?? []),
+              ]
+                .filter((ref): ref is string => typeof ref === "string")
+                .join("|")}
+              data-github-pr-create-replay-fixture-ref={
+                selectedNodeRun?.harnessAttempt?.replay.fixtureRef ?? ""
+              }
+            >
+              <strong>GitHub PR create</strong>
+              <span>
+                {githubPrCreatePlanSummary.status} ·{" "}
+                {githubPrCreatePlanSummary.mutationExecuted === false
+                  ? "mutation blocked"
+                  : "mutation review"}{" "}
+                ·{" "}
+                {githubPrCreatePlanSummary.missingScopes.length > 0
+                  ? `missing ${githubPrCreatePlanSummary.missingScopes.join(", ")}`
+                  : "scope ready"}
+              </span>
+              <small>
+                {githubPrCreatePlanSummary.requestPayloadHash ??
+                  "request hash pending"}
               </small>
             </article>
           ) : null}

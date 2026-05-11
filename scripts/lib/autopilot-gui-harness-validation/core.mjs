@@ -4553,6 +4553,29 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflowPackageNodeOutputSummary/.test(bottomShelf) &&
       /workflowPackageNodeOutputStatus/.test(bottomShelf) &&
       /data-package-evidence-ready/.test(bottomShelf),
+    workflowGithubPrCreateRunOutputSurfaces:
+      /export interface WorkflowGithubPrCreatePlanSummary/.test(railModel) &&
+      /workflowGithubPrCreatePlanSummary/.test(railModel) &&
+      /workflowGithubPrCreatePlanStatus/.test(railModel) &&
+      /github__pr_create/.test(railModel) &&
+      /requestPayloadHash/.test(railModel) &&
+      /missingScopes/.test(railModel) &&
+      /WorkflowGithubPrCreateOutputSummaryCard/.test(rail) &&
+      /workflow-selected-node-github-pr-create-output-summary/.test(rail) &&
+      /data-github-pr-create-request-hash/.test(rail) &&
+      /data-github-pr-create-dry-run/.test(rail) &&
+      /data-github-pr-create-mutation-executed/.test(rail) &&
+      /data-github-pr-create-missing-scopes/.test(rail) &&
+      /data-github-pr-create-review-gate-status/.test(rail) &&
+      /data-github-pr-create-receipt-refs/.test(rail) &&
+      /data-github-pr-create-replay-fixture-ref/.test(rail) &&
+      /workflow-selection-github-pr-create-output-summary/.test(
+        bottomShelf,
+      ) &&
+      /workflowGithubPrCreatePlanSummary/.test(bottomShelf) &&
+      /workflowGithubPrCreatePlanStatus/.test(bottomShelf) &&
+      /data-github-pr-create-request-hash/.test(bottomShelf) &&
+      /data-github-pr-create-missing-scopes/.test(bottomShelf),
     interactiveReceiptSelection:
       /data-selected-receipt-ref/.test(rail) &&
       /selectedHarnessReceiptRef === receiptRef/.test(rail) &&
@@ -4745,6 +4768,12 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       selectedNodePackageImportedWorkflow:
         "workflow-selected-node-package-output-summary[data-imported-workflow-path]",
       bottomShelfPackageOutput: "workflow-selection-package-output-summary",
+      selectedNodeGithubPrCreateOutput:
+        "workflow-selected-node-github-pr-create-output-summary",
+      selectedNodeGithubPrCreateRequestHash:
+        "workflow-selected-node-github-pr-create-output-summary[data-github-pr-create-request-hash]",
+      bottomShelfGithubPrCreateOutput:
+        "workflow-selection-github-pr-create-output-summary",
     },
     sourceRefs: [
       railPath,
