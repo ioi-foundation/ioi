@@ -632,6 +632,237 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: {},
   },
   {
+    type: "workflow_package_export",
+    label: "Workflow Package Export",
+    group: "Tools",
+    family: "tools",
+    token: "PKG",
+    familyLabel: "Package",
+    metricLabel: "Export",
+    metricValue: "portable",
+    ioTypes: { in: "state", out: "output_bundle" },
+    inputs: ["workflow"],
+    outputs: ["package", "manifest", "readiness", "locale"],
+    portDefinitions: [
+      port("workflow", "Workflow state", "input", "state", "state", false, "state"),
+      port("package", "Portable package", "output", "output_bundle", "output", false),
+      port("manifest", "Package manifest", "output", "state", "output", false, "state"),
+      port("readiness", "Readiness", "output", "state", "output", false, "state"),
+      port("locale", "Chrome locale", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("workflow", "Workflow state", "input", "state", "state", false, "state"),
+      port("package", "Portable package", "output", "output_bundle", "output", false),
+      port("manifest", "Package manifest", "output", "state", "output", false, "state"),
+      port("readiness", "Readiness", "output", "state", "output", false, "state"),
+      port("locale", "Chrome locale", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: ["workflowPackageExportEndpoint", "workflowPackageExportField"],
+      properties: {
+        workflowPackageExportEndpoint: { type: "string" },
+        workflowPackageExportField: { type: "string" },
+        workflowPackagePath: { type: "string" },
+        workflowPackageOutputDir: { type: "string" },
+        workflowPackageManifestField: { type: "string" },
+        workflowPackageReadinessStatusField: { type: "string" },
+        workflowPackagePortableField: { type: "string" },
+        workflowPackageLocaleField: { type: "string" },
+        workflowPackageEvidenceReadyField: { type: "string" },
+        dryRun: { type: "boolean" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("workflow_package_export"),
+    accessibility: runtimeNodeAccessibility(
+      "workflow_package_export",
+      "workflowPackageExport.status",
+    ),
+    policyProfile: policyProfile("write"),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "workflow_package_export",
+      executorId: "workflow.package.export",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic("workflow_package_export", "workflowPackageExport.status"),
+      workflowPackageExportEndpoint: "runtime.exportWorkflowPackage",
+      workflowPackageExportField: "workflowPackageExport",
+      workflowPackagePath: "{{workflow.path}}",
+      workflowPackageOutputDir: "",
+      workflowPackageManifestField: "workflowPackageExport.manifest",
+      workflowPackageReadinessStatusField:
+        "workflowPackageExport.manifest.readinessStatus",
+      workflowPackagePortableField: "workflowPackageExport.manifest.portable",
+      workflowPackageLocaleField:
+        "workflowPackageExport.manifest.workflowChromeLocale",
+      workflowPackageEvidenceReadyField:
+        "workflowPackageExport.manifest.harnessPackageManifest",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "workflow_package_manifest_safe",
+      outputSchema: {
+        type: "object",
+        required: [
+          "schemaVersion",
+          "status",
+          "toolName",
+          "packagePath",
+          "manifest",
+          "portable",
+          "readinessStatus",
+          "workflowChromeLocale",
+        ],
+        properties: {
+          workflowPackageExport: { type: "object" },
+          manifest: { type: "object" },
+          packagePath: { type: "string" },
+          portable: { type: "boolean" },
+          readinessStatus: { type: "string" },
+          workflowChromeLocale: { type: ["string", "null"] },
+          packageEvidenceReady: { type: "boolean" },
+        },
+      },
+      activationGate: {
+        consumesWorkflowPackageExport: true,
+        workflowPackageExportField: "workflowPackageExport",
+        workflowPackageReadinessStatusField:
+          "workflowPackageExport.manifest.readinessStatus",
+        workflowPackagePortableField: "workflowPackageExport.manifest.portable",
+      },
+      nodeTypeLabel: "WorkflowPackageExportNode",
+    },
+    defaultLaw: {
+      privilegedActions: ["workflow.package.export"],
+    },
+  },
+  {
+    type: "workflow_package_import",
+    label: "Workflow Package Import",
+    group: "Tools",
+    family: "tools",
+    token: "IMP",
+    familyLabel: "Package",
+    metricLabel: "Import",
+    metricValue: "review",
+    ioTypes: { in: "output_bundle", out: "state" },
+    inputs: ["package"],
+    outputs: ["review", "imported_workflow", "evidence", "locale"],
+    portDefinitions: [
+      port("package", "Portable package", "input", "output_bundle"),
+      port("review", "Import review", "output", "state", "output", false, "state"),
+      port("imported_workflow", "Imported workflow", "output", "state", "output", false, "state"),
+      port("evidence", "Package evidence", "output", "state", "output", false, "state"),
+      port("locale", "Chrome locale", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("package", "Portable package", "input", "output_bundle"),
+      port("review", "Import review", "output", "state", "output", false, "state"),
+      port("imported_workflow", "Imported workflow", "output", "state", "output", false, "state"),
+      port("evidence", "Package evidence", "output", "state", "output", false, "state"),
+      port("locale", "Chrome locale", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: ["workflowPackageImportEndpoint", "workflowPackageImportReviewField"],
+      properties: {
+        workflowPackageImportEndpoint: { type: "string" },
+        workflowPackagePath: { type: "string" },
+        workflowPackageProjectRoot: { type: "string" },
+        workflowPackageImportName: { type: "string" },
+        workflowPackageImportField: { type: "string" },
+        workflowPackageImportReviewField: { type: "string" },
+        workflowPackageImportEvidenceReadyField: { type: "string" },
+        workflowPackageImportLocalePreservedField: { type: "string" },
+        workflowPackageImportedWorkflowPathField: { type: "string" },
+        dryRun: { type: "boolean" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("workflow_package_import"),
+    accessibility: runtimeNodeAccessibility(
+      "workflow_package_import",
+      "workflowPackageImportReview.evidence.packageEvidenceReady",
+    ),
+    policyProfile: policyProfile("write", true),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification", "approval"],
+      ["execution", "schema_validation", "approval"],
+    ),
+    executor: {
+      nodeType: "workflow_package_import",
+      executorId: "workflow.package.import",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "workflow_package_import",
+        "workflowPackageImportReview.evidence.packageEvidenceReady",
+      ),
+      workflowPackageImportEndpoint: "runtime.importWorkflowPackage",
+      workflowPackagePath: "{{workflowPackageExport.packagePath}}",
+      workflowPackageProjectRoot: "{{project.root}}",
+      workflowPackageImportName: "",
+      workflowPackageImportField: "workflowPackageImport",
+      workflowPackageImportReviewField: "workflowPackageImportReview",
+      workflowPackageImportEvidenceReadyField:
+        "workflowPackageImportReview.evidence.packageEvidenceReady",
+      workflowPackageImportLocalePreservedField:
+        "workflowPackageImportReview.evidence.workflowChromeLocalePreserved",
+      workflowPackageImportedWorkflowPathField:
+        "workflowPackageImport.imported.workflowPath",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "workflow_package_import_safe",
+      outputSchema: {
+        type: "object",
+        required: [
+          "schemaVersion",
+          "status",
+          "toolName",
+          "packagePath",
+          "importedWorkflowPath",
+          "review",
+          "packageEvidenceReady",
+          "workflowChromeLocalePreserved",
+        ],
+        properties: {
+          workflowPackageImport: { type: "object" },
+          workflowPackageImportReview: { type: "object" },
+          review: { type: "object" },
+          packagePath: { type: "string" },
+          importedWorkflowPath: { type: "string" },
+          packageEvidenceReady: { type: "boolean" },
+          workflowChromeLocalePreserved: { type: "boolean" },
+          sourceWorkflowChromeLocale: { type: ["string", "null"] },
+          importedWorkflowChromeLocale: { type: ["string", "null"] },
+        },
+      },
+      activationGate: {
+        consumesWorkflowPackageImportReview: true,
+        workflowPackageImportReviewField: "workflowPackageImportReview",
+        workflowPackageImportEvidenceReadyField:
+          "workflowPackageImportReview.evidence.packageEvidenceReady",
+        workflowPackageImportLocalePreservedField:
+          "workflowPackageImportReview.evidence.workflowChromeLocalePreserved",
+      },
+      nodeTypeLabel: "WorkflowPackageImportNode",
+    },
+    defaultLaw: {
+      requireHumanGate: true,
+      privilegedActions: ["workflow.package.import"],
+    },
+  },
+  {
     type: "repository_context",
     label: "Repository Context",
     group: "State",
@@ -3158,6 +3389,10 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
   switch (type) {
     case "runtime_doctor":
       return ["decision", "verifier", "output"];
+    case "workflow_package_export":
+      return ["workflow_package_import", "verifier", "output"];
+    case "workflow_package_import":
+      return ["human_gate", "decision", "verifier", "output"];
     case "trigger":
     case "source":
       return [
@@ -3252,6 +3487,8 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "skill_pack" ||
     type === "hook" ||
     type === "hook_policy" ||
+    type === "workflow_package_export" ||
+    type === "workflow_package_import" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

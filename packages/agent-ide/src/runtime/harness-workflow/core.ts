@@ -10225,6 +10225,8 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "runtime_task",
   "runtime_job",
   "runtime_checklist",
+  "workflow_package_export",
+  "workflow_package_import",
   "repository_context",
   "branch_policy",
   "github_context",
@@ -10268,6 +10270,8 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "runtime_task",
     "runtime_job",
     "runtime_checklist",
+    "workflow_package_export",
+    "workflow_package_import",
     "repository_context",
     "branch_policy",
     "github_context",
@@ -10519,6 +10523,44 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       group: "State",
       icon: "list-todo",
       accessibleStatusField: "runtimeChecklist.status",
+    }),
+    makeComponent({
+      kind: "workflow_package_export",
+      label: "Workflow package export",
+      description:
+        "Exports the current workflow bundle, tests, fixtures, bindings, policy, output manifests, and harness package evidence for another checkout.",
+      kernelRef: "apps/autopilot/src-tauri/src/project/commands.rs::export_workflow_package",
+      capabilityScope: ["workflow.package.export", "workflow.context.read"],
+      eventKinds: ["WorkflowPortablePackageManifest"],
+      evidence: [
+        "workflow_package_export",
+        "package.manifest",
+        "package.readiness",
+        "package.workflow_chrome_locale",
+      ],
+      group: "Workflow packaging",
+      icon: "package",
+      accessibleStatusField: "workflowPackageExport.status",
+    }),
+    makeComponent({
+      kind: "workflow_package_import",
+      label: "Workflow package import",
+      description:
+        "Imports a portable workflow package into a target project and exposes the package import review, evidence readiness, and locale preservation gate.",
+      kernelRef: "apps/autopilot/src-tauri/src/project/commands.rs::import_workflow_package",
+      capabilityScope: ["workflow.package.import", "workflow.package.review"],
+      approvalRequired: true,
+      eventKinds: ["WorkflowPackageImportReview"],
+      evidence: [
+        "workflow_package_import",
+        "package.import_review",
+        "package.evidence_ready",
+        "package.workflow_chrome_locale_preserved",
+      ],
+      group: "Workflow packaging",
+      icon: "package-plus",
+      accessibleStatusField:
+        "workflowPackageImportReview.evidence.packageEvidenceReady",
     }),
     makeComponent({
       kind: "repository_context",
@@ -11433,6 +11475,8 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "runtime_task",
   "runtime_job",
   "runtime_checklist",
+  "workflow_package_export",
+  "workflow_package_import",
   "repository_context",
   "branch_policy",
   "github_context",
@@ -11488,6 +11532,8 @@ const SLOT_BY_KIND: Partial<
   runtime_task: ["state_policy", "verifier_policy"],
   runtime_job: ["state_policy", "verifier_policy"],
   runtime_checklist: ["state_policy", "verifier_policy"],
+  workflow_package_export: ["state_policy", "verifier_policy"],
+  workflow_package_import: ["state_policy", "verifier_policy", "approval_policy"],
   repository_context: ["state_policy", "verifier_policy"],
   branch_policy: ["state_policy", "verifier_policy", "approval_policy"],
   github_context: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11635,6 +11681,10 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "runtime_job";
     case "runtime_checklist":
       return "runtime_checklist";
+    case "workflow_package_export":
+      return "workflow_package_export";
+    case "workflow_package_import":
+      return "workflow_package_import";
     case "repository_context":
       return "repository_context";
     case "branch_policy":
@@ -11894,6 +11944,62 @@ function nodeLogicFor(
           },
           evidenceRefs: ["runtime_checklist", "runtime.checklists.durable_projection"],
         },
+      };
+    case "workflow_package_export":
+      return {
+        ...base,
+        ...runtimeNodeChromeLogic("workflow_package_export", "workflowPackageExport.status"),
+        workflowPackageExportEndpoint: "runtime.exportWorkflowPackage",
+        workflowPackageExportField: "workflowPackageExport",
+        workflowPackagePath: "{{workflow.path}}",
+        workflowPackageManifestField: "workflowPackageExport.manifest",
+        workflowPackageReadinessStatusField:
+          "workflowPackageExport.manifest.readinessStatus",
+        workflowPackagePortableField: "workflowPackageExport.manifest.portable",
+        workflowPackageLocaleField:
+          "workflowPackageExport.manifest.workflowChromeLocale",
+        workflowPackageEvidenceReadyField:
+          "workflowPackageExport.manifest.harnessPackageManifest",
+        mutationExecuted: true,
+        redactionProfile: "workflow_package_manifest_safe",
+        activationGate: {
+          consumesWorkflowPackageExport: true,
+          workflowPackageExportField: "workflowPackageExport",
+          workflowPackageReadinessStatusField:
+            "workflowPackageExport.manifest.readinessStatus",
+          workflowPackagePortableField: "workflowPackageExport.manifest.portable",
+        },
+        nodeTypeLabel: "WorkflowPackageExportNode",
+      };
+    case "workflow_package_import":
+      return {
+        ...base,
+        ...runtimeNodeChromeLogic(
+          "workflow_package_import",
+          "workflowPackageImportReview.evidence.packageEvidenceReady",
+        ),
+        workflowPackageImportEndpoint: "runtime.importWorkflowPackage",
+        workflowPackagePath: "{{workflowPackageExport.packagePath}}",
+        workflowPackageProjectRoot: "{{project.root}}",
+        workflowPackageImportField: "workflowPackageImport",
+        workflowPackageImportReviewField: "workflowPackageImportReview",
+        workflowPackageImportEvidenceReadyField:
+          "workflowPackageImportReview.evidence.packageEvidenceReady",
+        workflowPackageImportLocalePreservedField:
+          "workflowPackageImportReview.evidence.workflowChromeLocalePreserved",
+        workflowPackageImportedWorkflowPathField:
+          "workflowPackageImport.imported.workflowPath",
+        mutationExecuted: true,
+        redactionProfile: "workflow_package_import_safe",
+        activationGate: {
+          consumesWorkflowPackageImportReview: true,
+          workflowPackageImportReviewField: "workflowPackageImportReview",
+          workflowPackageImportEvidenceReadyField:
+            "workflowPackageImportReview.evidence.packageEvidenceReady",
+          workflowPackageImportLocalePreservedField:
+            "workflowPackageImportReview.evidence.workflowChromeLocalePreserved",
+        },
+        nodeTypeLabel: "WorkflowPackageImportNode",
       };
     case "repository_context":
       return {

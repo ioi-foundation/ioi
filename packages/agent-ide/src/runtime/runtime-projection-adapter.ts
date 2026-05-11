@@ -62,6 +62,10 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "capability_sequence";
     case "runtime_doctor":
       return "state";
+    case "workflow_package_export":
+      return "workflow_package_export";
+    case "workflow_package_import":
+      return "workflow_package_import";
     case "function":
       return "function";
     case "model_binding":

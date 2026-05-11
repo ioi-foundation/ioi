@@ -1489,7 +1489,7 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /reactflow_workflow_node/);
 });
 
-test("React Flow memory, doctor, skill, and hook node contracts remain workflow-addressable", () => {
+test("React Flow memory, doctor, skill, hook, and package node contracts remain workflow-addressable", () => {
   const workflowContracts = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
@@ -1578,6 +1578,26 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "apps/autopilot/src-tauri/src/project/commands.rs"),
     "utf8",
   );
+  const workflowHarnessTools = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-harness-tools.ts"),
+    "utf8",
+  );
+  const runtimeProjectionAdapter = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/runtime-projection-adapter.ts"),
+    "utf8",
+  );
+  const runtimeActionSchema = fs.readFileSync(
+    path.join(root, "docs/implementation/runtime-action-schema.json"),
+    "utf8",
+  );
+  const generatedActionSchema = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/generated/action-schema.ts"),
+    "utf8",
+  );
+  const generatedRustActionSchema = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs"),
+    "utf8",
+  );
   assert.match(workflowContracts, /memory\.scope/);
   assert.match(workflowContracts, /memory\.remember/);
   assert.match(workflowContracts, /memory\.search/);
@@ -1590,10 +1610,19 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /runtime\.checklist/);
   assert.match(workflowContracts, /runtime\.ui_string_catalog/);
   assert.match(workflowContracts, /runtime\.accessible_status/);
+  assert.match(workflowContracts, /workflow\.package_export/);
+  assert.match(workflowContracts, /workflow\.package_import/);
   assert.match(graphTypes, /workflowChromeLocale\?: string/);
   assert.match(workflowDefaults, /workflowChromeLocale: "en-US"/);
   assert.match(workflowDefaults, /config\?\.workflowChromeLocale/);
   assert.match(graphTypes, /workflowChromeLocale\?: string \| null/);
+  assert.match(graphTypes, /workflowPackageExportEndpoint\?: string/);
+  assert.match(graphTypes, /workflowPackageImportEndpoint\?: string/);
+  assert.match(graphTypes, /consumesWorkflowPackageExport\?: boolean/);
+  assert.match(graphTypes, /consumesWorkflowPackageImportReview\?: boolean/);
+  assert.match(graphTypes, /\| "workflow_package_export"/);
+  assert.match(graphTypes, /\| "workflow_package_import"/);
+  assert.match(graphTypes, /workflowPackageImportLocalePreservedField\?: string/);
   assert.match(workflowComposerController, /sourceWorkflowChromeLocale/);
   assert.match(workflowComposerController, /portableManifest\?\.workflowChromeLocale/);
   assert.match(workflowComposerController, /workflowChromeLocalePreserved/);
@@ -1637,6 +1666,16 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /RuntimeChecklistNode/);
   assert.match(nodeRegistry, /runtimeChecklistStatusField/);
   assert.match(nodeRegistry, /\/v1\/runs\/\{runId\}\/trace/);
+  assert.match(nodeRegistry, /workflow_package_export/);
+  assert.match(nodeRegistry, /WorkflowPackageExportNode/);
+  assert.match(nodeRegistry, /workflow\.package\.export/);
+  assert.match(nodeRegistry, /workflowPackageExport\.manifest\.workflowChromeLocale/);
+  assert.match(nodeRegistry, /workflowPackageExport\.manifest\.harnessPackageManifest/);
+  assert.match(nodeRegistry, /workflow_package_import/);
+  assert.match(nodeRegistry, /WorkflowPackageImportNode/);
+  assert.match(nodeRegistry, /workflow\.package\.import/);
+  assert.match(nodeRegistry, /workflowPackageImportReview\.evidence\.packageEvidenceReady/);
+  assert.match(nodeRegistry, /workflowPackageImportReview\.evidence\.workflowChromeLocalePreserved/);
   assert.match(nodeRegistry, /repository_context/);
   assert.match(nodeRegistry, /RepositoryContextNode/);
   assert.match(nodeRegistry, /\/v1\/repository-context/);
@@ -1689,6 +1728,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowRuntimeUiStrings, /normalizeWorkflowRuntimeLocale/);
   assert.match(workflowRuntimeUiStrings, /workflowRuntimeAccessibleStatusLabel/);
   assert.match(workflowRuntimeUiStrings, /modelOutputLocalized: false/);
+  assert.match(workflowRuntimeUiStrings, /workflow_package_export/);
+  assert.match(workflowRuntimeUiStrings, /workflow_package_import/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(canvas, /onKeyboardSelect/);
   assert.match(canvas, /nodesFocusable/);
   assert.match(canvas, /node-enter-space-selects-inspector/);
@@ -1760,6 +1803,13 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /RuntimeChecklistRecord/);
   assert.match(harnessWorkflow, /runtime\.checklist\.read/);
   assert.match(harnessWorkflow, /runtimeChecklistStatusField/);
+  assert.match(harnessWorkflow, /workflow_package_export/);
+  assert.match(harnessWorkflow, /workflow_package_import/);
+  assert.match(harnessWorkflow, /WorkflowPortablePackageManifest/);
+  assert.match(harnessWorkflow, /WorkflowPackageImportReview/);
+  assert.match(harnessWorkflow, /workflow\.package\.export/);
+  assert.match(harnessWorkflow, /workflow\.package\.import/);
+  assert.match(harnessWorkflow, /workflowPackageImportReview\.evidence\.workflowChromeLocalePreserved/);
   assert.match(harnessWorkflow, /repository_context/);
   assert.match(harnessWorkflow, /RepositoryContext/);
   assert.match(harnessWorkflow, /repository\.context\.read/);
@@ -1804,8 +1854,27 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_task\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_job\.aria/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_checklist\.status/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
   assert.match(workflowRuntimeUiStrings, /WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT/);
+  assert.match(workflowHarnessTools, /workflow\.package\.export/);
+  assert.match(workflowHarnessTools, /workflow\.package\.import/);
+  assert.match(workflowHarnessTools, /workflowChromeLocale/);
+  assert.match(workflowHarnessTools, /packageEvidenceReady/);
+  assert.match(runtimeProjectionAdapter, /case "workflow_package_export"/);
+  assert.match(runtimeProjectionAdapter, /return "workflow_package_export"/);
+  assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
+  assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
+  assert.match(runtimeActionSchema, /"skill_context"/);
+  assert.match(runtimeActionSchema, /"workflow_package_export"/);
+  assert.match(runtimeActionSchema, /"workflow_package_import"/);
+  assert.match(generatedActionSchema, /"skill_context"/);
+  assert.match(generatedActionSchema, /"workflow_package_export"/);
+  assert.match(generatedActionSchema, /"workflow_package_import"/);
+  assert.match(generatedRustActionSchema, /"skill_context"/);
+  assert.match(generatedRustActionSchema, /"workflow_package_export"/);
+  assert.match(generatedRustActionSchema, /"workflow_package_import"/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {
