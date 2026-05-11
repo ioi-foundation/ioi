@@ -163,6 +163,10 @@ test("local daemon doctor reports redacted runtime readiness for CLI and workflo
 test("local daemon emits read-only repository context for Git workspaces", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-repository-context-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-repository-context-state-"));
+  const savedGithubToken = process.env.GITHUB_TOKEN;
+  const savedGhToken = process.env.GH_TOKEN;
+  process.env.GITHUB_TOKEN = "ghp-secret-do-not-print";
+  delete process.env.GH_TOKEN;
   git(cwd, ["init"]);
   git(cwd, ["config", "user.email", "ioi-test@example.invalid"]);
   git(cwd, ["config", "user.name", "IOI Test"]);
@@ -170,7 +174,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
   git(cwd, ["add", "tracked.txt"]);
   git(cwd, ["commit", "-m", "initial"]);
   const branch = git(cwd, ["branch", "--show-current"]);
-  git(cwd, ["remote", "add", "origin", "https://user:secret@example.invalid/ioi.git"]);
+  git(cwd, ["remote", "add", "origin", "https://user:secret@github.com/ioi-test/ioi.git"]);
   git(cwd, ["update-ref", `refs/remotes/origin/${branch}`, "HEAD"]);
   git(cwd, ["symbolic-ref", "refs/remotes/origin/HEAD", `refs/remotes/origin/${branch}`]);
   git(cwd, ["branch", "--set-upstream-to", `origin/${branch}`]);
@@ -191,8 +195,13 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.match(repositoryContext.headSha, /^[a-f0-9]{40}$/);
     assert.equal(repositoryContext.upstream, `origin/${branch}`);
     assert.equal(repositoryContext.remoteCount, 1);
-    assert.equal(repositoryContext.remotes[0].fetchUrl, "https://example.invalid/ioi.git");
+    assert.equal(repositoryContext.remotes[0].fetchUrl, "https://github.com/ioi-test/ioi.git");
     assert.match(repositoryContext.remotes[0].fetchUrlHash, /^[a-f0-9]{64}$/);
+    assert.equal(repositoryContext.remotes[0].provider, "github");
+    assert.equal(repositoryContext.remotes[0].host, "github.com");
+    assert.equal(repositoryContext.remotes[0].owner, "ioi-test");
+    assert.equal(repositoryContext.remotes[0].repo, "ioi");
+    assert.equal(repositoryContext.remotes[0].repoFullName, "ioi-test/ioi");
     assert.equal(repositoryContext.status.isDirty, true);
     assert.equal(repositoryContext.status.counts.staged, 1);
     assert.equal(repositoryContext.status.counts.unstaged, 1);
@@ -223,6 +232,31 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.ok(branchPolicy.warnings.includes("dirty_worktree"));
     assert.ok(branchPolicy.warnings.includes("untracked_files"));
 
+    const githubContext = await fetchJson(`${daemon.endpoint}/v1/github-context`);
+    assert.equal(githubContext.schemaVersion, "ioi.agent-runtime.github-context.v1");
+    assert.equal(githubContext.object, "ioi.github_context");
+    assert.equal(githubContext.repositoryContextId, repositoryContext.contextId);
+    assert.equal(githubContext.branchPolicyId, branchPolicy.policyId);
+    assert.equal(githubContext.status, "blocked");
+    assert.equal(githubContext.githubRemotePresent, true);
+    assert.equal(githubContext.defaultRemoteName, "origin");
+    assert.equal(githubContext.owner, "ioi-test");
+    assert.equal(githubContext.repo, "ioi");
+    assert.equal(githubContext.repoFullName, "ioi-test/ioi");
+    assert.equal(githubContext.htmlUrl, "https://github.com/ioi-test/ioi");
+    assert.equal(githubContext.branchPolicyStatus, "blocked");
+    assert.equal(githubContext.prCreationEligible, false);
+    assert.equal(githubContext.prCreationPreconditions.githubRemotePresent, true);
+    assert.equal(githubContext.prCreationPreconditions.branchPolicyAllowsPr, false);
+    assert.equal(githubContext.prCreationPreconditions.tokenAvailable, true);
+    assert.equal(githubContext.prCreationPreconditions.networkLookupPerformed, false);
+    assert.equal(githubContext.prCreationPreconditions.mutationExecuted, false);
+    assert.equal(githubContext.credentials.tokenAvailable, true);
+    assert.deepEqual(githubContext.credentials.tokenSources, ["GITHUB_TOKEN"]);
+    assert.equal(githubContext.credentials.tokenValueIncluded, false);
+    assert.equal(githubContext.networkLookupPerformed, false);
+    assert.equal(githubContext.mutationExecuted, false);
+
     const { Agent, createRuntimeSubstrateClient } = await importSdk();
     const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const agent = await Agent.create({ local: { cwd }, substrateClient: client });
@@ -241,13 +275,20 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(trace.branchPolicy.mutationAllowed, false);
     assert.ok(trace.branchPolicy.blockers.includes("protected_branch"));
     assert.ok(trace.branchPolicy.warnings.includes("dirty_worktree"));
+    assert.equal(trace.githubContext.schemaVersion, "ioi.agent-runtime.github-context.v1");
+    assert.equal(trace.githubContext.repoFullName, "ioi-test/ioi");
+    assert.equal(trace.githubContext.status, "blocked");
+    assert.equal(trace.githubContext.prCreationEligible, false);
     assert.equal(trace.promptAudit.repositoryContextId, trace.repositoryContext.contextId);
     assert.equal(trace.promptAudit.branchPolicyId, trace.branchPolicy.policyId);
+    assert.equal(trace.promptAudit.githubContextId, trace.githubContext.contextId);
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "repository_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "branch_policy"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "github_context"));
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/artifacts`);
     assert.ok(artifacts.some((artifact) => artifact.name === "repository-context.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "branch-policy.json"));
+    assert.ok(artifacts.some((artifact) => artifact.name === "github-context.json"));
 
     const threadId = `thread_${agent.id.slice("agent_".length)}`;
     const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
@@ -280,12 +321,45 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(branchPolicyEvent.payload_summary.review_required, true);
     assert.ok(branchPolicyEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_branch_policy")));
     assert.ok(branchPolicyEvent.artifact_refs.includes("branch-policy.json"));
+    const githubContextEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "GitHubContext",
+    );
+    assert.ok(githubContextEvent);
+    assert.equal(githubContextEvent.component_kind, "github_context");
+    assert.equal(githubContextEvent.workflow_node_id, "runtime.github-context");
+    assert.equal(githubContextEvent.payload_summary.status, "blocked");
+    assert.equal(githubContextEvent.payload_summary.github_remote_present, true);
+    assert.equal(githubContextEvent.payload_summary.default_remote_name, "origin");
+    assert.equal(githubContextEvent.payload_summary.owner, "ioi-test");
+    assert.equal(githubContextEvent.payload_summary.repo, "ioi");
+    assert.equal(githubContextEvent.payload_summary.repo_full_name, "ioi-test/ioi");
+    assert.equal(githubContextEvent.payload_summary.branch, branch);
+    assert.equal(githubContextEvent.payload_summary.default_branch, branch);
+    assert.equal(githubContextEvent.payload_summary.branch_policy_status, "blocked");
+    assert.equal(githubContextEvent.payload_summary.token_available, true);
+    assert.equal(githubContextEvent.payload_summary.pr_creation_eligible, false);
+    assert.equal(githubContextEvent.payload_summary.network_lookup_performed, false);
+    assert.equal(githubContextEvent.payload_summary.mutation_executed, false);
+    assert.ok(githubContextEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_github_context")));
+    assert.ok(githubContextEvent.artifact_refs.includes("github-context.json"));
 
-    const serializedProjection = JSON.stringify({ repositoryContext, repositories, branchPolicy, trace, events });
+    const serializedProjection = JSON.stringify({
+      repositoryContext,
+      repositories,
+      branchPolicy,
+      githubContext,
+      trace,
+      events,
+    });
     assert.ok(!serializedProjection.includes("user:secret"));
-    assert.ok(!serializedProjection.includes("https://user:secret@example.invalid"));
+    assert.ok(!serializedProjection.includes("https://user:secret@github.com"));
+    assert.ok(!serializedProjection.includes("ghp-secret-do-not-print"));
   } finally {
     await daemon.close();
+    if (savedGithubToken === undefined) delete process.env.GITHUB_TOKEN;
+    else process.env.GITHUB_TOKEN = savedGithubToken;
+    if (savedGhToken === undefined) delete process.env.GH_TOKEN;
+    else process.env.GH_TOKEN = savedGhToken;
   }
 });
 
@@ -1073,6 +1147,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /memory\.subagentInheritance/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
+  assert.match(workflowContracts, /repository\.github_context/);
   assert.match(workflowContracts, /runtime\.doctor/);
   assert.match(nodeRegistry, /runtime_doctor/);
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
@@ -1086,6 +1161,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /BranchPolicyNode/);
   assert.match(nodeRegistry, /branchPolicyStatusField/);
   assert.match(nodeRegistry, /protectedBranchNames/);
+  assert.match(nodeRegistry, /github_context/);
+  assert.match(nodeRegistry, /GitHubContextNode/);
+  assert.match(nodeRegistry, /\/v1\/github-context/);
+  assert.match(nodeRegistry, /githubPrPreconditionsField/);
   assert.match(nodeRegistry, /SkillNode/);
   assert.match(nodeRegistry, /SkillPackNode/);
   assert.match(nodeRegistry, /HookNode/);
@@ -1123,6 +1202,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /branch_policy/);
   assert.match(harnessWorkflow, /BranchPolicyDecision/);
   assert.match(harnessWorkflow, /repository\.branch_policy\.read/);
+  assert.match(harnessWorkflow, /github_context/);
+  assert.match(harnessWorkflow, /GitHubContext/);
+  assert.match(harnessWorkflow, /github\.context\.read/);
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /hook_policy/);

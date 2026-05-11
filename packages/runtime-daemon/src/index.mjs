@@ -23,6 +23,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
   repository_context: "item.completed",
   branch_policy: "item.completed",
+  github_context: "item.completed",
   model_route_decision: "item.completed",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
@@ -1186,9 +1187,23 @@ export class AgentgresRuntimeStateStore {
   }
 
   branchPolicy() {
+    const repositoryContext = this.repositoryContext();
     return branchPolicyForRepositoryContext({
-      repositoryContext: this.repositoryContext(),
+      repositoryContext,
       policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+  }
+
+  githubContext() {
+    const repositoryContext = this.repositoryContext();
+    const branchPolicy = branchPolicyForRepositoryContext({
+      repositoryContext,
+      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    return githubContextForRepository({
+      repositoryContext,
+      branchPolicy,
+      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
     });
   }
 
@@ -1468,6 +1483,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/branch-policy") {
       writeJsonResponse(response, store.branchPolicy());
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/github-context") {
+      writeJsonResponse(response, store.githubContext());
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -3524,6 +3543,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContext,
     generatedAt: createdAt,
   });
+  const githubContext = githubContextForRepository({
+    runId,
+    repositoryContext,
+    branchPolicy,
+    generatedAt: createdAt,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3532,6 +3557,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `Selected model profile: ${selectedModel}`,
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
+      `GitHub context: status=${githubContext.status}, repo=${githubContext.repoFullName ?? "none"}, prEligible=${githubContext.prCreationEligible}`,
       ...(memoryPolicy
         ? [
             `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
@@ -3558,6 +3584,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "agentgres_canonical_operation_log",
       repositoryContext.contextId,
       branchPolicy.policyId,
+      githubContext.contextId,
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
@@ -3633,6 +3660,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         status: "passed",
       },
       {
+        checkId: "github-context-read-only",
+        description: "GitHub context is resolved from repository remotes without network calls or PR mutation.",
+        status: "passed",
+      },
+      {
         checkId: "hook-dry-run-plan",
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
@@ -3655,6 +3687,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "agentgres_operation_log",
       "repository_context",
       "branch_policy",
+      "github_context",
       "active_skill_hook_manifest",
       "hook_dry_run_plan",
       "hook_invocation_ledger",
@@ -3673,6 +3706,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/hooks",
       "/v1/repository-context",
       "/v1/branch-policy",
+      "/v1/github-context",
       "/v1/repositories",
     ],
     changedSchemas: [
@@ -3681,6 +3715,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "AgentgresRuntimeStateV0",
       "RepositoryContext",
       "BranchPolicyDecision",
+      "GitHubContext",
       "ModelRouteDecision",
       "AgentMemoryRecord",
       "SubagentMemoryInheritanceProjection",
@@ -3700,6 +3735,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         : []),
       "repository.context.read_only",
       "repository.branch_policy.read_only",
+      "github.context.read_only",
       "skills_hooks.active_manifest.read_only",
       "hooks.dry_run_preview_only",
       "hooks.invocation_ledger_preview_only",
@@ -3797,6 +3833,19 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository.branch_policy.read_only",
     ].filter(Boolean),
   };
+  const githubContextReceipt = {
+    id: `receipt_${runId}_github_context`,
+    kind: "github_context",
+    summary: githubContext.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      githubContext.contextId,
+      repositoryContext.contextId,
+      branchPolicy.policyId,
+      "GitHubContextNode",
+      "github.context.read_only",
+    ].filter(Boolean),
+  };
   const skillHookReceipt = {
     id: `receipt_${runId}_skill_hook_manifest`,
     kind: "active_skill_hook_manifest",
@@ -3858,6 +3907,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     subagentMemoryReceipt,
     repositoryContextReceipt,
     branchPolicyReceipt,
+    githubContextReceipt,
     skillHookReceipt,
     hookDryRunReceipt,
     hookPolicyReceipt,
@@ -3891,6 +3941,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     receiptId: branchPolicyReceipt.id,
     eventKind: "BranchPolicyDecision",
     workflowNodeId: "runtime.branch-policy",
+  });
+  addEvent("github_context", "GitHub context recorded", {
+    ...githubContext,
+    receiptId: githubContextReceipt.id,
+    eventKind: "GitHubContext",
+    workflowNodeId: "runtime.github-context",
   });
   addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
     ...activeSkillHookManifest,
@@ -3950,6 +4006,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "trace.json",
       "repository-context.json",
       "branch-policy.json",
+      "github-context.json",
       "active-skill-hook-manifest.json",
       "hook-dry-run-plan.json",
       "hook-invocations.json",
@@ -3975,6 +4032,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     activeSkillHookManifest,
     repositoryContext,
     branchPolicy,
+    githubContext,
     hookDryRunPlan,
     hookInvocationLedger,
     promptAudit: {
@@ -3983,6 +4041,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       promptHash: doctorHash(prompt),
       repositoryContextId: repositoryContext.contextId,
       branchPolicyId: branchPolicy.policyId,
+      githubContextId: githubContext.contextId,
       activeSkillHookManifestId: activeSkillHookManifest.manifestId,
       activeSkillSetHash: activeSkillHookManifest.activeSkillSetHash,
       activeHookSetHash: activeSkillHookManifest.activeHookSetHash,
@@ -3999,6 +4058,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         "prompt_audit",
         repositoryContext.contextId,
         branchPolicy.policyId,
+        githubContext.contextId,
         activeSkillHookManifest.manifestId,
       ],
     },
@@ -4026,6 +4086,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "application/json",
       branchPolicyReceipt.id,
       branchPolicy,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "github-context.json",
+      "application/json",
+      githubContextReceipt.id,
+      githubContext,
       "redacted",
     ),
     artifact(
@@ -4087,6 +4155,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     activeSkillHookManifest,
     repositoryContext,
     branchPolicy,
+    githubContext,
     hookDryRunPlan,
     hookInvocationLedger,
     memoryPolicy,
@@ -4274,6 +4343,115 @@ function branchPolicyRecommendedNextAction({ status, blockers, warnings }) {
   return "Review branch policy warnings before requesting mutation.";
 }
 
+function githubContextForRepository({
+  runId,
+  contextId,
+  repositoryContext,
+  branchPolicy,
+  generatedAt,
+} = {}) {
+  const context = repositoryContext ?? repositoryContextForWorkspace({});
+  const policy = branchPolicy ?? branchPolicyForRepositoryContext({ repositoryContext: context });
+  const githubRemotes = normalizeArray(context.remotes).filter((remote) => remote.provider === "github");
+  const defaultRemote =
+    githubRemotes.find((remote) => remote.name === "origin") ??
+    githubRemotes[0] ??
+    null;
+  const owner = defaultRemote?.owner ?? null;
+  const repo = defaultRemote?.repo ?? null;
+  const repoFullName = owner && repo ? `${owner}/${repo}` : null;
+  const tokenSources = githubTokenSources();
+  const githubRemotePresent = Boolean(defaultRemote && repoFullName);
+  const branchPolicyAllowsPr = policy.prCreationAllowed === true;
+  const prCreationEligible = githubRemotePresent && branchPolicyAllowsPr && tokenSources.length > 0;
+  const status = !githubRemotePresent
+    ? "unavailable"
+    : policy.status === "blocked"
+      ? "blocked"
+      : policy.status === "warning"
+        ? "warning"
+        : "available";
+  const id = contextId ?? (runId ? `github_context_${runId}` : `github_context_${doctorHash(context.contextId ?? "workspace").slice(0, 12)}`);
+  return {
+    schemaVersion: "ioi.agent-runtime.github-context.v1",
+    object: "ioi.github_context",
+    contextId: id,
+    generatedAt: generatedAt ?? new Date().toISOString(),
+    repositoryContextId: context.contextId ?? null,
+    branchPolicyId: policy.policyId ?? null,
+    status,
+    summary: githubContextSummary({ status, repoFullName, policy }),
+    readOnly: true,
+    networkLookupPerformed: false,
+    mutationExecuted: false,
+    provider: "github",
+    githubRemotePresent,
+    defaultRemoteName: defaultRemote?.name ?? null,
+    owner,
+    repo,
+    repoFullName,
+    htmlUrl: repoFullName ? `https://github.com/${repoFullName}` : null,
+    defaultBranch: context.defaultBranch ?? null,
+    branch: context.branch ?? null,
+    branchPolicyStatus: policy.status ?? null,
+    branchPolicyBlockers: normalizeArray(policy.blockers),
+    branchPolicyWarnings: normalizeArray(policy.warnings),
+    prCreationEligible,
+    prCreationPreconditions: {
+      githubRemotePresent,
+      branchPolicyAllowsPr,
+      tokenAvailable: tokenSources.length > 0,
+      networkLookupPerformed: false,
+      mutationExecuted: false,
+    },
+    remotes: githubRemotes.map((remote) => ({
+      name: remote.name,
+      host: remote.host,
+      owner: remote.owner,
+      repo: remote.repo,
+      repoFullName: remote.repoFullName,
+      fetchUrl: remote.fetchUrl,
+      fetchUrlHash: remote.fetchUrlHash,
+      pushUrl: remote.pushUrl,
+      pushUrlHash: remote.pushUrlHash,
+    })),
+    credentials: {
+      tokenAvailable: tokenSources.length > 0,
+      tokenSources,
+      tokenValueIncluded: false,
+      authorizationHeaderIncluded: false,
+    },
+    redaction: {
+      profile: "github_context_safe",
+      tokenValueIncluded: false,
+      remoteCredentialsIncluded: false,
+      networkResponseIncluded: false,
+    },
+    evidenceRefs: [
+      "github_context",
+      "github.context.read_only",
+      "GitHubContextNode",
+      context.contextId,
+      policy.policyId,
+    ].filter(Boolean),
+  };
+}
+
+function githubContextSummary({ status, repoFullName, policy }) {
+  if (!repoFullName) return "No GitHub remote was detected in repository context.";
+  if (status === "blocked") {
+    return `GitHub context resolved ${repoFullName}, but branch policy is blocked: ${normalizeArray(policy.blockers).join(", ")}.`;
+  }
+  if (status === "warning") {
+    return `GitHub context resolved ${repoFullName} with branch policy warnings: ${normalizeArray(policy.warnings).join(", ")}.`;
+  }
+  return `GitHub context resolved ${repoFullName} without network calls.`;
+}
+
+function githubTokenSources() {
+  return ["GITHUB_TOKEN", "GH_TOKEN"].filter((name) => Boolean(process.env[name]));
+}
+
 function repositoryDefaultBranch(repoRoot) {
   const remoteHead = emptyToNull(gitOutput(repoRoot, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]));
   if (remoteHead?.startsWith("origin/")) return remoteHead.slice("origin/".length);
@@ -4364,12 +4542,53 @@ function parseGitRemotes(remoteOutput) {
     const match = line.match(/^(\S+)\s+(.+?)\s+\((fetch|push)\)$/);
     if (!match) continue;
     const [, name, url, kind] = match;
+    const metadata = parseRemoteMetadata(url);
     const current = byName.get(name) ?? { name };
     current[`${kind}Url`] = redactRemoteUrl(url);
     current[`${kind}UrlHash`] = doctorHash(url);
+    current.provider ??= metadata.provider;
+    current.host ??= metadata.host;
+    current.owner ??= metadata.owner;
+    current.repo ??= metadata.repo;
+    current.repoFullName ??= metadata.repoFullName;
     byName.set(name, current);
   }
   return [...byName.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function parseRemoteMetadata(remoteUrl) {
+  const normalized = {
+    provider: null,
+    host: null,
+    owner: null,
+    repo: null,
+    repoFullName: null,
+  };
+  const fromParts = (host, remotePath) => {
+    const parts = String(remotePath ?? "")
+      .replace(/^\/+/, "")
+      .replace(/\.git$/, "")
+      .split("/")
+      .filter(Boolean);
+    const owner = parts[0] ?? null;
+    const repo = parts[1] ?? null;
+    const lowerHost = host ? String(host).toLowerCase() : null;
+    return {
+      provider: lowerHost === "github.com" ? "github" : null,
+      host: lowerHost,
+      owner,
+      repo,
+      repoFullName: owner && repo ? `${owner}/${repo}` : null,
+    };
+  };
+  try {
+    const parsed = new URL(remoteUrl);
+    return fromParts(parsed.hostname, parsed.pathname);
+  } catch {
+    const scpLike = String(remoteUrl).match(/^(?:[^@]+@)?([^:]+):(.+)$/);
+    if (scpLike) return fromParts(scpLike[1], scpLike[2]);
+  }
+  return normalized;
 }
 
 function redactRemoteUrl(remoteUrl) {
@@ -5892,6 +6111,30 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "branch_policy_safe",
     };
   }
+  if (event.type === "github_context") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "GitHubContext",
+      context_id: event.data?.contextId ?? null,
+      repository_context_id: event.data?.repositoryContextId ?? null,
+      branch_policy_id: event.data?.branchPolicyId ?? null,
+      status: event.data?.status ?? null,
+      github_remote_present: Boolean(event.data?.githubRemotePresent),
+      default_remote_name: event.data?.defaultRemoteName ?? null,
+      owner: event.data?.owner ?? null,
+      repo: event.data?.repo ?? null,
+      repo_full_name: event.data?.repoFullName ?? null,
+      branch: event.data?.branch ?? null,
+      default_branch: event.data?.defaultBranch ?? null,
+      branch_policy_status: event.data?.branchPolicyStatus ?? null,
+      token_available: Boolean(event.data?.credentials?.tokenAvailable),
+      pr_creation_eligible: Boolean(event.data?.prCreationEligible),
+      network_lookup_performed: Boolean(event.data?.networkLookupPerformed),
+      mutation_executed: Boolean(event.data?.mutationExecuted),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "github_context_safe",
+    };
+  }
   if (event.type === "skill_hook_manifest") {
     return {
       ...summary,
@@ -5970,6 +6213,8 @@ function componentKindForRunEvent(eventOrType) {
       return "repository_context";
     case "branch_policy":
       return "branch_policy";
+    case "github_context":
+      return "github_context";
     case "model_route_decision":
       return "model_router";
     case "skill_hook_manifest":
@@ -6017,6 +6262,7 @@ function workflowNodeForRunEvent(eventOrType) {
     (eventOrType?.type === "model_route_decision" ||
       eventOrType?.type === "repository_context" ||
       eventOrType?.type === "branch_policy" ||
+      eventOrType?.type === "github_context" ||
       eventOrType?.type === "memory_update" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
@@ -6037,6 +6283,9 @@ function receiptRefsForRunEvent(event) {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "branch_policy") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "github_context") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "skill_hook_manifest") {
@@ -6064,6 +6313,7 @@ function receiptRefsForRunEvent(event) {
 function artifactRefsForRunEvent(event) {
   if (event.type === "repository_context") return ["repository-context.json"];
   if (event.type === "branch_policy") return ["branch-policy.json"];
+  if (event.type === "github_context") return ["github-context.json"];
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
   if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];
