@@ -23,6 +23,7 @@ mod sidecars;
 mod templates;
 pub mod types;
 mod validation;
+mod workflow_value_helpers;
 pub use commands::*;
 use explorer::*;
 use ids::*;

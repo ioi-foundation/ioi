@@ -1,71 +1,11 @@
 // apps/autopilot/src-tauri/src/project/repository_pr_lane.rs
 
+use super::workflow_value_helpers::{
+    workflow_hash_value_raw_hex, workflow_project_root_for_path, workflow_string_array_any,
+    workflow_value_at_path, workflow_value_bool_any, workflow_value_string_any,
+    workflow_value_u64_any,
+};
 use super::*;
-use sha2::{Digest, Sha256};
-
-fn workflow_value_string_any(value: &Value, keys: &[&str]) -> Option<String> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_str))
-        .map(str::to_string)
-}
-
-fn workflow_value_bool_any(value: &Value, keys: &[&str]) -> Option<bool> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_bool))
-}
-
-fn workflow_value_u64_any(value: &Value, keys: &[&str]) -> Option<u64> {
-    keys.iter().find_map(|key| {
-        value.get(*key).and_then(Value::as_u64).or_else(|| {
-            value
-                .get(*key)
-                .and_then(Value::as_i64)
-                .and_then(|item| (item >= 0).then_some(item as u64))
-        })
-    })
-}
-
-fn workflow_string_array_any(value: &Value, keys: &[&str]) -> Vec<String> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_array))
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(str::trim)
-        .filter(|item| !item.is_empty())
-        .map(str::to_string)
-        .collect()
-}
-
-fn workflow_project_root_for_path(workflow_path: &Path) -> String {
-    workflow_path
-        .parent()
-        .and_then(|workflows_dir| workflows_dir.parent())
-        .and_then(|agents_dir| {
-            (agents_dir.file_name().and_then(|name| name.to_str()) == Some(".agents"))
-                .then(|| agents_dir.parent())
-                .flatten()
-        })
-        .or_else(|| workflow_path.parent())
-        .unwrap_or_else(|| Path::new("."))
-        .display()
-        .to_string()
-}
-
-fn workflow_value_at_path(value: &Value, path: &str) -> Option<Value> {
-    path.split('.')
-        .try_fold(value, |cursor, segment| cursor.get(segment))
-        .cloned()
-}
-
-fn workflow_hash_value_raw_hex(value: &Value) -> String {
-    let bytes = serde_jcs::to_vec(value)
-        .or_else(|_| serde_json::to_vec(value))
-        .unwrap_or_default();
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hex::encode(hasher.finalize())
-}
 
 fn workflow_find_object_by_marker<'a>(value: &'a Value, object_marker: &str) -> Option<&'a Value> {
     if value.get("object").and_then(Value::as_str) == Some(object_marker) {

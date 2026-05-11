@@ -4243,6 +4243,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
   const projectRepositoryPrLanePath =
     "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs";
+  const projectWorkflowValueHelpersPath =
+    "apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs";
   const projectRuntimeTestsPath =
     "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
@@ -4266,6 +4268,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectRepositoryPrLane = readFileSync(
     resolve(repoRoot, projectRepositoryPrLanePath),
+    "utf8",
+  );
+  const projectWorkflowValueHelpers = readFileSync(
+    resolve(repoRoot, projectWorkflowValueHelpersPath),
     "utf8",
   );
   const projectRuntimeTests = readFileSync(
@@ -4595,7 +4601,11 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-github-pr-create-missing-scopes/.test(bottomShelf) &&
       /ActionKind::GithubPrCreate/.test(projectRuntime) &&
       /repository_pr_lane/.test(projectRuntime) &&
+      /workflow_value_helpers/.test(projectRuntime) &&
+      /workflow_value_helpers/.test(projectRepositoryPrLane) &&
       /workflow_github_pr_create_output/.test(projectRepositoryPrLane) &&
+      /workflow_value_at_path/.test(projectWorkflowValueHelpers) &&
+      /workflow_hash_value_raw_hex/.test(projectWorkflowValueHelpers) &&
       /github_pr_create_dry_run_node_executes_through_runtime/.test(
         projectRuntimeTests,
       ),

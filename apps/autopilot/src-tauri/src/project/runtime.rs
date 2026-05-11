@@ -5,6 +5,10 @@ use super::repository_pr_lane::{
     workflow_github_pr_create_output, workflow_issue_context_output, workflow_pr_attempt_output,
     workflow_repository_context_output, workflow_review_gate_output,
 };
+use super::workflow_value_helpers::{
+    workflow_project_root_for_path, workflow_string_array_any, workflow_value_at_path,
+    workflow_value_bool_any, workflow_value_string_any, workflow_value_u64_any,
+};
 use super::*;
 use ioi_types::app::{
     compare_harness_live_shadow_attempts, default_harness_gated_cluster_run_for_shadow_run,
@@ -20,40 +24,6 @@ pub(super) fn workflow_value_string(value: &Value, key: &str) -> Option<String> 
     value.get(key).and_then(Value::as_str).map(str::to_string)
 }
 
-fn workflow_value_string_any(value: &Value, keys: &[&str]) -> Option<String> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_str))
-        .map(str::to_string)
-}
-
-fn workflow_value_bool_any(value: &Value, keys: &[&str]) -> Option<bool> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_bool))
-}
-
-fn workflow_value_u64_any(value: &Value, keys: &[&str]) -> Option<u64> {
-    keys.iter().find_map(|key| {
-        value.get(*key).and_then(Value::as_u64).or_else(|| {
-            value
-                .get(*key)
-                .and_then(Value::as_i64)
-                .and_then(|item| (item >= 0).then_some(item as u64))
-        })
-    })
-}
-
-fn workflow_string_array_any(value: &Value, keys: &[&str]) -> Vec<String> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_array))
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(str::trim)
-        .filter(|item| !item.is_empty())
-        .map(str::to_string)
-        .collect()
-}
-
 fn workflow_clip_text(value: &str, max_chars: usize) -> String {
     if value.chars().count() <= max_chars {
         return value.to_string();
@@ -65,21 +35,6 @@ fn workflow_sha256_hex(value: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(value.as_bytes());
     format!("sha256:{:x}", hasher.finalize())
-}
-
-fn workflow_project_root_for_path(workflow_path: &Path) -> String {
-    workflow_path
-        .parent()
-        .and_then(|workflows_dir| workflows_dir.parent())
-        .and_then(|agents_dir| {
-            (agents_dir.file_name().and_then(|name| name.to_str()) == Some(".agents"))
-                .then(|| agents_dir.parent())
-                .flatten()
-        })
-        .or_else(|| workflow_path.parent())
-        .unwrap_or_else(|| Path::new("."))
-        .display()
-        .to_string()
 }
 
 fn workflow_logic_string(logic: &Value, key: &str) -> Option<String> {
@@ -2922,18 +2877,6 @@ pub(super) fn workflow_predecessor_output(
     } else {
         Value::Object(inputs)
     }
-}
-
-pub(super) fn workflow_value_at_path(value: &Value, path: &str) -> Option<Value> {
-    let mut current = value;
-    for segment in path.split('.').filter(|segment| !segment.trim().is_empty()) {
-        if segment == "[]" {
-            current = current.as_array()?.first()?;
-            continue;
-        }
-        current = current.get(segment)?;
-    }
-    Some(current.clone())
 }
 
 pub(super) fn workflow_first_expression_source(expression: &str) -> Option<(String, String)> {
