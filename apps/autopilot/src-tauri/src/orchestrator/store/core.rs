@@ -4077,6 +4077,18 @@ fn runtime_harness_shadow_run(
         vec![format!("connector-call:{sid}:{}", task.progress)],
     );
     push_attempt(
+        "github_pr_create",
+        vec![
+            "github_pr_create_boundary".to_string(),
+            policy_decision.to_string(),
+        ],
+        vec!["proof_only_no_pull_request_created".to_string()],
+        Some("dry_run_plan_only".to_string()),
+        true,
+        "GithubPrCreatePlan",
+        vec![format!("github-pr-create:{sid}:{}", task.progress)],
+    );
+    push_attempt(
         "wallet_capability",
         vec!["wallet_boundary".to_string(), policy_decision.to_string()],
         vec!["proof_only_no_wallet_capability_granted".to_string()],
@@ -5112,6 +5124,36 @@ fn runtime_harness_authority_tooling_canary_execution_boundary(
             }),
         },
         RuntimeHarnessCanaryNodeSpec {
+            component_kind: "github_pr_create",
+            node_type: "plugin_tool",
+            node_name: "GitHub PR create dry-run plan",
+            logic: json!({
+                "toolBinding": {
+                    "bindingKind": "native_tool",
+                    "toolRef": "github__pr_create",
+                    "mockBinding": false,
+                    "credentialReady": true,
+                    "capabilityScope": ["github.pr.create"],
+                    "sideEffectClass": "read",
+                    "requiresApproval": true,
+                    "arguments": {
+                        "mode": "dry_run_plan",
+                        "dryRun": true,
+                        "mutation": false,
+                        "reviewGateRef": "previousOutput.connectorCatalog"
+                    },
+                    "argumentSchema": {
+                        "type": "object",
+                        "required": ["mode", "dryRun", "mutation"]
+                    },
+                    "resultSchema": {
+                        "type": "object",
+                        "required": ["toolRef", "arguments", "input"]
+                    }
+                }
+            }),
+        },
+        RuntimeHarnessCanaryNodeSpec {
             component_kind: "wallet_capability",
             node_type: "human_gate",
             node_name: "Wallet capability request",
@@ -6058,6 +6100,25 @@ fn runtime_harness_default_runtime_dispatch(
         .iter()
         .map(|component_kind| component_kind.as_str())
         .collect::<Vec<_>>();
+    let authority_tooling_node_authority_component_kinds =
+        default_harness_live_shadow_comparison_gate_component_kinds()
+            .iter()
+            .filter(|component_kind| {
+                matches!(
+                    component_kind,
+                    HarnessComponentKind::PolicyGate
+                        | HarnessComponentKind::ApprovalGate
+                        | HarnessComponentKind::DryRunSimulator
+                        | HarnessComponentKind::McpProvider
+                        | HarnessComponentKind::McpToolCall
+                        | HarnessComponentKind::ToolCall
+                        | HarnessComponentKind::ConnectorCall
+                        | HarnessComponentKind::GithubPrCreate
+                        | HarnessComponentKind::WalletCapability
+                )
+            })
+            .map(|component_kind| component_kind.as_str().to_string())
+            .collect::<Vec<_>>();
     let required_clusters = default_dispatch_contract
         .accepted_cluster_ids
         .iter()
@@ -6948,6 +7009,9 @@ fn runtime_harness_default_runtime_dispatch(
     let mut authority_tooling_connector_catalog_live_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_github_pr_create_dry_run_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_github_pr_create_dry_run_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_github_pr_create_dry_run_replay_fixture_refs = Vec::<String>::new();
     let mut authority_tooling_wallet_capability_live_dry_run_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_wallet_capability_live_dry_run_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs =
@@ -6973,6 +7037,7 @@ fn runtime_harness_default_runtime_dispatch(
     let mut authority_tooling_mcp_tool_catalog_live_success_count = 0usize;
     let mut authority_tooling_native_tool_catalog_live_success_count = 0usize;
     let mut authority_tooling_connector_catalog_live_success_count = 0usize;
+    let mut authority_tooling_github_pr_create_dry_run_success_count = 0usize;
     let mut authority_tooling_wallet_capability_live_dry_run_success_count = 0usize;
     let mut authority_tooling_denial_receipt_ids = Vec::<String>::new();
     if can_dispatch {
@@ -9555,6 +9620,38 @@ fn runtime_harness_default_runtime_dispatch(
                 }),
             ),
             (
+                HarnessComponentKind::GithubPrCreate,
+                "plugin_tool",
+                "Authority-tooling adapter GitHub PR create envelope",
+                "authority_tooling_github_pr_create_envelope",
+                "accept_authority_tooling_github_pr_create_adapter_envelope",
+                false,
+                json!({
+                    "toolBinding": {
+                        "bindingKind": "native_tool",
+                        "toolRef": "github__pr_create",
+                        "mockBinding": false,
+                        "credentialReady": true,
+                        "capabilityScope": ["github.pr.create"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": true,
+                        "arguments": {
+                            "mode": "dry_run_plan",
+                            "dryRun": true,
+                            "mutation": false
+                        }
+                    },
+                    "githubPrCreatePlanLiveExecution": false,
+                    "toolExecutionEnabled": false,
+                    "readOnlyAuthority": true,
+                    "requiresApproval": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "promotionMode": "gated",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
                 HarnessComponentKind::WalletCapability,
                 "human_gate",
                 "Authority-tooling adapter wallet capability envelope",
@@ -10442,6 +10539,39 @@ fn runtime_harness_default_runtime_dispatch(
                 }),
             ),
             (
+                "github_pr_create",
+                "plugin_tool",
+                "Authority GitHub PR create dry-run plan",
+                "authority_tooling_github_pr_create_read_only",
+                "retain_github_pr_create_dry_run_without_mutation",
+                false,
+                json!({
+                    "toolBinding": {
+                        "bindingKind": "native_tool",
+                        "toolRef": "github__pr_create",
+                        "mockBinding": false,
+                        "credentialReady": true,
+                        "capabilityScope": ["github.pr.create"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": true,
+                        "arguments": {
+                            "mode": "dry_run_plan",
+                            "dryRun": true,
+                            "mutation": false,
+                            "reviewGateRef": "input.reviewGate"
+                        }
+                    },
+                    "reviewGateRequired": true,
+                    "githubPrCreatePlanLiveExecution": true,
+                    "toolExecutionEnabled": false,
+                    "readOnlyAuthority": true,
+                    "requiresApproval": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
                 "wallet_capability",
                 "human_gate",
                 "Authority wallet capability read-only denial",
@@ -10555,6 +10685,13 @@ fn runtime_harness_default_runtime_dispatch(
                 authority_tooling_connector_catalog_live_attempt_ids.push(attempt_id.clone());
                 authority_tooling_connector_catalog_live_receipt_ids.push(receipt_id.clone());
                 authority_tooling_connector_catalog_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
+            let github_pr_create_dry_run_live_attempt = component_kind == "github_pr_create";
+            if github_pr_create_dry_run_live_attempt {
+                authority_tooling_github_pr_create_dry_run_attempt_ids.push(attempt_id.clone());
+                authority_tooling_github_pr_create_dry_run_receipt_ids.push(receipt_id.clone());
+                authority_tooling_github_pr_create_dry_run_replay_fixture_refs
                     .push(replay_fixture_ref.clone());
             }
             let wallet_capability_live_dry_run_attempt = component_kind == "wallet_capability";
@@ -10702,6 +10839,21 @@ fn runtime_harness_default_runtime_dispatch(
                             .and_then(|catalog| catalog.get("externalRequestEnabled"))
                             .and_then(Value::as_bool)
                             == Some(false);
+                    let github_pr_create_dry_run_live_output = github_pr_create_dry_run_live_attempt
+                        && output.get("mockBinding").and_then(Value::as_bool) == Some(false)
+                        && output.get("toolName").and_then(Value::as_str)
+                            == Some("github__pr_create")
+                        && output.get("sideEffectClass").and_then(Value::as_str) == Some("read")
+                        && output
+                            .get("arguments")
+                            .and_then(|arguments| arguments.get("dryRun"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("arguments")
+                            .and_then(|arguments| arguments.get("mutation"))
+                            .and_then(Value::as_bool)
+                            == Some(false);
                     let wallet_capability_live_dry_run_output =
                         wallet_capability_live_dry_run_attempt
                             && output
@@ -10789,6 +10941,16 @@ fn runtime_harness_default_runtime_dispatch(
                                     .to_string(),
                             );
                         }
+                    } else if github_pr_create_dry_run_live_attempt {
+                        if github_pr_create_dry_run_live_output {
+                            authority_tooling_github_pr_create_dry_run_success_count += 1;
+                            authority_tooling_read_only_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_github_pr_create_dry_run_live_output_not_ready"
+                                    .to_string(),
+                            );
+                        }
                     } else if wallet_capability_live_dry_run_attempt {
                         if wallet_capability_live_dry_run_output {
                             authority_tooling_wallet_capability_live_dry_run_success_count += 1;
@@ -10854,6 +11016,7 @@ fn runtime_harness_default_runtime_dispatch(
                             "mcpToolCatalogLiveExecution": mcp_tool_catalog_live_output,
                             "nativeToolCatalogLiveExecution": native_tool_catalog_live_output,
                             "connectorCatalogLiveExecution": connector_catalog_live_output,
+                            "githubPrCreatePlanLiveExecution": github_pr_create_dry_run_live_output,
                             "walletCapabilityLiveDryRunExecution": wallet_capability_live_dry_run_output,
                             "toolExecutionEnabled": false,
                             "nativeToolExecutionEnabled": false,
@@ -10917,6 +11080,7 @@ fn runtime_harness_default_runtime_dispatch(
                             "mcpToolCatalogLiveExecution": false,
                             "nativeToolCatalogLiveExecution": false,
                             "connectorCatalogLiveExecution": false,
+                            "githubPrCreatePlanLiveExecution": false,
                             "walletCapabilityLiveDryRunExecution": false,
                             "toolExecutionEnabled": false,
                             "nativeToolExecutionEnabled": false,
@@ -11763,6 +11927,12 @@ fn runtime_harness_default_runtime_dispatch(
     authority_tooling_connector_catalog_live_receipt_ids.dedup();
     authority_tooling_connector_catalog_live_replay_fixture_refs.sort();
     authority_tooling_connector_catalog_live_replay_fixture_refs.dedup();
+    authority_tooling_github_pr_create_dry_run_attempt_ids.sort();
+    authority_tooling_github_pr_create_dry_run_attempt_ids.dedup();
+    authority_tooling_github_pr_create_dry_run_receipt_ids.sort();
+    authority_tooling_github_pr_create_dry_run_receipt_ids.dedup();
+    authority_tooling_github_pr_create_dry_run_replay_fixture_refs.sort();
+    authority_tooling_github_pr_create_dry_run_replay_fixture_refs.dedup();
     authority_tooling_wallet_capability_live_dry_run_attempt_ids.sort();
     authority_tooling_wallet_capability_live_dry_run_attempt_ids.dedup();
     authority_tooling_wallet_capability_live_dry_run_receipt_ids.sort();
@@ -11816,6 +11986,8 @@ fn runtime_harness_default_runtime_dispatch(
         authority_tooling_native_tool_catalog_live_success_count >= 1;
     let authority_tooling_connector_catalog_live_ready =
         authority_tooling_connector_catalog_live_success_count >= 1;
+    let authority_tooling_github_pr_create_dry_run_ready =
+        authority_tooling_github_pr_create_dry_run_success_count >= 1;
     let authority_tooling_wallet_capability_live_dry_run_ready =
         authority_tooling_wallet_capability_live_dry_run_success_count >= 1;
     let mut node_attempt_ids = accepted_node_attempt_ids.clone();
@@ -11861,8 +12033,12 @@ fn runtime_harness_default_runtime_dispatch(
         "ready": verification_output_ready,
         "policyDecision": "accept_workflow_verification_output_adapter_envelope"
     });
-    let authority_tooling_adapter_ready = authority_tooling_adapter_results.len() >= 8
-        && authority_tooling_shadow_adapter_results.len() >= 8
+    let authority_tooling_adapter_required_count =
+        authority_tooling_node_authority_component_kinds.len();
+    let authority_tooling_adapter_ready = authority_tooling_adapter_results.len()
+        >= authority_tooling_adapter_required_count
+        && authority_tooling_shadow_adapter_results.len()
+            >= authority_tooling_adapter_required_count
         && authority_tooling_divergence_classes
             .iter()
             .all(|value| value == "none")
@@ -11932,6 +12108,7 @@ fn runtime_harness_default_runtime_dispatch(
         && authority_tooling_mcp_tool_catalog_live_ready
         && authority_tooling_native_tool_catalog_live_ready
         && authority_tooling_connector_catalog_live_ready
+        && authority_tooling_github_pr_create_dry_run_ready
         && authority_tooling_wallet_capability_live_dry_run_ready;
     let mut live_promotion_cognition_action_frame_ids =
         cognition_execution_action_frame_ids.clone();
@@ -13204,16 +13381,6 @@ fn runtime_harness_default_runtime_dispatch(
                 .unwrap_or_else(|| json!("block_gated_node_authoritative_verification_output")),
         );
     }
-    let authority_tooling_node_authority_component_kinds = vec![
-        "policy_gate".to_string(),
-        "approval_gate".to_string(),
-        "dry_run_simulator".to_string(),
-        "mcp_provider".to_string(),
-        "mcp_tool_call".to_string(),
-        "tool_call".to_string(),
-        "connector_call".to_string(),
-        "wallet_capability".to_string(),
-    ];
     let authority_tooling_node_authority_attempt_ids = authority_tooling_adapter_results
         .iter()
         .filter_map(|result| {
@@ -13696,6 +13863,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingConnectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids.clone(),
         "authorityToolingConnectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids.clone(),
         "authorityToolingConnectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs.clone(),
+        "authorityToolingGithubPrCreateDryRunAttemptIds": authority_tooling_github_pr_create_dry_run_attempt_ids.clone(),
+        "authorityToolingGithubPrCreateDryRunReceiptIds": authority_tooling_github_pr_create_dry_run_receipt_ids.clone(),
+        "authorityToolingGithubPrCreateDryRunReplayFixtureRefs": authority_tooling_github_pr_create_dry_run_replay_fixture_refs.clone(),
         "authorityToolingWalletCapabilityLiveDryRunAttemptIds": authority_tooling_wallet_capability_live_dry_run_attempt_ids.clone(),
         "authorityToolingWalletCapabilityLiveDryRunReceiptIds": authority_tooling_wallet_capability_live_dry_run_receipt_ids.clone(),
         "authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs": authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.clone(),
@@ -14085,6 +14255,12 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingConnectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids.clone(),
             "authorityToolingConnectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids.clone(),
             "authorityToolingConnectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs.clone(),
+            "authorityToolingGithubPrCreateDryRunReady": authority_tooling_github_pr_create_dry_run_ready,
+            "authorityToolingGithubPrCreateDryRunSuccessCount": authority_tooling_github_pr_create_dry_run_success_count,
+            "authorityToolingGithubPrCreateDryRunComponentKind": "github_pr_create",
+            "authorityToolingGithubPrCreateDryRunAttemptIds": authority_tooling_github_pr_create_dry_run_attempt_ids.clone(),
+            "authorityToolingGithubPrCreateDryRunReceiptIds": authority_tooling_github_pr_create_dry_run_receipt_ids.clone(),
+            "authorityToolingGithubPrCreateDryRunReplayFixtureRefs": authority_tooling_github_pr_create_dry_run_replay_fixture_refs.clone(),
             "authorityToolingWalletCapabilityLiveDryRunReady": authority_tooling_wallet_capability_live_dry_run_ready,
             "authorityToolingWalletCapabilityLiveDryRunSuccessCount": authority_tooling_wallet_capability_live_dry_run_success_count,
             "authorityToolingWalletCapabilityLiveDryRunComponentKind": "wallet_capability",
@@ -14572,6 +14748,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingConnectorCatalogLiveReady": authority_tooling_connector_catalog_live_ready,
         "authorityToolingConnectorCatalogLiveSuccessCount": authority_tooling_connector_catalog_live_success_count,
         "authorityToolingConnectorCatalogLiveComponentKind": "connector_call",
+        "authorityToolingGithubPrCreateDryRunReady": authority_tooling_github_pr_create_dry_run_ready,
+        "authorityToolingGithubPrCreateDryRunSuccessCount": authority_tooling_github_pr_create_dry_run_success_count,
+        "authorityToolingGithubPrCreateDryRunComponentKind": "github_pr_create",
         "authorityToolingWalletCapabilityLiveDryRunReady": authority_tooling_wallet_capability_live_dry_run_ready,
         "authorityToolingWalletCapabilityLiveDryRunSuccessCount": authority_tooling_wallet_capability_live_dry_run_success_count,
         "authorityToolingWalletCapabilityLiveDryRunComponentKind": "wallet_capability",
@@ -14640,6 +14819,12 @@ fn runtime_harness_default_runtime_dispatch(
             "connectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids,
             "connectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids,
             "connectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs,
+            "githubPrCreateDryRunReady": authority_tooling_github_pr_create_dry_run_ready,
+            "githubPrCreateDryRunSuccessCount": authority_tooling_github_pr_create_dry_run_success_count,
+            "githubPrCreateDryRunComponentKind": "github_pr_create",
+            "githubPrCreateDryRunAttemptIds": authority_tooling_github_pr_create_dry_run_attempt_ids,
+            "githubPrCreateDryRunReceiptIds": authority_tooling_github_pr_create_dry_run_receipt_ids,
+            "githubPrCreateDryRunReplayFixtureRefs": authority_tooling_github_pr_create_dry_run_replay_fixture_refs,
             "walletCapabilityLiveDryRunReady": authority_tooling_wallet_capability_live_dry_run_ready,
             "walletCapabilityLiveDryRunSuccessCount": authority_tooling_wallet_capability_live_dry_run_success_count,
             "walletCapabilityLiveDryRunComponentKind": "wallet_capability",
@@ -16212,7 +16397,10 @@ fn persist_output_writer_transcript_staging_canary(
     }))
 }
 
-pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task: &AgentTask) {
+pub(super) fn persist_runtime_evidence_projection(
+    memory_runtime: &Arc<MemoryRuntime>,
+    task: &AgentTask,
+) {
     let sid = task.session_id.as_deref().unwrap_or(&task.id);
     let visible_output_writer_eligible = workflow_visible_output_write_eligible(task, sid);
     let _pre_workflow_transcript_projection = if visible_output_writer_eligible {
@@ -16481,10 +16669,28 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
             harness_canary_execution_boundaries.push(boundary);
         }
     }
+    let authority_tooling_canary_required_attempts =
+        default_harness_live_shadow_comparison_gate_component_kinds()
+            .iter()
+            .filter(|component_kind| {
+                matches!(
+                    component_kind,
+                    HarnessComponentKind::PolicyGate
+                        | HarnessComponentKind::ApprovalGate
+                        | HarnessComponentKind::DryRunSimulator
+                        | HarnessComponentKind::McpProvider
+                        | HarnessComponentKind::McpToolCall
+                        | HarnessComponentKind::ToolCall
+                        | HarnessComponentKind::ConnectorCall
+                        | HarnessComponentKind::GithubPrCreate
+                        | HarnessComponentKind::WalletCapability
+                )
+            })
+            .count();
     let boundary_executed = |cluster_id: &str| -> bool {
         let minimum_attempts = match cluster_id {
             "routing_model" => 3,
-            "authority_tooling" => 8,
+            "authority_tooling" => authority_tooling_canary_required_attempts,
             _ => 6,
         };
         harness_canary_execution_boundaries.iter().any(|boundary| {
@@ -17353,6 +17559,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                         component_kinds.contains(&"mcp_tool_call")
                             && component_kinds.contains(&"tool_call")
                             && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"github_pr_create")
                             && component_kinds.contains(&"wallet_capability")
                     })
                     .unwrap_or(false)
@@ -17366,6 +17573,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                             && component_kinds.contains(&"mcp_tool_call")
                             && component_kinds.contains(&"tool_call")
                             && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"github_pr_create")
                             && component_kinds.contains(&"wallet_capability")
                     })
                     .unwrap_or(false)
@@ -17379,6 +17587,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                             && component_kinds.contains(&"mcp_tool_call")
                             && component_kinds.contains(&"tool_call")
                             && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"github_pr_create")
                             && component_kinds.contains(&"wallet_capability")
                     })
                     .unwrap_or(false)
@@ -17853,7 +18062,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                     .get("authorityToolingAdapterResults")
                     .and_then(Value::as_array)
                     .map(|items| {
-                        items.len() >= 8
+                        items.len() >= 9
                             && items.iter().all(|item| {
                                 item.get("actionFrame")
                                     .and_then(|frame| frame.get("executionMode"))
@@ -17875,17 +18084,17 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                 && dispatch
                     .get("authorityToolingAttemptIds")
                     .and_then(Value::as_array)
-                    .map(|items| items.len() >= 8)
+                    .map(|items| items.len() >= 9)
                     .unwrap_or(false)
                 && dispatch
                     .get("authorityToolingReceiptIds")
                     .and_then(Value::as_array)
-                    .map(|items| items.len() >= 8)
+                    .map(|items| items.len() >= 9)
                     .unwrap_or(false)
                 && dispatch
                     .get("authorityToolingReplayFixtureRefs")
                     .and_then(Value::as_array)
-                    .map(|items| items.len() >= 8)
+                    .map(|items| items.len() >= 9)
                     .unwrap_or(false)
                 && dispatch
                     .get("authorityToolingComponentKinds")
@@ -17900,6 +18109,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                             && component_kinds.contains(&"mcp_tool_call")
                             && component_kinds.contains(&"tool_call")
                             && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"github_pr_create")
                             && component_kinds.contains(&"wallet_capability")
                     })
                     .unwrap_or(false)
@@ -17943,23 +18153,24 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                                         && component_kinds.contains(&"mcp_tool_call")
                                         && component_kinds.contains(&"tool_call")
                                         && component_kinds.contains(&"connector_call")
+                                        && component_kinds.contains(&"github_pr_create")
                                         && component_kinds.contains(&"wallet_capability")
                                 })
                                 .unwrap_or(false)
                             && gate
                                 .get("attemptIds")
                                 .and_then(Value::as_array)
-                                .map(|items| items.len() >= 8)
+                                .map(|items| items.len() >= 9)
                                 .unwrap_or(false)
                             && gate
                                 .get("receiptIds")
                                 .and_then(Value::as_array)
-                                .map(|items| items.len() >= 8)
+                                .map(|items| items.len() >= 9)
                                 .unwrap_or(false)
                             && gate
                                 .get("replayFixtureRefs")
                                 .and_then(Value::as_array)
-                                .map(|items| items.len() >= 8)
+                                .map(|items| items.len() >= 9)
                                 .unwrap_or(false)
                             && gate.get("readOnlyRouteAccepted").and_then(Value::as_bool)
                                 == Some(true)
@@ -18192,6 +18403,29 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                     .map(|items| !items.is_empty())
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("github_pr_create")
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingWalletCapabilityLiveDryRunReady")
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -18281,6 +18515,16 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                     == Some("connector_call")
                 && dispatch
                     .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("githubPrCreateDryRunReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("githubPrCreateDryRunComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("github_pr_create")
+                && dispatch
+                    .get("authorityToolingProof")
                     .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -18297,7 +18541,11 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                         items
                             .iter()
                             .filter_map(Value::as_str)
-                            .any(|value| value == "wallet_capability")
+                            .any(|value| value == "github_pr_create")
+                            && items
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .any(|value| value == "wallet_capability")
                     })
                     .unwrap_or(false)
                 && dispatch
@@ -19013,6 +19261,25 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                     .map(|items| !items.is_empty())
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingWalletCapabilityLiveDryRunReady")
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -19051,7 +19318,11 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                         items
                             .iter()
                             .filter_map(Value::as_str)
-                            .any(|value| value == "wallet_capability")
+                            .any(|value| value == "github_pr_create")
+                            && items
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .any(|value| value == "wallet_capability")
                     })
                     .unwrap_or(false)
                 && dispatch
@@ -19099,6 +19370,16 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                     .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("connector_call")
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("githubPrCreateDryRunReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("githubPrCreateDryRunComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("github_pr_create")
                 && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
@@ -19261,6 +19542,44 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
                     .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("connector_call")
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_github_pr_create_dry_run = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            dispatch
+                .get("authorityToolingGithubPrCreateDryRunReady")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("github_pr_create")
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGithubPrCreateDryRunReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("githubPrCreateDryRunReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("githubPrCreateDryRunComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("github_pr_create")
         })
         .unwrap_or(false);
     let harness_authority_tooling_wallet_capability_live_dry_run = harness_default_runtime_dispatch
@@ -19702,6 +20021,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
             "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
             "harness_authority_tooling_connector_catalog_live": harness_authority_tooling_connector_catalog_live,
+            "harness_authority_tooling_github_pr_create_dry_run": harness_authority_tooling_github_pr_create_dry_run,
             "harness_authority_tooling_wallet_capability_live_dry_run": harness_authority_tooling_wallet_capability_live_dry_run,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
@@ -19794,6 +20114,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
             "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
             "harness_authority_tooling_connector_catalog_live": harness_authority_tooling_connector_catalog_live,
+            "harness_authority_tooling_github_pr_create_dry_run": harness_authority_tooling_github_pr_create_dry_run,
             "harness_authority_tooling_wallet_capability_live_dry_run": harness_authority_tooling_wallet_capability_live_dry_run,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
@@ -19870,7 +20191,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
     };
     super::events::append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_workflow_recovery_blocked={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_live_promotion_readiness={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_workflow_recovery_blocked={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_live_promotion_readiness={} harness_default_runtime_binding_matched={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_github_pr_create_dry_run={} harness_authority_tooling_wallet_capability_live_dry_run={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -19898,6 +20219,7 @@ pub(super) fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRun
         harness_authority_tooling_mcp_tool_catalog_live,
         harness_authority_tooling_native_tool_catalog_live,
         harness_authority_tooling_connector_catalog_live,
+        harness_authority_tooling_github_pr_create_dry_run,
         harness_authority_tooling_wallet_capability_live_dry_run
     );
 }

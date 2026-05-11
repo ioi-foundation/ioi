@@ -319,6 +319,8 @@ fn p0_harness_components_are_complete_workflow_addressable_contracts() {
         HarnessComponentKind::OutputWriter,
         HarnessComponentKind::PolicyGate,
         HarnessComponentKind::ToolCall,
+        HarnessComponentKind::ConnectorCall,
+        HarnessComponentKind::GithubPrCreate,
     ] {
         assert!(
             live_shadow_gate_components.contains(&core_handoff_component),
@@ -712,6 +714,7 @@ fn authority_tooling_cluster_can_be_promoted_to_gated_from_shadow_run() {
             HarnessComponentKind::McpToolCall,
             HarnessComponentKind::ToolCall,
             HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::GithubPrCreate,
             HarnessComponentKind::WalletCapability,
         ]
     );
@@ -1709,6 +1712,10 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch
         .authority_tooling_node_authority_gate
         .component_kinds
+        .contains(&HarnessComponentKind::GithubPrCreate));
+    assert!(dispatch
+        .authority_tooling_node_authority_gate
+        .component_kinds
         .contains(&HarnessComponentKind::WalletCapability));
     assert!(dispatch
         .accepted_cluster_ids
@@ -1752,6 +1759,9 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch
         .deferred_component_kinds
         .contains(&HarnessComponentKind::ConnectorCall));
+    assert!(dispatch
+        .deferred_component_kinds
+        .contains(&HarnessComponentKind::GithubPrCreate));
     assert!(dispatch
         .deferred_component_kinds
         .contains(&HarnessComponentKind::WalletCapability));
@@ -1869,6 +1879,12 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch
         .authority_tooling_read_only_component_kinds
         .contains(&HarnessComponentKind::ConnectorCall));
+    assert!(dispatch
+        .authority_tooling_read_only_component_kinds
+        .contains(&HarnessComponentKind::GithubPrCreate));
+    assert!(dispatch
+        .authority_tooling_mutation_deferred_component_kinds
+        .contains(&HarnessComponentKind::GithubPrCreate));
     assert!(dispatch
         .authority_tooling_mutation_deferred_component_kinds
         .contains(&HarnessComponentKind::WalletCapability));
@@ -2124,7 +2140,7 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
             .live_promotion_readiness_proof
             .live_shadow_comparison_gate
             .comparison_count,
-        20
+        21
     );
     assert!(
         dispatch

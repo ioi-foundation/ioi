@@ -2055,6 +2055,46 @@ Validation evidence:
   - proof gate has `comparisonCount === 21`, `requiredComparisonCount === 21`,
     and includes `github_pr_create`.
 
+Implementation slice completed 2026-05-11, direct PR-create live shadow
+artifact emission:
+
+- The default harness now emits the `github_pr_create` live/shadow comparison
+  directly from `runtime-artifacts.json`; the validator no longer needs to rely
+  on promotion proof fallback to prove the 21st authority-tooling pair.
+- `HarnessComponentKind::GithubPrCreate` is now part of the componentized
+  default flow, authority-tooling cluster, live shadow comparison gate, replay
+  policy, approval semantics, tool-grant slot policy, canary boundary, and
+  default dispatch proof fixture.
+- The Rust default dispatch path now executes a read-only
+  `github__pr_create` dry-run plan node, records attempt/receipt/replay refs,
+  blocks mutation, and exposes `authorityToolingGithubPrCreateDryRun*` summary
+  fields beside MCP, native tool, connector, and wallet authority evidence.
+- The React Flow/workflow GUI validator contract now requires
+  `harness_authority_tooling_github_pr_create_dry_run` as a first-class runtime
+  artifact and consistency bit.
+- Live artifact proof:
+  `runtime-artifacts.json` now reports `harnessLiveShadowComparisonCount === 21`,
+  includes `github_pr_create` in `harnessLiveShadowComparisonComponentKinds`,
+  and reports `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
+Validation evidence:
+
+- `cargo test -p ioi-types harness -- --nocapture`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary -- --nocapture`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml save_local_task_state_exports_gui_runtime_evidence_projection -- --nocapture`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide -- --pretty false`
+- `git diff --check`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T16-33-52-995Z/result.json`
+  - `validation.ok === true`;
+  - runtime consistency includes
+    `harness_authority_tooling_github_pr_create_dry_run_present === true`;
+  - `runtime-artifacts.json` has the direct 21/21 component set with
+    `github_pr_create`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

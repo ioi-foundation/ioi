@@ -1,13 +1,4 @@
 use super::{canonical_chat_session_title_from_query, clean_chat_session_title_candidate};
-use crate::orchestrator::store::{
-    get_local_sessions, get_local_sessions_with_live_tasks, global_checkpoint_key,
-    load_artifact_content, load_artifacts, load_events, load_local_engine_control_plane,
-    load_local_engine_control_plane_document, load_session_file_context,
-    persisted_workspace_root_for_session, save_local_engine_control_plane,
-    save_local_engine_control_plane_document, save_local_session_summary, save_local_task_state,
-    save_session_file_context, session_summary_from_task, thread_storage_key,
-    LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME, LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
-};
 use crate::kernel::file_context::{
     apply_exclude_file_context_path, apply_include_file_context_path,
 };
@@ -17,6 +8,15 @@ use crate::models::{
     SessionSummary,
 };
 use crate::open_or_create_memory_runtime;
+use crate::orchestrator::store::{
+    get_local_sessions, get_local_sessions_with_live_tasks, global_checkpoint_key,
+    load_artifact_content, load_artifacts, load_events, load_local_engine_control_plane,
+    load_local_engine_control_plane_document, load_session_file_context,
+    persisted_workspace_root_for_session, save_local_engine_control_plane,
+    save_local_engine_control_plane_document, save_local_session_summary, save_local_task_state,
+    save_session_file_context, session_summary_from_task, thread_storage_key,
+    LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME, LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
+};
 use ioi_memory::MemoryRuntime;
 use serde::Serialize;
 use serde_json::json;
@@ -753,7 +753,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .get("liveShadowComparisons")
         .and_then(|value| value.as_array())
         .expect("default runtime dispatch must emit live/shadow comparisons");
-    assert_eq!(live_shadow_comparisons.len(), 20);
+    assert_eq!(live_shadow_comparisons.len(), 21);
     let live_shadow_component_kinds = live_shadow_comparisons
         .iter()
         .filter_map(|comparison| {
@@ -782,6 +782,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "mcp_tool_call",
         "tool_call",
         "connector_call",
+        "github_pr_create",
         "wallet_capability",
     ] {
         assert!(live_shadow_component_kinds.contains(&required_component));
@@ -822,12 +823,12 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         live_shadow_gate
             .get("comparisonCount")
             .and_then(|value| value.as_u64()),
-        Some(20)
+        Some(21)
     );
     assert!(live_shadow_gate
         .get("componentKinds")
         .and_then(|value| value.as_array())
-        .map(|items| items.len() == 20)
+        .map(|items| items.len() == 21)
         .unwrap_or(false));
     assert_eq!(
         dispatch
@@ -905,7 +906,7 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .get("authorityToolingShadowAdapterResults")
         .and_then(|value| value.as_array())
         .expect("default runtime dispatch must retain authority/tooling shadow adapter results");
-    assert_eq!(authority_tooling_shadow_adapter_results.len(), 8);
+    assert_eq!(authority_tooling_shadow_adapter_results.len(), 9);
     assert!(authority_tooling_shadow_adapter_results
         .iter()
         .all(|result| {
@@ -2413,6 +2414,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     assert!(
         dispatch
             .get("authorityToolingProof")
+            .and_then(|proof| proof.get("githubPrCreateDryRunReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("githubPrCreateDryRunComponentKind"))
+            .and_then(|value| value.as_str()),
+        Some("github_pr_create")
+    );
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
             .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
             .and_then(|value| value.as_bool())
             == Some(true)
@@ -2432,7 +2447,11 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             items
                 .iter()
                 .filter_map(|value| value.as_str())
-                .any(|value| value == "wallet_capability")
+                .any(|value| value == "github_pr_create")
+                && items
+                    .iter()
+                    .filter_map(|value| value.as_str())
+                    .any(|value| value == "wallet_capability")
         })
         .unwrap_or(false));
     assert!(dispatch
@@ -2892,7 +2911,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
     ] {
         let minimum_attempts = match cluster_id {
             "routing_model" => 3,
-            "authority_tooling" => 8,
+            "authority_tooling" => 9,
             _ => 6,
         };
         let canary_boundary = boundary_for(cluster_id);
@@ -3147,7 +3166,7 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         live_shadow_gate
             .get("comparisonCount")
             .and_then(|value| value.as_u64()),
-        Some(20)
+        Some(21)
     );
     assert!(live_promotion_readiness
         .get("clusterReadiness")

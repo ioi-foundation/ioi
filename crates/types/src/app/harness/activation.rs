@@ -965,6 +965,7 @@ pub fn default_harness_live_promotion_readiness_proof(
                 HarnessComponentKind::McpToolCall,
                 HarnessComponentKind::ToolCall,
                 HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::GithubPrCreate,
                 HarnessComponentKind::WalletCapability,
             ],
             &[
@@ -975,6 +976,7 @@ pub fn default_harness_live_promotion_readiness_proof(
                 "authority_tooling_mcp_tool_call_envelope",
                 "authority_tooling_tool_call_envelope",
                 "authority_tooling_connector_call_envelope",
+                "authority_tooling_github_pr_create_envelope",
                 "authority_tooling_wallet_capability_envelope",
             ],
             DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -1086,6 +1088,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             HarnessComponentKind::McpToolCall,
             HarnessComponentKind::ToolCall,
             HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::GithubPrCreate,
             HarnessComponentKind::WalletCapability,
         ],
         handoff_validated_component_kinds: vec![HarnessComponentKind::OutputWriter],
@@ -1279,6 +1282,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only".to_string(),
             "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only"
                 .to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_github_pr_create_read_only"
+                .to_string(),
             "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only"
                 .to_string(),
         ],
@@ -1289,6 +1294,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             "harness-default-dispatch:receipt-authority_tooling_tool_call_read_only".to_string(),
             "harness-default-dispatch:receipt-authority_tooling_connector_call_read_only"
                 .to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_github_pr_create_read_only"
+                .to_string(),
             "harness-default-dispatch:receipt-authority_tooling_wallet_capability_read_only"
                 .to_string(),
         ],
@@ -1298,6 +1305,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 .to_string(),
             "harness-default-dispatch:fixture-authority_tooling_tool_call_read_only".to_string(),
             "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_github_pr_create_read_only"
                 .to_string(),
             "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only"
                 .to_string(),
@@ -1361,6 +1370,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             HarnessComponentKind::McpToolCall,
             HarnessComponentKind::ToolCall,
             HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::GithubPrCreate,
             HarnessComponentKind::WalletCapability,
         ],
         authority_tooling_mutation_deferred_component_kinds: vec![
@@ -1368,6 +1378,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             HarnessComponentKind::McpToolCall,
             HarnessComponentKind::ToolCall,
             HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::GithubPrCreate,
             HarnessComponentKind::WalletCapability,
         ],
         authority_tooling_denial_receipt_ids: vec![
@@ -1674,6 +1685,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 HarnessComponentKind::McpToolCall,
                 HarnessComponentKind::ToolCall,
                 HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::GithubPrCreate,
                 HarnessComponentKind::WalletCapability,
             ],
             shadow_ready_component_kinds: vec![
@@ -1684,6 +1696,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 HarnessComponentKind::McpToolCall,
                 HarnessComponentKind::ToolCall,
                 HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::GithubPrCreate,
                 HarnessComponentKind::WalletCapability,
             ],
             action_frame_ids: vec![
@@ -1695,6 +1708,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 "harness.mcp_tool_call:ioi.agent-harness.mcp_tool_call.v1".to_string(),
                 "harness.tool_call:ioi.agent-harness.tool_call.v1".to_string(),
                 "harness.connector_call:ioi.agent-harness.connector_call.v1".to_string(),
+                "harness.github_pr_create:ioi.agent-harness.github_pr_create.v1".to_string(),
                 "harness.wallet_capability:ioi.agent-harness.wallet_capability.v1".to_string(),
             ],
             attempt_ids: vec![
@@ -1711,6 +1725,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 "harness-default-dispatch:attempt-authority_tooling_tool_call_envelope"
                     .to_string(),
                 "harness-default-dispatch:attempt-authority_tooling_connector_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_github_pr_create_envelope"
                     .to_string(),
                 "harness-default-dispatch:attempt-authority_tooling_wallet_capability_envelope"
                     .to_string(),
@@ -1730,6 +1746,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                     .to_string(),
                 "harness-default-dispatch:receipt-authority_tooling_connector_call_envelope"
                     .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_github_pr_create_envelope"
+                    .to_string(),
                 "harness-default-dispatch:receipt-authority_tooling_wallet_capability_envelope"
                     .to_string(),
             ],
@@ -1747,6 +1765,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 "harness-default-dispatch:fixture-authority_tooling_tool_call_envelope"
                     .to_string(),
                 "harness-default-dispatch:fixture-authority_tooling_connector_call_envelope"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_github_pr_create_envelope"
                     .to_string(),
                 "harness-default-dispatch:fixture-authority_tooling_wallet_capability_envelope"
                     .to_string(),
@@ -1766,6 +1786,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                     .to_string(),
                 "harness-default-dispatch:attempt-authority_tooling_connector_call_envelope_shadow"
                     .to_string(),
+                "harness-default-dispatch:attempt-authority_tooling_github_pr_create_envelope_shadow"
+                    .to_string(),
                 "harness-default-dispatch:attempt-authority_tooling_wallet_capability_envelope_shadow"
                     .to_string(),
             ],
@@ -1784,6 +1806,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                     .to_string(),
                 "harness-default-dispatch:receipt-authority_tooling_connector_call_envelope_shadow"
                     .to_string(),
+                "harness-default-dispatch:receipt-authority_tooling_github_pr_create_envelope_shadow"
+                    .to_string(),
                 "harness-default-dispatch:receipt-authority_tooling_wallet_capability_envelope_shadow"
                     .to_string(),
             ],
@@ -1801,6 +1825,8 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
                 "harness-default-dispatch:fixture-authority_tooling_tool_call_envelope_shadow"
                     .to_string(),
                 "harness-default-dispatch:fixture-authority_tooling_connector_call_envelope_shadow"
+                    .to_string(),
+                "harness-default-dispatch:fixture-authority_tooling_github_pr_create_envelope_shadow"
                     .to_string(),
                 "harness-default-dispatch:fixture-authority_tooling_wallet_capability_envelope_shadow"
                     .to_string(),
@@ -2036,6 +2062,7 @@ fn default_harness_canary_execution_boundary_for_cluster(
             HarnessComponentKind::McpToolCall,
             HarnessComponentKind::ToolCall,
             HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::GithubPrCreate,
             HarnessComponentKind::WalletCapability,
         ],
     };
