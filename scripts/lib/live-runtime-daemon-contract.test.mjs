@@ -1617,6 +1617,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowHarnessResultsLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectRepositoryPrLane = fs.readFileSync(
     path.join(
       root,
@@ -1753,6 +1760,28 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowExecutionResultsLane,
     /workflow_coding_route_evidence_from_run/,
   );
+  assert.match(tauriProjectRuntime, /workflow_harness_results_lane/);
+  assert.match(
+    tauriProjectWorkflowHarnessResultsLane,
+    /workflow_attach_harness_run_artifacts/,
+  );
+  assert.match(
+    tauriProjectWorkflowHarnessResultsLane,
+    /workflow_harness_attempt_for_node_run/,
+  );
+  assert.match(
+    tauriProjectWorkflowHarnessResultsLane,
+    /workflow_harness_shadow_comparison_records_for_attempt_records/,
+  );
+  assert.match(
+    tauriProjectWorkflowHarnessResultsLane,
+    /workflow_harness_gated_cluster_runs_for_attempt_records/,
+  );
+  assert.match(
+    tauriProjectWorkflowHarnessResultsLane,
+    /DEFAULT_AGENT_HARNESS_ACTIVATION_ID/,
+  );
+  assert.match(tauriProjectWorkflowHarnessResultsLane, /workflow_hash_value/);
   assert.match(workflowContracts, /runtime\.task/);
   assert.match(workflowContracts, /runtime\.job/);
   assert.match(workflowContracts, /runtime\.checklist/);

@@ -4249,6 +4249,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
   const projectWorkflowExecutionResultsLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs";
+  const projectWorkflowHarnessResultsLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs";
   const projectRepositoryPrLanePath =
     "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs";
   const projectWorkflowValueHelpersPath =
@@ -4288,6 +4290,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowExecutionResultsLane = readFileSync(
     resolve(repoRoot, projectWorkflowExecutionResultsLanePath),
+    "utf8",
+  );
+  const projectWorkflowHarnessResultsLane = readFileSync(
+    resolve(repoRoot, projectWorkflowHarnessResultsLanePath),
     "utf8",
   );
   const projectRepositoryPrLane = readFileSync(
@@ -4635,6 +4641,24 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_coding_route_evidence_from_run/.test(
         projectWorkflowExecutionResultsLane,
       ),
+    workflowHarnessResultsRuntimeLane:
+      /workflow_harness_results_lane/.test(projectRuntime) &&
+      /workflow_attach_harness_run_artifacts/.test(
+        projectWorkflowHarnessResultsLane,
+      ) &&
+      /workflow_harness_attempt_for_node_run/.test(
+        projectWorkflowHarnessResultsLane,
+      ) &&
+      /workflow_harness_shadow_comparison_records_for_attempt_records/.test(
+        projectWorkflowHarnessResultsLane,
+      ) &&
+      /workflow_harness_gated_cluster_runs_for_attempt_records/.test(
+        projectWorkflowHarnessResultsLane,
+      ) &&
+      /DEFAULT_AGENT_HARNESS_ACTIVATION_ID/.test(
+        projectWorkflowHarnessResultsLane,
+      ) &&
+      /workflow_hash_value/.test(projectWorkflowHarnessResultsLane),
     workflowPackageRunOutputSurfaces:
       /export interface WorkflowPackageNodeOutputSummary/.test(railModel) &&
       /workflowPackageNodeOutputSummary/.test(railModel) &&

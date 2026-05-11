@@ -26,6 +26,7 @@ mod validation;
 mod workflow_authority_tooling_lane;
 mod workflow_coding_route_lane;
 mod workflow_execution_results_lane;
+mod workflow_harness_results_lane;
 mod workflow_memory_lane;
 mod workflow_package_lane;
 mod workflow_value_helpers;
