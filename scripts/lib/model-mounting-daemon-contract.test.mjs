@@ -133,6 +133,27 @@ test("model mounting daemon keeps Agentgres store adapter extracted from the fac
   );
 });
 
+test("model routing parity keeps canonical route decisions modular and workflow-addressable", () => {
+  const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
+  const routeDecision = readRepoFile("packages/runtime-daemon/src/model-mounting/route-decision.mjs");
+  const workflow = readRepoFile("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+
+  assert.match(facade, /createModelRouteDecision/);
+  assert.match(facade, /routeDecisionProjectionFromReceipt/);
+  assert.match(facade, /providerRequestBodyForRoute/);
+  assert.match(routeDecision, /MODEL_ROUTE_DECISION_SCHEMA_VERSION/);
+  assert.match(routeDecision, /MODEL_ROUTE_DECISION_EVENT_KIND/);
+  assert.match(routeDecision, /isAutoModelSelector/);
+  assert.match(routeDecision, /neverSendAutoUpstream/);
+  assert.match(routeDecision, /localRemotePlacement/);
+  assert.match(routeDecision, /privacyPosture/);
+  assert.match(routeDecision, /costEstimateUsd/);
+  assert.match(workflow, /"ModelRouteDecision"/);
+  assert.match(workflow, /"reasoning_effort"/);
+  assert.match(workflow, /"privacy_posture"/);
+  assert.match(workflow, /"fallback_model"/);
+});
+
 async function waitForReceipt(endpoint, predicate, { timeoutMs = 2000 } = {}) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -143,6 +164,85 @@ async function waitForReceipt(endpoint, predicate, { timeoutMs = 2000 } = {}) {
   }
   assert.fail("Expected receipt was not recorded before timeout.");
 }
+
+test("model=auto resolves to a canonical ModelRouteDecision before provider invocation and workflow replay", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-route-decision-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-route-decision-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["model.chat:*", "route.use:*"] },
+    });
+    const routerNode = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        node: "Model Router",
+        route_id: "route.native-local",
+        model: "auto",
+        workflow_graph_id: "graph.deepseek-routing",
+        workflow_node_id: "node.model-router",
+        model_policy: { privacy: "local_only", reasoning_effort: "low" },
+      },
+    });
+    const routerDecision = routerNode.receipt.details.modelRouteDecision;
+    assert.equal(routerNode.status, "selected");
+    assert.equal(routerDecision.schemaVersion, "ioi.model-route-decision.v1");
+    assert.equal(routerDecision.eventKind, "ModelRouteDecision");
+    assert.equal(routerDecision.requestedModel, "auto");
+    assert.equal(routerDecision.requestedModelMode, "auto");
+    assert.equal(routerDecision.autoResolved, true);
+    assert.equal(routerDecision.selectedModel, "autopilot:native-fixture");
+    assert.equal(routerDecision.upstreamModel, "autopilot:native-fixture");
+    assert.equal(routerDecision.neverSendAutoUpstream, true);
+    assert.equal(routerDecision.localRemotePlacement, "local");
+    assert.equal(routerDecision.privacyPosture, "local_only");
+    assert.equal(routerDecision.reasoningEffort, "low");
+    assert.equal(routerDecision.workflowGraphId, "graph.deepseek-routing");
+    assert.equal(routerDecision.workflowNodeId, "node.model-router");
+    assert.equal(routerDecision.workflowNodeType, "Model Router");
+
+    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "auto",
+        input: "auto route canonical decision",
+        workflow_graph_id: "graph.deepseek-routing",
+        workflow_node_id: "node.model-call",
+        workflow_node_type: "Model Call",
+        model_policy: { privacy: "local_only", reasoning_effort: "medium" },
+      },
+    });
+    assert.equal(chat.model, "autopilot:native-fixture");
+    assert.equal(chat.route_decision.eventKind, "ModelRouteDecision");
+    assert.equal(chat.route_decision.requestedModel, "auto");
+    assert.equal(chat.route_decision.selectedModel, "autopilot:native-fixture");
+    assert.equal(chat.route_decision.upstreamModel, "autopilot:native-fixture");
+    assert.equal(chat.route_decision.neverSendAutoUpstream, true);
+    assert.equal(chat.route_decision.reasoningEffort, "medium");
+    assert.equal(chat.route_decision.workflowNodeId, "node.model-call");
+
+    const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.route_receipt_id}/replay`);
+    assert.equal(replay.modelRouteDecision.decisionId, chat.route_decision.decisionId);
+    assert.equal(replay.modelRouteDecision.selectedModel, "autopilot:native-fixture");
+
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(
+      projection.routeDecisions.some(
+        (decision) =>
+          decision.receiptId === chat.route_receipt_id &&
+          decision.workflowGraphId === "graph.deepseek-routing" &&
+          decision.workflowNodeId === "node.model-call" &&
+          decision.eventKind === "ModelRouteDecision",
+      ),
+    );
+  } finally {
+    await daemon.close();
+  }
+});
 
 test("model mounting daemon exercises registry, router, tokens, MCP, receipts, and OpenAI compatibility", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-mounting-workspace-"));

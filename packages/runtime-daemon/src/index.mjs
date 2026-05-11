@@ -2426,6 +2426,7 @@ function nativeInvocationResponse(invocation) {
     backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
     receipt_id: invocation.receipt.id,
     route_receipt_id: invocation.routeReceipt?.id ?? null,
+    route_decision: invocation.routeReceipt?.details?.modelRouteDecision ?? null,
     response_id: invocation.responseId ?? null,
     previous_response_id: invocation.previousResponseId ?? null,
     compat_translation: invocation.compatTranslation ?? null,
