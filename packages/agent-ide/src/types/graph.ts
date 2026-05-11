@@ -493,6 +493,12 @@ export interface NodeLogic {
   runtimeJobCancelable?: boolean;
   runtimeJobCancelRoute?: string;
   runtimeJobReceiptField?: string;
+  runtimeChecklistEndpoint?: string;
+  runtimeChecklist?: unknown;
+  runtimeChecklistField?: string;
+  runtimeChecklistStatusField?: string;
+  runtimeChecklistItemsField?: string;
+  runtimeChecklistReceiptField?: string;
   repositoryEndpoint?: string;
   repositoryContext?: unknown;
   repositoryContextField?: string;
@@ -558,6 +564,7 @@ export interface NodeLogic {
     consumesDoctorReport?: boolean;
     consumesRuntimeTask?: boolean;
     consumesRuntimeJob?: boolean;
+    consumesRuntimeChecklist?: boolean;
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
     consumesGithubContext?: boolean;
@@ -572,6 +579,8 @@ export interface NodeLogic {
     runtimeTaskStatusField?: string;
     runtimeJobField?: string;
     runtimeJobStatusField?: string;
+    runtimeChecklistField?: string;
+    runtimeChecklistStatusField?: string;
     githubPrCreatePlanField?: string;
     githubPrCreatePlanStatusField?: string;
     githubPrCreatePlanBlockersField?: string;
@@ -1044,6 +1053,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_doctor">
   | WorkflowNodeConfigBase<"runtime_task">
   | WorkflowNodeConfigBase<"runtime_job">
+  | WorkflowNodeConfigBase<"runtime_checklist">
   | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"github_context">
@@ -3729,6 +3739,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_doctor"
   | "runtime_task"
   | "runtime_job"
+  | "runtime_checklist"
   | "repository_context"
   | "branch_policy"
   | "github_context"
@@ -4275,6 +4286,7 @@ export type WorkflowNodeKind =
   | "runtime_doctor"
   | "runtime_task"
   | "runtime_job"
+  | "runtime_checklist"
   | "repository_context"
   | "branch_policy"
   | "github_context"

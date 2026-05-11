@@ -102,13 +102,28 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(trace.runtimeJob.queueName, "local-agentgres");
     assert.equal(trace.runtimeJob.durable, true);
     assert.equal(trace.runtimeJob.replayable, true);
+    assert.equal(trace.runtimeChecklist.schemaVersion, "ioi.agent-runtime.checklist-record.v1");
+    assert.equal(trace.runtimeChecklist.object, "ioi.runtime_checklist");
+    assert.equal(trace.runtimeChecklist.runId, run.id);
+    assert.equal(trace.runtimeChecklist.taskId, trace.runtimeTask.taskId);
+    assert.equal(trace.runtimeChecklist.jobId, trace.runtimeJob.jobId);
+    assert.equal(trace.runtimeChecklist.status, "canceled");
+    assert.ok(trace.runtimeChecklist.itemCount >= 6);
+    assert.ok(trace.runtimeChecklist.items.some((item) => item.itemId.endsWith(":job_terminal") && item.status === "canceled"));
+    assert.equal(trace.runtimeChecklist.durable, true);
+    assert.equal(trace.runtimeChecklist.replayable, true);
+    assert.equal(trace.runtimeChecklist.readOnly, true);
+    assert.equal(trace.runtimeJob.checklistId, trace.runtimeChecklist.checklistId);
+    assert.equal(trace.runtimeJob.checklistStatus, "canceled");
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "agentgres_canonical_write"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "runtime_task"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "runtime_job"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "runtime_checklist"));
     assert.equal((await canceled.scorecard()).verifierIndependence, 1);
     const canceledArtifacts = await canceled.artifacts();
     assert.ok(canceledArtifacts.some((artifact) => artifact.name === "runtime-task.json"));
     assert.ok(canceledArtifacts.some((artifact) => artifact.name === "runtime-job.json"));
+    assert.ok(canceledArtifacts.some((artifact) => artifact.name === "runtime-checklist.json"));
     assert.ok(canceledArtifacts.some((artifact) => artifact.name === "agentgres-projection.json"));
 
     const operationLog = path.join(stateDir, "operation-log.jsonl");
@@ -118,6 +133,7 @@ test("local daemon public API persists canonical Agentgres state and replays wit
       ["runs", `${run.id}.json`],
       ["tasks", `${run.id}.json`],
       ["jobs", trace.runtimeJob.jobId + ".json"],
+      ["checklists", trace.runtimeChecklist.checklistId + ".json"],
       ["scorecards", `${run.id}.json`],
       ["ledgers", `${run.id}.json`],
       ["projections", `${run.id}.json`],
@@ -138,6 +154,8 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(jobs[0].jobId, trace.runtimeJob.jobId);
     assert.equal(jobs[0].taskId, trace.runtimeTask.taskId);
     assert.equal(jobs[0].status, "canceled");
+    assert.equal(jobs[0].checklistId, trace.runtimeChecklist.checklistId);
+    assert.equal(jobs[0].checklistStatus, "canceled");
     assert.equal(jobs[0].endpoints.self, `/v1/jobs/${jobs[0].jobId}`);
     assert.equal(jobs[0].endpoints.cancel, `/v1/jobs/${jobs[0].jobId}/cancel`);
     const job = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}`);
@@ -151,6 +169,8 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(jobCancel.status, "canceled");
     assert.deepEqual(jobCancel.lifecycle, ["queued", "started", "canceled"]);
     assert.equal(jobCancel.cancellation.reason, "operator_cancel");
+    assert.equal(jobCancel.checklistId, trace.runtimeChecklist.checklistId);
+    assert.equal(jobCancel.checklistStatus, "canceled");
     const traceAfterJobCancel = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/trace`);
     assert.equal(terminalCount(traceAfterJobCancel.events), 1);
     assert.equal(traceAfterJobCancel.events.at(-1)?.type, "canceled");
@@ -162,6 +182,12 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(runtimeTaskEvent.workflow_node_id, "runtime.runtime-task");
     assert.equal(runtimeTaskEvent.payload_summary.prompt_included, false);
     assert.ok(runtimeTaskEvent.artifact_refs.includes("runtime-task.json"));
+    const runtimeChecklistEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "RuntimeChecklistRecord");
+    assert.ok(runtimeChecklistEvent);
+    assert.equal(runtimeChecklistEvent.component_kind, "runtime_checklist");
+    assert.equal(runtimeChecklistEvent.workflow_node_id, "runtime.runtime-checklist");
+    assert.equal(runtimeChecklistEvent.payload_summary.status, "canceled");
+    assert.ok(runtimeChecklistEvent.artifact_refs.includes("runtime-checklist.json"));
     const jobQueuedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobQueued");
     const jobStartedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobStarted");
     const jobCanceledEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobCanceled");
@@ -1489,6 +1515,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /memory\.subagentInheritance/);
   assert.match(workflowContracts, /runtime\.task/);
   assert.match(workflowContracts, /runtime\.job/);
+  assert.match(workflowContracts, /runtime\.checklist/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
@@ -1510,6 +1537,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /\/v1\/jobs\/\{jobId\}\/cancel/);
   assert.match(nodeRegistry, /runtimeJobLifecycleField/);
   assert.match(nodeRegistry, /runtimeJobCancelEndpoint/);
+  assert.match(nodeRegistry, /runtime_checklist/);
+  assert.match(nodeRegistry, /RuntimeChecklistNode/);
+  assert.match(nodeRegistry, /runtimeChecklistStatusField/);
+  assert.match(nodeRegistry, /\/v1\/runs\/\{runId\}\/trace/);
   assert.match(nodeRegistry, /repository_context/);
   assert.match(nodeRegistry, /RepositoryContextNode/);
   assert.match(nodeRegistry, /\/v1\/repository-context/);
@@ -1577,6 +1608,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /runtime\.job\.read/);
   assert.match(harnessWorkflow, /\/v1\/jobs\/\{jobId\}\/cancel/);
   assert.match(harnessWorkflow, /runtimeJobCancelable/);
+  assert.match(harnessWorkflow, /runtime_checklist/);
+  assert.match(harnessWorkflow, /RuntimeChecklistRecord/);
+  assert.match(harnessWorkflow, /runtime\.checklist\.read/);
+  assert.match(harnessWorkflow, /runtimeChecklistStatusField/);
   assert.match(harnessWorkflow, /repository_context/);
   assert.match(harnessWorkflow, /RepositoryContext/);
   assert.match(harnessWorkflow, /repository\.context\.read/);
