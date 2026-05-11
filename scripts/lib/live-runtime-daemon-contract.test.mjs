@@ -182,6 +182,13 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
           authorityScopes: ["runtime.read"],
           command: "echo super-secret-hook",
         },
+        "post-tool-ledger": {
+          eventKinds: ["post_tool"],
+          failurePolicy: "block",
+          authorityScopes: ["runtime.read"],
+          toolContracts: ["hook.preview"],
+          command: "echo allowed-hook-secret",
+        },
       },
       null,
       2,
@@ -201,19 +208,31 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     const hooks = await fetchJson(`${daemon.endpoint}/v1/hooks`);
     assert.equal(hooks.schemaVersion, "ioi.agent-runtime.hooks.v1");
     assert.equal(hooks.status, "pass");
-    assert.equal(hooks.hookCount, 1);
-    assert.equal(hooks.hooks[0].failurePolicy, "warn");
-    assert.deepEqual(hooks.hooks[0].eventKinds, ["pre_model"]);
-    assert.deepEqual(hooks.hooks[0].authorityScopes, ["runtime.read"]);
-    assert.equal(hooks.hooks[0].commandConfigured, true);
-    assert.equal(hooks.hooks[0].commandRedacted, true);
-    assert.match(hooks.hooks[0].commandHash, /^[a-f0-9]{64}$/);
+    assert.equal(hooks.hookCount, 2);
+    const blockedHook = hooks.hooks.find((hook) => hook.name === "pre-model-redaction");
+    const dryRunHook = hooks.hooks.find((hook) => hook.name === "post-tool-ledger");
+    assert.ok(blockedHook);
+    assert.ok(dryRunHook);
+    assert.equal(blockedHook.failurePolicy, "warn");
+    assert.deepEqual(blockedHook.eventKinds, ["pre_model"]);
+    assert.deepEqual(blockedHook.authorityScopes, ["runtime.read"]);
+    assert.deepEqual(blockedHook.toolContracts, []);
+    assert.equal(blockedHook.commandConfigured, true);
+    assert.equal(blockedHook.commandRedacted, true);
+    assert.match(blockedHook.commandHash, /^[a-f0-9]{64}$/);
+    assert.equal(dryRunHook.failurePolicy, "block");
+    assert.deepEqual(dryRunHook.eventKinds, ["post_tool"]);
+    assert.deepEqual(dryRunHook.authorityScopes, ["runtime.read"]);
+    assert.deepEqual(dryRunHook.toolContracts, ["hook.preview"]);
+    assert.equal(dryRunHook.commandConfigured, true);
+    assert.equal(dryRunHook.commandRedacted, true);
+    assert.match(dryRunHook.commandHash, /^[a-f0-9]{64}$/);
 
     const doctor = await fetchJson(`${daemon.endpoint}/v1/doctor`);
     const skillHookCheck = doctor.checks.find((check) => check.id === "skills.hooks");
     assert.equal(skillHookCheck.status, "pass");
     assert.equal(doctor.skillsHooks.skillCount, 1);
-    assert.equal(doctor.skillsHooks.hookCount, 1);
+    assert.equal(doctor.skillsHooks.hookCount, 2);
     assert.ok(!doctor.optionalWarnings.includes("skills.hooks"));
     const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
       method: "POST",
@@ -231,18 +250,53 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     const trace = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/trace`);
     assert.equal(trace.activeSkillHookManifest.schemaVersion, "ioi.agent-runtime.active-skill-hook-manifest.v1");
     assert.equal(trace.activeSkillHookManifest.selectedSkillIds.length, 1);
-    assert.equal(trace.activeSkillHookManifest.selectedHookIds.length, 1);
+    assert.equal(trace.activeSkillHookManifest.selectedHookIds.length, 2);
     assert.equal(trace.activeSkillHookManifest.hookExecution.enabled, false);
     assert.equal(trace.activeSkillHookManifest.hookExecution.mutationBlockedWithoutDeclaredCapabilities, true);
     assert.equal(trace.activeSkillHookManifest.mutationBlockedHookIds.length, 1);
+    assert.equal(trace.activeSkillHookManifest.hookExecution.mutationAllowedHookIds.length, 1);
+    assert.equal(trace.hookDryRunPlan.schemaVersion, "ioi.agent-runtime.hook-dry-run-plan.v1");
+    assert.equal(trace.hookDryRunPlan.decisionCount, 2);
+    assert.equal(trace.hookDryRunPlan.wouldRunCount, 1);
+    assert.equal(trace.hookDryRunPlan.blockedCount, 1);
+    assert.equal(trace.hookDryRunPlan.skippedCount, 0);
+    assert.equal(trace.hookDryRunPlan.hookExecutionEnabled, false);
+    assert.equal(trace.hookDryRunPlan.commandExecutionEnabled, false);
+    assert.equal(trace.hookDryRunPlan.policyDecision.status, "blocked");
+    assert.ok(
+      trace.hookDryRunPlan.decisions.some(
+        (decision) =>
+          decision.decision === "blocked" &&
+          decision.blockers.includes("missing_tool_contract") &&
+          decision.execution.commandExecuted === false,
+      ),
+    );
+    assert.ok(
+      trace.hookDryRunPlan.decisions.some(
+        (decision) =>
+          decision.decision === "would_run" &&
+          decision.toolContracts.includes("hook.preview") &&
+          decision.execution.previewOnly === true,
+      ),
+    );
     assert.equal(trace.promptAudit.activeSkillHookManifestId, trace.activeSkillHookManifest.manifestId);
+    assert.equal(trace.promptAudit.hookDryRunPlanId, trace.hookDryRunPlan.planId);
     assert.equal(trace.promptAudit.hookExecutionEnabled, false);
     assert.ok(
       trace.receipts.some((receipt) => receipt.kind === "active_skill_hook_manifest"),
     );
+    assert.ok(
+      trace.receipts.some((receipt) => receipt.kind === "hook_dry_run_plan"),
+    );
+    assert.ok(
+      trace.receipts.some((receipt) => receipt.kind === "hook_policy_decision"),
+    );
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/artifacts`);
     assert.ok(
       artifacts.some((artifact) => artifact.name === "active-skill-hook-manifest.json"),
+    );
+    assert.ok(
+      artifacts.some((artifact) => artifact.name === "hook-dry-run-plan.json"),
     );
     const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
     const manifestEvent = events.find(
@@ -251,10 +305,34 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     assert.equal(manifestEvent.component_kind, "skill_registry");
     assert.equal(manifestEvent.workflow_node_id, "runtime.skill-hook-manifest");
     assert.equal(manifestEvent.payload_summary.selected_skill_count, 1);
-    assert.equal(manifestEvent.payload_summary.selected_hook_count, 1);
+    assert.equal(manifestEvent.payload_summary.selected_hook_count, 2);
     assert.equal(manifestEvent.payload_summary.hook_execution_enabled, false);
     assert.ok(manifestEvent.artifact_refs.includes("active-skill-hook-manifest.json"));
-    assert.ok(!JSON.stringify({ skills, hooks, doctor, turn, trace, events }).includes("super-secret-hook"));
+    const hookDryRunEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "HookDryRunPlan",
+    );
+    assert.ok(hookDryRunEvent);
+    assert.equal(hookDryRunEvent.component_kind, "hook_policy");
+    assert.equal(hookDryRunEvent.workflow_node_id, "runtime.hook-policy");
+    assert.equal(hookDryRunEvent.payload_summary.decision_count, 2);
+    assert.equal(hookDryRunEvent.payload_summary.would_run_count, 1);
+    assert.equal(hookDryRunEvent.payload_summary.blocked_count, 1);
+    assert.equal(hookDryRunEvent.payload_summary.policy_status, "blocked");
+    assert.equal(hookDryRunEvent.payload_summary.command_execution_enabled, false);
+    assert.ok(
+      hookDryRunEvent.receipt_refs.some((receiptRef) =>
+        receiptRef.endsWith("_hook_dry_run_plan"),
+      ),
+    );
+    assert.ok(
+      hookDryRunEvent.receipt_refs.some((receiptRef) =>
+        receiptRef.endsWith("_hook_policy_decision"),
+      ),
+    );
+    assert.ok(hookDryRunEvent.artifact_refs.includes("hook-dry-run-plan.json"));
+    const serializedProjection = JSON.stringify({ skills, hooks, doctor, turn, trace, events });
+    assert.ok(!serializedProjection.includes("super-secret-hook"));
+    assert.ok(!serializedProjection.includes("allowed-hook-secret"));
   } finally {
     await daemon.close();
   }
@@ -754,6 +832,8 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /\/v1\/hooks/);
   assert.match(nodeRegistry, /failurePolicy/);
   assert.match(nodeRegistry, /consumesSkillHookManifest/);
+  assert.match(nodeRegistry, /hookDryRunOnly/);
+  assert.match(nodeRegistry, /hookDryRunPlan/);
   assert.match(nodeRegistry, /activeSkillSetHash/);
   assert.match(nodeRegistry, /activeHookSetHash/);
   assert.match(harnessWorkflow, /memory_read/);
@@ -770,9 +850,13 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /runtime\.doctor\.read/);
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
+  assert.match(harnessWorkflow, /hook_policy/);
   assert.match(harnessWorkflow, /SkillRegistryProjection/);
   assert.match(harnessWorkflow, /HookRegistryProjection/);
+  assert.match(harnessWorkflow, /HookDryRunPlan/);
   assert.match(harnessWorkflow, /active_skill_hook_manifest/);
+  assert.match(harnessWorkflow, /hook_dry_run_plan/);
+  assert.match(harnessWorkflow, /hook_policy_decision/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

@@ -1280,6 +1280,33 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T04-58-22-773Z/result.json`
 
+Implementation slice completed 2026-05-11, hook dry-run policy preview:
+
+- Each run now derives an `ioi.agent-runtime.hook-dry-run-plan.v1` from the
+  active skill/hook manifest before any hook can execute.
+- Command-backed hooks are classified as `would_run` only when they declare
+  both authority scopes and tool contracts; otherwise they are `blocked`.
+  Hooks without commands are `skipped`.
+- The dry-run plan is explicitly preview-only: `hookExecutionEnabled` and
+  `commandExecutionEnabled` remain false, and every decision records
+  `commandExecuted: false`.
+- The trace now includes `hookDryRunPlan`, the prompt audit references its plan
+  ID, receipts include `hook_dry_run_plan` and `hook_policy_decision`, and the
+  artifact list includes `hook-dry-run-plan.json`.
+- The TTI event stream emits a `HookDryRunPlan` item on `runtime.hook-policy`
+  with decision counts, policy status, receipt refs, and artifact refs.
+- React Flow now treats hook policy as its own workflow-addressable harness
+  component and `HookPolicyNode` default logic consumes the hook dry-run plan
+  and policy decision fields.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-07-33-015Z/result.json`
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:
