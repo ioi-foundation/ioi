@@ -24,6 +24,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   repository_context: "item.completed",
   branch_policy: "item.completed",
   github_context: "item.completed",
+  pr_attempt: "item.completed",
   model_route_decision: "item.completed",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
@@ -1207,6 +1208,27 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  prAttempts() {
+    const repositoryContext = this.repositoryContext();
+    const branchPolicy = branchPolicyForRepositoryContext({
+      repositoryContext,
+      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    const githubContext = githubContextForRepository({
+      repositoryContext,
+      branchPolicy,
+      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    return [
+      prAttemptForRepository({
+        repositoryContext,
+        branchPolicy,
+        githubContext,
+        attemptId: `pr_attempt_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+      }),
+    ];
+  }
+
   getAccount() {
     return {
       id: "local-operator",
@@ -1487,6 +1509,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/github-context") {
       writeJsonResponse(response, store.githubContext());
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/pr-attempts") {
+      writeJsonResponse(response, store.prAttempts());
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -3549,6 +3575,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     branchPolicy,
     generatedAt: createdAt,
   });
+  const prAttempt = prAttemptForRepository({
+    runId,
+    repositoryContext,
+    branchPolicy,
+    githubContext,
+    generatedAt: createdAt,
+    prompt,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3558,6 +3592,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
       `GitHub context: status=${githubContext.status}, repo=${githubContext.repoFullName ?? "none"}, prEligible=${githubContext.prCreationEligible}`,
+      `PR attempt: status=${prAttempt.status}, outcome=${prAttempt.outcome}, mutationExecuted=${prAttempt.mutationExecuted}`,
       ...(memoryPolicy
         ? [
             `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
@@ -3585,6 +3620,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       repositoryContext.contextId,
       branchPolicy.policyId,
       githubContext.contextId,
+      prAttempt.attemptId,
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
@@ -3665,6 +3701,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         status: "passed",
       },
       {
+        checkId: "pr-attempt-preview-only",
+        description: "PR attempt intent, branch, and diff artifacts are recorded without creating or updating a PR.",
+        status: "passed",
+      },
+      {
         checkId: "hook-dry-run-plan",
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
@@ -3688,6 +3729,9 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository_context",
       "branch_policy",
       "github_context",
+      "pr_attempt",
+      "pr_branch_artifact",
+      "pr_diff_artifact",
       "active_skill_hook_manifest",
       "hook_dry_run_plan",
       "hook_invocation_ledger",
@@ -3707,6 +3751,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/repository-context",
       "/v1/branch-policy",
       "/v1/github-context",
+      "/v1/pr-attempts",
       "/v1/repositories",
     ],
     changedSchemas: [
@@ -3716,6 +3761,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "RepositoryContext",
       "BranchPolicyDecision",
       "GitHubContext",
+      "PrAttemptRecord",
       "ModelRouteDecision",
       "AgentMemoryRecord",
       "SubagentMemoryInheritanceProjection",
@@ -3736,6 +3782,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository.context.read_only",
       "repository.branch_policy.read_only",
       "github.context.read_only",
+      "github.pr_attempt.preview_only",
       "skills_hooks.active_manifest.read_only",
       "hooks.dry_run_preview_only",
       "hooks.invocation_ledger_preview_only",
@@ -3846,6 +3893,22 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "github.context.read_only",
     ].filter(Boolean),
   };
+  const prAttemptReceipt = {
+    id: `receipt_${runId}_pr_attempt`,
+    kind: "pr_attempt",
+    summary: prAttempt.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      prAttempt.attemptId,
+      repositoryContext.contextId,
+      branchPolicy.policyId,
+      githubContext.contextId,
+      prAttempt.branchArtifact.artifactName,
+      prAttempt.diffArtifact.artifactName,
+      "PrAttemptNode",
+      "github.pr_attempt.preview_only",
+    ].filter(Boolean),
+  };
   const skillHookReceipt = {
     id: `receipt_${runId}_skill_hook_manifest`,
     kind: "active_skill_hook_manifest",
@@ -3908,6 +3971,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContextReceipt,
     branchPolicyReceipt,
     githubContextReceipt,
+    prAttemptReceipt,
     skillHookReceipt,
     hookDryRunReceipt,
     hookPolicyReceipt,
@@ -3947,6 +4011,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     receiptId: githubContextReceipt.id,
     eventKind: "GitHubContext",
     workflowNodeId: "runtime.github-context",
+  });
+  addEvent("pr_attempt", "PR attempt preview recorded", {
+    ...prAttempt,
+    receiptId: prAttemptReceipt.id,
+    eventKind: "PrAttemptRecord",
+    workflowNodeId: "runtime.pr-attempt",
   });
   addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
     ...activeSkillHookManifest,
@@ -4007,6 +4077,9 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository-context.json",
       "branch-policy.json",
       "github-context.json",
+      "pr-attempt.json",
+      "pr-branch.json",
+      "pr-diff.patch",
       "active-skill-hook-manifest.json",
       "hook-dry-run-plan.json",
       "hook-invocations.json",
@@ -4033,6 +4106,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContext,
     branchPolicy,
     githubContext,
+    prAttempt,
     hookDryRunPlan,
     hookInvocationLedger,
     promptAudit: {
@@ -4042,6 +4116,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       repositoryContextId: repositoryContext.contextId,
       branchPolicyId: branchPolicy.policyId,
       githubContextId: githubContext.contextId,
+      prAttemptId: prAttempt.attemptId,
       activeSkillHookManifestId: activeSkillHookManifest.manifestId,
       activeSkillSetHash: activeSkillHookManifest.activeSkillSetHash,
       activeHookSetHash: activeSkillHookManifest.activeHookSetHash,
@@ -4059,6 +4134,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         repositoryContext.contextId,
         branchPolicy.policyId,
         githubContext.contextId,
+        prAttempt.attemptId,
         activeSkillHookManifest.manifestId,
       ],
     },
@@ -4094,6 +4170,30 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "application/json",
       githubContextReceipt.id,
       githubContext,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "pr-attempt.json",
+      "application/json",
+      prAttemptReceipt.id,
+      prAttempt,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      prAttempt.branchArtifact.artifactName,
+      prAttempt.branchArtifact.mediaType,
+      prAttemptReceipt.id,
+      prAttempt.artifactContents.branch,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      prAttempt.diffArtifact.artifactName,
+      prAttempt.diffArtifact.mediaType,
+      prAttemptReceipt.id,
+      prAttempt.artifactContents.diff,
       "redacted",
     ),
     artifact(
@@ -4156,6 +4256,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContext,
     branchPolicy,
     githubContext,
+    prAttempt,
     hookDryRunPlan,
     hookInvocationLedger,
     memoryPolicy,
@@ -4450,6 +4551,206 @@ function githubContextSummary({ status, repoFullName, policy }) {
 
 function githubTokenSources() {
   return ["GITHUB_TOKEN", "GH_TOKEN"].filter((name) => Boolean(process.env[name]));
+}
+
+function prAttemptForRepository({
+  runId,
+  attemptId,
+  repositoryContext,
+  branchPolicy,
+  githubContext,
+  generatedAt,
+  prompt,
+} = {}) {
+  const context = repositoryContext ?? repositoryContextForWorkspace({});
+  const policy = branchPolicy ?? branchPolicyForRepositoryContext({ repositoryContext: context });
+  const github = githubContext ?? githubContextForRepository({ repositoryContext: context, branchPolicy: policy });
+  const diffArtifact = prDiffArtifactForRepository(context);
+  const branchArtifact = prBranchArtifactForRepository({ repositoryContext: context, branchPolicy: policy, githubContext: github });
+  const missingAuthorityScopes = ["github.pr.create"];
+  const branchPolicyBlockers = normalizeArray(policy.blockers);
+  const githubPreconditions = github.prCreationPreconditions ?? {};
+  const blockers = uniqueStrings([
+    ...branchPolicyBlockers,
+    ...(!context.isGitRepository ? ["not_git_repository"] : []),
+    ...(!github.githubRemotePresent ? ["missing_github_remote"] : []),
+    ...(!githubPreconditions.tokenAvailable ? ["missing_github_token"] : []),
+    ...(!githubPreconditions.branchPolicyAllowsPr ? ["branch_policy_not_passed"] : []),
+    ...missingAuthorityScopes.map((scope) => `missing_authority_scope:${scope}`),
+  ]);
+  const warnings = uniqueStrings([
+    ...normalizeArray(policy.warnings),
+    ...normalizeArray(github.branchPolicyWarnings),
+    "pr_attempt_preview_only",
+  ]);
+  const status = blockers.length > 0 ? "blocked" : "ready";
+  const outcome = blockers.length > 0 ? "failed_precondition" : "preview_ready";
+  const id = attemptId ?? (runId ? `pr_attempt_${runId}` : `pr_attempt_${doctorHash(context.contextId ?? "workspace").slice(0, 12)}`);
+  const record = {
+    schemaVersion: "ioi.agent-runtime.pr-attempt.v1",
+    object: "ioi.pr_attempt",
+    attemptId: id,
+    runId: runId ?? null,
+    generatedAt: generatedAt ?? new Date().toISOString(),
+    repositoryContextId: context.contextId ?? null,
+    branchPolicyId: policy.policyId ?? null,
+    githubContextId: github.contextId ?? null,
+    status,
+    outcome,
+    summary: prAttemptSummary({ status, outcome, repoFullName: github.repoFullName, blockers }),
+    previewOnly: true,
+    readOnly: true,
+    provider: "github",
+    action: "pr_create",
+    title: prompt ? `Draft PR for: ${String(prompt).slice(0, 96)}` : null,
+    bodyIncluded: false,
+    repoFullName: github.repoFullName ?? null,
+    htmlUrl: github.htmlUrl ?? null,
+    branch: context.branch ?? null,
+    defaultBranch: context.defaultBranch ?? null,
+    headSha: context.headSha ?? null,
+    headShortSha: context.headShortSha ?? null,
+    upstream: context.upstream ?? null,
+    dirty: Boolean(context.status?.isDirty),
+    counts: context.status?.counts ?? {},
+    blockers,
+    warnings,
+    failure: blockers.length
+      ? {
+          reason: blockers[0],
+          message: "PR creation was not attempted because preview preconditions or authority requirements were not satisfied.",
+        }
+      : null,
+    authority: {
+      requiredScopes: ["github.pr.create"],
+      grantedScopes: [],
+      missingScopes: missingAuthorityScopes,
+      scopeGranted: false,
+      approvalRequired: true,
+      approvalSatisfied: false,
+    },
+    preconditions: {
+      gitRepositoryPresent: Boolean(context.isGitRepository),
+      githubRemotePresent: Boolean(github.githubRemotePresent),
+      branchPolicyAllowsPr: Boolean(githubPreconditions.branchPolicyAllowsPr),
+      tokenAvailable: Boolean(githubPreconditions.tokenAvailable),
+      authorityScopeGranted: false,
+      diffCaptured: true,
+      branchArtifactAttached: true,
+      diffArtifactAttached: true,
+      networkLookupPerformed: false,
+      mutationExecuted: false,
+    },
+    mutationAttempted: false,
+    mutationExecuted: false,
+    networkLookupPerformed: false,
+    prNumber: null,
+    prUrl: null,
+    branchArtifact: prArtifactMetadata(branchArtifact),
+    diffArtifact: prArtifactMetadata(diffArtifact),
+    artifacts: [
+      { name: "pr-attempt.json", mediaType: "application/json" },
+      prArtifactMetadata(branchArtifact),
+      prArtifactMetadata(diffArtifact),
+    ],
+    redaction: {
+      profile: "pr_attempt_safe",
+      tokenValueIncluded: false,
+      remoteCredentialsIncluded: false,
+      networkResponseIncluded: false,
+      diffContentInProjection: false,
+    },
+    evidenceRefs: [
+      "pr_attempt",
+      "pr_attempt_preview_only",
+      "PrAttemptNode",
+      context.contextId,
+      policy.policyId,
+      github.contextId,
+      branchArtifact.artifactName,
+      diffArtifact.artifactName,
+    ].filter(Boolean),
+  };
+  Object.defineProperty(record, "artifactContents", {
+    enumerable: false,
+    value: {
+      branch: branchArtifact.content,
+      diff: diffArtifact.content,
+    },
+  });
+  return record;
+}
+
+function prAttemptSummary({ status, outcome, repoFullName, blockers }) {
+  const target = repoFullName ?? "unknown GitHub repository";
+  if (status === "blocked") {
+    return `PR attempt for ${target} recorded as ${outcome}; blockers: ${normalizeArray(blockers).join(", ")}.`;
+  }
+  return `PR attempt for ${target} recorded as preview-ready; mutation remains disabled.`;
+}
+
+function prBranchArtifactForRepository({ repositoryContext, branchPolicy, githubContext }) {
+  const value = {
+    schemaVersion: "ioi.agent-runtime.pr-branch-artifact.v1",
+    object: "ioi.pr_branch_artifact",
+    repositoryContextId: repositoryContext.contextId ?? null,
+    branchPolicyId: branchPolicy.policyId ?? null,
+    githubContextId: githubContext.contextId ?? null,
+    repoFullName: githubContext.repoFullName ?? null,
+    branch: repositoryContext.branch ?? null,
+    defaultBranch: repositoryContext.defaultBranch ?? null,
+    headSha: repositoryContext.headSha ?? null,
+    headShortSha: repositoryContext.headShortSha ?? null,
+    upstream: repositoryContext.upstream ?? null,
+    dirty: Boolean(repositoryContext.status?.isDirty),
+    counts: repositoryContext.status?.counts ?? {},
+    branchPolicyStatus: branchPolicy.status ?? null,
+    redaction: {
+      profile: "pr_branch_artifact_safe",
+      statusPathsIncluded: false,
+      remoteCredentialsIncluded: false,
+    },
+  };
+  return {
+    artifactName: "pr-branch.json",
+    mediaType: "application/json",
+    artifactHash: doctorHash(JSON.stringify(value)),
+    content: value,
+  };
+}
+
+function prDiffArtifactForRepository(repositoryContext) {
+  const rawPatch = repositoryContext.isGitRepository && repositoryContext.repoRoot
+    ? gitOutput(repositoryContext.repoRoot, ["diff", "--no-ext-diff", "--binary", "HEAD", "--"]) ?? ""
+    : "";
+  const maxBytes = 512 * 1024;
+  const rawBytes = Buffer.byteLength(rawPatch, "utf8");
+  const truncated = rawBytes > maxBytes;
+  const retainedPatch = truncated
+    ? `${rawPatch.slice(0, maxBytes)}\n\n[ioi pr diff truncated: ${rawBytes - maxBytes} byte(s) omitted]\n`
+    : rawPatch;
+  return {
+    artifactName: "pr-diff.patch",
+    mediaType: "text/x-diff",
+    artifactHash: doctorHash(rawPatch),
+    diffHash: doctorHash(rawPatch),
+    byteLength: rawBytes,
+    retainedByteLength: Buffer.byteLength(retainedPatch, "utf8"),
+    truncated,
+    fileCount: prDiffFileCount(rawPatch),
+    hasDiff: rawPatch.length > 0,
+    untrackedCount: repositoryContext.status?.counts?.untracked ?? 0,
+    content: retainedPatch,
+  };
+}
+
+function prArtifactMetadata(artifactProjection) {
+  const { content: _content, ...metadata } = artifactProjection;
+  return metadata;
+}
+
+function prDiffFileCount(patch) {
+  return String(patch).split(/\r?\n/).filter((line) => line.startsWith("diff --git ")).length;
 }
 
 function repositoryDefaultBranch(repoRoot) {
@@ -5120,7 +5421,7 @@ function artifact(runId, name, mediaType, receiptId, value, redaction) {
     mediaType,
     redaction,
     receiptId,
-    content: JSON.stringify(value, null, 2),
+    content: typeof value === "string" ? value : JSON.stringify(value, null, 2),
   };
 }
 
@@ -6135,6 +6436,36 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "github_context_safe",
     };
   }
+  if (event.type === "pr_attempt") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "PrAttemptRecord",
+      attempt_id: event.data?.attemptId ?? null,
+      repository_context_id: event.data?.repositoryContextId ?? null,
+      branch_policy_id: event.data?.branchPolicyId ?? null,
+      github_context_id: event.data?.githubContextId ?? null,
+      status: event.data?.status ?? null,
+      outcome: event.data?.outcome ?? null,
+      repo_full_name: event.data?.repoFullName ?? null,
+      branch: event.data?.branch ?? null,
+      default_branch: event.data?.defaultBranch ?? null,
+      head_short_sha: event.data?.headShortSha ?? null,
+      blocker_count: normalizeArray(event.data?.blockers).length,
+      warning_count: normalizeArray(event.data?.warnings).length,
+      required_authority_scopes: normalizeArray(event.data?.authority?.requiredScopes),
+      missing_authority_scopes: normalizeArray(event.data?.authority?.missingScopes),
+      authority_scope_granted: Boolean(event.data?.authority?.scopeGranted),
+      branch_artifact_name: event.data?.branchArtifact?.artifactName ?? null,
+      diff_artifact_name: event.data?.diffArtifact?.artifactName ?? null,
+      diff_hash: event.data?.diffArtifact?.diffHash ?? null,
+      diff_file_count: event.data?.diffArtifact?.fileCount ?? 0,
+      mutation_attempted: Boolean(event.data?.mutationAttempted),
+      mutation_executed: Boolean(event.data?.mutationExecuted),
+      network_lookup_performed: Boolean(event.data?.networkLookupPerformed),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "pr_attempt_safe",
+    };
+  }
   if (event.type === "skill_hook_manifest") {
     return {
       ...summary,
@@ -6215,6 +6546,8 @@ function componentKindForRunEvent(eventOrType) {
       return "branch_policy";
     case "github_context":
       return "github_context";
+    case "pr_attempt":
+      return "pr_attempt";
     case "model_route_decision":
       return "model_router";
     case "skill_hook_manifest":
@@ -6263,6 +6596,7 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "repository_context" ||
       eventOrType?.type === "branch_policy" ||
       eventOrType?.type === "github_context" ||
+      eventOrType?.type === "pr_attempt" ||
       eventOrType?.type === "memory_update" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
@@ -6286,6 +6620,9 @@ function receiptRefsForRunEvent(event) {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "github_context") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "pr_attempt") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "skill_hook_manifest") {
@@ -6314,6 +6651,7 @@ function artifactRefsForRunEvent(event) {
   if (event.type === "repository_context") return ["repository-context.json"];
   if (event.type === "branch_policy") return ["branch-policy.json"];
   if (event.type === "github_context") return ["github-context.json"];
+  if (event.type === "pr_attempt") return ["pr-attempt.json", "pr-branch.json", "pr-diff.patch"];
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
   if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];

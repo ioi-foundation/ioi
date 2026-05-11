@@ -1515,6 +1515,39 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T11-38-48-741Z/result.json`
 
+Implementation slice completed 2026-05-11, PR attempt preview ledger:
+
+- Added a preview-only `ioi.agent-runtime.pr-attempt.v1` record that consumes
+  canonical repository context, branch policy, and GitHub context before any PR
+  creation path can proceed.
+- The PR attempt ledger records target repo, branch/default branch, HEAD SHA,
+  branch-policy blockers/warnings, GitHub PR preconditions, required authority
+  scope (`github.pr.create`), missing authority scope, and failure outcome
+  without losing run state.
+- PR attempts are explicitly non-mutating: `previewOnly: true`,
+  `mutationAttempted: false`, `mutationExecuted: false`, and
+  `networkLookupPerformed: false`.
+- Each run now emits `PrAttemptRecord` on `runtime.pr-attempt`, with receipt
+  refs and artifact refs for `pr-attempt.json`, `pr-branch.json`, and
+  `pr-diff.patch`.
+- Diff content is attached only as the patch artifact; the trace/projection keeps
+  diff metadata and hashes so workflow nodes can route on the attempt without
+  inflating the state payload.
+- React Flow now has a `pr_attempt` / `PrAttemptNode` contract that consumes
+  repository context, branch policy, and GitHub context, and exposes status,
+  blockers, authority, branch artifact, diff artifact, and receipt fields.
+- The default harness now routes `pr_attempt` immediately after
+  `github_context`, giving later review-gate and PR-create nodes a durable,
+  auditable precondition record to consume.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T11-51-00-206Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:

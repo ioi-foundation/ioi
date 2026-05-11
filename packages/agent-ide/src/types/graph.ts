@@ -504,11 +504,21 @@ export interface NodeLogic {
   githubDefaultBranchField?: string;
   githubPrPreconditionsField?: string;
   githubContextReceiptField?: string;
+  prAttemptEndpoint?: string;
+  prAttempt?: unknown;
+  prAttemptField?: string;
+  prAttemptStatusField?: string;
+  prAttemptBlockersField?: string;
+  prAttemptAuthorityField?: string;
+  prAttemptBranchArtifactField?: string;
+  prAttemptDiffArtifactField?: string;
+  prAttemptReceiptField?: string;
   activationGate?: {
     consumesDoctorReport?: boolean;
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
     consumesGithubContext?: boolean;
+    consumesPrAttempt?: boolean;
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
@@ -528,6 +538,10 @@ export interface NodeLogic {
     branchPolicyWarningsField?: string;
     githubContextField?: string;
     githubPrPreconditionsField?: string;
+    prAttemptField?: string;
+    prAttemptStatusField?: string;
+    prAttemptBlockersField?: string;
+    prAttemptAuthorityField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };
@@ -972,6 +986,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"github_context">
+  | WorkflowNodeConfigBase<"pr_attempt">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3651,6 +3666,7 @@ export type WorkflowHarnessComponentKind =
   | "repository_context"
   | "branch_policy"
   | "github_context"
+  | "pr_attempt"
   | "skill_registry"
   | "hook_registry"
   | "hook_policy"
@@ -4191,6 +4207,7 @@ export type WorkflowNodeKind =
   | "repository_context"
   | "branch_policy"
   | "github_context"
+  | "pr_attempt"
   | "function"
   | "model_binding"
   | "model_call"
