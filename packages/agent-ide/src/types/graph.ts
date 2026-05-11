@@ -443,9 +443,14 @@ export interface NodeLogic {
   requireAuthorityScopes?: boolean;
   hookDryRunOnly?: boolean;
   requireHookDryRunPlan?: boolean;
+  hookDryRunPlan?: unknown;
+  hookExecutionEnabled?: boolean;
+  hookCommandExecutionEnabled?: boolean;
   hookDryRunPlanField?: string;
   hookDryRunDecisionField?: string;
   hookPolicyDecisionField?: string;
+  hookPolicyPassedRoute?: string;
+  hookPolicyBlockedRoute?: string;
 
   // --- Triggers ---
   triggerKind?: "manual" | "scheduled" | "event";

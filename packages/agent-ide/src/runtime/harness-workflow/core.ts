@@ -11533,6 +11533,46 @@ function nodeLogicFor(
         mutationExecuted: false,
         rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       };
+    case "hook_policy":
+      return {
+        ...base,
+        failurePolicy: "warn",
+        allowMutationWithoutContract: false,
+        requireAuthorityScopes: true,
+        hookDryRunOnly: true,
+        requireHookDryRunPlan: true,
+        hookExecutionEnabled: false,
+        hookCommandExecutionEnabled: false,
+        hookDryRunPlanField: "hookDryRunPlan",
+        hookDryRunDecisionField: "hookDryRunPlan.decisions",
+        hookPolicyDecisionField: "hookDryRunPlan.policyDecision.status",
+        routes: ["hook_policy_passed_preview", "hook_policy_blocked"],
+        defaultRoute: "hook_policy_blocked",
+        hookPolicyPassedRoute: "hook_policy_passed_preview",
+        hookPolicyBlockedRoute: "hook_policy_blocked",
+        hookDryRunPlan: {
+          schemaVersion: "ioi.agent-runtime.hook-dry-run-plan.v1",
+          object: "ioi.agent_hook_dry_run_plan",
+          planId: "hook_dry_run_default_harness_empty",
+          mode: "preview_only",
+          hookExecutionEnabled: false,
+          commandExecutionEnabled: false,
+          decisionCount: 0,
+          wouldRunCount: 0,
+          blockedCount: 0,
+          skippedCount: 0,
+          decisions: [],
+          policyDecision: {
+            status: "passed",
+            summary:
+              "Default harness hook policy has no command-backed hooks to execute.",
+            previewOnly: true,
+            hookExecutionEnabled: false,
+            commandExecutionEnabled: false,
+          },
+          evidenceRefs: ["hook_dry_run_plan", "hook_policy_decision"],
+        },
+      };
     case "memory_read":
     case "memory_search":
     case "memory_list":

@@ -759,9 +759,15 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       requireAuthorityScopes: true,
       hookDryRunOnly: true,
       requireHookDryRunPlan: true,
+      hookExecutionEnabled: false,
+      hookCommandExecutionEnabled: false,
       hookDryRunPlanField: "hookDryRunPlan",
       hookDryRunDecisionField: "hookDryRunPlan.decisions",
       hookPolicyDecisionField: "hookDryRunPlan.policyDecision.status",
+      routes: ["hook_policy_passed_preview", "hook_policy_blocked"],
+      defaultRoute: "hook_policy_blocked",
+      hookPolicyPassedRoute: "hook_policy_passed_preview",
+      hookPolicyBlockedRoute: "hook_policy_blocked",
       outputSchema: {
         type: "object",
         required: [
