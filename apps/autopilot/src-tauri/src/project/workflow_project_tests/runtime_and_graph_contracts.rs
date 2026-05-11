@@ -506,6 +506,394 @@ fn workflow_package_export_and_import_nodes_execute_through_runtime() {
 }
 
 #[test]
+fn github_pr_create_dry_run_node_executes_through_runtime() {
+    let root = temp_root("github-pr-create-runtime");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "GitHub PR Create Runtime".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut repository = workflow_node(
+        "repository-context",
+        "repository_context",
+        "Repository context",
+        80,
+        180,
+        "Repo",
+        "context",
+    );
+    logic_mut(&mut repository).insert("repoFullName".to_string(), json!("ioi-test/ioi"));
+    logic_mut(&mut repository).insert(
+        "branch".to_string(),
+        json!("feature/runtime-pr-plan"),
+    );
+    logic_mut(&mut repository).insert("defaultBranch".to_string(), json!("main"));
+    logic_mut(&mut repository).insert("dirty".to_string(), json!(false));
+
+    let mut branch_policy = workflow_node(
+        "branch-policy",
+        "branch_policy",
+        "Branch policy",
+        320,
+        180,
+        "Policy",
+        "passed",
+    );
+    logic_mut(&mut branch_policy).insert("allowDirtyWorktree".to_string(), json!(true));
+    logic_mut(&mut branch_policy).insert("blockProtectedBranches".to_string(), json!(false));
+
+    let mut github_context = workflow_node(
+        "github-context",
+        "github_context",
+        "GitHub context",
+        560,
+        180,
+        "GitHub",
+        "available",
+    );
+    logic_mut(&mut github_context).insert("repoFullName".to_string(), json!("ioi-test/ioi"));
+    logic_mut(&mut github_context).insert("tokenAvailable".to_string(), json!(false));
+
+    let issue_context = workflow_node(
+        "issue-context",
+        "issue_context",
+        "Issue context",
+        800,
+        180,
+        "Issue",
+        "unbound",
+    );
+
+    let mut pr_attempt = workflow_node(
+        "pr-attempt",
+        "pr_attempt",
+        "PR attempt",
+        1040,
+        180,
+        "PR",
+        "ready",
+    );
+    logic_mut(&mut pr_attempt).insert(
+        "title".to_string(),
+        json!("Runtime dry-run PR plan"),
+    );
+    logic_mut(&mut pr_attempt).insert("baseBranch".to_string(), json!("main"));
+    logic_mut(&mut pr_attempt).insert(
+        "headBranch".to_string(),
+        json!("feature/runtime-pr-plan"),
+    );
+    logic_mut(&mut pr_attempt).insert("diffArtifactAttached".to_string(), json!(true));
+    logic_mut(&mut pr_attempt).insert("branchArtifactAttached".to_string(), json!(true));
+
+    let mut review_gate = workflow_node(
+        "review-gate",
+        "review_gate",
+        "Review gate",
+        1280,
+        180,
+        "Review",
+        "blocked",
+    );
+    logic_mut(&mut review_gate).insert("reviewSatisfied".to_string(), json!(false));
+
+    let github_pr_create = workflow_node(
+        "github-pr-create",
+        "github_pr_create",
+        "GitHub PR create",
+        1520,
+        180,
+        "Tool",
+        "dry-run",
+    );
+    let output = workflow_node(
+        "pr-output",
+        "output",
+        "PR plan output",
+        1760,
+        180,
+        "Output",
+        "summary",
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![
+        repository,
+        branch_policy,
+        github_context,
+        issue_context,
+        pr_attempt,
+        review_gate,
+        github_pr_create,
+        output,
+    ];
+    workflow.edges = vec![
+        workflow_edge_ports(
+            "edge-repository-branch-policy",
+            "repository-context",
+            "branch-policy",
+            "repository",
+            "repository",
+        ),
+        workflow_edge_ports(
+            "edge-repository-github-context",
+            "repository-context",
+            "github-context",
+            "repository",
+            "repository",
+        ),
+        workflow_edge_ports(
+            "edge-branch-policy-github-context",
+            "branch-policy",
+            "github-context",
+            "branch_policy",
+            "branch_policy",
+        ),
+        workflow_edge_ports(
+            "edge-github-context-issue-context",
+            "github-context",
+            "issue-context",
+            "github_context",
+            "github_context",
+        ),
+        workflow_edge_ports(
+            "edge-repository-pr-attempt",
+            "repository-context",
+            "pr-attempt",
+            "repository",
+            "repository",
+        ),
+        workflow_edge_ports(
+            "edge-branch-policy-pr-attempt",
+            "branch-policy",
+            "pr-attempt",
+            "branch_policy",
+            "branch_policy",
+        ),
+        workflow_edge_ports(
+            "edge-github-context-pr-attempt",
+            "github-context",
+            "pr-attempt",
+            "github_context",
+            "github_context",
+        ),
+        workflow_edge_ports(
+            "edge-issue-context-pr-attempt",
+            "issue-context",
+            "pr-attempt",
+            "issue_context",
+            "issue_context",
+        ),
+        workflow_edge_ports(
+            "edge-repository-review-gate",
+            "repository-context",
+            "review-gate",
+            "repository",
+            "repository",
+        ),
+        workflow_edge_ports(
+            "edge-branch-policy-review-gate",
+            "branch-policy",
+            "review-gate",
+            "branch_policy",
+            "branch_policy",
+        ),
+        workflow_edge_ports(
+            "edge-github-context-review-gate",
+            "github-context",
+            "review-gate",
+            "github_context",
+            "github_context",
+        ),
+        workflow_edge_ports(
+            "edge-issue-context-review-gate",
+            "issue-context",
+            "review-gate",
+            "issue_context",
+            "issue_context",
+        ),
+        workflow_edge_ports(
+            "edge-pr-attempt-review-gate",
+            "pr-attempt",
+            "review-gate",
+            "pr_attempt",
+            "pr_attempt",
+        ),
+        workflow_edge_ports(
+            "edge-repository-github-pr-create",
+            "repository-context",
+            "github-pr-create",
+            "repository",
+            "repository",
+        ),
+        workflow_edge_ports(
+            "edge-branch-policy-github-pr-create",
+            "branch-policy",
+            "github-pr-create",
+            "branch_policy",
+            "branch_policy",
+        ),
+        workflow_edge_ports(
+            "edge-github-context-github-pr-create",
+            "github-context",
+            "github-pr-create",
+            "github_context",
+            "github_context",
+        ),
+        workflow_edge_ports(
+            "edge-issue-context-github-pr-create",
+            "issue-context",
+            "github-pr-create",
+            "issue_context",
+            "issue_context",
+        ),
+        workflow_edge_ports(
+            "edge-pr-attempt-github-pr-create",
+            "pr-attempt",
+            "github-pr-create",
+            "pr_attempt",
+            "pr_attempt",
+        ),
+        workflow_edge_ports(
+            "edge-review-gate-github-pr-create",
+            "review-gate",
+            "github-pr-create",
+            "review_gate",
+            "review_gate",
+        ),
+        workflow_edge_ports(
+            "edge-github-pr-create-output",
+            "github-pr-create",
+            "pr-output",
+            "request",
+            "input",
+        ),
+    ];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
+    assert_eq!(run.summary.status, "passed");
+    let pr_create_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "github-pr-create")
+        .expect("github_pr_create should run");
+    assert_eq!(pr_create_run.status, "success");
+    let plan = pr_create_run.output.as_ref().expect("github_pr_create output");
+    assert_eq!(
+        plan.get("schemaVersion").and_then(Value::as_str),
+        Some("ioi.agent-runtime.github-pr-create-plan.v1")
+    );
+    assert_eq!(
+        plan.get("object").and_then(Value::as_str),
+        Some("ioi.github_pr_create_plan")
+    );
+    assert_eq!(plan.get("status").and_then(Value::as_str), Some("blocked"));
+    assert_eq!(plan.get("decision").and_then(Value::as_str), Some("blocked"));
+    assert_eq!(plan.get("dryRun").and_then(Value::as_bool), Some(true));
+    assert_eq!(plan.get("previewOnly").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        plan.get("toolName").and_then(Value::as_str),
+        Some("github__pr_create")
+    );
+    assert_eq!(plan.get("action").and_then(Value::as_str), Some("pr_create"));
+    assert_eq!(
+        plan.get("repoFullName").and_then(Value::as_str),
+        Some("ioi-test/ioi")
+    );
+    assert_eq!(
+        plan.get("request")
+            .and_then(|request| request.get("method"))
+            .and_then(Value::as_str),
+        Some("POST")
+    );
+    assert_eq!(
+        plan.get("request")
+            .and_then(|request| request.get("path"))
+            .and_then(Value::as_str),
+        Some("/repos/ioi-test/ioi/pulls")
+    );
+    let payload_hash = plan
+        .get("request")
+        .and_then(|request| request.get("payloadHash"))
+        .and_then(Value::as_str)
+        .expect("request payload hash");
+    assert_eq!(payload_hash.len(), 64);
+    assert!(payload_hash
+        .chars()
+        .all(|unit| unit.is_ascii_hexdigit() && !unit.is_ascii_uppercase()));
+    assert_eq!(
+        plan.get("request")
+            .and_then(|request| request.get("bodyIncluded"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        plan.get("request")
+            .and_then(|request| request.get("tokenIncluded"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        plan.get("authority")
+            .and_then(|authority| authority.get("scopeGranted"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    let blockers = plan
+        .get("blockers")
+        .and_then(Value::as_array)
+        .expect("blockers");
+    for expected in [
+        "review_gate_not_passed",
+        "review_not_satisfied",
+        "missing_authority_scope:github.pr.create",
+        "dry_run_only",
+    ] {
+        assert!(blockers.iter().any(|blocker| blocker.as_str() == Some(expected)));
+    }
+    assert_eq!(
+        plan.get("networkLookupPerformed").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        plan.get("mutationAttempted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        plan.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        plan.get("redaction")
+            .and_then(|redaction| redaction.get("tokenValueIncluded"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        plan.get("redaction")
+            .and_then(|redaction| redaction.get("requestBodyIncluded"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    let serialized_plan = serde_json::to_string(plan).expect("serialize plan");
+    assert!(!serialized_plan.contains("Bearer "));
+    assert!(!serialized_plan.contains("Authorization:"));
+    assert!(run.verification_evidence.iter().any(|evidence| {
+        evidence.node_id == "github-pr-create"
+            && evidence.evidence_type == "github_pr_create"
+            && evidence.status == "passed"
+    }));
+}
+
+#[test]
 fn workflow_skill_context_discovery_attaches_model_context() {
     let root = temp_root("skill-context-discovery");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

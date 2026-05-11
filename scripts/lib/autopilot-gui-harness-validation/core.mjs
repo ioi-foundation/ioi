@@ -4240,6 +4240,9 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
+  const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+  const projectRuntimeTestsPath =
+    "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
   const harnessWorkflow = readFileSync(
@@ -4253,6 +4256,14 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
   const restoreCommand = readFileSync(
     resolve(repoRoot, restoreCommandPath),
+    "utf8",
+  );
+  const projectRuntime = readFileSync(
+    resolve(repoRoot, projectRuntimePath),
+    "utf8",
+  );
+  const projectRuntimeTests = readFileSync(
+    resolve(repoRoot, projectRuntimeTestsPath),
     "utf8",
   );
   const checks = {
@@ -4575,7 +4586,12 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflowGithubPrCreatePlanSummary/.test(bottomShelf) &&
       /workflowGithubPrCreatePlanStatus/.test(bottomShelf) &&
       /data-github-pr-create-request-hash/.test(bottomShelf) &&
-      /data-github-pr-create-missing-scopes/.test(bottomShelf),
+      /data-github-pr-create-missing-scopes/.test(bottomShelf) &&
+      /ActionKind::GithubPrCreate/.test(projectRuntime) &&
+      /workflow_github_pr_create_output/.test(projectRuntime) &&
+      /github_pr_create_dry_run_node_executes_through_runtime/.test(
+        projectRuntimeTests,
+      ),
     interactiveReceiptSelection:
       /data-selected-receipt-ref/.test(rail) &&
       /selectedHarnessReceiptRef === receiptRef/.test(rail) &&
