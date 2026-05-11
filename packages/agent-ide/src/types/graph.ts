@@ -441,6 +441,8 @@ export interface NodeLogic {
   toolContracts?: string[];
   allowMutationWithoutContract?: boolean;
   requireAuthorityScopes?: boolean;
+  dryRun?: boolean;
+  previewOnly?: boolean;
   hookDryRunOnly?: boolean;
   requireHookDryRunPlan?: boolean;
   hookDryRunPlan?: unknown;
@@ -529,6 +531,14 @@ export interface NodeLogic {
   reviewGateReviewersField?: string;
   reviewGateChecksField?: string;
   reviewGateReceiptField?: string;
+  githubPrCreatePlanEndpoint?: string;
+  githubPrCreatePlan?: unknown;
+  githubPrCreatePlanField?: string;
+  githubPrCreatePlanStatusField?: string;
+  githubPrCreatePlanBlockersField?: string;
+  githubPrCreatePlanRequestHashField?: string;
+  githubPrCreatePlanAuthorityField?: string;
+  githubPrCreatePlanReceiptField?: string;
   activationGate?: {
     consumesDoctorReport?: boolean;
     consumesRepositoryContext?: boolean;
@@ -537,9 +547,13 @@ export interface NodeLogic {
     consumesIssueContext?: boolean;
     consumesPrAttempt?: boolean;
     consumesReviewGate?: boolean;
+    consumesGithubPrCreatePlan?: boolean;
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
+    githubPrCreatePlanField?: string;
+    githubPrCreatePlanStatusField?: string;
+    githubPrCreatePlanBlockersField?: string;
     skillSetHashField?: string;
     hookSetHashField?: string;
     hookDryRunPlanField?: string;
@@ -1013,6 +1027,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"issue_context">
   | WorkflowNodeConfigBase<"pr_attempt">
   | WorkflowNodeConfigBase<"review_gate">
+  | WorkflowNodeConfigBase<"github_pr_create">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3695,6 +3710,7 @@ export type WorkflowHarnessComponentKind =
   | "issue_context"
   | "pr_attempt"
   | "review_gate"
+  | "github_pr_create"
   | "skill_registry"
   | "hook_registry"
   | "hook_policy"
@@ -4238,6 +4254,7 @@ export type WorkflowNodeKind =
   | "issue_context"
   | "pr_attempt"
   | "review_gate"
+  | "github_pr_create"
   | "function"
   | "model_binding"
   | "model_call"
