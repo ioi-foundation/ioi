@@ -4241,6 +4241,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+  const projectWorkflowMemoryLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowPackageLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
   const projectRepositoryPrLanePath =
@@ -4266,6 +4268,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectRuntime = readFileSync(
     resolve(repoRoot, projectRuntimePath),
+    "utf8",
+  );
+  const projectWorkflowMemoryLane = readFileSync(
+    resolve(repoRoot, projectWorkflowMemoryLanePath),
     "utf8",
   );
   const projectWorkflowPackageLane = readFileSync(
@@ -4564,6 +4570,13 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
         harnessWorkflow,
       ) &&
       /gateResults:[\s\S]*evidenceRefs/.test(validation),
+    workflowMemoryRuntimeLane:
+      /workflow_memory_lane/.test(projectRuntime) &&
+      /workflow_memory_send_options/.test(projectWorkflowMemoryLane) &&
+      /workflow_memory_query_output/.test(projectWorkflowMemoryLane) &&
+      /memory_search/.test(projectWorkflowMemoryLane) &&
+      /memory_list/.test(projectWorkflowMemoryLane) &&
+      /workflow_redacted_memory_record/.test(projectWorkflowMemoryLane),
     workflowPackageRunOutputSurfaces:
       /export interface WorkflowPackageNodeOutputSummary/.test(railModel) &&
       /workflowPackageNodeOutputSummary/.test(railModel) &&

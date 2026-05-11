@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
+  "passed": true,
+  "clusterId": "cognition",
+  "method": "render WorkflowRailPanel markup, verify promotion controls, invoke controller-equivalent transition handler, rerender attempt cards",
+  "checks": {
+    "blockedGatedButtonDisabled": true,
+    "blockedLiveButtonDisabled": true,
+    "blockedEligibilityExposesReplayBlocker": true,
+    "blockedClickRecordsAuditAttempt": true,
+    "blockedAttemptCardRendered": true,
+    "validGatedButtonEnabledBeforeClick": true,
+    "validLiveButtonDisabledBeforeGated": true,
+    "gatedClickPromotesCluster": true,
+    "gatedAttemptCardRendered": true,
+    "liveButtonEnabledAfterGated": true,
+    "liveClickPromotesCluster": true,
+    "liveAttemptCardRendered": true,
+    "githubPrCreateNodeOutputInspector": true
+  },
+  "snapshots": {
+    "blockedEligibility": {
+      "eligible": false,
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "gatedButtonDisabled": true,
+      "liveButtonDisabled": true
+    },
+    "blockedAttempt": {
+      "attemptStatus": "blocked",
+      "targetExecutionMode": "gated",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "shadow_ready",
+      "gateDecision": "block_promotion_transition",
+      "blockers": [
+        "promotion_receipts_missing",
+        "promotion_replay_gate_not_passed",
+        "promotion_canary_not_passed",
+        "promotion_rollback_unavailable"
+      ],
+      "receiptRefCount": 0,
+      "replayFixtureRefCount": 0
+    },
+    "gatedAttempt": {
+      "attemptStatus": "promoted",
+      "targetExecutionMode": "gated",
+      "previousStatus": "shadow_ready",
+      "nextStatus": "gated",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 22,
+      "replayFixtureRefCount": 22
+    },
+    "liveAttempt": {
+      "attemptStatus": "promoted",
+      "targetExecutionMode": "live",
+      "previousStatus": "gated",
+      "nextStatus": "live",
+      "gateDecision": "allow_promotion_transition",
+      "blockers": [],
+      "receiptRefCount": 22,
+      "replayFixtureRefCount": 22
+    },
+    "githubPrCreateNodeOutput": {
+      "selectedNodeId": "harness.github_pr_create",
+      "requestHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "missingScopes": "github.pr.create",
+      "receiptRefs": "receipt-github-pr-create-node-probe"
+    }
+  },
+  "uiSelectors": {
+    "groupInspector": "workflow-harness-group-inspector",
+    "promotionActions": "workflow-harness-group-promotion-actions",
+    "promoteClusterGated": "workflow-harness-promote-cluster-gated",
+    "promoteClusterLive": "workflow-harness-promote-cluster-live",
+    "promotionEligibility": "workflow-harness-group-promotion-eligibility",
+    "promotionAttempt": "workflow-harness-group-promotion-attempt",
+    "selectedNodeGithubPrCreateOutput": "workflow-selected-node-github-pr-create-output-summary"
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "packages/agent-ide/src/runtime/harness-workflow.ts",
+    "packages/agent-ide/src/types/graph.ts"
+  ]
+}
