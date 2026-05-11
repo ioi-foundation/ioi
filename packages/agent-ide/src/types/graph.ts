@@ -495,10 +495,20 @@ export interface NodeLogic {
   allowDirtyWorktree?: boolean;
   requireUpstream?: boolean;
   requireReviewForWarnings?: boolean;
+  githubContextEndpoint?: string;
+  githubContext?: unknown;
+  githubContextField?: string;
+  githubRemoteField?: string;
+  githubOwnerField?: string;
+  githubRepoField?: string;
+  githubDefaultBranchField?: string;
+  githubPrPreconditionsField?: string;
+  githubContextReceiptField?: string;
   activationGate?: {
     consumesDoctorReport?: boolean;
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
+    consumesGithubContext?: boolean;
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
@@ -516,6 +526,8 @@ export interface NodeLogic {
     branchPolicyStatusField?: string;
     branchPolicyBlockersField?: string;
     branchPolicyWarningsField?: string;
+    githubContextField?: string;
+    githubPrPreconditionsField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };
@@ -959,6 +971,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_doctor">
   | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"branch_policy">
+  | WorkflowNodeConfigBase<"github_context">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3637,6 +3650,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_doctor"
   | "repository_context"
   | "branch_policy"
+  | "github_context"
   | "skill_registry"
   | "hook_registry"
   | "hook_policy"
@@ -4176,6 +4190,7 @@ export type WorkflowNodeKind =
   | "runtime_doctor"
   | "repository_context"
   | "branch_policy"
+  | "github_context"
   | "function"
   | "model_binding"
   | "model_call"

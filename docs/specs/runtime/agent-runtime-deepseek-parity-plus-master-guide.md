@@ -1484,6 +1484,37 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T11-16-23-615Z/result.json`
 
+Implementation slice completed 2026-05-11, GitHub context projection:
+
+- Added a read-only `ioi.agent-runtime.github-context.v1` projection that
+  consumes canonical `RepositoryContext` and `BranchPolicyDecision` before any
+  PR workflow can claim GitHub readiness.
+- GitHub context now detects GitHub remotes from redacted local Git remote
+  metadata, exposes owner, repo, repo full name, HTML URL, branch/default branch,
+  branch-policy status, blockers, warnings, and PR creation preconditions.
+- Credential handling records only token source availability (`GITHUB_TOKEN` or
+  `GH_TOKEN`) and never stores token values, authorization headers, network
+  responses, or remote credentials.
+- Each run now records GitHub context in task facts, postconditions, minimum
+  evidence, semantic impact, prompt audit, receipts, trace, artifacts, and TTI
+  events.
+- The `/v1/github-context` endpoint and `GitHubContext` TTI event are explicitly
+  read-only: no network lookup, no PR mutation, and no credential disclosure.
+- React Flow now has a `github_context` / `GitHubContextNode` contract that
+  consumes repository context and branch policy, and exposes GitHub remote
+  identity plus PR preconditions for workflow routing.
+- The default harness now routes `github_context` immediately after
+  `branch_policy`, so later issue, review, and PR attempt workflow nodes can
+  depend on canonical GitHub readiness instead of re-parsing remotes.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T11-38-48-741Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:

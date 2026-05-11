@@ -10217,6 +10217,7 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "runtime_doctor",
   "repository_context",
   "branch_policy",
+  "github_context",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -10252,6 +10253,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "runtime_doctor",
     "repository_context",
     "branch_policy",
+    "github_context",
     "skill_registry",
     "hook_registry",
     "hook_policy",
@@ -10483,6 +10485,29 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Governance",
       icon: "shield-check",
+    }),
+    makeComponent({
+      kind: "github_context",
+      label: "GitHub context",
+      description:
+        "Projects the read-only GitHub remote identity and PR preconditions from repository context and branch policy.",
+      kernelRef:
+        "packages/runtime-daemon/src/index.mjs::githubContextForRepository",
+      capabilityScope: [
+        "github.context.read",
+        "repository.context.read",
+        "repository.branch_policy.read",
+      ],
+      eventKinds: ["GitHubContext"],
+      evidence: [
+        "github_context",
+        "github.remote",
+        "github.repo",
+        "github.pr_preconditions",
+        "github.redaction",
+      ],
+      group: "Connectors",
+      icon: "github",
     }),
     makeComponent({
       kind: "skill_registry",
@@ -11048,6 +11073,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "runtime_doctor",
       "repository_context",
       "branch_policy",
+      "github_context",
       "skill_registry",
       "hook_registry",
       "drift_detector",
@@ -11216,6 +11242,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "runtime_doctor",
   "repository_context",
   "branch_policy",
+  "github_context",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -11263,6 +11290,7 @@ const SLOT_BY_KIND: Partial<
   runtime_doctor: ["state_policy", "verifier_policy"],
   repository_context: ["state_policy", "verifier_policy"],
   branch_policy: ["state_policy", "verifier_policy", "approval_policy"],
+  github_context: ["state_policy", "verifier_policy", "approval_policy"],
   skill_registry: ["state_policy"],
   hook_registry: ["state_policy", "verifier_policy"],
   hook_policy: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11401,6 +11429,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "repository_context";
     case "branch_policy":
       return "branch_policy";
+    case "github_context":
+      return "github_context";
     case "skill_registry":
       return "skill";
     case "hook_registry":
@@ -11594,6 +11624,74 @@ function nodeLogicFor(
             statusPathsIncluded: false,
           },
           evidenceRefs: ["branch_policy", "repository_context"],
+        },
+      };
+    case "github_context":
+      return {
+        ...base,
+        githubContextEndpoint: "/v1/github-context",
+        githubContextField: "githubContext",
+        githubRemoteField: "githubContext.defaultRemoteName",
+        githubOwnerField: "githubContext.owner",
+        githubRepoField: "githubContext.repo",
+        githubDefaultBranchField: "githubContext.defaultBranch",
+        githubPrPreconditionsField: "githubContext.prCreationPreconditions",
+        githubContextReceiptField: "githubContext.receiptId",
+        repositoryContextField: "repositoryContext",
+        branchPolicyField: "branchPolicy",
+        readOnly: true,
+        mutationExecuted: false,
+        activationGate: {
+          consumesRepositoryContext: true,
+          consumesBranchPolicy: true,
+          consumesGithubContext: true,
+          githubContextField: "githubContext",
+          githubPrPreconditionsField: "githubContext.prCreationPreconditions",
+        },
+        nodeTypeLabel: "GitHubContextNode",
+        githubContext: {
+          schemaVersion: "ioi.agent-runtime.github-context.v1",
+          object: "ioi.github_context",
+          contextId: "github_context_default_harness_empty",
+          repositoryContextId: "repoctx_default_harness_empty",
+          branchPolicyId: "branch_policy_default_harness_empty",
+          status: "unavailable",
+          readOnly: true,
+          mutationExecuted: false,
+          provider: "github",
+          githubRemotePresent: false,
+          defaultRemoteName: null,
+          owner: null,
+          repo: null,
+          repoFullName: null,
+          htmlUrl: null,
+          defaultBranch: null,
+          branch: null,
+          branchPolicyStatus: "warning",
+          branchPolicyBlockers: [],
+          branchPolicyWarnings: ["repository_context_projection_only"],
+          prCreationEligible: false,
+          prCreationPreconditions: {
+            githubRemotePresent: false,
+            branchPolicyAllowsPr: false,
+            tokenAvailable: false,
+            networkLookupPerformed: false,
+            mutationExecuted: false,
+          },
+          remotes: [],
+          credentials: {
+            tokenAvailable: false,
+            tokenSources: [],
+            tokenValueIncluded: false,
+            authorizationHeaderIncluded: false,
+          },
+          redaction: {
+            profile: "github_context_safe",
+            tokenValueIncluded: false,
+            remoteCredentialsIncluded: false,
+            networkResponseIncluded: false,
+          },
+          evidenceRefs: ["github_context", "repository_context", "branch_policy"],
         },
       };
     case "model_call":

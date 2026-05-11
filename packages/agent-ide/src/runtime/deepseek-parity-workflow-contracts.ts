@@ -130,6 +130,7 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "verification.quality_ledger",
   "repository.context",
   "repository.branch_policy",
+  "repository.github_context",
   "repository.issue",
   "repository.pr_attempt",
   "repository.review_gate",
