@@ -671,7 +671,25 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       ),
       port("error", "Error", "output", "payload", "error", false),
     ],
-    configSchema: { type: "object", required: ["stateKey", "stateOperation"] },
+    configSchema: {
+      type: "object",
+      required: ["stateKey", "stateOperation"],
+      properties: {
+        stateKey: { type: "string" },
+        stateOperation: {
+          type: "string",
+          enum: ["read", "write", "append", "merge", "memory_search", "memory_list"],
+        },
+        memoryKey: { type: "string" },
+        memoryScope: {
+          type: "string",
+          enum: ["global", "workspace", "thread", "workflow", "subagent"],
+        },
+        query: { type: "string" },
+        limit: { type: "number" },
+        memoryRedaction: { type: "string", enum: ["none", "redacted"] },
+      },
+    },
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(["execution"]),
     executor: {
@@ -1640,6 +1658,37 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
     },
   });
+  const memorySearch = creatorDefinition("state", {
+    creatorId: "memory.search",
+    label: "Memory search",
+    description: "Filter governed memory by scope, key, and query.",
+    metricValue: "search",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_search",
+      reducer: "replace",
+      memoryScope: "thread",
+      memoryKey: "conversation",
+      query: "",
+      limit: 10,
+      memoryRedaction: "none",
+    },
+  });
+  const memoryList = creatorDefinition("state", {
+    creatorId: "memory.list",
+    label: "Memory list",
+    description: "List governed memory by scope and key.",
+    metricValue: "list",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_list",
+      reducer: "replace",
+      memoryScope: "thread",
+      memoryKey: "conversation",
+      limit: 20,
+      memoryRedaction: "none",
+    },
+  });
   const stateWrite = creatorDefinition("state", {
     creatorId: "state.write",
     label: "State write",
@@ -1706,6 +1755,8 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelEmbedding,
     modelEvaluator,
     stateRead,
+    memorySearch,
+    memoryList,
     stateWrite,
     stateAppend,
     stateReducer,

@@ -993,19 +993,41 @@ fn workflow_model_tool_memory_parser_loop_records_lineage() {
     );
     logic_mut(&mut source).insert(
         "payload".to_string(),
-        json!({"prompt": "Summarize prior memory and tool results."}),
+        json!({
+            "prompt": "Summarize prior memory and tool results.",
+            "memoryRecords": [
+                {
+                    "id": "memory-prior-runtime-slice",
+                    "scope": "workflow",
+                    "memoryKey": "conversation",
+                    "fact": "Prior memory says to summarize runtime slices with validation evidence.",
+                    "source": "workflow_fixture"
+                },
+                {
+                    "id": "memory-unrelated",
+                    "scope": "workflow",
+                    "memoryKey": "scratch",
+                    "fact": "Unrelated scratch memory should not match the conversation search.",
+                    "source": "workflow_fixture"
+                }
+            ]
+        }),
     );
     let mut state = workflow_node(
         "loop-memory",
         "state",
-        "Memory",
+        "Memory search",
         300,
         260,
         "State",
-        "memory",
+        "search",
     );
     logic_mut(&mut state).insert("stateKey".to_string(), json!("conversation"));
-    logic_mut(&mut state).insert("stateOperation".to_string(), json!("merge"));
+    logic_mut(&mut state).insert("stateOperation".to_string(), json!("memory_search"));
+    logic_mut(&mut state).insert("memoryScope".to_string(), json!("workflow"));
+    logic_mut(&mut state).insert("memoryKey".to_string(), json!("conversation"));
+    logic_mut(&mut state).insert("query".to_string(), json!("runtime slices"));
+    logic_mut(&mut state).insert("limit".to_string(), json!(1));
     let model_binding = workflow_node(
         "loop-model-binding",
         "model_binding",
@@ -1158,6 +1180,24 @@ fn workflow_model_tool_memory_parser_loop_records_lineage() {
             .pointer("/attachments/memory/kind")
             .and_then(Value::as_str),
         Some("state")
+    );
+    assert_eq!(
+        model_output
+            .pointer("/attachments/memory/operation")
+            .and_then(Value::as_str),
+        Some("memory_search")
+    );
+    assert_eq!(
+        model_output
+            .pointer("/attachments/memory/memoryQuery/matchCount")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        model_output
+            .pointer("/attachments/memory/records/0/id")
+            .and_then(Value::as_str),
+        Some("memory-prior-runtime-slice")
     );
     assert_eq!(
         model_output

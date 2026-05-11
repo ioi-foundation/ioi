@@ -6,6 +6,7 @@ export type {
   AgentMemoryPathProjection,
   AgentMemoryProjection,
   DeleteMemoryRecordInput,
+  MemoryListOptions,
   MemoryPolicyInput,
   MemoryPolicyUpdateResult,
   RememberMemoryInput,

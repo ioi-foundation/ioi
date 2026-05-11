@@ -10658,6 +10658,32 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       icon: "database",
     }),
     makeComponent({
+      kind: "memory_search",
+      label: "Memory search",
+      description:
+        "Filters governed memory by scope, key, query, limit, and redaction before model injection.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/memory",
+      capabilityScope: ["memory.read", "memory.search"],
+      eventKinds: ["MemoryRead", "MemorySearch"],
+      evidence: ["memory_key", "memory.scope", "memory.query", "memory.limit", "memory.redaction"],
+      group: "State",
+      icon: "database",
+    }),
+    makeComponent({
+      kind: "memory_list",
+      label: "Memory list",
+      description:
+        "Lists governed memory records by declared scope and memory key for workflow state attachments.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/memory",
+      capabilityScope: ["memory.read", "memory.list"],
+      eventKinds: ["MemoryRead", "MemoryList"],
+      evidence: ["memory_key", "memory.scope", "memory.limit", "memory.redaction"],
+      group: "State",
+      icon: "database",
+    }),
+    makeComponent({
       kind: "memory_write",
       label: "Memory write",
       description:
@@ -10890,6 +10916,8 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "task_state",
       "drift_detector",
       "memory_read",
+      "memory_search",
+      "memory_list",
       "memory_write",
     ],
     defaultComponentId: componentId("task_state"),
@@ -11066,6 +11094,8 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "connector_call",
   "probe_runner",
   "memory_read",
+  "memory_search",
+  "memory_list",
   "memory_write",
   "semantic_impact_analyzer",
   "postcondition_synthesizer",
@@ -11104,6 +11134,8 @@ const SLOT_BY_KIND: Partial<
   approval_gate: ["approval_policy"],
   wallet_capability: ["approval_policy"],
   memory_read: ["memory_policy"],
+  memory_search: ["memory_policy"],
+  memory_list: ["memory_policy"],
   memory_write: ["memory_policy"],
   semantic_impact_analyzer: ["verifier_policy"],
   postcondition_synthesizer: ["verifier_policy"],
@@ -11234,6 +11266,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
     case "wallet_capability":
       return "human_gate";
     case "memory_read":
+    case "memory_search":
+    case "memory_list":
     case "memory_write":
       return "state";
     case "dry_run_simulator":
@@ -11398,13 +11432,22 @@ function nodeLogicFor(
         rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       };
     case "memory_read":
+    case "memory_search":
+    case "memory_list":
     case "memory_write":
       return {
         ...base,
         stateKey: component.kind,
         stateOperation: {
           key: component.kind,
-          operation: component.kind === "memory_read" ? "read" : "write",
+          operation:
+            component.kind === "memory_read"
+              ? "read"
+              : component.kind === "memory_search"
+                ? "memory_search"
+                : component.kind === "memory_list"
+                  ? "memory_list"
+                  : "write",
           reducer: "merge",
         },
       };

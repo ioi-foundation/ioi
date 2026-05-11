@@ -106,6 +106,9 @@ export interface SendOptions {
   model?: ModelSelection;
   memory?: {
     memoryKey?: string;
+    query?: string;
+    q?: string;
+    limit?: number;
     remember?: string;
     disabled?: boolean;
     threadId?: string;

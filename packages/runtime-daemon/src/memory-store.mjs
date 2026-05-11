@@ -60,6 +60,7 @@ export class AgentMemoryStore {
       object: "ioi.agent_memory_record",
       scope,
       fact,
+      memoryKey: optionalMemoryString(workflow.memoryKey ?? workflow.memory_key ?? workflow.stateKey ?? workflow.state_key),
       agentId: agent?.id ?? null,
       threadId: threadId ?? null,
       workspace: agent?.cwd ?? null,
@@ -153,8 +154,9 @@ export class AgentMemoryStore {
     return { record: deleted, receipt, operation: "delete" };
   }
 
-  list({ agent, threadId, workspace, includeGlobal = true } = {}) {
-    return [...this.records.values()]
+  list({ agent, threadId, workspace, includeGlobal = true, scope, memoryKey, query, q, limit, redaction } = {}) {
+    const filters = memoryListFilters({ scope, memoryKey, query, q, limit, redaction });
+    const records = [...this.records.values()]
       .filter((record) => {
         if (includeGlobal && record.scope === "global") return true;
         if (threadId && record.threadId === threadId) return true;
@@ -162,7 +164,12 @@ export class AgentMemoryStore {
         if (workspace && record.workspace === workspace && record.scope === "workspace") return true;
         return false;
       })
+      .filter((record) => !filters.scope || record.scope === filters.scope)
+      .filter((record) => !filters.memoryKey || record.memoryKey === filters.memoryKey)
+      .filter((record) => !filters.query || memoryRecordSearchText(record).includes(filters.query))
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const limited = filters.limit ? records.slice(0, filters.limit) : records;
+    return filters.redaction === "redacted" ? limited.map(redactMemoryRecord) : limited;
   }
 
   write(record) {
@@ -170,7 +177,9 @@ export class AgentMemoryStore {
     fs.writeFileSync(path.join(this.memoryDir, `${record.id}.json`), `${JSON.stringify(record, null, 2)}\n`);
   }
 
-  projection({ agent, threadId, workspace } = {}) {
+  projection({ agent, threadId, workspace, filters = {} } = {}) {
+    const records = this.list({ agent, threadId, workspace: workspace ?? agent?.cwd, ...filters });
+    const normalizedFilters = memoryListFilters(filters);
     return {
       schemaVersion: AGENT_MEMORY_SCHEMA_VERSION,
       object: "ioi.agent_memory_projection",
@@ -179,7 +188,9 @@ export class AgentMemoryStore {
       workspace: workspace ?? agent?.cwd ?? null,
       policy: this.effectivePolicy({ agent, threadId, workspace: workspace ?? agent?.cwd }),
       paths: this.pathProjection({ agent, threadId, workspace: workspace ?? agent?.cwd }),
-      records: this.list({ agent, threadId, workspace: workspace ?? agent?.cwd }),
+      filters: normalizedFilters,
+      records,
+      totalMatches: records.length,
     };
   }
 
@@ -369,6 +380,54 @@ function requiredId(value, label) {
     throw error;
   }
   return id;
+}
+
+function optionalMemoryString(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function memoryListFilters({ scope, memoryKey, query, q, limit, redaction } = {}) {
+  return {
+    scope: optionalMemoryString(scope),
+    memoryKey: optionalMemoryString(memoryKey),
+    query: optionalMemoryString(query ?? q)?.toLowerCase() ?? null,
+    limit: normalizeMemoryLimit(limit),
+    redaction: redaction === "redacted" ? "redacted" : "none",
+  };
+}
+
+function normalizeMemoryLimit(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.min(Math.floor(parsed), 200);
+}
+
+function memoryRecordSearchText(record = {}) {
+  return [
+    record.fact,
+    record.id,
+    record.scope,
+    record.memoryKey,
+    record.workflowGraphId,
+    record.workflowNodeId,
+    record.workflowNodeType,
+    record.source,
+  ]
+    .filter((value) => value !== undefined && value !== null)
+    .map((value) => String(value).toLowerCase())
+    .join("\n");
+}
+
+function redactMemoryRecord(record) {
+  return {
+    ...record,
+    fact: "[REDACTED]",
+    factHash: stableHash(record.fact ?? ""),
+    redaction: "redacted",
+  };
 }
 
 function stableHash(value) {

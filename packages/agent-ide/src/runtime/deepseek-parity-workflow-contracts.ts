@@ -110,6 +110,8 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "memory.scope",
   "memory.injection",
   "memory.remember",
+  "memory.search",
+  "memory.list",
   "memory.policy",
   "memory.edit",
   "memory.path",

@@ -354,7 +354,7 @@ export class AgentgresRuntimeStateStore {
       writes.push(write);
       mutations.push({ ...write, operation: "write" });
     }
-    const records = this.memory.list({ agent, threadId, workspace: agent.cwd });
+    const records = this.memory.list({ agent, threadId, workspace: agent.cwd, ...memoryListFilters(memoryOptions) });
     return {
       command: command.kind,
       records,
@@ -400,9 +400,9 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  listMemoryForThread(threadId) {
+  listMemoryForThread(threadId, options = {}) {
     const agent = this.agentForThread(threadId);
-    return this.memory.projection({ agent, threadId, workspace: agent.cwd });
+    return this.memory.projection({ agent, threadId, workspace: agent.cwd, filters: memoryListFilters(options) });
   }
 
   memoryPolicyForThread(threadId) {
@@ -483,7 +483,7 @@ export class AgentgresRuntimeStateStore {
   listMemoryForAgent(agentId, options = {}) {
     const agent = this.getAgent(agentId);
     const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
-    return this.memory.projection({ agent, threadId, workspace: agent.cwd });
+    return this.memory.projection({ agent, threadId, workspace: agent.cwd, filters: memoryListFilters(options) });
   }
 
   memoryPolicyForAgent(agentId, options = {}) {
@@ -2984,7 +2984,7 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "GET" && action === "memory") {
-    writeJsonResponse(response, store.listMemoryForThread(threadId));
+    writeJsonResponse(response, store.listMemoryForThread(threadId, Object.fromEntries(url.searchParams.entries())));
     return;
   }
   if (request.method === "POST" && action === "memory") {
@@ -3568,6 +3568,16 @@ function memoryWriteApproved(options = {}) {
       options.approvalGranted ??
       options.approval_granted,
   );
+}
+
+function memoryListFilters(options = {}) {
+  return {
+    scope: options.scope ?? options.memoryScope ?? options.memory_scope,
+    memoryKey: options.memoryKey ?? options.memory_key,
+    query: options.query ?? options.q ?? options.memoryQuery ?? options.memory_query,
+    limit: options.limit ?? options.memoryLimit ?? options.memory_limit,
+    redaction: options.redaction ?? options.memoryRedaction ?? options.memory_redaction,
+  };
 }
 
 function memoryEventKind(operation = "write") {

@@ -439,7 +439,7 @@ export interface NodeLogic {
 
   // --- State ---
   stateKey?: string;
-  stateOperation?: "read" | "write" | "append" | "merge";
+  stateOperation?: "read" | "write" | "append" | "merge" | "memory_search" | "memory_list";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
 
@@ -3546,6 +3546,8 @@ export type WorkflowHarnessComponentKind =
   | "approval_gate"
   | "wallet_capability"
   | "memory_read"
+  | "memory_search"
+  | "memory_list"
   | "memory_write"
   | "verifier"
   | "semantic_impact_analyzer"

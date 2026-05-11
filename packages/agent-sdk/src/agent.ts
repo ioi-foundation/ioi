@@ -16,6 +16,7 @@ import {
   type DeleteMemoryRecordInput,
   type MemoryPolicyInput,
   type MemoryPolicyUpdateResult,
+  type MemoryListOptions,
   type RememberMemoryInput,
   type RememberMemoryResult,
   type RuntimeAgentRecord,
@@ -191,8 +192,12 @@ export class AgentMemory {
     return this.client.rememberMemory(this.agentId, { ...options, text });
   }
 
-  list(options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
+  list(options: MemoryListOptions = {}): Promise<AgentMemoryProjection> {
     return this.client.listMemory(this.agentId, options);
+  }
+
+  search(query: string, options: Omit<MemoryListOptions, "query" | "q"> = {}): Promise<AgentMemoryProjection> {
+    return this.client.listMemory(this.agentId, { ...options, query });
   }
 
   edit(memoryId: string, text: string, options: Omit<UpdateMemoryRecordInput, "text"> = {}): Promise<RememberMemoryResult> {
