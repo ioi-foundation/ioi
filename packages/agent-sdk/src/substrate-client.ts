@@ -15,6 +15,7 @@ import type {
   SendOptions,
 } from "./options.js";
 import type {
+  AgentMemoryRecord,
   AgentQualityLedgerProjection,
   ConversationMessage,
   IOIRunResult,
@@ -88,7 +89,32 @@ export interface RuntimeRunRecord {
   trace: RuntimeTraceBundle;
   modelRouteDecision?: ModelRouteDecision | null;
   modelRouteReceiptId?: string | null;
+  memoryRecords?: AgentMemoryRecord[];
+  memoryWriteReceipts?: RuntimeReceipt[];
   result: string;
+}
+
+export interface AgentMemoryProjection {
+  schemaVersion: "ioi.agent-runtime.memory.v1";
+  object: "ioi.agent_memory_projection";
+  threadId: string | null;
+  agentId: string | null;
+  workspace: string | null;
+  records: AgentMemoryRecord[];
+}
+
+export interface RememberMemoryInput {
+  text: string;
+  scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
+  threadId?: string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  workflowNodeType?: string;
+}
+
+export interface RememberMemoryResult {
+  record: AgentMemoryRecord;
+  receipt: RuntimeReceipt;
 }
 
 export interface RuntimeSubstrateClient {
@@ -123,6 +149,8 @@ export interface RuntimeSubstrateClient {
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
   listTools(): Promise<RuntimeToolCatalogEntry[]>;
+  rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
+  listMemory(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryProjection>;
 }
 
 export interface RuntimeSubstrateClientOptions {
@@ -293,6 +321,15 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listTools(): Promise<RuntimeToolCatalogEntry[]> {
     return this.request("listTools", "GET", "/v1/tools");
+  }
+
+  async rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult> {
+    return this.request("rememberMemory", "POST", `/v1/agents/${encodePath(agentId)}/memory`, input);
+  }
+
+  async listMemory(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
+    const query = options.threadId ? `?threadId=${encodeURIComponent(options.threadId)}` : "";
+    return this.request("listMemory", "GET", `/v1/agents/${encodePath(agentId)}/memory${query}`);
   }
 
   private createRun(
@@ -567,6 +604,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   private readonly checkpointDir: string;
   private readonly agents = new Map<string, RuntimeAgentRecord>();
   private readonly runs = new Map<string, RuntimeRunRecord>();
+  private readonly memories = new Map<string, AgentMemoryRecord>();
 
   constructor(options: RuntimeSubstrateClientOptions = {}) {
     this.cwd = path.resolve(options.cwd ?? process.cwd());
@@ -881,6 +919,37 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     ];
   }
 
+  async rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult> {
+    const agent = await this.getAgent(agentId);
+    const record = mockMemoryRecord(agent, input.text, {
+      scope: input.scope ?? "thread",
+      threadId: input.threadId ?? threadIdForAgent(agent.id),
+      source: "sdk_memory_helper",
+      workflowGraphId: input.workflowGraphId ?? null,
+      workflowNodeId: input.workflowNodeId ?? "runtime.memory",
+      workflowNodeType: input.workflowNodeType ?? "Memory",
+    });
+    this.memories.set(record.id, record);
+    this.persistMemory(record);
+    return {
+      record,
+      receipt: memoryReceipt(record),
+    };
+  }
+
+  async listMemory(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
+    const agent = await this.getAgent(agentId);
+    const threadId = options.threadId ?? threadIdForAgent(agent.id);
+    return {
+      schemaVersion: "ioi.agent-runtime.memory.v1",
+      object: "ioi.agent_memory_projection",
+      threadId,
+      agentId: agent.id,
+      workspace: agent.cwd,
+      records: this.memoryForAgent(agent, threadId),
+    };
+  }
+
   private async createRun(
     agentId: string,
     prompt: string,
@@ -895,7 +964,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         details: { runtime: agent.runtime, agentId },
       });
     }
-    const run = buildMockRun(agent, prompt, mode, options);
+    const memory = this.resolveRunMemory(agent, prompt, options);
+    const run = buildMockRun(agent, prompt, mode, options, memory);
     await emitCallbacks(run, options);
     this.persistRun(run);
     return run;
@@ -938,6 +1008,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     for (const [kind, target] of [
       ["agents", this.agents],
       ["runs", this.runs],
+      ["memory", this.memories],
     ] as const) {
       const dir = path.join(this.checkpointDir, kind);
       if (!fs.existsSync(dir)) {
@@ -961,6 +1032,60 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   private persistRun(run: RuntimeRunRecord): void {
     this.runs.set(run.id, run);
     writeJson(path.join(this.checkpointDir, "runs", `${run.id}.json`), run);
+  }
+
+  private persistMemory(record: AgentMemoryRecord): void {
+    this.memories.set(record.id, record);
+    writeJson(path.join(this.checkpointDir, "memory", `${record.id}.json`), record);
+  }
+
+  private memoryForAgent(agent: RuntimeAgentRecord, threadId = threadIdForAgent(agent.id)): AgentMemoryRecord[] {
+    return [...this.memories.values()]
+      .filter(
+        (record) =>
+          record.scope === "global" ||
+          record.threadId === threadId ||
+          (record.agentId === agent.id && record.scope !== "thread") ||
+          (record.workspace === agent.cwd && record.scope === "workspace"),
+      )
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  private resolveRunMemory(agent: RuntimeAgentRecord, prompt: string, options: SendOptions): MockRunMemory {
+    const threadId = threadIdForAgent(agent.id);
+    const command = parseMockMemoryCommand(prompt);
+    if (options.memory?.disabled) {
+      return {
+        command: command.kind,
+        records: [],
+        writes: [],
+        disabled: true,
+      };
+    }
+    const writes: RememberMemoryResult[] = [];
+    const requestedRemember = options.memory?.remember;
+    if (command.kind === "remember") {
+      const record = mockMemoryRecord(agent, command.text, {
+        scope: "thread",
+        threadId,
+        source: "chat_hash_remember",
+      });
+      this.persistMemory(record);
+      writes.push({ record, receipt: memoryReceipt(record) });
+    } else if (requestedRemember) {
+      const record = mockMemoryRecord(agent, requestedRemember, {
+        scope: "thread",
+        threadId,
+        source: "sdk_send_memory_option",
+      });
+      this.persistMemory(record);
+      writes.push({ record, receipt: memoryReceipt(record) });
+    }
+    return {
+      command: command.kind,
+      records: this.memoryForAgent(agent, threadId),
+      writes,
+    };
   }
 
   private rmQuiet(filePath: string): void {
@@ -1123,11 +1248,79 @@ function mockStableHash(value: unknown): string {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+interface MockRunMemory {
+  command: "none" | "remember" | "show";
+  records: AgentMemoryRecord[];
+  writes: RememberMemoryResult[];
+  disabled?: boolean;
+}
+
+type MockMemoryCommand =
+  | { kind: "none" }
+  | { kind: "show" }
+  | { kind: "remember"; text: string };
+
+function parseMockMemoryCommand(prompt: string): MockMemoryCommand {
+  const text = String(prompt ?? "").trim();
+  const remember = text.match(/^#\s*remember\s+([\s\S]+)$/i);
+  if (remember?.[1]?.trim()) return { kind: "remember", text: remember[1].trim() };
+  if (/^\/memory(?:\s+show)?\s*$/i.test(text)) return { kind: "show" };
+  return { kind: "none" };
+}
+
+function mockMemoryRecord(
+  agent: RuntimeAgentRecord,
+  text: string,
+  fields: {
+    scope: string;
+    threadId: string;
+    source: string;
+    workflowGraphId?: string | null;
+    workflowNodeId?: string | null;
+    workflowNodeType?: string | null;
+  },
+): AgentMemoryRecord {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: "ioi.agent-runtime.memory.v1",
+    id: `memory_${crypto.randomUUID()}`,
+    object: "ioi.agent_memory_record",
+    scope: fields.scope,
+    fact: String(text).trim(),
+    agentId: agent.id,
+    threadId: fields.threadId,
+    workspace: agent.cwd,
+    workflowGraphId: fields.workflowGraphId ?? null,
+    workflowNodeId: fields.workflowNodeId ?? "runtime.memory",
+    workflowNodeType: fields.workflowNodeType ?? "Memory",
+    source: fields.source,
+    redaction: "none",
+    createdAt: now,
+    updatedAt: now,
+    evidenceRefs: ["agent_memory_store", "memory.write", agent.id, fields.threadId],
+  };
+}
+
+function memoryReceipt(record: AgentMemoryRecord): RuntimeReceipt {
+  return {
+    id: `receipt_${record.id}_write`,
+    kind: "memory_write",
+    summary: `Remembered ${record.scope} memory for ${record.threadId ?? record.agentId}.`,
+    redaction: "none",
+    evidenceRefs: ["agent_memory_store", "memory.write", record.id],
+  };
+}
+
+function threadIdForAgent(agentId: string): string {
+  return agentId.startsWith("agent_") ? `thread_${agentId.slice("agent_".length)}` : `thread_${agentId}`;
+}
+
 function buildMockRun(
   agent: RuntimeAgentRecord,
   prompt: string,
   mode: RuntimeRunRecord["mode"],
   options: SendOptions,
+  memory: MockRunMemory = { command: "none", records: [], writes: [] },
 ): RuntimeRunRecord {
   const runId = `run_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
@@ -1142,12 +1335,16 @@ function buildMockRun(
   const modelRouteReceiptId = `receipt_${runId}_model_route`;
   const selectedModel = modelRouteDecision.selectedModel ?? options.model?.id ?? agent.modelId;
   const inlineMcpServerNames = Object.keys(options.mcpServers ?? {});
+  const memoryRecords = memory.records;
+  const memoryWrites = memory.writes.map((write) => write.record);
+  const memoryWriteReceipts = memory.writes.map((write) => write.receipt);
   const taskState: TaskStateProjection = {
     currentObjective: prompt,
     knownFacts: [
       "SDK run entered through the explicit mock RuntimeSubstrateClient",
       "Authority and trace export are required by the IOI runtime contract",
       `Selected model profile: ${selectedModel}`,
+      ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
     assumptions: ["Mock SDK execution writes non-authoritative checkpoint projections"],
@@ -1160,6 +1357,8 @@ function buildMockRun(
       ...inlineMcpServerNames,
       ...modelRouteDecision.evidenceRefs,
       modelRouteReceiptId,
+      ...memoryRecords.map((record) => record.id),
+      ...memoryWriteReceipts.map((receipt) => receipt.id),
     ],
   };
   const uncertainty: UncertaintyProjection = {
@@ -1255,6 +1454,7 @@ function buildMockRun(
       redaction: "none",
       evidenceRefs: modelRouteDecision.evidenceRefs,
     },
+    ...memoryWriteReceipts,
     {
       id: `receipt_${runId}_authority`,
       kind: "authority_decision",
@@ -1270,7 +1470,7 @@ function buildMockRun(
       evidenceRefs: ["RuntimeTraceBundle"],
     },
   ];
-  const result = resultForMode(mode, agent, prompt);
+  const result = resultForMode(mode, agent, prompt, memory);
   const events: IOISDKMessage[] = [];
   const addEvent = (type: IOISDKMessage["type"], summary: string, data?: unknown): IOISDKMessage => {
     const event = makeEvent(runId, agent.id, events.length, type, summary, data);
@@ -1285,6 +1485,12 @@ function buildMockRun(
     ...modelRouteDecision,
     receiptId: modelRouteReceiptId,
   });
+  for (const write of memory.writes) {
+    addEvent("memory_update", "Memory write recorded", {
+      ...write.record,
+      receiptId: write.receipt.id,
+    });
+  }
   addEvent("task_state", "Task state projected", taskState);
   addEvent("uncertainty", "Uncertainty assessed", uncertainty);
   addEvent("probe", "Probe completed", probes[0]);
@@ -1308,6 +1514,8 @@ function buildMockRun(
     postconditions,
     semanticImpact,
     modelRouteDecision,
+    memoryRecords,
+    memoryWrites,
     stopCondition,
     qualityLedger,
     scorecard,
@@ -1350,11 +1558,31 @@ function buildMockRun(
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
+    memoryRecords,
+    memoryWriteReceipts,
     result,
   };
 }
 
-function resultForMode(mode: RuntimeRunRecord["mode"], agent: RuntimeAgentRecord, prompt: string): string {
+function resultForMode(
+  mode: RuntimeRunRecord["mode"],
+  agent: RuntimeAgentRecord,
+  prompt: string,
+  memory: MockRunMemory = { command: "none", records: [], writes: [] },
+): string {
+  if (memory.disabled && (memory.command === "remember" || memory.command === "show")) {
+    return "Memory is disabled for this run.";
+  }
+  if (memory.command === "remember") {
+    return memory.writes.length > 0
+      ? `Remembered: ${memory.writes.map((write) => write.record.fact).join("; ")}`
+      : "No memory was written because the remember request was empty.";
+  }
+  if (memory.command === "show") {
+    return memory.records.length > 0
+      ? `Memory:\n${memory.records.map((record) => `- ${record.fact}`).join("\n")}`
+      : "Memory is empty for this thread.";
+  }
   switch (mode) {
     case "plan":
       return `Plan-only SDK run recorded objective, constraints, postconditions, and stop reason for: ${prompt}`;

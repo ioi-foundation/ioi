@@ -12,6 +12,7 @@ import {
   openAiResponse,
 } from "./model-mounting.mjs";
 import * as routeDecision from "./model-mounting/route-decision.mjs";
+import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
 const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
@@ -19,6 +20,7 @@ const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
   model_route_decision: "item.completed",
+  memory_update: "item.completed",
   task_state: "item.completed",
   uncertainty: "item.completed",
   probe: "item.completed",
@@ -89,6 +91,9 @@ export class AgentgresRuntimeStateStore {
       cwd: this.defaultCwd,
       homeDir: options.homeDir,
       vaultSecrets: options.vaultSecrets,
+      appendOperation: (kind, payload) => this.appendOperation(kind, payload),
+    });
+    this.memory = new AgentMemoryStore(this.stateDir, {
       appendOperation: (kind, payload) => this.appendOperation(kind, payload),
     });
     this.writeSchema();
@@ -176,6 +181,7 @@ export class AgentgresRuntimeStateStore {
         ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
         : "");
     const modelRoute = this.resolveRunModelRoute(agent, request);
+    const memory = this.resolveRunMemory(agent, request, prompt);
     const run = buildRun({
       agent,
       mode,
@@ -183,6 +189,7 @@ export class AgentgresRuntimeStateStore {
       request,
       source: "local_daemon_agentgres",
       modelRoute,
+      memory,
     });
     this.runs.set(run.id, run);
     this.writeRun(run, "run.create");
@@ -274,6 +281,83 @@ export class AgentgresRuntimeStateStore {
     }
   }
 
+  resolveRunMemory(agent, request = {}, prompt = "") {
+    const threadId = threadIdForAgent(agent.id);
+    const command = parseMemoryCommand(prompt);
+    const disabled = Boolean(request.options?.memory?.disabled ?? request.memory?.disabled);
+    if (disabled) {
+      return {
+        command: command.kind,
+        records: [],
+        writes: [],
+        injected: false,
+        disabled: true,
+      };
+    }
+    const requestedRemember =
+      request.options?.memory?.remember ??
+      request.memory?.remember ??
+      request.remember ??
+      null;
+    const writes = [];
+    if (command.kind === "remember") {
+      writes.push(this.rememberForAgent(agent, { text: command.text, threadId, source: "chat_hash_remember" }));
+    } else if (requestedRemember) {
+      writes.push(this.rememberForAgent(agent, { text: requestedRemember, threadId, source: "api_remember" }));
+    }
+    const records = this.memory.list({ agent, threadId, workspace: agent.cwd });
+    return {
+      command: command.kind,
+      records,
+      writes,
+      injected: command.kind !== "remember" && records.length > 0,
+    };
+  }
+
+  rememberForAgent(agent, { text, threadId = threadIdForAgent(agent.id), scope = "thread", source = "operator_remember", workflow = {} } = {}) {
+    return this.memory.remember({
+      text,
+      agent,
+      threadId,
+      scope,
+      source,
+      workflow,
+    });
+  }
+
+  rememberForThread(threadId, body = {}) {
+    const agent = this.agentForThread(threadId);
+    return this.rememberForAgent(agent, {
+      text: body.text ?? body.fact ?? body.memory,
+      threadId,
+      scope: body.scope ?? "thread",
+      source: body.source ?? "thread_memory_api",
+      workflow: body.workflow ?? body,
+    });
+  }
+
+  listMemoryForThread(threadId) {
+    const agent = this.agentForThread(threadId);
+    return this.memory.projection({ agent, threadId, workspace: agent.cwd });
+  }
+
+  rememberForAgentId(agentId, body = {}) {
+    const agent = this.getAgent(agentId);
+    return this.rememberForAgent(agent, {
+      text: body.text ?? body.fact ?? body.memory,
+      threadId: body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id),
+      scope: body.scope ?? "thread",
+      source: body.source ?? "agent_memory_api",
+      workflow: body.workflow ?? body,
+    });
+  }
+
+  listMemoryForAgent(agentId, options = {}) {
+    const agent = this.getAgent(agentId);
+    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
+    return this.memory.projection({ agent, threadId, workspace: agent.cwd });
+  }
+
   createThread(request = {}) {
     const options = request.options ?? request;
     const agent = this.createAgent(options);
@@ -319,6 +403,8 @@ export class AgentgresRuntimeStateStore {
       mode: request.mode ?? "send",
       prompt,
       options: request.options ?? {},
+      memory: request.memory,
+      remember: request.remember,
     });
     return this.turnForRun(run);
   }
@@ -375,6 +461,11 @@ export class AgentgresRuntimeStateStore {
       model_route_id: agent.modelRouteId ?? null,
       model_route_receipt_id: agent.modelRouteReceiptId ?? null,
       model_route_decision: agent.modelRouteDecision ?? null,
+      memory_count: this.memory.list({
+        agent,
+        threadId: threadIdForAgent(agent.id),
+        workspace: agent.cwd,
+      }).length,
       latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
       latest_seq: this.eventsForThread(threadIdForAgent(agent.id), 0).at(-1)?.seq ?? 0,
       archived: agent.status === "archived",
@@ -400,6 +491,8 @@ export class AgentgresRuntimeStateStore {
       stop_reason: run.trace?.stopCondition?.reason ?? null,
       model_route_decision: run.modelRouteDecision ?? run.trace?.modelRouteDecision ?? null,
       model_route_receipt_id: run.modelRouteReceiptId ?? null,
+      memory_refs: run.memoryRecords?.map((record) => record.id) ?? [],
+      memory_write_receipt_ids: run.memoryWriteReceipts?.map((receipt) => receipt.id) ?? [],
       rollback_snapshot_id: null,
       quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
       workflow_execution_ref: null,
@@ -614,6 +707,7 @@ export class AgentgresRuntimeStateStore {
       "model-downloads",
       "tokens",
       "mcp-servers",
+      "memory-records",
     ]) {
       fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
     }
@@ -627,6 +721,7 @@ export class AgentgresRuntimeStateStore {
         tasks: ["runId", "currentObjective", "facts", "constraints", "evidenceRefs"],
         artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
+        memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
         quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
         operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
         ...this.modelMounting.writeSchemaRelationSchemas(),
@@ -791,6 +886,12 @@ async function handleRequest({ request, response, store }) {
     }
     if (segments[0] === "v1" && segments[1] === "agents" && segments[2]) {
       await handleAgentRoute({ request, response, store, url, segments });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/memory") {
+      const agentId = url.searchParams.get("agent_id") ?? url.searchParams.get("agentId");
+      if (!agentId) throw notFound("Memory listing requires agent_id.", { path: url.pathname });
+      writeJsonResponse(response, store.listMemoryForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/runs") {
@@ -2593,6 +2694,14 @@ async function handleAgentRoute({ request, response, store, segments }) {
     writeJsonResponse(response, store.listRuns(agentId));
     return;
   }
+  if (request.method === "GET" && action === "memory") {
+    writeJsonResponse(response, store.listMemoryForAgent(agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
+    return;
+  }
+  if (request.method === "POST" && action === "memory") {
+    writeJsonResponse(response, store.rememberForAgentId(agentId, await readBody(request)));
+    return;
+  }
   throw notFound("Agent route not found.", { agentId, action, method: request.method });
 }
 
@@ -2629,6 +2738,14 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   if (request.method === "GET" && action === "events") {
     const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
     writeSse(response, store.eventsForThread(threadId, sinceSeq));
+    return;
+  }
+  if (request.method === "GET" && action === "memory") {
+    writeJsonResponse(response, store.listMemoryForThread(threadId));
+    return;
+  }
+  if (request.method === "POST" && action === "memory") {
+    writeJsonResponse(response, store.rememberForThread(threadId, await readBody(request)));
     return;
   }
   throw notFound("Thread route not found.", { threadId, action, method: request.method });
@@ -2709,7 +2826,7 @@ async function handleRunRoute({ request, response, store, url, segments }) {
   throw notFound("Run route not found.", { runId, action, method: request.method });
 }
 
-function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
+function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {} }) {
   const runId = `run_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
   const taskFamily = taskFamilyForMode(mode);
@@ -2723,12 +2840,17 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
     agent.modelId;
   const modelRouteReceiptId =
     modelRoute?.receiptId ?? modelRouteDecision?.receiptId ?? `receipt_${runId}_model_route`;
+  const memoryRecords = normalizeArray(memory.records);
+  const memoryWrites = normalizeArray(memory.writes);
+  const memoryWriteReceipts = memoryWrites.map((write) => write.receipt).filter(Boolean);
+  const memoryWriteRecords = memoryWrites.map((write) => write.record).filter(Boolean);
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
       "Run entered the live local IOI daemon public runtime API",
       "Agentgres v0 is the canonical owner for this run state",
       `Selected model profile: ${selectedModel}`,
+      ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
     assumptions: [],
@@ -2743,6 +2865,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
       ...agent.options.hookNames,
       ...normalizeArray(modelRouteDecision?.evidenceRefs),
       modelRouteReceiptId,
+      ...memoryRecords.map((record) => record.id),
+      ...memoryWriteReceipts.map((receipt) => receipt.id),
     ],
   };
   const uncertainty = {
@@ -2793,12 +2917,19 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
   };
   const semanticImpact = {
     changedSymbols: [],
-    changedApis: ["/v1/agents/{id}/runs", "/v1/runs/{id}/events", "/v1/runs/{id}/trace"],
+    changedApis: [
+      "/v1/agents/{id}/runs",
+      "/v1/agents/{id}/memory",
+      "/v1/threads/{id}/memory",
+      "/v1/runs/{id}/events",
+      "/v1/runs/{id}/trace",
+    ],
     changedSchemas: [
       "IOISDKMessage",
       "RuntimeTraceBundle",
       "AgentgresRuntimeStateV0",
       "ModelRouteDecision",
+      "AgentMemoryRecord",
       "RuntimeEventEnvelope",
     ],
     changedPolicies: mode === "dry_run" ? ["authority.preview_only"] : [],
@@ -2876,12 +3007,13 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
   };
   const receipts = [
     modelRouteReceipt,
+    ...memoryWriteReceipts,
     policyReceipt,
     authorityReceipt,
     agentgresReceipt,
     traceReceipt,
   ].filter(Boolean);
-  const result = resultForMode(mode, agent, prompt, source);
+  const result = resultForMode(mode, agent, prompt, source, memory);
   const events = [];
   const addEvent = (type, summary, data) => {
     const event = makeEvent(runId, agent.id, events.length, type, summary, data);
@@ -2896,6 +3028,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
     addEvent("model_route_decision", "Model route decision recorded", {
       ...modelRouteDecision,
       receiptId: modelRouteReceiptId,
+    });
+  }
+  for (const write of memoryWrites) {
+    addEvent("memory_update", "Memory write recorded", {
+      ...write.record,
+      receiptId: write.receipt?.id ?? null,
     });
   }
   addEvent("task_state", "Task state written to Agentgres", taskState);
@@ -2924,6 +3062,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
     postconditions,
     semanticImpact,
     modelRouteDecision,
+    memoryRecords,
+    memoryWrites: memoryWriteRecords,
     stopCondition,
     qualityLedger,
     scorecard,
@@ -2962,6 +3102,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
+    memoryRecords,
+    memoryWriteReceipts,
     result,
   };
 }
@@ -3117,7 +3259,22 @@ function ensureProviderAvailable(runtime, options = {}) {
   }
 }
 
-function resultForMode(mode, agent, prompt, source) {
+function resultForMode(mode, agent, prompt, source, memory = {}) {
+  if (memory.disabled && (memory.command === "remember" || memory.command === "show")) {
+    return "Memory is disabled for this run.";
+  }
+  if (memory.command === "remember") {
+    const remembered = normalizeArray(memory.writes).map((write) => write.record?.fact).filter(Boolean);
+    return remembered.length > 0
+      ? `Remembered: ${remembered.join("; ")}`
+      : "No memory was written because the remember request was empty.";
+  }
+  if (memory.command === "show") {
+    const records = normalizeArray(memory.records);
+    return records.length > 0
+      ? `Memory:\n${records.map((record) => `- ${record.fact}`).join("\n")}`
+      : "Memory is empty for this thread.";
+  }
   switch (mode) {
     case "plan":
       return `Plan-only daemon run recorded objective, constraints, postconditions, and stop reason for: ${prompt}`;
@@ -3256,6 +3413,17 @@ function payloadSummaryForRunEvent(event) {
     run_id: event.runId,
     summary: event.summary,
   };
+  if (event.type === "memory_update") {
+    return {
+      ...summary,
+      event_kind: "MemoryWrite",
+      memory_record_id: event.data?.id ?? null,
+      memory_scope: event.data?.scope ?? null,
+      memory_thread_id: event.data?.threadId ?? null,
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction ?? "none",
+    };
+  }
   if (event.type !== "model_route_decision") return summary;
   return {
     ...summary,
@@ -3281,6 +3449,8 @@ function componentKindForRunEvent(eventOrType) {
   switch (type) {
     case "model_route_decision":
       return "model_router";
+    case "memory_update":
+      return "memory_write";
     case "task_state":
       return "task_state";
     case "uncertainty":
@@ -3309,7 +3479,7 @@ function componentKindForRunEvent(eventOrType) {
 function workflowNodeForRunEvent(eventOrType) {
   if (
     typeof eventOrType !== "string" &&
-    eventOrType?.type === "model_route_decision" &&
+    (eventOrType?.type === "model_route_decision" || eventOrType?.type === "memory_update") &&
     eventOrType.data?.workflowNodeId
   ) {
     return eventOrType.data.workflowNodeId;
@@ -3320,6 +3490,9 @@ function workflowNodeForRunEvent(eventOrType) {
 function receiptRefsForRunEvent(event) {
   if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
   if (event.type === "model_route_decision") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "memory_update") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];

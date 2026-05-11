@@ -1,9 +1,12 @@
-export { Agent, AgentSubagent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
+export { Agent, AgentMemory, AgentSubagent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
 export { Run } from "./run.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
 export { createRuntimeSubstrateClient } from "./substrate-client.js";
 export type {
   RuntimeAgentRecord,
+  AgentMemoryProjection,
+  RememberMemoryInput,
+  RememberMemoryResult,
   RuntimeArtifact,
   RuntimeRunRecord,
   RuntimeSubstrateClient,
@@ -28,6 +31,7 @@ export type {
 } from "./options.js";
 export type {
   AgentQualityLedgerProjection,
+  AgentMemoryRecord,
   ConversationMessage,
   IOIRunResult,
   IOISDKMessage,

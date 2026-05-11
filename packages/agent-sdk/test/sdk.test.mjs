@@ -89,6 +89,37 @@ test("stream reconnect starts after the supplied cursor without duplicating term
   assert.equal(secondBatch.filter((event) => event.type === "completed").length, 1);
 });
 
+test("explicit mock memory helpers remember facts and inject them into later turns", async () => {
+  const { cwd, client } = tempClient();
+  const agent = await Agent.create({ local: { cwd }, substrateClient: client });
+  const remembered = await agent.memory.remember("Prefer focused runtime slices.");
+  assert.equal(remembered.record.fact, "Prefer focused runtime slices.");
+  assert.equal(remembered.receipt.kind, "memory_write");
+  const memory = await agent.memory.list();
+  assert.equal(memory.records.length, 1);
+  assert.equal(memory.records[0].id, remembered.record.id);
+
+  const run = await agent.send("/memory show");
+  const result = await run.wait();
+  assert.match(result.result, /Prefer focused runtime slices/);
+  const trace = await run.inspect();
+  assert.ok(trace.memoryRecords.some((record) => record.id === remembered.record.id));
+  assert.ok(trace.taskState.knownFacts.some((fact) => fact.includes("Prefer focused runtime slices")));
+
+  const disabledRun = await agent.send("/memory show", { memory: { disabled: true } });
+  const disabledResult = await disabledRun.wait();
+  assert.equal(disabledResult.result, "Memory is disabled for this run.");
+  const disabledTrace = await disabledRun.inspect();
+  assert.equal(disabledTrace.memoryRecords.length, 0);
+  assert.ok(!disabledTrace.taskState.knownFacts.some((fact) => fact.includes("Prefer focused runtime slices")));
+
+  const rememberRun = await agent.send("# remember Preserve memory receipts.");
+  const events = [];
+  for await (const event of rememberRun.stream()) events.push(event);
+  assert.ok(events.some((event) => event.type === "memory_update"));
+  assert.ok((await rememberRun.inspect()).receipts.some((receipt) => receipt.kind === "memory_write"));
+});
+
 test("per-send onStep and onDelta callbacks receive substrate event projections", async () => {
   const { cwd, client } = tempClient();
   const agent = await Agent.create({ local: { cwd }, substrateClient: client });

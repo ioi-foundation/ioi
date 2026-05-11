@@ -3,6 +3,7 @@ import type { StopReason } from "./options.js";
 export type IOISDKMessageType =
   | "run_started"
   | "model_route_decision"
+  | "memory_update"
   | "step"
   | "delta"
   | "tool_call"
@@ -51,6 +52,8 @@ export interface RuntimeTraceBundle {
   postconditions: PostconditionProjection;
   semanticImpact: SemanticImpactProjection;
   modelRouteDecision?: ModelRouteDecision | null;
+  memoryRecords?: AgentMemoryRecord[];
+  memoryWrites?: AgentMemoryRecord[];
   stopCondition: StopConditionProjection;
   qualityLedger: AgentQualityLedgerProjection;
   scorecard: RuntimeScorecard;
@@ -136,6 +139,25 @@ export interface ModelRouteDecision {
   policyHash?: string;
   evidenceRefs: string[];
   receiptId?: string;
+}
+
+export interface AgentMemoryRecord {
+  schemaVersion: "ioi.agent-runtime.memory.v1";
+  id: string;
+  object: "ioi.agent_memory_record";
+  scope: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
+  fact: string;
+  agentId: string | null;
+  threadId: string | null;
+  workspace: string | null;
+  workflowGraphId: string | null;
+  workflowNodeId: string | null;
+  workflowNodeType: string | null;
+  source: string;
+  redaction: "none" | "redacted";
+  createdAt: string;
+  updatedAt: string;
+  evidenceRefs: string[];
 }
 
 export interface TaskStateProjection {
