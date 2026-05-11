@@ -131,6 +131,8 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "runtime.task",
   "runtime.job",
   "runtime.checklist",
+  "runtime.ui_string_catalog",
+  "runtime.accessible_status",
   "repository.context",
   "repository.branch_policy",
   "repository.github_context",

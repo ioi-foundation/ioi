@@ -338,6 +338,40 @@ export interface WorkflowFieldMapping {
   type?: string;
 }
 
+export interface WorkflowRuntimeUiStringEntry {
+  defaultMessage: string;
+  description: string;
+  translations?: Record<string, string>;
+}
+
+export interface WorkflowRuntimeUiStringCatalog {
+  schemaVersion: string;
+  catalogId: string;
+  scope: "workflow_chrome" | "runtime_chrome" | string;
+  defaultLocale: string;
+  supportedLocales: string[];
+  modelOutputLocalized: boolean;
+  modelOutputBoundary?: string;
+  strings: Record<string, WorkflowRuntimeUiStringEntry>;
+}
+
+export interface WorkflowRuntimeNodeLocalization {
+  catalogId: string;
+  localeKey: string;
+  labelKey: string;
+  ariaLabelKey: string;
+  statusAnnouncementKey: string;
+  modelOutputLocalized: boolean;
+}
+
+export interface WorkflowRuntimeNodeAccessibility {
+  ariaLabelKey: string;
+  statusAnnouncementKey: string;
+  accessibleStatusField: string;
+  statusTextByValue: Record<string, string>;
+  colorIndependentStatus: boolean;
+}
+
 export interface NodeLogic {
   // --- Source / output ---
   payload?: unknown;
@@ -478,6 +512,14 @@ export interface NodeLogic {
   allowOptionalDegraded?: boolean;
   redactionProfile?: string;
   nodeTypeLabel?: string;
+  runtimeUiStringCatalogRef?: string;
+  runtimeUiStringCatalog?: WorkflowRuntimeUiStringCatalog;
+  localeKey?: string;
+  ariaLabelKey?: string;
+  statusAnnouncementKey?: string;
+  accessibleStatusField?: string;
+  accessibleStatusText?: Record<string, string>;
+  colorIndependentStatus?: boolean;
   runtimeTaskEndpoint?: string;
   runtimeTask?: unknown;
   runtimeTaskField?: string;
@@ -1099,6 +1141,8 @@ export interface WorkflowNodeDefinitionContract {
   policyProfile: WorkflowPolicyProfile;
   evidenceProfile: WorkflowEvidenceProfile;
   executor: WorkflowNodeExecutor;
+  localization?: WorkflowRuntimeNodeLocalization;
+  accessibility?: WorkflowRuntimeNodeAccessibility;
 }
 
 export interface WorkflowScaffoldDefinition {
@@ -3816,6 +3860,11 @@ export interface WorkflowHarnessComponentSpec {
     icon: string;
     group: string;
     summary: string;
+    localeKey?: string;
+    ariaLabelKey?: string;
+    statusAnnouncementKey?: string;
+    accessibleStatusField?: string;
+    colorIndependentStatus?: boolean;
   };
 }
 
