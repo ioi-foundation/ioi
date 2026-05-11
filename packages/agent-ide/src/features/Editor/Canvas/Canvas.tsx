@@ -27,6 +27,18 @@ export function Canvas({
   nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop, readOnly = false
 }: CanvasProps) {
 
+  const keyboardNodes = useMemo(
+    () =>
+      nodes.map((node) => ({
+        ...node,
+        data: {
+          ...(node.data ?? {}),
+          onKeyboardSelect: (nodeId: string) => onNodeSelect(nodeId),
+        },
+      })),
+    [nodes, onNodeSelect],
+  );
+
   const nodeTypes = useMemo(() => ({
     action: CanvasNode,
     trigger: CanvasNode,
@@ -73,15 +85,18 @@ export function Canvas({
     <div className="agent-ide-react-flow-surface" style={{ width: '100%', height: '100%', background: 'var(--bg-dark)' }}
          onDragOver={e => e.preventDefault()}
          onDrop={readOnly ? undefined : onDrop}
+         aria-label="Workflow canvas"
+         data-keyboard-navigation="node-enter-space-selects-inspector"
          data-read-only={readOnly ? "true" : "false"}>
       <ReactFlow
-        nodes={nodes}
+        nodes={keyboardNodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodesDraggable={!readOnly}
         nodesConnectable={!readOnly}
+        nodesFocusable
         edgesFocusable={!readOnly}
         elementsSelectable
         onNodeClick={(_, node) => onNodeSelect(node.id)}

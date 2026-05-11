@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type KeyboardEvent } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
   Node,
@@ -258,6 +258,10 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
     typeof nodeData.onToggleHarnessGroup === "function"
       ? (nodeData.onToggleHarnessGroup as () => void)
       : null;
+  const onKeyboardSelect =
+    typeof nodeData.onKeyboardSelect === "function"
+      ? (nodeData.onKeyboardSelect as (nodeId: string) => void)
+      : null;
   const hasGovernance = law && (
     (law.budgetCap !== undefined && law.budgetCap > 0) ||
     (law.networkAllowlist !== undefined && law.networkAllowlist.length > 0) ||
@@ -278,13 +282,26 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
   const nodeTitle = isGhost ? "Proposed step" : chrome.label;
   const nodeFamilyLabel = familyLabels[nodeType] || familyLabels[family] || "Step";
   const footerStatus = chrome.colorIndependentStatus ? chrome.statusText : statusClass;
+  const nodeId = String(nodeData.id ?? "");
+  const selectNodeFromKeyboard = () => {
+    if (nodeId) onKeyboardSelect?.(nodeId);
+  };
+  const handleNodeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    selectNodeFromKeyboard();
+  };
 
   return (
     <div
       className={`canvas-node canvas-node--${family} ${viewMacro ? "canvas-node--macro-member" : ""} ${harnessGroup ? "canvas-node--harness-group" : ""} ${selected ? "selected" : ""} ${ghostClass} ${activeClass} ${issueSummary ? "has-issues" : ""} ${(issueSummary?.blockerCount ?? 0) > 0 ? "has-blockers" : ""}`}
       role="group"
+      tabIndex={0}
       aria-label={chrome.ariaLabel}
+      aria-keyshortcuts="Enter Space"
       data-node-family={family}
+      data-keyboard-selectable="true"
       data-runtime-ui-catalog={chrome.isRuntimeChrome ? logic.runtimeUiStringCatalogRef : undefined}
       data-runtime-ui-locale={chrome.isRuntimeChrome ? chrome.locale : undefined}
       data-accessible-status={chrome.accessibleStatusValue}
@@ -295,6 +312,10 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
       data-harness-group-collapsed={harnessGroup?.collapsed}
       data-issue-count={issueSummary?.issueCount ?? 0}
       data-testid={`workflow-canvas-node-${nodeData.id}`}
+      onFocus={(event) => {
+        if (event.target === event.currentTarget) selectNodeFromKeyboard();
+      }}
+      onKeyDown={handleNodeKeyDown}
     >
       {inputPorts.map((port, index) => (
         <div

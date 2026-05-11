@@ -192,6 +192,15 @@
   border-color: var(--accent-blue);
 }
 
+.workflow-run-card:focus-visible,
+.workflow-run-attempt:focus-visible,
+.workflow-run-comparison-node:focus-visible,
+.workflow-secondary-action:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-color: var(--accent-blue);
+}
+
 .workflow-run-card.is-compare {
   border-color: color-mix(in srgb, var(--status-warning) 54%, var(--border-default));
 }
@@ -309,6 +318,12 @@
   border-left: 2px solid var(--border-default);
   background: color-mix(in srgb, var(--workflow-panel-strong) 70%, transparent);
   padding: 7px 8px;
+}
+
+.workflow-run-timeline li:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-left-color: var(--accent-blue);
 }
 
 .workflow-run-timeline strong,

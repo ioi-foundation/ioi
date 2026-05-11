@@ -3490,6 +3490,7 @@ export function WorkflowRailPanel({
                     <li
                       key={attempt.attemptId}
                       className={`is-${attempt.status}`}
+                      tabIndex={0}
                       data-testid={`workflow-run-harness-timeline-node-${attempt.attemptId}`}
                       data-node-attempt-id={attempt.attemptId}
                       data-workflow-node-id={attempt.workflowNodeId}
@@ -3537,6 +3538,7 @@ export function WorkflowRailPanel({
                     <li
                       key={`${comparison.liveAttemptId}-${comparison.shadowAttemptId}`}
                       className={`is-${comparison.divergence}`}
+                      tabIndex={0}
                       data-live-attempt-id={comparison.liveAttemptId}
                       data-shadow-attempt-id={comparison.shadowAttemptId}
                       data-workflow-node-id={comparison.workflowNodeId}
@@ -3564,6 +3566,7 @@ export function WorkflowRailPanel({
                 <li
                   key={event.id}
                   className={`is-${event.status ?? event.kind}`}
+                  tabIndex={0}
                   data-accessible-status={event.status ?? event.kind}
                   data-accessible-status-text={accessibleStatusLabel(event.status ?? event.kind)}
                   aria-label={`${workflowEventLabel(event)} ${accessibleStatusLabel(event.status ?? event.kind)}`}
@@ -10844,6 +10847,7 @@ export function WorkflowRailPanel({
         <section
           className="workflow-node-inspector"
           data-testid="workflow-selected-node-inspector"
+          tabIndex={0}
           data-runtime-ui-locale={selectedRuntimeChrome?.locale}
           data-accessible-status={selectedRuntimeChrome?.accessibleStatusValue}
           data-accessible-status-text={selectedRuntimeChrome?.statusText}
