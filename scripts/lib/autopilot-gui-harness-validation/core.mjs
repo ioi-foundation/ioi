@@ -4241,6 +4241,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+  const projectRepositoryPrLanePath =
+    "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs";
   const projectRuntimeTestsPath =
     "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
@@ -4260,6 +4262,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectRuntime = readFileSync(
     resolve(repoRoot, projectRuntimePath),
+    "utf8",
+  );
+  const projectRepositoryPrLane = readFileSync(
+    resolve(repoRoot, projectRepositoryPrLanePath),
     "utf8",
   );
   const projectRuntimeTests = readFileSync(
@@ -4588,7 +4594,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-github-pr-create-request-hash/.test(bottomShelf) &&
       /data-github-pr-create-missing-scopes/.test(bottomShelf) &&
       /ActionKind::GithubPrCreate/.test(projectRuntime) &&
-      /workflow_github_pr_create_output/.test(projectRuntime) &&
+      /repository_pr_lane/.test(projectRuntime) &&
+      /workflow_github_pr_create_output/.test(projectRepositoryPrLane) &&
       /github_pr_create_dry_run_node_executes_through_runtime/.test(
         projectRuntimeTests,
       ),

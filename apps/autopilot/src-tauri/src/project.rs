@@ -17,6 +17,7 @@ mod explorer;
 mod ids;
 mod package;
 mod paths;
+mod repository_pr_lane;
 mod runtime;
 mod sidecars;
 mod templates;
