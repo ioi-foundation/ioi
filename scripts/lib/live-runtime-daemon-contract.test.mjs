@@ -240,14 +240,100 @@ test("local daemon emits deterministic model route fallback decisions with recei
   }
 });
 
+test("local daemon records explicit memory writes and injects provenance into the next turn", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-memory-daemon-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-memory-daemon-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({ options: { local: { cwd } } }),
+    });
+    const rememberTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "# remember The operator prefers focused runtime slices.",
+        mode: "send",
+      }),
+    });
+    assert.equal(rememberTurn.memory_write_receipt_ids.length, 1);
+
+    const memory = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`);
+    assert.equal(memory.schemaVersion, "ioi.agent-runtime.memory.v1");
+    assert.equal(memory.records.length, 1);
+    assert.equal(memory.records[0].fact, "The operator prefers focused runtime slices.");
+
+    const showTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "/memory show", mode: "send" }),
+    });
+    const runId = `run_${showTurn.turn_id.slice("turn_".length)}`;
+    const trace = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/trace`);
+    assert.ok(
+      trace.taskState.knownFacts.some((fact) =>
+        fact.includes("The operator prefers focused runtime slices."),
+      ),
+    );
+    assert.ok(trace.memoryRecords.some((record) => record.id === memory.records[0].id));
+
+    const disabledTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "/memory show",
+        mode: "send",
+        options: { memory: { disabled: true } },
+      }),
+    });
+    const disabledRunId = `run_${disabledTurn.turn_id.slice("turn_".length)}`;
+    const disabledTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${disabledRunId}/trace`);
+    assert.equal(disabledTrace.memoryRecords.length, 0);
+    assert.ok(
+      !disabledTrace.taskState.knownFacts.some((fact) =>
+        fact.includes("The operator prefers focused runtime slices."),
+      ),
+    );
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const memoryEvent = events.find((event) => event.payload_summary?.event_kind === "MemoryWrite");
+    assert.equal(memoryEvent.component_kind, "memory_write");
+    assert.equal(memoryEvent.workflow_node_id, "runtime.memory");
+    assert.equal(memoryEvent.payload_summary.memory_record_id, memory.records[0].id);
+    assert.deepEqual(memoryEvent.receipt_refs, rememberTurn.memory_write_receipt_ids);
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model and thinking control contracts", () => {
   const source = fs.readFileSync(path.join(root, "crates/cli/src/commands/agent.rs"), "utf8");
   assert.match(source, /AgentCommands::Model/);
   assert.match(source, /AgentCommands::Thinking/);
+  assert.match(source, /AgentCommands::Memory/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
+  assert.match(source, /# remember/);
+  assert.match(source, /\/memory show/);
   assert.match(source, /ModelRouteDecision/);
+  assert.match(source, /memory_update/);
   assert.match(source, /reactflow_workflow_node/);
+});
+
+test("React Flow memory node contracts remain workflow-addressable", () => {
+  const workflowContracts = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
+    "utf8",
+  );
+  const harnessWorkflow = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/harness-workflow/core.ts"),
+    "utf8",
+  );
+  assert.match(workflowContracts, /memory\.scope/);
+  assert.match(workflowContracts, /memory\.remember/);
+  assert.match(harnessWorkflow, /memory_read/);
+  assert.match(harnessWorkflow, /memory_write/);
+  assert.match(harnessWorkflow, /memory_policy/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

@@ -155,6 +155,12 @@ pub enum AgentCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Explain memory controls and remember/list runtime projection.
+    Memory {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Inspect canonical tool contracts and safety metadata.
     Tools {
         #[clap(subcommand)]
@@ -380,6 +386,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         AgentCommands::Contract { json } => print_agent_contract(json),
         AgentCommands::Model { json } => print_model_route_controls(json),
         AgentCommands::Thinking { json } => print_thinking_controls(json),
+        AgentCommands::Memory { json } => print_memory_controls(json),
         AgentCommands::Tools {
             command,
             tool,
@@ -698,6 +705,45 @@ fn print_thinking_controls(json: bool) -> Result<()> {
     println!("  slash command: /thinking");
     println!("  field: model.reasoningEffort");
     println!("  projection: ModelRouteDecision.reasoningEffort");
+    Ok(())
+}
+
+fn print_memory_controls(json: bool) -> Result<()> {
+    let value = serde_json::json!({
+        "schema_version": "ioi.agent-runtime.memory-controls.v1",
+        "commands": ["# remember", "/memory", "/memory show"],
+        "event": "memory_update",
+        "event_kind": "MemoryWrite",
+        "receipt_kind": "memory_write",
+        "daemon_endpoints": [
+            "/v1/agents/{id}/memory",
+            "/v1/threads/{id}/memory"
+        ],
+        "workflow_config": {
+            "node_types": ["MemoryScopeNode", "RememberNode", "MemoryInjectionNode"],
+            "reactflow_fields": [
+                "memory.scope",
+                "memory.injectionEnabled",
+                "memory.readOnly",
+                "memory.writeRequiresApproval",
+                "memory.retention",
+                "memory.redaction"
+            ]
+        },
+        "invariants": {
+            "writes_emit_receipts": true,
+            "thread_memory_is_explicit": true,
+            "workflow_memory_can_be_disabled": true
+        }
+    });
+    if json {
+        return print_json(&value);
+    }
+    println!("Agent memory controls");
+    println!("  remember: # remember <fact>");
+    println!("  show: /memory show");
+    println!("  event: memory_update");
+    println!("  receipt: memory_write");
     Ok(())
 }
 
@@ -1317,6 +1363,13 @@ mod tests {
         assert!(matches!(
             thinking.command,
             Some(AgentCommands::Thinking { json: true })
+        ));
+
+        let memory = AgentArgs::try_parse_from(["agent", "memory", "--json"])
+            .expect("memory command should parse");
+        assert!(matches!(
+            memory.command,
+            Some(AgentCommands::Memory { json: true })
         ));
     }
 

@@ -11,6 +11,9 @@ import type {
 import { Run } from "./run.js";
 import {
   createRuntimeSubstrateClient,
+  type AgentMemoryProjection,
+  type RememberMemoryInput,
+  type RememberMemoryResult,
   type RuntimeAgentRecord,
   type RuntimeArtifact,
   type RuntimeSubstrateClient,
@@ -34,6 +37,7 @@ export class Agent {
   readonly runtime: string;
   readonly cwd: string;
   readonly agents: Record<string, AgentSubagent>;
+  readonly memory: AgentMemory;
   private readonly client: RuntimeSubstrateClient;
 
   private constructor(client: RuntimeSubstrateClient, record: RuntimeAgentRecord) {
@@ -44,6 +48,7 @@ export class Agent {
     this.agents = Object.fromEntries(
       record.options.subagentNames.map((name) => [name, new AgentSubagent(this, name)]),
     );
+    this.memory = new AgentMemory(client, this.id);
   }
 
   static async create(options: AgentOptions = {}): Promise<Agent> {
@@ -169,6 +174,21 @@ export class Agent {
 }
 
 export const CursorCompatibleAgent = Agent;
+
+export class AgentMemory {
+  constructor(
+    private readonly client: RuntimeSubstrateClient,
+    private readonly agentId: string,
+  ) {}
+
+  remember(text: string, options: Omit<RememberMemoryInput, "text"> = {}): Promise<RememberMemoryResult> {
+    return this.client.rememberMemory(this.agentId, { ...options, text });
+  }
+
+  list(options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
+    return this.client.listMemory(this.agentId, options);
+  }
+}
 
 export class AgentSubagent {
   constructor(

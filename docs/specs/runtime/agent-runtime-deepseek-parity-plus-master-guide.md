@@ -946,6 +946,47 @@ Acceptance evidence:
 - workflow can run with memory disabled;
 - subagent memory inheritance is explicit.
 
+Implementation slice completed 2026-05-11:
+
+- Runtime daemon now has a durable `AgentMemoryStore` with governed records under
+  the daemon state directory, explicit `# remember ...` writes, `/memory` and
+  `/memory show` reads, thread/agent memory endpoints, and `memory_update` TTI
+  events with `MemoryWrite` payloads.
+- Memory writes project into run receipts, trace bundles, turn projections,
+  evidence refs, task-state known facts, and workflow-addressable runtime nodes
+  so a later turn can explain which memory fact was injected.
+- SDK exposes `Agent.memory.remember()`, `Agent.memory.list()`,
+  `SendOptions.memory.remember`, `SendOptions.memory.disabled`,
+  `AgentMemoryRecord`, and memory-aware mock runtime behavior for local
+  workflow tests.
+- CLI exposes `ioi agent memory --json` as the operator/workflow contract for
+  `# remember`, `/memory`, memory endpoints, `memory_update`, and React Flow
+  memory configuration fields.
+- Contract tests now assert memory write/injection provenance through the live
+  daemon, SDK mock runtime, CLI parser surface, and React Flow workflow
+  contract files.
+
+Remaining memory UX closure:
+
+- Add first-class `/memory edit`, `/memory disable`, and `/memory path`
+  behavior rather than contract-only placeholders.
+- Add workflow-level read-only/write-approval enforcement and evidence.
+- Add explicit subagent memory inheritance controls and evidence.
+- Promote memory contract scaffolding into visible React Flow node/editor UX
+  where the workflow development environment does not already expose it.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/memory-store.mjs`
+- `npm run build:agent-sdk`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T01-14-12-548Z/result.json`
+
 ### P1. Doctor, Config, And Introspection
 
 Problem:

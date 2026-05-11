@@ -104,6 +104,10 @@ export interface AgentOptions {
 
 export interface SendOptions {
   model?: ModelSelection;
+  memory?: {
+    remember?: string;
+    disabled?: boolean;
+  };
   mcpServers?: Record<string, McpServerConfig>;
   onStep?: (event: unknown) => void | Promise<void>;
   onDelta?: (delta: string) => void | Promise<void>;
