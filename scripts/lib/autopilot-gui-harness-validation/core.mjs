@@ -4247,6 +4247,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs";
   const projectWorkflowMemoryLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
+  const projectWorkflowOutputLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_output_lane.rs";
   const projectWorkflowPackageLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
   const projectWorkflowExecutionResultsLanePath =
@@ -4290,6 +4292,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowMemoryLane = readFileSync(
     resolve(repoRoot, projectWorkflowMemoryLanePath),
+    "utf8",
+  );
+  const projectWorkflowOutputLane = readFileSync(
+    resolve(repoRoot, projectWorkflowOutputLanePath),
     "utf8",
   );
   const projectWorkflowPackageLane = readFileSync(
@@ -4648,6 +4654,15 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow_function_input_schema/.test(projectWorkflowBindingLane) &&
       /workflow_function_output_schema/.test(projectWorkflowBindingLane),
+    workflowOutputRuntimeLane:
+      /workflow_output_lane/.test(projectRuntime) &&
+      /workflow_output_satisfies_schema/.test(projectWorkflowOutputLane) &&
+      /workflow_truncate_output/.test(projectWorkflowOutputLane) &&
+      /workflow_output_bundle/.test(projectWorkflowOutputLane) &&
+      /WorkflowOutputBundle/.test(projectWorkflowOutputLane) &&
+      /WorkflowMaterializedAsset/.test(projectWorkflowOutputLane) &&
+      /WorkflowRendererRef/.test(projectWorkflowOutputLane) &&
+      /WorkflowDeliveryTarget/.test(projectWorkflowOutputLane),
     workflowExecutionResultsRuntimeLane:
       /workflow_execution_results_lane/.test(projectRuntime) &&
       /struct WorkflowRunResultParts/.test(

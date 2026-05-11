@@ -2640,6 +2640,64 @@ Validation evidence:
   - `runtime-artifacts.json` reports
     `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-11, workflow output lane refactor:
+
+- Output schema satisfaction, sandbox stderr truncation, and output
+  bundle/materialization projection now live in
+  `apps/autopilot/src-tauri/src/project/workflow_output_lane.rs`.
+- The lane owns `workflow_output_satisfies_schema`,
+  `workflow_truncate_output`, `workflow_output_bundle`, renderer refs, delivery
+  targets, output versioning, and materialized asset projection.
+- `runtime.rs` keeps execution dispatch, function sandbox execution,
+  approval/interrupt handling, checkpoints, and run-result assembly, but
+  delegates function-output schema checks and `ActionKind::Output` bundle
+  construction to the lane.
+- `commands.rs` continues to consume the same output schema validator through
+  `project.rs`, so fixture validation, dry-run output checks, and runtime output
+  nodes share one artifact contract.
+- The output node bundle schema fallback remains in `workflow_binding_lane.rs`;
+  this output lane owns runtime artifact materialization rather than binding
+  schema extraction.
+- The daemon and live GUI source-contract proofs now assert the output lane
+  directly, preserving React Flow inspection of output bundles, renderer refs,
+  materialized assets, delivery targets, package output surfaces, and PR-create
+  output surfaces.
+- `runtime.rs` is reduced to 2,672 lines; the output lane is 92 lines.
+
+Validation evidence:
+
+- `cargo test workflow_skill_context --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test coding_route --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs apps/autopilot/src-tauri/src/project/workflow_graph_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs apps/autopilot/src-tauri/src/project/workflow_output_lane.rs apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs`
+- `git diff --check -- apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_output_lane.rs scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T21-05-30-136Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true` with
+    `checks.workflowOutputRuntimeLane === true`;
+  - `rollback-restore-canary-ui-proof.json` also keeps
+    `checks.workflowBindingRuntimeLane === true`,
+    `checks.workflowGraphExecutionRuntimeLane === true`,
+    `checks.workflowHarnessResultsRuntimeLane === true`,
+    `checks.workflowExecutionResultsRuntimeLane === true`,
+    `checks.workflowAuthorityToolingRuntimeLane === true`,
+    `checks.workflowMemoryRuntimeLane === true`,
+    `checks.workflowPackageRunOutputSurfaces === true`, and
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow comparison component
+    set with `github_pr_create`, `approval_gate`, `policy_gate`,
+    `connector_call`, `mcp_provider`, `mcp_tool_call`, `tool_call`, and
+    `wallet_capability`;
+  - `runtime-artifacts.json` reports
+    `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
