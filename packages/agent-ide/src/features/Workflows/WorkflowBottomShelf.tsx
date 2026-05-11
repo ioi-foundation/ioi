@@ -31,6 +31,8 @@ import {
   workflowIssueTitle,
   workflowNodeRunChildLineage,
   workflowNodeName,
+  workflowPackageNodeOutputStatus,
+  workflowPackageNodeOutputSummary,
   workflowWorkbenchCheckSummary,
   workflowWorkbenchCheckTitle,
   workflowTimeLabel,
@@ -44,6 +46,12 @@ import {
   workflowConfiguredFieldNames,
   workflowValuePreview,
 } from "../../runtime/workflow-value-preview";
+
+function workflowPackageBottomBoolean(value: boolean | null): string {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "";
+}
 
 export function WorkflowBottomShelf({
   panel,
@@ -118,6 +126,10 @@ export function WorkflowBottomShelf({
     const configuredFields = workflowConfiguredFieldNames(selectedNode?.config?.logic ?? {});
     const latestInputPreview = workflowValuePreview(selectedNodeRun?.input);
     const latestOutputPreview = workflowValuePreview(selectedNodeRun?.output);
+    const packageOutputSummary = workflowPackageNodeOutputSummary(
+      selectedNode?.type,
+      selectedNodeRun?.output,
+    );
     return selectedNode ? (
       <div className="workflow-bottom-grid" data-testid="workflow-selection-preview">
         <dl data-testid="workflow-selection-summary">
@@ -170,6 +182,52 @@ export function WorkflowBottomShelf({
               <strong>Latest output</strong>
               <span>{latestOutputPreview.summary}</span>
               <small>{latestOutputPreview.detail}</small>
+            </article>
+          ) : null}
+          {packageOutputSummary ? (
+            <article
+              className={`workflow-output-row is-${workflowPackageNodeOutputStatus(
+                packageOutputSummary,
+              )}`}
+              data-testid="workflow-selection-package-output-summary"
+              data-package-node-kind={packageOutputSummary.kind}
+              data-package-status={packageOutputSummary.status}
+              data-package-path={packageOutputSummary.packagePath ?? ""}
+              data-package-readiness-status={
+                packageOutputSummary.readinessStatus ?? ""
+              }
+              data-package-evidence-ready={workflowPackageBottomBoolean(
+                packageOutputSummary.packageEvidenceReady,
+              )}
+              data-imported-workflow-path={
+                packageOutputSummary.importedWorkflowPath ?? ""
+              }
+              data-workflow-chrome-locale={
+                packageOutputSummary.workflowChromeLocale ?? ""
+              }
+              data-workflow-chrome-locale-preserved={workflowPackageBottomBoolean(
+                packageOutputSummary.workflowChromeLocalePreserved,
+              )}
+            >
+              <strong>
+                {packageOutputSummary.kind === "export"
+                  ? "Package export"
+                  : "Package import"}
+              </strong>
+              <span>
+                {packageOutputSummary.status} ·{" "}
+                {packageOutputSummary.packageEvidenceReady === true
+                  ? "evidence ready"
+                  : packageOutputSummary.packageEvidenceReady === false
+                    ? "evidence pending"
+                    : "evidence unknown"}
+              </span>
+              <small>
+                {packageOutputSummary.kind === "import"
+                  ? (packageOutputSummary.importedWorkflowPath ??
+                      "imported workflow pending")
+                  : (packageOutputSummary.packagePath ?? "package path pending")}
+              </small>
             </article>
           ) : null}
           {validationIssuesForSelectedNode.length > 0 ? (
