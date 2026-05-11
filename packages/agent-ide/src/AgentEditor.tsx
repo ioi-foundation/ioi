@@ -39,6 +39,7 @@ const DEFAULT_CAPABILITY_REQUIREMENTS = {
 
 const DEFAULT_GLOBAL_CONFIG: GraphGlobalConfig = {
   env: "{}",
+  workflowChromeLocale: "en-US",
   modelBindings: DEFAULT_MODEL_BINDINGS,
   requiredCapabilities: DEFAULT_CAPABILITY_REQUIREMENTS,
   policy: { maxBudget: 5.0, maxSteps: 50, timeoutMs: 30000 },
@@ -50,6 +51,7 @@ function normalizeGlobalConfig(config?: Partial<GraphGlobalConfig> | null): Grap
   return {
     ...DEFAULT_GLOBAL_CONFIG,
     ...config,
+    workflowChromeLocale: config?.workflowChromeLocale ?? DEFAULT_GLOBAL_CONFIG.workflowChromeLocale,
     modelBindings: {
       ...DEFAULT_MODEL_BINDINGS,
       ...(config?.modelBindings ?? {}),
@@ -141,10 +143,11 @@ function AgentEditorContent({
         <div className="agent-ide-editor-pane">
           <div className="agent-ide-canvas-shell">
             <Canvas 
-                nodes={nodes} edges={edges}
-                onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
-                onNodeSelect={handleNodeSelect}
-                onDrop={handleCanvasDrop}
+              nodes={nodes} edges={edges}
+              onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
+              onNodeSelect={handleNodeSelect}
+              workflowChromeLocale={globalConfig.workflowChromeLocale}
+              onDrop={handleCanvasDrop}
             />
 
             <div className="agent-ide-canvas-actions">
@@ -202,6 +205,8 @@ function AgentEditorContent({
                     policy: { ...prev.policy, ...(updates.policy ?? {}) },
                     contract: { ...prev.contract, ...(updates.contract ?? {}) },
                     meta: { ...prev.meta, ...(updates.meta ?? {}) },
+                    workflowChromeLocale:
+                      updates.workflowChromeLocale ?? prev.workflowChromeLocale,
                   })
                 )
               }

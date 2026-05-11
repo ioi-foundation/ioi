@@ -1494,6 +1494,14 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
   );
+  const graphTypes = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/types/graph.ts"),
+    "utf8",
+  );
+  const workflowDefaults = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-defaults.ts"),
+    "utf8",
+  );
   const harnessWorkflow = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/harness-workflow/core.ts"),
     "utf8",
@@ -1508,6 +1516,22 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   );
   const canvasNode = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx"),
+    "utf8",
+  );
+  const graphConfigView = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Editor/Inspector/views/GraphConfigView.tsx"),
+    "utf8",
+  );
+  const agentEditor = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/AgentEditor.tsx"),
+    "utf8",
+  );
+  const workflowComposerView = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/WorkflowComposer/view.tsx"),
+    "utf8",
+  );
+  const workflowComposerController = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/WorkflowComposer/controller.tsx"),
     "utf8",
   );
   const canvas = fs.readFileSync(
@@ -1554,6 +1578,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /runtime\.checklist/);
   assert.match(workflowContracts, /runtime\.ui_string_catalog/);
   assert.match(workflowContracts, /runtime\.accessible_status/);
+  assert.match(graphTypes, /workflowChromeLocale\?: string/);
+  assert.match(workflowDefaults, /workflowChromeLocale: "en-US"/);
+  assert.match(workflowDefaults, /config\?\.workflowChromeLocale/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
@@ -1641,6 +1668,8 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(canvas, /onKeyboardSelect/);
   assert.match(canvas, /nodesFocusable/);
   assert.match(canvas, /node-enter-space-selects-inspector/);
+  assert.match(canvas, /workflowChromeLocale/);
+  assert.match(canvas, /data-workflow-chrome-locale/);
   assert.match(canvasNode, /workflowRuntimeNodeChrome/);
   assert.match(canvasNode, /aria-label=\{chrome\.ariaLabel\}/);
   assert.match(canvasNode, /tabIndex=\{0\}/);
@@ -1648,15 +1677,25 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(canvasNode, /data-keyboard-selectable="true"/);
   assert.match(canvasNode, /handleNodeKeyDown/);
   assert.match(canvasNode, /event\.key !== "Enter" && event\.key !== " "/);
+  assert.match(canvasNode, /locale: workflowChromeLocale/);
   assert.match(canvasNode, /data-accessible-status-text=\{chrome\.statusText\}/);
   assert.match(canvasNode, /workflow-canvas-node-accessible-status/);
   assert.match(canvasNodeStyles, /\.canvas-node:focus-visible/);
   assert.match(canvasNodeStyles, /\.react-flow__node:focus-visible \.canvas-node/);
+  assert.match(graphConfigView, /workflow-global-chrome-locale/);
+  assert.match(graphConfigView, /normalizeWorkflowRuntimeLocale/);
+  assert.match(agentEditor, /workflowChromeLocale=\{globalConfig\.workflowChromeLocale\}/);
+  assert.match(workflowComposerView, /workflowChromeLocale=\{globalConfig\.workflowChromeLocale\}/);
+  assert.match(workflowComposerView, /onUpdateWorkflowChromeLocale/);
+  assert.match(workflowComposerController, /handleUpdateWorkflowChromeLocale/);
   assert.match(inspector, /workflow-runtime-chrome-locale/);
   assert.match(inspector, /workflowChromeLocale/);
   assert.match(inspector, /data-model-output-localized/);
   assert.match(workflowRailPanel, /workflowRuntimeAccessibleStatusLabel/);
   assert.match(workflowRailPanel, /workflowRuntimeNodeChrome/);
+  assert.match(workflowRailPanel, /workflow-settings-chrome-locale-select/);
+  assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
+  assert.match(workflowRailPanel, /onUpdateWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /workflow-selected-node-status-announcement/);
   assert.match(workflowRailPanel, /data-accessible-status-text/);
   assert.match(workflowRailPanel, /workflow-run-timeline/);

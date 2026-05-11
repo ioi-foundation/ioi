@@ -276,8 +276,13 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
     metrics?.records ??
     metrics?.time ??
     statusClass;
+  const workflowChromeLocale =
+    typeof nodeData.workflowChromeLocale === "string"
+      ? nodeData.workflowChromeLocale
+      : null;
   const chrome = workflowRuntimeNodeChrome(nodeData, {
     fallbackLabel: isGhost ? "Proposed step" : String(name ?? nodeType),
+    locale: workflowChromeLocale,
   });
   const nodeTitle = isGhost ? "Proposed step" : chrome.label;
   const nodeFamilyLabel = familyLabels[nodeType] || familyLabels[family] || "Step";
@@ -303,6 +308,7 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
       data-node-family={family}
       data-keyboard-selectable="true"
       data-runtime-ui-catalog={chrome.isRuntimeChrome ? logic.runtimeUiStringCatalogRef : undefined}
+      data-workflow-chrome-locale={workflowChromeLocale ?? undefined}
       data-runtime-ui-locale={chrome.isRuntimeChrome ? chrome.locale : undefined}
       data-accessible-status={chrome.accessibleStatusValue}
       data-accessible-status-text={chrome.statusText}

@@ -21,10 +21,11 @@ interface CanvasProps {
   onNodeActivate?: (id: string) => void;
   onDrop: (e: React.DragEvent) => void;
   readOnly?: boolean;
+  workflowChromeLocale?: string | null;
 }
 
 export function Canvas({
-  nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop, readOnly = false
+  nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop, readOnly = false, workflowChromeLocale = null
 }: CanvasProps) {
 
   const keyboardNodes = useMemo(
@@ -34,9 +35,10 @@ export function Canvas({
         data: {
           ...(node.data ?? {}),
           onKeyboardSelect: (nodeId: string) => onNodeSelect(nodeId),
+          workflowChromeLocale,
         },
       })),
-    [nodes, onNodeSelect],
+    [nodes, onNodeSelect, workflowChromeLocale],
   );
 
   const nodeTypes = useMemo(() => ({
@@ -86,6 +88,7 @@ export function Canvas({
          onDragOver={e => e.preventDefault()}
          onDrop={readOnly ? undefined : onDrop}
          aria-label="Workflow canvas"
+         data-workflow-chrome-locale={workflowChromeLocale ?? "default"}
          data-keyboard-navigation="node-enter-space-selects-inspector"
          data-read-only={readOnly ? "true" : "false"}>
       <ReactFlow

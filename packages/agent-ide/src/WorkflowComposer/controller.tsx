@@ -9524,6 +9524,26 @@ export function useWorkflowComposerController({
     [isReadOnlyWorkflow, markWorkflowDirty],
   );
 
+  const handleUpdateWorkflowChromeLocale = useCallback(
+    (workflowChromeLocale: string) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      setGlobalConfig((current) =>
+        normalizeGlobalConfig({
+          ...current,
+          workflowChromeLocale,
+        }),
+      );
+      markWorkflowDirty();
+      setStatusMessage(`Workflow chrome locale set to ${workflowChromeLocale}`);
+    },
+    [isReadOnlyWorkflow, markWorkflowDirty],
+  );
+
   const handleAddNodeFromLibrary = useCallback(
     (
       type: string,
@@ -13258,6 +13278,7 @@ export function useWorkflowComposerController({
     handleSelectHarnessRollbackTarget,
     handleSelectRun,
     handleUpdateEnvironmentProfile,
+    handleUpdateWorkflowChromeLocale,
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,

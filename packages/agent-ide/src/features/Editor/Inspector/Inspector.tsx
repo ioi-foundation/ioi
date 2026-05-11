@@ -62,6 +62,7 @@ export function Inspector({
   const config = selectedNode.config ?? { logic: {}, law: {} };
   const runtimeChrome = workflowRuntimeNodeChrome(selectedNode, {
     fallbackLabel: selectedNode.name ?? selectedNode.type,
+    locale: globalConfig?.workflowChromeLocale,
   });
   const showRuntimeChromeConfig = runtimeChrome.isRuntimeChrome;
 
