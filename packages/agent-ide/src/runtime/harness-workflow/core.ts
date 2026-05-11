@@ -82,6 +82,10 @@ import {
   DEFAULT_AGENT_HARNESS_VERSION,
   DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 } from "./constants";
+import {
+  isRuntimeChromeNodeKind,
+  runtimeNodeChromeLogic,
+} from "../workflow-runtime-ui-strings";
 export {
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS,
@@ -10347,6 +10351,7 @@ type ComponentSeed = {
   evidence: string[];
   group: string;
   icon: string;
+  accessibleStatusField?: string;
   timeoutMs?: number;
   maxAttempts?: number;
 };
@@ -10368,6 +10373,10 @@ function defaultReadinessForKind(
 
 function makeComponent(seed: ComponentSeed): WorkflowHarnessComponentSpec {
   const approvalRequired = seed.approvalRequired ?? false;
+  const runtimeChrome =
+    seed.accessibleStatusField && isRuntimeChromeNodeKind(seed.kind)
+      ? runtimeNodeChromeLogic(seed.kind, seed.accessibleStatusField)
+      : null;
   return {
     componentId: componentId(seed.kind),
     version: "1.0.0",
@@ -10402,6 +10411,11 @@ function makeComponent(seed: ComponentSeed): WorkflowHarnessComponentSpec {
       icon: seed.icon,
       group: seed.group,
       summary: seed.description,
+      localeKey: runtimeChrome?.localeKey,
+      ariaLabelKey: runtimeChrome?.ariaLabelKey,
+      statusAnnouncementKey: runtimeChrome?.statusAnnouncementKey,
+      accessibleStatusField: runtimeChrome?.accessibleStatusField,
+      colorIndependentStatus: runtimeChrome?.colorIndependentStatus,
     },
   };
 }
@@ -10465,6 +10479,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime.doctor", "doctor.blockers", "doctor.redaction"],
       group: "Governance",
       icon: "activity",
+      accessibleStatusField: "status",
     }),
     makeComponent({
       kind: "runtime_task",
@@ -10477,6 +10492,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime_task", "task.prompt_hash", "task.replayable", "task.redaction"],
       group: "State",
       icon: "clipboard-list",
+      accessibleStatusField: "runtimeTask.status",
     }),
     makeComponent({
       kind: "runtime_job",
@@ -10489,6 +10505,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime_job", "job.lifecycle", "job.queue", "job.cancel", "job.replayable"],
       group: "State",
       icon: "list-checks",
+      accessibleStatusField: "runtimeJob.status",
     }),
     makeComponent({
       kind: "runtime_checklist",
@@ -10501,6 +10518,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime_checklist", "checklist.items", "checklist.status", "checklist.replayable"],
       group: "State",
       icon: "list-todo",
+      accessibleStatusField: "runtimeChecklist.status",
     }),
     makeComponent({
       kind: "repository_context",
@@ -10520,6 +10538,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "State",
       icon: "git-branch",
+      accessibleStatusField: "repositoryContext.status.availability",
     }),
     makeComponent({
       kind: "branch_policy",
@@ -10539,6 +10558,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Governance",
       icon: "shield-check",
+      accessibleStatusField: "branchPolicy.status",
     }),
     makeComponent({
       kind: "github_context",
@@ -10562,6 +10582,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Connectors",
       icon: "github",
+      accessibleStatusField: "githubContext.status",
     }),
     makeComponent({
       kind: "issue_context",
@@ -10583,6 +10604,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Connectors",
       icon: "circle-dot",
+      accessibleStatusField: "issueContext.status",
     }),
     makeComponent({
       kind: "pr_attempt",
@@ -10607,6 +10629,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Connectors",
       icon: "git-pull-request",
+      accessibleStatusField: "prAttempt.status",
     }),
     makeComponent({
       kind: "review_gate",
@@ -10630,6 +10653,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Governance",
       icon: "badge-check",
+      accessibleStatusField: "reviewGate.status",
     }),
     makeComponent({
       kind: "github_pr_create",
@@ -10653,6 +10677,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Connectors",
       icon: "git-pull-request-create",
+      accessibleStatusField: "githubPrCreatePlan.status",
     }),
     makeComponent({
       kind: "skill_registry",
@@ -11695,9 +11720,25 @@ function nodeLogicFor(
     errorSchema: component.errorSchema,
   };
   switch (component.kind) {
+    case "runtime_doctor":
+      return {
+        ...base,
+        ...runtimeNodeChromeLogic("runtime_doctor", "status"),
+        doctorEndpoint: "/v1/doctor",
+        blockOnRequiredFailures: true,
+        allowOptionalDegraded: true,
+        redactionProfile: "doctor_safe",
+        activationGate: {
+          consumesDoctorReport: true,
+          blockerField: "blockers",
+          optionalWarningsField: "optionalWarnings",
+        },
+        nodeTypeLabel: "RuntimeDoctorNode",
+      };
     case "runtime_task":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("runtime_task", "runtimeTask.status"),
         runtimeTaskEndpoint: "/v1/jobs",
         runtimeTaskField: "runtimeTask",
         runtimeTaskStatusField: "runtimeTask.status",
@@ -11739,6 +11780,7 @@ function nodeLogicFor(
     case "runtime_job":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("runtime_job", "runtimeJob.status"),
         runtimeJobEndpoint: "/v1/jobs",
         runtimeJobField: "runtimeJob",
         runtimeJobStatusField: "runtimeJob.status",
@@ -11802,6 +11844,7 @@ function nodeLogicFor(
     case "runtime_checklist":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("runtime_checklist", "runtimeChecklist.status"),
         runtimeChecklistEndpoint: "/v1/runs/{runId}/trace",
         runtimeChecklistField: "runtimeChecklist",
         runtimeChecklistStatusField: "runtimeChecklist.status",
@@ -11855,6 +11898,7 @@ function nodeLogicFor(
     case "repository_context":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("repository_context", "repositoryContext.status.availability"),
         repositoryEndpoint: "/v1/repository-context",
         repositoryContextField: "repositoryContext",
         repositoryBranchField: "repositoryContext.branch",
@@ -11909,6 +11953,7 @@ function nodeLogicFor(
     case "branch_policy":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("branch_policy", "branchPolicy.status"),
         branchPolicyField: "branchPolicy",
         branchPolicyStatusField: "branchPolicy.status",
         branchPolicyBlockersField: "branchPolicy.blockers",
@@ -11979,6 +12024,7 @@ function nodeLogicFor(
     case "github_context":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("github_context", "githubContext.status"),
         githubContextEndpoint: "/v1/github-context",
         githubContextField: "githubContext",
         githubRemoteField: "githubContext.defaultRemoteName",
@@ -12047,6 +12093,7 @@ function nodeLogicFor(
     case "issue_context":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("issue_context", "issueContext.status"),
         issueContextEndpoint: "/v1/issue-context",
         issueContextField: "issueContext",
         issueContextStatusField: "issueContext.status",
@@ -12111,6 +12158,7 @@ function nodeLogicFor(
     case "pr_attempt":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("pr_attempt", "prAttempt.status"),
         prAttemptEndpoint: "/v1/pr-attempts",
         prAttemptField: "prAttempt",
         prAttemptStatusField: "prAttempt.status",
@@ -12216,6 +12264,7 @@ function nodeLogicFor(
     case "review_gate":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("review_gate", "reviewGate.status"),
         reviewGateEndpoint: "/v1/review-gate",
         reviewGateField: "reviewGate",
         reviewGateStatusField: "reviewGate.status",
@@ -12314,6 +12363,7 @@ function nodeLogicFor(
     case "github_pr_create":
       return {
         ...base,
+        ...runtimeNodeChromeLogic("github_pr_create", "githubPrCreatePlan.status"),
         githubPrCreatePlanEndpoint: "/v1/github/pr-create-plan",
         githubPrCreatePlanField: "githubPrCreatePlan",
         githubPrCreatePlanStatusField: "githubPrCreatePlan.status",

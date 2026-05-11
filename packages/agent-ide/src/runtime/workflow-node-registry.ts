@@ -15,6 +15,11 @@ import type {
   WorkflowPortDefinition,
   WorkflowScaffoldDefinition,
 } from "../types/graph";
+import {
+  runtimeNodeAccessibility,
+  runtimeNodeChromeLogic,
+  runtimeNodeLocalization,
+} from "./workflow-runtime-ui-strings";
 
 export type WorkflowNodeGroup =
   | "Start"
@@ -61,6 +66,15 @@ export const DEFAULT_SANDBOX = {
   outputLimitBytes: 32768,
   permissions: [],
 } satisfies NonNullable<FirewallPolicy["sandboxPolicy"]>;
+
+const RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES = {
+  runtimeUiStringCatalogRef: { type: "string" },
+  localeKey: { type: "string" },
+  ariaLabelKey: { type: "string" },
+  statusAnnouncementKey: { type: "string" },
+  accessibleStatusField: { type: "string" },
+  colorIndependentStatus: { type: "boolean" },
+} as const;
 
 function port(
   id: string,
@@ -335,8 +349,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         blockOnRequiredFailures: { type: "boolean" },
         allowOptionalDegraded: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("runtime_doctor"),
+    accessibility: runtimeNodeAccessibility("runtime_doctor", "status"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -349,6 +366,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("runtime_doctor", "status"),
       doctorEndpoint: "/v1/doctor",
       blockOnRequiredFailures: true,
       allowOptionalDegraded: true,
@@ -395,8 +413,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         runtimeTaskStatusField: { type: "string" },
         runtimeTaskReceiptField: { type: "string" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("runtime_task"),
+    accessibility: runtimeNodeAccessibility("runtime_task", "runtimeTask.status"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -409,6 +430,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("runtime_task", "runtimeTask.status"),
       runtimeTaskEndpoint: "/v1/jobs",
       runtimeTaskField: "runtimeTask",
       runtimeTaskStatusField: "runtimeTask.status",
@@ -471,8 +493,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         runtimeJobCancelRoute: { type: "string" },
         runtimeJobReceiptField: { type: "string" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("runtime_job"),
+    accessibility: runtimeNodeAccessibility("runtime_job", "runtimeJob.status"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -485,6 +510,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("runtime_job", "runtimeJob.status"),
       runtimeJobEndpoint: "/v1/jobs",
       runtimeJobField: "runtimeJob",
       runtimeJobStatusField: "runtimeJob.status",
@@ -554,8 +580,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         runtimeChecklistItemsField: { type: "string" },
         runtimeChecklistReceiptField: { type: "string" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("runtime_checklist"),
+    accessibility: runtimeNodeAccessibility("runtime_checklist", "runtimeChecklist.status"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -568,6 +597,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("runtime_checklist", "runtimeChecklist.status"),
       runtimeChecklistEndpoint: "/v1/runs/{runId}/trace",
       runtimeChecklistField: "runtimeChecklist",
       runtimeChecklistStatusField: "runtimeChecklist.status",
@@ -627,8 +657,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         repositoryEndpoint: { type: "string" },
         readOnly: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("repository_context"),
+    accessibility: runtimeNodeAccessibility("repository_context", "repositoryContext.status.availability"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -641,6 +674,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("repository_context", "repositoryContext.status.availability"),
       repositoryEndpoint: "/v1/repository-context",
       repositoryContextField: "repositoryContext",
       repositoryBranchField: "repositoryContext.branch",
@@ -700,8 +734,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         allowDirtyWorktree: { type: "boolean" },
         requireUpstream: { type: "boolean" },
         requireReviewForWarnings: { type: "boolean" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("branch_policy"),
+    accessibility: runtimeNodeAccessibility("branch_policy", "branchPolicy.status"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -714,6 +751,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("branch_policy", "branchPolicy.status"),
       branchPolicyField: "branchPolicy",
       branchPolicyStatusField: "branchPolicy.status",
       branchPolicyBlockersField: "branchPolicy.blockers",
@@ -786,8 +824,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         githubPrPreconditionsField: { type: "string" },
         readOnly: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("github_context"),
+    accessibility: runtimeNodeAccessibility("github_context", "githubContext.status"),
     policyProfile: policyProfile(),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -800,6 +841,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("github_context", "githubContext.status"),
       githubContextEndpoint: "/v1/github-context",
       githubContextField: "githubContext",
       githubRemoteField: "githubContext.defaultRemoteName",
@@ -877,8 +919,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         issueContextBoundField: { type: "string" },
         readOnly: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("issue_context"),
+    accessibility: runtimeNodeAccessibility("issue_context", "issueContext.status"),
     policyProfile: policyProfile("read", false),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
@@ -891,6 +936,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("issue_context", "issueContext.status"),
       issueContextEndpoint: "/v1/issue-context",
       issueContextField: "issueContext",
       issueContextStatusField: "issueContext.status",
@@ -972,8 +1018,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         prAttemptAuthorityField: { type: "string" },
         readOnly: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("pr_attempt"),
+    accessibility: runtimeNodeAccessibility("pr_attempt", "prAttempt.status"),
     policyProfile: policyProfile("external_write", true),
     evidenceProfile: evidenceProfile(
       ["execution", "verification", "approval", "asset_materialized"],
@@ -986,6 +1035,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("pr_attempt", "prAttempt.status"),
       prAttemptEndpoint: "/v1/pr-attempts",
       prAttemptField: "prAttempt",
       prAttemptStatusField: "prAttempt.status",
@@ -1083,8 +1133,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         reviewGateReviewersField: { type: "string" },
         readOnly: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("review_gate"),
+    accessibility: runtimeNodeAccessibility("review_gate", "reviewGate.status"),
     policyProfile: policyProfile("external_write", true),
     evidenceProfile: evidenceProfile(
       ["execution", "verification", "approval"],
@@ -1097,6 +1150,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("review_gate", "reviewGate.status"),
       reviewGateEndpoint: "/v1/review-gate",
       reviewGateField: "reviewGate",
       reviewGateStatusField: "reviewGate.status",
@@ -1195,8 +1249,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         dryRun: { type: "boolean" },
         mutationExecuted: { type: "boolean" },
         redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
       },
     },
+    localization: runtimeNodeLocalization("github_pr_create"),
+    accessibility: runtimeNodeAccessibility("github_pr_create", "githubPrCreatePlan.status"),
     policyProfile: policyProfile("external_write", true),
     evidenceProfile: evidenceProfile(
       ["execution", "verification", "approval"],
@@ -1209,6 +1266,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       supportsDryRun: true,
     },
     defaultLogic: {
+      ...runtimeNodeChromeLogic("github_pr_create", "githubPrCreatePlan.status"),
       githubPrCreatePlanEndpoint: "/v1/github/pr-create-plan",
       githubPrCreatePlanField: "githubPrCreatePlan",
       githubPrCreatePlanStatusField: "githubPrCreatePlan.status",

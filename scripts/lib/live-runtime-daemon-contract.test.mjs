@@ -1502,6 +1502,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "packages/agent-ide/src/runtime/workflow-node-registry.ts"),
     "utf8",
   );
+  const workflowRuntimeUiStrings = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-ui-strings.ts"),
+    "utf8",
+  );
   const workflowValidation = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-validation.ts"),
     "utf8",
@@ -1516,6 +1520,8 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /runtime\.task/);
   assert.match(workflowContracts, /runtime\.job/);
   assert.match(workflowContracts, /runtime\.checklist/);
+  assert.match(workflowContracts, /runtime\.ui_string_catalog/);
+  assert.match(workflowContracts, /runtime\.accessible_status/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
@@ -1528,6 +1534,12 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
   assert.match(nodeRegistry, /\/v1\/doctor/);
   assert.match(nodeRegistry, /blockOnRequiredFailures/);
+  assert.match(nodeRegistry, /runtimeUiStringCatalogRef/);
+  assert.match(nodeRegistry, /localeKey/);
+  assert.match(nodeRegistry, /ariaLabelKey/);
+  assert.match(nodeRegistry, /statusAnnouncementKey/);
+  assert.match(nodeRegistry, /accessibleStatusField/);
+  assert.match(nodeRegistry, /colorIndependentStatus/);
   assert.match(nodeRegistry, /runtime_task/);
   assert.match(nodeRegistry, /RuntimeTaskNode/);
   assert.match(nodeRegistry, /runtimeTaskStatusField/);
@@ -1600,6 +1612,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /runtime_doctor/);
   assert.match(harnessWorkflow, /RuntimeDoctorReport/);
   assert.match(harnessWorkflow, /runtime\.doctor\.read/);
+  assert.match(harnessWorkflow, /runtimeNodeChromeLogic/);
+  assert.match(harnessWorkflow, /accessibleStatusField/);
+  assert.match(harnessWorkflow, /colorIndependentStatus/);
   assert.match(harnessWorkflow, /runtime_task/);
   assert.match(harnessWorkflow, /RuntimeTaskRecord/);
   assert.match(harnessWorkflow, /runtime\.task\.read/);
@@ -1649,6 +1664,15 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowValidation, /hook_policy_dry_run_blocked/);
   assert.match(workflowValidation, /hook_policy_dry_run_plan_missing/);
   assert.match(workflowValidation, /hook_policy_routes_missing/);
+  assert.match(workflowRuntimeUiStrings, /ioi\.workflow\.runtime-ui-string-catalog\.v1/);
+  assert.match(workflowRuntimeUiStrings, /workflow_chrome/);
+  assert.match(workflowRuntimeUiStrings, /supportedLocales: \["en-US", "es-ES"\]/);
+  assert.match(workflowRuntimeUiStrings, /modelOutputLocalized: false/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_task\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_job\.aria/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_checklist\.status/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
+  assert.match(workflowRuntimeUiStrings, /WORKFLOW_RUNTIME_ACCESSIBLE_STATUS_TEXT/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

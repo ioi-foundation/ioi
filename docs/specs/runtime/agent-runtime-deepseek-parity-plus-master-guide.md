@@ -1777,6 +1777,31 @@ Acceptance evidence:
 - TUI can switch chrome language;
 - workflow canvas status remains readable without color.
 
+Implementation slice completed 2026-05-11, runtime chrome localization and
+accessible status metadata:
+
+- Added `workflow-runtime-ui-strings.ts` as the workflow-addressable runtime
+  chrome string catalog with locale keys, accessible names, status
+  announcements, English/Spanish chrome strings, and explicit
+  `modelOutputLocalized: false` boundary.
+- Added graph config fields for `runtimeUiStringCatalogRef`, `localeKey`,
+  `ariaLabelKey`, `statusAnnouncementKey`, `accessibleStatusField`,
+  `accessibleStatusText`, and `colorIndependentStatus`.
+- Bound localization and accessibility metadata into runtime, repository,
+  branch policy, GitHub context, issue context, PR attempt, review gate, and
+  GitHub PR create nodes.
+- Default harness components now expose color-independent status metadata in
+  component UI metadata and node logic, so React Flow can announce status
+  through text instead of relying on color.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide -- --pretty false`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T14-03-04-311Z/result.json`
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
