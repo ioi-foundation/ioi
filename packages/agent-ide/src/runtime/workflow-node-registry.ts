@@ -591,6 +591,12 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         type: "object",
         required: ["schemaVersion", "status", "skillCount", "skills", "redaction"],
       },
+      activationGate: {
+        consumesSkillHookManifest: true,
+        skillSetHashField: "activeSkillSetHash",
+        manifestValidationField: "validation.status",
+        requireValidationPass: true,
+      },
       nodeTypeLabel: "SkillNode",
     },
     defaultLaw: {},
@@ -638,6 +644,12 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       outputSchema: {
         type: "object",
         required: ["schemaVersion", "skillCount", "activeSkillSetHash", "skills"],
+      },
+      activationGate: {
+        consumesSkillHookManifest: true,
+        skillSetHashField: "activeSkillSetHash",
+        manifestValidationField: "validation.status",
+        requireValidationPass: true,
       },
       nodeTypeLabel: "SkillPackNode",
     },
@@ -691,6 +703,12 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         type: "object",
         required: ["schemaVersion", "status", "hookCount", "hooks", "redaction"],
       },
+      activationGate: {
+        consumesSkillHookManifest: true,
+        hookSetHashField: "activeHookSetHash",
+        manifestValidationField: "validation.status",
+        requireValidationPass: true,
+      },
       nodeTypeLabel: "HookNode",
     },
     defaultLaw: {},
@@ -742,6 +760,12 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       outputSchema: {
         type: "object",
         required: ["failurePolicy", "allowMutationWithoutContract", "requireAuthorityScopes"],
+      },
+      activationGate: {
+        consumesSkillHookManifest: true,
+        hookSetHashField: "activeHookSetHash",
+        manifestValidationField: "hookExecution.mutationBlockedHookIds",
+        requireValidationPass: true,
       },
       nodeTypeLabel: "HookPolicyNode",
     },

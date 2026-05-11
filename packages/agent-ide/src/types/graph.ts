@@ -462,8 +462,13 @@ export interface NodeLogic {
   nodeTypeLabel?: string;
   activationGate?: {
     consumesDoctorReport?: boolean;
+    consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
+    skillSetHashField?: string;
+    hookSetHashField?: string;
+    manifestValidationField?: string;
+    requireValidationPass?: boolean;
   };
 
   // --- Retrieval ---

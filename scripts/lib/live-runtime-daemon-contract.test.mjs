@@ -215,7 +215,46 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     assert.equal(doctor.skillsHooks.skillCount, 1);
     assert.equal(doctor.skillsHooks.hookCount, 1);
     assert.ok(!doctor.optionalWarnings.includes("skills.hooks"));
-    assert.ok(!JSON.stringify({ skills, hooks, doctor }).includes("super-secret-hook"));
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({ options: { local: { cwd } } }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "Use governed skill and hook provenance.", mode: "send" }),
+    });
+    assert.match(turn.active_skill_hook_manifest_ref, /^skill_hook_manifest_run_/);
+    assert.match(turn.active_skill_set_hash, /^[a-f0-9]{64}$/);
+    assert.match(turn.active_hook_set_hash, /^[a-f0-9]{64}$/);
+
+    const runId = `run_${turn.turn_id.slice("turn_".length)}`;
+    const trace = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/trace`);
+    assert.equal(trace.activeSkillHookManifest.schemaVersion, "ioi.agent-runtime.active-skill-hook-manifest.v1");
+    assert.equal(trace.activeSkillHookManifest.selectedSkillIds.length, 1);
+    assert.equal(trace.activeSkillHookManifest.selectedHookIds.length, 1);
+    assert.equal(trace.activeSkillHookManifest.hookExecution.enabled, false);
+    assert.equal(trace.activeSkillHookManifest.hookExecution.mutationBlockedWithoutDeclaredCapabilities, true);
+    assert.equal(trace.activeSkillHookManifest.mutationBlockedHookIds.length, 1);
+    assert.equal(trace.promptAudit.activeSkillHookManifestId, trace.activeSkillHookManifest.manifestId);
+    assert.equal(trace.promptAudit.hookExecutionEnabled, false);
+    assert.ok(
+      trace.receipts.some((receipt) => receipt.kind === "active_skill_hook_manifest"),
+    );
+    const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/artifacts`);
+    assert.ok(
+      artifacts.some((artifact) => artifact.name === "active-skill-hook-manifest.json"),
+    );
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    const manifestEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "ActiveSkillHookManifest",
+    );
+    assert.equal(manifestEvent.component_kind, "skill_registry");
+    assert.equal(manifestEvent.workflow_node_id, "runtime.skill-hook-manifest");
+    assert.equal(manifestEvent.payload_summary.selected_skill_count, 1);
+    assert.equal(manifestEvent.payload_summary.selected_hook_count, 1);
+    assert.equal(manifestEvent.payload_summary.hook_execution_enabled, false);
+    assert.ok(manifestEvent.artifact_refs.includes("active-skill-hook-manifest.json"));
+    assert.ok(!JSON.stringify({ skills, hooks, doctor, turn, trace, events }).includes("super-secret-hook"));
   } finally {
     await daemon.close();
   }
@@ -714,6 +753,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /\/v1\/skills/);
   assert.match(nodeRegistry, /\/v1\/hooks/);
   assert.match(nodeRegistry, /failurePolicy/);
+  assert.match(nodeRegistry, /consumesSkillHookManifest/);
+  assert.match(nodeRegistry, /activeSkillSetHash/);
+  assert.match(nodeRegistry, /activeHookSetHash/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_search/);
   assert.match(harnessWorkflow, /memory_list/);
@@ -730,6 +772,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /SkillRegistryProjection/);
   assert.match(harnessWorkflow, /HookRegistryProjection/);
+  assert.match(harnessWorkflow, /active_skill_hook_manifest/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

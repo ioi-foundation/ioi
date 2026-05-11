@@ -21,6 +21,7 @@ const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
   model_route_decision: "item.completed",
+  skill_hook_manifest: "item.completed",
   memory_update: "item.completed",
   task_state: "item.completed",
   uncertainty: "item.completed",
@@ -184,6 +185,7 @@ export class AgentgresRuntimeStateStore {
         : "");
     const modelRoute = this.resolveRunModelRoute(agent, request);
     const memory = this.resolveRunMemory(agent, request, prompt);
+    const skillHookCatalog = this.skillHookCatalog({ cwd: agent.cwd });
     const run = buildRun({
       agent,
       mode,
@@ -192,6 +194,7 @@ export class AgentgresRuntimeStateStore {
       source: "local_daemon_agentgres",
       modelRoute,
       memory,
+      skillHookCatalog,
     });
     this.runs.set(run.id, run);
     this.writeRun(run, "run.create");
@@ -1006,12 +1009,19 @@ export class AgentgresRuntimeStateStore {
       stop_reason: run.trace?.stopCondition?.reason ?? null,
       model_route_decision: run.modelRouteDecision ?? run.trace?.modelRouteDecision ?? null,
       model_route_receipt_id: run.modelRouteReceiptId ?? null,
+      active_skill_hook_manifest_ref: run.activeSkillHookManifest?.manifestId ?? null,
+      active_skill_set_hash: run.activeSkillHookManifest?.activeSkillSetHash ?? null,
+      active_hook_set_hash: run.activeSkillHookManifest?.activeHookSetHash ?? null,
       memory_refs: run.memoryRecords?.map((record) => record.id) ?? [],
       memory_write_receipt_ids: run.memoryWriteReceipts?.map((receipt) => receipt.id) ?? [],
       rollback_snapshot_id: null,
       quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
       workflow_execution_ref: null,
-      evidence_refs: ["agentgres_canonical_operation_log", `run:${run.id}`],
+      evidence_refs: [
+        "agentgres_canonical_operation_log",
+        `run:${run.id}`,
+        run.activeSkillHookManifest?.manifestId,
+      ].filter(Boolean),
     };
   }
 
@@ -3395,7 +3405,7 @@ async function handleRunRoute({ request, response, store, url, segments }) {
   throw notFound("Run route not found.", { runId, action, method: request.method });
 }
 
-function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {} }) {
+function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {}, skillHookCatalog = null }) {
   const runId = `run_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
   const taskFamily = taskFamilyForMode(mode);
@@ -3422,6 +3432,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const subagentMemoryReceipt = subagentMemoryInheritance
     ? subagentMemoryInheritanceReceipt(runId, subagentMemoryInheritance)
     : null;
+  const activeSkillHookManifest = activeSkillHookManifestForRun({
+    runId,
+    agent,
+    request,
+    catalog: skillHookCatalog,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3438,6 +3454,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
             `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagentName ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, writeAllowed=${subagentMemoryInheritance.writeAllowed}`,
           ]
         : []),
+      `Active skill/hook manifest: skills=${activeSkillHookManifest.selectedSkillIds.length}, hooks=${activeSkillHookManifest.selectedHookIds.length}, skillSet=${activeSkillHookManifest.activeSkillSetHash.slice(0, 12)}, hookSet=${activeSkillHookManifest.activeHookSetHash.slice(0, 12)}`,
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -3448,6 +3465,9 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     evidenceRefs: [
       "ioi_daemon_public_runtime_api",
       "agentgres_canonical_operation_log",
+      activeSkillHookManifest.manifestId,
+      activeSkillHookManifest.activeSkillSetHash,
+      activeSkillHookManifest.activeHookSetHash,
       ...agent.options.mcpServerNames,
       ...agent.options.skillNames,
       ...agent.options.hookNames,
@@ -3502,8 +3522,13 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         description: "Replay from Agentgres reconstructs terminal event stream.",
         status: "passed",
       },
+      {
+        checkId: "active-skill-hook-manifest",
+        description: "Trace records the exact skill and hook catalog snapshot used by this turn.",
+        status: "passed",
+      },
     ],
-    minimumEvidence: ["events", "receipts", "trace", "scorecard", "agentgres_operation_log"],
+    minimumEvidence: ["events", "receipts", "trace", "scorecard", "agentgres_operation_log", "active_skill_hook_manifest"],
   };
   const semanticImpact = {
     changedSymbols: [],
@@ -3513,6 +3538,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/threads/{id}/memory",
       "/v1/runs/{id}/events",
       "/v1/runs/{id}/trace",
+      "/v1/skills",
+      "/v1/hooks",
     ],
     changedSchemas: [
       "IOISDKMessage",
@@ -3521,6 +3548,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "ModelRouteDecision",
       "AgentMemoryRecord",
       "SubagentMemoryInheritanceProjection",
+      "ActiveSkillHookManifest",
       "RuntimeEventEnvelope",
     ],
     changedPolicies: [
@@ -3529,6 +3557,10 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       ...normalizeArray(memory.policyUpdates).map(() => "memory.policy"),
       ...(subagentMemoryInheritance
         ? [`memory.subagent_inheritance.${subagentMemoryInheritance.mode}`]
+        : []),
+      "skills_hooks.active_manifest.read_only",
+      ...(activeSkillHookManifest.mutationBlockedHookIds.length > 0
+        ? ["hooks.mutation_blocked_without_contract"]
         : []),
     ],
     affectedTests: ["live-runtime-daemon-contract"],
@@ -3589,6 +3621,17 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     redaction: "none",
     evidenceRefs: ["wallet.network", "authority.no_external_scope"],
   };
+  const skillHookReceipt = {
+    id: `receipt_${runId}_skill_hook_manifest`,
+    kind: "active_skill_hook_manifest",
+    summary: `Recorded active skill/hook manifest with ${activeSkillHookManifest.selectedSkillIds.length} skill(s) and ${activeSkillHookManifest.selectedHookIds.length} hook(s).`,
+    redaction: "redacted",
+    evidenceRefs: [
+      activeSkillHookManifest.manifestId,
+      "runtime_skill_hook_discovery",
+      "hook_execution_disabled_until_policy",
+    ],
+  };
   const agentgresReceipt = {
     id: `receipt_${runId}_agentgres`,
     kind: "agentgres_canonical_write",
@@ -3606,6 +3649,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const receipts = [
     modelRouteReceipt,
     subagentMemoryReceipt,
+    skillHookReceipt,
     ...memoryWriteReceipts,
     policyReceipt,
     authorityReceipt,
@@ -3622,6 +3666,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const startedEvent = addEvent("run_started", "Run entered local IOI daemon", {
     taskFamily,
     selectedStrategy,
+  });
+  addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
+    ...activeSkillHookManifest,
+    receiptId: skillHookReceipt.id,
+    eventKind: "ActiveSkillHookManifest",
+    workflowNodeId: "runtime.skill-hook-manifest",
   });
   if (modelRouteDecision) {
     addEvent("model_route_decision", "Model route decision recorded", {
@@ -3657,7 +3707,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   addEvent("stop_condition", "Stop condition recorded", stopCondition);
   addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
   addEvent("artifact", "Trace and scorecard artifacts recorded", {
-    artifactNames: ["trace.json", "scorecard.json", "agentgres-projection.json"],
+    artifactNames: ["trace.json", "active-skill-hook-manifest.json", "scorecard.json", "agentgres-projection.json"],
   });
   addEvent("completed", "Run completed", { stopReason: stopCondition.reason });
   const trace = {
@@ -3674,6 +3724,23 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     postconditions,
     semanticImpact,
     modelRouteDecision,
+    activeSkillHookManifest,
+    promptAudit: {
+      schemaVersion: "ioi.agent-runtime.prompt-audit.v1",
+      runId,
+      promptHash: doctorHash(prompt),
+      activeSkillHookManifestId: activeSkillHookManifest.manifestId,
+      activeSkillSetHash: activeSkillHookManifest.activeSkillSetHash,
+      activeHookSetHash: activeSkillHookManifest.activeHookSetHash,
+      selectedSkillIds: activeSkillHookManifest.selectedSkillIds,
+      selectedHookIds: activeSkillHookManifest.selectedHookIds,
+      hookExecutionEnabled: false,
+      redaction: {
+        promptIncluded: false,
+        hookCommandsIncluded: false,
+      },
+      evidenceRefs: ["prompt_audit", activeSkillHookManifest.manifestId],
+    },
     memoryPolicy,
     memoryRecords,
     memoryWrites: memoryWriteRecords,
@@ -3684,6 +3751,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   };
   const artifacts = [
     artifact(runId, "trace.json", "application/json", traceReceipt.id, trace, "redacted"),
+    artifact(
+      runId,
+      "active-skill-hook-manifest.json",
+      "application/json",
+      skillHookReceipt.id,
+      activeSkillHookManifest,
+      "redacted",
+    ),
     artifact(runId, "scorecard.json", "application/json", traceReceipt.id, scorecard, "none"),
     artifact(
       runId,
@@ -3716,12 +3791,187 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
+    activeSkillHookManifest,
     memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
     subagentMemoryInheritance,
     result,
   };
+}
+
+function activeSkillHookManifestForRun({ runId, agent, request = {}, catalog = null } = {}) {
+  const skills = normalizeArray(catalog?.skills);
+  const hooks = normalizeArray(catalog?.hooks);
+  const options = request.options ?? {};
+  const requestedSkillRefs = normalizeManifestSelection([
+    options.skills,
+    options.skillIds,
+    options.skill_ids,
+    options.skillNames,
+    options.skill_names,
+    agent?.options?.skillNames,
+  ]);
+  const requestedHookRefs = normalizeManifestSelection([
+    options.hooks,
+    options.hookIds,
+    options.hook_ids,
+    options.hookNames,
+    options.hook_names,
+    agent?.options?.hookNames,
+  ]);
+  const selectedSkills = selectCatalogRecords(skills, requestedSkillRefs, "skillHash");
+  const selectedHooks = selectCatalogRecords(
+    hooks.filter((hook) => hook.enabled !== false),
+    requestedHookRefs,
+    "definitionHash",
+  );
+  const skillHashes = selectedSkills.map((skill) => skill.skillHash).filter(Boolean).sort();
+  const hookHashes = selectedHooks.map((hook) => hook.definitionHash).filter(Boolean).sort();
+  const blockedHooks = selectedHooks.filter((hook) =>
+    hook.commandConfigured &&
+    (normalizeArray(hook.authorityScopes).length === 0 || normalizeArray(hook.toolContracts).length === 0)
+  );
+  const manifestPayload = {
+    skillHashes,
+    hookHashes,
+    catalogSkillSetHash: catalog?.activeSkillSetHash ?? doctorHash(""),
+    catalogHookSetHash: catalog?.activeHookSetHash ?? doctorHash(""),
+    blockedHookIds: blockedHooks.map((hook) => hook.id).sort(),
+  };
+  const manifestHash = doctorHash(JSON.stringify(manifestPayload));
+  const validationIssues = [
+    ...selectedSkills.flatMap((skill) => normalizeArray(skill.validation?.issues)),
+    ...selectedHooks.flatMap((hook) => normalizeArray(hook.validation?.issues)),
+  ];
+  return {
+    schemaVersion: "ioi.agent-runtime.active-skill-hook-manifest.v1",
+    object: "ioi.agent_active_skill_hook_manifest",
+    manifestId: `skill_hook_manifest_${runId}_${manifestHash.slice(0, 12)}`,
+    runId,
+    agentId: agent?.id ?? null,
+    generatedAt: new Date().toISOString(),
+    workspace: agent?.cwd ?? catalog?.workspace?.root ?? null,
+    selectionMode:
+      requestedSkillRefs.length > 0 || requestedHookRefs.length > 0
+        ? "explicit_or_configured"
+        : "catalog_snapshot_read_only",
+    catalog: {
+      schemaVersion: catalog?.schemaVersion ?? "ioi.agent-runtime.skill-hook-catalog.v1",
+      generatedAt: catalog?.generatedAt ?? null,
+      status: catalog?.status ?? "pass",
+      activeSkillSetHash: catalog?.activeSkillSetHash ?? doctorHash(""),
+      activeHookSetHash: catalog?.activeHookSetHash ?? doctorHash(""),
+      skillCount: catalog?.skillCount ?? skills.length,
+      hookCount: catalog?.hookCount ?? hooks.length,
+    },
+    activeSkillSetHash: doctorHash(skillHashes.join("\n")),
+    activeHookSetHash: doctorHash(hookHashes.join("\n")),
+    manifestHash,
+    selectedSkillIds: selectedSkills.map((skill) => skill.id),
+    selectedHookIds: selectedHooks.map((hook) => hook.id),
+    requestedSkillRefs,
+    requestedHookRefs,
+    skills: selectedSkills.map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      skillHash: skill.skillHash,
+      sourceId: skill.sourceId,
+      compatibility: skill.compatibility,
+      trustLevel: skill.trustLevel,
+      activationMode: skill.activationMode,
+      validationStatus: skill.validation?.status ?? "pass",
+      provenance: skill.provenance,
+      evidenceRefs: normalizeArray(skill.evidenceRefs),
+    })),
+    hooks: selectedHooks.map((hook) => ({
+      id: hook.id,
+      name: hook.name,
+      definitionHash: hook.definitionHash,
+      sourceId: hook.sourceId,
+      compatibility: hook.compatibility,
+      trustLevel: hook.trustLevel,
+      eventKinds: normalizeArray(hook.eventKinds),
+      failurePolicy: hook.failurePolicy,
+      authorityScopes: normalizeArray(hook.authorityScopes),
+      toolContracts: normalizeArray(hook.toolContracts),
+      commandConfigured: Boolean(hook.commandConfigured),
+      commandHash: hook.commandHash ?? null,
+      commandRedacted: Boolean(hook.commandRedacted),
+      validationStatus: hook.validation?.status ?? "pass",
+      mutationPolicy: hook.mutationPolicy,
+      evidenceRefs: normalizeArray(hook.evidenceRefs),
+    })),
+    validation: {
+      status: validationIssues.length > 0 ? "degraded" : "pass",
+      issueCount: validationIssues.length,
+      issues: [...new Set(validationIssues)].sort(),
+    },
+    hookExecution: {
+      enabled: false,
+      disabledReason: "hook_execution_policy_slice_pending",
+      mutationBlockedWithoutDeclaredCapabilities: true,
+      mutationAllowedHookIds: selectedHooks
+        .filter((hook) =>
+          hook.commandConfigured &&
+          normalizeArray(hook.authorityScopes).length > 0 &&
+          normalizeArray(hook.toolContracts).length > 0
+        )
+        .map((hook) => hook.id),
+      mutationBlockedHookIds: blockedHooks.map((hook) => hook.id),
+    },
+    mutationBlockedHookIds: blockedHooks.map((hook) => hook.id),
+    redaction: {
+      profile: "active_skill_hook_manifest_safe",
+      skillBodiesIncluded: false,
+      hookCommandsIncluded: false,
+      hookCommandsHashed: true,
+      secretValuesIncluded: false,
+    },
+    evidenceRefs: [
+      "active_skill_hook_manifest",
+      "runtime_skill_hook_discovery",
+      "prompt_audit",
+      "hook_execution_disabled_until_policy",
+    ],
+  };
+}
+
+function normalizeManifestSelection(values) {
+  const items = [];
+  const visit = (value) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const key of ["id", "name", "skillHash", "definitionHash"]) {
+        if (value[key]) items.push(value[key]);
+      }
+      return;
+    }
+    if (value !== undefined && value !== null) items.push(value);
+  };
+  values.forEach(visit);
+  return items.map((value) => optionalString(value)).filter(Boolean);
+}
+
+function selectCatalogRecords(records, requestedRefs, hashField) {
+  if (requestedRefs.length === 0) return records;
+  const requested = new Set(requestedRefs.map(normalizeManifestToken));
+  return records.filter((record) => {
+    const candidates = [
+      record.id,
+      record.name,
+      record[hashField],
+      record.sourceId,
+    ].map(normalizeManifestToken);
+    return candidates.some((candidate) => requested.has(candidate));
+  });
+}
+
+function normalizeManifestToken(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "-");
 }
 
 function artifact(runId, name, mediaType, receiptId, value, redaction) {
@@ -4672,6 +4922,21 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction ?? "none",
     };
   }
+  if (event.type === "skill_hook_manifest") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "ActiveSkillHookManifest",
+      manifest_id: event.data?.manifestId ?? null,
+      active_skill_set_hash: event.data?.activeSkillSetHash ?? null,
+      active_hook_set_hash: event.data?.activeHookSetHash ?? null,
+      selected_skill_count: normalizeArray(event.data?.selectedSkillIds).length,
+      selected_hook_count: normalizeArray(event.data?.selectedHookIds).length,
+      mutation_blocked_hook_count: normalizeArray(event.data?.mutationBlockedHookIds).length,
+      hook_execution_enabled: Boolean(event.data?.hookExecution?.enabled),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "active_skill_hook_manifest_safe",
+    };
+  }
   if (event.type !== "model_route_decision") return summary;
   return {
     ...summary,
@@ -4697,6 +4962,8 @@ function componentKindForRunEvent(eventOrType) {
   switch (type) {
     case "model_route_decision":
       return "model_router";
+    case "skill_hook_manifest":
+      return "skill_registry";
     case "memory_update":
       if (typeof eventOrType !== "string" && eventOrType?.data?.operation === "subagent_inheritance") {
         return "subagent_memory";
@@ -4733,7 +5000,9 @@ function componentKindForRunEvent(eventOrType) {
 function workflowNodeForRunEvent(eventOrType) {
   if (
     typeof eventOrType !== "string" &&
-    (eventOrType?.type === "model_route_decision" || eventOrType?.type === "memory_update") &&
+    (eventOrType?.type === "model_route_decision" ||
+      eventOrType?.type === "memory_update" ||
+      eventOrType?.type === "skill_hook_manifest") &&
     eventOrType.data?.workflowNodeId
   ) {
     return eventOrType.data.workflowNodeId;
@@ -4746,6 +5015,9 @@ function receiptRefsForRunEvent(event) {
   if (event.type === "model_route_decision") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
+  if (event.type === "skill_hook_manifest") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
   if (event.type === "memory_update") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
@@ -4754,6 +5026,7 @@ function receiptRefsForRunEvent(event) {
 }
 
 function artifactRefsForRunEvent(event) {
+  if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "artifact") return event.data?.artifactNames ?? [];
   return [];
 }
