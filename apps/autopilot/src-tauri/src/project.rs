@@ -30,6 +30,7 @@ mod workflow_execution_results_lane;
 mod workflow_graph_execution_lane;
 mod workflow_harness_results_lane;
 mod workflow_memory_lane;
+mod workflow_output_lane;
 mod workflow_package_lane;
 mod workflow_value_helpers;
 pub use commands::*;
@@ -46,6 +47,7 @@ pub use types::*;
 use validation::*;
 use workflow_binding_lane::*;
 use workflow_graph_execution_lane::*;
+use workflow_output_lane::*;
 
 fn default_gitignore() -> &'static str {
     "node_modules/\ndist/\ntarget/\n.DS_Store\n.env\nioi-data/\n.autopilot/\n"
