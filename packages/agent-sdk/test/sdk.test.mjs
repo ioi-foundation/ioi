@@ -237,8 +237,60 @@ test("SDK exposes governed tool catalog and subagent map without creating a seco
   const tools = await agent.tools();
   assert.ok(tools.some((tool) => tool.primitiveCapabilities.includes("prim:sys.exec")));
   assert.ok(tools.some((tool) => tool.authorityScopeRequirements.includes("scope:host.controlled_execution")));
-  const handoff = await agent.agents.reviewer.send("Investigate runtime substrate state");
-  assert.ok((await handoff.inspect()).qualityLedger.toolSequence.includes("handoff_quality"));
+  const targeted = await agent.memory.remember("Reviewer should see the targeted handoff fact.", {
+    memoryKey: "reviewer-handoff",
+  });
+  await agent.memory.remember("Reviewer should not inherit unrelated scratch memory.", {
+    memoryKey: "scratch",
+  });
+
+  const handoff = await agent.agents.reviewer.send("Investigate runtime substrate state", {
+    memory: { subagentInheritance: "explicit", memoryKey: "reviewer-handoff" },
+  });
+  const explicitTrace = await handoff.inspect();
+  assert.ok(explicitTrace.qualityLedger.toolSequence.includes("handoff_quality"));
+  assert.equal(explicitTrace.subagentMemoryInheritance.mode, "explicit");
+  assert.equal(explicitTrace.subagentMemoryInheritance.subagentName, "reviewer");
+  assert.deepEqual(explicitTrace.subagentMemoryInheritance.inheritedRecordIds, [targeted.record.id]);
+  assert.ok(explicitTrace.receipts.some((receipt) => receipt.kind === "subagent_memory_inheritance"));
+  assert.ok(
+    explicitTrace.events.some(
+      (event) => event.data?.eventKind === "SubagentMemoryInheritance",
+    ),
+  );
+
+  const noInheritance = await agent.agents.reviewer.send("Investigate without inherited memory", {
+    memory: { subagentInheritance: "none", memoryKey: "reviewer-handoff" },
+  });
+  const noneTrace = await noInheritance.inspect();
+  assert.equal(noneTrace.subagentMemoryInheritance.mode, "none");
+  assert.equal(noneTrace.subagentMemoryInheritance.records.length, 0);
+  assert.equal(noneTrace.subagentMemoryInheritance.effectivePolicy.disabled, true);
+
+  const readOnly = await agent.agents.reviewer.send("Try to write read-only inherited memory", {
+    memory: {
+      subagentInheritance: "read_only",
+      memoryKey: "reviewer-handoff",
+      remember: "Reviewer attempted a read-only write.",
+    },
+  });
+  const readOnlyTrace = await readOnly.inspect();
+  assert.equal(readOnlyTrace.subagentMemoryInheritance.mode, "read_only");
+  assert.equal(readOnlyTrace.subagentMemoryInheritance.writeBlockReason, "memory_read_only");
+  assert.equal(readOnlyTrace.memoryWrites.length, 0);
+
+  const full = await agent.agents.reviewer.send("Write with full inherited memory", {
+    memory: {
+      subagentInheritance: "full",
+      memoryKey: "reviewer-handoff",
+      remember: "Reviewer can persist a full-inheritance handoff note.",
+    },
+  });
+  const fullTrace = await full.inspect();
+  assert.equal(fullTrace.subagentMemoryInheritance.mode, "full");
+  assert.equal(fullTrace.subagentMemoryInheritance.writeBlockReason, null);
+  assert.equal(fullTrace.memoryWrites.length, 1);
+  assert.equal(fullTrace.memoryWrites[0].memoryKey, "reviewer-handoff");
 });
 
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {

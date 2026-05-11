@@ -416,6 +416,139 @@ test("local daemon records explicit memory writes and injects provenance into th
   }
 });
 
+test("local daemon projects subagent memory inheritance modes with receipts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-memory-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-memory-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        options: {
+          local: { cwd },
+          agents: { reviewer: { prompt: "Review inherited memory." } },
+        },
+      }),
+    });
+    const targeted = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`, {
+      method: "POST",
+      body: JSON.stringify({
+        text: "The reviewer should inherit the targeted handoff memory.",
+        memoryKey: "reviewer-handoff",
+        scope: "thread",
+      }),
+    });
+    await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`, {
+      method: "POST",
+      body: JSON.stringify({
+        text: "The reviewer should not inherit scratch memory.",
+        memoryKey: "scratch",
+        scope: "thread",
+      }),
+    });
+
+    const explicitTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Delegate with explicit inherited memory.",
+        mode: "handoff",
+        options: {
+          receiver: "reviewer",
+          memory: { subagentInheritance: "explicit", memoryKey: "reviewer-handoff" },
+        },
+      }),
+    });
+    const explicitRunId = `run_${explicitTurn.turn_id.slice("turn_".length)}`;
+    const explicitTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${explicitRunId}/trace`);
+    assert.equal(explicitTrace.subagentMemoryInheritance.mode, "explicit");
+    assert.equal(explicitTrace.subagentMemoryInheritance.subagentName, "reviewer");
+    assert.deepEqual(explicitTrace.subagentMemoryInheritance.inheritedRecordIds, [
+      targeted.record.id,
+    ]);
+    assert.ok(explicitTrace.receipts.some((receipt) => receipt.kind === "subagent_memory_inheritance"));
+
+    const noneTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Delegate with no inherited memory.",
+        mode: "handoff",
+        options: {
+          receiver: "reviewer",
+          memory: { subagentInheritance: "none", memoryKey: "reviewer-handoff" },
+        },
+      }),
+    });
+    const noneTrace = await fetchJson(
+      `${daemon.endpoint}/v1/runs/run_${noneTurn.turn_id.slice("turn_".length)}/trace`,
+    );
+    assert.equal(noneTrace.subagentMemoryInheritance.mode, "none");
+    assert.equal(noneTrace.subagentMemoryInheritance.records.length, 0);
+    assert.equal(noneTrace.subagentMemoryInheritance.effectivePolicy.disabled, true);
+
+    const readOnlyTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Delegate with read-only inherited memory.",
+        mode: "handoff",
+        options: {
+          receiver: "reviewer",
+          memory: {
+            subagentInheritance: "read_only",
+            memoryKey: "reviewer-handoff",
+            remember: "Reviewer attempted a read-only daemon write.",
+          },
+        },
+      }),
+    });
+    const readOnlyRun = await fetchJson(
+      `${daemon.endpoint}/v1/runs/run_${readOnlyTurn.turn_id.slice("turn_".length)}`,
+    );
+    const readOnlyTrace = await fetchJson(
+      `${daemon.endpoint}/v1/runs/run_${readOnlyTurn.turn_id.slice("turn_".length)}/trace`,
+    );
+    assert.match(readOnlyRun.result, /memory_read_only/);
+    assert.equal(readOnlyTrace.subagentMemoryInheritance.writeBlockReason, "memory_read_only");
+    assert.equal(readOnlyTrace.memoryWrites.length, 0);
+
+    const fullTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Delegate with full inherited memory.",
+        mode: "handoff",
+        options: {
+          receiver: "reviewer",
+          memory: {
+            subagentInheritance: "full",
+            memoryKey: "reviewer-handoff",
+            remember: "Reviewer can persist a daemon full-inheritance note.",
+          },
+        },
+      }),
+    });
+    assert.equal(fullTurn.memory_write_receipt_ids.length, 1);
+    const fullTrace = await fetchJson(
+      `${daemon.endpoint}/v1/runs/run_${fullTurn.turn_id.slice("turn_".length)}/trace`,
+    );
+    assert.equal(fullTrace.subagentMemoryInheritance.mode, "full");
+    assert.equal(fullTrace.subagentMemoryInheritance.writeBlockReason, null);
+    assert.equal(fullTrace.memoryWrites.length, 1);
+    assert.equal(fullTrace.memoryWrites[0].memoryKey, "reviewer-handoff");
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const inheritanceEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "SubagentMemoryInheritance",
+    );
+    assert.equal(inheritanceEvent.component_kind, "subagent_memory");
+    assert.equal(inheritanceEvent.workflow_node_id, "runtime.subagent-memory");
+    assert.equal(inheritanceEvent.payload_summary.subagent_inheritance_mode, "explicit");
+    assert.equal(inheritanceEvent.payload_summary.inherited_memory_count, 1);
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model and thinking control contracts", () => {
   const source = fs.readFileSync(path.join(root, "crates/cli/src/commands/agent.rs"), "utf8");
   assert.match(source, /AgentCommands::Model/);
@@ -448,11 +581,14 @@ test("React Flow memory node contracts remain workflow-addressable", () => {
   assert.match(workflowContracts, /memory\.list/);
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
+  assert.match(workflowContracts, /memory\.subagentInheritance/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_search/);
   assert.match(harnessWorkflow, /memory_list/);
   assert.match(harnessWorkflow, /memory_write/);
   assert.match(harnessWorkflow, /memory_policy/);
+  assert.match(harnessWorkflow, /memory_subagent_inheritance/);
+  assert.match(harnessWorkflow, /SubagentMemoryInheritance/);
   assert.match(harnessWorkflow, /memory\.writeRequiresApproval/);
   assert.match(harnessWorkflow, /subagent inheritance/);
 });

@@ -316,6 +316,11 @@ export class AgentgresRuntimeStateStore {
         overrides: memoryPolicyOverrides(memoryOptions),
       });
     }
+    const subagentMemoryInheritance =
+      (request.mode ?? "send") === "handoff"
+        ? this.resolveSubagentMemoryInheritance({ agent, threadId, request, parentPolicy: policy })
+        : null;
+    const effectivePolicy = subagentMemoryInheritance?.effectivePolicy ?? policy;
     const requestedRemember =
       memoryOptions.remember ??
       request.remember ??
@@ -325,24 +330,31 @@ export class AgentgresRuntimeStateStore {
       command.kind === "edit" ||
       command.kind === "delete" ||
       Boolean(requestedRemember);
-    const policyBlockReason = memoryWriteBlockReason(policy, memoryOptions, requestedWrite);
-    if (policy.disabled || policy.injectionEnabled === false) {
+    const policyBlockReason = memoryWriteBlockReason(effectivePolicy, memoryOptions, requestedWrite);
+    if (subagentMemoryInheritance) {
+      subagentMemoryInheritance.writeBlockReason = policyBlockReason;
+      subagentMemoryInheritance.writeAllowed = requestedWrite
+        ? policyBlockReason === null
+        : !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval;
+    }
+    if (effectivePolicy.disabled || effectivePolicy.injectionEnabled === false) {
       return {
         command: command.kind,
         records: [],
         writes: mutations.filter((mutation) => mutation.receipt?.kind === "memory_write"),
         mutations,
-        policy,
+        policy: effectivePolicy,
         policyUpdates,
         paths,
         injected: false,
-        disabled: Boolean(policy.disabled),
+        disabled: Boolean(effectivePolicy.disabled),
         policyBlockReason,
+        subagentMemoryInheritance,
       };
     }
     const writes = [];
     if (!policyBlockReason && command.kind === "remember") {
-      const write = this.rememberForAgent(agent, { text: command.text, threadId, scope: policy.scope ?? "thread", source: "chat_hash_remember" });
+      const write = this.rememberForAgent(agent, { text: command.text, threadId, scope: effectivePolicy.scope ?? "thread", source: "chat_hash_remember" });
       writes.push(write);
       mutations.push({ ...write, operation: "write" });
     } else if (!policyBlockReason && command.kind === "edit") {
@@ -350,21 +362,72 @@ export class AgentgresRuntimeStateStore {
     } else if (!policyBlockReason && command.kind === "delete") {
       mutations.push(this.deleteMemoryRecord(command.id, { source: "chat_memory_delete" }));
     } else if (!policyBlockReason && requestedRemember) {
-      const write = this.rememberForAgent(agent, { text: requestedRemember, threadId, scope: policy.scope ?? "thread", source: "api_remember", workflow: memoryOptions.workflow ?? memoryOptions });
+      const write = this.rememberForAgent(agent, { text: requestedRemember, threadId, scope: effectivePolicy.scope ?? "thread", source: "api_remember", workflow: memoryOptions.workflow ?? memoryOptions });
       writes.push(write);
       mutations.push({ ...write, operation: "write" });
     }
-    const records = this.memory.list({ agent, threadId, workspace: agent.cwd, ...memoryListFilters(memoryOptions) });
+    const records = subagentMemoryInheritance?.records ??
+      this.memory.list({ agent, threadId, workspace: agent.cwd, ...memoryListFilters(memoryOptions) });
     return {
       command: command.kind,
       records,
       writes,
       mutations,
-      policy,
+      policy: effectivePolicy,
       policyUpdates,
       paths,
       injected: command.kind !== "remember" && records.length > 0,
       policyBlockReason,
+      subagentMemoryInheritance,
+    };
+  }
+
+  resolveSubagentMemoryInheritance({ agent, threadId, request = {}, parentPolicy = {} } = {}) {
+    const memoryOptions = memoryOptionsForRequest(request);
+    const requestedMode =
+      optionalString(memoryOptions.subagentInheritance ?? memoryOptions.subagent_inheritance) ??
+      parentPolicy.subagentInheritance ??
+      "explicit";
+    const mode = normalizeSubagentInheritanceMode(requestedMode);
+    const receiver = subagentReceiverForRequest(request);
+    const filters = memoryListFilters(memoryOptions);
+    const parentAllowsInjection = !parentPolicy.disabled && parentPolicy.injectionEnabled !== false;
+    const records = parentAllowsInjection && shouldInheritSubagentMemory(mode, memoryOptions)
+      ? this.memory.list({
+          agent,
+          threadId,
+          workspace: agent.cwd,
+          ...memoryListFilters({
+            ...memoryOptions,
+            redaction: memoryOptions.redaction ?? parentPolicy.redaction,
+          }),
+        })
+      : [];
+    const effectivePolicy = subagentMemoryPolicy({ agent, threadId, parentPolicy, receiver, mode });
+    return {
+      schemaVersion: "ioi.agent-runtime.subagent-memory-inheritance.v1",
+      object: "ioi.subagent_memory_inheritance",
+      parentAgentId: agent.id,
+      subagentName: receiver,
+      threadId,
+      mode,
+      requestedMode,
+      parentPolicyId: parentPolicy.id ?? null,
+      effectivePolicyId: effectivePolicy.id,
+      parentPolicy,
+      effectivePolicy,
+      filters,
+      records,
+      inheritedRecordIds: records.map((record) => record.id),
+      writeAllowed: !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval,
+      writeBlockReason: null,
+      evidenceRefs: [
+        "subagent_memory_inheritance",
+        "agent_memory_store",
+        parentPolicy.id,
+        effectivePolicy.id,
+        ...records.map((record) => record.id),
+      ].filter(Boolean),
     };
   }
 
@@ -3091,6 +3154,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const memoryWriteReceipts = memoryMutations.map((write) => write.receipt).filter(Boolean);
   const memoryWriteRecords = memoryWrites.map((write) => write.record).filter(Boolean);
   const memoryPolicy = memory.policy ?? null;
+  const subagentMemoryInheritance =
+    mode === "handoff" ? memory.subagentMemoryInheritance ?? null : null;
+  const subagentMemoryReceipt = subagentMemoryInheritance
+    ? subagentMemoryInheritanceReceipt(runId, subagentMemoryInheritance)
+    : null;
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3100,6 +3168,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       ...(memoryPolicy
         ? [
             `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
+          ]
+        : []),
+      ...(subagentMemoryInheritance
+        ? [
+            `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagentName ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, writeAllowed=${subagentMemoryInheritance.writeAllowed}`,
           ]
         : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
@@ -3120,6 +3193,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       memoryPolicy?.id,
       ...memoryRecords.map((record) => record.id),
       ...memoryWriteReceipts.map((receipt) => receipt.id),
+      subagentMemoryReceipt?.id,
     ].filter(Boolean),
   };
   const uncertainty = {
@@ -3183,12 +3257,16 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "AgentgresRuntimeStateV0",
       "ModelRouteDecision",
       "AgentMemoryRecord",
+      "SubagentMemoryInheritanceProjection",
       "RuntimeEventEnvelope",
     ],
     changedPolicies: [
       ...(mode === "dry_run" ? ["authority.preview_only"] : []),
       ...(memory.policyBlockReason ? [`memory.${memory.policyBlockReason}`] : []),
       ...normalizeArray(memory.policyUpdates).map(() => "memory.policy"),
+      ...(subagentMemoryInheritance
+        ? [`memory.subagent_inheritance.${subagentMemoryInheritance.mode}`]
+        : []),
     ],
     affectedTests: ["live-runtime-daemon-contract"],
     affectedDocs: ["docs/plans/architectural-improvements-broad-master-guide.md"],
@@ -3264,6 +3342,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   };
   const receipts = [
     modelRouteReceipt,
+    subagentMemoryReceipt,
     ...memoryWriteReceipts,
     policyReceipt,
     authorityReceipt,
@@ -3297,6 +3376,15 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       workflowNodeId: mutation.record?.workflowNodeId ?? "runtime.memory-policy",
     });
   }
+  if (subagentMemoryInheritance) {
+    addEvent("memory_update", "Subagent memory inheritance resolved", {
+      ...subagentMemoryInheritance,
+      operation: "subagent_inheritance",
+      eventKind: "SubagentMemoryInheritance",
+      receiptId: subagentMemoryReceipt?.id ?? null,
+      workflowNodeId: "runtime.subagent-memory",
+    });
+  }
   addEvent("task_state", "Task state written to Agentgres", taskState);
   addEvent("uncertainty", "Uncertainty assessed", uncertainty);
   addEvent("probe", "Canonical replay probe completed", probes[0]);
@@ -3326,6 +3414,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     memoryPolicy,
     memoryRecords,
     memoryWrites: memoryWriteRecords,
+    subagentMemoryInheritance,
     stopCondition,
     qualityLedger,
     scorecard,
@@ -3367,6 +3456,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
+    subagentMemoryInheritance,
     result,
   };
 }
@@ -3529,6 +3619,80 @@ function memoryOptionsForRequest(request = {}) {
   };
 }
 
+function subagentReceiverForRequest(request = {}) {
+  return optionalString(
+    request.receiver ??
+      request.options?.receiver ??
+      request.subagent ??
+      request.options?.subagent ??
+      request.subagentName ??
+      request.options?.subagentName,
+  ) ?? null;
+}
+
+function normalizeSubagentInheritanceMode(value) {
+  const mode = optionalString(value) ?? "explicit";
+  return ["none", "explicit", "read_only", "full"].includes(mode) ? mode : "explicit";
+}
+
+function shouldInheritSubagentMemory(mode, options = {}) {
+  if (mode === "none") return false;
+  if (mode === "explicit") return hasExplicitSubagentMemorySelector(options);
+  return true;
+}
+
+function hasExplicitSubagentMemorySelector(options = {}) {
+  return Boolean(
+    optionalString(options.memoryKey ?? options.memory_key) ??
+      optionalString(options.query ?? options.q ?? options.memoryQuery ?? options.memory_query) ??
+      optionalString(options.scope ?? options.memoryScope ?? options.memory_scope),
+  );
+}
+
+function subagentMemoryPolicy({ agent, threadId, parentPolicy = {}, receiver, mode }) {
+  const targetId = `${threadId}:${receiver ?? "subagent"}`;
+  const id = `memory_policy_subagent_${safeId(targetId)}`;
+  const disabled = Boolean(parentPolicy.disabled) || mode === "none";
+  const injectionEnabled = parentPolicy.injectionEnabled !== false && mode !== "none";
+  const readOnly = disabled || Boolean(parentPolicy.readOnly) || mode === "read_only";
+  const writeRequiresApproval =
+    mode === "explicit" ? true : Boolean(parentPolicy.writeRequiresApproval);
+  return {
+    ...parentPolicy,
+    id,
+    targetType: "subagent",
+    targetId,
+    agentId: agent?.id ?? parentPolicy.agentId ?? null,
+    threadId,
+    workspace: agent?.cwd ?? parentPolicy.workspace ?? null,
+    disabled,
+    injectionEnabled,
+    readOnly,
+    writeRequiresApproval,
+    source: "daemon_subagent_memory_inheritance",
+    updatedAt: new Date().toISOString(),
+    evidenceRefs: [
+      ...new Set([
+        ...normalizeArray(parentPolicy.evidenceRefs),
+        "subagent_memory_inheritance",
+        "memory.policy.effective.subagent",
+      ]),
+    ],
+    effective: true,
+    policyRefs: [parentPolicy.id].filter(Boolean),
+  };
+}
+
+function optionalString(value) {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text ? text : undefined;
+}
+
+function safeId(value) {
+  return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
+}
+
 function memoryPolicyOverrides(options = {}) {
   const policy = {};
   for (const key of [
@@ -3568,6 +3732,16 @@ function memoryWriteApproved(options = {}) {
       options.approvalGranted ??
       options.approval_granted,
   );
+}
+
+function subagentMemoryInheritanceReceipt(runId, projection = {}) {
+  return {
+    id: `receipt_${runId}_subagent_memory_inheritance`,
+    kind: "subagent_memory_inheritance",
+    summary: `Subagent memory inheritance ${projection.mode} for ${projection.subagentName ?? "handoff"} exposed ${normalizeArray(projection.records).length} record(s).`,
+    redaction: projection.effectivePolicy?.redaction === "redacted" ? "redacted" : "none",
+    evidenceRefs: normalizeArray(projection.evidenceRefs),
+  };
 }
 
 function memoryListFilters(options = {}) {
@@ -3618,7 +3792,7 @@ function resultForMode(mode, agent, prompt, source, memory = {}) {
   if (memory.command === "path") {
     return `Memory records path: ${memory.paths?.recordsPath ?? "unknown"}\nMemory policy path: ${memory.paths?.policiesPath ?? "unknown"}`;
   }
-  if (memory.policyBlockReason && (memory.command === "remember" || memory.command === "edit" || memory.command === "delete")) {
+  if (memory.policyBlockReason) {
     return `Memory write blocked by policy: ${memory.policyBlockReason}.`;
   }
   if (memory.command === "edit") {
@@ -3789,6 +3963,9 @@ function payloadSummaryForRunEvent(event) {
       memory_operation: event.data?.operation ?? "write",
       memory_record_id: event.data?.memoryRecordId ?? (event.data?.object === "ioi.agent_memory_record" ? event.data?.id : null),
       memory_policy_id: event.data?.memoryPolicyId ?? (event.data?.object === "ioi.agent_memory_policy" ? event.data?.id : null),
+      subagent_name: event.data?.subagentName ?? null,
+      subagent_inheritance_mode: event.data?.mode ?? null,
+      inherited_memory_count: normalizeArray(event.data?.inheritedRecordIds).length,
       memory_scope: event.data?.scope ?? null,
       memory_thread_id: event.data?.threadId ?? null,
       workflow_node_id: event.data?.workflowNodeId ?? null,
@@ -3821,6 +3998,9 @@ function componentKindForRunEvent(eventOrType) {
     case "model_route_decision":
       return "model_router";
     case "memory_update":
+      if (typeof eventOrType !== "string" && eventOrType?.data?.operation === "subagent_inheritance") {
+        return "subagent_memory";
+      }
       if (typeof eventOrType !== "string" && eventOrType?.data?.operation === "policy_update") {
         return "memory_policy";
       }

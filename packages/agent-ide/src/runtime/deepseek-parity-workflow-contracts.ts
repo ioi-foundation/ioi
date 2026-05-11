@@ -115,6 +115,7 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "memory.policy",
   "memory.edit",
   "memory.path",
+  "memory.subagentInheritance",
   "skill.pack",
   "skill.instruction",
   "hook.runtime",

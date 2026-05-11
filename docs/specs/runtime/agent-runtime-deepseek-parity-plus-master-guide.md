@@ -968,8 +968,7 @@ Implementation slice completed 2026-05-11:
 
 Remaining memory UX closure:
 
-- Add deeper subagent memory inheritance execution evidence once subagent
-  runtime fan-out is first-class.
+- Closed by the 2026-05-11 subagent memory inheritance execution slice below.
 
 Implementation slice completed 2026-05-11, memory policy controls:
 
@@ -1065,6 +1064,41 @@ Validation evidence:
 - `git diff --check`
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-50-03-897Z/result.json`
+
+Implementation slice completed 2026-05-11, subagent memory inheritance execution:
+
+- SDK `AgentSubagent.send()` handoffs now emit a typed
+  `SubagentMemoryInheritanceProjection` on `RuntimeTraceBundle`, with parent
+  policy, effective subagent policy, normalized memory filters, inherited
+  record IDs, write allowance, and write block reason.
+- The live daemon mirrors the same handoff contract through thread turns and
+  run traces, including `subagent_memory_inheritance` receipts and
+  `memory_update` events with `SubagentMemoryInheritance` payloads.
+- Inheritance modes are enforced before subagent writes:
+  - `none` disables inherited memory and blocks parent-memory writes;
+  - `explicit` only exposes records selected by explicit memory filters and
+    requires write approval;
+  - `read_only` exposes inherited records while blocking writes;
+  - `full` exposes inherited records and preserves the parent write policy.
+- React Flow workflow contracts now include `memory.subagentInheritance`, and
+  the harness component registry exposes a `memory_subagent_inheritance`
+  component so workflow authors can model the inheritance policy as a first
+  class state/policy component.
+- Contract tests assert filtered record visibility, write blocking, full-write
+  persistence, receipts, events, and TTI payload summaries across SDK mock and
+  live daemon execution.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:agent-sdk`
+- `npm run build:ide`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
+- `git diff --check`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T04-25-14-983Z/result.json`
 
 ### P1. Doctor, Config, And Introspection
 

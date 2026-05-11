@@ -3549,6 +3549,7 @@ export type WorkflowHarnessComponentKind =
   | "memory_search"
   | "memory_list"
   | "memory_write"
+  | "memory_subagent_inheritance"
   | "verifier"
   | "semantic_impact_analyzer"
   | "postcondition_synthesizer"
