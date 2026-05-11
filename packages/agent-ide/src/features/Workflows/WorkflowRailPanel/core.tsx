@@ -63,6 +63,8 @@ import {
   workflowEnvironmentProfile,
   workflowEventLabel,
   workflowFileBundleItems,
+  workflowGithubPrCreatePlanSummary,
+  workflowGithubPrCreatePlanStatus,
   workflowIssueActionLabel,
   workflowIssueTitle,
   workflowNodeRunChildLineage,
@@ -77,6 +79,7 @@ import {
   workflowWorkbenchCheckSummary,
   workflowWorkbenchCheckTitle,
   workflowTimeLabel,
+  type WorkflowGithubPrCreatePlanSummary,
   type WorkflowPackageNodeOutputSummary,
 } from "../../../runtime/workflow-rail-model";
 
@@ -100,6 +103,12 @@ import {
 } from "./statusPrimitives";
 
 function workflowPackageSummaryBoolean(value: boolean | null): string {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "";
+}
+
+function workflowPrCreateSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
   if (value === false) return "false";
   return "";
@@ -177,6 +186,103 @@ function WorkflowPackageOutputSummaryCard({
                   ? "no"
                   : "unknown"
             }`}
+      </small>
+    </article>
+  );
+}
+
+function WorkflowGithubPrCreateOutputSummaryCard({
+  summary,
+  testId,
+  receiptRefs = [],
+  replayFixtureRef = null,
+}: {
+  summary: WorkflowGithubPrCreatePlanSummary;
+  testId: string;
+  receiptRefs?: string[];
+  replayFixtureRef?: string | null;
+}) {
+  const allReceiptRefs = workflowUniqueReceiptRefs([
+    summary.receiptId,
+    ...receiptRefs,
+  ]);
+  const scopeLabel =
+    summary.missingScopes.length > 0
+      ? `missing ${summary.missingScopes.join(", ")}`
+      : summary.scopeGranted === true
+        ? "scope granted"
+        : "scope pending";
+  const mutationLabel =
+    summary.mutationExecuted === true
+      ? "mutation executed"
+      : summary.mutationExecuted === false
+        ? "mutation blocked"
+        : "mutation pending";
+  return (
+    <article
+      className={`workflow-output-row is-${workflowGithubPrCreatePlanStatus(
+        summary,
+      )}`}
+      data-testid={testId}
+      data-github-pr-create-tool-name={summary.toolName}
+      data-github-pr-create-action={summary.action}
+      data-github-pr-create-status={summary.status}
+      data-github-pr-create-decision={summary.decision}
+      data-github-pr-create-dry-run={workflowPrCreateSummaryBoolean(
+        summary.dryRun,
+      )}
+      data-github-pr-create-preview-only={workflowPrCreateSummaryBoolean(
+        summary.previewOnly,
+      )}
+      data-github-pr-create-mutation-attempted={workflowPrCreateSummaryBoolean(
+        summary.mutationAttempted,
+      )}
+      data-github-pr-create-mutation-executed={workflowPrCreateSummaryBoolean(
+        summary.mutationExecuted,
+      )}
+      data-github-pr-create-network-lookup={workflowPrCreateSummaryBoolean(
+        summary.networkLookupPerformed,
+      )}
+      data-github-pr-create-request-method={summary.requestMethod ?? ""}
+      data-github-pr-create-request-path={summary.requestPath ?? ""}
+      data-github-pr-create-request-hash={summary.requestPayloadHash ?? ""}
+      data-github-pr-create-request-body-included={workflowPrCreateSummaryBoolean(
+        summary.requestBodyIncluded,
+      )}
+      data-github-pr-create-request-token-included={workflowPrCreateSummaryBoolean(
+        summary.requestTokenIncluded,
+      )}
+      data-github-pr-create-repo={summary.repoFullName ?? ""}
+      data-github-pr-create-base-branch={summary.baseBranch ?? ""}
+      data-github-pr-create-head-branch={summary.headBranch ?? ""}
+      data-github-pr-create-review-gate-status={
+        summary.reviewGateStatus ?? ""
+      }
+      data-github-pr-create-review-satisfied={workflowPrCreateSummaryBoolean(
+        summary.reviewSatisfied,
+      )}
+      data-github-pr-create-required-scopes={summary.requiredScopes.join("|")}
+      data-github-pr-create-missing-scopes={summary.missingScopes.join("|")}
+      data-github-pr-create-scope-granted={workflowPrCreateSummaryBoolean(
+        summary.scopeGranted,
+      )}
+      data-github-pr-create-plan-id={summary.planId ?? ""}
+      data-github-pr-create-receipt-id={summary.receiptId ?? ""}
+      data-github-pr-create-receipt-refs={allReceiptRefs.join("|")}
+      data-github-pr-create-replay-fixture-ref={replayFixtureRef ?? ""}
+      data-github-pr-create-blockers={summary.blockers.join("|")}
+      data-github-pr-create-evidence-refs={summary.evidenceRefs.join("|")}
+    >
+      <strong>GitHub PR create dry-run</strong>
+      <span>
+        {summary.status} · {mutationLabel} · {scopeLabel}
+      </span>
+      <small>
+        {summary.requestPayloadHash ?? "request hash pending"}
+        {" · "}
+        {summary.reviewGateStatus ?? "review gate pending"}
+        {" · "}
+        {allReceiptRefs.length} receipt{allReceiptRefs.length === 1 ? "" : "s"}
       </small>
     </article>
   );
@@ -9435,6 +9541,13 @@ export function WorkflowRailPanel({
     selectedNode?.type,
     selectedNodeRun?.output ?? selectedPinnedFixture?.output ?? null,
   );
+  const selectedGithubPrCreatePlanSummary = workflowGithubPrCreatePlanSummary(
+    selectedNode?.type,
+    selectedNodeRun?.output ??
+      selectedPinnedFixture?.output ??
+      selectedNode?.config?.logic ??
+      null,
+  );
   const selectedStaleFixtureCount = selectedNodeFixtures.filter(
     (fixture) => fixture.stale || fixture.validationStatus === "stale",
   ).length;
@@ -11413,6 +11526,22 @@ export function WorkflowRailPanel({
               <WorkflowPackageOutputSummaryCard
                 summary={selectedPackageOutputSummary}
                 testId="workflow-selected-node-package-output-summary"
+              />
+            </section>
+          ) : null}
+          {selectedGithubPrCreatePlanSummary ? (
+            <section
+              className="workflow-node-inspector-section"
+              data-testid="workflow-selected-node-github-pr-create-output"
+            >
+              <h4>GitHub PR create plan</h4>
+              <WorkflowGithubPrCreateOutputSummaryCard
+                summary={selectedGithubPrCreatePlanSummary}
+                testId="workflow-selected-node-github-pr-create-output-summary"
+                receiptRefs={selectedHarnessAttempt?.receiptIds ?? []}
+                replayFixtureRef={
+                  selectedHarnessAttempt?.replay.fixtureRef ?? null
+                }
               />
             </section>
           ) : null}

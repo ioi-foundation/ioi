@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
   resolveWorkflowHarnessReceiptInspection,
+  workflowGithubPrCreatePlanStatus,
+  workflowGithubPrCreatePlanSummary,
   workflowHarnessReceiptKind,
   workflowUniqueReceiptRefs,
 } from "./workflow-rail-model";
@@ -309,6 +311,57 @@ assert.deepEqual(workflowUniqueReceiptRefs(["a", "a", null, undefined, "b"]), ["
 assert.equal(
   workflowHarnessReceiptKind("harness-default-dispatch:receipt-model_router_envelope"),
   "model router envelope",
+);
+
+const githubPrCreateSummary = workflowGithubPrCreatePlanSummary(
+  "github_pr_create",
+  {
+    githubPrCreatePlan: {
+      schemaVersion: "ioi.agent-runtime.github-pr-create-plan.v1",
+      object: "ioi.github_pr_create_plan",
+      planId: "github_pr_create_plan_test",
+      status: "blocked",
+      decision: "blocked",
+      dryRun: true,
+      previewOnly: true,
+      toolName: "github__pr_create",
+      action: "pr_create",
+      repoFullName: "ioi-test/ioi",
+      baseBranch: "main",
+      headBranch: "feature/parity",
+      reviewGateStatus: "blocked",
+      reviewSatisfied: false,
+      authority: {
+        requiredScopes: ["github.pr.create"],
+        missingScopes: ["github.pr.create"],
+        scopeGranted: false,
+      },
+      request: {
+        method: "POST",
+        path: "/repos/ioi-test/ioi/pulls",
+        payloadHash:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        bodyIncluded: false,
+        tokenIncluded: false,
+      },
+      mutationAttempted: false,
+      mutationExecuted: false,
+      networkLookupPerformed: false,
+      blockers: ["missing_authority_scope:github.pr.create", "dry_run_only"],
+      evidenceRefs: ["github_pr_create_plan"],
+    },
+    receiptId: "receipt-github-pr-create-plan",
+  },
+);
+assert.equal(githubPrCreateSummary?.requestPayloadHash?.length, 64);
+assert.equal(githubPrCreateSummary?.dryRun, true);
+assert.equal(githubPrCreateSummary?.mutationExecuted, false);
+assert.deepEqual(githubPrCreateSummary?.missingScopes, ["github.pr.create"]);
+assert.equal(githubPrCreateSummary?.reviewGateStatus, "blocked");
+assert.equal(githubPrCreateSummary?.receiptId, "receipt-github-pr-create-plan");
+assert.equal(
+  githubPrCreateSummary ? workflowGithubPrCreatePlanStatus(githubPrCreateSummary) : null,
+  "blocked",
 );
 
 console.log("workflow-rail-receipts.test.ts: ok");

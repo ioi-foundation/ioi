@@ -2095,6 +2095,53 @@ Validation evidence:
   - `runtime-artifacts.json` has the direct 21/21 component set with
     `github_pr_create`.
 
+Implementation slice completed 2026-05-11, PR-create workflow output surfaces:
+
+- The React Flow selected-node inspector now treats `github_pr_create` dry-run
+  plans as first-class run output, beside the existing package action output
+  surface.
+- Added a reusable `workflowGithubPrCreatePlanSummary` model helper that
+  normalizes nested or direct `githubPrCreatePlan` payloads into request hash,
+  dry-run/preview flags, mutation-attempt/executed flags, network lookup state,
+  missing authority scopes, review gate status, receipt id, blockers, and
+  evidence refs.
+- The selected-node inspector now exposes
+  `workflow-selected-node-github-pr-create-output-summary` with data attributes
+  for request hash, `dryRun`, mutation state, missing `github.pr.create` scope,
+  review gate status, receipt refs, replay fixture ref, request body/token
+  redaction, and blocker/evidence refs.
+- The workflow bottom selection shelf mirrors the PR-create output summary with
+  `workflow-selection-github-pr-create-output-summary`, so operators can inspect
+  the dry-run result without opening the full inspector.
+- The live GUI harness now validates the surface in two ways:
+  static source-contract proof in `rollback-restore-canary-ui-proof.json`, and
+  a React-rendered selected-node proof in
+  `promotion-transition-gui-behavior-proof.json` that selects
+  `harness.github_pr_create` and verifies request hash, dry-run/mutation flags,
+  missing scope, review gate status, receipt refs, and replay fixture refs.
+
+Validation evidence:
+
+- `npm run build:ide -- --pretty false`
+- `node --check scripts/lib/harness-promotion-transition-gui-probe.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+- `TSX_TSCONFIG_PATH=packages/agent-ide/tsconfig.json node --import tsx packages/agent-ide/src/runtime/workflow-rail-receipts.test.ts`
+- targeted React render proof:
+  `node --import tsx scripts/lib/harness-promotion-transition-gui-probe.mjs /tmp/github-pr-create-workflow-node-probe.json`
+- `git diff --check`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T16-55-06-446Z/result.json`
+  - `validation.ok === true`;
+  - `rollback-restore-canary-ui-proof.json` has
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `promotion-transition-gui-behavior-proof.json` has
+    `checks.githubPrCreateNodeOutputInspector === true`;
+  - `runtime-artifacts.json` retains the direct 21/21 live shadow component set
+    with `github_pr_create` and
+    `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
