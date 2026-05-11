@@ -301,11 +301,29 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     assert.equal(trace.hookInvocationLedger.wouldRunCount, 1);
     assert.equal(trace.hookInvocationLedger.blockedCount, 1);
     assert.equal(trace.hookInvocationLedger.skippedCount, 1);
+    assert.equal(trace.hookInvocationLedger.escalationCount, 1);
     assert.deepEqual(trace.hookInvocationLedger.emittedEventKinds, [
       "workflow_activation",
       "pre_model",
       "post_model",
     ]);
+    const blockedInvocation = trace.hookInvocationLedger.records.find(
+      (record) => record.eventKind === "pre_model" && record.state === "blocked",
+    );
+    assert.ok(blockedInvocation);
+    assert.equal(blockedInvocation.escalation.required, true);
+    assert.ok(blockedInvocation.escalation.receiptId.endsWith(blockedInvocation.invocationId.slice(-12)));
+    assert.deepEqual(blockedInvocation.escalation.missingToolContracts, [
+      "declare_at_least_one_tool_contract",
+    ]);
+    assert.deepEqual(blockedInvocation.escalation.missingAuthorityScopes, []);
+    assert.match(blockedInvocation.escalation.recommendedNextAction, /toolContracts/);
+    assert.equal(blockedInvocation.escalation.commandExecuted, false);
+    assert.equal(trace.hookInvocationLedger.escalations.length, 1);
+    assert.equal(
+      trace.hookInvocationLedger.escalations[0].receiptId,
+      blockedInvocation.escalation.receiptId,
+    );
     assert.ok(
       trace.hookInvocationLedger.records.some(
         (record) =>
@@ -346,6 +364,17 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     assert.ok(
       trace.receipts.some((receipt) => receipt.kind === "hook_invocation_ledger"),
     );
+    const escalationReceipt = trace.receipts.find((receipt) => receipt.kind === "hook_escalation");
+    assert.ok(escalationReceipt);
+    assert.equal(escalationReceipt.id, blockedInvocation.escalation.receiptId);
+    assert.equal(escalationReceipt.details.schemaVersion, "ioi.agent-runtime.hook-escalation-receipt.v1");
+    assert.equal(escalationReceipt.details.hookId, blockedInvocation.hookId);
+    assert.equal(escalationReceipt.details.eventKind, "pre_model");
+    assert.deepEqual(escalationReceipt.details.missingToolContracts, [
+      "declare_at_least_one_tool_contract",
+    ]);
+    assert.equal(escalationReceipt.details.commandExecuted, false);
+    assert.equal(escalationReceipt.details.approvalGrantCreated, false);
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/artifacts`);
     assert.ok(
       artifacts.some((artifact) => artifact.name === "active-skill-hook-manifest.json"),
@@ -399,6 +428,7 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
     assert.equal(hookInvocationEvent.payload_summary.would_run_count, 1);
     assert.equal(hookInvocationEvent.payload_summary.blocked_count, 1);
     assert.equal(hookInvocationEvent.payload_summary.skipped_count, 1);
+    assert.equal(hookInvocationEvent.payload_summary.escalation_count, 1);
     assert.deepEqual(hookInvocationEvent.payload_summary.emitted_event_kinds, [
       "workflow_activation",
       "pre_model",
@@ -409,6 +439,7 @@ test("local daemon discovers governed skills and hooks without leaking hook comm
         receiptRef.endsWith("_hook_invocation_ledger"),
       ),
     );
+    assert.ok(hookInvocationEvent.receipt_refs.includes(escalationReceipt.id));
     assert.ok(hookInvocationEvent.artifact_refs.includes("hook-invocations.json"));
     const serializedProjection = JSON.stringify({ skills, hooks, doctor, turn, trace, events });
     assert.ok(!serializedProjection.includes("super-secret-hook"));
@@ -922,6 +953,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /hookPolicyBlockedRoute/);
   assert.match(nodeRegistry, /hookInvocationLedger/);
   assert.match(nodeRegistry, /hookInvocationStateField/);
+  assert.match(nodeRegistry, /hookEscalationCountField/);
+  assert.match(nodeRegistry, /hookEscalationDetailsField/);
+  assert.match(nodeRegistry, /hookEscalationReceiptField/);
   assert.match(nodeRegistry, /activeSkillSetHash/);
   assert.match(nodeRegistry, /activeHookSetHash/);
   assert.match(harnessWorkflow, /memory_read/);
@@ -946,6 +980,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /hook_dry_run_plan/);
   assert.match(harnessWorkflow, /hook_policy_decision/);
   assert.match(harnessWorkflow, /hook_invocation_ledger/);
+  assert.match(harnessWorkflow, /hook_escalation_receipt/);
   assert.match(workflowValidation, /workflowNodeIsHookPolicy/);
   assert.match(workflowValidation, /hook_policy_dry_run_blocked/);
   assert.match(workflowValidation, /hook_policy_dry_run_plan_missing/);

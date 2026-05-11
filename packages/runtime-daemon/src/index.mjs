@@ -3488,6 +3488,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `Active skill/hook manifest: skills=${activeSkillHookManifest.selectedSkillIds.length}, hooks=${activeSkillHookManifest.selectedHookIds.length}, skillSet=${activeSkillHookManifest.activeSkillSetHash.slice(0, 12)}, hookSet=${activeSkillHookManifest.activeHookSetHash.slice(0, 12)}`,
       `Hook dry-run plan: wouldRun=${hookDryRunPlan.wouldRunCount}, blocked=${hookDryRunPlan.blockedCount}, skipped=${hookDryRunPlan.skippedCount}`,
       `Hook invocation ledger: invocations=${hookInvocationLedger.invocationCount}, wouldRun=${hookInvocationLedger.wouldRunCount}, blocked=${hookInvocationLedger.blockedCount}, skipped=${hookInvocationLedger.skippedCount}`,
+      `Hook escalation receipts: ${hookInvocationLedger.escalationCount} blocked invocation(s) require declaration fixes`,
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -3567,6 +3568,15 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
       },
+      ...(hookInvocationLedger.escalationCount > 0
+        ? [
+            {
+              checkId: "hook-escalation-receipts",
+              description: "Blocked hook invocations produce escalation receipts with required declaration fixes.",
+              status: "passed",
+            },
+          ]
+        : []),
     ],
     minimumEvidence: [
       "events",
@@ -3577,6 +3587,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "active_skill_hook_manifest",
       "hook_dry_run_plan",
       "hook_invocation_ledger",
+      "hook_escalation_receipt",
     ],
   };
   const semanticImpact = {
@@ -3601,6 +3612,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "HookDryRunPlan",
       "HookInvocationLedger",
       "HookInvocationRecord",
+      "HookEscalationReceipt",
       "RuntimeEventEnvelope",
     ],
     changedPolicies: [
@@ -3613,6 +3625,9 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "skills_hooks.active_manifest.read_only",
       "hooks.dry_run_preview_only",
       "hooks.invocation_ledger_preview_only",
+      ...(hookInvocationLedger.escalationCount > 0
+        ? ["hooks.escalation_receipt_required_for_blocked_invocations"]
+        : []),
       ...(activeSkillHookManifest.mutationBlockedHookIds.length > 0
         ? ["hooks.mutation_blocked_without_contract"]
         : []),
@@ -3710,7 +3725,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const hookInvocationReceipt = {
     id: `receipt_${runId}_hook_invocation_ledger`,
     kind: "hook_invocation_ledger",
-    summary: `Recorded ${hookInvocationLedger.invocationCount} preview hook invocation(s): ${hookInvocationLedger.wouldRunCount} would run, ${hookInvocationLedger.blockedCount} blocked, ${hookInvocationLedger.skippedCount} skipped.`,
+    summary: `Recorded ${hookInvocationLedger.invocationCount} preview hook invocation(s): ${hookInvocationLedger.wouldRunCount} would run, ${hookInvocationLedger.blockedCount} blocked, ${hookInvocationLedger.skippedCount} skipped, ${hookInvocationLedger.escalationCount} escalated.`,
     redaction: "redacted",
     evidenceRefs: [
       hookInvocationLedger.ledgerId,
@@ -3719,6 +3734,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "hook_invocation_preview_only",
     ],
   };
+  const hookEscalationReceipts = hookEscalationReceiptsForLedger(hookInvocationLedger);
   const agentgresReceipt = {
     id: `receipt_${runId}_agentgres`,
     kind: "agentgres_canonical_write",
@@ -3740,6 +3756,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     hookDryRunReceipt,
     hookPolicyReceipt,
     hookInvocationReceipt,
+    ...hookEscalationReceipts,
     ...memoryWriteReceipts,
     policyReceipt,
     authorityReceipt,
@@ -3773,6 +3790,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   addEvent("hook_invocation_ledger", "Hook invocation ledger recorded", {
     ...hookInvocationLedger,
     receiptId: hookInvocationReceipt.id,
+    escalationReceiptIds: hookEscalationReceipts.map((receipt) => receipt.id),
     eventKind: "HookInvocationLedger",
     workflowNodeId: "runtime.hook-invocations",
   });
@@ -4190,6 +4208,23 @@ function hookInvocationLedgerForPlan({ runId, manifest, dryRunPlan } = {}) {
           blockers,
         }),
       );
+      const escalation =
+        decision === "blocked"
+          ? hookEscalationForBlockedInvocation({
+              runId,
+              invocationHash,
+              runtimeEvent,
+              hook,
+              planDecision,
+              blockers,
+            })
+          : {
+              required: false,
+              receiptId: null,
+              missingAuthorityScopes: [],
+              missingToolContracts: [],
+              recommendedNextAction: "No hook escalation is required for this preview invocation.",
+            };
       records.push({
         schemaVersion: "ioi.agent-runtime.hook-invocation-record.v1",
         object: "ioi.agent_hook_invocation_record",
@@ -4215,6 +4250,7 @@ function hookInvocationLedgerForPlan({ runId, manifest, dryRunPlan } = {}) {
         decision,
         reason: planDecision.reason ?? "preview_only_event_subscription_matched",
         blockers,
+        escalation,
         policyDecisionStatus: dryRunPlan?.policyDecision?.status ?? null,
         execution: {
           previewOnly: true,
@@ -4236,6 +4272,17 @@ function hookInvocationLedgerForPlan({ runId, manifest, dryRunPlan } = {}) {
   const wouldRunCount = records.filter((record) => record.state === "would_run").length;
   const blockedCount = records.filter((record) => record.state === "blocked").length;
   const skippedCount = records.filter((record) => record.state === "skipped").length;
+  const escalations = records
+    .filter((record) => record.escalation?.required === true)
+    .map((record) => ({
+      ...record.escalation,
+      invocationId: record.invocationId,
+      hookId: record.hookId,
+      hookName: record.hookName,
+      eventKind: record.eventKind,
+      failurePolicy: record.failurePolicy,
+      workflowNodeId: record.workflowNodeId,
+    }));
   const ledgerHash = doctorHash(
     JSON.stringify({
       manifestId: manifest?.manifestId ?? null,
@@ -4264,6 +4311,8 @@ function hookInvocationLedgerForPlan({ runId, manifest, dryRunPlan } = {}) {
     wouldRunCount,
     blockedCount,
     skippedCount,
+    escalationCount: escalations.length,
+    escalations,
     records,
     redaction: {
       profile: "hook_invocation_ledger_safe",
@@ -4278,6 +4327,88 @@ function hookInvocationLedgerForPlan({ runId, manifest, dryRunPlan } = {}) {
       manifest?.manifestId,
     ].filter(Boolean),
   };
+}
+
+function hookEscalationForBlockedInvocation({
+  runId,
+  invocationHash,
+  runtimeEvent,
+  hook,
+  planDecision,
+  blockers,
+} = {}) {
+  const missingAuthorityScopes = blockers.includes("missing_authority_scope")
+    ? ["declare_at_least_one_authority_scope"]
+    : [];
+  const missingToolContracts = blockers.includes("missing_tool_contract")
+    ? ["declare_at_least_one_tool_contract"]
+    : [];
+  const missingDeclarations = [
+    ...(missingAuthorityScopes.length > 0 ? ["authorityScopes"] : []),
+    ...(missingToolContracts.length > 0 ? ["toolContracts"] : []),
+  ];
+  return {
+    required: true,
+    receiptId: `receipt_${runId}_hook_escalation_${invocationHash.slice(0, 12)}`,
+    escalationKind: "missing_declared_capabilities",
+    missingDeclarations,
+    missingAuthorityScopes,
+    missingToolContracts,
+    eventKind: runtimeEvent?.eventKind ?? null,
+    hookId: hook?.id ?? null,
+    hookName: hook?.name ?? null,
+    failurePolicy: hook?.failurePolicy ?? "warn",
+    blockers,
+    recommendedNextAction:
+      missingDeclarations.length > 0
+        ? `Declare ${missingDeclarations.join(" and ")} for this hook before requesting execution.`
+        : "Review hook policy before requesting execution.",
+    commandExecuted: false,
+    approvalGrantCreated: false,
+    evidenceRefs: [
+      "hook_escalation_receipt",
+      hook?.id,
+      runtimeEvent?.eventKind,
+      planDecision?.decision,
+    ].filter(Boolean),
+  };
+}
+
+function hookEscalationReceiptsForLedger(ledger = {}) {
+  return normalizeArray(ledger.records)
+    .filter((record) => record.escalation?.required === true)
+    .map((record) => ({
+      id: record.escalation.receiptId,
+      kind: "hook_escalation",
+      summary: `Hook ${record.hookName} on ${record.eventKind} is blocked until ${record.escalation.missingDeclarations.join(" and ") || "policy"} are declared.`,
+      redaction: "redacted",
+      evidenceRefs: [
+        ledger.ledgerId,
+        record.invocationId,
+        record.dryRunPlanId,
+        record.manifestId,
+        "hook_escalation_receipt",
+      ].filter(Boolean),
+      details: {
+        schemaVersion: "ioi.agent-runtime.hook-escalation-receipt.v1",
+        object: "ioi.agent_hook_escalation_receipt",
+        receiptId: record.escalation.receiptId,
+        invocationId: record.invocationId,
+        hookId: record.hookId,
+        hookName: record.hookName,
+        eventKind: record.eventKind,
+        failurePolicy: record.failurePolicy,
+        blockers: record.blockers,
+        missingDeclarations: record.escalation.missingDeclarations,
+        missingAuthorityScopes: record.escalation.missingAuthorityScopes,
+        missingToolContracts: record.escalation.missingToolContracts,
+        recommendedNextAction: record.escalation.recommendedNextAction,
+        workflowNodeId: record.workflowNodeId,
+        hookPolicyNodeId: record.hookPolicyNodeId,
+        commandExecuted: false,
+        approvalGrantCreated: false,
+      },
+    }));
 }
 
 function normalizeManifestSelection(values) {
@@ -5309,6 +5440,7 @@ function payloadSummaryForRunEvent(event) {
       would_run_count: event.data?.wouldRunCount ?? 0,
       blocked_count: event.data?.blockedCount ?? 0,
       skipped_count: event.data?.skippedCount ?? 0,
+      escalation_count: event.data?.escalationCount ?? 0,
       hook_execution_enabled: Boolean(event.data?.hookExecutionEnabled),
       command_execution_enabled: Boolean(event.data?.commandExecutionEnabled),
       workflow_node_id: event.data?.workflowNodeId ?? null,
@@ -5409,7 +5541,10 @@ function receiptRefsForRunEvent(event) {
     ].filter(Boolean);
   }
   if (event.type === "hook_invocation_ledger") {
-    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+    return [
+      event.data?.receiptId ?? event.data?.receipt_id,
+      ...normalizeArray(event.data?.escalationReceiptIds),
+    ].filter(Boolean);
   }
   if (event.type === "memory_update") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);

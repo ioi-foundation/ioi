@@ -454,6 +454,9 @@ export interface NodeLogic {
   hookInvocationLedger?: unknown;
   hookInvocationLedgerField?: string;
   hookInvocationStateField?: string;
+  hookEscalationCountField?: string;
+  hookEscalationDetailsField?: string;
+  hookEscalationReceiptField?: string;
 
   // --- Triggers ---
   triggerKind?: "manual" | "scheduled" | "event";
@@ -485,6 +488,9 @@ export interface NodeLogic {
     hookPolicyDecisionField?: string;
     hookInvocationLedgerField?: string;
     hookInvocationStateField?: string;
+    hookEscalationCountField?: string;
+    hookEscalationDetailsField?: string;
+    hookEscalationReceiptField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };
