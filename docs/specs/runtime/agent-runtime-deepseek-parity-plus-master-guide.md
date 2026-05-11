@@ -1252,6 +1252,34 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T04-51-31-990Z/result.json`
 
+Implementation slice completed 2026-05-11, active skill/hook manifest per turn:
+
+- Each daemon run/turn now records an
+  `ioi.agent-runtime.active-skill-hook-manifest.v1` snapshot with selected
+  skill IDs, hook IDs, active skill/hook set hashes, catalog hashes,
+  provenance, validation status, and redaction metadata.
+- The run trace includes the active manifest and a prompt audit record that
+  links prompt hash, selected skill IDs, selected hook IDs, active set hashes,
+  and hook execution state without returning skill bodies or hook commands.
+- The TTI event stream emits an `ActiveSkillHookManifest` item with receipt
+  refs, artifact refs, selected skill/hook counts, and mutation-blocked hook
+  counts, preserving replayable provenance before any hook can execute.
+- The run artifact list now includes `active-skill-hook-manifest.json`, and the
+  trace receipts include an `active_skill_hook_manifest` receipt.
+- Hook execution remains disabled; command-backed hooks are marked mutation
+  blocked unless they declare both authority scopes and tool contracts.
+- React Flow `SkillNode`, `SkillPackNode`, `HookNode`, and `HookPolicyNode`
+  defaults now declare activation gates that consume the active skill/hook
+  manifest and validate active skill/hook set hashes.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T04-58-22-773Z/result.json`
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:
