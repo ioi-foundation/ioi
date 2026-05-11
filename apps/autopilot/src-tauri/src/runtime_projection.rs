@@ -22,6 +22,13 @@ pub enum ActionKind {
     Probe,
     BudgetGate,
     CapabilitySequence,
+    RepositoryContext,
+    BranchPolicy,
+    GithubContext,
+    IssueContext,
+    PrAttempt,
+    ReviewGate,
+    GithubPrCreate,
     WorkflowPackageExport,
     WorkflowPackageImport,
     Function,
@@ -61,6 +68,13 @@ impl ActionKind {
             "probe" => Self::Probe,
             "budget_gate" => Self::BudgetGate,
             "capability_sequence" => Self::CapabilitySequence,
+            "repository_context" => Self::RepositoryContext,
+            "branch_policy" => Self::BranchPolicy,
+            "github_context" => Self::GithubContext,
+            "issue_context" => Self::IssueContext,
+            "pr_attempt" => Self::PrAttempt,
+            "review_gate" => Self::ReviewGate,
+            "github_pr_create" => Self::GithubPrCreate,
             "workflow_package_export" => Self::WorkflowPackageExport,
             "workflow_package_import" => Self::WorkflowPackageImport,
             "function" => Self::Function,
@@ -100,6 +114,13 @@ impl ActionKind {
             Self::Probe => "probe",
             Self::BudgetGate => "budget_gate",
             Self::CapabilitySequence => "capability_sequence",
+            Self::RepositoryContext => "repository_context",
+            Self::BranchPolicy => "branch_policy",
+            Self::GithubContext => "github_context",
+            Self::IssueContext => "issue_context",
+            Self::PrAttempt => "pr_attempt",
+            Self::ReviewGate => "review_gate",
+            Self::GithubPrCreate => "github_pr_create",
             Self::WorkflowPackageExport => "workflow_package_export",
             Self::WorkflowPackageImport => "workflow_package_import",
             Self::Function => "function",
@@ -139,6 +160,13 @@ impl ActionKind {
             Self::Probe => "probe",
             Self::BudgetGate => "budget",
             Self::CapabilitySequence => "capability_sequence",
+            Self::RepositoryContext => "repository_context",
+            Self::BranchPolicy => "branch_policy",
+            Self::GithubContext => "github_context",
+            Self::IssueContext => "issue_context",
+            Self::PrAttempt => "pr_attempt",
+            Self::ReviewGate => "review_gate",
+            Self::GithubPrCreate => "github_pr_create",
             Self::WorkflowPackageExport => "workflow_package_export",
             Self::WorkflowPackageImport => "workflow_package_import",
             Self::Function => "function",
@@ -195,6 +223,13 @@ impl ActionKind {
                 | Self::Proposal
                 | Self::Probe
                 | Self::DryRun
+                | Self::RepositoryContext
+                | Self::BranchPolicy
+                | Self::GithubContext
+                | Self::IssueContext
+                | Self::PrAttempt
+                | Self::ReviewGate
+                | Self::GithubPrCreate
                 | Self::WorkflowPackageExport
                 | Self::WorkflowPackageImport
                 | Self::SemanticImpact
@@ -409,6 +444,34 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("workflow_package_import"),
             ActionKind::WorkflowPackageImport
+        );
+        assert_eq!(
+            ActionKind::from_node_type("repository_context"),
+            ActionKind::RepositoryContext
+        );
+        assert_eq!(
+            ActionKind::from_node_type("branch_policy"),
+            ActionKind::BranchPolicy
+        );
+        assert_eq!(
+            ActionKind::from_node_type("github_context"),
+            ActionKind::GithubContext
+        );
+        assert_eq!(
+            ActionKind::from_node_type("issue_context"),
+            ActionKind::IssueContext
+        );
+        assert_eq!(
+            ActionKind::from_node_type("pr_attempt"),
+            ActionKind::PrAttempt
+        );
+        assert_eq!(
+            ActionKind::from_node_type("review_gate"),
+            ActionKind::ReviewGate
+        );
+        assert_eq!(
+            ActionKind::from_node_type("github_pr_create"),
+            ActionKind::GithubPrCreate
         );
         assert_eq!(ActionKind::from_node_type("proposal"), ActionKind::Proposal);
         assert_eq!(ActionKind::from_node_type("model"), ActionKind::Unknown);

@@ -127,6 +127,59 @@ pub(super) fn workflow_node(
             json!(["review", "imported_workflow", "evidence", "locale"]),
             json!({ "in": "output_bundle", "out": "state" }),
         ),
+        "repository_context" => (
+            json!([]),
+            json!(["repository"]),
+            json!({ "in": "none", "out": "state" }),
+        ),
+        "branch_policy" => (
+            json!(["repository"]),
+            json!(["branch_policy"]),
+            json!({ "in": "state", "out": "state" }),
+        ),
+        "github_context" => (
+            json!(["repository", "branch_policy"]),
+            json!(["github_context"]),
+            json!({ "in": "state", "out": "state" }),
+        ),
+        "issue_context" => (
+            json!(["github_context"]),
+            json!(["issue_context"]),
+            json!({ "in": "state", "out": "state" }),
+        ),
+        "pr_attempt" => (
+            json!([
+                "repository",
+                "branch_policy",
+                "github_context",
+                "issue_context"
+            ]),
+            json!(["pr_attempt"]),
+            json!({ "in": "state", "out": "state" }),
+        ),
+        "review_gate" => (
+            json!([
+                "repository",
+                "branch_policy",
+                "github_context",
+                "issue_context",
+                "pr_attempt"
+            ]),
+            json!(["review_gate"]),
+            json!({ "in": "state", "out": "approval" }),
+        ),
+        "github_pr_create" => (
+            json!([
+                "repository",
+                "branch_policy",
+                "github_context",
+                "issue_context",
+                "pr_attempt",
+                "review_gate"
+            ]),
+            json!(["plan", "blockers", "request"]),
+            json!({ "in": "approval", "out": "approval" }),
+        ),
         "parser" => (
             json!([]),
             json!(["parser"]),
@@ -216,6 +269,67 @@ pub(super) fn workflow_node(
             "cronSchedule": "",
             "eventSourceRef": "",
             "dedupeKey": ""
+        }),
+        "repository_context" => json!({
+            "repositoryContextEndpoint": "runtime.repositoryContext",
+            "repoFullName": "ioi-test/ioi",
+            "branch": "feature/runtime-pr-plan",
+            "defaultBranch": "main",
+            "dirty": false,
+            "readOnly": true,
+            "mutationExecuted": false,
+            "redactionProfile": "repository_context_safe"
+        }),
+        "branch_policy" => json!({
+            "branchPolicyEndpoint": "runtime.branchPolicy",
+            "allowDirtyWorktree": true,
+            "blockProtectedBranches": false,
+            "protectedBranches": ["main"],
+            "mutationExecuted": false,
+            "redactionProfile": "branch_policy_safe"
+        }),
+        "github_context" => json!({
+            "githubContextEndpoint": "runtime.githubContext",
+            "repoFullName": "ioi-test/ioi",
+            "tokenAvailable": false,
+            "networkLookupPerformed": false,
+            "mutationExecuted": false,
+            "redactionProfile": "github_context_safe"
+        }),
+        "issue_context" => json!({
+            "issueContextEndpoint": "runtime.issueContext",
+            "issueNumber": Value::Null,
+            "networkLookupPerformed": false,
+            "mutationExecuted": false,
+            "redactionProfile": "issue_context_safe"
+        }),
+        "pr_attempt" => json!({
+            "prAttemptEndpoint": "runtime.prAttempt",
+            "title": "Draft PR for feature/runtime-pr-plan",
+            "baseBranch": "main",
+            "headBranch": "feature/runtime-pr-plan",
+            "diffArtifactAttached": true,
+            "branchArtifactAttached": true,
+            "dryRun": true,
+            "mutationExecuted": false,
+            "redactionProfile": "pr_attempt_safe"
+        }),
+        "review_gate" => json!({
+            "reviewGateEndpoint": "runtime.reviewGate",
+            "reviewSatisfied": false,
+            "dryRun": true,
+            "mutationExecuted": false,
+            "redactionProfile": "review_gate_safe"
+        }),
+        "github_pr_create" => json!({
+            "githubPrCreatePlanEndpoint": "runtime.githubPrCreatePlan",
+            "githubPrCreatePlanField": "githubPrCreatePlan",
+            "dryRun": true,
+            "previewOnly": true,
+            "mutationExecuted": false,
+            "networkLookupPerformed": false,
+            "redactionProfile": "github_pr_create_plan_safe",
+            "outputSchema": workflow_github_pr_create_output_schema()
         }),
         "model_call" => json!({
             "modelRef": if metric_value == "vision" { "vision" } else { "reasoning" },
@@ -419,6 +533,13 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
             "Tools",
             "Workflow Package Import",
         ),
+        ("repository_context", "Context", "Repository Context"),
+        ("branch_policy", "Policy", "Branch Policy"),
+        ("github_context", "Context", "GitHub Context"),
+        ("issue_context", "Context", "Issue Context"),
+        ("pr_attempt", "Tools", "PR Attempt"),
+        ("review_gate", "Gates", "Review Gate"),
+        ("github_pr_create", "Tools", "GitHub PR Create"),
         ("parser", "Models", "Output Parser"),
         ("adapter", "Connectors", "Adapter"),
         ("plugin_tool", "Tools", "Plugin Tool"),
@@ -506,6 +627,48 @@ pub(super) fn workflow_package_import_output_schema() -> Value {
             "workflowChromeLocalePreserved": { "type": "boolean" },
             "sourceWorkflowChromeLocale": { "type": ["string", "null"] },
             "importedWorkflowChromeLocale": { "type": ["string", "null"] }
+        }
+    })
+}
+
+pub(super) fn workflow_github_pr_create_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "object",
+            "status",
+            "decision",
+            "dryRun",
+            "previewOnly",
+            "toolName",
+            "action",
+            "request",
+            "authority",
+            "blockers",
+            "networkLookupPerformed",
+            "mutationAttempted",
+            "mutationExecuted",
+            "redaction"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "object": { "type": "string" },
+            "planId": { "type": "string" },
+            "status": { "type": "string" },
+            "decision": { "type": "string" },
+            "dryRun": { "type": "boolean" },
+            "previewOnly": { "type": "boolean" },
+            "toolName": { "type": "string" },
+            "action": { "type": "string" },
+            "request": { "type": "object" },
+            "authority": { "type": "object" },
+            "blockers": { "type": "array" },
+            "networkLookupPerformed": { "type": "boolean" },
+            "mutationAttempted": { "type": "boolean" },
+            "mutationExecuted": { "type": "boolean" },
+            "redaction": { "type": "object" },
+            "githubPrCreatePlan": { "type": "object" }
         }
     })
 }
@@ -832,6 +995,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
     };
     let side_effect_class = match node_type {
         "adapter" | "plugin_tool" => "read",
+        "github_pr_create" => "external_write",
         "human_gate" | "proposal" | "workflow_package_export" | "workflow_package_import" => {
             "write"
         }
@@ -839,7 +1003,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
     };
     let requires_approval = matches!(
         node_type,
-        "human_gate" | "proposal" | "workflow_package_import"
+        "human_gate" | "proposal" | "workflow_package_import" | "github_pr_create"
     );
     let sandboxed = node_type == "function";
     let supports_dry_run = matches!(
@@ -847,6 +1011,9 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "function"
             | "adapter"
             | "plugin_tool"
+            | "pr_attempt"
+            | "review_gate"
+            | "github_pr_create"
             | "workflow_package_export"
             | "workflow_package_import"
     );
@@ -862,6 +1029,13 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "parser"
             | "adapter"
             | "plugin_tool"
+            | "repository_context"
+            | "branch_policy"
+            | "github_context"
+            | "issue_context"
+            | "pr_attempt"
+            | "review_gate"
+            | "github_pr_create"
             | "workflow_package_export"
             | "workflow_package_import"
             | "subgraph"
@@ -872,6 +1046,13 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "model_binding" => vec!["model"],
         "model_call" => vec!["data", "model", "memory", "tool", "parser"],
         "skill_context" => vec!["data", "error"],
+        "repository_context" => vec!["state"],
+        "branch_policy" => vec!["state", "approval"],
+        "github_context" => vec!["state", "approval"],
+        "issue_context" => vec!["state"],
+        "pr_attempt" => vec!["state", "approval", "data"],
+        "review_gate" => vec!["state", "approval"],
+        "github_pr_create" => vec!["state", "approval", "data"],
         "workflow_package_export" => vec!["data", "output_bundle"],
         "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],
