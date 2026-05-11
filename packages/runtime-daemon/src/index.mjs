@@ -17,6 +17,7 @@ import * as routeDecision from "./model-mounting/route-decision.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
+const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_canceled"]);
 const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.v1";
 const RUN_EVENT_TO_TTI_EVENT = {
@@ -1076,6 +1077,12 @@ export class AgentgresRuntimeStateStore {
     return job;
   }
 
+  cancelJob(jobId) {
+    const job = this.getJob(jobId);
+    const canceledRun = this.cancelRun(job.runId);
+    return runtimeJobRecordForRun(canceledRun);
+  }
+
   agentForThread(threadId) {
     return this.getAgent(agentIdForThread(threadId));
   }
@@ -1098,17 +1105,10 @@ export class AgentgresRuntimeStateStore {
     const run = this.getRun(runId);
     const status = run.status === "canceled" ? "canceled" : "canceled";
     const updatedAt = new Date().toISOString();
-    const nonTerminalEvents = run.events.filter((event) => !TERMINAL_EVENT_TYPES.has(event.type));
-    const canceledEvents = [...nonTerminalEvents];
-    const canceled = makeEvent(
-      run.id,
-      run.agentId,
-      canceledEvents.length,
-      "canceled",
-      "Run canceled",
-      { reason: "operator_cancel", priorStatus: run.status },
+    const nonTerminalEvents = run.events.filter(
+      (event) => !TERMINAL_EVENT_TYPES.has(event.type) && !JOB_TERMINAL_EVENT_TYPES.has(event.type),
     );
-    canceledEvents.push(canceled);
+    const canceledEvents = [...nonTerminalEvents];
     const stopCondition = {
       reason: "marginal_improvement_too_low",
       evidenceSufficient: true,
@@ -1137,11 +1137,35 @@ export class AgentgresRuntimeStateStore {
       startedAt: run.runtimeJob?.startedAt ?? run.createdAt,
       completedAt: updatedAt,
       lifecycle: ["queued", "started", "canceled"],
-      eventCount: canceledEvents.length,
-      terminalEventCount: terminalCount(canceledEvents),
+      eventCount: canceledEvents.length + 2,
+      terminalEventCount: 1,
       artifactNames: normalizeArray(run.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
       receiptKinds: normalizeArray(run.receipts).map((receipt) => receipt.kind).filter(Boolean),
     });
+    const jobCanceled = makeEvent(
+      run.id,
+      run.agentId,
+      canceledEvents.length,
+      "job_canceled",
+      "Runtime job canceled",
+      {
+        ...runtimeJob,
+        lifecycleStatus: "canceled",
+        receiptId: `receipt_${run.id}_runtime_job`,
+        eventKind: "JobCanceled",
+        workflowNodeId: "runtime.runtime-job",
+      },
+    );
+    canceledEvents.push(jobCanceled);
+    const canceled = makeEvent(
+      run.id,
+      run.agentId,
+      canceledEvents.length,
+      "canceled",
+      "Run canceled",
+      { reason: "operator_cancel", priorStatus: run.status },
+    );
+    canceledEvents.push(canceled);
     const trace = {
       ...run.trace,
       events: canceledEvents,
@@ -1155,12 +1179,18 @@ export class AgentgresRuntimeStateStore {
         ],
       },
     };
+    const artifacts = normalizeArray(run.artifacts).map((item) => {
+      if (item.name === "runtime-task.json") return { ...item, content: runtimeTask };
+      if (item.name === "runtime-job.json") return { ...item, content: runtimeJob };
+      return item;
+    });
     const updated = {
       ...run,
       status,
       updatedAt,
       events: trace.events,
       trace,
+      artifacts,
       runtimeTask: trace.runtimeTask,
       runtimeJob: trace.runtimeJob,
       result: "Run canceled with terminal event continuity preserved.",
@@ -1729,6 +1759,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/jobs") {
       writeJsonResponse(response, store.listJobs(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (segments[0] === "v1" && segments[1] === "jobs" && segments[2] && request.method === "POST" && segments[3] === "cancel") {
+      writeJsonResponse(response, store.cancelJob(decodeURIComponent(segments[2])));
       return;
     }
     if (segments[0] === "v1" && segments[1] === "jobs" && segments[2]) {
@@ -4017,6 +4051,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/threads/{id}/memory",
       "/v1/jobs",
       "/v1/jobs/{id}",
+      "/v1/jobs/{id}/cancel",
       "/v1/runs/{id}/events",
       "/v1/runs/{id}/trace",
       "/v1/skills",
@@ -4869,8 +4904,11 @@ function runtimeJobRecord({
     failure: jobStatus === "failed" ? { reason: "runtime_failed", message: "Runtime job failed." } : null,
     cancellation: jobStatus === "canceled" ? { reason: "operator_cancel" } : null,
     retryCount: 0,
+    cancelable: jobStatus !== "canceled",
+    cancelEndpoint: `/v1/jobs/${jobId}/cancel`,
     endpoints: {
       self: `/v1/jobs/${jobId}`,
+      cancel: `/v1/jobs/${jobId}/cancel`,
       run: `/v1/runs/${task.runId}`,
       events: `/v1/runs/${task.runId}/events`,
       trace: `/v1/runs/${task.runId}/trace`,

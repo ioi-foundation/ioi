@@ -489,6 +489,9 @@ export interface NodeLogic {
   runtimeJobStatusField?: string;
   runtimeJobLifecycleField?: string;
   runtimeJobQueueField?: string;
+  runtimeJobCancelEndpoint?: string;
+  runtimeJobCancelable?: boolean;
+  runtimeJobCancelRoute?: string;
   runtimeJobReceiptField?: string;
   repositoryEndpoint?: string;
   repositoryContext?: unknown;

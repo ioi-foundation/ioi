@@ -139,9 +139,21 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(jobs[0].taskId, trace.runtimeTask.taskId);
     assert.equal(jobs[0].status, "canceled");
     assert.equal(jobs[0].endpoints.self, `/v1/jobs/${jobs[0].jobId}`);
+    assert.equal(jobs[0].endpoints.cancel, `/v1/jobs/${jobs[0].jobId}/cancel`);
     const job = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}`);
     assert.equal(job.jobId, jobs[0].jobId);
     assert.equal(job.runId, run.id);
+    const jobCancel = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}/cancel`, {
+      method: "POST",
+      body: "{}",
+    });
+    assert.equal(jobCancel.jobId, jobs[0].jobId);
+    assert.equal(jobCancel.status, "canceled");
+    assert.deepEqual(jobCancel.lifecycle, ["queued", "started", "canceled"]);
+    assert.equal(jobCancel.cancellation.reason, "operator_cancel");
+    const traceAfterJobCancel = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/trace`);
+    assert.equal(terminalCount(traceAfterJobCancel.events), 1);
+    assert.equal(traceAfterJobCancel.events.at(-1)?.type, "canceled");
     const threadId = `thread_${agent.id.slice("agent_".length)}`;
     const threadEvents = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
     const runtimeTaskEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "RuntimeTaskRecord");
@@ -152,14 +164,15 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.ok(runtimeTaskEvent.artifact_refs.includes("runtime-task.json"));
     const jobQueuedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobQueued");
     const jobStartedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobStarted");
-    const jobCompletedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobCompleted");
+    const jobCanceledEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobCanceled");
     assert.ok(jobQueuedEvent);
     assert.ok(jobStartedEvent);
-    assert.ok(jobCompletedEvent);
+    assert.ok(jobCanceledEvent);
+    assert.equal(threadEvents.some((event) => event.payload_summary?.event_kind === "JobCompleted"), false);
     assert.equal(jobQueuedEvent.component_kind, "runtime_job");
     assert.equal(jobStartedEvent.workflow_node_id, "runtime.runtime-job");
-    assert.equal(jobCompletedEvent.payload_summary.lifecycle_status, "completed");
-    assert.ok(jobCompletedEvent.artifact_refs.includes("runtime-job.json"));
+    assert.equal(jobCanceledEvent.payload_summary.lifecycle_status, "canceled");
+    assert.ok(jobCanceledEvent.artifact_refs.includes("runtime-job.json"));
 
     const cliView = await fetch(`${daemon.endpoint}/v1/runs/${run.id}/trace`).then((response) =>
       response.json(),
@@ -1494,7 +1507,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /runtime_job/);
   assert.match(nodeRegistry, /RuntimeJobNode/);
   assert.match(nodeRegistry, /\/v1\/jobs/);
+  assert.match(nodeRegistry, /\/v1\/jobs\/\{jobId\}\/cancel/);
   assert.match(nodeRegistry, /runtimeJobLifecycleField/);
+  assert.match(nodeRegistry, /runtimeJobCancelEndpoint/);
   assert.match(nodeRegistry, /repository_context/);
   assert.match(nodeRegistry, /RepositoryContextNode/);
   assert.match(nodeRegistry, /\/v1\/repository-context/);
@@ -1560,6 +1575,8 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /runtime_job/);
   assert.match(harnessWorkflow, /JobQueued/);
   assert.match(harnessWorkflow, /runtime\.job\.read/);
+  assert.match(harnessWorkflow, /\/v1\/jobs\/\{jobId\}\/cancel/);
+  assert.match(harnessWorkflow, /runtimeJobCancelable/);
   assert.match(harnessWorkflow, /repository_context/);
   assert.match(harnessWorkflow, /RepositoryContext/);
   assert.match(harnessWorkflow, /repository\.context\.read/);

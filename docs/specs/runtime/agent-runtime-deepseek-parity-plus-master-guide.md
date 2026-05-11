@@ -1706,6 +1706,30 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-52-37-360Z/result.json`
 
+Implementation slice completed 2026-05-11, job cancellation endpoint:
+
+- Added `POST /v1/jobs/{id}/cancel` as the job-facing cancellation path,
+  resolving job IDs to canonical run IDs and delegating to the run cancellation
+  owner.
+- Job cancellation now rewrites replay to show `JobQueued`, `JobStarted`,
+  `JobCanceled`, and then the single run-level `canceled` terminal event,
+  avoiding duplicate terminal run events and stale `JobCompleted` lifecycle
+  claims after cancellation.
+- The public job record updates to `status: "canceled"` with lifecycle
+  `["queued", "started", "canceled"]`, cancellation reason, cancel endpoint,
+  and refreshed `runtime-job.json` artifact content.
+- React Flow `runtime_job` configuration now exposes
+  `runtimeJobCancelEndpoint`, `runtimeJobCancelable`, and
+  `runtimeJobCancelRoute`, so workflows can model job cancellation explicitly.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T13-05-03-333Z/result.json`
+
 ### P2. Localization And Accessibility
 
 Problem:
