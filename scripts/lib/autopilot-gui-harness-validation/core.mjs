@@ -4249,6 +4249,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
   const projectWorkflowExecutionResultsLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs";
+  const projectWorkflowGraphExecutionLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_graph_execution_lane.rs";
   const projectWorkflowHarnessResultsLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs";
   const projectRepositoryPrLanePath =
@@ -4290,6 +4292,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowExecutionResultsLane = readFileSync(
     resolve(repoRoot, projectWorkflowExecutionResultsLanePath),
+    "utf8",
+  );
+  const projectWorkflowGraphExecutionLane = readFileSync(
+    resolve(repoRoot, projectWorkflowGraphExecutionLanePath),
     "utf8",
   );
   const projectWorkflowHarnessResultsLane = readFileSync(
@@ -4641,6 +4647,18 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_coding_route_evidence_from_run/.test(
         projectWorkflowExecutionResultsLane,
       ),
+    workflowGraphExecutionRuntimeLane:
+      /workflow_graph_execution_lane/.test(projectRuntime) &&
+      /workflow_edge_from/.test(projectWorkflowGraphExecutionLane) &&
+      /workflow_edge_to/.test(projectWorkflowGraphExecutionLane) &&
+      /workflow_edge_connection_class/.test(projectWorkflowGraphExecutionLane) &&
+      /workflow_has_incoming_connection_class/.test(
+        projectWorkflowGraphExecutionLane,
+      ) &&
+      /workflow_edge_is_selected/.test(projectWorkflowGraphExecutionLane) &&
+      /workflow_node_ready/.test(projectWorkflowGraphExecutionLane) &&
+      /workflow_next_ready_nodes/.test(projectWorkflowGraphExecutionLane) &&
+      /workflow_node_lifecycle_steps/.test(projectWorkflowGraphExecutionLane),
     workflowHarnessResultsRuntimeLane:
       /workflow_harness_results_lane/.test(projectRuntime) &&
       /workflow_attach_harness_run_artifacts/.test(
