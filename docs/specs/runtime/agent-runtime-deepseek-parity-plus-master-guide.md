@@ -2182,6 +2182,39 @@ Validation evidence:
     `workflow_github_pr_create_output`, and
     `github_pr_create_dry_run_node_executes_through_runtime`.
 
+Implementation slice completed 2026-05-11, PR-create runtime module refactor:
+
+- The repository-to-PR runtime lane now lives in
+  `apps/autopilot/src-tauri/src/project/repository_pr_lane.rs`, keeping
+  `runtime.rs` focused on action dispatch, package import/export execution,
+  harness runtime projection, and shared workflow mechanics.
+- The extracted lane owns the output builders for `repository_context`,
+  `branch_policy`, `github_context`, `issue_context`, `pr_attempt`,
+  `review_gate`, and dry-run-only `github_pr_create`, preserving the same safe
+  plan shape and mutation/network boundaries from the prior slice.
+- The daemon and live GUI source-contract proofs now read
+  `repository_pr_lane.rs` directly while still checking that `runtime.rs`
+  dispatches `ActionKind::GithubPrCreate`, so parity evidence follows the
+  modular architecture instead of assuming every executor lives in one file.
+- The live GUI validation initially exposed a transient retained
+  `probe_behavior` submit timeout unrelated to this refactor. A clean rerun
+  completed the full chat/workflow evidence ladder and is the slice's canonical
+  proof artifact.
+
+Validation evidence:
+
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T17-53-05-240Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow component set with
+    `github_pr_create` and `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
