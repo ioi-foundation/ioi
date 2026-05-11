@@ -10648,12 +10648,12 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       kind: "memory_read",
       label: "Memory read",
       description:
-        "Reads session or worker memory through scoped state access.",
+        "Reads session, workflow, or worker memory through scoped state access.",
       kernelRef:
         "crates/services/src/agentic/runtime/service/handler/execution/memory",
       capabilityScope: ["memory.read"],
       eventKinds: ["MemoryRead"],
-      evidence: ["memory_key", "state_hash"],
+      evidence: ["memory_key", "state_hash", "memory.scope", "memory.injectionEnabled"],
       group: "State",
       icon: "database",
     }),
@@ -10661,13 +10661,13 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       kind: "memory_write",
       label: "Memory write",
       description:
-        "Writes memory through state reducers and receipt-backed updates.",
+        "Writes, edits, or deletes memory through policy-checked reducers and receipt-backed updates.",
       kernelRef:
         "crates/services/src/agentic/runtime/service/handler/execution/memory",
       capabilityScope: ["memory.write"],
       approvalRequired: true,
       eventKinds: ["MemoryWrite", "StateUpdate"],
-      evidence: ["memory_key", "previous_hash", "next_hash"],
+      evidence: ["memory_key", "previous_hash", "next_hash", "memory.readOnly", "memory.writeRequiresApproval"],
       group: "State",
       icon: "database",
     }),
@@ -10989,7 +10989,8 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     slotId: "slot.memory-policy",
     kind: "memory_policy",
     label: "Memory policy",
-    description: "Memory read/write scope and reducer behavior.",
+    description:
+      "Memory read/write scope, injection, approval, retention, and subagent inheritance behavior.",
     required: true,
     allowedComponentKinds: ["memory_read", "memory_write"],
     defaultComponentId: componentId("memory_read"),

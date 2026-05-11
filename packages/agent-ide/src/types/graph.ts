@@ -386,6 +386,12 @@ export interface NodeLogic {
   parserRef?: string;
   parserBinding?: WorkflowParserBinding;
   memoryKey?: string;
+  memoryInjectionEnabled?: boolean;
+  memoryReadOnly?: boolean;
+  memoryWriteRequiresApproval?: boolean;
+  memorySubagentInheritance?: "none" | "explicit" | "read_only" | "full";
+  memoryRetention?: string;
+  memoryRedaction?: "none" | "redacted" | string;
   validateStructuredOutput?: boolean;
   jsonMode?: boolean;
   maxTokens?: number;

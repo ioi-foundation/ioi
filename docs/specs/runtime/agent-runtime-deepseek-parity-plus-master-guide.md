@@ -968,24 +968,44 @@ Implementation slice completed 2026-05-11:
 
 Remaining memory UX closure:
 
-- Add first-class `/memory edit`, `/memory disable`, and `/memory path`
-  behavior rather than contract-only placeholders.
-- Add workflow-level read-only/write-approval enforcement and evidence.
-- Add explicit subagent memory inheritance controls and evidence.
-- Promote memory contract scaffolding into visible React Flow node/editor UX
-  where the workflow development environment does not already expose it.
+- Wire React Flow graph activation/runtime execution to pass memory policy
+  fields into daemon `SendOptions.memory` in every live workflow path.
+- Add memory search/list filtering UI beyond the current key/policy controls.
+- Add deeper subagent memory inheritance execution evidence once subagent
+  runtime fan-out is first-class.
+
+Implementation slice completed 2026-05-11, memory policy controls:
+
+- Runtime memory now persists policy records alongside memory records, with
+  effective thread policy projection, storage path projection, and
+  `memory_policy` receipts.
+- Slash/runtime commands now cover `/memory disable`, `/memory enable`,
+  `/memory path`, `/memory edit <id> <text>`, and `/memory delete <id>`.
+- Thread and agent memory APIs now expose `memory/policy`, `memory/path`, and
+  record `PATCH`/`DELETE` endpoints.
+- Runtime policy enforcement blocks writes when memory is disabled, read-only,
+  or waiting on explicit write approval, while still allowing read/path/policy
+  commands.
+- `memory_update` now carries `MemoryWrite`, `MemoryEdit`, `MemoryDelete`, and
+  `MemoryPolicy` event kinds, receipt refs, policy IDs, and workflow node IDs.
+- SDK helpers now expose `Agent.memory.edit()`, `delete()`, `policy()`,
+  `configure()`, and `path()`, plus typed policy/path/update inputs.
+- React Flow workflow editor and node registry now expose memory injection,
+  read-only memory, write approval, and subagent inheritance controls on model
+  nodes, and parity contracts require memory policy/edit/path nodes.
 
 Validation evidence:
 
 - `node --check packages/runtime-daemon/src/index.mjs`
 - `node --check packages/runtime-daemon/src/memory-store.mjs`
 - `npm run build:agent-sdk`
+- `npm run build:ide`
 - `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --test packages/agent-sdk/test/sdk.test.mjs`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
 - live GUI/workflow harness:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T01-14-12-548Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T02-51-13-357Z/result.json`
 
 ### P1. Doctor, Config, And Introspection
 

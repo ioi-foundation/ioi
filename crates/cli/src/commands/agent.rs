@@ -711,29 +711,48 @@ fn print_thinking_controls(json: bool) -> Result<()> {
 fn print_memory_controls(json: bool) -> Result<()> {
     let value = serde_json::json!({
         "schema_version": "ioi.agent-runtime.memory-controls.v1",
-        "commands": ["# remember", "/memory", "/memory show"],
-        "event": "memory_update",
-        "event_kind": "MemoryWrite",
-        "receipt_kind": "memory_write",
+        "commands": [
+            "# remember",
+            "/memory",
+            "/memory show",
+            "/memory disable",
+            "/memory enable",
+            "/memory path",
+            "/memory edit <id> <text>",
+            "/memory delete <id>"
+        ],
+        "events": ["memory_update"],
+        "event_kinds": ["MemoryWrite", "MemoryEdit", "MemoryDelete", "MemoryPolicy"],
+        "receipt_kinds": ["memory_write", "memory_edit", "memory_delete", "memory_policy"],
         "daemon_endpoints": [
             "/v1/agents/{id}/memory",
-            "/v1/threads/{id}/memory"
+            "/v1/agents/{id}/memory/{memory_id}",
+            "/v1/agents/{id}/memory/policy",
+            "/v1/agents/{id}/memory/path",
+            "/v1/threads/{id}/memory",
+            "/v1/threads/{id}/memory/{memory_id}",
+            "/v1/threads/{id}/memory/policy",
+            "/v1/threads/{id}/memory/path"
         ],
         "workflow_config": {
-            "node_types": ["MemoryScopeNode", "RememberNode", "MemoryInjectionNode"],
+            "node_types": ["MemoryScopeNode", "RememberNode", "MemoryInjectionNode", "MemoryPolicyNode", "MemoryEditNode"],
             "reactflow_fields": [
                 "memory.scope",
                 "memory.injectionEnabled",
                 "memory.readOnly",
                 "memory.writeRequiresApproval",
                 "memory.retention",
-                "memory.redaction"
+                "memory.redaction",
+                "memory.subagentInheritance"
             ]
         },
         "invariants": {
             "writes_emit_receipts": true,
             "thread_memory_is_explicit": true,
-            "workflow_memory_can_be_disabled": true
+            "workflow_memory_can_be_disabled": true,
+            "read_only_blocks_writes": true,
+            "write_requires_approval_fails_closed": true,
+            "subagent_memory_inheritance_is_explicit": true
         }
     });
     if json {
@@ -742,8 +761,11 @@ fn print_memory_controls(json: bool) -> Result<()> {
     println!("Agent memory controls");
     println!("  remember: # remember <fact>");
     println!("  show: /memory show");
+    println!("  disable: /memory disable");
+    println!("  path: /memory path");
+    println!("  edit: /memory edit <id> <text>");
     println!("  event: memory_update");
-    println!("  receipt: memory_write");
+    println!("  receipts: memory_write, memory_edit, memory_delete, memory_policy");
     Ok(())
 }
 

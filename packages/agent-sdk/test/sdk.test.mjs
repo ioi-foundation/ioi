@@ -106,6 +106,38 @@ test("explicit mock memory helpers remember facts and inject them into later tur
   assert.ok(trace.memoryRecords.some((record) => record.id === remembered.record.id));
   assert.ok(trace.taskState.knownFacts.some((fact) => fact.includes("Prefer focused runtime slices")));
 
+  const memoryPath = await agent.memory.path();
+  assert.match(memoryPath.recordsPath, /\.ioi/);
+  assert.match(memoryPath.policiesPath, /memory-policies/);
+
+  const edited = await agent.memory.edit(remembered.record.id, "Prefer narrow, validated runtime slices.");
+  assert.equal(edited.receipt.kind, "memory_edit");
+  assert.equal((await agent.memory.list()).records[0].fact, "Prefer narrow, validated runtime slices.");
+
+  const readOnly = await agent.memory.configure({ readOnly: true });
+  assert.equal(readOnly.policy.readOnly, true);
+  await assert.rejects(
+    agent.memory.remember("This write should be blocked."),
+    (error) => error instanceof IoiAgentError && error.code === "policy",
+  );
+  const blockedReadOnlyRun = await agent.send("# remember Policy blocks this.");
+  assert.match((await blockedReadOnlyRun.wait()).result, /memory_read_only/);
+
+  await agent.memory.configure({ readOnly: false, writeRequiresApproval: true });
+  const approvalBlockedRun = await agent.send("# remember Approval is missing.");
+  assert.match((await approvalBlockedRun.wait()).result, /memory_write_requires_approval/);
+  const approvalRun = await agent.send("# remember Approval was granted.", {
+    memory: { writeApproved: true },
+  });
+  assert.ok((await approvalRun.inspect()).receipts.some((receipt) => receipt.kind === "memory_write"));
+
+  const disabledPolicyRun = await agent.send("/memory disable");
+  assert.equal((await disabledPolicyRun.wait()).result, "Memory is disabled for this thread.");
+  assert.equal((await agent.memory.policy()).disabled, true);
+  const enablePolicyRun = await agent.send("/memory enable");
+  assert.equal((await enablePolicyRun.wait()).result, "Memory is enabled for this thread.");
+  assert.equal((await agent.memory.policy()).disabled, false);
+
   const disabledRun = await agent.send("/memory show", { memory: { disabled: true } });
   const disabledResult = await disabledRun.wait();
   assert.equal(disabledResult.result, "Memory is disabled for this run.");
@@ -113,6 +145,7 @@ test("explicit mock memory helpers remember facts and inject them into later tur
   assert.equal(disabledTrace.memoryRecords.length, 0);
   assert.ok(!disabledTrace.taskState.knownFacts.some((fact) => fact.includes("Prefer focused runtime slices")));
 
+  await agent.memory.configure({ writeRequiresApproval: false });
   const rememberRun = await agent.send("# remember Preserve memory receipts.");
   const events = [];
   for await (const event of rememberRun.stream()) events.push(event);

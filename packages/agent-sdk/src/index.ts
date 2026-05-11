@@ -3,13 +3,18 @@ export { Run } from "./run.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
 export { createRuntimeSubstrateClient } from "./substrate-client.js";
 export type {
-  RuntimeAgentRecord,
+  AgentMemoryPathProjection,
   AgentMemoryProjection,
+  DeleteMemoryRecordInput,
+  MemoryPolicyInput,
+  MemoryPolicyUpdateResult,
   RememberMemoryInput,
   RememberMemoryResult,
+  RuntimeAgentRecord,
   RuntimeArtifact,
   RuntimeRunRecord,
   RuntimeSubstrateClient,
+  UpdateMemoryRecordInput,
 } from "./substrate-client.js";
 export type {
   AgentOptions,
@@ -31,6 +36,7 @@ export type {
 } from "./options.js";
 export type {
   AgentQualityLedgerProjection,
+  AgentMemoryPolicy,
   AgentMemoryRecord,
   ConversationMessage,
   IOIRunResult,
