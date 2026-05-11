@@ -1085,7 +1085,9 @@ export function WorkflowNodeBindingSections({
                     | "read"
                     | "write"
                     | "append"
-                    | "merge",
+                    | "merge"
+                    | "memory_search"
+                    | "memory_list",
                   reducer:
                     event.target.value === "append"
                       ? "append"
@@ -1099,8 +1101,86 @@ export function WorkflowNodeBindingSections({
               <option value="write">Write</option>
               <option value="append">Append</option>
               <option value="merge">Merge</option>
+              <option value="memory_search">Memory search</option>
+              <option value="memory_list">Memory list</option>
             </select>
           </label>
+          {logic.stateOperation === "memory_search" ||
+          logic.stateOperation === "memory_list" ? (
+            <>
+              <label>
+                Memory scope
+                <select
+                  data-testid="workflow-state-memory-scope"
+                  value={logic.memoryScope ?? "thread"}
+                  onChange={(event) =>
+                    updateLogic({
+                      ...logic,
+                      memoryScope: event.target.value as NonNullable<
+                        NodeLogic["memoryScope"]
+                      >,
+                    })
+                  }
+                >
+                  <option value="thread">Thread</option>
+                  <option value="workflow">Workflow</option>
+                  <option value="workspace">Workspace</option>
+                  <option value="subagent">Subagent</option>
+                  <option value="global">Global</option>
+                </select>
+              </label>
+              <label>
+                Memory key
+                <input
+                  data-testid="workflow-state-memory-key"
+                  value={String(logic.memoryKey ?? "")}
+                  onChange={(event) =>
+                    updateLogic({ ...logic, memoryKey: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Query
+                <input
+                  data-testid="workflow-state-memory-query"
+                  value={String(logic.query ?? "")}
+                  onChange={(event) =>
+                    updateLogic({ ...logic, query: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Limit
+                <input
+                  data-testid="workflow-state-memory-limit"
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={Number(logic.limit ?? 10)}
+                  onChange={(event) =>
+                    updateLogic({ ...logic, limit: Number(event.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Redaction
+                <select
+                  data-testid="workflow-state-memory-redaction"
+                  value={logic.memoryRedaction ?? "none"}
+                  onChange={(event) =>
+                    updateLogic({
+                      ...logic,
+                      memoryRedaction: event.target
+                        .value as NonNullable<NodeLogic["memoryRedaction"]>,
+                    })
+                  }
+                >
+                  <option value="none">None</option>
+                  <option value="redacted">Redacted</option>
+                </select>
+              </label>
+            </>
+          ) : null}
           <label>
             Reducer
             <select

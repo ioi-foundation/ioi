@@ -264,6 +264,40 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(memory.records[0].fact, "The operator prefers focused runtime slices.");
     assert.equal(memory.policy.injectionEnabled, true);
 
+    await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`, {
+      method: "POST",
+      body: JSON.stringify({
+        text: "The operator wants memory filters validated through workflow nodes.",
+        memoryKey: "workflow-preferences",
+        scope: "thread",
+      }),
+    });
+    await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`, {
+      method: "POST",
+      body: JSON.stringify({
+        text: "This unrelated note should be filtered away.",
+        memoryKey: "scratch",
+        scope: "thread",
+      }),
+    });
+    const filteredMemory = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/memory?memoryKey=workflow-preferences&q=workflow&limit=1`,
+    );
+    assert.equal(filteredMemory.filters.memoryKey, "workflow-preferences");
+    assert.equal(filteredMemory.filters.query, "workflow");
+    assert.equal(filteredMemory.filters.limit, 1);
+    assert.equal(filteredMemory.records.length, 1);
+    assert.equal(
+      filteredMemory.records[0].fact,
+      "The operator wants memory filters validated through workflow nodes.",
+    );
+    const redactedMemory = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/memory?memoryKey=workflow-preferences&redaction=redacted`,
+    );
+    assert.equal(redactedMemory.records[0].fact, "[REDACTED]");
+    assert.equal(redactedMemory.records[0].redaction, "redacted");
+    assert.match(redactedMemory.records[0].factHash, /^[a-f0-9]{64}$/);
+
     const memoryPath = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/path`);
     assert.match(memoryPath.recordsPath, /memory-records/);
     assert.match(memoryPath.policiesPath, /memory-policies/);
@@ -410,9 +444,13 @@ test("React Flow memory node contracts remain workflow-addressable", () => {
   );
   assert.match(workflowContracts, /memory\.scope/);
   assert.match(workflowContracts, /memory\.remember/);
+  assert.match(workflowContracts, /memory\.search/);
+  assert.match(workflowContracts, /memory\.list/);
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(harnessWorkflow, /memory_read/);
+  assert.match(harnessWorkflow, /memory_search/);
+  assert.match(harnessWorkflow, /memory_list/);
   assert.match(harnessWorkflow, /memory_write/);
   assert.match(harnessWorkflow, /memory_policy/);
   assert.match(harnessWorkflow, /memory\.writeRequiresApproval/);

@@ -148,6 +148,8 @@ export interface AgentMemoryRecord {
   object: "ioi.agent_memory_record";
   scope: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   fact: string;
+  factHash?: string;
+  memoryKey?: string | null;
   agentId: string | null;
   threadId: string | null;
   workspace: string | null;

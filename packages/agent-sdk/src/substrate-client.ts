@@ -104,11 +104,24 @@ export interface AgentMemoryProjection {
   workspace: string | null;
   policy?: AgentMemoryPolicy;
   paths?: AgentMemoryPathProjection;
+  filters?: MemoryListOptions;
   records: AgentMemoryRecord[];
+  totalMatches?: number;
+}
+
+export interface MemoryListOptions {
+  threadId?: string;
+  scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
+  memoryKey?: string;
+  query?: string;
+  q?: string;
+  limit?: number;
+  redaction?: "none" | "redacted" | string;
 }
 
 export interface RememberMemoryInput {
   text: string;
+  memoryKey?: string;
   scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   threadId?: string;
   workflowGraphId?: string;
@@ -196,7 +209,7 @@ export interface RuntimeSubstrateClient {
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
   listTools(): Promise<RuntimeToolCatalogEntry[]>;
   rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
-  listMemory(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryProjection>;
+  listMemory(agentId: string, options?: MemoryListOptions): Promise<AgentMemoryProjection>;
   updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
   deleteMemory(agentId: string, memoryId: string, input?: DeleteMemoryRecordInput): Promise<RememberMemoryResult>;
   getMemoryPolicy(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryPolicy>;
@@ -378,8 +391,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("rememberMemory", "POST", `/v1/agents/${encodePath(agentId)}/memory`, input);
   }
 
-  async listMemory(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
-    const query = options.threadId ? `?threadId=${encodeURIComponent(options.threadId)}` : "";
+  async listMemory(agentId: string, options: MemoryListOptions = {}): Promise<AgentMemoryProjection> {
+    const query = memoryListQuery(options);
     return this.request("listMemory", "GET", `/v1/agents/${encodePath(agentId)}/memory${query}`);
   }
 
@@ -541,6 +554,16 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
 function encodePath(value: string): string {
   return encodeURIComponent(value);
+}
+
+function memoryListQuery(options: MemoryListOptions = {}): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(options)) {
+    if (value === undefined || value === null || value === "") continue;
+    params.set(key, String(value));
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
 }
 
 function parseDaemonResponseBody(text: string): unknown {
@@ -1006,6 +1029,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       });
     }
     const record = mockMemoryRecord(agent, input.text, {
+      memoryKey: input.memoryKey,
       scope: input.scope ?? "thread",
       threadId,
       source: "sdk_memory_helper",
@@ -1021,9 +1045,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     };
   }
 
-  async listMemory(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryProjection> {
+  async listMemory(agentId: string, options: MemoryListOptions = {}): Promise<AgentMemoryProjection> {
     const agent = await this.getAgent(agentId);
     const threadId = options.threadId ?? threadIdForAgent(agent.id);
+    const records = this.memoryForAgent(agent, threadId, options);
     return {
       schemaVersion: "ioi.agent-runtime.memory.v1",
       object: "ioi.agent_memory_projection",
@@ -1032,7 +1057,9 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       workspace: agent.cwd,
       policy: this.memoryPolicyForAgent(agent, threadId),
       paths: mockMemoryPath(agent, threadId, this.checkpointDir),
-      records: this.memoryForAgent(agent, threadId),
+      filters: memoryListFilters(options),
+      records,
+      totalMatches: records.length,
     };
   }
 
@@ -1212,8 +1239,9 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     writeJson(path.join(this.checkpointDir, "memory-policies", `${safeFileName(policy.id)}.json`), policy);
   }
 
-  private memoryForAgent(agent: RuntimeAgentRecord, threadId = threadIdForAgent(agent.id)): AgentMemoryRecord[] {
-    return [...this.memories.values()]
+  private memoryForAgent(agent: RuntimeAgentRecord, threadId = threadIdForAgent(agent.id), options: MemoryListOptions = {}): AgentMemoryRecord[] {
+    const filters = memoryListFilters(options);
+    const records = [...this.memories.values()]
       .filter(
         (record) =>
           record.scope === "global" ||
@@ -1221,7 +1249,12 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
           (record.agentId === agent.id && record.scope !== "thread") ||
           (record.workspace === agent.cwd && record.scope === "workspace"),
       )
+      .filter((record) => !filters.scope || record.scope === filters.scope)
+      .filter((record) => !filters.memoryKey || record.memoryKey === filters.memoryKey)
+      .filter((record) => !filters.query || mockMemorySearchText(record).includes(filters.query))
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const limited = filters.limit ? records.slice(0, filters.limit) : records;
+    return filters.redaction === "redacted" ? limited.map(redactMockMemoryRecord) : limited;
   }
 
   private memoryPolicyForAgent(
@@ -1287,6 +1320,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const writes: RememberMemoryResult[] = [];
     if (!policyBlockReason && command.kind === "remember") {
       const record = mockMemoryRecord(agent, command.text, {
+        memoryKey: options.memory?.memoryKey,
         scope: policy.scope ?? "thread",
         threadId,
         source: "chat_hash_remember",
@@ -1317,6 +1351,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       }
     } else if (!policyBlockReason && requestedRemember) {
       const record = mockMemoryRecord(agent, requestedRemember, {
+        memoryKey: options.memory?.memoryKey,
         scope: policy.scope ?? "thread",
         threadId,
         source: "sdk_send_memory_option",
@@ -1328,7 +1363,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     }
     return {
       command: command.kind,
-      records: this.memoryForAgent(agent, threadId),
+      records: this.memoryForAgent(agent, threadId, options.memory ?? {}),
       writes,
       mutations,
       policy,
@@ -1543,6 +1578,7 @@ function mockMemoryRecord(
   agent: RuntimeAgentRecord,
   text: string,
   fields: {
+    memoryKey?: string | null;
     scope: string;
     threadId: string;
     source: string;
@@ -1558,6 +1594,7 @@ function mockMemoryRecord(
     object: "ioi.agent_memory_record",
     scope: fields.scope,
     fact: String(text).trim(),
+    memoryKey: fields.memoryKey ?? null,
     agentId: agent.id,
     threadId: fields.threadId,
     workspace: agent.cwd,
@@ -1569,6 +1606,55 @@ function mockMemoryRecord(
     createdAt: now,
     updatedAt: now,
     evidenceRefs: ["agent_memory_store", "memory.write", agent.id, fields.threadId],
+  };
+}
+
+function memoryListFilters(options: MemoryListOptions = {}): MemoryListOptions {
+  return {
+    threadId: options.threadId,
+    scope: optionalMemoryString(options.scope),
+    memoryKey: optionalMemoryString(options.memoryKey),
+    query: optionalMemoryString(options.query ?? options.q)?.toLowerCase(),
+    limit: normalizeMemoryLimit(options.limit),
+    redaction: options.redaction === "redacted" ? "redacted" : "none",
+  };
+}
+
+function optionalMemoryString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text ? text : undefined;
+}
+
+function normalizeMemoryLimit(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.min(Math.floor(parsed), 200);
+}
+
+function mockMemorySearchText(record: AgentMemoryRecord): string {
+  return [
+    record.fact,
+    record.id,
+    record.scope,
+    record.memoryKey,
+    record.workflowGraphId,
+    record.workflowNodeId,
+    record.workflowNodeType,
+    record.source,
+  ]
+    .filter((value) => value !== undefined && value !== null)
+    .map((value) => String(value).toLowerCase())
+    .join("\n");
+}
+
+function redactMockMemoryRecord(record: AgentMemoryRecord): AgentMemoryRecord & { factHash: string } {
+  return {
+    ...record,
+    fact: "[REDACTED]",
+    factHash: crypto.createHash("sha256").update(record.fact).digest("hex"),
+    redaction: "redacted",
   };
 }
 

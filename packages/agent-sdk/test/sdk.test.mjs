@@ -98,6 +98,24 @@ test("explicit mock memory helpers remember facts and inject them into later tur
   const memory = await agent.memory.list();
   assert.equal(memory.records.length, 1);
   assert.equal(memory.records[0].id, remembered.record.id);
+  await agent.memory.remember("Prefer memory filters in workflow nodes.", {
+    memoryKey: "workflow-preferences",
+  });
+  await agent.memory.remember("Unrelated scratch memory.", { memoryKey: "scratch" });
+  const filteredMemory = await agent.memory.search("filters", {
+    memoryKey: "workflow-preferences",
+    limit: 1,
+  });
+  assert.equal(filteredMemory.filters.query, "filters");
+  assert.equal(filteredMemory.records.length, 1);
+  assert.equal(filteredMemory.records[0].memoryKey, "workflow-preferences");
+  assert.match(filteredMemory.records[0].fact, /filters/);
+  const redactedMemory = await agent.memory.list({
+    memoryKey: "workflow-preferences",
+    redaction: "redacted",
+  });
+  assert.equal(redactedMemory.records[0].fact, "[REDACTED]");
+  assert.match(redactedMemory.records[0].factHash, /^[a-f0-9]{64}$/);
 
   const run = await agent.send("/memory show");
   const result = await run.wait();

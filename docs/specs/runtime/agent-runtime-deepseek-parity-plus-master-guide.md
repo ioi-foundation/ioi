@@ -968,7 +968,6 @@ Implementation slice completed 2026-05-11:
 
 Remaining memory UX closure:
 
-- Add memory search/list filtering UI beyond the current key/policy controls.
 - Add deeper subagent memory inheritance execution evidence once subagent
   runtime fan-out is first-class.
 
@@ -1033,6 +1032,39 @@ Validation evidence:
 - `git diff --check`
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-17-06-563Z/result.json`
+
+Implementation slice completed 2026-05-11, workflow memory search/list:
+
+- Thread and agent memory projections now accept `scope`, `memoryKey`,
+  `q/query`, `limit`, and `redaction` filters, and returned projections include
+  the normalized filter contract plus `totalMatches`.
+- Memory records now carry optional `memoryKey` metadata so workflow-level state
+  keys can address durable memory without relying on ad hoc text matching.
+- SDK memory helpers now expose typed filtered `list()` options and
+  `Agent.memory.search(query, options)`, with matching behavior in the mock
+  substrate and daemon HTTP client.
+- React Flow state nodes now expose `memory_search` and `memory_list`
+  operations with scope, key, query, limit, and redaction controls; creator
+  variants `memory.search` and `memory.list` produce model-ready memory
+  attachments.
+- Local workflow execution filters incoming memory records, applies optional
+  redaction, emits `memoryQuery` evidence, and feeds the filtered state
+  attachment into model nodes through the existing memory port.
+- Harness component contracts now include `memory_search` and `memory_list`
+  alongside read/write/policy memory components.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/memory-store.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:agent-sdk`
+- `npm run build:ide`
+- `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-50-03-897Z/result.json`
 
 ### P1. Doctor, Config, And Introspection
 
