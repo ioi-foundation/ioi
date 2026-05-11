@@ -10469,6 +10469,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
         "active_skill_hook_manifest",
         "hook_dry_run_plan",
         "hook_policy_decision",
+        "hook_invocation_ledger",
       ],
       group: "Governance",
       icon: "webhook",
@@ -10481,7 +10482,12 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       kernelRef: "packages/runtime-daemon/src/index.mjs::hookDryRunPlanForManifest",
       capabilityScope: ["hook.policy.preview", "workflow.activation.read"],
       eventKinds: ["HookDryRunPlan"],
-      evidence: ["hook_dry_run_plan", "hook_policy_decision", "hook_preview_only"],
+      evidence: [
+        "hook_dry_run_plan",
+        "hook_policy_decision",
+        "hook_preview_only",
+        "hook_invocation_ledger",
+      ],
       group: "Governance",
       icon: "shield-check",
     }),
@@ -11532,6 +11538,39 @@ function nodeLogicFor(
         sideEffectsExecuted: false,
         mutationExecuted: false,
         rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      };
+    case "hook_registry":
+      return {
+        ...base,
+        hookEndpoint: "/v1/hooks",
+        eventKinds: [
+          "pre_model",
+          "post_model",
+          "pre_tool",
+          "post_tool",
+          "approval",
+          "workflow_activation",
+        ],
+        failurePolicy: "warn",
+        authorityScopes: [],
+        toolContracts: [],
+        hookInvocationLedgerField: "hookInvocationLedger",
+        hookInvocationStateField: "hookInvocationLedger.records",
+        hookInvocationLedger: {
+          schemaVersion: "ioi.agent-runtime.hook-invocation-ledger.v1",
+          object: "ioi.agent_hook_invocation_ledger",
+          ledgerId: "hook_invocations_default_harness_empty",
+          mode: "preview_only",
+          hookExecutionEnabled: false,
+          commandExecutionEnabled: false,
+          emittedEventKinds: ["workflow_activation", "pre_model", "post_model"],
+          invocationCount: 0,
+          wouldRunCount: 0,
+          blockedCount: 0,
+          skippedCount: 0,
+          records: [],
+          evidenceRefs: ["hook_invocation_ledger"],
+        },
       };
     case "hook_policy":
       return {
