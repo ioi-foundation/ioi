@@ -4243,6 +4243,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
   const projectWorkflowAuthorityToolingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
+  const projectWorkflowBindingLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs";
   const projectWorkflowMemoryLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowPackageLanePath =
@@ -4280,6 +4282,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowAuthorityToolingLane = readFileSync(
     resolve(repoRoot, projectWorkflowAuthorityToolingLanePath),
+    "utf8",
+  );
+  const projectWorkflowBindingLane = readFileSync(
+    resolve(repoRoot, projectWorkflowBindingLanePath),
     "utf8",
   );
   const projectWorkflowMemoryLane = readFileSync(
@@ -4627,6 +4633,21 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_live_authority_destructive_denial/.test(
         projectWorkflowAuthorityToolingLane,
       ),
+    workflowBindingRuntimeLane:
+      /workflow_binding_lane/.test(projectRuntime) &&
+      /workflow_node_schema/.test(projectWorkflowBindingLane) &&
+      /workflow_function_binding/.test(projectWorkflowBindingLane) &&
+      /workflow_tool_binding/.test(projectWorkflowBindingLane) &&
+      /workflow_parser_binding/.test(projectWorkflowBindingLane) &&
+      /workflow_model_binding/.test(projectWorkflowBindingLane) &&
+      /workflow_connector_binding/.test(projectWorkflowBindingLane) &&
+      /workflow_sandbox_policy/.test(projectWorkflowBindingLane) &&
+      /workflow_function_sandbox_precheck/.test(projectWorkflowBindingLane) &&
+      /workflow_function_dependency_precheck/.test(
+        projectWorkflowBindingLane,
+      ) &&
+      /workflow_function_input_schema/.test(projectWorkflowBindingLane) &&
+      /workflow_function_output_schema/.test(projectWorkflowBindingLane),
     workflowExecutionResultsRuntimeLane:
       /workflow_execution_results_lane/.test(projectRuntime) &&
       /struct WorkflowRunResultParts/.test(
