@@ -451,6 +451,9 @@ export interface NodeLogic {
   hookPolicyDecisionField?: string;
   hookPolicyPassedRoute?: string;
   hookPolicyBlockedRoute?: string;
+  hookInvocationLedger?: unknown;
+  hookInvocationLedgerField?: string;
+  hookInvocationStateField?: string;
 
   // --- Triggers ---
   triggerKind?: "manual" | "scheduled" | "event";
@@ -480,6 +483,8 @@ export interface NodeLogic {
     hookDryRunPlanField?: string;
     hookDryRunDecisionField?: string;
     hookPolicyDecisionField?: string;
+    hookInvocationLedgerField?: string;
+    hookInvocationStateField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };

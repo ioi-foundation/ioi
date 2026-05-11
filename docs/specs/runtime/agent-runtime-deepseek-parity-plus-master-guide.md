@@ -1330,6 +1330,32 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-14-01-420Z/result.json`
 
+Implementation slice completed 2026-05-11, hook invocation ledger:
+
+- Each run now derives an `ioi.agent-runtime.hook-invocation-ledger.v1` from
+  emitted lifecycle event kinds and the active hook dry-run plan.
+- The ledger records preview `HookInvocationRecord` entries for matching hook
+  subscriptions such as `workflow_activation`, `pre_model`, and `post_model`.
+- Invocation records link the run ID, manifest ID, dry-run plan ID, lifecycle
+  event kind, hook ID, hook definition hash, policy decision, blockers,
+  workflow node ID, and execution proof.
+- Invocation states mirror the dry-run policy as `would_run`, `blocked`, or
+  `skipped`; every record remains preview-only with `commandExecuted: false`.
+- The TTI event stream emits `HookInvocationLedger` on
+  `runtime.hook-invocations`, and artifacts now include
+  `hook-invocations.json`.
+- React Flow `HookNode` metadata now exposes `hookInvocationLedger` and
+  invocation state fields so event subscription and invocation state are
+  workflow-addressable while `HookPolicyNode` remains the activation gate.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-19-58-078Z/result.json`
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:

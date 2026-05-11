@@ -23,6 +23,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   model_route_decision: "item.completed",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
+  hook_invocation_ledger: "item.completed",
   memory_update: "item.completed",
   task_state: "item.completed",
   uncertainty: "item.completed",
@@ -38,6 +39,26 @@ const RUN_EVENT_TO_TTI_EVENT = {
   failed: "turn.failed",
   error: "turn.failed",
 };
+const HOOK_INVOCATION_RUNTIME_EVENTS = [
+  {
+    eventKind: "workflow_activation",
+    runtimeEventType: "run_started",
+    phase: "activation",
+    workflowNodeId: "runtime.runtime-thread",
+  },
+  {
+    eventKind: "pre_model",
+    runtimeEventType: "model_route_decision",
+    phase: "before_model",
+    workflowNodeId: "runtime.model-router",
+  },
+  {
+    eventKind: "post_model",
+    runtimeEventType: "delta",
+    phase: "after_model",
+    workflowNodeId: "runtime.output-writer",
+  },
+];
 
 export async function startRuntimeDaemonService(options = {}) {
   const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
@@ -3443,6 +3464,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     runId,
     manifest: activeSkillHookManifest,
   });
+  const hookInvocationLedger = hookInvocationLedgerForPlan({
+    runId,
+    manifest: activeSkillHookManifest,
+    dryRunPlan: hookDryRunPlan,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3461,6 +3487,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         : []),
       `Active skill/hook manifest: skills=${activeSkillHookManifest.selectedSkillIds.length}, hooks=${activeSkillHookManifest.selectedHookIds.length}, skillSet=${activeSkillHookManifest.activeSkillSetHash.slice(0, 12)}, hookSet=${activeSkillHookManifest.activeHookSetHash.slice(0, 12)}`,
       `Hook dry-run plan: wouldRun=${hookDryRunPlan.wouldRunCount}, blocked=${hookDryRunPlan.blockedCount}, skipped=${hookDryRunPlan.skippedCount}`,
+      `Hook invocation ledger: invocations=${hookInvocationLedger.invocationCount}, wouldRun=${hookInvocationLedger.wouldRunCount}, blocked=${hookInvocationLedger.blockedCount}, skipped=${hookInvocationLedger.skippedCount}`,
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -3473,6 +3500,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "agentgres_canonical_operation_log",
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
+      hookInvocationLedger.ledgerId,
       activeSkillHookManifest.activeSkillSetHash,
       activeSkillHookManifest.activeHookSetHash,
       ...agent.options.mcpServerNames,
@@ -3548,6 +3576,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "agentgres_operation_log",
       "active_skill_hook_manifest",
       "hook_dry_run_plan",
+      "hook_invocation_ledger",
     ],
   };
   const semanticImpact = {
@@ -3570,6 +3599,8 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "SubagentMemoryInheritanceProjection",
       "ActiveSkillHookManifest",
       "HookDryRunPlan",
+      "HookInvocationLedger",
+      "HookInvocationRecord",
       "RuntimeEventEnvelope",
     ],
     changedPolicies: [
@@ -3581,6 +3612,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         : []),
       "skills_hooks.active_manifest.read_only",
       "hooks.dry_run_preview_only",
+      "hooks.invocation_ledger_preview_only",
       ...(activeSkillHookManifest.mutationBlockedHookIds.length > 0
         ? ["hooks.mutation_blocked_without_contract"]
         : []),
@@ -3675,6 +3707,18 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "hook_execution_disabled_until_policy",
     ],
   };
+  const hookInvocationReceipt = {
+    id: `receipt_${runId}_hook_invocation_ledger`,
+    kind: "hook_invocation_ledger",
+    summary: `Recorded ${hookInvocationLedger.invocationCount} preview hook invocation(s): ${hookInvocationLedger.wouldRunCount} would run, ${hookInvocationLedger.blockedCount} blocked, ${hookInvocationLedger.skippedCount} skipped.`,
+    redaction: "redacted",
+    evidenceRefs: [
+      hookInvocationLedger.ledgerId,
+      hookDryRunPlan.planId,
+      activeSkillHookManifest.manifestId,
+      "hook_invocation_preview_only",
+    ],
+  };
   const agentgresReceipt = {
     id: `receipt_${runId}_agentgres`,
     kind: "agentgres_canonical_write",
@@ -3695,6 +3739,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     skillHookReceipt,
     hookDryRunReceipt,
     hookPolicyReceipt,
+    hookInvocationReceipt,
     ...memoryWriteReceipts,
     policyReceipt,
     authorityReceipt,
@@ -3724,6 +3769,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     policyReceiptId: hookPolicyReceipt.id,
     eventKind: "HookDryRunPlan",
     workflowNodeId: "runtime.hook-policy",
+  });
+  addEvent("hook_invocation_ledger", "Hook invocation ledger recorded", {
+    ...hookInvocationLedger,
+    receiptId: hookInvocationReceipt.id,
+    eventKind: "HookInvocationLedger",
+    workflowNodeId: "runtime.hook-invocations",
   });
   if (modelRouteDecision) {
     addEvent("model_route_decision", "Model route decision recorded", {
@@ -3763,6 +3814,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "trace.json",
       "active-skill-hook-manifest.json",
       "hook-dry-run-plan.json",
+      "hook-invocations.json",
       "scorecard.json",
       "agentgres-projection.json",
     ],
@@ -3784,6 +3836,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteDecision,
     activeSkillHookManifest,
     hookDryRunPlan,
+    hookInvocationLedger,
     promptAudit: {
       schemaVersion: "ioi.agent-runtime.prompt-audit.v1",
       runId,
@@ -3795,6 +3848,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       selectedHookIds: activeSkillHookManifest.selectedHookIds,
       hookExecutionEnabled: false,
       hookDryRunPlanId: hookDryRunPlan.planId,
+      hookInvocationLedgerId: hookInvocationLedger.ledgerId,
       redaction: {
         promptIncluded: false,
         hookCommandsIncluded: false,
@@ -3825,6 +3879,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "application/json",
       hookDryRunReceipt.id,
       hookDryRunPlan,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "hook-invocations.json",
+      "application/json",
+      hookInvocationReceipt.id,
+      hookInvocationLedger,
       "redacted",
     ),
     artifact(runId, "scorecard.json", "application/json", traceReceipt.id, scorecard, "none"),
@@ -3861,6 +3923,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteReceiptId,
     activeSkillHookManifest,
     hookDryRunPlan,
+    hookInvocationLedger,
     memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
@@ -4100,6 +4163,118 @@ function hookDryRunPlanForManifest({ runId, manifest } = {}) {
     evidenceRefs: [
       "hook_dry_run_plan",
       "hook_policy_decision",
+      manifest?.manifestId,
+    ].filter(Boolean),
+  };
+}
+
+function hookInvocationLedgerForPlan({ runId, manifest, dryRunPlan } = {}) {
+  const hooks = normalizeArray(manifest?.hooks);
+  const decisionsByHookId = new Map(
+    normalizeArray(dryRunPlan?.decisions).map((decision) => [decision.hookId, decision]),
+  );
+  const records = [];
+  for (const runtimeEvent of HOOK_INVOCATION_RUNTIME_EVENTS) {
+    for (const hook of hooks) {
+      const hookEventKinds = normalizeArray(hook.eventKinds);
+      if (!hookEventKinds.includes(runtimeEvent.eventKind)) continue;
+      const planDecision = decisionsByHookId.get(hook.id) ?? {};
+      const decision = planDecision.decision ?? "skipped";
+      const blockers = normalizeArray(planDecision.blockers);
+      const invocationHash = doctorHash(
+        JSON.stringify({
+          runId,
+          eventKind: runtimeEvent.eventKind,
+          hookId: hook.id,
+          decision,
+          blockers,
+        }),
+      );
+      records.push({
+        schemaVersion: "ioi.agent-runtime.hook-invocation-record.v1",
+        object: "ioi.agent_hook_invocation_record",
+        invocationId: `hook_invocation_${runId}_${invocationHash.slice(0, 12)}`,
+        runId,
+        manifestId: manifest?.manifestId ?? null,
+        dryRunPlanId: dryRunPlan?.planId ?? null,
+        eventKind: runtimeEvent.eventKind,
+        runtimeEventType: runtimeEvent.runtimeEventType,
+        runtimeEventPhase: runtimeEvent.phase,
+        hookId: hook.id,
+        hookName: hook.name,
+        hookDefinitionHash: hook.definitionHash ?? null,
+        hookEventKinds,
+        failurePolicy: hook.failurePolicy ?? "warn",
+        sideEffectClass: hook.sideEffectClass ?? "none",
+        authorityScopes: normalizeArray(hook.authorityScopes),
+        toolContracts: normalizeArray(hook.toolContracts),
+        commandConfigured: Boolean(hook.commandConfigured),
+        commandHash: hook.commandHash ?? null,
+        commandRedacted: Boolean(hook.commandRedacted),
+        state: decision,
+        decision,
+        reason: planDecision.reason ?? "preview_only_event_subscription_matched",
+        blockers,
+        policyDecisionStatus: dryRunPlan?.policyDecision?.status ?? null,
+        execution: {
+          previewOnly: true,
+          commandExecuted: false,
+          mutationAllowed: false,
+        },
+        workflowNodeId: `runtime.hook.${runtimeEvent.eventKind.replace(/_/g, "-")}`,
+        hookPolicyNodeId: "runtime.hook-policy",
+        evidenceRefs: [
+          "hook_invocation_record",
+          dryRunPlan?.planId,
+          manifest?.manifestId,
+          hook.id,
+          runtimeEvent.eventKind,
+        ].filter(Boolean),
+      });
+    }
+  }
+  const wouldRunCount = records.filter((record) => record.state === "would_run").length;
+  const blockedCount = records.filter((record) => record.state === "blocked").length;
+  const skippedCount = records.filter((record) => record.state === "skipped").length;
+  const ledgerHash = doctorHash(
+    JSON.stringify({
+      manifestId: manifest?.manifestId ?? null,
+      planId: dryRunPlan?.planId ?? null,
+      records: records.map((record) => ({
+        eventKind: record.eventKind,
+        hookId: record.hookId,
+        state: record.state,
+      })),
+    }),
+  );
+  return {
+    schemaVersion: "ioi.agent-runtime.hook-invocation-ledger.v1",
+    object: "ioi.agent_hook_invocation_ledger",
+    ledgerId: `hook_invocations_${runId}_${ledgerHash.slice(0, 12)}`,
+    runId,
+    manifestId: manifest?.manifestId ?? null,
+    dryRunPlanId: dryRunPlan?.planId ?? null,
+    activeHookSetHash: manifest?.activeHookSetHash ?? doctorHash(""),
+    generatedAt: new Date().toISOString(),
+    mode: "preview_only",
+    hookExecutionEnabled: false,
+    commandExecutionEnabled: false,
+    emittedEventKinds: HOOK_INVOCATION_RUNTIME_EVENTS.map((event) => event.eventKind),
+    invocationCount: records.length,
+    wouldRunCount,
+    blockedCount,
+    skippedCount,
+    records,
+    redaction: {
+      profile: "hook_invocation_ledger_safe",
+      hookCommandsIncluded: false,
+      hookCommandsHashed: true,
+      secretValuesIncluded: false,
+    },
+    evidenceRefs: [
+      "hook_invocation_ledger",
+      "hook_invocation_preview_only",
+      dryRunPlan?.planId,
       manifest?.manifestId,
     ].filter(Boolean),
   };
@@ -5122,6 +5297,24 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "hook_dry_run_safe",
     };
   }
+  if (event.type === "hook_invocation_ledger") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "HookInvocationLedger",
+      ledger_id: event.data?.ledgerId ?? null,
+      manifest_id: event.data?.manifestId ?? null,
+      dry_run_plan_id: event.data?.dryRunPlanId ?? null,
+      emitted_event_kinds: normalizeArray(event.data?.emittedEventKinds),
+      invocation_count: event.data?.invocationCount ?? 0,
+      would_run_count: event.data?.wouldRunCount ?? 0,
+      blocked_count: event.data?.blockedCount ?? 0,
+      skipped_count: event.data?.skippedCount ?? 0,
+      hook_execution_enabled: Boolean(event.data?.hookExecutionEnabled),
+      command_execution_enabled: Boolean(event.data?.commandExecutionEnabled),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "hook_invocation_ledger_safe",
+    };
+  }
   if (event.type !== "model_route_decision") return summary;
   return {
     ...summary,
@@ -5151,6 +5344,8 @@ function componentKindForRunEvent(eventOrType) {
       return "skill_registry";
     case "hook_dry_run_plan":
       return "hook_policy";
+    case "hook_invocation_ledger":
+      return "hook_runtime";
     case "memory_update":
       if (typeof eventOrType !== "string" && eventOrType?.data?.operation === "subagent_inheritance") {
         return "subagent_memory";
@@ -5190,7 +5385,8 @@ function workflowNodeForRunEvent(eventOrType) {
     (eventOrType?.type === "model_route_decision" ||
       eventOrType?.type === "memory_update" ||
       eventOrType?.type === "skill_hook_manifest" ||
-      eventOrType?.type === "hook_dry_run_plan") &&
+      eventOrType?.type === "hook_dry_run_plan" ||
+      eventOrType?.type === "hook_invocation_ledger") &&
     eventOrType.data?.workflowNodeId
   ) {
     return eventOrType.data.workflowNodeId;
@@ -5212,6 +5408,9 @@ function receiptRefsForRunEvent(event) {
       event.data?.policyReceiptId ?? event.data?.policy_receipt_id,
     ].filter(Boolean);
   }
+  if (event.type === "hook_invocation_ledger") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
   if (event.type === "memory_update") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
@@ -5222,6 +5421,7 @@ function receiptRefsForRunEvent(event) {
 function artifactRefsForRunEvent(event) {
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
+  if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];
   if (event.type === "artifact") return event.data?.artifactNames ?? [];
   return [];
 }

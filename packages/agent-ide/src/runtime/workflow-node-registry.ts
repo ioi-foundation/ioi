@@ -699,13 +699,21 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       failurePolicy: "warn",
       authorityScopes: [],
       toolContracts: [],
+      hookInvocationLedgerField: "hookInvocationLedger",
+      hookInvocationStateField: "hookInvocationLedger.records",
       outputSchema: {
         type: "object",
         required: ["schemaVersion", "status", "hookCount", "hooks", "redaction"],
+        properties: {
+          hookInvocationLedger: { type: "object" },
+          invocationRecords: { type: "array" },
+        },
       },
       activationGate: {
         consumesSkillHookManifest: true,
         hookSetHashField: "activeHookSetHash",
+        hookInvocationLedgerField: "hookInvocationLedger",
+        hookInvocationStateField: "hookInvocationLedger.records",
         manifestValidationField: "validation.status",
         requireValidationPass: true,
       },
