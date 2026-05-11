@@ -1617,6 +1617,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowGraphExecutionLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_graph_execution_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowHarnessResultsLane = fs.readFileSync(
     path.join(
       root,
@@ -1759,6 +1766,30 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(
     tauriProjectWorkflowExecutionResultsLane,
     /workflow_coding_route_evidence_from_run/,
+  );
+  assert.match(tauriProjectRuntime, /workflow_graph_execution_lane/);
+  assert.match(tauriProjectWorkflowGraphExecutionLane, /workflow_edge_from/);
+  assert.match(tauriProjectWorkflowGraphExecutionLane, /workflow_edge_to/);
+  assert.match(
+    tauriProjectWorkflowGraphExecutionLane,
+    /workflow_edge_connection_class/,
+  );
+  assert.match(
+    tauriProjectWorkflowGraphExecutionLane,
+    /workflow_has_incoming_connection_class/,
+  );
+  assert.match(
+    tauriProjectWorkflowGraphExecutionLane,
+    /workflow_edge_is_selected/,
+  );
+  assert.match(tauriProjectWorkflowGraphExecutionLane, /workflow_node_ready/);
+  assert.match(
+    tauriProjectWorkflowGraphExecutionLane,
+    /workflow_next_ready_nodes/,
+  );
+  assert.match(
+    tauriProjectWorkflowGraphExecutionLane,
+    /workflow_node_lifecycle_steps/,
   );
   assert.match(tauriProjectRuntime, /workflow_harness_results_lane/);
   assert.match(
