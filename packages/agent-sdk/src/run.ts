@@ -2,6 +2,7 @@ import type {
   ConversationMessage,
   IOIRunResult,
   IOISDKMessage,
+  ModelRouteDecision,
   RuntimeScorecard,
   RuntimeTraceBundle,
 } from "./messages.js";
@@ -54,6 +55,11 @@ export class Run {
 
   trace(): Promise<RuntimeTraceBundle> {
     return this.client.exportTrace(this.id);
+  }
+
+  async routeDecision(): Promise<ModelRouteDecision | null> {
+    const trace = await this.inspect();
+    return trace.modelRouteDecision ?? null;
   }
 
   replay(): AsyncIterable<IOISDKMessage> {

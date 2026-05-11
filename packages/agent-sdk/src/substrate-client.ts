@@ -19,6 +19,7 @@ import type {
   ConversationMessage,
   IOIRunResult,
   IOISDKMessage,
+  ModelRouteDecision,
   PostconditionProjection,
   ProbeProjection,
   RuntimeReceipt,
@@ -50,6 +51,12 @@ export interface RuntimeAgentRecord {
   runtime: RuntimeMode;
   cwd: string;
   modelId: string;
+  requestedModelId?: string;
+  modelRouteId?: string;
+  modelRouteEndpointId?: string | null;
+  modelRouteProviderId?: string | null;
+  modelRouteReceiptId?: string | null;
+  modelRouteDecision?: ModelRouteDecision | null;
   createdAt: string;
   updatedAt: string;
   options: AgentOptionsSummary;
@@ -79,6 +86,8 @@ export interface RuntimeRunRecord {
   receipts: RuntimeReceipt[];
   artifacts: RuntimeArtifact[];
   trace: RuntimeTraceBundle;
+  modelRouteDecision?: ModelRouteDecision | null;
+  modelRouteReceiptId?: string | null;
   result: string;
 }
 
@@ -571,12 +580,19 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const runtime = runtimeModeForOptions(options);
     ensureProviderConfigured(runtime, options);
     const cwd = path.resolve(options.local?.cwd ?? this.cwd);
+    const modelRouteDecision = mockModelRouteDecision(options.model, options.model?.id ?? "local:auto");
     const agent: RuntimeAgentRecord = {
       id: `agent_${crypto.randomUUID()}`,
       status: "active",
       runtime,
       cwd,
-      modelId: options.model?.id ?? "local:auto",
+      modelId: modelRouteDecision.selectedModel ?? options.model?.id ?? "local:auto",
+      requestedModelId: modelRouteDecision.requestedModel ?? options.model?.id ?? "local:auto",
+      modelRouteId: modelRouteDecision.routeId ?? "route.local-first",
+      modelRouteEndpointId: modelRouteDecision.endpointId,
+      modelRouteProviderId: modelRouteDecision.providerId,
+      modelRouteReceiptId: `receipt_agent_${crypto.randomUUID()}_model_route`,
+      modelRouteDecision,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       options: summarizeOptions(cwd, options),
@@ -706,6 +722,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       status: run.status,
       result: run.result,
       stopCondition: run.trace.stopCondition,
+      routeDecision: run.modelRouteDecision ?? run.trace.modelRouteDecision ?? null,
       trace: run.trace,
       scorecard: run.trace.scorecard,
     };
@@ -1026,6 +1043,86 @@ function loadCursorCompatibilityConfig(cwd: string): {
   return { mcpServers, hookNames, skillNames };
 }
 
+function mockModelRouteDecision(
+  model: SendOptions["model"] | undefined,
+  requestedModel: string,
+  fallback?: ModelRouteDecision,
+): ModelRouteDecision {
+  if (!model && fallback) {
+    return fallback;
+  }
+  const routeId = model?.routeId ?? model?.route ?? fallback?.routeId ?? "route.local-first";
+  const autoResolved = requestedModel.trim().toLowerCase() === "auto";
+  const selectedModel = autoResolved ? "local:auto" : requestedModel;
+  const workflowNodeId = model?.workflowNodeId ?? fallback?.workflowNodeId ?? "runtime.model-router";
+  const workflowNodeType = model?.workflowNodeType ?? fallback?.workflowNodeType ?? "Model Router";
+  return {
+    schemaVersion: "ioi.model-route-decision.v1",
+    object: "ioi.model_route_decision",
+    eventKind: "ModelRouteDecision",
+    decisionId: mockStableHash({
+      routeId,
+      requestedModel,
+      selectedModel,
+      workflowNodeId,
+      reasoningEffort: model?.reasoningEffort ?? model?.thinking,
+    }),
+    routeId,
+    capability: model?.capability ?? fallback?.capability ?? "chat",
+    requestedModel,
+    requestedModelMode: autoResolved ? "auto" : requestedModel ? "explicit" : "route_default",
+    autoResolved,
+    selectedModel,
+    upstreamModel: selectedModel,
+    neverSendAutoUpstream: !autoResolved || selectedModel !== "auto",
+    endpointId: selectedModel === "local:auto" ? "endpoint.local.auto" : `endpoint.mock.${selectedModel.replace(/[^a-z0-9]+/gi, "_")}`,
+    providerId: "provider.local.folder",
+    providerKind: "local_folder",
+    providerLabel: "SDK mock local provider",
+    reasoningEffort: model?.reasoningEffort ?? model?.thinking ?? fallback?.reasoningEffort ?? "provider_default",
+    localRemotePlacement: "local",
+    privacyPosture: model?.privacy ?? fallback?.privacyPosture ?? "local_private",
+    costEstimateUsd: 0,
+    costEstimateSource: "local_default",
+    fallbackModel: null,
+    fallbackEndpointId: "endpoint.local.auto",
+    fallbackAllowed: true,
+    fallbackTriggered: false,
+    fallbackReason: null,
+    rationale: autoResolved
+      ? "model=auto resolved to local:auto through route.local-first before provider invocation."
+      : `Explicit model ${requestedModel} resolved to ${selectedModel} on local_folder.`,
+    policyConstraints: {
+      routePrivacy: model?.privacy ?? "local_or_enterprise",
+      requestedPrivacy: model?.privacy ?? null,
+      providerEligibility: ["local_folder"],
+      deniedProviders: ["openai", "anthropic", "gemini"],
+      maxCostUsd: model?.maxCostUsd ?? 0,
+      allowHostedFallback: Boolean(model?.allowHostedFallback),
+      localOnly: model?.privacy === "local_only",
+    },
+    evaluatedCandidateCount: 1,
+    rejectedCandidates: [],
+    workflowGraphId: model?.workflowGraphId ?? fallback?.workflowGraphId ?? null,
+    workflowNodeId,
+    workflowNodeType,
+    responseId: null,
+    previousResponseId: null,
+    policyHash: mockStableHash(model?.policy ?? {}),
+    evidenceRefs: [
+      "model_router",
+      routeId,
+      selectedModel === "local:auto" ? "endpoint.local.auto" : null,
+      "provider.local.folder",
+      autoResolved ? "model_auto_resolved_before_provider_invocation" : null,
+    ].filter((value): value is string => Boolean(value)),
+  };
+}
+
+function mockStableHash(value: unknown): string {
+  return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
 function buildMockRun(
   agent: RuntimeAgentRecord,
   prompt: string,
@@ -1037,7 +1134,13 @@ function buildMockRun(
   const taskFamily = taskFamilyForMode(mode);
   const selectedStrategy = strategyForMode(mode);
   const toolSequence = capabilitySequenceForMode(mode, agent);
-  const selectedModel = options.model?.id ?? agent.modelId;
+  const modelRouteDecision = mockModelRouteDecision(
+    options.model,
+    options.model?.id ?? agent.requestedModelId ?? agent.modelId,
+    agent.modelRouteDecision ?? undefined,
+  );
+  const modelRouteReceiptId = `receipt_${runId}_model_route`;
+  const selectedModel = modelRouteDecision.selectedModel ?? options.model?.id ?? agent.modelId;
   const inlineMcpServerNames = Object.keys(options.mcpServers ?? {});
   const taskState: TaskStateProjection = {
     currentObjective: prompt,
@@ -1051,7 +1154,13 @@ function buildMockRun(
     constraints: ["No GUI internals", "No raw receipt dump", "No policy bypass"],
     blockers: [],
     changedObjects: mode === "send" ? [] : [`sdk:${mode}`],
-    evidenceRefs: ["runtime_substrate_client", "agent_sdk_mock_checkpoint", ...inlineMcpServerNames],
+    evidenceRefs: [
+      "runtime_substrate_client",
+      "agent_sdk_mock_checkpoint",
+      ...inlineMcpServerNames,
+      ...modelRouteDecision.evidenceRefs,
+      modelRouteReceiptId,
+    ],
   };
   const uncertainty: UncertaintyProjection = {
     ambiguityLevel: mode === "send" ? "low" : "medium",
@@ -1102,7 +1211,7 @@ function buildMockRun(
   const semanticImpact: SemanticImpactProjection = {
     changedSymbols: [],
     changedApis: mode === "learn" ? ["agent.learn"] : [],
-    changedSchemas: ["IOISDKMessage", "RuntimeTraceBundle"],
+    changedSchemas: ["IOISDKMessage", "RuntimeTraceBundle", "ModelRouteDecision"],
     changedPolicies: mode === "dry_run" ? ["authority.preview_only"] : [],
     affectedTests: ["cursor-sdk-parity-contract"],
     affectedDocs: ["cursor-sdk-harness-parity-plus-master-guide.md"],
@@ -1140,6 +1249,13 @@ function buildMockRun(
   };
   const receipts: RuntimeReceipt[] = [
     {
+      id: modelRouteReceiptId,
+      kind: "model_route_selection",
+      summary: `Route ${modelRouteDecision.routeId} selected ${modelRouteDecision.selectedModel}.`,
+      redaction: "none",
+      evidenceRefs: modelRouteDecision.evidenceRefs,
+    },
+    {
       id: `receipt_${runId}_authority`,
       kind: "authority_decision",
       summary: "SDK mock action used an explicit non-authoritative runtime substrate projection.",
@@ -1155,28 +1271,29 @@ function buildMockRun(
     },
   ];
   const result = resultForMode(mode, agent, prompt);
-  const events = [
-    makeEvent(runId, agent.id, 0, "run_started", "Run entered IOI SDK substrate", {
-      taskFamily,
-      selectedStrategy,
-    }),
-    makeEvent(runId, agent.id, 1, "task_state", "Task state projected", taskState),
-    makeEvent(runId, agent.id, 2, "uncertainty", "Uncertainty assessed", uncertainty),
-    makeEvent(runId, agent.id, 3, "probe", "Probe completed", probes[0]),
-    makeEvent(
-      runId,
-      agent.id,
-      4,
-      "postcondition_synthesized",
-      "Postconditions synthesized",
-      postconditions,
-    ),
-    makeEvent(runId, agent.id, 5, "semantic_impact", "Semantic impact classified", semanticImpact),
-    makeEvent(runId, agent.id, 6, "delta", result, { text: result }),
-    makeEvent(runId, agent.id, 7, "stop_condition", "Stop condition recorded", stopCondition),
-    makeEvent(runId, agent.id, 8, "quality_ledger", "Quality ledger recorded", qualityLedger),
-    makeEvent(runId, agent.id, 9, "completed", "Run completed", { stopReason: stopCondition.reason }),
-  ];
+  const events: IOISDKMessage[] = [];
+  const addEvent = (type: IOISDKMessage["type"], summary: string, data?: unknown): IOISDKMessage => {
+    const event = makeEvent(runId, agent.id, events.length, type, summary, data);
+    events.push(event);
+    return event;
+  };
+  const startedEvent = addEvent("run_started", "Run entered IOI SDK substrate", {
+    taskFamily,
+    selectedStrategy,
+  });
+  addEvent("model_route_decision", "Model route decision recorded", {
+    ...modelRouteDecision,
+    receiptId: modelRouteReceiptId,
+  });
+  addEvent("task_state", "Task state projected", taskState);
+  addEvent("uncertainty", "Uncertainty assessed", uncertainty);
+  addEvent("probe", "Probe completed", probes[0]);
+  addEvent("postcondition_synthesized", "Postconditions synthesized", postconditions);
+  addEvent("semantic_impact", "Semantic impact classified", semanticImpact);
+  const deltaEvent = addEvent("delta", result, { text: result });
+  addEvent("stop_condition", "Stop condition recorded", stopCondition);
+  addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
+  addEvent("completed", "Run completed", { stopReason: stopCondition.reason });
   const trace: RuntimeTraceBundle = {
     schemaVersion: "ioi.agent-sdk.trace.v1",
     traceBundleId: `trace_${runId}`,
@@ -1190,6 +1307,7 @@ function buildMockRun(
     probes,
     postconditions,
     semanticImpact,
+    modelRouteDecision,
     stopCondition,
     qualityLedger,
     scorecard,
@@ -1201,7 +1319,7 @@ function buildMockRun(
       name: "trace.json",
       mediaType: "application/json",
       redaction: "redacted",
-      receiptId: receipts[1].id,
+      receiptId: receipts[receipts.length - 1]?.id ?? modelRouteReceiptId,
       content: JSON.stringify(trace, null, 2),
     },
     {
@@ -1210,7 +1328,7 @@ function buildMockRun(
       name: "scorecard.json",
       mediaType: "application/json",
       redaction: "none",
-      receiptId: receipts[1].id,
+      receiptId: receipts[receipts.length - 1]?.id ?? modelRouteReceiptId,
       content: JSON.stringify(scorecard, null, 2),
     },
   ];
@@ -1224,12 +1342,14 @@ function buildMockRun(
     updatedAt: createdAt,
     events,
     conversation: [
-      { role: "user", content: prompt, eventId: events[0].id, createdAt },
-      { role: "assistant", content: result, eventId: events[6].id, createdAt },
+      { role: "user", content: prompt, eventId: startedEvent.id, createdAt },
+      { role: "assistant", content: result, eventId: deltaEvent.id, createdAt },
     ],
     receipts,
     artifacts,
     trace,
+    modelRouteDecision,
+    modelRouteReceiptId,
     result,
   };
 }

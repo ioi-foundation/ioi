@@ -16,7 +16,18 @@ export type StopReason =
 export interface ModelSelection {
   id: string;
   provider?: string;
+  routeId?: string;
+  route?: string;
+  capability?: "chat" | "responses" | "embeddings" | "rerank" | string;
   reasoningEffort?: "low" | "medium" | "high" | "xhigh";
+  thinking?: "low" | "medium" | "high" | "xhigh" | string;
+  privacy?: "local_only" | "local_or_enterprise" | "hosted" | string;
+  maxCostUsd?: number;
+  allowHostedFallback?: boolean;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  workflowNodeType?: string;
+  policy?: Record<string, unknown>;
 }
 
 export interface LocalAgentOptions {

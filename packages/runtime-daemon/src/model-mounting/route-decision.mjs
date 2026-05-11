@@ -29,6 +29,8 @@ export function createModelRouteDecision({
   const privacyPosture = privacyPostureFor(route, provider, policy);
   const reasoningEffort = reasoningEffortFor(policy, request);
   const selectedModel = endpoint?.modelId ?? null;
+  const fallbackTriggered = truthy(request.fallback_triggered ?? request.fallbackTriggered);
+  const fallbackReason = optionalString(request.fallback_reason ?? request.fallbackReason);
   const decision = {
     schemaVersion: MODEL_ROUTE_DECISION_SCHEMA_VERSION,
     object: "ioi.model_route_decision",
@@ -64,7 +66,20 @@ export function createModelRouteDecision({
     fallbackModel: fallback.model,
     fallbackEndpointId: fallback.endpointId,
     fallbackAllowed: Boolean(fallback.endpointId),
-    rationale: routeRationale({ route, endpoint, provider, policy, requestedModel, autoResolved, placement, costEstimate }),
+    fallbackTriggered,
+    fallbackReason,
+    rationale: routeRationale({
+      route,
+      endpoint,
+      provider,
+      policy,
+      requestedModel,
+      autoResolved,
+      placement,
+      costEstimate,
+      fallbackTriggered,
+      fallbackReason,
+    }),
     policyConstraints,
     evaluatedCandidateCount: evaluatedCandidates.length,
     rejectedCandidates: evaluatedCandidates
@@ -86,6 +101,7 @@ export function createModelRouteDecision({
       endpoint?.id,
       provider?.id,
       autoResolved ? "model_auto_resolved_before_provider_invocation" : null,
+      fallbackTriggered ? "model_route_fallback_selected" : null,
     ].filter(Boolean),
   };
   return decision;
@@ -184,7 +200,21 @@ function routePolicyConstraints(route = {}, policy = {}) {
   };
 }
 
-function routeRationale({ route = {}, endpoint = {}, provider = {}, policy = {}, requestedModel, autoResolved, placement, costEstimate }) {
+function routeRationale({
+  route = {},
+  endpoint = {},
+  provider = {},
+  policy = {},
+  requestedModel,
+  autoResolved,
+  placement,
+  costEstimate,
+  fallbackTriggered,
+  fallbackReason,
+}) {
+  if (fallbackTriggered) {
+    return `Fallback route ${route.id} selected ${endpoint.modelId} after ${fallbackReason ?? "primary route rejection"}.`;
+  }
   if (autoResolved) {
     return `model=auto resolved to ${endpoint.modelId} through ${route.id} before provider invocation.`;
   }

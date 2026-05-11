@@ -143,6 +143,18 @@ pub enum AgentCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Explain model route controls and ModelRouteDecision projection.
+    Model {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
+    /// Explain thinking/reasoning effort controls for routed models.
+    Thinking {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Inspect canonical tool contracts and safety metadata.
     Tools {
         #[clap(subcommand)]
@@ -366,6 +378,8 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
             json,
         } => submit_deny(session_id, request_hash, reason, rpc, json).await,
         AgentCommands::Contract { json } => print_agent_contract(json),
+        AgentCommands::Model { json } => print_model_route_controls(json),
+        AgentCommands::Thinking { json } => print_thinking_controls(json),
         AgentCommands::Tools {
             command,
             tool,
@@ -616,6 +630,74 @@ fn print_agent_contract(json: bool) -> Result<()> {
         substrate.required_evidence_classes.join(", ")
     );
     println!("  GUI harness: {}", gui.launch_command);
+    Ok(())
+}
+
+fn model_route_controls_contract() -> serde_json::Value {
+    serde_json::json!({
+        "schema_version": "ioi.agent-runtime.route-controls.v1",
+        "commands": ["/model", "/thinking"],
+        "surfaces": ["chat", "tui", "cli", "reactflow_workflow_node"],
+        "event": "ModelRouteDecision",
+        "event_type": "model_route_decision",
+        "receipt_kind": "model_route_selection",
+        "daemon_fields": [
+            "model_route_decision",
+            "model_route_receipt_id",
+            "requested_model",
+            "model_route_id"
+        ],
+        "workflow_config": {
+            "node_type": "Model Router",
+            "reactflow_fields": [
+                "model.id",
+                "model.routeId",
+                "model.reasoningEffort",
+                "model.privacy",
+                "model.maxCostUsd",
+                "model.allowHostedFallback",
+                "model.workflowGraphId",
+                "model.workflowNodeId"
+            ]
+        },
+        "invariants": {
+            "never_send_auto_upstream": true,
+            "emit_decision_before_delta": true,
+            "fallback_requires_receipt": true
+        }
+    })
+}
+
+fn print_model_route_controls(json: bool) -> Result<()> {
+    let value = model_route_controls_contract();
+    if json {
+        return print_json(&value);
+    }
+    println!("Agent model controls");
+    println!("  slash command: /model");
+    println!("  event: ModelRouteDecision");
+    println!("  receipt: model_route_selection");
+    println!("  workflow node: Model Router");
+    Ok(())
+}
+
+fn print_thinking_controls(json: bool) -> Result<()> {
+    let value = serde_json::json!({
+        "schema_version": "ioi.agent-runtime.thinking-controls.v1",
+        "command": "/thinking",
+        "field": "model.reasoningEffort",
+        "accepted_values": ["low", "medium", "high", "xhigh"],
+        "projection": "ModelRouteDecision.reasoningEffort",
+        "surfaces": ["chat", "tui", "cli", "reactflow_workflow_node"],
+        "fallback_behavior": "preserve requested thinking level in the fallback route decision"
+    });
+    if json {
+        return print_json(&value);
+    }
+    println!("Agent thinking controls");
+    println!("  slash command: /thinking");
+    println!("  field: model.reasoningEffort");
+    println!("  projection: ModelRouteDecision.reasoningEffort");
     Ok(())
 }
 
@@ -1221,6 +1303,20 @@ mod tests {
         assert!(matches!(
             events.command,
             Some(AgentCommands::Events(SnapshotArgs { json: true, .. }))
+        ));
+
+        let model = AgentArgs::try_parse_from(["agent", "model", "--json"])
+            .expect("model command should parse");
+        assert!(matches!(
+            model.command,
+            Some(AgentCommands::Model { json: true })
+        ));
+
+        let thinking = AgentArgs::try_parse_from(["agent", "thinking", "--json"])
+            .expect("thinking command should parse");
+        assert!(matches!(
+            thinking.command,
+            Some(AgentCommands::Thinking { json: true })
         ));
     }
 

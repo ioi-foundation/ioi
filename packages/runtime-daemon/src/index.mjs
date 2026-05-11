@@ -11,12 +11,14 @@ import {
   openAiEmbedding,
   openAiResponse,
 } from "./model-mounting.mjs";
+import * as routeDecision from "./model-mounting/route-decision.mjs";
 
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
 const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.v1";
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
+  model_route_decision: "item.completed",
   task_state: "item.completed",
   uncertainty: "item.completed",
   probe: "item.completed",
@@ -102,12 +104,23 @@ export class AgentgresRuntimeStateStore {
     const cwd = path.resolve(options.local?.cwd ?? this.defaultCwd);
     const runtime = runtimeModeForOptions(options);
     ensureProviderAvailable(runtime, options);
+    const modelRoute = this.resolveModelRoute(options, {
+      evidenceRefs: ["runtime_agent_model_route"],
+      workflowNodeId: "runtime.model-router",
+      workflowNodeType: "Model Router",
+    });
     const agent = {
       id: `agent_${crypto.randomUUID()}`,
       status: "active",
       runtime,
       cwd,
-      modelId: options.model?.id ?? "local:auto",
+      modelId: modelRoute.selectedModel,
+      requestedModelId: modelRoute.requestedModelId,
+      modelRouteId: modelRoute.routeId,
+      modelRouteEndpointId: modelRoute.endpointId,
+      modelRouteProviderId: modelRoute.providerId,
+      modelRouteReceiptId: modelRoute.receiptId,
+      modelRouteDecision: modelRoute.decision,
       createdAt: now,
       updatedAt: now,
       options: summarizeAgentOptions(cwd, options),
@@ -162,10 +175,103 @@ export class AgentgresRuntimeStateStore {
       (mode === "learn"
         ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
         : "");
-    const run = buildRun({ agent, mode, prompt, request, source: "local_daemon_agentgres" });
+    const modelRoute = this.resolveRunModelRoute(agent, request);
+    const run = buildRun({
+      agent,
+      mode,
+      prompt,
+      request,
+      source: "local_daemon_agentgres",
+      modelRoute,
+    });
     this.runs.set(run.id, run);
     this.writeRun(run, "run.create");
     return run;
+  }
+
+  resolveModelRoute(options = {}, context = {}) {
+    const model = options.model ?? {};
+    const requestedModel = model.id ?? model.model ?? model.modelId ?? "local:auto";
+    const routeId = model.routeId ?? model.route_id ?? model.route ?? options.routeId ?? options.route_id ?? "route.local-first";
+    const capability = model.capability ?? options.capability ?? "chat";
+    const policy = modelPolicyForOptions(options);
+    const workflow = modelWorkflowContext({ model, options, context });
+    const body = {
+      model: requestedModel,
+      route_id: routeId,
+      model_policy: policy,
+      ...workflow,
+    };
+    return this.selectModelRouteWithFallback({
+      requestedModel,
+      routeId,
+      capability,
+      policy,
+      body,
+      evidenceRefs: context.evidenceRefs ?? [],
+    });
+  }
+
+  resolveRunModelRoute(agent, request = {}) {
+    const options = request.options ?? {};
+    if (options.model) {
+      return this.resolveModelRoute(options, {
+        evidenceRefs: ["runtime_run_model_route"],
+        workflowNodeId: "runtime.model-router",
+        workflowNodeType: "Model Router",
+      });
+    }
+    return {
+      requestedModelId: agent.requestedModelId ?? agent.modelId,
+      selectedModel: agent.modelId,
+      routeId: agent.modelRouteId ?? "route.local-first",
+      endpointId: agent.modelRouteEndpointId ?? null,
+      providerId: agent.modelRouteProviderId ?? null,
+      receiptId: agent.modelRouteReceiptId ?? null,
+      decision: agent.modelRouteDecision ?? null,
+    };
+  }
+
+  selectModelRouteWithFallback({ requestedModel, routeId, capability, policy, body, evidenceRefs }) {
+    try {
+      const selection = this.modelMounting.selectRoute({ modelId: requestedModel, routeId, capability, policy });
+      const receipt = this.modelMounting.routeSelectionReceipt(selection, {
+        body,
+        capability,
+        evidenceRefs,
+      });
+      return modelRouteBindingFromReceipt(receipt, requestedModel);
+    } catch (error) {
+      const fallbackRouteId = "route.local-first";
+      const fallbackPolicy = {
+        ...policy,
+        allow_hosted_fallback: false,
+      };
+      const fallbackBody = {
+        ...body,
+        model: "auto",
+        route_id: fallbackRouteId,
+        model_policy: fallbackPolicy,
+        fallback_triggered: true,
+        fallback_reason: error?.code ?? "primary_route_unavailable",
+      };
+      const fallbackSelection = this.modelMounting.selectRoute({
+        modelId: "auto",
+        routeId: fallbackRouteId,
+        capability,
+        policy: fallbackPolicy,
+      });
+      fallbackSelection.evaluatedCandidates = [
+        ...normalizeArray(error?.details?.evaluatedCandidates),
+        ...normalizeArray(fallbackSelection.evaluatedCandidates),
+      ];
+      const receipt = this.modelMounting.routeSelectionReceipt(fallbackSelection, {
+        body: fallbackBody,
+        capability,
+        evidenceRefs: ["runtime_model_route_fallback", ...evidenceRefs],
+      });
+      return modelRouteBindingFromReceipt(receipt, requestedModel);
+    }
   }
 
   createThread(request = {}) {
@@ -265,6 +371,10 @@ export class AgentgresRuntimeStateStore {
       mode: "agent",
       approval_mode: "suggest",
       model_route: agent.modelId,
+      requested_model: agent.requestedModelId ?? agent.modelId,
+      model_route_id: agent.modelRouteId ?? null,
+      model_route_receipt_id: agent.modelRouteReceiptId ?? null,
+      model_route_decision: agent.modelRouteDecision ?? null,
       latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
       latest_seq: this.eventsForThread(threadIdForAgent(agent.id), 0).at(-1)?.seq ?? 0,
       archived: agent.status === "archived",
@@ -288,6 +398,8 @@ export class AgentgresRuntimeStateStore {
       usage: null,
       error_summary: run.status === "failed" ? run.result : null,
       stop_reason: run.trace?.stopCondition?.reason ?? null,
+      model_route_decision: run.modelRouteDecision ?? run.trace?.modelRouteDecision ?? null,
+      model_route_receipt_id: run.modelRouteReceiptId ?? null,
       rollback_snapshot_id: null,
       quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
       workflow_execution_ref: null,
@@ -2541,6 +2653,7 @@ async function handleRunRoute({ request, response, store, url, segments }) {
       status: run.status,
       result: run.result,
       stopCondition: run.trace.stopCondition,
+      routeDecision: run.modelRouteDecision ?? run.trace.modelRouteDecision ?? null,
       trace: run.trace,
       scorecard: run.trace.scorecard,
     });
@@ -2596,13 +2709,20 @@ async function handleRunRoute({ request, response, store, url, segments }) {
   throw notFound("Run route not found.", { runId, action, method: request.method });
 }
 
-function buildRun({ agent, mode, prompt, request, source }) {
+function buildRun({ agent, mode, prompt, request, source, modelRoute }) {
   const runId = `run_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
   const taskFamily = taskFamilyForMode(mode);
   const selectedStrategy = strategyForMode(mode);
   const toolSequence = capabilitySequenceForMode(mode, agent);
-  const selectedModel = request.options?.model?.id ?? agent.modelId;
+  const modelRouteDecision = modelRoute?.decision ?? null;
+  const selectedModel =
+    modelRouteDecision?.selectedModel ??
+    modelRoute?.selectedModel ??
+    request.options?.model?.id ??
+    agent.modelId;
+  const modelRouteReceiptId =
+    modelRoute?.receiptId ?? modelRouteDecision?.receiptId ?? `receipt_${runId}_model_route`;
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -2621,6 +2741,8 @@ function buildRun({ agent, mode, prompt, request, source }) {
       ...agent.options.mcpServerNames,
       ...agent.options.skillNames,
       ...agent.options.hookNames,
+      ...normalizeArray(modelRouteDecision?.evidenceRefs),
+      modelRouteReceiptId,
     ],
   };
   const uncertainty = {
@@ -2672,7 +2794,13 @@ function buildRun({ agent, mode, prompt, request, source }) {
   const semanticImpact = {
     changedSymbols: [],
     changedApis: ["/v1/agents/{id}/runs", "/v1/runs/{id}/events", "/v1/runs/{id}/trace"],
-    changedSchemas: ["IOISDKMessage", "RuntimeTraceBundle", "AgentgresRuntimeStateV0"],
+    changedSchemas: [
+      "IOISDKMessage",
+      "RuntimeTraceBundle",
+      "AgentgresRuntimeStateV0",
+      "ModelRouteDecision",
+      "RuntimeEventEnvelope",
+    ],
     changedPolicies: mode === "dry_run" ? ["authority.preview_only"] : [],
     affectedTests: ["live-runtime-daemon-contract"],
     affectedDocs: ["docs/plans/architectural-improvements-broad-master-guide.md"],
@@ -2709,55 +2837,79 @@ function buildRun({ agent, mode, prompt, request, source }) {
     operatorInterventionRate: 0,
     verifierIndependence: 1,
   };
+  const modelRouteReceipt = modelRouteDecision
+    ? {
+        id: modelRouteReceiptId,
+        kind: "model_route_selection",
+        summary: `Route ${modelRouteDecision.routeId} selected ${modelRouteDecision.selectedModel}.`,
+        redaction: "none",
+        evidenceRefs: normalizeArray(modelRouteDecision.evidenceRefs),
+      }
+    : null;
+  const policyReceipt = {
+    id: `receipt_${runId}_policy`,
+    kind: "policy_decision",
+    summary: "Local daemon run was admitted under bounded local/private runtime policy.",
+    redaction: "none",
+    evidenceRefs: ["prim:model.invoke", "policy.local_private"],
+  };
+  const authorityReceipt = {
+    id: `receipt_${runId}_authority`,
+    kind: "authority_decision",
+    summary: "No external authority scope was required for this bounded local daemon run.",
+    redaction: "none",
+    evidenceRefs: ["wallet.network", "authority.no_external_scope"],
+  };
+  const agentgresReceipt = {
+    id: `receipt_${runId}_agentgres`,
+    kind: "agentgres_canonical_write",
+    summary: "Run state, task state, receipts, scorecard, stop condition, and quality ledger were written to Agentgres v0.",
+    redaction: "redacted",
+    evidenceRefs: ["agentgres_canonical_operation_log", `run:${runId}`],
+  };
+  const traceReceipt = {
+    id: `receipt_${runId}_trace`,
+    kind: "trace_export",
+    summary: "Trace export is reconstructed from daemon runtime state and canonical Agentgres projection.",
+    redaction: "redacted",
+    evidenceRefs: ["RuntimeTraceBundle", "canonical_replay"],
+  };
   const receipts = [
-    {
-      id: `receipt_${runId}_policy`,
-      kind: "policy_decision",
-      summary: "Local daemon run was admitted under bounded local/private runtime policy.",
-      redaction: "none",
-      evidenceRefs: ["prim:model.invoke", "policy.local_private"],
-    },
-    {
-      id: `receipt_${runId}_authority`,
-      kind: "authority_decision",
-      summary: "No external authority scope was required for this bounded local daemon run.",
-      redaction: "none",
-      evidenceRefs: ["wallet.network", "authority.no_external_scope"],
-    },
-    {
-      id: `receipt_${runId}_agentgres`,
-      kind: "agentgres_canonical_write",
-      summary: "Run state, task state, receipts, scorecard, stop condition, and quality ledger were written to Agentgres v0.",
-      redaction: "redacted",
-      evidenceRefs: ["agentgres_canonical_operation_log", `run:${runId}`],
-    },
-    {
-      id: `receipt_${runId}_trace`,
-      kind: "trace_export",
-      summary: "Trace export is reconstructed from daemon runtime state and canonical Agentgres projection.",
-      redaction: "redacted",
-      evidenceRefs: ["RuntimeTraceBundle", "canonical_replay"],
-    },
-  ];
+    modelRouteReceipt,
+    policyReceipt,
+    authorityReceipt,
+    agentgresReceipt,
+    traceReceipt,
+  ].filter(Boolean);
   const result = resultForMode(mode, agent, prompt, source);
-  const events = [
-    makeEvent(runId, agent.id, 0, "run_started", "Run entered local IOI daemon", {
-      taskFamily,
-      selectedStrategy,
-    }),
-    makeEvent(runId, agent.id, 1, "task_state", "Task state written to Agentgres", taskState),
-    makeEvent(runId, agent.id, 2, "uncertainty", "Uncertainty assessed", uncertainty),
-    makeEvent(runId, agent.id, 3, "probe", "Canonical replay probe completed", probes[0]),
-    makeEvent(runId, agent.id, 4, "postcondition_synthesized", "Postconditions synthesized", postconditions),
-    makeEvent(runId, agent.id, 5, "semantic_impact", "Semantic impact classified", semanticImpact),
-    makeEvent(runId, agent.id, 6, "delta", result, { text: result }),
-    makeEvent(runId, agent.id, 7, "stop_condition", "Stop condition recorded", stopCondition),
-    makeEvent(runId, agent.id, 8, "quality_ledger", "Quality ledger recorded", qualityLedger),
-    makeEvent(runId, agent.id, 9, "artifact", "Trace and scorecard artifacts recorded", {
-      artifactNames: ["trace.json", "scorecard.json", "agentgres-projection.json"],
-    }),
-    makeEvent(runId, agent.id, 10, "completed", "Run completed", { stopReason: stopCondition.reason }),
-  ];
+  const events = [];
+  const addEvent = (type, summary, data) => {
+    const event = makeEvent(runId, agent.id, events.length, type, summary, data);
+    events.push(event);
+    return event;
+  };
+  const startedEvent = addEvent("run_started", "Run entered local IOI daemon", {
+    taskFamily,
+    selectedStrategy,
+  });
+  if (modelRouteDecision) {
+    addEvent("model_route_decision", "Model route decision recorded", {
+      ...modelRouteDecision,
+      receiptId: modelRouteReceiptId,
+    });
+  }
+  addEvent("task_state", "Task state written to Agentgres", taskState);
+  addEvent("uncertainty", "Uncertainty assessed", uncertainty);
+  addEvent("probe", "Canonical replay probe completed", probes[0]);
+  addEvent("postcondition_synthesized", "Postconditions synthesized", postconditions);
+  addEvent("semantic_impact", "Semantic impact classified", semanticImpact);
+  const deltaEvent = addEvent("delta", result, { text: result });
+  addEvent("stop_condition", "Stop condition recorded", stopCondition);
+  addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
+  addEvent("artifact", "Trace and scorecard artifacts recorded", {
+    artifactNames: ["trace.json", "scorecard.json", "agentgres-projection.json"],
+  });
+  addEvent("completed", "Run completed", { stopReason: stopCondition.reason });
   const trace = {
     schemaVersion: "ioi.agent-sdk.trace.v1",
     traceBundleId: `trace_${runId}`,
@@ -2771,18 +2923,19 @@ function buildRun({ agent, mode, prompt, request, source }) {
     probes,
     postconditions,
     semanticImpact,
+    modelRouteDecision,
     stopCondition,
     qualityLedger,
     scorecard,
   };
   const artifacts = [
-    artifact(runId, "trace.json", "application/json", receipts[3].id, trace, "redacted"),
-    artifact(runId, "scorecard.json", "application/json", receipts[3].id, scorecard, "none"),
+    artifact(runId, "trace.json", "application/json", traceReceipt.id, trace, "redacted"),
+    artifact(runId, "scorecard.json", "application/json", traceReceipt.id, scorecard, "none"),
     artifact(
       runId,
       "agentgres-projection.json",
       "application/json",
-      receipts[2].id,
+      agentgresReceipt.id,
       {
         runId,
         canonicalOwner: "Agentgres",
@@ -2801,12 +2954,14 @@ function buildRun({ agent, mode, prompt, request, source }) {
     updatedAt: createdAt,
     events,
     conversation: [
-      { role: "user", content: prompt, eventId: events[0].id, createdAt },
-      { role: "assistant", content: result, eventId: events[6].id, createdAt },
+      { role: "user", content: prompt, eventId: startedEvent.id, createdAt },
+      { role: "assistant", content: result, eventId: deltaEvent.id, createdAt },
     ],
     receipts,
     artifacts,
     trace,
+    modelRouteDecision,
+    modelRouteReceiptId,
     result,
   };
 }
@@ -2840,6 +2995,85 @@ function summarizeAgentOptions(cwd, options = {}) {
     subagentNames: Object.keys(options.agents ?? {}),
     sandboxProfile: options.sandboxOptions?.profile ?? "development",
   };
+}
+
+function modelPolicyForOptions(options = {}) {
+  const model = options.model ?? {};
+  const policy = {
+    ...(options.model_policy ?? options.modelPolicy ?? {}),
+    ...(model.policy ?? model.model_policy ?? model.modelPolicy ?? {}),
+  };
+  if (model.provider && policy.provider === undefined) policy.provider = model.provider;
+  if (model.reasoningEffort && policy.reasoning_effort === undefined) {
+    policy.reasoning_effort = model.reasoningEffort;
+  }
+  if (model.thinking && policy.reasoning_effort === undefined) {
+    policy.reasoning_effort = model.thinking;
+  }
+  if (model.privacy && policy.privacy === undefined) policy.privacy = model.privacy;
+  if (model.maxCostUsd !== undefined && policy.max_cost_usd === undefined) {
+    policy.max_cost_usd = model.maxCostUsd;
+  }
+  if (model.max_cost_usd !== undefined && policy.max_cost_usd === undefined) {
+    policy.max_cost_usd = model.max_cost_usd;
+  }
+  if (model.allowHostedFallback !== undefined && policy.allow_hosted_fallback === undefined) {
+    policy.allow_hosted_fallback = model.allowHostedFallback;
+  }
+  if (model.allow_hosted_fallback !== undefined && policy.allow_hosted_fallback === undefined) {
+    policy.allow_hosted_fallback = model.allow_hosted_fallback;
+  }
+  return policy;
+}
+
+function modelWorkflowContext({ model = {}, options = {}, context = {} } = {}) {
+  const workflow = options.workflow ?? model.workflow ?? {};
+  return {
+    workflow_graph_id:
+      model.workflowGraphId ??
+      model.workflow_graph_id ??
+      options.workflowGraphId ??
+      options.workflow_graph_id ??
+      workflow.graphId ??
+      workflow.graph_id ??
+      context.workflowGraphId ??
+      null,
+    workflow_node_id:
+      model.workflowNodeId ??
+      model.workflow_node_id ??
+      options.workflowNodeId ??
+      options.workflow_node_id ??
+      workflow.nodeId ??
+      workflow.node_id ??
+      context.workflowNodeId ??
+      "runtime.model-router",
+    workflow_node_type:
+      model.workflowNodeType ??
+      model.workflow_node_type ??
+      options.workflowNodeType ??
+      options.workflow_node_type ??
+      workflow.nodeType ??
+      workflow.node_type ??
+      context.workflowNodeType ??
+      "Model Router",
+  };
+}
+
+function modelRouteBindingFromReceipt(receipt, requestedModelId) {
+  const decision = routeDecision.routeDecisionProjectionFromReceipt(receipt);
+  return {
+    requestedModelId: decision?.requestedModel ?? requestedModelId ?? "local:auto",
+    selectedModel: decision?.selectedModel ?? requestedModelId ?? "local:auto",
+    routeId: decision?.routeId ?? null,
+    endpointId: decision?.endpointId ?? null,
+    providerId: decision?.providerId ?? null,
+    receiptId: receipt.id,
+    decision,
+  };
+}
+
+function normalizeArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
 function loadCursorCompatibilityConfig(cwd) {
@@ -3005,23 +3239,48 @@ function ttiEnvelopeForRunEvent({ event, seq, threadId, turnId }) {
     item_id: `${turnId}:item:${String(seq).padStart(3, "0")}`,
     event: eventKind,
     actor: event.type === "delta" ? "assistant" : "runtime",
-    component_kind: componentKindForRunEvent(event.type),
-    workflow_node_id: workflowNodeForRunEvent(event.type),
+    component_kind: componentKindForRunEvent(event),
+    workflow_node_id: workflowNodeForRunEvent(event),
     payload_schema_version: RUNTIME_TTI_SCHEMA_VERSION,
-    payload_summary: {
-      legacy_event_id: event.id,
-      legacy_event_type: event.type,
-      run_id: event.runId,
-      summary: event.summary,
-    },
+    payload_summary: payloadSummaryForRunEvent(event),
     receipt_refs: receiptRefsForRunEvent(event),
     artifact_refs: artifactRefsForRunEvent(event),
     redaction_profile: "internal",
   };
 }
 
-function componentKindForRunEvent(type) {
+function payloadSummaryForRunEvent(event) {
+  const summary = {
+    legacy_event_id: event.id,
+    legacy_event_type: event.type,
+    run_id: event.runId,
+    summary: event.summary,
+  };
+  if (event.type !== "model_route_decision") return summary;
+  return {
+    ...summary,
+    event_kind: event.data?.eventKind ?? "ModelRouteDecision",
+    model_route_decision_id: event.data?.decisionId ?? null,
+    route_id: event.data?.routeId ?? null,
+    requested_model: event.data?.requestedModel ?? null,
+    requested_model_mode: event.data?.requestedModelMode ?? null,
+    selected_model: event.data?.selectedModel ?? null,
+    endpoint_id: event.data?.endpointId ?? null,
+    provider_id: event.data?.providerId ?? null,
+    provider_kind: event.data?.providerKind ?? null,
+    reasoning_effort: event.data?.reasoningEffort ?? null,
+    local_remote_placement: event.data?.localRemotePlacement ?? null,
+    privacy_posture: event.data?.privacyPosture ?? null,
+    cost_estimate_usd: event.data?.costEstimateUsd ?? null,
+    fallback_triggered: Boolean(event.data?.fallbackTriggered),
+  };
+}
+
+function componentKindForRunEvent(eventOrType) {
+  const type = typeof eventOrType === "string" ? eventOrType : eventOrType?.type;
   switch (type) {
+    case "model_route_decision":
+      return "model_router";
     case "task_state":
       return "task_state";
     case "uncertainty":
@@ -3047,12 +3306,22 @@ function componentKindForRunEvent(type) {
   }
 }
 
-function workflowNodeForRunEvent(type) {
-  return `runtime.${componentKindForRunEvent(type).replace(/_/g, "-")}`;
+function workflowNodeForRunEvent(eventOrType) {
+  if (
+    typeof eventOrType !== "string" &&
+    eventOrType?.type === "model_route_decision" &&
+    eventOrType.data?.workflowNodeId
+  ) {
+    return eventOrType.data.workflowNodeId;
+  }
+  return `runtime.${componentKindForRunEvent(eventOrType).replace(/_/g, "-")}`;
 }
 
 function receiptRefsForRunEvent(event) {
   if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
+  if (event.type === "model_route_decision") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
   if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];
   return [];
 }
