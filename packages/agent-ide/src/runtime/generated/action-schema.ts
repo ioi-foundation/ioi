@@ -6,6 +6,8 @@ export const AGENT_ACTION_KINDS = [
   "probe",
   "budget_gate",
   "capability_sequence",
+  "workflow_package_export",
+  "workflow_package_import",
   "function",
   "model_binding",
   "model_call",
@@ -60,4 +62,6 @@ export const AGENT_ACTION_COMPLETION_VERIFICATION_KINDS = [
   "postcondition_synthesis",
   "verifier",
   "gui_harness_validation",
+  "workflow_package_export",
+  "workflow_package_import",
 ] as const;

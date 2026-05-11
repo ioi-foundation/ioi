@@ -542,6 +542,27 @@ export interface NodeLogic {
   runtimeChecklistStatusField?: string;
   runtimeChecklistItemsField?: string;
   runtimeChecklistReceiptField?: string;
+  workflowPackageExportEndpoint?: string;
+  workflowPackageExport?: unknown;
+  workflowPackageExportField?: string;
+  workflowPackagePath?: string;
+  workflowPackageOutputDir?: string;
+  workflowPackageManifestField?: string;
+  workflowPackageReadinessStatusField?: string;
+  workflowPackagePortableField?: string;
+  workflowPackageLocaleField?: string;
+  workflowPackageEvidenceReadyField?: string;
+  workflowPackageImportEndpoint?: string;
+  workflowPackageImport?: unknown;
+  workflowPackageImportRequest?: unknown;
+  workflowPackageImportField?: string;
+  workflowPackageImportReview?: unknown;
+  workflowPackageImportReviewField?: string;
+  workflowPackageImportEvidenceReadyField?: string;
+  workflowPackageImportLocalePreservedField?: string;
+  workflowPackageImportedWorkflowPathField?: string;
+  workflowPackageImportName?: string;
+  workflowPackageProjectRoot?: string;
   repositoryEndpoint?: string;
   repositoryContext?: unknown;
   repositoryContextField?: string;
@@ -608,6 +629,8 @@ export interface NodeLogic {
     consumesRuntimeTask?: boolean;
     consumesRuntimeJob?: boolean;
     consumesRuntimeChecklist?: boolean;
+    consumesWorkflowPackageExport?: boolean;
+    consumesWorkflowPackageImportReview?: boolean;
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
     consumesGithubContext?: boolean;
@@ -624,6 +647,12 @@ export interface NodeLogic {
     runtimeJobStatusField?: string;
     runtimeChecklistField?: string;
     runtimeChecklistStatusField?: string;
+    workflowPackageExportField?: string;
+    workflowPackageReadinessStatusField?: string;
+    workflowPackagePortableField?: string;
+    workflowPackageImportReviewField?: string;
+    workflowPackageImportEvidenceReadyField?: string;
+    workflowPackageImportLocalePreservedField?: string;
     githubPrCreatePlanField?: string;
     githubPrCreatePlanStatusField?: string;
     githubPrCreatePlanBlockersField?: string;
@@ -1097,6 +1126,8 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_task">
   | WorkflowNodeConfigBase<"runtime_job">
   | WorkflowNodeConfigBase<"runtime_checklist">
+  | WorkflowNodeConfigBase<"workflow_package_export">
+  | WorkflowNodeConfigBase<"workflow_package_import">
   | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"github_context">
@@ -3786,6 +3817,8 @@ export type WorkflowHarnessComponentKind =
   | "runtime_task"
   | "runtime_job"
   | "runtime_checklist"
+  | "workflow_package_export"
+  | "workflow_package_import"
   | "repository_context"
   | "branch_policy"
   | "github_context"
@@ -4338,6 +4371,8 @@ export type WorkflowNodeKind =
   | "runtime_task"
   | "runtime_job"
   | "runtime_checklist"
+  | "workflow_package_export"
+  | "workflow_package_import"
   | "repository_context"
   | "branch_policy"
   | "github_context"

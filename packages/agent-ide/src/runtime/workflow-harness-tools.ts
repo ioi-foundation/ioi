@@ -44,6 +44,11 @@ export interface WorkflowHarnessToolEvidence {
   toolName: WorkflowHarnessToolName;
   usedRuntimeApi: string;
   workflowPath?: string;
+  packagePath?: string;
+  importedWorkflowPath?: string;
+  readinessStatus?: string;
+  workflowChromeLocale?: string | null;
+  packageEvidenceReady?: boolean;
   status: "ok" | "blocked";
   message: string;
 }
@@ -451,6 +456,10 @@ export function createWorkflowHarnessTools(runtime: AgentWorkbenchRuntime) {
           toolName: "workflow.package.export" as const,
           usedRuntimeApi: "exportWorkflowPackage",
           workflowPath: path,
+          packagePath: value.packagePath,
+          readinessStatus: value.manifest.readinessStatus,
+          workflowChromeLocale: value.manifest.workflowChromeLocale ?? null,
+          packageEvidenceReady: Boolean(value.manifest.harnessPackageManifest),
           status: value.manifest.portable ? "ok" as const : "blocked" as const,
           message: `Workflow package exported with readiness ${value.manifest.readinessStatus}.`,
         },
@@ -466,6 +475,15 @@ export function createWorkflowHarnessTools(runtime: AgentWorkbenchRuntime) {
           toolName: "workflow.package.import" as const,
           usedRuntimeApi: "importWorkflowPackage",
           workflowPath: value.workflowPath,
+          packagePath: value.importedPackage?.packagePath ?? request.packagePath,
+          importedWorkflowPath: value.workflowPath,
+          workflowChromeLocale:
+            value.importedPackage?.manifest.workflowChromeLocale ??
+            value.workflow.global_config.workflowChromeLocale ??
+            null,
+          packageEvidenceReady: Boolean(
+            value.importedPackage?.manifest.harnessPackageManifest,
+          ),
           status: "ok" as const,
           message: "Workflow package imported through runtime API.",
         },

@@ -8,9 +8,12 @@
     "probe",
     "budget_gate",
     "capability_sequence",
+    "workflow_package_export",
+    "workflow_package_import",
     "function",
     "model_binding",
     "model_call",
+    "skill_context",
     "parser",
     "adapter_connector",
     "plugin_tool",
@@ -43,6 +46,7 @@
     "function",
     "model_binding",
     "model_call",
+    "skill_context",
     "parser",
     "adapter_connector",
     "plugin_tool",
@@ -53,6 +57,8 @@
     "semantic_impact",
     "postcondition_synthesis",
     "verifier",
-    "gui_harness_validation"
+    "gui_harness_validation",
+    "workflow_package_export",
+    "workflow_package_import"
   ]
 }
