@@ -5,6 +5,10 @@ import {
   GraphCapabilityCatalog,
   GraphModelBindingCatalog,
 } from "../../../../runtime/agent-runtime";
+import {
+  WORKFLOW_RUNTIME_UI_STRING_CATALOG,
+  normalizeWorkflowRuntimeLocale,
+} from "../../../../runtime/workflow-runtime-ui-strings";
 import { GraphGlobalConfig } from "../../../../types/graph";
 
 interface GraphConfigViewProps {
@@ -188,6 +192,9 @@ export function GraphConfigView({
   };
   const modelBindings = safeConfig.modelBindings || {};
   const requiredCapabilities = safeConfig.requiredCapabilities || {};
+  const workflowChromeLocale = normalizeWorkflowRuntimeLocale(
+    safeConfig.workflowChromeLocale,
+  );
   const [bindingCatalog, setBindingCatalog] = useState<GraphModelBindingCatalog>(
     FALLBACK_BINDING_CATALOG
   );
@@ -337,6 +344,23 @@ export function GraphConfigView({
             onChange={e => onChange({ env: e.target.value })}
             placeholder='{"API_KEY": "..."}'
         />
+      </div>
+
+      <div className="form-group">
+        <label>Workflow chrome locale</label>
+        <select
+          data-testid="workflow-global-chrome-locale"
+          value={workflowChromeLocale}
+          onChange={(event) =>
+            onChange({ workflowChromeLocale: event.target.value })
+          }
+        >
+          {WORKFLOW_RUNTIME_UI_STRING_CATALOG.supportedLocales.map((locale) => (
+            <option key={locale} value={locale}>
+              {locale}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="form-group">

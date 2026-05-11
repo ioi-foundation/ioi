@@ -1250,6 +1250,7 @@ export interface GraphCapabilityRequirement {
 
 export interface GraphGlobalConfig {
   env: string;
+  workflowChromeLocale?: string;
   environmentProfile?: GraphEnvironmentProfile;
   modelBindings: Record<string, GraphModelBinding>;
   requiredCapabilities: Record<string, GraphCapabilityRequirement>;

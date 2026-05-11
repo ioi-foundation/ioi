@@ -27,6 +27,8 @@ import type {
 } from "../../../types/graph";
 import { workflowInterruptPreview } from "../../../runtime/workflow-bottom-panel-model";
 import {
+  WORKFLOW_RUNTIME_UI_STRING_CATALOG,
+  normalizeWorkflowRuntimeLocale,
   workflowRuntimeAccessibleStatusLabel,
   workflowRuntimeNodeChrome,
 } from "../../../runtime/workflow-runtime-ui-strings";
@@ -159,6 +161,7 @@ export function WorkflowRailPanel({
   onExportPackage,
   onOpenImportPackage,
   onGenerateBindingManifest,
+  onUpdateWorkflowChromeLocale,
   onUpdateEnvironmentProfile,
   onUpdateProductionProfile,
   onCheckBinding,
@@ -238,6 +241,7 @@ export function WorkflowRailPanel({
   onExportPackage: () => void;
   onOpenImportPackage: () => void;
   onGenerateBindingManifest: () => void;
+  onUpdateWorkflowChromeLocale?: (locale: string) => void;
   onUpdateEnvironmentProfile: (
     updates: Partial<NonNullable<GraphGlobalConfig["environmentProfile"]>>,
   ) => void;
@@ -324,6 +328,9 @@ export function WorkflowRailPanel({
   ).filter(([, requirement]) => requirement.required);
   const workflowPolicy = workflow.global_config.policy;
   const productionProfile = workflow.global_config.production ?? {};
+  const globalWorkflowChromeLocale = normalizeWorkflowRuntimeLocale(
+    workflow.global_config.workflowChromeLocale,
+  );
   const workflowReadOnly = workflow.metadata.readOnly === true;
   const harnessWorkflow = workflowIsHarness(workflow);
   const blessedHarnessWorkflow = workflowIsBlessedHarness(workflow);
@@ -2972,9 +2979,10 @@ export function WorkflowRailPanel({
   const selectedRuntimeChrome = selectedNode
     ? workflowRuntimeNodeChrome(selectedNode, {
         fallbackLabel: selectedNode.name ?? selectedNode.type,
+        locale: globalWorkflowChromeLocale,
       })
     : null;
-  const workflowChromeLocale = selectedRuntimeChrome?.locale;
+  const workflowChromeLocale = selectedRuntimeChrome?.locale ?? globalWorkflowChromeLocale;
   const accessibleStatusLabel = (status: unknown) =>
     workflowRuntimeAccessibleStatusLabel(status, workflowChromeLocale);
   const handleCheckBinding = async (
@@ -4159,6 +4167,33 @@ export function WorkflowRailPanel({
               {workflow.metadata.dirty ? "modified" : "saved"}
             </span>
           </article>
+        </section>
+        <section
+          className="workflow-rail-section"
+          data-testid="workflow-settings-chrome-locale"
+          data-workflow-chrome-locale={globalWorkflowChromeLocale}
+          data-model-output-localized="false"
+        >
+          <h4>Chrome locale</h4>
+          <label className="workflow-settings-select-row">
+            <span>Workflow chrome</span>
+            <select
+              data-testid="workflow-settings-chrome-locale-select"
+              value={globalWorkflowChromeLocale}
+              disabled={workflowReadOnly || !onUpdateWorkflowChromeLocale}
+              onChange={(event) =>
+                onUpdateWorkflowChromeLocale?.(event.target.value)
+              }
+            >
+              {WORKFLOW_RUNTIME_UI_STRING_CATALOG.supportedLocales.map(
+                (locale) => (
+                  <option key={locale} value={locale}>
+                    {locale}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
         </section>
         {harnessWorkflow ? (
           <section

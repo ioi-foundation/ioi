@@ -1301,6 +1301,26 @@ button.workflow-run-row.is-active {
   gap: 8px;
 }
 
+.workflow-settings-select-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-settings-select-row span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-settings-select-row select {
+  min-width: 0;
+}
+
 .workflow-harness-authority-gate-row {
   gap: 5px;
 }

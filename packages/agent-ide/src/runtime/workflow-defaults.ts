@@ -18,6 +18,7 @@ export const DEFAULT_CAPABILITY_REQUIREMENTS = {
 
 export const DEFAULT_GLOBAL_CONFIG: GraphGlobalConfig = {
   env: "{}",
+  workflowChromeLocale: "en-US",
   environmentProfile: {
     target: "local",
     credentialScope: "local",
@@ -52,6 +53,7 @@ export function normalizeGlobalConfig(config?: Partial<GraphGlobalConfig> | null
   return {
     ...DEFAULT_GLOBAL_CONFIG,
     ...(config ?? {}),
+    workflowChromeLocale: config?.workflowChromeLocale ?? DEFAULT_GLOBAL_CONFIG.workflowChromeLocale,
     modelBindings: {
       ...DEFAULT_MODEL_BINDINGS,
       ...(config?.modelBindings ?? {}),

@@ -106,6 +106,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleSelectHarnessRollbackTarget,
     handleSelectRun,
     handleUpdateEnvironmentProfile,
+    handleUpdateWorkflowChromeLocale,
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,
@@ -1046,6 +1047,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               <Canvas
                 nodes={displayNodes}
                 edges={displayEdges}
+                workflowChromeLocale={globalConfig.workflowChromeLocale}
                 onNodesChange={guardedOnNodesChange}
                 onEdgesChange={guardedOnEdgesChange}
                 onConnect={guardedOnConnect}
@@ -1389,6 +1391,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onOpenImportPackage={() => setImportPackageOpen(true)}
                     onGenerateBindingManifest={handleGenerateBindingManifest}
                     onUpdateEnvironmentProfile={handleUpdateEnvironmentProfile}
+                    onUpdateWorkflowChromeLocale={handleUpdateWorkflowChromeLocale}
                     onUpdateProductionProfile={handleUpdateProductionProfile}
                     onCheckBinding={handleCheckWorkflowBinding}
                     onResolveIssue={handleResolveWorkflowIssue}
