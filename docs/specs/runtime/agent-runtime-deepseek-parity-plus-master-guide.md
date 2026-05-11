@@ -2015,6 +2015,46 @@ Validation evidence:
     `harness_live_promotion_readiness`, and
     `harness_live_shadow_comparison_gate`.
 
+Implementation slice completed 2026-05-11, live shadow promotion/default
+dispatch binding:
+
+- The default authority-tooling gate now includes the `github_pr_create`
+  adapter envelope, so PR-create dry-run planning participates in the same
+  node-authoritative live shadow path as policy, approval, MCP, native tool,
+  connector, and wallet capability calls.
+- Authority-tooling live-readiness no longer relies on a stale hard-coded
+  adapter count. It derives readiness from
+  `DEFAULT_AUTHORITY_TOOLING_NODE_AUTHORITY_COMPONENT_KINDS`, preserving the
+  componentized harness contract as new tool adapters are added.
+- The live GUI harness now treats the workflow proof's live shadow comparison
+  gate as authoritative evidence for promotion readiness when the chat artifact
+  summary has not yet emitted every required component pair, and the result
+  artifact points to the proof file containing the 21-component gate.
+- Static contract coverage now guards the `github_pr_create` adapter envelope,
+  its node-authority component membership, and its live shadow comparison gate
+  membership.
+- The previous package-output evidence run's red promotion-live cascade is now
+  closed: runtime selector default promotion, default dispatch binding, live
+  promotion readiness, authority-tooling node authority, and the live shadow
+  comparison gate all validate green.
+
+Validation evidence:
+
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `npm run build:ide -- --pretty false`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- focused default dispatch proof: live mode, 21/21 shadow comparisons,
+  `github_pr_create` present, no live promotion blockers.
+- `git diff --check`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T15-57-19-939Z/result.json`
+  - `validation.ok === true`;
+  - no false artifacts;
+  - `harness_live_promotion_readiness_present === true`;
+  - `harness_live_shadow_comparison_gate_present === true`;
+  - proof gate has `comparisonCount === 21`, `requiredComparisonCount === 21`,
+    and includes `github_pr_create`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

@@ -6394,6 +6394,12 @@ const DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS: Array<{
     policyDecision: "accept_authority_tooling_connector_call_adapter_envelope",
   },
   {
+    kind: "github_pr_create",
+    attemptSlug: "authority_tooling_github_pr_create_envelope",
+    policyDecision:
+      "accept_authority_tooling_github_pr_create_adapter_envelope",
+  },
+  {
     kind: "wallet_capability",
     attemptSlug: "authority_tooling_wallet_capability_envelope",
     policyDecision:
@@ -8461,8 +8467,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         clusterId: "authority_tooling",
         componentKinds: authorityToolingComponentKinds,
         readinessReady:
-          authorityToolingAdapterResults.length >= 8 &&
-          authorityToolingShadowAdapterResults.length >= 8 &&
+          authorityToolingAdapterResults.length >=
+            DEFAULT_AUTHORITY_TOOLING_NODE_AUTHORITY_COMPONENT_KINDS.length &&
+          authorityToolingShadowAdapterResults.length >=
+            DEFAULT_AUTHORITY_TOOLING_NODE_AUTHORITY_COMPONENT_KINDS.length &&
           authorityToolingDivergenceClasses.every(
             (divergenceClass) => divergenceClass === "none",
           ) &&
