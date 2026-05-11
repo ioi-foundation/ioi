@@ -152,6 +152,75 @@ test("local daemon doctor reports redacted runtime readiness for CLI and workflo
   }
 });
 
+test("local daemon discovers governed skills and hooks without leaking hook commands", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-skill-hook-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-skill-hook-state-"));
+  const cursorSkillDir = path.join(cwd, ".cursor", "skills", "repo-cartographer");
+  const agentsDir = path.join(cwd, ".agents");
+  fs.mkdirSync(cursorSkillDir, { recursive: true });
+  fs.mkdirSync(agentsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(cursorSkillDir, "SKILL.md"),
+    [
+      "---",
+      "name: Repo Cartographer",
+      "description: Maps likely repo files before edits.",
+      "capabilityScopes: repo.read, evidence.read",
+      "---",
+      "# Repo Cartographer",
+      "",
+      "Use focused repo discovery before patching.",
+    ].join("\n"),
+  );
+  fs.writeFileSync(
+    path.join(agentsDir, "hooks.json"),
+    JSON.stringify(
+      {
+        "pre-model-redaction": {
+          eventKinds: ["pre_model"],
+          failurePolicy: "warn",
+          authorityScopes: ["runtime.read"],
+          command: "echo super-secret-hook",
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const skills = await fetchJson(`${daemon.endpoint}/v1/skills`);
+    assert.equal(skills.schemaVersion, "ioi.agent-runtime.skills.v1");
+    assert.equal(skills.status, "pass");
+    assert.equal(skills.skillCount, 1);
+    assert.equal(skills.skills[0].name, "Repo Cartographer");
+    assert.equal(skills.skills[0].compatibility, "cursor");
+    assert.equal(skills.skills[0].hasSkillMd, true);
+    assert.deepEqual(skills.skills[0].capabilityScopes, ["repo.read", "evidence.read"]);
+
+    const hooks = await fetchJson(`${daemon.endpoint}/v1/hooks`);
+    assert.equal(hooks.schemaVersion, "ioi.agent-runtime.hooks.v1");
+    assert.equal(hooks.status, "pass");
+    assert.equal(hooks.hookCount, 1);
+    assert.equal(hooks.hooks[0].failurePolicy, "warn");
+    assert.deepEqual(hooks.hooks[0].eventKinds, ["pre_model"]);
+    assert.deepEqual(hooks.hooks[0].authorityScopes, ["runtime.read"]);
+    assert.equal(hooks.hooks[0].commandConfigured, true);
+    assert.equal(hooks.hooks[0].commandRedacted, true);
+    assert.match(hooks.hooks[0].commandHash, /^[a-f0-9]{64}$/);
+
+    const doctor = await fetchJson(`${daemon.endpoint}/v1/doctor`);
+    const skillHookCheck = doctor.checks.find((check) => check.id === "skills.hooks");
+    assert.equal(skillHookCheck.status, "pass");
+    assert.equal(doctor.skillsHooks.skillCount, 1);
+    assert.equal(doctor.skillsHooks.hookCount, 1);
+    assert.ok(!doctor.optionalWarnings.includes("skills.hooks"));
+    assert.ok(!JSON.stringify({ skills, hooks, doctor }).includes("super-secret-hook"));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("local daemon projects Agentgres runs through thread, turn, and monotonic event records", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-tti-daemon-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-tti-agentgres-state-"));
@@ -605,11 +674,15 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /ModelRouteDecision/);
   assert.match(source, /memory_update/);
   assert.match(source, /\/v1\/doctor/);
+  assert.match(source, /\/v1\/skills/);
+  assert.match(source, /\/v1\/hooks/);
   assert.match(source, /ioi\.agent-runtime\.doctor\.v1/);
+  assert.match(source, /ioi\.agent-runtime\.skills\.v1/);
+  assert.match(source, /ioi\.agent-runtime\.hooks\.v1/);
   assert.match(source, /reactflow_workflow_node/);
 });
 
-test("React Flow memory and doctor node contracts remain workflow-addressable", () => {
+test("React Flow memory, doctor, skill, and hook node contracts remain workflow-addressable", () => {
   const workflowContracts = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
@@ -634,6 +707,13 @@ test("React Flow memory and doctor node contracts remain workflow-addressable", 
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
   assert.match(nodeRegistry, /\/v1\/doctor/);
   assert.match(nodeRegistry, /blockOnRequiredFailures/);
+  assert.match(nodeRegistry, /SkillNode/);
+  assert.match(nodeRegistry, /SkillPackNode/);
+  assert.match(nodeRegistry, /HookNode/);
+  assert.match(nodeRegistry, /HookPolicyNode/);
+  assert.match(nodeRegistry, /\/v1\/skills/);
+  assert.match(nodeRegistry, /\/v1\/hooks/);
+  assert.match(nodeRegistry, /failurePolicy/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_search/);
   assert.match(harnessWorkflow, /memory_list/);
@@ -646,6 +726,10 @@ test("React Flow memory and doctor node contracts remain workflow-addressable", 
   assert.match(harnessWorkflow, /runtime_doctor/);
   assert.match(harnessWorkflow, /RuntimeDoctorReport/);
   assert.match(harnessWorkflow, /runtime\.doctor\.read/);
+  assert.match(harnessWorkflow, /skill_registry/);
+  assert.match(harnessWorkflow, /hook_registry/);
+  assert.match(harnessWorkflow, /SkillRegistryProjection/);
+  assert.match(harnessWorkflow, /HookRegistryProjection/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

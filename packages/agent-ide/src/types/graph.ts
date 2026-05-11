@@ -428,6 +428,19 @@ export interface NodeLogic {
   // --- Context ---
   variables?: Record<string, string>;
   skillContext?: WorkflowSkillContextConfig;
+  skillEndpoint?: string;
+  skillSource?: string;
+  includeCursorImports?: boolean;
+  requireSkillMd?: boolean;
+  packSources?: string[];
+  activationMode?: string;
+  hookEndpoint?: string;
+  eventKinds?: string[];
+  failurePolicy?: string;
+  authorityScopes?: string[];
+  toolContracts?: string[];
+  allowMutationWithoutContract?: boolean;
+  requireAuthorityScopes?: boolean;
 
   // --- Triggers ---
   triggerKind?: "manual" | "scheduled" | "event";
@@ -894,6 +907,10 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
   | WorkflowNodeConfigBase<"skill_context">
+  | WorkflowNodeConfigBase<"skill">
+  | WorkflowNodeConfigBase<"skill_pack">
+  | WorkflowNodeConfigBase<"hook">
+  | WorkflowNodeConfigBase<"hook_policy">
   | WorkflowNodeConfigBase<"parser">
   | WorkflowNodeConfigBase<"adapter">
   | WorkflowNodeConfigBase<"plugin_tool">
@@ -3562,6 +3579,8 @@ export type WorkflowHarnessComponentKind =
   | "memory_write"
   | "memory_subagent_inheritance"
   | "runtime_doctor"
+  | "skill_registry"
+  | "hook_registry"
   | "verifier"
   | "semantic_impact_analyzer"
   | "postcondition_synthesizer"
@@ -4100,6 +4119,10 @@ export type WorkflowNodeKind =
   | "model_binding"
   | "model_call"
   | "skill_context"
+  | "skill"
+  | "skill_pack"
+  | "hook"
+  | "hook_policy"
   | "parser"
   | "adapter"
   | "plugin_tool"

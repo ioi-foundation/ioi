@@ -546,6 +546,208 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: {},
   },
   {
+    type: "skill",
+    label: "Skill",
+    group: "AI",
+    family: "context",
+    token: "SK",
+    familyLabel: "Skill",
+    metricLabel: "Discovery",
+    metricValue: "registry",
+    ioTypes: { in: "none", out: "state" },
+    inputs: [],
+    outputs: ["skills"],
+    portDefinitions: [
+      port("skills", "Skills", "output", "state", "state", false, "state"),
+    ],
+    ports: [port("skills", "Skills", "output", "state", "state", false, "state")],
+    configSchema: {
+      type: "object",
+      required: ["skillEndpoint", "requireSkillMd"],
+      properties: {
+        skillEndpoint: { type: "string" },
+        skillSource: { type: "string" },
+        includeCursorImports: { type: "boolean" },
+        requireSkillMd: { type: "boolean" },
+      },
+    },
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "skill",
+      executorId: "workflow.skill_registry",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      skillEndpoint: "/v1/skills",
+      skillSource: "workspace_and_global",
+      includeCursorImports: true,
+      requireSkillMd: true,
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "skillCount", "skills", "redaction"],
+      },
+      nodeTypeLabel: "SkillNode",
+    },
+    defaultLaw: {},
+  },
+  {
+    type: "skill_pack",
+    label: "Skill Pack",
+    group: "AI",
+    family: "context",
+    token: "SP",
+    familyLabel: "Skill Pack",
+    metricLabel: "Pack",
+    metricValue: "governed",
+    ioTypes: { in: "none", out: "state" },
+    inputs: [],
+    outputs: ["skillPack"],
+    portDefinitions: [
+      port("skillPack", "Skill pack", "output", "state", "state", false, "state"),
+    ],
+    ports: [port("skillPack", "Skill pack", "output", "state", "state", false, "state")],
+    configSchema: {
+      type: "object",
+      required: ["skillEndpoint", "packSources", "activationMode"],
+      properties: {
+        skillEndpoint: { type: "string" },
+        packSources: { type: "array" },
+        activationMode: { type: "string" },
+      },
+    },
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "skill_pack",
+      executorId: "workflow.skill_pack",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      skillEndpoint: "/v1/skills",
+      packSources: [".agents/skills", ".cursor/skills", ".claude/skills"],
+      activationMode: "manual_or_discoverable",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "skillCount", "activeSkillSetHash", "skills"],
+      },
+      nodeTypeLabel: "SkillPackNode",
+    },
+    defaultLaw: {},
+  },
+  {
+    type: "hook",
+    label: "Hook",
+    group: "State",
+    family: "state",
+    token: "HK",
+    familyLabel: "Hook",
+    metricLabel: "Events",
+    metricValue: "subscribe",
+    ioTypes: { in: "none", out: "state" },
+    inputs: [],
+    outputs: ["hooks"],
+    portDefinitions: [
+      port("hooks", "Hooks", "output", "state", "state", false, "state"),
+    ],
+    ports: [port("hooks", "Hooks", "output", "state", "state", false, "state")],
+    configSchema: {
+      type: "object",
+      required: ["hookEndpoint", "eventKinds", "failurePolicy"],
+      properties: {
+        hookEndpoint: { type: "string" },
+        eventKinds: { type: "array" },
+        failurePolicy: { type: "string" },
+        authorityScopes: { type: "array" },
+        toolContracts: { type: "array" },
+      },
+    },
+    policyProfile: policyProfile("read"),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "hook",
+      executorId: "workflow.hook_registry",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      hookEndpoint: "/v1/hooks",
+      eventKinds: ["pre_model", "post_model", "pre_tool", "post_tool", "approval", "workflow_activation"],
+      failurePolicy: "warn",
+      authorityScopes: [],
+      toolContracts: [],
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "hookCount", "hooks", "redaction"],
+      },
+      nodeTypeLabel: "HookNode",
+    },
+    defaultLaw: {},
+  },
+  {
+    type: "hook_policy",
+    label: "Hook Policy",
+    group: "State",
+    family: "gates",
+    token: "HP",
+    familyLabel: "Hook Policy",
+    metricLabel: "Failure",
+    metricValue: "warn",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["hooks"],
+    outputs: ["policy"],
+    portDefinitions: [
+      port("hooks", "Hooks", "input", "state", "state", true, "state"),
+      port("policy", "Policy", "output", "state", "state", false, "state"),
+    ],
+    ports: [
+      port("hooks", "Hooks", "input", "state", "state", true, "state"),
+      port("policy", "Policy", "output", "state", "state", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: ["failurePolicy", "allowMutationWithoutContract", "requireAuthorityScopes"],
+      properties: {
+        failurePolicy: { type: "string" },
+        allowMutationWithoutContract: { type: "boolean" },
+        requireAuthorityScopes: { type: "boolean" },
+      },
+    },
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "hook_policy",
+      executorId: "workflow.hook_policy",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      failurePolicy: "warn",
+      allowMutationWithoutContract: false,
+      requireAuthorityScopes: true,
+      outputSchema: {
+        type: "object",
+        required: ["failurePolicy", "allowMutationWithoutContract", "requireAuthorityScopes"],
+      },
+      nodeTypeLabel: "HookPolicyNode",
+    },
+    defaultLaw: {},
+  },
+  {
     type: "parser",
     label: "Output Parser",
     group: "AI",
@@ -1941,7 +2143,13 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
         "output",
       ];
     case "skill_context":
-      return ["model_call", "output"];
+    case "skill":
+    case "skill_pack":
+      return ["model_call", "hook", "output"];
+    case "hook":
+      return ["hook_policy", "decision", "output"];
+    case "hook_policy":
+      return ["decision", "verifier", "output"];
     case "model_call":
       return [
         "model_binding",
@@ -2014,6 +2222,10 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
   return (
     type === "function" ||
     type === "skill_context" ||
+    type === "skill" ||
+    type === "skill_pack" ||
+    type === "hook" ||
+    type === "hook_policy" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

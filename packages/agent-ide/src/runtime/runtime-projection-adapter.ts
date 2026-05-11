@@ -69,7 +69,13 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
     case "model_call":
       return "model_call";
     case "skill_context":
+    case "skill":
+    case "skill_pack":
       return "skill_context";
+    case "hook":
+      return "state";
+    case "hook_policy":
+      return "decision";
     case "parser":
       return "parser";
     case "adapter":
