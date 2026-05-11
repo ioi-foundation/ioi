@@ -10218,6 +10218,7 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "repository_context",
   "branch_policy",
   "github_context",
+  "issue_context",
   "pr_attempt",
   "review_gate",
   "skill_registry",
@@ -10256,6 +10257,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "repository_context",
     "branch_policy",
     "github_context",
+    "issue_context",
     "pr_attempt",
     "review_gate",
     "skill_registry",
@@ -10512,6 +10514,27 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "Connectors",
       icon: "github",
+    }),
+    makeComponent({
+      kind: "issue_context",
+      label: "Issue context",
+      description:
+        "Projects optional GitHub issue/task binding for PR workflows without network reads or mutation.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::issueContextForGithub",
+      capabilityScope: [
+        "github.issue.read",
+        "github.context.read",
+        "workflow.context.read",
+      ],
+      eventKinds: ["IssueContext"],
+      evidence: [
+        "issue_context",
+        "issue.binding",
+        "issue.unbound_allowed",
+        "issue.redaction",
+      ],
+      group: "Connectors",
+      icon: "circle-dot",
     }),
     makeComponent({
       kind: "pr_attempt",
@@ -11125,6 +11148,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "repository_context",
       "branch_policy",
       "github_context",
+      "issue_context",
       "pr_attempt",
       "review_gate",
       "skill_registry",
@@ -11302,6 +11326,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "repository_context",
   "branch_policy",
   "github_context",
+  "issue_context",
   "pr_attempt",
   "review_gate",
   "skill_registry",
@@ -11352,6 +11377,7 @@ const SLOT_BY_KIND: Partial<
   repository_context: ["state_policy", "verifier_policy"],
   branch_policy: ["state_policy", "verifier_policy", "approval_policy"],
   github_context: ["state_policy", "verifier_policy", "approval_policy"],
+  issue_context: ["state_policy", "verifier_policy"],
   pr_attempt: ["state_policy", "verifier_policy", "approval_policy", "dry_run_policy"],
   review_gate: ["state_policy", "verifier_policy", "approval_policy", "dry_run_policy"],
   skill_registry: ["state_policy"],
@@ -11494,6 +11520,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "branch_policy";
     case "github_context":
       return "github_context";
+    case "issue_context":
+      return "issue_context";
     case "pr_attempt":
       return "pr_attempt";
     case "review_gate":
@@ -11761,6 +11789,70 @@ function nodeLogicFor(
           evidenceRefs: ["github_context", "repository_context", "branch_policy"],
         },
       };
+    case "issue_context":
+      return {
+        ...base,
+        issueContextEndpoint: "/v1/issue-context",
+        issueContextField: "issueContext",
+        issueContextStatusField: "issueContext.status",
+        issueContextBoundField: "issueContext.bound",
+        issueContextIssueNumberField: "issueContext.issueNumber",
+        issueContextSourceUrlField: "issueContext.sourceUrl",
+        issueContextReceiptField: "issueContext.receiptId",
+        githubContextField: "githubContext",
+        readOnly: true,
+        mutationExecuted: false,
+        activationGate: {
+          consumesGithubContext: true,
+          consumesIssueContext: true,
+          issueContextField: "issueContext",
+          issueContextStatusField: "issueContext.status",
+          issueContextBoundField: "issueContext.bound",
+        },
+        nodeTypeLabel: "IssueContextNode",
+        issueContext: {
+          schemaVersion: "ioi.agent-runtime.issue-context.v1",
+          object: "ioi.issue_context",
+          contextId: "issue_context_default_harness_empty",
+          runId: null,
+          repositoryContextId: "repoctx_default_harness_empty",
+          githubContextId: "github_context_default_harness_empty",
+          prAttemptId: null,
+          reviewGateId: null,
+          status: "unbound",
+          summary:
+            "Default harness issue context is unbound until a GitHub issue or task source is supplied.",
+          readOnly: true,
+          provider: "github",
+          repoFullName: null,
+          htmlUrl: null,
+          bound: false,
+          issueProvided: false,
+          issueNumber: null,
+          title: null,
+          sourceUrl: null,
+          sourceKind: "unbound",
+          labels: [],
+          assignees: [],
+          blockers: [],
+          warnings: ["issue_context_unbound"],
+          noIssuePolicy: {
+            allowed: true,
+            reason: "Issue context is optional for local PR previews until a task source is supplied.",
+          },
+          networkLookupPerformed: false,
+          mutationExecuted: false,
+          redaction: {
+            profile: "issue_context_safe",
+            tokenValueIncluded: false,
+            remoteCredentialsIncluded: false,
+            networkResponseIncluded: false,
+            bodyIncluded: false,
+            reviewerIdentityIncluded: false,
+          },
+          evidenceRefs: ["issue_context", "github_context"],
+        },
+      };
     case "pr_attempt":
       return {
         ...base,
@@ -11775,6 +11867,7 @@ function nodeLogicFor(
         repositoryContextField: "repositoryContext",
         branchPolicyField: "branchPolicy",
         githubContextField: "githubContext",
+        issueContextField: "issueContext",
         readOnly: true,
         mutationExecuted: false,
         activationGate: {
@@ -11878,6 +11971,7 @@ function nodeLogicFor(
         repositoryContextField: "repositoryContext",
         branchPolicyField: "branchPolicy",
         githubContextField: "githubContext",
+        issueContextField: "issueContext",
         prAttemptField: "prAttempt",
         readOnly: true,
         mutationExecuted: false,

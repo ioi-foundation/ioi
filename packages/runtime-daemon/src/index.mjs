@@ -24,6 +24,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   repository_context: "item.completed",
   branch_policy: "item.completed",
   github_context: "item.completed",
+  issue_context: "item.completed",
   pr_attempt: "item.completed",
   review_gate: "item.completed",
   model_route_decision: "item.completed",
@@ -1230,6 +1231,39 @@ export class AgentgresRuntimeStateStore {
     ];
   }
 
+  issueContext() {
+    const repositoryContext = this.repositoryContext();
+    const branchPolicy = branchPolicyForRepositoryContext({
+      repositoryContext,
+      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    const githubContext = githubContextForRepository({
+      repositoryContext,
+      branchPolicy,
+      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    const prAttempt = prAttemptForRepository({
+      repositoryContext,
+      branchPolicy,
+      githubContext,
+      attemptId: `pr_attempt_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    const reviewGate = reviewGateForPrAttempt({
+      repositoryContext,
+      branchPolicy,
+      githubContext,
+      prAttempt,
+      gateId: `review_gate_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    return issueContextForGithub({
+      repositoryContext,
+      githubContext,
+      prAttempt,
+      reviewGate,
+      contextId: `issue_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+  }
+
   reviewGate() {
     const repositoryContext = this.repositoryContext();
     const branchPolicy = branchPolicyForRepositoryContext({
@@ -1540,6 +1574,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/pr-attempts") {
       writeJsonResponse(response, store.prAttempts());
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/issue-context") {
+      writeJsonResponse(response, store.issueContext());
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/review-gate") {
@@ -3622,6 +3660,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     prAttempt,
     generatedAt: createdAt,
   });
+  const issueContext = issueContextForGithub({
+    runId,
+    repositoryContext,
+    githubContext,
+    prAttempt,
+    reviewGate,
+    generatedAt: createdAt,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3631,6 +3677,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
       `GitHub context: status=${githubContext.status}, repo=${githubContext.repoFullName ?? "none"}, prEligible=${githubContext.prCreationEligible}`,
+      `Issue context: status=${issueContext.status}, bound=${issueContext.bound}, repo=${issueContext.repoFullName ?? "none"}`,
       `PR attempt: status=${prAttempt.status}, outcome=${prAttempt.outcome}, mutationExecuted=${prAttempt.mutationExecuted}`,
       `Review gate: status=${reviewGate.status}, reviewRequired=${reviewGate.reviewRequired}, reviewSatisfied=${reviewGate.reviewSatisfied}`,
       ...(memoryPolicy
@@ -3660,6 +3707,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       repositoryContext.contextId,
       branchPolicy.policyId,
       githubContext.contextId,
+      issueContext.contextId,
       prAttempt.attemptId,
       reviewGate.gateId,
       activeSkillHookManifest.manifestId,
@@ -3742,6 +3790,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         status: "passed",
       },
       {
+        checkId: "issue-context-read-only",
+        description: "Issue context is projected without GitHub network reads or mutation, and may remain unbound.",
+        status: "passed",
+      },
+      {
         checkId: "pr-attempt-preview-only",
         description: "PR attempt intent, branch, and diff artifacts are recorded without creating or updating a PR.",
         status: "passed",
@@ -3775,6 +3828,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository_context",
       "branch_policy",
       "github_context",
+      "issue_context",
       "pr_attempt",
       "pr_branch_artifact",
       "pr_diff_artifact",
@@ -3798,6 +3852,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/repository-context",
       "/v1/branch-policy",
       "/v1/github-context",
+      "/v1/issue-context",
       "/v1/pr-attempts",
       "/v1/review-gate",
       "/v1/repositories",
@@ -3809,6 +3864,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "RepositoryContext",
       "BranchPolicyDecision",
       "GitHubContext",
+      "IssueContext",
       "PrAttemptRecord",
       "ReviewGateDecision",
       "ModelRouteDecision",
@@ -3831,6 +3887,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository.context.read_only",
       "repository.branch_policy.read_only",
       "github.context.read_only",
+      "github.issue_context.read_only",
       "github.pr_attempt.preview_only",
       "repository.review_gate.read_only",
       "skills_hooks.active_manifest.read_only",
@@ -3959,6 +4016,20 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "github.pr_attempt.preview_only",
     ].filter(Boolean),
   };
+  const issueContextReceipt = {
+    id: `receipt_${runId}_issue_context`,
+    kind: "issue_context",
+    summary: issueContext.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      issueContext.contextId,
+      githubContext.contextId,
+      prAttempt.attemptId,
+      reviewGate.gateId,
+      "IssueContextNode",
+      "github.issue_context.read_only",
+    ].filter(Boolean),
+  };
   const reviewGateReceipt = {
     id: `receipt_${runId}_review_gate`,
     kind: "review_gate",
@@ -4036,6 +4107,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContextReceipt,
     branchPolicyReceipt,
     githubContextReceipt,
+    issueContextReceipt,
     prAttemptReceipt,
     reviewGateReceipt,
     skillHookReceipt,
@@ -4077,6 +4149,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     receiptId: githubContextReceipt.id,
     eventKind: "GitHubContext",
     workflowNodeId: "runtime.github-context",
+  });
+  addEvent("issue_context", "Issue context recorded", {
+    ...issueContext,
+    receiptId: issueContextReceipt.id,
+    eventKind: "IssueContext",
+    workflowNodeId: "runtime.issue-context",
   });
   addEvent("pr_attempt", "PR attempt preview recorded", {
     ...prAttempt,
@@ -4149,6 +4227,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository-context.json",
       "branch-policy.json",
       "github-context.json",
+      "issue-context.json",
       "pr-attempt.json",
       "pr-branch.json",
       "pr-diff.patch",
@@ -4179,6 +4258,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContext,
     branchPolicy,
     githubContext,
+    issueContext,
     prAttempt,
     reviewGate,
     hookDryRunPlan,
@@ -4190,6 +4270,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       repositoryContextId: repositoryContext.contextId,
       branchPolicyId: branchPolicy.policyId,
       githubContextId: githubContext.contextId,
+      issueContextId: issueContext.contextId,
       prAttemptId: prAttempt.attemptId,
       reviewGateId: reviewGate.gateId,
       activeSkillHookManifestId: activeSkillHookManifest.manifestId,
@@ -4209,6 +4290,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         repositoryContext.contextId,
         branchPolicy.policyId,
         githubContext.contextId,
+        issueContext.contextId,
         prAttempt.attemptId,
         reviewGate.gateId,
         activeSkillHookManifest.manifestId,
@@ -4246,6 +4328,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "application/json",
       githubContextReceipt.id,
       githubContext,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "issue-context.json",
+      "application/json",
+      issueContextReceipt.id,
+      issueContext,
       "redacted",
     ),
     artifact(
@@ -4340,6 +4430,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     repositoryContext,
     branchPolicy,
     githubContext,
+    issueContext,
     prAttempt,
     reviewGate,
     hookDryRunPlan,
@@ -4636,6 +4727,95 @@ function githubContextSummary({ status, repoFullName, policy }) {
 
 function githubTokenSources() {
   return ["GITHUB_TOKEN", "GH_TOKEN"].filter((name) => Boolean(process.env[name]));
+}
+
+function issueContextForGithub({
+  runId,
+  contextId,
+  repositoryContext,
+  githubContext,
+  prAttempt,
+  reviewGate,
+  issue,
+  generatedAt,
+} = {}) {
+  const context = repositoryContext ?? repositoryContextForWorkspace({});
+  const github = githubContext ?? githubContextForRepository({ repositoryContext: context });
+  const issueNumber = normalizeIssueNumber(issue?.number ?? issue?.issueNumber);
+  const title = emptyToNull(issue?.title);
+  const sourceUrl = emptyToNull(issue?.url ?? issue?.sourceUrl);
+  const bound = Boolean(issueNumber || title || sourceUrl);
+  const status = !github.githubRemotePresent ? "unavailable" : bound ? "bound" : "unbound";
+  const warnings = uniqueStrings([
+    ...(!bound ? ["issue_context_unbound"] : []),
+    ...(!github.githubRemotePresent ? ["missing_github_remote"] : []),
+  ]);
+  const id = contextId ?? (runId ? `issue_context_${runId}` : `issue_context_${doctorHash(github.contextId ?? context.contextId ?? "workspace").slice(0, 12)}`);
+  return {
+    schemaVersion: "ioi.agent-runtime.issue-context.v1",
+    object: "ioi.issue_context",
+    contextId: id,
+    runId: runId ?? null,
+    generatedAt: generatedAt ?? new Date().toISOString(),
+    repositoryContextId: context.contextId ?? null,
+    githubContextId: github.contextId ?? null,
+    prAttemptId: prAttempt?.attemptId ?? null,
+    reviewGateId: reviewGate?.gateId ?? null,
+    status,
+    summary: issueContextSummary({ status, repoFullName: github.repoFullName, issueNumber, title }),
+    readOnly: true,
+    provider: "github",
+    repoFullName: github.repoFullName ?? null,
+    htmlUrl: github.htmlUrl ?? null,
+    bound,
+    issueProvided: bound,
+    issueNumber,
+    title,
+    sourceUrl,
+    sourceKind: bound ? "github_issue" : "unbound",
+    labels: normalizeArray(issue?.labels),
+    assignees: [],
+    blockers: [],
+    warnings,
+    noIssuePolicy: {
+      allowed: true,
+      reason: "Issue context is optional for local PR previews until a task source is supplied.",
+    },
+    networkLookupPerformed: false,
+    mutationExecuted: false,
+    redaction: {
+      profile: "issue_context_safe",
+      tokenValueIncluded: false,
+      remoteCredentialsIncluded: false,
+      networkResponseIncluded: false,
+      bodyIncluded: false,
+      reviewerIdentityIncluded: false,
+    },
+    evidenceRefs: [
+      "issue_context",
+      "IssueContextNode",
+      "github.issue_context.read_only",
+      context.contextId,
+      github.contextId,
+      prAttempt?.attemptId,
+      reviewGate?.gateId,
+    ].filter(Boolean),
+  };
+}
+
+function issueContextSummary({ status, repoFullName, issueNumber, title }) {
+  const target = repoFullName ?? "unknown GitHub repository";
+  if (status === "bound") {
+    const issueRef = issueNumber ? `#${issueNumber}` : title ?? "provided issue";
+    return `Issue context ${issueRef} is bound for ${target} without network reads.`;
+  }
+  if (status === "unavailable") return "Issue context is unavailable because no GitHub remote was detected.";
+  return `No issue is bound for ${target}; PR workflow may continue with an unbound issue context.`;
+}
+
+function normalizeIssueNumber(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
 }
 
 function prAttemptForRepository({
@@ -6640,6 +6820,28 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "github_context_safe",
     };
   }
+  if (event.type === "issue_context") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "IssueContext",
+      context_id: event.data?.contextId ?? null,
+      repository_context_id: event.data?.repositoryContextId ?? null,
+      github_context_id: event.data?.githubContextId ?? null,
+      pr_attempt_id: event.data?.prAttemptId ?? null,
+      review_gate_id: event.data?.reviewGateId ?? null,
+      status: event.data?.status ?? null,
+      repo_full_name: event.data?.repoFullName ?? null,
+      bound: Boolean(event.data?.bound),
+      issue_provided: Boolean(event.data?.issueProvided),
+      issue_number: event.data?.issueNumber ?? null,
+      source_kind: event.data?.sourceKind ?? null,
+      warning_count: normalizeArray(event.data?.warnings).length,
+      network_lookup_performed: Boolean(event.data?.networkLookupPerformed),
+      mutation_executed: Boolean(event.data?.mutationExecuted),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "issue_context_safe",
+    };
+  }
   if (event.type === "pr_attempt") {
     return {
       ...summary,
@@ -6780,6 +6982,8 @@ function componentKindForRunEvent(eventOrType) {
       return "branch_policy";
     case "github_context":
       return "github_context";
+    case "issue_context":
+      return "issue_context";
     case "pr_attempt":
       return "pr_attempt";
     case "review_gate":
@@ -6832,6 +7036,7 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "repository_context" ||
       eventOrType?.type === "branch_policy" ||
       eventOrType?.type === "github_context" ||
+      eventOrType?.type === "issue_context" ||
       eventOrType?.type === "pr_attempt" ||
       eventOrType?.type === "review_gate" ||
       eventOrType?.type === "memory_update" ||
@@ -6857,6 +7062,9 @@ function receiptRefsForRunEvent(event) {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "github_context") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "issue_context") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "pr_attempt") {
@@ -6891,6 +7099,7 @@ function artifactRefsForRunEvent(event) {
   if (event.type === "repository_context") return ["repository-context.json"];
   if (event.type === "branch_policy") return ["branch-policy.json"];
   if (event.type === "github_context") return ["github-context.json"];
+  if (event.type === "issue_context") return ["issue-context.json"];
   if (event.type === "pr_attempt") return ["pr-attempt.json", "pr-branch.json", "pr-diff.patch"];
   if (event.type === "review_gate") return ["review-gate.json"];
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];

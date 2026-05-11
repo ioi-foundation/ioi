@@ -504,6 +504,14 @@ export interface NodeLogic {
   githubDefaultBranchField?: string;
   githubPrPreconditionsField?: string;
   githubContextReceiptField?: string;
+  issueContextEndpoint?: string;
+  issueContext?: unknown;
+  issueContextField?: string;
+  issueContextStatusField?: string;
+  issueContextBoundField?: string;
+  issueContextIssueNumberField?: string;
+  issueContextSourceUrlField?: string;
+  issueContextReceiptField?: string;
   prAttemptEndpoint?: string;
   prAttempt?: unknown;
   prAttemptField?: string;
@@ -526,6 +534,7 @@ export interface NodeLogic {
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
     consumesGithubContext?: boolean;
+    consumesIssueContext?: boolean;
     consumesPrAttempt?: boolean;
     consumesReviewGate?: boolean;
     consumesSkillHookManifest?: boolean;
@@ -547,6 +556,9 @@ export interface NodeLogic {
     branchPolicyWarningsField?: string;
     githubContextField?: string;
     githubPrPreconditionsField?: string;
+    issueContextField?: string;
+    issueContextStatusField?: string;
+    issueContextBoundField?: string;
     prAttemptField?: string;
     prAttemptStatusField?: string;
     prAttemptBlockersField?: string;
@@ -998,6 +1010,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"github_context">
+  | WorkflowNodeConfigBase<"issue_context">
   | WorkflowNodeConfigBase<"pr_attempt">
   | WorkflowNodeConfigBase<"review_gate">
   | WorkflowNodeConfigBase<"function">
@@ -3679,6 +3692,7 @@ export type WorkflowHarnessComponentKind =
   | "repository_context"
   | "branch_policy"
   | "github_context"
+  | "issue_context"
   | "pr_attempt"
   | "review_gate"
   | "skill_registry"
@@ -4221,6 +4235,7 @@ export type WorkflowNodeKind =
   | "repository_context"
   | "branch_policy"
   | "github_context"
+  | "issue_context"
   | "pr_attempt"
   | "review_gate"
   | "function"
