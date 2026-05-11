@@ -2421,6 +2421,58 @@ Validation evidence:
     with `checks.draftBenchmarkSelection === true` and
     `checks.promotionRuntime === true`.
 
+Implementation slice completed 2026-05-11, workflow execution-results lane
+refactor:
+
+- Workflow run-result assembly now lives in
+  `apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs`.
+- The lane owns `WorkflowRunResultParts`, `workflow_finalize_run_result`,
+  `workflow_run_result_from_parts`, node-run verification evidence projection,
+  completion requirement projection, missing-completion detection, route
+  evidence attachment, route run-summary attachment, and persisted run-result
+  save-through.
+- `runtime.rs` keeps node execution, checkpoints, interrupt handling, and
+  harness-attempt attachment, but all validation-blocked, interrupted, normal,
+  and single-node exits now finalize through one lane-owned result envelope.
+- The lane uses local node/edge readers plus `ActionKind` and
+  `completion_requirement_kinds`, so completion evidence remains tied to the
+  canonical runtime projection contract without depending on `runtime.rs` node
+  helper internals.
+- The daemon and live GUI source-contract proofs now assert the execution
+  results lane directly while preserving React Flow run summaries, verification
+  evidence, route evidence, package output surfaces, PR-create output surfaces,
+  and harness rollback/restore proof inspection.
+- `runtime.rs` is reduced to 3,394 lines and the execution-results lane is 258
+  lines.
+
+Validation evidence:
+
+- `cargo test workflow_skill_context --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test coding_route --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs`
+- `git diff --check -- apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/runtime.rs apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T19-59-05-130Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true` with
+    `checks.workflowExecutionResultsRuntimeLane === true`;
+  - `rollback-restore-canary-ui-proof.json` also keeps
+    `checks.workflowAuthorityToolingRuntimeLane === true`,
+    `checks.workflowMemoryRuntimeLane === true`,
+    `checks.workflowPackageRunOutputSurfaces === true`, and
+    `checks.workflowGithubPrCreateRunOutputSurfaces === true`;
+  - `workflow-coding-route-proof.json` has `passed === true` with
+    `checks.classifierAndEvidence === true`;
+  - `workflow-coding-route-promotion-loop-proof.json` has `passed === true`
+    with `checks.promotionRuntime === true`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

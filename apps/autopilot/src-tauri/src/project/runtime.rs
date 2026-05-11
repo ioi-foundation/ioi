@@ -12,9 +12,10 @@ use super::workflow_authority_tooling_lane::{
     workflow_live_native_tool_catalog, workflow_live_wallet_capability_dry_run,
     workflow_side_effect_requires_live_runtime,
 };
-use super::workflow_coding_route_lane::{
-    workflow_coding_route_evidence_from_run, workflow_coding_route_run_summary,
-    workflow_route_verification_evidence, WorkflowSkillResolver,
+use super::workflow_coding_route_lane::WorkflowSkillResolver;
+use super::workflow_execution_results_lane::{
+    workflow_completion_has_missing, workflow_completion_requirements,
+    workflow_finalize_run_result, WorkflowRunResultParts,
 };
 use super::workflow_memory_lane::{workflow_memory_query_output, workflow_memory_send_options};
 use super::workflow_package_lane::{
@@ -2552,165 +2553,6 @@ pub(super) fn workflow_checkpoint_state(
     Ok(checkpoint_id)
 }
 
-pub(super) fn workflow_verification_evidence_from_node_runs(
-    node_runs: &[WorkflowNodeRun],
-) -> Vec<WorkflowVerificationEvidence> {
-    node_runs
-        .iter()
-        .map(|run| WorkflowVerificationEvidence {
-            node_id: run.node_id.clone(),
-            evidence_type: if run.node_type == "skill_context" {
-                "skill_context".to_string()
-            } else if run.node_type == "workflow_package_export" {
-                "workflow_package_export".to_string()
-            } else if run.node_type == "workflow_package_import" {
-                "workflow_package_import".to_string()
-            } else if matches!(
-                run.node_type.as_str(),
-                "repository_context"
-                    | "branch_policy"
-                    | "github_context"
-                    | "issue_context"
-                    | "pr_attempt"
-                    | "review_gate"
-                    | "github_pr_create"
-            ) {
-                run.node_type.clone()
-            } else {
-                "execution".to_string()
-            },
-            status: if run.status == "success" {
-                "passed".to_string()
-            } else {
-                run.status.clone()
-            },
-            summary: run.error.clone().unwrap_or_else(|| {
-                if run.node_type == "skill_context" {
-                    let hashes = run
-                        .output
-                        .as_ref()
-                        .and_then(|output| output.get("selectedSkills"))
-                        .and_then(Value::as_array)
-                        .map(|items| {
-                            items
-                                .iter()
-                                .filter_map(|item| {
-                                    item.get("skillHash")
-                                        .or_else(|| item.get("hash"))
-                                        .and_then(Value::as_str)
-                                })
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        })
-                        .unwrap_or_default();
-                    format!("skill_context {} selected [{}]", run.status, hashes)
-                } else {
-                    format!("{} execution {}", run.node_type, run.status)
-                }
-            }),
-            created_at_ms: run.finished_at_ms.unwrap_or(run.started_at_ms),
-        })
-        .collect()
-}
-
-pub(super) fn workflow_completion_requirements(
-    workflow: &WorkflowProject,
-    state: &WorkflowStateSnapshot,
-    node_runs: &[WorkflowNodeRun],
-) -> Vec<WorkflowCompletionRequirement> {
-    let mut requirements = Vec::new();
-    let run_by_node = node_runs
-        .iter()
-        .filter(|run| run.status == "success")
-        .map(|run| (run.node_id.as_str(), run))
-        .collect::<std::collections::BTreeMap<_, _>>();
-    for node in &workflow.nodes {
-        let Some(node_id) = workflow_node_id(node) else {
-            continue;
-        };
-        let action_kind = ActionKind::from_node_type(&workflow_node_type(node));
-        if action_kind.is_entry() {
-            continue;
-        }
-        let incoming = workflow
-            .edges
-            .iter()
-            .filter(|edge| workflow_edge_to(edge).as_deref() == Some(node_id.as_str()))
-            .collect::<Vec<_>>();
-        let selected = incoming.is_empty()
-            || incoming
-                .iter()
-                .any(|edge| workflow_edge_is_selected(edge, &state.branch_decisions));
-        if !selected {
-            continue;
-        }
-        let executed = run_by_node.contains_key(node_id.as_str())
-            || state.completed_node_ids.iter().any(|id| id == &node_id);
-        for requirement_kind in completion_requirement_kinds(&action_kind) {
-            match requirement_kind {
-                "execution" => requirements.push(WorkflowCompletionRequirement {
-                    id: format!("execution-{}", node_id),
-                    node_id: Some(node_id.clone()),
-                    requirement_type: "execution".to_string(),
-                    status: if executed { "satisfied" } else { "missing" }.to_string(),
-                    summary: if executed {
-                        "Node produced typed execution evidence.".to_string()
-                    } else {
-                        "Node is missing typed execution evidence.".to_string()
-                    },
-                }),
-                "verification" => {
-                    let verified = state.node_outputs.contains_key(&node_id);
-                    requirements.push(WorkflowCompletionRequirement {
-                        id: format!("verification-{}", node_id),
-                        node_id: Some(node_id.clone()),
-                        requirement_type: "verification".to_string(),
-                        status: if verified { "satisfied" } else { "missing" }.to_string(),
-                        summary: if verified {
-                            "Node output has verification material.".to_string()
-                        } else {
-                            "Node output is missing verification material.".to_string()
-                        },
-                    });
-                }
-                "output_created" => {
-                    let output_created = state
-                        .node_outputs
-                        .get(&node_id)
-                        .and_then(|output| output.get("outputBundle"))
-                        .is_some();
-                    requirements.push(WorkflowCompletionRequirement {
-                        id: format!("output-created-{}", node_id),
-                        node_id: Some(node_id.clone()),
-                        requirement_type: "output_created".to_string(),
-                        status: if output_created {
-                            "satisfied"
-                        } else {
-                            "missing"
-                        }
-                        .to_string(),
-                        summary: if output_created {
-                            "Output bundle was produced.".to_string()
-                        } else {
-                            "Output bundle is missing.".to_string()
-                        },
-                    });
-                }
-                _ => {}
-            }
-        }
-    }
-    requirements
-}
-
-pub(super) fn workflow_completion_has_missing(
-    requirements: &[WorkflowCompletionRequirement],
-) -> bool {
-    requirements
-        .iter()
-        .any(|requirement| requirement.status != "satisfied")
-}
-
 pub(super) fn execute_workflow_project(
     workflow_path: &Path,
     bundle: WorkflowWorkbenchBundle,
@@ -2795,29 +2637,25 @@ pub(super) fn execute_workflow_project(
         final_thread.latest_checkpoint_id = Some(checkpoint_id);
         let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
             workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
-        let route_evidence = workflow_coding_route_evidence_from_run(&bundle.workflow, &node_runs);
-        let route_run_summary = workflow_coding_route_run_summary(&route_evidence);
-        let mut verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
-        verification_evidence.extend(workflow_route_verification_evidence(&route_evidence));
         let completion_requirements =
             workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
-        let result = WorkflowRunResult {
-            summary,
-            thread: final_thread,
-            final_state: state,
-            node_runs,
-            checkpoints,
-            events,
-            harness_attempts,
-            harness_shadow_comparisons,
-            harness_gated_cluster_runs,
-            verification_evidence,
-            completion_requirements,
-            route_evidence,
-            route_run_summary,
-            interrupt: None,
-        };
-        save_workflow_run_result(workflow_path, &result)?;
+        let result = workflow_finalize_run_result(
+            workflow_path,
+            &bundle.workflow,
+            WorkflowRunResultParts {
+                summary,
+                thread: final_thread,
+                final_state: state,
+                node_runs,
+                checkpoints,
+                events,
+                harness_attempts,
+                harness_shadow_comparisons,
+                harness_gated_cluster_runs,
+                completion_requirements,
+                interrupt: None,
+            },
+        )?;
         return Ok(result);
     }
 
@@ -2936,31 +2774,25 @@ pub(super) fn execute_workflow_project(
             save_workflow_thread(workflow_path, &final_thread)?;
             let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
                 workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
-            let route_evidence =
-                workflow_coding_route_evidence_from_run(&bundle.workflow, &node_runs);
-            let route_run_summary = workflow_coding_route_run_summary(&route_evidence);
-            let mut verification_evidence =
-                workflow_verification_evidence_from_node_runs(&node_runs);
-            verification_evidence.extend(workflow_route_verification_evidence(&route_evidence));
             let completion_requirements =
                 workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
-            let result = WorkflowRunResult {
-                summary,
-                thread: final_thread,
-                final_state: state,
-                node_runs,
-                checkpoints,
-                events,
-                harness_attempts,
-                harness_shadow_comparisons,
-                harness_gated_cluster_runs,
-                verification_evidence,
-                completion_requirements,
-                route_evidence,
-                route_run_summary,
-                interrupt: Some(interrupt),
-            };
-            save_workflow_run_result(workflow_path, &result)?;
+            let result = workflow_finalize_run_result(
+                workflow_path,
+                &bundle.workflow,
+                WorkflowRunResultParts {
+                    summary,
+                    thread: final_thread,
+                    final_state: state,
+                    node_runs,
+                    checkpoints,
+                    events,
+                    harness_attempts,
+                    harness_shadow_comparisons,
+                    harness_gated_cluster_runs,
+                    completion_requirements,
+                    interrupt: Some(interrupt),
+                },
+            )?;
             return Ok(result);
         }
 
@@ -3309,27 +3141,23 @@ pub(super) fn execute_workflow_project(
     save_workflow_thread(workflow_path, &final_thread)?;
     let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
         workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
-    let route_evidence = workflow_coding_route_evidence_from_run(&bundle.workflow, &node_runs);
-    let route_run_summary = workflow_coding_route_run_summary(&route_evidence);
-    let mut verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
-    verification_evidence.extend(workflow_route_verification_evidence(&route_evidence));
-    let result = WorkflowRunResult {
-        summary,
-        thread: final_thread,
-        final_state: state,
-        node_runs,
-        checkpoints,
-        events,
-        harness_attempts,
-        harness_shadow_comparisons,
-        harness_gated_cluster_runs,
-        verification_evidence,
-        completion_requirements,
-        route_evidence,
-        route_run_summary,
-        interrupt: None,
-    };
-    save_workflow_run_result(workflow_path, &result)?;
+    let result = workflow_finalize_run_result(
+        workflow_path,
+        &bundle.workflow,
+        WorkflowRunResultParts {
+            summary,
+            thread: final_thread,
+            final_state: state,
+            node_runs,
+            checkpoints,
+            events,
+            harness_attempts,
+            harness_shadow_comparisons,
+            harness_gated_cluster_runs,
+            completion_requirements,
+            interrupt: None,
+        },
+    )?;
     Ok(result)
 }
 
@@ -3530,28 +3358,24 @@ pub(super) fn workflow_single_node_result(
     let mut node_runs = vec![node_run];
     let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
         workflow_attach_harness_run_artifacts(workflow, &run_id, &mut node_runs);
-    let route_evidence = workflow_coding_route_evidence_from_run(workflow, &node_runs);
-    let route_run_summary = workflow_coding_route_run_summary(&route_evidence);
-    let mut verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
-    verification_evidence.extend(workflow_route_verification_evidence(&route_evidence));
     let completion_requirements = workflow_completion_requirements(workflow, &state, &node_runs);
-    let result = WorkflowRunResult {
-        summary,
-        thread: final_thread,
-        final_state: state,
-        node_runs,
-        checkpoints,
-        events,
-        harness_attempts,
-        harness_shadow_comparisons,
-        harness_gated_cluster_runs,
-        verification_evidence,
-        completion_requirements,
-        route_evidence,
-        route_run_summary,
-        interrupt: None,
-    };
-    save_workflow_run_result(workflow_path, &result)?;
+    let result = workflow_finalize_run_result(
+        workflow_path,
+        workflow,
+        WorkflowRunResultParts {
+            summary,
+            thread: final_thread,
+            final_state: state,
+            node_runs,
+            checkpoints,
+            events,
+            harness_attempts,
+            harness_shadow_comparisons,
+            harness_gated_cluster_runs,
+            completion_requirements,
+            interrupt: None,
+        },
+    )?;
     append_workflow_evidence(
         workflow_path,
         WorkflowEvidenceSummary {

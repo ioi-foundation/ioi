@@ -1,8 +1,8 @@
 // apps/autopilot/src-tauri/src/project.rs
 
 use crate::runtime_projection::{
-    completion_requirement_kinds, validate_action_edge, validate_workflow_connection_class,
-    ActionBindingRef, ActionFrame, ActionKind, ActionPolicy, ActionSurface,
+    validate_action_edge, validate_workflow_connection_class, ActionBindingRef, ActionFrame,
+    ActionKind, ActionPolicy, ActionSurface,
 };
 use regex::Regex;
 use serde_json::{json, Value};
@@ -25,6 +25,7 @@ pub mod types;
 mod validation;
 mod workflow_authority_tooling_lane;
 mod workflow_coding_route_lane;
+mod workflow_execution_results_lane;
 mod workflow_memory_lane;
 mod workflow_package_lane;
 mod workflow_value_helpers;
