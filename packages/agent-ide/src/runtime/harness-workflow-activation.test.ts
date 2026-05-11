@@ -503,6 +503,104 @@ const withClusterReadiness = (
   };
 };
 
+const withHookPolicyDryRunPlan = (
+  workflow: WorkflowProject,
+  status: "passed" | "blocked",
+  blockedCount: number,
+): WorkflowProject => ({
+  ...workflow,
+  nodes: workflow.nodes.map((node) =>
+    node.runtimeBinding?.componentKind === "hook_policy" ||
+    node.type === "hook_policy"
+      ? ({
+          ...node,
+          config: {
+            ...(node.config ?? { logic: {}, law: {} }),
+            logic: {
+              ...(node.config?.logic ?? {}),
+              hookDryRunOnly: true,
+              requireHookDryRunPlan: true,
+              hookExecutionEnabled: false,
+              hookCommandExecutionEnabled: false,
+              hookDryRunPlanField: "hookDryRunPlan",
+              hookDryRunDecisionField: "hookDryRunPlan.decisions",
+              hookPolicyDecisionField: "hookDryRunPlan.policyDecision.status",
+              routes: ["hook_policy_passed_preview", "hook_policy_blocked"],
+              defaultRoute: "hook_policy_blocked",
+              hookPolicyPassedRoute: "hook_policy_passed_preview",
+              hookPolicyBlockedRoute: "hook_policy_blocked",
+              hookDryRunPlan: {
+                schemaVersion: "ioi.agent-runtime.hook-dry-run-plan.v1",
+                object: "ioi.agent_hook_dry_run_plan",
+                planId: `hook_dry_run_test_${status}`,
+                mode: "preview_only",
+                hookExecutionEnabled: false,
+                commandExecutionEnabled: false,
+                decisionCount: blockedCount > 0 ? 1 : 0,
+                wouldRunCount: 0,
+                blockedCount,
+                skippedCount: 0,
+                decisions:
+                  blockedCount > 0
+                    ? [
+                        {
+                          hookId: "hook.blocked",
+                          decision: "blocked",
+                          blockers: ["missing_tool_contract"],
+                          execution: {
+                            previewOnly: true,
+                            commandExecuted: false,
+                            mutationAllowed: false,
+                          },
+                        },
+                      ]
+                    : [],
+                policyDecision: {
+                  status,
+                  summary:
+                    status === "passed"
+                      ? "Hook policy preview passed."
+                      : "Hook policy preview blocked.",
+                  previewOnly: true,
+                  hookExecutionEnabled: false,
+                  commandExecutionEnabled: false,
+                },
+              },
+            },
+          },
+        } as typeof node)
+      : node,
+  ),
+});
+
+{
+  const fork = forkDefaultAgentHarnessWorkflow("Hook Policy Activation Fork", 1_250);
+  const blockedWorkflow = withHookPolicyDryRunPlan(fork.workflow, "blocked", 1);
+  const blockedReadiness = evaluateWorkflowActivationReadiness(
+    blockedWorkflow,
+    fork.tests,
+    validateWorkflowProject(blockedWorkflow, fork.tests),
+    fork.proposals,
+    [],
+  );
+  const hookPolicyNode = blockedWorkflow.nodes.find(
+    (node) => node.runtimeBinding?.componentKind === "hook_policy",
+  );
+  assert.ok(activationIssueCodes(blockedReadiness).includes("hook_policy_dry_run_blocked"));
+  assert.ok(hookPolicyNode);
+  assert.ok(blockedReadiness.blockedNodes.includes(hookPolicyNode.id));
+
+  const passedWorkflow = withHookPolicyDryRunPlan(fork.workflow, "passed", 0);
+  const passedReadiness = evaluateWorkflowActivationReadiness(
+    passedWorkflow,
+    fork.tests,
+    validateWorkflowProject(passedWorkflow, fork.tests),
+    fork.proposals,
+    [],
+  );
+  assert.ok(!activationIssueCodes(passedReadiness).includes("hook_policy_dry_run_blocked"));
+}
+
 {
   const fork = forkDefaultAgentHarnessWorkflow("Blocked Activation Fork", 1_000);
   const base = validateWorkflowProject(fork.workflow, fork.tests);

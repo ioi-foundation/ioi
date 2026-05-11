@@ -812,6 +812,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "packages/agent-ide/src/runtime/workflow-node-registry.ts"),
     "utf8",
   );
+  const workflowValidation = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-validation.ts"),
+    "utf8",
+  );
   assert.match(workflowContracts, /memory\.scope/);
   assert.match(workflowContracts, /memory\.remember/);
   assert.match(workflowContracts, /memory\.search/);
@@ -834,6 +838,8 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /consumesSkillHookManifest/);
   assert.match(nodeRegistry, /hookDryRunOnly/);
   assert.match(nodeRegistry, /hookDryRunPlan/);
+  assert.match(nodeRegistry, /hookPolicyPassedRoute/);
+  assert.match(nodeRegistry, /hookPolicyBlockedRoute/);
   assert.match(nodeRegistry, /activeSkillSetHash/);
   assert.match(nodeRegistry, /activeHookSetHash/);
   assert.match(harnessWorkflow, /memory_read/);
@@ -857,6 +863,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /active_skill_hook_manifest/);
   assert.match(harnessWorkflow, /hook_dry_run_plan/);
   assert.match(harnessWorkflow, /hook_policy_decision/);
+  assert.match(workflowValidation, /workflowNodeIsHookPolicy/);
+  assert.match(workflowValidation, /hook_policy_dry_run_blocked/);
+  assert.match(workflowValidation, /hook_policy_dry_run_plan_missing/);
+  assert.match(workflowValidation, /hook_policy_routes_missing/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

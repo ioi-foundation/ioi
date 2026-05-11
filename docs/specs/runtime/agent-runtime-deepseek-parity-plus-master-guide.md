@@ -1307,6 +1307,29 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-07-33-015Z/result.json`
 
+Implementation slice completed 2026-05-11, HookPolicyNode activation gate:
+
+- `HookPolicyNode` is now an enforced activation gate, not only descriptive
+  metadata. Workflow readiness inspects hook policy nodes and blocks activation
+  when their dry-run policy decision is `blocked`.
+- Hook policy nodes must remain preview-only: activation fails if node logic or
+  the dry-run plan enables hook execution or command execution.
+- Hook policy nodes must consume `hookDryRunPlan`, expose the policy decision
+  field, and configure explicit passed-preview and blocked routes.
+- The default agent harness now includes a benign empty hook dry-run plan for
+  its `hook_policy` component, so the blessed harness remains inspectable while
+  forks and custom workflows can surface real hook blockers.
+- The harness activation test coverage now proves a blocked dry-run plan marks
+  the hook policy node as blocked, while a passed preview plan does not add a
+  hook policy blocker.
+
+Validation evidence:
+
+- `npm run build:ide`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-14-01-420Z/result.json`
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:

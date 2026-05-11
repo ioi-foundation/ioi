@@ -738,6 +738,114 @@ function workflowNodeIsMcpTool(node: Node): boolean {
   return node.type === "plugin_tool" && node.config?.logic?.toolBinding?.bindingKind === "mcp_tool";
 }
 
+function workflowNodeIsHookPolicy(node: Node): boolean {
+  const logic = node.config?.logic ?? {};
+  return (
+    node.type === "hook_policy" ||
+    node.runtimeBinding?.componentKind === "hook_policy" ||
+    logic.nodeTypeLabel === "HookPolicyNode" ||
+    logic.hookDryRunOnly === true ||
+    logic.requireHookDryRunPlan === true
+  );
+}
+
+function workflowObjectRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function workflowValueAtPath(value: unknown, path: string): unknown {
+  const parts = path.split(".").map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return value;
+  let current: unknown = value;
+  for (const part of parts) {
+    const record = workflowObjectRecord(current);
+    if (!record || !(part in record)) return undefined;
+    current = record[part];
+  }
+  return current;
+}
+
+function workflowStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function workflowNumberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function workflowBooleanValue(value: unknown): boolean {
+  return value === true;
+}
+
+function workflowHookDryRunPlanForNode(node: Node): Record<string, unknown> | null {
+  const logic = node.config?.logic ?? {};
+  const activationGate = workflowObjectRecord(logic.activationGate);
+  const planField =
+    workflowStringValue(logic.hookDryRunPlanField) ??
+    workflowStringValue(activationGate?.hookDryRunPlanField) ??
+    "hookDryRunPlan";
+  return (
+    workflowObjectRecord(workflowValueAtPath(logic, planField)) ??
+    workflowObjectRecord(logic.hookDryRunPlan)
+  );
+}
+
+function workflowHookPolicyStatusForNode(
+  node: Node,
+  plan: Record<string, unknown>,
+): string | null {
+  const logic = node.config?.logic ?? {};
+  const activationGate = workflowObjectRecord(logic.activationGate);
+  const statusField =
+    workflowStringValue(logic.hookPolicyDecisionField) ??
+    workflowStringValue(activationGate?.hookPolicyDecisionField) ??
+    "hookDryRunPlan.policyDecision.status";
+  return (
+    workflowStringValue(workflowValueAtPath(logic, statusField)) ??
+    workflowStringValue(workflowValueAtPath(plan, "policyDecision.status"))
+  );
+}
+
+function workflowHookDryRunBlockedCount(plan: Record<string, unknown>): number {
+  const explicitCount = workflowNumberValue(plan.blockedCount);
+  if (explicitCount !== null) return explicitCount;
+  const decisions = Array.isArray(plan.decisions) ? plan.decisions : [];
+  return decisions.filter((decision) => {
+    const record = workflowObjectRecord(decision);
+    return record?.decision === "blocked";
+  }).length;
+}
+
+function workflowHookCommandExecutionEnabled(
+  node: Node,
+  plan: Record<string, unknown> | null,
+): boolean {
+  const logic = node.config?.logic ?? {};
+  const policyDecision = workflowObjectRecord(plan?.policyDecision);
+  return (
+    workflowBooleanValue(logic.hookExecutionEnabled) ||
+    workflowBooleanValue(logic.hookCommandExecutionEnabled) ||
+    workflowBooleanValue(plan?.hookExecutionEnabled) ||
+    workflowBooleanValue(plan?.commandExecutionEnabled) ||
+    workflowBooleanValue(policyDecision?.hookExecutionEnabled) ||
+    workflowBooleanValue(policyDecision?.commandExecutionEnabled)
+  );
+}
+
+function workflowHookPolicyRoutesConfigured(node: Node): boolean {
+  const logic = node.config?.logic ?? {};
+  const routes = Array.isArray(logic.routes) ? logic.routes.map(String) : [];
+  const passedRoute = workflowStringValue(logic.hookPolicyPassedRoute);
+  const blockedRoute = workflowStringValue(logic.hookPolicyBlockedRoute);
+  return Boolean(
+    passedRoute &&
+      blockedRoute &&
+      routes.includes(passedRoute) &&
+      routes.includes(blockedRoute),
+  );
+}
+
 function workflowCriticalAiNodeIds(workflow: WorkflowProject): string[] {
   return workflow.nodes
     .filter((node) => node.type === "model_call")
@@ -1457,6 +1565,62 @@ export function evaluateWorkflowActivationReadiness(
         addReadinessIssue(issue);
       } else {
         addAdvisoryWarning(issue);
+      }
+    }
+    if (workflowNodeIsHookPolicy(node)) {
+      const plan = workflowHookDryRunPlanForNode(node);
+      if (logic.hookDryRunOnly !== true) {
+        addReadinessIssue({
+          nodeId: node.id,
+          code: "hook_policy_not_preview_only",
+          message:
+            "Hook Policy nodes must remain preview-only until governed hook execution is implemented.",
+        });
+      }
+      if (workflowHookCommandExecutionEnabled(node, plan)) {
+        addReadinessIssue({
+          nodeId: node.id,
+          code: "hook_policy_execution_enabled",
+          message:
+            "Hook Policy nodes cannot enable hook or command execution during activation.",
+        });
+      }
+      if (!workflowHookPolicyRoutesConfigured(node)) {
+        addReadinessIssue({
+          nodeId: node.id,
+          code: "hook_policy_routes_missing",
+          message:
+            "Hook Policy nodes need explicit passed-preview and blocked routes before activation.",
+        });
+      }
+      if (!plan) {
+        addReadinessIssue({
+          nodeId: node.id,
+          code: "hook_policy_dry_run_plan_missing",
+          message:
+            "Hook Policy nodes must consume a hook dry-run plan before activation can continue.",
+        });
+      } else {
+        const policyStatus = workflowHookPolicyStatusForNode(node, plan);
+        const blockedCount = workflowHookDryRunBlockedCount(plan);
+        if (!policyStatus) {
+          addReadinessIssue({
+            nodeId: node.id,
+            code: "hook_policy_decision_missing",
+            message:
+              "Hook Policy nodes need a hook dry-run policy decision status before activation.",
+          });
+        }
+        if (policyStatus === "blocked" || blockedCount > 0) {
+          addReadinessIssue({
+            nodeId: node.id,
+            code: "hook_policy_dry_run_blocked",
+            message:
+              blockedCount > 0
+                ? `Hook dry-run policy blocks activation for ${blockedCount} hook(s).`
+                : "Hook dry-run policy blocks activation.",
+          });
+        }
       }
     }
   });
