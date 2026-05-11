@@ -10216,6 +10216,7 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "uncertainty_gate",
   "runtime_doctor",
   "repository_context",
+  "branch_policy",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -10250,6 +10251,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "task_state",
     "runtime_doctor",
     "repository_context",
+    "branch_policy",
     "skill_registry",
     "hook_registry",
     "hook_policy",
@@ -10462,6 +10464,25 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       ],
       group: "State",
       icon: "git-branch",
+    }),
+    makeComponent({
+      kind: "branch_policy",
+      label: "Branch policy",
+      description:
+        "Evaluates repository context into a read-only branch safety decision for PR, review, and mutation workflows.",
+      kernelRef:
+        "packages/runtime-daemon/src/index.mjs::branchPolicyForRepositoryContext",
+      capabilityScope: ["repository.branch_policy.read", "workflow.activation.read"],
+      eventKinds: ["BranchPolicyDecision"],
+      evidence: [
+        "branch_policy",
+        "branch_policy.status",
+        "branch_policy.blockers",
+        "branch_policy.warnings",
+        "branch_policy.read_only",
+      ],
+      group: "Governance",
+      icon: "shield-check",
     }),
     makeComponent({
       kind: "skill_registry",
@@ -11026,6 +11047,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "task_state",
       "runtime_doctor",
       "repository_context",
+      "branch_policy",
       "skill_registry",
       "hook_registry",
       "drift_detector",
@@ -11193,6 +11215,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "prompt_assembler",
   "runtime_doctor",
   "repository_context",
+  "branch_policy",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -11239,6 +11262,7 @@ const SLOT_BY_KIND: Partial<
   task_state: ["state_policy"],
   runtime_doctor: ["state_policy", "verifier_policy"],
   repository_context: ["state_policy", "verifier_policy"],
+  branch_policy: ["state_policy", "verifier_policy", "approval_policy"],
   skill_registry: ["state_policy"],
   hook_registry: ["state_policy", "verifier_policy"],
   hook_policy: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11375,6 +11399,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "runtime_doctor";
     case "repository_context":
       return "repository_context";
+    case "branch_policy":
+      return "branch_policy";
     case "skill_registry":
       return "skill";
     case "hook_registry":
@@ -11498,6 +11524,76 @@ function nodeLogicFor(
             statusPathsIncluded: false,
           },
           evidenceRefs: ["repository_context"],
+        },
+      };
+    case "branch_policy":
+      return {
+        ...base,
+        branchPolicyField: "branchPolicy",
+        branchPolicyStatusField: "branchPolicy.status",
+        branchPolicyBlockersField: "branchPolicy.blockers",
+        branchPolicyWarningsField: "branchPolicy.warnings",
+        branchPolicyReceiptField: "branchPolicy.receiptId",
+        repositoryContextField: "repositoryContext",
+        protectedBranchNames: ["main", "master", "trunk", "production", "release", "stable"],
+        blockProtectedBranches: true,
+        allowDirtyWorktree: false,
+        requireUpstream: true,
+        requireReviewForWarnings: true,
+        readOnly: true,
+        mutationExecuted: false,
+        activationGate: {
+          consumesRepositoryContext: true,
+          consumesBranchPolicy: true,
+          branchPolicyField: "branchPolicy",
+          branchPolicyStatusField: "branchPolicy.status",
+          branchPolicyBlockersField: "branchPolicy.blockers",
+          branchPolicyWarningsField: "branchPolicy.warnings",
+        },
+        nodeTypeLabel: "BranchPolicyNode",
+        branchPolicy: {
+          schemaVersion: "ioi.agent-runtime.branch-policy.v1",
+          object: "ioi.branch_policy_decision",
+          policyId: "branch_policy_default_harness_empty",
+          repositoryContextId: "repoctx_default_harness_empty",
+          status: "warning",
+          decision: "warning",
+          summary:
+            "Default harness branch policy is projection-only until repository context is supplied.",
+          readOnly: true,
+          mutationExecuted: false,
+          mutationAllowed: false,
+          prCreationAllowed: false,
+          reviewRequired: true,
+          approvalRequired: true,
+          branch: null,
+          defaultBranch: null,
+          protectedBranch: false,
+          protectedBranchNames: ["main", "master", "trunk", "production", "release", "stable"],
+          detachedHead: false,
+          headSha: null,
+          headShortSha: null,
+          upstream: null,
+          ahead: 0,
+          behind: 0,
+          dirty: false,
+          counts: {
+            staged: 0,
+            unstaged: 0,
+            untracked: 0,
+            ignored: 0,
+            conflicted: 0,
+          },
+          blockers: [],
+          warnings: ["repository_context_projection_only"],
+          recommendedNextAction:
+            "Read repository context before requesting branch mutation or PR creation.",
+          redaction: {
+            profile: "branch_policy_safe",
+            remoteCredentialsIncluded: false,
+            statusPathsIncluded: false,
+          },
+          evidenceRefs: ["branch_policy", "repository_context"],
         },
       };
     case "model_call":

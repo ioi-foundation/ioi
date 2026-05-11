@@ -172,6 +172,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
   const branch = git(cwd, ["branch", "--show-current"]);
   git(cwd, ["remote", "add", "origin", "https://user:secret@example.invalid/ioi.git"]);
   git(cwd, ["update-ref", `refs/remotes/origin/${branch}`, "HEAD"]);
+  git(cwd, ["symbolic-ref", "refs/remotes/origin/HEAD", `refs/remotes/origin/${branch}`]);
   git(cwd, ["branch", "--set-upstream-to", `origin/${branch}`]);
   fs.writeFileSync(path.join(cwd, "tracked.txt"), "two\n");
   fs.writeFileSync(path.join(cwd, "staged.txt"), "staged\n");
@@ -186,6 +187,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(repositoryContext.isGitRepository, true);
     assert.equal(repositoryContext.repoRoot, cwd);
     assert.equal(repositoryContext.branch, branch);
+    assert.equal(repositoryContext.defaultBranch, branch);
     assert.match(repositoryContext.headSha, /^[a-f0-9]{40}$/);
     assert.equal(repositoryContext.upstream, `origin/${branch}`);
     assert.equal(repositoryContext.remoteCount, 1);
@@ -204,6 +206,23 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(repositories[0].branch, branch);
     assert.equal(repositories[0].isDirty, true);
 
+    const branchPolicy = await fetchJson(`${daemon.endpoint}/v1/branch-policy`);
+    assert.equal(branchPolicy.schemaVersion, "ioi.agent-runtime.branch-policy.v1");
+    assert.equal(branchPolicy.object, "ioi.branch_policy_decision");
+    assert.equal(branchPolicy.repositoryContextId, repositoryContext.contextId);
+    assert.equal(branchPolicy.status, "blocked");
+    assert.equal(branchPolicy.branch, branch);
+    assert.equal(branchPolicy.defaultBranch, branch);
+    assert.equal(branchPolicy.protectedBranch, true);
+    assert.equal(branchPolicy.dirty, true);
+    assert.equal(branchPolicy.readOnly, true);
+    assert.equal(branchPolicy.mutationExecuted, false);
+    assert.equal(branchPolicy.mutationAllowed, false);
+    assert.equal(branchPolicy.prCreationAllowed, false);
+    assert.ok(branchPolicy.blockers.includes("protected_branch"));
+    assert.ok(branchPolicy.warnings.includes("dirty_worktree"));
+    assert.ok(branchPolicy.warnings.includes("untracked_files"));
+
     const { Agent, createRuntimeSubstrateClient } = await importSdk();
     const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const agent = await Agent.create({ local: { cwd }, substrateClient: client });
@@ -215,10 +234,20 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(trace.repositoryContext.status.counts.unstaged, 1);
     assert.equal(trace.repositoryContext.status.counts.untracked, 1);
     assert.equal(trace.repositoryContext.mutationExecuted, false);
+    assert.equal(trace.branchPolicy.schemaVersion, "ioi.agent-runtime.branch-policy.v1");
+    assert.equal(trace.branchPolicy.repositoryContextId, trace.repositoryContext.contextId);
+    assert.equal(trace.branchPolicy.status, "blocked");
+    assert.equal(trace.branchPolicy.protectedBranch, true);
+    assert.equal(trace.branchPolicy.mutationAllowed, false);
+    assert.ok(trace.branchPolicy.blockers.includes("protected_branch"));
+    assert.ok(trace.branchPolicy.warnings.includes("dirty_worktree"));
     assert.equal(trace.promptAudit.repositoryContextId, trace.repositoryContext.contextId);
+    assert.equal(trace.promptAudit.branchPolicyId, trace.branchPolicy.policyId);
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "repository_context"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "branch_policy"));
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/artifacts`);
     assert.ok(artifacts.some((artifact) => artifact.name === "repository-context.json"));
+    assert.ok(artifacts.some((artifact) => artifact.name === "branch-policy.json"));
 
     const threadId = `thread_${agent.id.slice("agent_".length)}`;
     const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
@@ -235,8 +264,24 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(repoEvent.payload_summary.mutation_executed, false);
     assert.ok(repoEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_repository_context")));
     assert.ok(repoEvent.artifact_refs.includes("repository-context.json"));
+    const branchPolicyEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "BranchPolicyDecision",
+    );
+    assert.ok(branchPolicyEvent);
+    assert.equal(branchPolicyEvent.component_kind, "branch_policy");
+    assert.equal(branchPolicyEvent.workflow_node_id, "runtime.branch-policy");
+    assert.equal(branchPolicyEvent.payload_summary.status, "blocked");
+    assert.equal(branchPolicyEvent.payload_summary.branch, branch);
+    assert.equal(branchPolicyEvent.payload_summary.default_branch, branch);
+    assert.equal(branchPolicyEvent.payload_summary.protected_branch, true);
+    assert.equal(branchPolicyEvent.payload_summary.dirty, true);
+    assert.equal(branchPolicyEvent.payload_summary.mutation_allowed, false);
+    assert.equal(branchPolicyEvent.payload_summary.pr_creation_allowed, false);
+    assert.equal(branchPolicyEvent.payload_summary.review_required, true);
+    assert.ok(branchPolicyEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_branch_policy")));
+    assert.ok(branchPolicyEvent.artifact_refs.includes("branch-policy.json"));
 
-    const serializedProjection = JSON.stringify({ repositoryContext, repositories, trace, events });
+    const serializedProjection = JSON.stringify({ repositoryContext, repositories, branchPolicy, trace, events });
     assert.ok(!serializedProjection.includes("user:secret"));
     assert.ok(!serializedProjection.includes("https://user:secret@example.invalid"));
   } finally {
@@ -1027,6 +1072,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
   assert.match(workflowContracts, /repository\.context/);
+  assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /runtime\.doctor/);
   assert.match(nodeRegistry, /runtime_doctor/);
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
@@ -1036,6 +1082,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /RepositoryContextNode/);
   assert.match(nodeRegistry, /\/v1\/repository-context/);
   assert.match(nodeRegistry, /repositoryDirtyField/);
+  assert.match(nodeRegistry, /branch_policy/);
+  assert.match(nodeRegistry, /BranchPolicyNode/);
+  assert.match(nodeRegistry, /branchPolicyStatusField/);
+  assert.match(nodeRegistry, /protectedBranchNames/);
   assert.match(nodeRegistry, /SkillNode/);
   assert.match(nodeRegistry, /SkillPackNode/);
   assert.match(nodeRegistry, /HookNode/);
@@ -1070,6 +1120,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /repository_context/);
   assert.match(harnessWorkflow, /RepositoryContext/);
   assert.match(harnessWorkflow, /repository\.context\.read/);
+  assert.match(harnessWorkflow, /branch_policy/);
+  assert.match(harnessWorkflow, /BranchPolicyDecision/);
+  assert.match(harnessWorkflow, /repository\.branch_policy\.read/);
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /hook_policy/);

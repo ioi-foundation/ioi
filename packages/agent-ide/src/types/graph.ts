@@ -484,9 +484,21 @@ export interface NodeLogic {
   repositoryDirtyField?: string;
   readOnly?: boolean;
   mutationExecuted?: boolean;
+  branchPolicy?: unknown;
+  branchPolicyField?: string;
+  branchPolicyStatusField?: string;
+  branchPolicyBlockersField?: string;
+  branchPolicyWarningsField?: string;
+  branchPolicyReceiptField?: string;
+  protectedBranchNames?: string[];
+  blockProtectedBranches?: boolean;
+  allowDirtyWorktree?: boolean;
+  requireUpstream?: boolean;
+  requireReviewForWarnings?: boolean;
   activationGate?: {
     consumesDoctorReport?: boolean;
     consumesRepositoryContext?: boolean;
+    consumesBranchPolicy?: boolean;
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
@@ -500,6 +512,10 @@ export interface NodeLogic {
     hookEscalationCountField?: string;
     hookEscalationDetailsField?: string;
     hookEscalationReceiptField?: string;
+    branchPolicyField?: string;
+    branchPolicyStatusField?: string;
+    branchPolicyBlockersField?: string;
+    branchPolicyWarningsField?: string;
     manifestValidationField?: string;
     requireValidationPass?: boolean;
   };
@@ -942,6 +958,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"capability_sequence">
   | WorkflowNodeConfigBase<"runtime_doctor">
   | WorkflowNodeConfigBase<"repository_context">
+  | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3619,6 +3636,7 @@ export type WorkflowHarnessComponentKind =
   | "memory_subagent_inheritance"
   | "runtime_doctor"
   | "repository_context"
+  | "branch_policy"
   | "skill_registry"
   | "hook_registry"
   | "hook_policy"
@@ -4157,6 +4175,7 @@ export type WorkflowNodeKind =
   | "capability_sequence"
   | "runtime_doctor"
   | "repository_context"
+  | "branch_policy"
   | "function"
   | "model_binding"
   | "model_call"
