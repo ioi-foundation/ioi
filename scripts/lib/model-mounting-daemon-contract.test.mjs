@@ -1321,6 +1321,80 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(workflowCall.status, "executed");
     assert.equal(workflowCall.invocation.route_id, "route.local-first");
 
+    const workflowMemoryCall = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        node: "Model Call",
+        input: "workflow memory policy probe",
+        model_policy: { privacy: "local_only" },
+        memoryKey: "conversation",
+        memoryScope: "workflow",
+        memoryInjectionEnabled: false,
+        memoryReadOnly: true,
+        memoryWriteRequiresApproval: true,
+        memorySubagentInheritance: "read_only",
+        memoryRetention: "session",
+        memoryRedaction: "redacted",
+      },
+    });
+    assert.equal(workflowMemoryCall.status, "executed");
+    assert.equal(workflowMemoryCall.invocation.memory_policy.memoryKey, "conversation");
+    assert.equal(workflowMemoryCall.invocation.memory_policy.scope, "workflow");
+    assert.equal(workflowMemoryCall.invocation.memory_policy.injectionEnabled, false);
+    assert.equal(workflowMemoryCall.invocation.memory_policy.disabled, true);
+    assert.equal(workflowMemoryCall.invocation.memory_policy.readOnly, true);
+    assert.equal(workflowMemoryCall.invocation.memory_policy.writeRequiresApproval, true);
+    assert.equal(workflowMemoryCall.invocation.memory_policy.subagentInheritance, "read_only");
+    assert.equal(workflowMemoryCall.invocation.memory_policy.retention, "session");
+    assert.equal(workflowMemoryCall.invocation.memory_policy.redaction, "redacted");
+    assert.deepEqual(workflowMemoryCall.invocation.send_options.memory, workflowMemoryCall.invocation.memory_policy);
+    const workflowMemoryReceipt = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${workflowMemoryCall.invocation.receipt_id}`,
+    );
+    assert.deepEqual(workflowMemoryReceipt.details.memory, workflowMemoryCall.invocation.memory_policy);
+    assert.deepEqual(workflowMemoryReceipt.details.sendOptions.memory, workflowMemoryCall.invocation.memory_policy);
+
+    const workflowReadOnlyMemoryWrite = await requestJson(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        node: "Model Call",
+        input: "workflow read-only memory write probe",
+        model_policy: { privacy: "local_only" },
+        memory: { remember: "blocked fact", readOnly: true },
+      },
+    });
+    assert.equal(workflowReadOnlyMemoryWrite.response.status, 403);
+    assert.equal(workflowReadOnlyMemoryWrite.json.error.details.reason, "memory_read_only");
+
+    const workflowApprovalMemoryWrite = await requestJson(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        node: "Model Call",
+        input: "workflow approval memory write probe",
+        model_policy: { privacy: "local_only" },
+        logic: { memoryRemember: "approval-gated fact", memoryWriteRequiresApproval: true },
+      },
+    });
+    assert.equal(workflowApprovalMemoryWrite.response.status, 403);
+    assert.equal(workflowApprovalMemoryWrite.json.error.details.reason, "memory_write_requires_approval");
+
+    const workflowApprovedMemoryWrite = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        node: "Model Call",
+        input: "workflow approved memory write probe",
+        model_policy: { privacy: "local_only" },
+        memory: { remember: "approved fact", writeRequiresApproval: true, writeApproved: true },
+      },
+    });
+    assert.equal(workflowApprovedMemoryWrite.invocation.memory_policy.remember, "approved fact");
+    assert.equal(workflowApprovedMemoryWrite.invocation.memory_policy.writeApproved, true);
+
     const gate = await expectOk(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
       method: "POST",
       body: {

@@ -386,6 +386,7 @@ export interface NodeLogic {
   parserRef?: string;
   parserBinding?: WorkflowParserBinding;
   memoryKey?: string;
+  memoryScope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   memoryInjectionEnabled?: boolean;
   memoryReadOnly?: boolean;
   memoryWriteRequiresApproval?: boolean;

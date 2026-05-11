@@ -105,6 +105,7 @@ export interface AgentOptions {
 export interface SendOptions {
   model?: ModelSelection;
   memory?: {
+    memoryKey?: string;
     remember?: string;
     disabled?: boolean;
     threadId?: string;

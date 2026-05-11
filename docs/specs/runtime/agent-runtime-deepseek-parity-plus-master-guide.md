@@ -968,8 +968,6 @@ Implementation slice completed 2026-05-11:
 
 Remaining memory UX closure:
 
-- Wire React Flow graph activation/runtime execution to pass memory policy
-  fields into daemon `SendOptions.memory` in every live workflow path.
 - Add memory search/list filtering UI beyond the current key/policy controls.
 - Add deeper subagent memory inheritance execution evidence once subagent
   runtime fan-out is first-class.
@@ -1006,6 +1004,35 @@ Validation evidence:
 - `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T02-51-13-357Z/result.json`
+
+Implementation slice completed 2026-05-11, workflow memory execution wiring:
+
+- React Flow model nodes now expose a concrete memory scope selector alongside
+  key, injection, read-only, write approval, and subagent inheritance controls.
+- Local workflow execution projects model-node memory policy into
+  `runtimeSendOptions.memory` and `attachments.memoryPolicy`, so workflow run
+  evidence shows the exact memory send options used by the node.
+- Daemon workflow-node execution normalizes direct, nested `logic`, and nested
+  `memory` fields into `SendOptions.memory`, records them on model invocation
+  receipts, and returns them through the native workflow invocation response.
+- Workflow memory writes now fail closed before provider invocation when memory
+  is disabled, read-only, or requires approval without an approval bit.
+- The model-mounting facade stayed under its extraction guard by moving
+  workflow-node response shaping and workflow-memory normalization into focused
+  modules under `packages/runtime-daemon/src/model-mounting/`.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/model-mounting.mjs`
+- `node --check packages/runtime-daemon/src/model-mounting/workflow-memory.mjs`
+- `node --check packages/runtime-daemon/src/model-mounting/workflow-node.mjs`
+- `npm run build:agent-sdk`
+- `npm run build:ide`
+- `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
+- `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-17-06-563Z/result.json`
 
 ### P1. Doctor, Config, And Introspection
 
