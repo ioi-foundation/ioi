@@ -10214,6 +10214,7 @@ const LIVE_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
 ]);
 const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "uncertainty_gate",
+  "runtime_doctor",
   "budget_gate",
   "capability_sequencer",
   "model_router",
@@ -10243,6 +10244,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "planner",
     "prompt_assembler",
     "task_state",
+    "runtime_doctor",
     "uncertainty_gate",
     "budget_gate",
     "capability_sequencer",
@@ -10421,6 +10423,18 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["task_state_id", "evidence_refs", "stale_fact_refs"],
       group: "Cognition",
       icon: "map",
+    }),
+    makeComponent({
+      kind: "runtime_doctor",
+      label: "Runtime doctor",
+      description:
+        "Reads the daemon doctor report so workflow activation can block on required runtime readiness failures.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::doctorReport",
+      capabilityScope: ["runtime.doctor.read", "workflow.activation.read"],
+      eventKinds: ["RuntimeDoctorReport"],
+      evidence: ["runtime.doctor", "doctor.blockers", "doctor.redaction"],
+      group: "Governance",
+      icon: "activity",
     }),
     makeComponent({
       kind: "uncertainty_gate",
@@ -10933,6 +10947,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     required: true,
     allowedComponentKinds: [
       "task_state",
+      "runtime_doctor",
       "drift_detector",
       "memory_read",
       "memory_search",
@@ -11096,6 +11111,7 @@ export const DEFAULT_AGENT_HARNESS_SLOTS = REQUIRED_HARNESS_SLOTS;
 const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "planner",
   "prompt_assembler",
+  "runtime_doctor",
   "task_state",
   "uncertainty_gate",
   "budget_gate",
@@ -11137,6 +11153,7 @@ const SLOT_BY_KIND: Partial<
   planner: ["state_policy"],
   prompt_assembler: ["state_policy"],
   task_state: ["state_policy"],
+  runtime_doctor: ["state_policy", "verifier_policy"],
   uncertainty_gate: ["state_policy", "budget_policy"],
   probe_runner: ["verifier_policy", "budget_policy"],
   budget_gate: ["budget_policy"],
@@ -11265,6 +11282,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
   switch (kind) {
     case "task_state":
       return "task_state";
+    case "runtime_doctor":
+      return "runtime_doctor";
     case "uncertainty_gate":
       return "uncertainty_gate";
     case "probe_runner":

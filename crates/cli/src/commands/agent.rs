@@ -1,5 +1,6 @@
 // Path: crates/cli/src/commands/agent.rs
 
+use super::model_mount_http::daemon_request;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 // [FIX] Import AgentMode
@@ -18,6 +19,7 @@ use ioi_types::app::{
     AutopilotGuiHarnessValidationContract, EffectiveAgentConfig, RuntimeSubstratePortContract,
     SystemPayload,
 };
+use reqwest::Method;
 use std::path::PathBuf;
 use tonic::transport::Channel;
 
@@ -394,7 +396,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         } => run_tool_command(command, tool, json),
         AgentCommands::ConfigExplain { key, json } => print_config_explain(key.as_deref(), json),
         AgentCommands::Policy { command } => run_policy_command(command),
-        AgentCommands::Doctor { json } => print_doctor(json),
+        AgentCommands::Doctor { json } => print_doctor(json).await,
         AgentCommands::Status {
             session_id,
             step,
@@ -997,31 +999,101 @@ fn print_config_explain(key: Option<&str>, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn print_doctor(json: bool) -> Result<()> {
+async fn print_doctor(json: bool) -> Result<()> {
+    let value = match daemon_request(None, None, Method::GET, "/v1/doctor", None).await {
+        Ok(value) => value,
+        Err(error) => local_doctor_fallback(Some(error.to_string())),
+    };
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .get("status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let readiness = value
+        .get("readiness")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let blockers = value
+        .get("blockers")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len())
+        .unwrap_or(0);
+    let warnings = value
+        .get("optionalWarnings")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len())
+        .unwrap_or(0);
+    println!("Agent runtime doctor: {status}");
+    println!("  readiness={readiness} blockers={blockers} optional_warnings={warnings}");
+    println!("  report: /v1/doctor (secrets redacted)");
+    Ok(())
+}
+
+fn local_doctor_fallback(error: Option<String>) -> serde_json::Value {
     let substrate = RuntimeSubstratePortContract::default();
     let gui = AutopilotGuiHarnessValidationContract::default();
-    let checks = serde_json::json!({
-        "schema": substrate.schema_version,
-        "requiredAdapterCount": substrate.required_adapters.len(),
-        "requiredEvidenceClassCount": substrate.required_evidence_classes.len(),
-        "forbidsPrivilegedDogfoodBypass": substrate.forbids_privileged_dogfood_bypass,
-        "requiresTraceExport": substrate.requires_trace_export,
-        "requiresQualityLedger": substrate.requires_quality_ledger,
-        "retainedGuiQueryCount": gui.retained_queries.len(),
-        "status": "pass"
-    });
-    if json {
-        return print_json(&checks);
-    }
-    println!("Agent runtime doctor: pass");
-    println!(
-        "  adapters={} evidence_classes={} retained_gui_queries={}",
-        substrate.required_adapters.len(),
-        substrate.required_evidence_classes.len(),
-        gui.retained_queries.len()
-    );
-    println!("  dogfood bypass forbidden; trace export and quality ledger required.");
-    Ok(())
+    let provider_keys = [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "OPENROUTER_API_KEY",
+        "IOI_AGENT_SDK_HOSTED_ENDPOINT",
+        "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT",
+    ]
+    .iter()
+    .map(|name| {
+        serde_json::json!({
+            "name": name,
+            "source": "env",
+            "configured": std::env::var(name).is_ok(),
+            "valueRedacted": true,
+        })
+    })
+    .collect::<Vec<_>>();
+    serde_json::json!({
+        "schemaVersion": "ioi.agent-runtime.doctor.v1",
+        "object": "ioi.agent_runtime_doctor_report",
+        "status": "degraded",
+        "readiness": "ready",
+        "source": "cli_local_fallback",
+        "daemon": {
+            "endpoint": std::env::var("IOI_DAEMON_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8765".to_string()),
+            "reachable": false,
+            "error": error,
+        },
+        "runtimeContract": {
+            "schema": substrate.schema_version,
+            "requiredAdapterCount": substrate.required_adapters.len(),
+            "requiredEvidenceClassCount": substrate.required_evidence_classes.len(),
+            "forbidsPrivilegedDogfoodBypass": substrate.forbids_privileged_dogfood_bypass,
+            "requiresTraceExport": substrate.requires_trace_export,
+            "requiresQualityLedger": substrate.requires_quality_ledger,
+            "retainedGuiQueryCount": gui.retained_queries.len(),
+        },
+        "providerKeys": provider_keys,
+        "checks": [
+            {
+                "id": "daemon.public_api",
+                "status": "degraded",
+                "required": false,
+                "summary": "The daemon doctor endpoint could not be reached; local static contract checks were used."
+            },
+            {
+                "id": "runtime.substrate_contract",
+                "status": "pass",
+                "required": true,
+                "summary": "Static runtime substrate contract is present."
+            }
+        ],
+        "blockers": [],
+        "optionalWarnings": ["daemon.public_api"],
+        "redaction": {
+            "profile": "doctor_safe",
+            "secretValuesIncluded": false
+        }
+    })
 }
 
 async fn fetch_runtime_snapshot(
@@ -1392,6 +1464,13 @@ mod tests {
         assert!(matches!(
             memory.command,
             Some(AgentCommands::Memory { json: true })
+        ));
+
+        let doctor = AgentArgs::try_parse_from(["agent", "doctor", "--json"])
+            .expect("doctor command should parse");
+        assert!(matches!(
+            doctor.command,
+            Some(AgentCommands::Doctor { json: true })
         ));
     }
 

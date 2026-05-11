@@ -73,6 +73,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       logic.outputSchema ||
       logic.schema ||
       node.type === "output" ||
+      node.type === "runtime_doctor" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
       node.type === "skill_context" ||
@@ -96,6 +97,21 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
   if (node.type === "output") return workflowOutputBundleSchema();
   if (latestOutput !== undefined && latestOutput !== null) return schemaFromSample(latestOutput);
   if (logic.payload !== undefined) return schemaFromSample(logic.payload);
+  if (node.type === "runtime_doctor") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "readiness", "checks", "blockers", "redaction"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        readiness: { type: "string" },
+        checks: { type: "array" },
+        blockers: { type: "array" },
+        optionalWarnings: { type: "array" },
+        redaction: { type: "object" },
+      },
+    };
+  }
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
   if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;

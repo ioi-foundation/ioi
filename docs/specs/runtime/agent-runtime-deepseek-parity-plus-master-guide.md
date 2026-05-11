@@ -1150,6 +1150,32 @@ Acceptance evidence:
 - optional dependencies degrade without false failure;
 - no secrets are printed.
 
+Implementation slice completed 2026-05-11, runtime doctor preflight:
+
+- The live daemon now exposes `GET /v1/doctor` with
+  `ioi.agent-runtime.doctor.v1`, required readiness checks, optional degraded
+  checks, provider key presence, model routes, MCP, memory, sandbox, workflow,
+  Agentgres, wallet/network, runtime node, blocker, and redaction metadata.
+- `ioi agent doctor --json` now prefers the daemon report and falls back to a
+  local static contract report when the daemon is unreachable, preserving
+  redaction and never printing provider values.
+- React Flow now includes a `runtime_doctor` / `RuntimeDoctorNode` palette
+  entry with typed report and blocker outputs, activation-gate defaults, schema
+  discovery, canvas labels, and harness component wiring through state and
+  verifier policy slots.
+- Contract tests assert clean/degraded doctor JSON, required dependency pass
+  semantics, optional warnings, hashed endpoint/provider values, CLI command
+  parsing, and workflow-addressable doctor node wiring.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:ide`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T04-42-38-804Z/result.json`
+
 ### P1. Skills And Hooks
 
 Problem:

@@ -60,6 +60,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "budget_gate";
     case "capability_sequence":
       return "capability_sequence";
+    case "runtime_doctor":
+      return "state";
     case "function":
       return "function";
     case "model_binding":

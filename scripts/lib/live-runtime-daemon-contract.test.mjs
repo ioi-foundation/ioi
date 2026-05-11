@@ -112,6 +112,46 @@ test("local daemon public API persists canonical Agentgres state and replays wit
   }
 });
 
+test("local daemon doctor reports redacted runtime readiness for CLI and workflow activation", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-doctor-daemon-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-doctor-agentgres-state-"));
+  const savedOpenAi = process.env.OPENAI_API_KEY;
+  const savedHosted = process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT;
+  process.env.OPENAI_API_KEY = "sk-doctor-secret-do-not-print";
+  process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT = "https://doctor-secret.example";
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const report = await fetchJson(`${daemon.endpoint}/v1/doctor`);
+    assert.equal(report.schemaVersion, "ioi.agent-runtime.doctor.v1");
+    assert.equal(report.object, "ioi.agent_runtime_doctor_report");
+    assert.equal(report.readiness, "ready");
+    assert.ok(["pass", "degraded"].includes(report.status));
+    assert.deepEqual(report.blockers, []);
+    assert.equal(report.redaction.secretValuesIncluded, false);
+    assert.equal(report.redaction.endpointValuesHashed, true);
+    assert.equal(report.workflow.doctorNodeType, "runtime_doctor");
+    assert.equal(report.workflow.activationConsumesDoctorReport, true);
+    assert.ok(report.checks.some((check) => check.id === "daemon.public_api" && check.status === "pass"));
+    assert.ok(report.checks.every((check) => !check.required || check.status === "pass"));
+    const openAiKey = report.providerKeys.find((key) => key.name === "OPENAI_API_KEY");
+    assert.equal(openAiKey.configured, true);
+    assert.equal(openAiKey.valueRedacted, true);
+    assert.match(openAiKey.valueHash, /^[a-f0-9]{64}$/);
+    const hostedNode = report.runtimeNodes.find((node) => node.id === "hosted-provider");
+    assert.equal(hostedNode.endpointConfigured, true);
+    assert.match(hostedNode.endpointHash, /^[a-f0-9]{64}$/);
+    const serialized = JSON.stringify(report);
+    assert.ok(!serialized.includes("sk-doctor-secret-do-not-print"));
+    assert.ok(!serialized.includes("https://doctor-secret.example"));
+  } finally {
+    await daemon.close();
+    if (savedOpenAi === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = savedOpenAi;
+    if (savedHosted === undefined) delete process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT;
+    else process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT = savedHosted;
+  }
+});
+
 test("local daemon projects Agentgres runs through thread, turn, and monotonic event records", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-tti-daemon-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-tti-agentgres-state-"));
@@ -554,6 +594,7 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /AgentCommands::Model/);
   assert.match(source, /AgentCommands::Thinking/);
   assert.match(source, /AgentCommands::Memory/);
+  assert.match(source, /AgentCommands::Doctor/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
   assert.match(source, /# remember/);
@@ -563,16 +604,22 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /memory_policy/);
   assert.match(source, /ModelRouteDecision/);
   assert.match(source, /memory_update/);
+  assert.match(source, /\/v1\/doctor/);
+  assert.match(source, /ioi\.agent-runtime\.doctor\.v1/);
   assert.match(source, /reactflow_workflow_node/);
 });
 
-test("React Flow memory node contracts remain workflow-addressable", () => {
+test("React Flow memory and doctor node contracts remain workflow-addressable", () => {
   const workflowContracts = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
   );
   const harnessWorkflow = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/harness-workflow/core.ts"),
+    "utf8",
+  );
+  const nodeRegistry = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-node-registry.ts"),
     "utf8",
   );
   assert.match(workflowContracts, /memory\.scope/);
@@ -582,6 +629,11 @@ test("React Flow memory node contracts remain workflow-addressable", () => {
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
+  assert.match(workflowContracts, /runtime\.doctor/);
+  assert.match(nodeRegistry, /runtime_doctor/);
+  assert.match(nodeRegistry, /RuntimeDoctorNode/);
+  assert.match(nodeRegistry, /\/v1\/doctor/);
+  assert.match(nodeRegistry, /blockOnRequiredFailures/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_search/);
   assert.match(harnessWorkflow, /memory_list/);
@@ -591,6 +643,9 @@ test("React Flow memory node contracts remain workflow-addressable", () => {
   assert.match(harnessWorkflow, /SubagentMemoryInheritance/);
   assert.match(harnessWorkflow, /memory\.writeRequiresApproval/);
   assert.match(harnessWorkflow, /subagent inheritance/);
+  assert.match(harnessWorkflow, /runtime_doctor/);
+  assert.match(harnessWorkflow, /RuntimeDoctorReport/);
+  assert.match(harnessWorkflow, /runtime\.doctor\.read/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {
