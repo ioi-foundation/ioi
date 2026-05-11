@@ -9,6 +9,16 @@ import test from "node:test";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 
+const repoRoot = process.cwd();
+
+function readRepoFile(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+function lineCount(source) {
+  return source.split("\n").length;
+}
+
 async function requestJson(endpoint, route, { method = "GET", body, token, headers = {} } = {}) {
   const response = await fetch(`${endpoint}${route}`, {
     method,
@@ -101,6 +111,27 @@ async function expectOk(endpoint, route, options) {
   assert.equal(result.response.ok, true, `${route} -> ${result.response.status}`);
   return result.json;
 }
+
+test("model mounting daemon keeps Agentgres store adapter extracted from the facade", () => {
+  const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
+  const store = readRepoFile("packages/runtime-daemon/src/model-mounting/store.mjs");
+
+  assert.match(
+    facade,
+    /import \{ AgentgresModelMountingStore \} from "\.\/model-mounting\/store\.mjs";/,
+  );
+  assert.doesNotMatch(facade, /class AgentgresModelMountingStore/);
+  assert.ok(
+    lineCount(facade) <= 10_300,
+    "model-mounting.mjs exceeded its extraction checkpoint; move new store behavior into model-mounting modules",
+  );
+  assert.match(store, /export class AgentgresModelMountingStore/);
+  assert.match(store, /AgentgresModelMountingStorePort/);
+  assert.ok(
+    lineCount(store) >= 120,
+    "model-mounting/store.mjs should own real store adapter implementation",
+  );
+});
 
 async function waitForReceipt(endpoint, predicate, { timeoutMs = 2000 } = {}) {
   const started = Date.now();

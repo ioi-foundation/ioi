@@ -4,116 +4,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
+
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 const SECRET_REDACTION = "[REDACTED]";
-
-class AgentgresModelMountingStore {
-  constructor({ stateDir, appendOperation }) {
-    this.stateDir = path.resolve(stateDir);
-    this.appendOperation = appendOperation;
-  }
-
-  ensureDirs() {
-    for (const dir of [
-      "model-artifacts",
-      "model-endpoints",
-      "model-instances",
-      "model-routes",
-      "model-providers",
-      "model-backends",
-      "backend-processes",
-      "model-downloads",
-      "model-catalog-providers",
-      "oauth-sessions",
-      "oauth-states",
-      "runtime-preferences",
-      "runtime-engine-profiles",
-      "provider-health",
-      "models",
-      "backend-logs",
-      "server-logs",
-      "projections",
-      "lifecycle-events",
-      "tokens",
-      "vault-refs",
-      "mcp-servers",
-      "workflow-bindings",
-      "receipts",
-    ]) {
-      fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
-    }
-  }
-
-  writeMap(dir, map) {
-    for (const record of map.values()) {
-      writeJson(path.join(this.stateDir, dir, `${safeFileName(record.id)}.json`), record);
-    }
-  }
-
-  writeReceipt(receipt) {
-    writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
-    emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
-      port: "AgentgresModelMountingStorePort",
-      kind: "receipt.write",
-      objectId: receipt.id,
-      receiptId: receipt.id,
-      receiptKind: receipt.kind,
-      redaction: receipt.redaction,
-      evidenceRefs: receipt.evidenceRefs,
-    });
-    this.appendOperation?.(receipt.kind, {
-      objectId: receipt.id,
-      receiptId: receipt.id,
-      kind: receipt.kind,
-      evidenceRefs: receipt.evidenceRefs,
-      details: receipt.details,
-    });
-  }
-
-  listReceipts() {
-    const receiptFiles = listJson(path.join(this.stateDir, "receipts"));
-    return receiptFiles
-      .map((filePath) => readJson(filePath))
-      .sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")));
-  }
-
-  getReceipt(receiptId) {
-    const receipt = this.listReceipts().find((item) => item.id === receiptId);
-    if (!receipt) throw notFound(`Receipt not found: ${receiptId}`, { receiptId });
-    return receipt;
-  }
-
-  writeProjection(name, projection) {
-    writeJson(path.join(this.stateDir, "projections", `${safeFileName(name)}.json`), projection);
-    emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
-      port: "AgentgresModelMountingStorePort",
-      kind: "projection.write",
-      objectId: name,
-      projection: name,
-      watermark: projection?.watermark ?? null,
-      source: projection?.source ?? null,
-    });
-  }
-
-  readProjection(name) {
-    const filePath = path.join(this.stateDir, "projections", `${safeFileName(name)}.json`);
-    if (!fs.existsSync(filePath)) {
-      throw notFound(`Projection not found: ${name}`, { projection: name });
-    }
-    return readJson(filePath);
-  }
-
-  adapterStatus() {
-    return {
-      port: "AgentgresModelMountingStorePort",
-      implementation: "local_operation_log",
-      remoteAdapter: process.env.IOI_AGENTGRES_URL
-        ? { configured: true, urlHash: stableHash(process.env.IOI_AGENTGRES_URL) }
-        : { configured: false, failClosed: true },
-      evidenceRefs: ["agentgres_canonical_operation_log", "typed_agentgres_projection_boundary"],
-    };
-  }
-}
 
 class AgentgresWalletAuthority {
   constructor({ now, appendOperation }) {
@@ -3342,6 +3236,31 @@ export class ModelMountingState {
     return artifact;
   }
 
+  modelForProviderMount(modelId, provider, body = {}, now = this.nowIso()) {
+    const artifact = [...this.artifacts.values()].find(
+      (item) => item.id === modelId || (item.modelId === modelId && item.providerId === provider.id),
+    );
+    if (artifact) return artifact;
+    const mounted = {
+      id: `${safeId(provider.id)}.${safeId(modelId)}`,
+      providerId: provider.id,
+      modelId,
+      displayName: body.display_name ?? body.displayName ?? modelId,
+      family: body.family ?? provider.kind,
+      quantization: body.quantization ?? null,
+      sizeBytes: Number.isFinite(Number(body.size_bytes ?? body.sizeBytes)) ? Number(body.size_bytes ?? body.sizeBytes) : null,
+      contextWindow: Number.isFinite(Number(body.context_window ?? body.contextWindow)) ? Number(body.context_window ?? body.contextWindow) : null,
+      capabilities: normalizeScopes(body.capabilities, provider.capabilities ?? ["chat", "responses", "embeddings"]),
+      privacyClass: body.privacy_class ?? body.privacyClass ?? provider.privacyClass,
+      source: `${driverNameForProvider(provider)}_provider_direct_mount`,
+      state: "available",
+      discoveredAt: now,
+    };
+    this.artifacts.set(mounted.id, mounted);
+    this.writeMap("model-artifacts", this.artifacts);
+    return mounted;
+  }
+
   catalogStatus() {
     const lastSearch = this.lastCatalogSearch;
     const providers = this.catalogProviderPorts().map((port) => catalogProviderStatus(port));
@@ -3989,20 +3908,22 @@ export class ModelMountingState {
   mountEndpoint(body = {}) {
     const now = this.nowIso();
     const modelId = body.model_id ?? body.modelId ?? "local:auto";
-    const artifact = this.getModel(modelId);
-    const providerId = body.provider_id ?? body.providerId ?? artifact.providerId;
+    const explicitProviderId = body.provider_id ?? body.providerId;
+    const artifact = explicitProviderId ? null : this.getModel(modelId);
+    const providerId = explicitProviderId ?? artifact.providerId;
     const provider = this.provider(providerId);
+    const resolvedArtifact = artifact ?? this.modelForProviderMount(modelId, provider, body, now);
     const endpoint = {
-      id: body.id ?? `endpoint.${safeId(providerId)}.${safeId(artifact.modelId)}`,
+      id: body.id ?? `endpoint.${safeId(providerId)}.${safeId(resolvedArtifact.modelId)}`,
       providerId,
-      modelId: artifact.modelId,
+      modelId: resolvedArtifact.modelId,
       apiFormat: body.api_format ?? body.apiFormat ?? provider.apiFormat,
       driver: body.driver ?? provider.driver ?? driverForProviderKind(provider.kind),
       baseUrl: body.base_url ?? body.baseUrl ?? provider.baseUrl ?? "local://ioi-daemon/model-fixture",
-      capabilities: normalizeScopes(body.capabilities, artifact.capabilities),
+      capabilities: normalizeScopes(body.capabilities, resolvedArtifact.capabilities),
       privacyClass: body.privacy_class ?? body.privacyClass ?? provider.privacyClass,
-      artifactId: artifact.id,
-      artifactPath: artifact.artifactPath ?? null,
+      artifactId: resolvedArtifact.id,
+      artifactPath: resolvedArtifact.artifactPath ?? null,
       backendId: body.backend_id ?? body.backendId ?? defaultBackendForProvider(provider),
       loadPolicy: normalizeLoadPolicy(body.load_policy ?? body.loadPolicy),
       status: "mounted",
