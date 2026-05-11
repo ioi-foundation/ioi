@@ -25,6 +25,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   runtime_task: "item.completed",
   job_queued: "item.created",
   job_started: "item.started",
+  runtime_checklist: "item.completed",
   job_completed: "item.completed",
   job_failed: "item.failed",
   job_canceled: "item.canceled",
@@ -1108,7 +1109,10 @@ export class AgentgresRuntimeStateStore {
     const nonTerminalEvents = run.events.filter(
       (event) => !TERMINAL_EVENT_TYPES.has(event.type) && !JOB_TERMINAL_EVENT_TYPES.has(event.type),
     );
-    const canceledEvents = [...nonTerminalEvents];
+    const hasRuntimeTaskEvent = nonTerminalEvents.some((event) => event.type === "runtime_task");
+    const hasRuntimeChecklistEvent = nonTerminalEvents.some((event) => event.type === "runtime_checklist");
+    const finalEventCount =
+      nonTerminalEvents.length + (hasRuntimeTaskEvent ? 0 : 1) + (hasRuntimeChecklistEvent ? 0 : 1) + 2;
     const stopCondition = {
       reason: "marginal_improvement_too_low",
       evidenceSufficient: true,
@@ -1128,7 +1132,7 @@ export class AgentgresRuntimeStateStore {
       updatedAt,
       status,
     });
-    const runtimeJob = runtimeJobRecord({
+    let runtimeJob = runtimeJobRecord({
       runtimeTask,
       status,
       createdAt: run.createdAt,
@@ -1137,11 +1141,64 @@ export class AgentgresRuntimeStateStore {
       startedAt: run.runtimeJob?.startedAt ?? run.createdAt,
       completedAt: updatedAt,
       lifecycle: ["queued", "started", "canceled"],
-      eventCount: canceledEvents.length + 2,
+      eventCount: finalEventCount,
       terminalEventCount: 1,
       artifactNames: normalizeArray(run.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
       receiptKinds: normalizeArray(run.receipts).map((receipt) => receipt.kind).filter(Boolean),
     });
+    const runtimeChecklist = runtimeChecklistRecord({
+      runtimeTask,
+      runtimeJob,
+      status,
+      createdAt: run.createdAt,
+      updatedAt,
+    });
+    runtimeJob = attachChecklistToRuntimeJob(runtimeJob, runtimeChecklist);
+    const canceledEvents = nonTerminalEvents.map((event) => {
+      if (event.type === "runtime_task") {
+        return {
+          ...event,
+          data: {
+            ...runtimeTask,
+            receiptId: `receipt_${run.id}_runtime_task`,
+            eventKind: "RuntimeTaskRecord",
+            workflowNodeId: "runtime.runtime-task",
+          },
+        };
+      }
+      if (event.type === "runtime_checklist") {
+        return {
+          ...event,
+          data: {
+            ...runtimeChecklist,
+            receiptId: `receipt_${run.id}_runtime_checklist`,
+            eventKind: "RuntimeChecklistRecord",
+            workflowNodeId: "runtime.runtime-checklist",
+          },
+        };
+      }
+      return event;
+    });
+    if (!canceledEvents.some((event) => event.type === "runtime_task")) {
+      canceledEvents.push(
+        makeEvent(run.id, run.agentId, canceledEvents.length, "runtime_task", "Runtime task record written", {
+          ...runtimeTask,
+          receiptId: `receipt_${run.id}_runtime_task`,
+          eventKind: "RuntimeTaskRecord",
+          workflowNodeId: "runtime.runtime-task",
+        }),
+      );
+    }
+    if (!canceledEvents.some((event) => event.type === "runtime_checklist")) {
+      canceledEvents.push(
+        makeEvent(run.id, run.agentId, canceledEvents.length, "runtime_checklist", "Runtime checklist recorded", {
+          ...runtimeChecklist,
+          receiptId: `receipt_${run.id}_runtime_checklist`,
+          eventKind: "RuntimeChecklistRecord",
+          workflowNodeId: "runtime.runtime-checklist",
+        }),
+      );
+    }
     const jobCanceled = makeEvent(
       run.id,
       run.agentId,
@@ -1166,11 +1223,32 @@ export class AgentgresRuntimeStateStore {
       { reason: "operator_cancel", priorStatus: run.status },
     );
     canceledEvents.push(canceled);
+    const runtimeChecklistReceipt = {
+      id: `receipt_${run.id}_runtime_checklist`,
+      kind: "runtime_checklist",
+      summary: runtimeChecklist.summary,
+      redaction: "redacted",
+      evidenceRefs: [
+        runtimeChecklist.checklistId,
+        runtimeTask.taskId,
+        runtimeJob.jobId,
+        "RuntimeChecklistNode",
+        "runtime.checklists.durable_projection",
+      ].filter(Boolean),
+    };
+    const receipts = normalizeArray(run.receipts).map((receipt) =>
+      receipt.id === runtimeChecklistReceipt.id ? runtimeChecklistReceipt : receipt,
+    );
+    if (!receipts.some((receipt) => receipt.id === runtimeChecklistReceipt.id)) {
+      receipts.push(runtimeChecklistReceipt);
+    }
     const trace = {
       ...run.trace,
       events: canceledEvents,
+      receipts,
       runtimeTask,
       runtimeJob,
+      runtimeChecklist,
       stopCondition,
       qualityLedger: {
         ...run.trace.qualityLedger,
@@ -1182,17 +1260,25 @@ export class AgentgresRuntimeStateStore {
     const artifacts = normalizeArray(run.artifacts).map((item) => {
       if (item.name === "runtime-task.json") return { ...item, content: runtimeTask };
       if (item.name === "runtime-job.json") return { ...item, content: runtimeJob };
+      if (item.name === "runtime-checklist.json") return { ...item, content: runtimeChecklist };
       return item;
     });
+    if (!artifacts.some((item) => item.name === "runtime-checklist.json")) {
+      artifacts.push(
+        artifact(run.id, "runtime-checklist.json", "application/json", runtimeChecklistReceipt.id, runtimeChecklist, "redacted"),
+      );
+    }
     const updated = {
       ...run,
       status,
       updatedAt,
       events: trace.events,
       trace,
+      receipts,
       artifacts,
       runtimeTask: trace.runtimeTask,
       runtimeJob: trace.runtimeJob,
+      runtimeChecklist: trace.runtimeChecklist,
       result: "Run canceled with terminal event continuity preserved.",
     };
     this.runs.set(runId, updated);
@@ -1232,6 +1318,7 @@ export class AgentgresRuntimeStateStore {
         run: relative(this.stateDir, this.pathFor("runs", `${run.id}.json`)),
         task: relative(this.stateDir, this.pathFor("tasks", `${run.id}.json`)),
         job: relative(this.stateDir, this.pathFor("jobs", `${runtimeJobRecordForRun(run).jobId}.json`)),
+        checklist: relative(this.stateDir, this.pathFor("checklists", `${runtimeChecklistRecordForRun(run).checklistId}.json`)),
         quality: relative(this.stateDir, this.pathFor("quality", `${run.id}.json`)),
         operationLog: "operation-log.jsonl",
       },
@@ -1502,6 +1589,7 @@ export class AgentgresRuntimeStateStore {
       "runs",
       "tasks",
       "jobs",
+      "checklists",
       "artifacts",
       "receipts",
       "quality",
@@ -1533,6 +1621,7 @@ export class AgentgresRuntimeStateStore {
         runs: ["id", "agentId", "status", "objective", "mode", "createdAt", "updatedAt"],
         tasks: ["runId", "currentObjective", "facts", "constraints", "evidenceRefs"],
         jobs: ["jobId", "taskId", "runId", "agentId", "status", "createdAt", "updatedAt"],
+        checklists: ["checklistId", "taskId", "jobId", "runId", "status", "itemCount", "completedItemCount"],
         artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
@@ -1565,17 +1654,20 @@ export class AgentgresRuntimeStateStore {
   writeRun(run, operationKind) {
     const runtimeTask = runtimeTaskRecordForRun(run);
     const runtimeJob = runtimeJobRecordForRun(run);
+    const runtimeChecklist = runtimeChecklistRecordForRun(run);
     writeJson(this.pathFor("runs", `${run.id}.json`), run);
     writeJson(this.pathFor("tasks", `${run.id}.json`), {
       runId: run.id,
       agentId: run.agentId,
       runtimeTask,
+      runtimeChecklist,
       taskState: run.trace.taskState,
       postconditions: run.trace.postconditions,
       semanticImpact: run.trace.semanticImpact,
       projectionWatermark: this.operationCount() + 1,
     });
     writeJson(this.pathFor("jobs", `${runtimeJob.jobId}.json`), runtimeJob);
+    writeJson(this.pathFor("checklists", `${runtimeChecklist.checklistId}.json`), runtimeChecklist);
     for (const receipt of run.receipts) {
       writeJson(this.pathFor("receipts", `${receipt.id}.json`), { runId: run.id, ...receipt });
     }
@@ -3783,7 +3875,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     updatedAt: createdAt,
     status: "completed",
   });
-  const runtimeJob = runtimeJobRecord({
+  let runtimeJob = runtimeJobRecord({
     runtimeTask,
     agent,
     status: "completed",
@@ -3794,6 +3886,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     completedAt: createdAt,
     lifecycle: ["queued", "started", "completed"],
   });
+  const runtimeChecklist = runtimeChecklistRecord({
+    runtimeTask,
+    runtimeJob,
+    status: "completed",
+    createdAt,
+    updatedAt: createdAt,
+  });
+  runtimeJob = attachChecklistToRuntimeJob(runtimeJob, runtimeChecklist);
   const hookDryRunPlan = hookDryRunPlanForManifest({
     runId,
     manifest: activeSkillHookManifest,
@@ -3861,6 +3961,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `Selected model profile: ${selectedModel}`,
       `Runtime task: id=${runtimeTask.taskId}, family=${runtimeTask.taskFamily}, status=${runtimeTask.status}`,
       `Runtime job: id=${runtimeJob.jobId}, status=${runtimeJob.status}, queue=${runtimeJob.queueName}`,
+      `Runtime checklist: id=${runtimeChecklist.checklistId}, status=${runtimeChecklist.status}, items=${runtimeChecklist.completedItemCount}/${runtimeChecklist.itemCount}`,
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
       `GitHub context: status=${githubContext.status}, repo=${githubContext.repoFullName ?? "none"}, prEligible=${githubContext.prCreationEligible}`,
@@ -3894,6 +3995,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "agentgres_canonical_operation_log",
       runtimeTask.taskId,
       runtimeJob.jobId,
+      runtimeChecklist.checklistId,
       repositoryContext.contextId,
       branchPolicy.policyId,
       githubContext.contextId,
@@ -3958,6 +4060,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       {
         checkId: "runtime-job-ledger",
         description: "Runtime task and job records are durable, replayable, and inspectable through the public jobs API.",
+        status: "passed",
+      },
+      {
+        checkId: "runtime-checklist-ledger",
+        description: "Runtime checklist record binds task, job, lifecycle, artifacts, and receipts into a replayable workflow projection.",
         status: "passed",
       },
       {
@@ -4028,6 +4135,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "agentgres_operation_log",
       "runtime_task",
       "runtime_job",
+      "runtime_checklist",
       "repository_context",
       "branch_policy",
       "github_context",
@@ -4071,6 +4179,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "AgentgresRuntimeStateV0",
       "RuntimeTaskRecord",
       "RuntimeJobRecord",
+      "RuntimeChecklistRecord",
       "RepositoryContext",
       "BranchPolicyDecision",
       "GitHubContext",
@@ -4097,6 +4206,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         : []),
       "runtime.jobs.durable_projection",
       "runtime.tasks.durable_projection",
+      "runtime.checklists.durable_projection",
       "repository.context.read_only",
       "repository.branch_policy.read_only",
       "github.context.read_only",
@@ -4199,6 +4309,19 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `run:${runId}`,
       "RuntimeJobNode",
       "runtime.jobs.durable_projection",
+    ].filter(Boolean),
+  };
+  const runtimeChecklistReceipt = {
+    id: `receipt_${runId}_runtime_checklist`,
+    kind: "runtime_checklist",
+    summary: runtimeChecklist.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      runtimeChecklist.checklistId,
+      runtimeTask.taskId,
+      runtimeJob.jobId,
+      "RuntimeChecklistNode",
+      "runtime.checklists.durable_projection",
     ].filter(Boolean),
   };
   const repositoryContextReceipt = {
@@ -4363,6 +4486,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     subagentMemoryReceipt,
     runtimeTaskReceipt,
     runtimeJobReceipt,
+    runtimeChecklistReceipt,
     repositoryContextReceipt,
     branchPolicyReceipt,
     githubContextReceipt,
@@ -4415,6 +4539,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     receiptId: runtimeJobReceipt.id,
     eventKind: "JobStarted",
     workflowNodeId: "runtime.runtime-job",
+  });
+  addEvent("runtime_checklist", "Runtime checklist recorded", {
+    ...runtimeChecklist,
+    receiptId: runtimeChecklistReceipt.id,
+    eventKind: "RuntimeChecklistRecord",
+    workflowNodeId: "runtime.runtime-checklist",
   });
   addEvent("repository_context", "Repository context recorded", {
     ...repositoryContext,
@@ -4523,6 +4653,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "trace.json",
       "runtime-task.json",
       "runtime-job.json",
+      "runtime-checklist.json",
       "repository-context.json",
       "branch-policy.json",
       "github-context.json",
@@ -4557,6 +4688,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     activeSkillHookManifest,
     runtimeTask,
     runtimeJob,
+    runtimeChecklist,
     repositoryContext,
     branchPolicy,
     githubContext,
@@ -4572,6 +4704,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       promptHash: doctorHash(prompt),
       runtimeTaskId: runtimeTask.taskId,
       runtimeJobId: runtimeJob.jobId,
+      runtimeChecklistId: runtimeChecklist.checklistId,
       repositoryContextId: repositoryContext.contextId,
       branchPolicyId: branchPolicy.policyId,
       githubContextId: githubContext.contextId,
@@ -4595,6 +4728,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         "prompt_audit",
         runtimeTask.taskId,
         runtimeJob.jobId,
+        runtimeChecklist.checklistId,
         repositoryContext.contextId,
         branchPolicy.policyId,
         githubContext.contextId,
@@ -4629,6 +4763,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "application/json",
       runtimeJobReceipt.id,
       runtimeJob,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "runtime-checklist.json",
+      "application/json",
+      runtimeChecklistReceipt.id,
+      runtimeChecklist,
       "redacted",
     ),
     artifact(
@@ -4762,6 +4904,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     activeSkillHookManifest,
     runtimeTask,
     runtimeJob,
+    runtimeChecklist,
     repositoryContext,
     branchPolicy,
     githubContext,
@@ -4852,6 +4995,7 @@ function runtimeTaskRecordForRun(run) {
 
 function runtimeJobRecord({
   runtimeTask,
+  runtimeChecklist,
   agent,
   status,
   createdAt,
@@ -4899,8 +5043,12 @@ function runtimeJobRecord({
     },
     eventCount: eventCount ?? null,
     terminalEventCount: terminalEventCount ?? null,
-    artifactNames: artifactNames ?? ["runtime-task.json", "runtime-job.json", "trace.json", "agentgres-projection.json"],
-    receiptKinds: receiptKinds ?? ["runtime_task", "runtime_job", "agentgres_canonical_write"],
+    artifactNames: artifactNames ?? ["runtime-task.json", "runtime-job.json", "runtime-checklist.json", "trace.json", "agentgres-projection.json"],
+    receiptKinds: receiptKinds ?? ["runtime_task", "runtime_job", "runtime_checklist", "agentgres_canonical_write"],
+    checklistId: runtimeChecklist?.checklistId ?? null,
+    checklistStatus: runtimeChecklist?.status ?? null,
+    checklistItemCount: runtimeChecklist?.itemCount ?? null,
+    checklistCompletedItemCount: runtimeChecklist?.completedItemCount ?? null,
     failure: jobStatus === "failed" ? { reason: "runtime_failed", message: "Runtime job failed." } : null,
     cancellation: jobStatus === "canceled" ? { reason: "operator_cancel" } : null,
     retryCount: 0,
@@ -4929,6 +5077,115 @@ function runtimeJobRecord({
   };
 }
 
+function runtimeChecklistRecord({
+  runtimeTask,
+  runtimeJob,
+  status,
+  createdAt,
+  updatedAt,
+} = {}) {
+  const task = runtimeTask ?? runtimeTaskRecord();
+  const job = runtimeJob ?? runtimeJobRecord({ runtimeTask: task });
+  const checklistStatus = status ?? job.status ?? task.status ?? "completed";
+  const checklistId = `checklist_${task.runId}`;
+  const terminalLabel =
+    checklistStatus === "canceled"
+      ? "Job canceled event emitted"
+      : checklistStatus === "failed"
+        ? "Job failed event emitted"
+        : "Job completed event emitted";
+  const terminalEventKind =
+    checklistStatus === "canceled"
+      ? "JobCanceled"
+      : checklistStatus === "failed"
+        ? "JobFailed"
+        : "JobCompleted";
+  const terminalItemStatus =
+    checklistStatus === "canceled"
+      ? "canceled"
+      : checklistStatus === "failed"
+        ? "failed"
+        : "passed";
+  const item = (suffix, label, itemStatus, evidenceRefs) => ({
+    itemId: `${checklistId}:${suffix}`,
+    label,
+    status: itemStatus,
+    evidenceRefs: uniqueStrings(evidenceRefs),
+  });
+  const items = [
+    item("task_record", "Runtime task record durable", "passed", [
+      task.taskId,
+      "RuntimeTaskNode",
+      "runtime.tasks.durable_projection",
+    ]),
+    item("job_record", "Runtime job record durable", "passed", [
+      job.jobId,
+      "RuntimeJobNode",
+      "runtime.jobs.durable_projection",
+    ]),
+    item("job_queued", "Job queued event emitted", "passed", ["JobQueued"]),
+    item("job_started", "Job started event emitted", "passed", ["JobStarted"]),
+    item("job_terminal", terminalLabel, terminalItemStatus, [terminalEventKind]),
+    item("artifacts", "Runtime task/job/checklist artifacts attached", "passed", [
+      "runtime-task.json",
+      "runtime-job.json",
+      "runtime-checklist.json",
+    ]),
+  ];
+  return {
+    schemaVersion: "ioi.agent-runtime.checklist-record.v1",
+    object: "ioi.runtime_checklist",
+    checklistId,
+    taskId: task.taskId,
+    jobId: job.jobId,
+    runId: task.runId,
+    agentId: task.agentId,
+    threadId: task.threadId,
+    turnId: task.turnId,
+    status: checklistStatus,
+    summary: `Runtime checklist for ${job.jobId} is ${checklistStatus}.`,
+    durable: true,
+    replayable: true,
+    readOnly: true,
+    itemCount: items.length,
+    completedItemCount: items.filter((entry) => entry.status === "passed").length,
+    canceledItemCount: items.filter((entry) => entry.status === "canceled").length,
+    failedItemCount: items.filter((entry) => entry.status === "failed").length,
+    blockedItemCount: items.filter((entry) => entry.status === "blocked").length,
+    items,
+    requiredItemIds: items.map((entry) => entry.itemId),
+    createdAt: createdAt ?? task.createdAt,
+    updatedAt: updatedAt ?? task.updatedAt,
+    workflowNodeId: "runtime.runtime-checklist",
+    redaction: {
+      profile: "runtime_checklist_safe",
+      promptIncluded: false,
+      secretValuesIncluded: false,
+    },
+    evidenceRefs: [
+      "runtime_checklist",
+      "runtime.checklists.durable_projection",
+      "RuntimeChecklistNode",
+      task.taskId,
+      job.jobId,
+      `run:${task.runId}`,
+    ],
+  };
+}
+
+function attachChecklistToRuntimeJob(job, checklist) {
+  return {
+    ...job,
+    checklistId: checklist.checklistId,
+    checklistStatus: checklist.status,
+    checklistItemCount: checklist.itemCount,
+    checklistCompletedItemCount: checklist.completedItemCount,
+    artifactNames: uniqueStrings([...normalizeArray(job.artifactNames), "runtime-checklist.json"]),
+    receiptKinds: uniqueStrings([...normalizeArray(job.receiptKinds), "runtime_checklist"]),
+    evidenceRefs: uniqueStrings([...normalizeArray(job.evidenceRefs), checklist.checklistId, "runtime_checklist"]),
+  };
+}
+
 function runtimeJobRecordForRun(run) {
   if (run?.runtimeJob) return run.runtimeJob;
   const task = runtimeTaskRecordForRun(run);
@@ -4946,6 +5203,19 @@ function runtimeJobRecordForRun(run) {
     terminalEventCount: terminalCount(normalizeArray(run?.events)) || null,
     artifactNames: normalizeArray(run?.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
     receiptKinds: normalizeArray(run?.receipts).map((receipt) => receipt.kind).filter(Boolean),
+  });
+}
+
+function runtimeChecklistRecordForRun(run) {
+  if (run?.runtimeChecklist) return run.runtimeChecklist;
+  const task = runtimeTaskRecordForRun(run);
+  const job = runtimeJobRecordForRun(run);
+  return runtimeChecklistRecord({
+    runtimeTask: task,
+    runtimeJob: job,
+    status: job.status,
+    createdAt: run?.createdAt,
+    updatedAt: run?.updatedAt,
   });
 }
 
@@ -7451,6 +7721,27 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "runtime_task_safe",
     };
   }
+  if (event.type === "runtime_checklist") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeChecklistRecord",
+      checklist_id: event.data?.checklistId ?? null,
+      task_id: event.data?.taskId ?? null,
+      job_id: event.data?.jobId ?? null,
+      run_id: event.data?.runId ?? null,
+      status: event.data?.status ?? null,
+      item_count: event.data?.itemCount ?? 0,
+      completed_item_count: event.data?.completedItemCount ?? 0,
+      failed_item_count: event.data?.failedItemCount ?? 0,
+      canceled_item_count: event.data?.canceledItemCount ?? 0,
+      blocked_item_count: event.data?.blockedItemCount ?? 0,
+      required_item_ids: normalizeArray(event.data?.requiredItemIds),
+      durable: Boolean(event.data?.durable),
+      replayable: Boolean(event.data?.replayable),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "runtime_checklist_safe",
+    };
+  }
   if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") {
     return {
       ...summary,
@@ -7720,6 +8011,8 @@ function componentKindForRunEvent(eventOrType) {
   switch (type) {
     case "runtime_task":
       return "runtime_task";
+    case "runtime_checklist":
+      return "runtime_checklist";
     case "job_queued":
     case "job_started":
     case "job_completed":
@@ -7786,6 +8079,7 @@ function workflowNodeForRunEvent(eventOrType) {
     typeof eventOrType !== "string" &&
     (eventOrType?.type === "model_route_decision" ||
       eventOrType?.type === "runtime_task" ||
+      eventOrType?.type === "runtime_checklist" ||
       eventOrType?.type === "job_queued" ||
       eventOrType?.type === "job_started" ||
       eventOrType?.type === "job_completed" ||
@@ -7815,6 +8109,9 @@ function receiptRefsForRunEvent(event) {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "runtime_task") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "runtime_checklist") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") {
@@ -7865,6 +8162,7 @@ function receiptRefsForRunEvent(event) {
 
 function artifactRefsForRunEvent(event) {
   if (event.type === "runtime_task") return ["runtime-task.json"];
+  if (event.type === "runtime_checklist") return ["runtime-checklist.json"];
   if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") return ["runtime-job.json"];
   if (event.type === "repository_context") return ["repository-context.json"];
   if (event.type === "branch_policy") return ["branch-policy.json"];

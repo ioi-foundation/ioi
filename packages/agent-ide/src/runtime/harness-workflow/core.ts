@@ -10220,6 +10220,7 @@ const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "runtime_doctor",
   "runtime_task",
   "runtime_job",
+  "runtime_checklist",
   "repository_context",
   "branch_policy",
   "github_context",
@@ -10262,6 +10263,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "runtime_doctor",
     "runtime_task",
     "runtime_job",
+    "runtime_checklist",
     "repository_context",
     "branch_policy",
     "github_context",
@@ -10487,6 +10489,18 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime_job", "job.lifecycle", "job.queue", "job.cancel", "job.replayable"],
       group: "State",
       icon: "list-checks",
+    }),
+    makeComponent({
+      kind: "runtime_checklist",
+      label: "Runtime checklist",
+      description:
+        "Projects the durable checklist that binds runtime task, job lifecycle, artifacts, and receipts into one replayable validation record.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::runtimeChecklistRecord",
+      capabilityScope: ["runtime.checklist.read", "runtime.job.read", "runtime.task.read", "workflow.context.read"],
+      eventKinds: ["RuntimeChecklistRecord"],
+      evidence: ["runtime_checklist", "checklist.items", "checklist.status", "checklist.replayable"],
+      group: "State",
+      icon: "list-todo",
     }),
     makeComponent({
       kind: "repository_context",
@@ -11205,6 +11219,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "runtime_doctor",
       "runtime_task",
       "runtime_job",
+      "runtime_checklist",
       "repository_context",
       "branch_policy",
       "github_context",
@@ -11279,6 +11294,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "gui_harness_validator",
       "runtime_task",
       "runtime_job",
+      "runtime_checklist",
       "pr_attempt",
       "review_gate",
       "github_pr_create",
@@ -11391,6 +11407,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "runtime_doctor",
   "runtime_task",
   "runtime_job",
+  "runtime_checklist",
   "repository_context",
   "branch_policy",
   "github_context",
@@ -11445,6 +11462,7 @@ const SLOT_BY_KIND: Partial<
   runtime_doctor: ["state_policy", "verifier_policy"],
   runtime_task: ["state_policy", "verifier_policy"],
   runtime_job: ["state_policy", "verifier_policy"],
+  runtime_checklist: ["state_policy", "verifier_policy"],
   repository_context: ["state_policy", "verifier_policy"],
   branch_policy: ["state_policy", "verifier_policy", "approval_policy"],
   github_context: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11590,6 +11608,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "runtime_task";
     case "runtime_job":
       return "runtime_job";
+    case "runtime_checklist":
+      return "runtime_checklist";
     case "repository_context":
       return "repository_context";
     case "branch_policy":
@@ -11777,6 +11797,59 @@ function nodeLogicFor(
             secretValuesIncluded: false,
           },
           evidenceRefs: ["runtime_job", "runtime.jobs.durable_projection"],
+        },
+      };
+    case "runtime_checklist":
+      return {
+        ...base,
+        runtimeChecklistEndpoint: "/v1/runs/{runId}/trace",
+        runtimeChecklistField: "runtimeChecklist",
+        runtimeChecklistStatusField: "runtimeChecklist.status",
+        runtimeChecklistItemsField: "runtimeChecklist.items",
+        runtimeChecklistReceiptField: "runtimeChecklist.receiptId",
+        runtimeTaskField: "runtimeTask",
+        runtimeJobField: "runtimeJob",
+        readOnly: true,
+        redactionProfile: "runtime_checklist_safe",
+        activationGate: {
+          consumesRuntimeTask: true,
+          consumesRuntimeJob: true,
+          consumesRuntimeChecklist: true,
+          runtimeTaskField: "runtimeTask",
+          runtimeJobField: "runtimeJob",
+          runtimeChecklistField: "runtimeChecklist",
+          runtimeChecklistStatusField: "runtimeChecklist.status",
+        },
+        nodeTypeLabel: "RuntimeChecklistNode",
+        runtimeChecklist: {
+          schemaVersion: "ioi.agent-runtime.checklist-record.v1",
+          object: "ioi.runtime_checklist",
+          checklistId: "checklist_run_default_harness_empty",
+          taskId: "task_default_harness_empty",
+          jobId: "job_default_harness_empty",
+          runId: "run_default_harness_empty",
+          agentId: null,
+          threadId: null,
+          turnId: null,
+          status: "queued",
+          summary: "Runtime checklist for job_default_harness_empty is queued.",
+          durable: true,
+          replayable: true,
+          readOnly: true,
+          itemCount: 0,
+          completedItemCount: 0,
+          canceledItemCount: 0,
+          failedItemCount: 0,
+          blockedItemCount: 0,
+          items: [],
+          requiredItemIds: [],
+          workflowNodeId: "runtime.runtime-checklist",
+          redaction: {
+            profile: "runtime_checklist_safe",
+            promptIncluded: false,
+            secretValuesIncluded: false,
+          },
+          evidenceRefs: ["runtime_checklist", "runtime.checklists.durable_projection"],
         },
       };
     case "repository_context":

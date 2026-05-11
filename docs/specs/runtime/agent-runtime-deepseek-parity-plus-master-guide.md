@@ -1730,6 +1730,28 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T13-05-03-333Z/result.json`
 
+Implementation slice completed 2026-05-11, runtime checklist record:
+
+- Added a durable `RuntimeChecklistRecord` projection under Agentgres
+  `checklists/`, exposed in trace bundles and canonical projection paths.
+- The checklist binds the runtime task, runtime job lifecycle, terminal job
+  event, artifacts, receipts, replayability, and redaction posture into one
+  workflow-addressable record.
+- Cancellation replay now refreshes `runtime-checklist.json`, emits a
+  `RuntimeChecklistRecord` TTI event, and attaches checklist IDs/status back to
+  public job records.
+- React Flow now has a `runtime_checklist` / `RuntimeChecklistNode` contract
+  with configurable trace endpoint, checklist/status/items fields, activation
+  gate consumption flags, and default harness component wiring.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide -- --pretty false`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T13-35-25-228Z/result.json`
+
 ### P2. Localization And Accessibility
 
 Problem:
