@@ -62,6 +62,36 @@ fn workflow_sha256_hex(value: &str) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
+fn workflow_memory_send_options(logic: &Value, node_id: &str) -> Value {
+    let injection_enabled =
+        workflow_value_bool_any(logic, &["memoryInjectionEnabled", "injectionEnabled"])
+            .unwrap_or(true);
+    let disabled = workflow_value_bool_any(logic, &["memoryDisabled", "disabled"])
+        .unwrap_or(!injection_enabled);
+    json!({
+        "memoryKey": workflow_value_string_any(logic, &["memoryKey", "memory_key"]),
+        "scope": workflow_value_string_any(logic, &["memoryScope", "scope"]).unwrap_or_else(|| "thread".to_string()),
+        "injectionEnabled": injection_enabled,
+        "disabled": disabled,
+        "readOnly": workflow_value_bool_any(logic, &["memoryReadOnly", "readOnly"]).unwrap_or(false),
+        "writeRequiresApproval": workflow_value_bool_any(
+            logic,
+            &["memoryWriteRequiresApproval", "writeRequiresApproval"],
+        )
+        .unwrap_or(false),
+        "writeApproved": workflow_value_bool_any(logic, &["memoryWriteApproved", "writeApproved"]).unwrap_or(false),
+        "subagentInheritance": workflow_value_string_any(
+            logic,
+            &["memorySubagentInheritance", "subagentInheritance"],
+        )
+        .unwrap_or_else(|| "explicit".to_string()),
+        "retention": workflow_value_string_any(logic, &["memoryRetention", "retention"]),
+        "redaction": workflow_value_string_any(logic, &["memoryRedaction", "redaction"])
+            .unwrap_or_else(|| "none".to_string()),
+        "workflowNodeId": node_id,
+    })
+}
+
 fn workflow_skill_tokens(value: &str) -> std::collections::BTreeSet<String> {
     value
         .to_lowercase()
@@ -3748,6 +3778,7 @@ pub(super) fn execute_workflow_node(
                 .as_ref()
                 .and_then(|parser| parser.get("resultSchema").cloned())
                 .or_else(|| logic.get("outputSchema").cloned());
+            let memory_send_options = workflow_memory_send_options(&logic, &node_id);
             json!({
                 "nodeId": node_id,
                 "kind": evidence_kind,
@@ -3758,7 +3789,11 @@ pub(super) fn execute_workflow_node(
                     "skillContext": skill_context_attachment,
                     "parser": parser_attachment,
                     "memory": memory_attachment,
+                    "memoryPolicy": memory_send_options.clone(),
                     "tools": tool_attachments
+                },
+                "runtimeSendOptions": {
+                    "memory": memory_send_options
                 },
                 "toolCalls": tool_calls,
                 "structuredOutputSchema": parsed_output_schema,

@@ -1069,6 +1069,11 @@ fn workflow_model_tool_memory_parser_loop_records_lineage() {
     logic_mut(&mut model).insert("toolUseMode".to_string(), json!("explicit"));
     logic_mut(&mut model).insert("parserRef".to_string(), json!("json_schema"));
     logic_mut(&mut model).insert("memoryKey".to_string(), json!("conversation"));
+    logic_mut(&mut model).insert("memoryScope".to_string(), json!("workflow"));
+    logic_mut(&mut model).insert("memoryInjectionEnabled".to_string(), json!(false));
+    logic_mut(&mut model).insert("memoryReadOnly".to_string(), json!(true));
+    logic_mut(&mut model).insert("memoryWriteRequiresApproval".to_string(), json!(true));
+    logic_mut(&mut model).insert("memorySubagentInheritance".to_string(), json!("read_only"));
     logic_mut(&mut model).insert(
         "outputSchema".to_string(),
         json!({"type": "object", "required": ["message", "attachments", "toolCalls"]}),
@@ -1156,6 +1161,48 @@ fn workflow_model_tool_memory_parser_loop_records_lineage() {
     );
     assert_eq!(
         model_output
+            .pointer("/runtimeSendOptions/memory/memoryKey")
+            .and_then(Value::as_str),
+        Some("conversation")
+    );
+    assert_eq!(
+        model_output
+            .pointer("/runtimeSendOptions/memory/scope")
+            .and_then(Value::as_str),
+        Some("workflow")
+    );
+    assert_eq!(
+        model_output
+            .pointer("/runtimeSendOptions/memory/injectionEnabled")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        model_output
+            .pointer("/runtimeSendOptions/memory/disabled")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        model_output
+            .pointer("/runtimeSendOptions/memory/readOnly")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        model_output
+            .pointer("/runtimeSendOptions/memory/writeRequiresApproval")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        model_output
+            .pointer("/runtimeSendOptions/memory/subagentInheritance")
+            .and_then(Value::as_str),
+        Some("read_only")
+    );
+    assert_eq!(
+        model_output
             .pointer("/toolCalls/0/toolName")
             .and_then(Value::as_str),
         Some("mock.search")
@@ -1186,4 +1233,3 @@ fn workflow_model_tool_memory_parser_loop_records_lineage() {
             .map(|updates| !updates.is_empty())
             .unwrap_or(false)));
 }
-

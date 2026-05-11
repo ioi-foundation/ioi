@@ -596,6 +596,27 @@ export function WorkflowNodeBindingSections({
               }
             />
           </label>
+          <label>
+            Memory scope
+            <select
+              data-testid="workflow-model-memory-scope"
+              value={logic.memoryScope ?? "thread"}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  memoryScope: event.target.value as NonNullable<
+                    NodeLogic["memoryScope"]
+                  >,
+                })
+              }
+            >
+              <option value="thread">Thread</option>
+              <option value="workflow">Workflow</option>
+              <option value="workspace">Workspace</option>
+              <option value="subagent">Subagent</option>
+              <option value="global">Global</option>
+            </select>
+          </label>
           <label className="workflow-config-checkbox-row">
             <input
               data-testid="workflow-model-memory-injection-enabled"

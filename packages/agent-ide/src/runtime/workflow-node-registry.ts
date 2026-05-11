@@ -392,6 +392,10 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       required: ["modelRef"],
       properties: {
         memoryKey: { type: "string" },
+        memoryScope: {
+          type: "string",
+          enum: ["global", "workspace", "thread", "workflow", "subagent"],
+        },
         memoryInjectionEnabled: { type: "boolean" },
         memoryReadOnly: { type: "boolean" },
         memoryWriteRequiresApproval: { type: "boolean" },
@@ -419,6 +423,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       modelPolicy: { privacy: "local_or_enterprise", quality: "adaptive" },
       capability: "chat",
       receiptRequired: true,
+      memoryScope: "thread",
       memoryInjectionEnabled: true,
       memoryReadOnly: false,
       memoryWriteRequiresApproval: false,

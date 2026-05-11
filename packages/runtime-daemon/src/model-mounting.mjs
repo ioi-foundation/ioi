@@ -6,6 +6,15 @@ import path from "node:path";
 
 import * as routeDecision from "./model-mounting/route-decision.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
+import {
+  capabilityForWorkflowNode,
+  nativeInvocationResponseShape,
+  workflowKindForNode,
+} from "./model-mounting/workflow-node.mjs";
+import {
+  workflowMemoryOptionsFromBody,
+  workflowMemoryWriteBlockReason,
+} from "./model-mounting/workflow-memory.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 const SECRET_REDACTION = "[REDACTED]";
@@ -5142,6 +5151,8 @@ export class ModelMountingState {
         providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
         toolReceiptIds: ephemeralMcp.toolReceiptIds,
         ephemeralMcpServerIds: ephemeralMcp.serverIds,
+        sendOptions: body.send_options ?? body.sendOptions ?? null,
+        memory: body.memory ?? body.send_options?.memory ?? body.sendOptions?.memory ?? null,
         responseId,
         previousResponseId,
         continuation: continuationSafety,
@@ -5790,6 +5801,7 @@ export class ModelMountingState {
   async executeWorkflowNode({ authorization, body = {} }) {
     const node = requiredString(body.node ?? body.node_type ?? body.nodeType, "node");
     const capability = body.capability ?? capabilityForWorkflowNode(node);
+    const memoryOptions = workflowMemoryOptionsFromBody(body);
     const base = {
       model: body.model_id ?? body.modelId ?? body.model,
       route_id: body.route_id ?? body.routeId,
@@ -5800,6 +5812,10 @@ export class ModelMountingState {
       workflow_node_id: body.workflow_node_id ?? body.workflowNodeId ?? body.node_id ?? body.nodeId,
       workflow_node_type: body.workflow_node_type ?? body.workflowNodeType ?? node,
     };
+    if (memoryOptions) {
+      base.memory = memoryOptions;
+      base.send_options = { memory: memoryOptions };
+    }
     if (node === "Model Router") {
       const routeId = base.route_id ?? "route.local-first";
       this.authorize(authorization, `route.use:${routeId}`);
@@ -5828,6 +5844,19 @@ export class ModelMountingState {
           : kind === "responses"
             ? "model.responses:*"
             : "model.chat:*";
+    const memoryWriteBlockReason = workflowMemoryWriteBlockReason(memoryOptions);
+    if (memoryWriteBlockReason) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "Workflow memory write blocked by policy.",
+        details: {
+          reason: memoryWriteBlockReason,
+          memory: memoryOptions,
+          workflowNodeId: base.workflow_node_id ?? null,
+        },
+      });
+    }
     const invocation = await this.invokeModel({
       authorization,
       requiredScope,
@@ -7626,41 +7655,6 @@ function normalizeUsage(usage, fallback) {
     prompt_tokens: Number(usage.prompt_tokens ?? usage.input_tokens ?? fallback.prompt_tokens),
     completion_tokens: Number(usage.completion_tokens ?? usage.output_tokens ?? fallback.completion_tokens),
     total_tokens: Number(usage.total_tokens ?? fallback.total_tokens),
-  };
-}
-
-function capabilityForWorkflowNode(node) {
-  if (node === "Embedding") return "embeddings";
-  if (node === "Reranker") return "rerank";
-  if (node === "Vision") return "vision";
-  if (node === "Structured Output") return "responses";
-  if (node === "Local Tool/MCP" || node === "Local Tool / MCP") return "mcp";
-  if (node === "Receipt Gate") return "receipt_gate";
-  return "chat";
-}
-
-function workflowKindForNode(node) {
-  if (node === "Embedding") return "embeddings";
-  if (node === "Reranker") return "rerank";
-  if (node === "Structured Output") return "responses";
-  return "chat";
-}
-
-function nativeInvocationResponseShape(invocation) {
-  return {
-    model: invocation.model,
-    route_id: invocation.route.id,
-    endpoint_id: invocation.endpoint.id,
-    instance_id: invocation.instance.id,
-    backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
-    receipt_id: invocation.receipt.id,
-    route_receipt_id: invocation.routeReceipt.id,
-    route_decision: invocation.routeReceipt?.details?.modelRouteDecision ?? null,
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    output_text: invocation.outputText,
-    usage: invocation.tokenCount,
   };
 }
 
