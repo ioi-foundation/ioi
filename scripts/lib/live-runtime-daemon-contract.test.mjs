@@ -1871,6 +1871,15 @@ test("React Flow memory, doctor, skill, hook, and package node contracts remain 
   assert.match(harnessWorkflow, /GitHubPrCreatePlan/);
   assert.match(harnessWorkflow, /github\.pr\.create/);
   assert.match(harnessWorkflow, /githubPrCreatePlanRequestHashField/);
+  assert.match(harnessWorkflow, /authority_tooling_github_pr_create_envelope/);
+  assert.match(
+    harnessWorkflow,
+    /DEFAULT_AUTHORITY_TOOLING_NODE_AUTHORITY_COMPONENT_KINDS[\s\S]*"github_pr_create"/,
+  );
+  assert.match(
+    harnessWorkflow,
+    /HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENTS[\s\S]*"github_pr_create"/,
+  );
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /hook_policy/);

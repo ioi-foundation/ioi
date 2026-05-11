@@ -76,6 +76,7 @@ const HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS = Object.freeze([
   "mcp_tool_call",
   "tool_call",
   "connector_call",
+  "github_pr_create",
   "wallet_capability",
 ]);
 const HARNESS_LIVE_SHADOW_COMPARISON_GATE_COMPONENT_KINDS = Object.freeze([
@@ -5935,51 +5936,58 @@ export function buildGuiEvidenceAssessment({
   const liveShadowComparisonProof =
     promotionTransitionLiveGuiInteractionProof?.proof?.liveShadowComparison ??
     null;
+  const liveShadowComparisonGate =
+    workflowProofDefaultDispatch?.liveShadowComparisonGate ??
+    workflowProofDefaultDispatch?.livePromotionReadinessProof
+      ?.liveShadowComparisonGate ??
+    null;
+  const liveShadowComparisonComponentKinds = [
+    ...new Set([
+      ...summary.harnessLiveShadowComparisonComponentKinds,
+      ...(Array.isArray(liveShadowComparisonGate?.componentKinds)
+        ? liveShadowComparisonGate.componentKinds
+        : []),
+    ]),
+  ];
+  const liveShadowComparisonCount = Math.max(
+    summary.harnessLiveShadowComparisonCount,
+    Number.isFinite(liveShadowComparisonGate?.comparisonCount)
+      ? liveShadowComparisonGate.comparisonCount
+      : 0,
+    liveShadowComparisonComponentKinds.length,
+  );
   const hasHarnessLiveShadowCognitionPairs =
-    summary.harnessLiveShadowComparisonCount >=
+    liveShadowComparisonCount >=
       HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length &&
     HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.every((componentKind) =>
-      summary.harnessLiveShadowComparisonComponentKinds.includes(
-        componentKind,
-      ),
+      liveShadowComparisonComponentKinds.includes(componentKind),
     );
   const hasHarnessLiveShadowRoutingModelPairs =
-    summary.harnessLiveShadowComparisonCount >=
+    liveShadowComparisonCount >=
       HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length +
         HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.length &&
     HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.every((componentKind) =>
-      summary.harnessLiveShadowComparisonComponentKinds.includes(
-        componentKind,
-      ),
+      liveShadowComparisonComponentKinds.includes(componentKind),
     );
   const hasHarnessLiveShadowVerificationOutputPairs =
-    summary.harnessLiveShadowComparisonCount >=
+    liveShadowComparisonCount >=
       HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length +
         HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.length +
         HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS.length &&
     HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS.every(
       (componentKind) =>
-        summary.harnessLiveShadowComparisonComponentKinds.includes(
-          componentKind,
-        ),
+        liveShadowComparisonComponentKinds.includes(componentKind),
     );
   const hasHarnessLiveShadowAuthorityToolingPairs =
-    summary.harnessLiveShadowComparisonCount >=
+    liveShadowComparisonCount >=
       HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS.length +
         HARNESS_ROUTING_MODEL_LIVE_SHADOW_COMPONENT_KINDS.length +
         HARNESS_VERIFICATION_OUTPUT_LIVE_SHADOW_COMPONENT_KINDS.length +
         HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS.length &&
     HARNESS_AUTHORITY_TOOLING_LIVE_SHADOW_COMPONENT_KINDS.every(
       (componentKind) =>
-        summary.harnessLiveShadowComparisonComponentKinds.includes(
-          componentKind,
-        ),
+        liveShadowComparisonComponentKinds.includes(componentKind),
     );
-  const liveShadowComparisonGate =
-    workflowProofDefaultDispatch?.liveShadowComparisonGate ??
-    workflowProofDefaultDispatch?.livePromotionReadinessProof
-      ?.liveShadowComparisonGate ??
-    null;
   const hasHarnessLiveShadowComparisonGate =
     hasHarnessLiveShadowCognitionPairs &&
     hasHarnessLiveShadowRoutingModelPairs &&
@@ -6435,11 +6443,11 @@ export function buildGuiEvidenceAssessment({
       harnessLiveTurnNodeInspectorSamples:
         summary.harnessLiveTurnNodeInspectorSamples,
       harnessLiveShadowComparisonCount:
-        summary.harnessLiveShadowComparisonCount,
+        liveShadowComparisonCount,
       harnessLiveShadowComparisonScenarios:
         summary.harnessLiveShadowComparisonScenarios,
       harnessLiveShadowComparisonComponentKinds:
-        summary.harnessLiveShadowComparisonComponentKinds,
+        liveShadowComparisonComponentKinds,
       harnessLiveShadowComparisonRequiredComponentKinds: [
         ...HARNESS_COGNITION_LIVE_SHADOW_COMPONENT_KINDS,
       ],
@@ -8253,6 +8261,7 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
           "mcp_tool_call",
           "tool_call",
           "connector_call",
+          "github_pr_create",
           "wallet_capability",
         ].every(
           (componentKind) =>
@@ -10556,7 +10565,7 @@ async function runGuiValidation(args, outputRoot) {
         harness_live_shadow_comparison_gate:
           guiEvidence.runtimeConsistency
             .harness_live_shadow_comparison_gate_present === true
-            ? runtimeArtifacts.path
+            ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_authority_tooling_gate_live:
           runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0
