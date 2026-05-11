@@ -476,8 +476,17 @@ export interface NodeLogic {
   allowOptionalDegraded?: boolean;
   redactionProfile?: string;
   nodeTypeLabel?: string;
+  repositoryEndpoint?: string;
+  repositoryContext?: unknown;
+  repositoryContextField?: string;
+  repositoryBranchField?: string;
+  repositoryHeadField?: string;
+  repositoryDirtyField?: string;
+  readOnly?: boolean;
+  mutationExecuted?: boolean;
   activationGate?: {
     consumesDoctorReport?: boolean;
+    consumesRepositoryContext?: boolean;
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
@@ -932,6 +941,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"budget_gate">
   | WorkflowNodeConfigBase<"capability_sequence">
   | WorkflowNodeConfigBase<"runtime_doctor">
+  | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3608,6 +3618,7 @@ export type WorkflowHarnessComponentKind =
   | "memory_write"
   | "memory_subagent_inheritance"
   | "runtime_doctor"
+  | "repository_context"
   | "skill_registry"
   | "hook_registry"
   | "hook_policy"
@@ -4145,6 +4156,7 @@ export type WorkflowNodeKind =
   | "budget_gate"
   | "capability_sequence"
   | "runtime_doctor"
+  | "repository_context"
   | "function"
   | "model_binding"
   | "model_call"

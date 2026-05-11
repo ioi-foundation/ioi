@@ -10215,6 +10215,7 @@ const LIVE_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
 const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "uncertainty_gate",
   "runtime_doctor",
+  "repository_context",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -10248,6 +10249,7 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "prompt_assembler",
     "task_state",
     "runtime_doctor",
+    "repository_context",
     "skill_registry",
     "hook_registry",
     "hook_policy",
@@ -10441,6 +10443,25 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime.doctor", "doctor.blockers", "doctor.redaction"],
       group: "Governance",
       icon: "activity",
+    }),
+    makeComponent({
+      kind: "repository_context",
+      label: "Repository context",
+      description:
+        "Captures the read-only Git/worktree snapshot that later branch, PR, review, and mutation workflows must consume.",
+      kernelRef:
+        "packages/runtime-daemon/src/index.mjs::repositoryContextForWorkspace",
+      capabilityScope: ["repository.context.read", "workflow.context.read"],
+      eventKinds: ["RepositoryContext"],
+      evidence: [
+        "repository_context",
+        "repository.branch",
+        "repository.head",
+        "repository.status",
+        "repository.remotes",
+      ],
+      group: "State",
+      icon: "git-branch",
     }),
     makeComponent({
       kind: "skill_registry",
@@ -11004,6 +11025,7 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     allowedComponentKinds: [
       "task_state",
       "runtime_doctor",
+      "repository_context",
       "skill_registry",
       "hook_registry",
       "drift_detector",
@@ -11170,6 +11192,7 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "planner",
   "prompt_assembler",
   "runtime_doctor",
+  "repository_context",
   "skill_registry",
   "hook_registry",
   "hook_policy",
@@ -11215,6 +11238,7 @@ const SLOT_BY_KIND: Partial<
   prompt_assembler: ["state_policy"],
   task_state: ["state_policy"],
   runtime_doctor: ["state_policy", "verifier_policy"],
+  repository_context: ["state_policy", "verifier_policy"],
   skill_registry: ["state_policy"],
   hook_registry: ["state_policy", "verifier_policy"],
   hook_policy: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11349,6 +11373,8 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "task_state";
     case "runtime_doctor":
       return "runtime_doctor";
+    case "repository_context":
+      return "repository_context";
     case "skill_registry":
       return "skill";
     case "hook_registry":
@@ -11420,6 +11446,60 @@ function nodeLogicFor(
     errorSchema: component.errorSchema,
   };
   switch (component.kind) {
+    case "repository_context":
+      return {
+        ...base,
+        repositoryEndpoint: "/v1/repository-context",
+        repositoryContextField: "repositoryContext",
+        repositoryBranchField: "repositoryContext.branch",
+        repositoryHeadField: "repositoryContext.headSha",
+        repositoryDirtyField: "repositoryContext.status.isDirty",
+        readOnly: true,
+        mutationExecuted: false,
+        redactionProfile: "repository_context_safe",
+        activationGate: {
+          consumesRepositoryContext: true,
+        },
+        nodeTypeLabel: "RepositoryContextNode",
+        repositoryContext: {
+          schemaVersion: "ioi.agent-runtime.repository-context.v1",
+          object: "ioi.repository_context",
+          contextId: "repoctx_default_harness_empty",
+          workspaceRoot: null,
+          workspaceRootHash: null,
+          isGitRepository: false,
+          repoRoot: null,
+          repoRootHash: null,
+          branch: null,
+          detachedHead: false,
+          headSha: null,
+          headShortSha: null,
+          upstream: null,
+          remoteCount: 0,
+          remotes: [],
+          readOnly: true,
+          mutationExecuted: false,
+          status: {
+            availability: "projection_only",
+            clean: null,
+            isDirty: false,
+            counts: {
+              staged: 0,
+              unstaged: 0,
+              untracked: 0,
+              ignored: 0,
+              conflicted: 0,
+            },
+          },
+          redaction: {
+            profile: "repository_context_safe",
+            remoteUrlsHashed: true,
+            remoteCredentialsIncluded: false,
+            statusPathsIncluded: false,
+          },
+          evidenceRefs: ["repository_context"],
+        },
+      };
     case "model_call":
       return {
         ...base,
