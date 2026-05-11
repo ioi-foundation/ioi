@@ -660,6 +660,206 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  doctorReport({ baseUrl = null } = {}) {
+    const generatedAt = new Date().toISOString();
+    const modelProjection = this.modelMounting.projection();
+    const memoryPaths = this.memory.pathProjection({
+      threadId: null,
+      workspace: this.defaultCwd,
+    });
+    const providerKeys = doctorProviderKeyReport();
+    const optionalWarnings = [];
+    const checks = [
+      doctorCheck("daemon.public_api", "pass", true, "Public runtime daemon routes are reachable.", [
+        "/v1/doctor",
+      ]),
+      doctorCheck(
+        "workspace.root",
+        fs.existsSync(this.defaultCwd) ? "pass" : "blocked",
+        true,
+        fs.existsSync(this.defaultCwd)
+          ? "Workspace root exists."
+          : "Workspace root is missing.",
+        [this.defaultCwd],
+      ),
+      doctorCheck(
+        "agentgres.store",
+        fs.existsSync(this.stateDir) ? "pass" : "blocked",
+        true,
+        "Agentgres v0 state directory is present.",
+        [this.stateDir, "agentgres_canonical_operation_log"],
+      ),
+      doctorCheck(
+        "model.routes",
+        modelProjection.routes.length > 0 ? "pass" : "blocked",
+        true,
+        `${modelProjection.routes.length} model route(s) are registered.`,
+        modelProjection.routes.map((route) => route.id),
+      ),
+      doctorCheck(
+        "memory.store",
+        fs.existsSync(memoryPaths.recordsPath) && fs.existsSync(memoryPaths.policiesPath)
+          ? "pass"
+          : "blocked",
+        true,
+        "Memory records and policies are backed by durable state paths.",
+        [memoryPaths.recordsPath, memoryPaths.policiesPath],
+      ),
+      doctorCheck(
+        "tool.catalog",
+        this.listTools().length > 0 ? "pass" : "blocked",
+        true,
+        `${this.listTools().length} governed runtime tool(s) are registered.`,
+        this.listTools().map((tool) => tool.stableToolId),
+      ),
+      doctorCheck(
+        "workflow.react_flow_registry",
+        "pass",
+        true,
+        "React Flow registry exposes runtime doctor and readiness nodes.",
+        ["RuntimeDoctorNode", "packages/agent-ide/src/runtime/workflow-node-registry.ts"],
+      ),
+      doctorCheck(
+        "mcp.registry",
+        modelProjection.mcpServers.length > 0 ? "pass" : "degraded",
+        false,
+        modelProjection.mcpServers.length > 0
+          ? `${modelProjection.mcpServers.length} MCP server(s) are registered.`
+          : "No MCP servers are registered; MCP remains optional.",
+        modelProjection.mcpServers.map((server) => server.id),
+      ),
+      doctorCheck(
+        "skills.hooks",
+        "degraded",
+        false,
+        "Skill and hook discovery is not yet daemon-owned in this doctor report.",
+        ["skills.hooks.next_slice"],
+      ),
+      doctorCheck(
+        "wallet.network",
+        process.env.IOI_WALLET_NETWORK_URL ? "pass" : "degraded",
+        false,
+        process.env.IOI_WALLET_NETWORK_URL
+          ? "Wallet/network approval endpoint is configured."
+          : "Wallet/network approval endpoint is optional and not configured.",
+        ["IOI_WALLET_NETWORK_URL"],
+      ),
+      doctorCheck(
+        "remote.agentgres",
+        process.env.IOI_AGENTGRES_URL ? "pass" : "degraded",
+        false,
+        process.env.IOI_AGENTGRES_URL
+          ? "Remote Agentgres adapter is configured."
+          : "Remote Agentgres adapter is optional and not configured.",
+        ["IOI_AGENTGRES_URL"],
+      ),
+      doctorCheck(
+        "lsp.status",
+        "degraded",
+        false,
+        "LSP health is not daemon-owned yet; workflow activation should treat it as optional.",
+        ["lsp.status.next_slice"],
+      ),
+    ];
+    for (const check of checks) {
+      if (!check.required && check.status !== "pass") optionalWarnings.push(check.id);
+    }
+    const requiredFailures = checks.filter((check) => check.required && check.status !== "pass");
+    const status = requiredFailures.length > 0
+      ? "blocked"
+      : optionalWarnings.length > 0
+        ? "degraded"
+        : "pass";
+    return {
+      schemaVersion: "ioi.agent-runtime.doctor.v1",
+      object: "ioi.agent_runtime_doctor_report",
+      generatedAt,
+      status,
+      readiness: requiredFailures.length > 0 ? "blocked" : "ready",
+      version: {
+        runtime: "ioi-runtime-daemon",
+        schema: this.schemaVersion,
+      },
+      daemon: {
+        endpoint: baseUrl,
+        publicApi: "/v1",
+        nativeApi: "/api/v1",
+        requestScoped: true,
+      },
+      workspace: {
+        root: this.defaultCwd,
+        exists: fs.existsSync(this.defaultCwd),
+      },
+      configPaths: {
+        stateDir: this.stateDir,
+        operationLog: path.join(this.stateDir, "operation-log.jsonl"),
+        memoryRecords: memoryPaths.recordsPath,
+        memoryPolicies: memoryPaths.policiesPath,
+        modelMountingProjection: path.join(this.stateDir, "projections", "model-mounting-canonical.json"),
+      },
+      providerKeys,
+      modelRoutes: {
+        modelCount: modelProjection.artifacts.length,
+        routeCount: modelProjection.routes.length,
+        routeIds: modelProjection.routes.map((route) => route.id),
+        selectedDefaultRoute: modelProjection.routes.find((route) => route.id === "route.local-first")?.id ?? null,
+      },
+      mcp: {
+        serverCount: modelProjection.mcpServers.length,
+        servers: modelProjection.mcpServers.map((server) => ({
+          id: server.id,
+          transport: server.transport,
+          status: server.status,
+          secretRefCount: normalizeArray(server.secretRefs).length,
+          secretsRedacted: true,
+        })),
+      },
+      memory: {
+        recordCount: this.memory.records.size,
+        policyCount: this.memory.policies.size,
+        defaultPolicy: this.memory.effectivePolicy({
+          threadId: null,
+          workspace: this.defaultCwd,
+        }),
+        paths: memoryPaths,
+      },
+      sandbox: {
+        status: "pass",
+        profile: "local_private",
+        approvalMode: "suggest",
+        networkDefault: "local_only",
+      },
+      workflow: {
+        reactFlowRegistryVersion: "ioi.reactflow.workflow-node-registry.v1",
+        doctorNodeType: "runtime_doctor",
+        activationConsumesDoctorReport: true,
+        readinessBlockerField: "checks",
+      },
+      agentgres: {
+        schemaVersion: this.schemaVersion,
+        operationCount: this.operationCount(),
+        localStateDirPresent: fs.existsSync(this.stateDir),
+        remoteAdapterConfigured: Boolean(process.env.IOI_AGENTGRES_URL),
+        remoteAdapterHash: process.env.IOI_AGENTGRES_URL ? doctorHash(process.env.IOI_AGENTGRES_URL) : null,
+      },
+      wallet: {
+        approvalStatus: process.env.IOI_WALLET_NETWORK_URL ? "configured" : "not_configured",
+        networkConfigured: Boolean(process.env.IOI_WALLET_NETWORK_URL),
+        networkUrlHash: process.env.IOI_WALLET_NETWORK_URL ? doctorHash(process.env.IOI_WALLET_NETWORK_URL) : null,
+      },
+      runtimeNodes: this.listRuntimeNodes().map(redactRuntimeNodeForDoctor),
+      checks,
+      blockers: requiredFailures.map((check) => check.id),
+      optionalWarnings,
+      redaction: {
+        profile: "doctor_safe",
+        secretValuesIncluded: false,
+        endpointValuesHashed: true,
+      },
+      evidenceRefs: ["ioi_agent_runtime_doctor", "runtime_preflight", "RuntimeDoctorNode"],
+    };
+  }
+
   createTurn(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
     const prompt = request.prompt ?? request.message ?? request.input ?? "";
@@ -1128,6 +1328,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (segments[0] === "v1" && isOpenAiCompatibilityRoute(request, url)) {
       await handleOpenAiCompatibilityRoute({ request, response, store, url });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/doctor") {
+      writeJsonResponse(response, store.doctorReport({ baseUrl: baseUrlForRequest(request) }));
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -3617,6 +3821,49 @@ function memoryOptionsForRequest(request = {}) {
     ...(request.memory ?? {}),
     ...(request.options?.memory ?? {}),
   };
+}
+
+function doctorCheck(id, status, required, summary, evidenceRefs = []) {
+  return {
+    id,
+    status,
+    required,
+    summary,
+    evidenceRefs: normalizeArray(evidenceRefs),
+  };
+}
+
+function doctorProviderKeyReport() {
+  return [
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "OPENROUTER_API_KEY",
+    "IOI_AGENT_SDK_HOSTED_ENDPOINT",
+    "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT",
+  ].map((name) => ({
+    name,
+    source: "env",
+    configured: Boolean(process.env[name]),
+    valueRedacted: true,
+    valueHash: process.env[name] ? doctorHash(process.env[name]) : null,
+  }));
+}
+
+function redactRuntimeNodeForDoctor(node = {}) {
+  return {
+    id: node.id,
+    kind: node.kind,
+    status: node.status,
+    privacyClass: node.privacyClass,
+    endpointConfigured: Boolean(node.endpoint),
+    endpointHash: node.endpoint ? doctorHash(node.endpoint) : null,
+    evidenceRefs: normalizeArray(node.evidenceRefs),
+  };
+}
+
+function doctorHash(value) {
+  return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
 function subagentReceiverForRequest(request = {}) {

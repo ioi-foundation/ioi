@@ -308,6 +308,65 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { sandboxPolicy: DEFAULT_SANDBOX },
   },
   {
+    type: "runtime_doctor",
+    label: "Runtime Doctor",
+    group: "Tests",
+    family: "tests",
+    token: "DR",
+    familyLabel: "Doctor",
+    metricLabel: "Readiness",
+    metricValue: "preflight",
+    ioTypes: { in: "none", out: "state" },
+    inputs: [],
+    outputs: ["report", "blockers"],
+    portDefinitions: [
+      port("report", "Doctor report", "output", "state", "output", false, "state"),
+      port("blockers", "Blockers", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("report", "Doctor report", "output", "state", "output", false, "state"),
+      port("blockers", "Blockers", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: ["doctorEndpoint", "blockOnRequiredFailures"],
+      properties: {
+        doctorEndpoint: { type: "string" },
+        blockOnRequiredFailures: { type: "boolean" },
+        allowOptionalDegraded: { type: "boolean" },
+        redactionProfile: { type: "string" },
+      },
+    },
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_doctor",
+      executorId: "workflow.runtime_doctor",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      doctorEndpoint: "/v1/doctor",
+      blockOnRequiredFailures: true,
+      allowOptionalDegraded: true,
+      redactionProfile: "doctor_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "checks", "blockers", "redaction"],
+      },
+      activationGate: {
+        consumesDoctorReport: true,
+        blockerField: "blockers",
+        optionalWarningsField: "optionalWarnings",
+      },
+      nodeTypeLabel: "RuntimeDoctorNode",
+    },
+    defaultLaw: {},
+  },
+  {
     type: "model_binding",
     label: "Model Binding",
     group: "AI",
@@ -1869,6 +1928,8 @@ export function workflowNodeActionDefinitions(): WorkflowNodeActionDefinition[] 
 
 function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
   switch (type) {
+    case "runtime_doctor":
+      return ["decision", "verifier", "output"];
     case "trigger":
     case "source":
       return [

@@ -442,6 +442,16 @@ export interface NodeLogic {
   stateOperation?: "read" | "write" | "append" | "merge" | "memory_search" | "memory_list";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
+  doctorEndpoint?: string;
+  blockOnRequiredFailures?: boolean;
+  allowOptionalDegraded?: boolean;
+  redactionProfile?: string;
+  nodeTypeLabel?: string;
+  activationGate?: {
+    consumesDoctorReport?: boolean;
+    blockerField?: string;
+    optionalWarningsField?: string;
+  };
 
   // --- Retrieval ---
   query?: string;
@@ -879,6 +889,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"probe">
   | WorkflowNodeConfigBase<"budget_gate">
   | WorkflowNodeConfigBase<"capability_sequence">
+  | WorkflowNodeConfigBase<"runtime_doctor">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
@@ -3550,6 +3561,7 @@ export type WorkflowHarnessComponentKind =
   | "memory_list"
   | "memory_write"
   | "memory_subagent_inheritance"
+  | "runtime_doctor"
   | "verifier"
   | "semantic_impact_analyzer"
   | "postcondition_synthesizer"
@@ -4083,6 +4095,7 @@ export type WorkflowNodeKind =
   | "probe"
   | "budget_gate"
   | "capability_sequence"
+  | "runtime_doctor"
   | "function"
   | "model_binding"
   | "model_call"
