@@ -1577,6 +1577,33 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-15-17-099Z/result.json`
 
+Implementation slice completed 2026-05-11, issue context projection:
+
+- Added a read-only `ioi.agent-runtime.issue-context.v1` projection that binds
+  optional GitHub issue/task context into the PR workflow lane.
+- Issue context supports a durable `unbound` state when no issue is supplied,
+  allowing local PR previews to continue while preserving a canonical slot for
+  future `github__issue_read` results.
+- The projection records provider/repo identity, optional issue number/title/URL,
+  linked PR attempt ID, linked review gate ID, no-issue policy, warnings,
+  redaction posture, and no-network/no-mutation proof.
+- Each run now emits `IssueContext` on `runtime.issue-context`, with receipt refs
+  and an `issue-context.json` artifact.
+- React Flow now has an `issue_context` / `IssueContextNode` contract that
+  consumes GitHub context and exposes issue bound state, status, issue number,
+  source URL, and receipt fields.
+- `pr_attempt` and `review_gate` now expose optional `issue_context` side-input
+  ports, while the default harness routes `issue_context` between
+  `github_context` and `pr_attempt`.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-25-31-750Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:

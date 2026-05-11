@@ -257,11 +257,31 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(githubContext.networkLookupPerformed, false);
     assert.equal(githubContext.mutationExecuted, false);
 
+    const issueContext = await fetchJson(`${daemon.endpoint}/v1/issue-context`);
+    assert.equal(issueContext.schemaVersion, "ioi.agent-runtime.issue-context.v1");
+    assert.equal(issueContext.object, "ioi.issue_context");
+    assert.equal(issueContext.repositoryContextId, repositoryContext.contextId);
+    assert.equal(issueContext.githubContextId, githubContext.contextId);
+    assert.equal(issueContext.status, "unbound");
+    assert.equal(issueContext.repoFullName, "ioi-test/ioi");
+    assert.equal(issueContext.bound, false);
+    assert.equal(issueContext.issueProvided, false);
+    assert.equal(issueContext.issueNumber, null);
+    assert.equal(issueContext.title, null);
+    assert.equal(issueContext.sourceUrl, null);
+    assert.equal(issueContext.sourceKind, "unbound");
+    assert.ok(issueContext.warnings.includes("issue_context_unbound"));
+    assert.equal(issueContext.noIssuePolicy.allowed, true);
+    assert.equal(issueContext.networkLookupPerformed, false);
+    assert.equal(issueContext.mutationExecuted, false);
+    assert.equal(issueContext.redaction.bodyIncluded, false);
+
     const prAttempts = await fetchJson(`${daemon.endpoint}/v1/pr-attempts`);
     assert.equal(prAttempts.length, 1);
     const prAttempt = prAttempts[0];
     assert.equal(prAttempt.schemaVersion, "ioi.agent-runtime.pr-attempt.v1");
     assert.equal(prAttempt.object, "ioi.pr_attempt");
+    assert.equal(issueContext.prAttemptId, prAttempt.attemptId);
     assert.equal(prAttempt.repositoryContextId, repositoryContext.contextId);
     assert.equal(prAttempt.branchPolicyId, branchPolicy.policyId);
     assert.equal(prAttempt.githubContextId, githubContext.contextId);
@@ -297,6 +317,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
     const reviewGate = await fetchJson(`${daemon.endpoint}/v1/review-gate`);
     assert.equal(reviewGate.schemaVersion, "ioi.agent-runtime.review-gate.v1");
     assert.equal(reviewGate.object, "ioi.review_gate_decision");
+    assert.equal(issueContext.reviewGateId, reviewGate.gateId);
     assert.equal(reviewGate.repositoryContextId, repositoryContext.contextId);
     assert.equal(reviewGate.branchPolicyId, branchPolicy.policyId);
     assert.equal(reviewGate.githubContextId, githubContext.contextId);
@@ -347,6 +368,12 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(trace.githubContext.repoFullName, "ioi-test/ioi");
     assert.equal(trace.githubContext.status, "blocked");
     assert.equal(trace.githubContext.prCreationEligible, false);
+    assert.equal(trace.issueContext.schemaVersion, "ioi.agent-runtime.issue-context.v1");
+    assert.equal(trace.issueContext.status, "unbound");
+    assert.equal(trace.issueContext.repoFullName, "ioi-test/ioi");
+    assert.equal(trace.issueContext.bound, false);
+    assert.equal(trace.issueContext.prAttemptId, trace.prAttempt.attemptId);
+    assert.equal(trace.issueContext.reviewGateId, trace.reviewGate.gateId);
     assert.equal(trace.prAttempt.schemaVersion, "ioi.agent-runtime.pr-attempt.v1");
     assert.equal(trace.prAttempt.repoFullName, "ioi-test/ioi");
     assert.equal(trace.prAttempt.status, "blocked");
@@ -365,17 +392,20 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(trace.promptAudit.repositoryContextId, trace.repositoryContext.contextId);
     assert.equal(trace.promptAudit.branchPolicyId, trace.branchPolicy.policyId);
     assert.equal(trace.promptAudit.githubContextId, trace.githubContext.contextId);
+    assert.equal(trace.promptAudit.issueContextId, trace.issueContext.contextId);
     assert.equal(trace.promptAudit.prAttemptId, trace.prAttempt.attemptId);
     assert.equal(trace.promptAudit.reviewGateId, trace.reviewGate.gateId);
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "repository_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "branch_policy"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "github_context"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "issue_context"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "pr_attempt"));
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "review_gate"));
     const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/artifacts`);
     assert.ok(artifacts.some((artifact) => artifact.name === "repository-context.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "branch-policy.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "github-context.json"));
+    assert.ok(artifacts.some((artifact) => artifact.name === "issue-context.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "pr-attempt.json"));
     assert.ok(artifacts.some((artifact) => artifact.name === "pr-branch.json"));
     const prDiffArtifact = artifacts.find((artifact) => artifact.name === "pr-diff.patch");
@@ -436,6 +466,22 @@ test("local daemon emits read-only repository context for Git workspaces", async
     assert.equal(githubContextEvent.payload_summary.mutation_executed, false);
     assert.ok(githubContextEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_github_context")));
     assert.ok(githubContextEvent.artifact_refs.includes("github-context.json"));
+    const issueContextEvent = events.find(
+      (event) => event.payload_summary?.event_kind === "IssueContext",
+    );
+    assert.ok(issueContextEvent);
+    assert.equal(issueContextEvent.component_kind, "issue_context");
+    assert.equal(issueContextEvent.workflow_node_id, "runtime.issue-context");
+    assert.equal(issueContextEvent.payload_summary.status, "unbound");
+    assert.equal(issueContextEvent.payload_summary.repo_full_name, "ioi-test/ioi");
+    assert.equal(issueContextEvent.payload_summary.bound, false);
+    assert.equal(issueContextEvent.payload_summary.issue_provided, false);
+    assert.equal(issueContextEvent.payload_summary.issue_number, null);
+    assert.equal(issueContextEvent.payload_summary.source_kind, "unbound");
+    assert.equal(issueContextEvent.payload_summary.network_lookup_performed, false);
+    assert.equal(issueContextEvent.payload_summary.mutation_executed, false);
+    assert.ok(issueContextEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_issue_context")));
+    assert.ok(issueContextEvent.artifact_refs.includes("issue-context.json"));
     const prAttemptEvent = events.find(
       (event) => event.payload_summary?.event_kind === "PrAttemptRecord",
     );
@@ -489,6 +535,7 @@ test("local daemon emits read-only repository context for Git workspaces", async
       repositories,
       branchPolicy,
       githubContext,
+      issueContext,
       prAttempt,
       reviewGate,
       trace,
@@ -1291,6 +1338,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
+  assert.match(workflowContracts, /repository\.issue/);
   assert.match(workflowContracts, /repository\.pr_attempt/);
   assert.match(workflowContracts, /repository\.review_gate/);
   assert.match(workflowContracts, /runtime\.doctor/);
@@ -1310,6 +1358,10 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /GitHubContextNode/);
   assert.match(nodeRegistry, /\/v1\/github-context/);
   assert.match(nodeRegistry, /githubPrPreconditionsField/);
+  assert.match(nodeRegistry, /issue_context/);
+  assert.match(nodeRegistry, /IssueContextNode/);
+  assert.match(nodeRegistry, /\/v1\/issue-context/);
+  assert.match(nodeRegistry, /issueContextBoundField/);
   assert.match(nodeRegistry, /pr_attempt/);
   assert.match(nodeRegistry, /PrAttemptNode/);
   assert.match(nodeRegistry, /\/v1\/pr-attempts/);
@@ -1358,6 +1410,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /github_context/);
   assert.match(harnessWorkflow, /GitHubContext/);
   assert.match(harnessWorkflow, /github\.context\.read/);
+  assert.match(harnessWorkflow, /issue_context/);
+  assert.match(harnessWorkflow, /IssueContext/);
+  assert.match(harnessWorkflow, /github\.issue\.read/);
   assert.match(harnessWorkflow, /pr_attempt/);
   assert.match(harnessWorkflow, /PrAttemptRecord/);
   assert.match(harnessWorkflow, /github\.pr\.preview/);
