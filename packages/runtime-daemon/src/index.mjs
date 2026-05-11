@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -20,6 +21,7 @@ const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.v1";
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
+  repository_context: "item.completed",
   model_route_decision: "item.completed",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
@@ -1152,7 +1154,34 @@ export class AgentgresRuntimeStateStore {
   }
 
   listRepositories() {
-    return [{ url: this.defaultCwd, source: "local_git", status: "available" }];
+    const context = repositoryContextForWorkspace({
+      cwd: this.defaultCwd,
+      contextId: `repoctx_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+    return [
+      {
+        url: this.defaultCwd,
+        source: context.isGitRepository ? "local_git" : "local_workspace",
+        status: context.isGitRepository ? "available" : "not_a_git_repository",
+        contextId: context.contextId,
+        repoRoot: context.repoRoot,
+        branch: context.branch,
+        headSha: context.headSha,
+        upstream: context.upstream,
+        remoteCount: context.remoteCount,
+        remotes: context.remotes,
+        isDirty: context.status.isDirty,
+        dirtyCounts: context.status.counts,
+        redaction: context.redaction,
+      },
+    ];
+  }
+
+  repositoryContext() {
+    return repositoryContextForWorkspace({
+      cwd: this.defaultCwd,
+      contextId: `repoctx_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
   }
 
   getAccount() {
@@ -1423,6 +1452,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/hooks") {
       writeJsonResponse(response, store.listHooks());
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/repository-context") {
+      writeJsonResponse(response, store.repositoryContext());
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -3469,12 +3502,18 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     manifest: activeSkillHookManifest,
     dryRunPlan: hookDryRunPlan,
   });
+  const repositoryContext = repositoryContextForWorkspace({
+    cwd: agent.cwd,
+    contextId: `repoctx_${runId}`,
+    generatedAt: createdAt,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
       "Run entered the live local IOI daemon public runtime API",
       "Agentgres v0 is the canonical owner for this run state",
       `Selected model profile: ${selectedModel}`,
+      `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       ...(memoryPolicy
         ? [
             `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
@@ -3499,6 +3538,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     evidenceRefs: [
       "ioi_daemon_public_runtime_api",
       "agentgres_canonical_operation_log",
+      repositoryContext.contextId,
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
@@ -3564,6 +3604,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         status: "passed",
       },
       {
+        checkId: "repository-context-read-only",
+        description: "Repository context is captured without mutating branch, index, or worktree state.",
+        status: "passed",
+      },
+      {
         checkId: "hook-dry-run-plan",
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
@@ -3584,6 +3629,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "trace",
       "scorecard",
       "agentgres_operation_log",
+      "repository_context",
       "active_skill_hook_manifest",
       "hook_dry_run_plan",
       "hook_invocation_ledger",
@@ -3600,11 +3646,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/runs/{id}/trace",
       "/v1/skills",
       "/v1/hooks",
+      "/v1/repository-context",
+      "/v1/repositories",
     ],
     changedSchemas: [
       "IOISDKMessage",
       "RuntimeTraceBundle",
       "AgentgresRuntimeStateV0",
+      "RepositoryContext",
       "ModelRouteDecision",
       "AgentMemoryRecord",
       "SubagentMemoryInheritanceProjection",
@@ -3622,6 +3671,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       ...(subagentMemoryInheritance
         ? [`memory.subagent_inheritance.${subagentMemoryInheritance.mode}`]
         : []),
+      "repository.context.read_only",
       "skills_hooks.active_manifest.read_only",
       "hooks.dry_run_preview_only",
       "hooks.invocation_ledger_preview_only",
@@ -3693,6 +3743,20 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     redaction: "none",
     evidenceRefs: ["wallet.network", "authority.no_external_scope"],
   };
+  const repositoryContextReceipt = {
+    id: `receipt_${runId}_repository_context`,
+    kind: "repository_context",
+    summary: repositoryContext.isGitRepository
+      ? `Captured read-only repository context for ${repositoryContext.repoRoot}: branch=${repositoryContext.branch ?? "detached"}, dirty=${repositoryContext.status.isDirty}.`
+      : `Captured read-only workspace context for ${repositoryContext.workspaceRoot}; no Git repository was detected.`,
+    redaction: "redacted",
+    evidenceRefs: [
+      repositoryContext.contextId,
+      repositoryContext.repoRootHash,
+      "RepositoryContextNode",
+      "repository.context.read_only",
+    ].filter(Boolean),
+  };
   const skillHookReceipt = {
     id: `receipt_${runId}_skill_hook_manifest`,
     kind: "active_skill_hook_manifest",
@@ -3752,6 +3816,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const receipts = [
     modelRouteReceipt,
     subagentMemoryReceipt,
+    repositoryContextReceipt,
     skillHookReceipt,
     hookDryRunReceipt,
     hookPolicyReceipt,
@@ -3773,6 +3838,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   const startedEvent = addEvent("run_started", "Run entered local IOI daemon", {
     taskFamily,
     selectedStrategy,
+  });
+  addEvent("repository_context", "Repository context recorded", {
+    ...repositoryContext,
+    receiptId: repositoryContextReceipt.id,
+    eventKind: "RepositoryContext",
+    workflowNodeId: "runtime.repository-context",
   });
   addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
     ...activeSkillHookManifest,
@@ -3830,6 +3901,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   addEvent("artifact", "Trace and scorecard artifacts recorded", {
     artifactNames: [
       "trace.json",
+      "repository-context.json",
       "active-skill-hook-manifest.json",
       "hook-dry-run-plan.json",
       "hook-invocations.json",
@@ -3853,12 +3925,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     semanticImpact,
     modelRouteDecision,
     activeSkillHookManifest,
+    repositoryContext,
     hookDryRunPlan,
     hookInvocationLedger,
     promptAudit: {
       schemaVersion: "ioi.agent-runtime.prompt-audit.v1",
       runId,
       promptHash: doctorHash(prompt),
+      repositoryContextId: repositoryContext.contextId,
       activeSkillHookManifestId: activeSkillHookManifest.manifestId,
       activeSkillSetHash: activeSkillHookManifest.activeSkillSetHash,
       activeHookSetHash: activeSkillHookManifest.activeHookSetHash,
@@ -3871,7 +3945,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         promptIncluded: false,
         hookCommandsIncluded: false,
       },
-      evidenceRefs: ["prompt_audit", activeSkillHookManifest.manifestId],
+      evidenceRefs: ["prompt_audit", repositoryContext.contextId, activeSkillHookManifest.manifestId],
     },
     memoryPolicy,
     memoryRecords,
@@ -3883,6 +3957,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
   };
   const artifacts = [
     artifact(runId, "trace.json", "application/json", traceReceipt.id, trace, "redacted"),
+    artifact(
+      runId,
+      "repository-context.json",
+      "application/json",
+      repositoryContextReceipt.id,
+      repositoryContext,
+      "redacted",
+    ),
     artifact(
       runId,
       "active-skill-hook-manifest.json",
@@ -3940,6 +4022,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteDecision,
     modelRouteReceiptId,
     activeSkillHookManifest,
+    repositoryContext,
     hookDryRunPlan,
     hookInvocationLedger,
     memoryPolicy,
@@ -3947,6 +4030,186 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     memoryWriteReceipts,
     subagentMemoryInheritance,
     result,
+  };
+}
+
+function repositoryContextForWorkspace({ cwd, contextId, generatedAt } = {}) {
+  const workspaceRoot = path.resolve(cwd ?? process.cwd());
+  const rootOutput = gitOutput(workspaceRoot, ["rev-parse", "--show-toplevel"]);
+  const baseContext = {
+    schemaVersion: "ioi.agent-runtime.repository-context.v1",
+    object: "ioi.repository_context",
+    contextId: contextId ?? `repoctx_${doctorHash(workspaceRoot).slice(0, 12)}`,
+    generatedAt: generatedAt ?? new Date().toISOString(),
+    workspaceRoot,
+    workspaceRootHash: doctorHash(workspaceRoot),
+    provider: "git",
+    readOnly: true,
+    mutationExecuted: false,
+    evidenceRefs: ["repository_context", "repository.context.read_only", "RepositoryContextNode"],
+  };
+  if (!rootOutput) {
+    return {
+      ...baseContext,
+      status: repositoryStatusProjection("not_a_git_repository"),
+      isGitRepository: false,
+      repoRoot: null,
+      repoRootHash: null,
+      workspaceRelativePath: null,
+      branch: null,
+      detachedHead: false,
+      headSha: null,
+      headShortSha: null,
+      upstream: null,
+      remoteCount: 0,
+      remotes: [],
+      redaction: repositoryContextRedaction(),
+    };
+  }
+
+  const repoRoot = path.resolve(rootOutput);
+  const branchName = emptyToNull(gitOutput(repoRoot, ["branch", "--show-current"]));
+  const abbrevRef = emptyToNull(gitOutput(repoRoot, ["rev-parse", "--abbrev-ref", "HEAD"]));
+  const detachedHead = !branchName && abbrevRef === "HEAD";
+  const headSha = emptyToNull(gitOutput(repoRoot, ["rev-parse", "HEAD"]));
+  const upstream = emptyToNull(
+    gitOutput(repoRoot, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
+  );
+  const porcelain = gitOutput(repoRoot, ["status", "--porcelain=v1", "--untracked-files=normal"]) ?? "";
+  const branchStatus = gitOutput(repoRoot, ["status", "--porcelain=v2", "--branch", "--untracked-files=no"]) ?? "";
+  const aheadBehind = repositoryAheadBehind(branchStatus);
+  const counts = repositoryStatusCounts(porcelain);
+  const remotes = parseGitRemotes(gitOutput(repoRoot, ["remote", "-v"]) ?? "");
+  return {
+    ...baseContext,
+    status: repositoryStatusProjection("available", counts, aheadBehind, porcelain),
+    isGitRepository: true,
+    repoRoot,
+    repoRootHash: doctorHash(repoRoot),
+    workspaceRelativePath: relative(repoRoot, workspaceRoot),
+    branch: branchName ?? (detachedHead ? null : abbrevRef),
+    detachedHead,
+    headSha,
+    headShortSha: headSha ? headSha.slice(0, 12) : null,
+    upstream,
+    remoteCount: remotes.length,
+    remotes,
+    redaction: repositoryContextRedaction(),
+  };
+}
+
+function gitOutput(cwd, args) {
+  try {
+    return execFileSync("git", ["-C", cwd, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1500,
+      maxBuffer: 4 * 1024 * 1024,
+    }).trimEnd();
+  } catch {
+    return null;
+  }
+}
+
+function emptyToNull(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text ? text : null;
+}
+
+function repositoryStatusProjection(availability, counts = repositoryStatusCounts(""), aheadBehind = {}, porcelain = "") {
+  const isDirty =
+    counts.staged > 0 ||
+    counts.unstaged > 0 ||
+    counts.untracked > 0 ||
+    counts.conflicted > 0;
+  return {
+    availability,
+    clean: availability === "available" ? !isDirty : null,
+    isDirty,
+    counts,
+    ahead: aheadBehind.ahead ?? 0,
+    behind: aheadBehind.behind ?? 0,
+    porcelainHash: porcelain ? doctorHash(porcelain) : null,
+    untrackedMode: availability === "available" ? "normal" : "none",
+  };
+}
+
+function repositoryStatusCounts(porcelain) {
+  const counts = {
+    staged: 0,
+    unstaged: 0,
+    untracked: 0,
+    ignored: 0,
+    conflicted: 0,
+  };
+  for (const line of String(porcelain).split(/\r?\n/).filter(Boolean)) {
+    const status = line.slice(0, 2);
+    const x = status[0];
+    const y = status[1];
+    if (status === "??") {
+      counts.untracked += 1;
+      continue;
+    }
+    if (status === "!!") {
+      counts.ignored += 1;
+      continue;
+    }
+    if (repositoryStatusIsConflict(status)) counts.conflicted += 1;
+    if (x && x !== " " && x !== "?" && x !== "!") counts.staged += 1;
+    if (y && y !== " " && y !== "?" && y !== "!") counts.unstaged += 1;
+  }
+  return counts;
+}
+
+function repositoryStatusIsConflict(status) {
+  return ["DD", "AU", "UD", "UA", "DU", "AA", "UU"].includes(status);
+}
+
+function repositoryAheadBehind(branchStatus) {
+  const line = String(branchStatus)
+    .split(/\r?\n/)
+    .find((item) => item.startsWith("# branch.ab "));
+  const match = line?.match(/\+(\d+)\s+-(\d+)/);
+  return {
+    ahead: match ? Number(match[1]) : 0,
+    behind: match ? Number(match[2]) : 0,
+  };
+}
+
+function parseGitRemotes(remoteOutput) {
+  const byName = new Map();
+  for (const line of String(remoteOutput).split(/\r?\n/).filter(Boolean)) {
+    const match = line.match(/^(\S+)\s+(.+?)\s+\((fetch|push)\)$/);
+    if (!match) continue;
+    const [, name, url, kind] = match;
+    const current = byName.get(name) ?? { name };
+    current[`${kind}Url`] = redactRemoteUrl(url);
+    current[`${kind}UrlHash`] = doctorHash(url);
+    byName.set(name, current);
+  }
+  return [...byName.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function redactRemoteUrl(remoteUrl) {
+  try {
+    const parsed = new URL(remoteUrl);
+    parsed.username = "";
+    parsed.password = "";
+    return parsed.toString();
+  } catch {
+    return remoteUrl.includes("@")
+      ? `redacted:${doctorHash(remoteUrl).slice(0, 12)}`
+      : remoteUrl;
+  }
+}
+
+function repositoryContextRedaction() {
+  return {
+    profile: "repository_context_safe",
+    pathIncluded: true,
+    remoteUrlsHashed: true,
+    remoteCredentialsIncluded: false,
+    statusPathsIncluded: false,
   };
 }
 
@@ -5396,6 +5659,28 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction ?? "none",
     };
   }
+  if (event.type === "repository_context") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RepositoryContext",
+      context_id: event.data?.contextId ?? null,
+      is_git_repository: Boolean(event.data?.isGitRepository),
+      repo_root_hash: event.data?.repoRootHash ?? null,
+      branch: event.data?.branch ?? null,
+      detached_head: Boolean(event.data?.detachedHead),
+      head_short_sha: event.data?.headShortSha ?? null,
+      upstream: event.data?.upstream ?? null,
+      remote_count: event.data?.remoteCount ?? 0,
+      is_dirty: Boolean(event.data?.status?.isDirty),
+      staged_count: event.data?.status?.counts?.staged ?? 0,
+      unstaged_count: event.data?.status?.counts?.unstaged ?? 0,
+      untracked_count: event.data?.status?.counts?.untracked ?? 0,
+      conflicted_count: event.data?.status?.counts?.conflicted ?? 0,
+      mutation_executed: Boolean(event.data?.mutationExecuted),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "repository_context_safe",
+    };
+  }
   if (event.type === "skill_hook_manifest") {
     return {
       ...summary,
@@ -5470,6 +5755,8 @@ function payloadSummaryForRunEvent(event) {
 function componentKindForRunEvent(eventOrType) {
   const type = typeof eventOrType === "string" ? eventOrType : eventOrType?.type;
   switch (type) {
+    case "repository_context":
+      return "repository_context";
     case "model_route_decision":
       return "model_router";
     case "skill_hook_manifest":
@@ -5515,6 +5802,7 @@ function workflowNodeForRunEvent(eventOrType) {
   if (
     typeof eventOrType !== "string" &&
     (eventOrType?.type === "model_route_decision" ||
+      eventOrType?.type === "repository_context" ||
       eventOrType?.type === "memory_update" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
@@ -5529,6 +5817,9 @@ function workflowNodeForRunEvent(eventOrType) {
 function receiptRefsForRunEvent(event) {
   if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
   if (event.type === "model_route_decision") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "repository_context") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "skill_hook_manifest") {
@@ -5554,6 +5845,7 @@ function receiptRefsForRunEvent(event) {
 }
 
 function artifactRefsForRunEvent(event) {
+  if (event.type === "repository_context") return ["repository-context.json"];
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
   if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];

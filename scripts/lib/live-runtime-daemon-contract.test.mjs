@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -49,6 +50,13 @@ async function fetchSseEvents(url) {
         .join("\n");
       return JSON.parse(data);
     });
+}
+
+function git(cwd, args) {
+  return execFileSync("git", ["-C", cwd, ...args], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
 }
 
 test("local daemon public API persists canonical Agentgres state and replays without terminal duplication", async () => {
@@ -149,6 +157,90 @@ test("local daemon doctor reports redacted runtime readiness for CLI and workflo
     else process.env.OPENAI_API_KEY = savedOpenAi;
     if (savedHosted === undefined) delete process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT;
     else process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT = savedHosted;
+  }
+});
+
+test("local daemon emits read-only repository context for Git workspaces", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-repository-context-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-repository-context-state-"));
+  git(cwd, ["init"]);
+  git(cwd, ["config", "user.email", "ioi-test@example.invalid"]);
+  git(cwd, ["config", "user.name", "IOI Test"]);
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "one\n");
+  git(cwd, ["add", "tracked.txt"]);
+  git(cwd, ["commit", "-m", "initial"]);
+  const branch = git(cwd, ["branch", "--show-current"]);
+  git(cwd, ["remote", "add", "origin", "https://user:secret@example.invalid/ioi.git"]);
+  git(cwd, ["update-ref", `refs/remotes/origin/${branch}`, "HEAD"]);
+  git(cwd, ["branch", "--set-upstream-to", `origin/${branch}`]);
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "two\n");
+  fs.writeFileSync(path.join(cwd, "staged.txt"), "staged\n");
+  git(cwd, ["add", "staged.txt"]);
+  fs.writeFileSync(path.join(cwd, "untracked.txt"), "new\n");
+
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const repositoryContext = await fetchJson(`${daemon.endpoint}/v1/repository-context`);
+    assert.equal(repositoryContext.schemaVersion, "ioi.agent-runtime.repository-context.v1");
+    assert.equal(repositoryContext.object, "ioi.repository_context");
+    assert.equal(repositoryContext.isGitRepository, true);
+    assert.equal(repositoryContext.repoRoot, cwd);
+    assert.equal(repositoryContext.branch, branch);
+    assert.match(repositoryContext.headSha, /^[a-f0-9]{40}$/);
+    assert.equal(repositoryContext.upstream, `origin/${branch}`);
+    assert.equal(repositoryContext.remoteCount, 1);
+    assert.equal(repositoryContext.remotes[0].fetchUrl, "https://example.invalid/ioi.git");
+    assert.match(repositoryContext.remotes[0].fetchUrlHash, /^[a-f0-9]{64}$/);
+    assert.equal(repositoryContext.status.isDirty, true);
+    assert.equal(repositoryContext.status.counts.staged, 1);
+    assert.equal(repositoryContext.status.counts.unstaged, 1);
+    assert.equal(repositoryContext.status.counts.untracked, 1);
+    assert.equal(repositoryContext.readOnly, true);
+    assert.equal(repositoryContext.mutationExecuted, false);
+    assert.equal(repositoryContext.redaction.remoteCredentialsIncluded, false);
+
+    const repositories = await fetchJson(`${daemon.endpoint}/v1/repositories`);
+    assert.equal(repositories[0].contextId, repositoryContext.contextId);
+    assert.equal(repositories[0].branch, branch);
+    assert.equal(repositories[0].isDirty, true);
+
+    const { Agent, createRuntimeSubstrateClient } = await importSdk();
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({ local: { cwd }, substrateClient: client });
+    const run = await agent.send("Record repository context for branch policy.");
+    const trace = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/trace`);
+    assert.equal(trace.repositoryContext.schemaVersion, "ioi.agent-runtime.repository-context.v1");
+    assert.equal(trace.repositoryContext.branch, branch);
+    assert.equal(trace.repositoryContext.status.counts.staged, 1);
+    assert.equal(trace.repositoryContext.status.counts.unstaged, 1);
+    assert.equal(trace.repositoryContext.status.counts.untracked, 1);
+    assert.equal(trace.repositoryContext.mutationExecuted, false);
+    assert.equal(trace.promptAudit.repositoryContextId, trace.repositoryContext.contextId);
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "repository_context"));
+    const artifacts = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/artifacts`);
+    assert.ok(artifacts.some((artifact) => artifact.name === "repository-context.json"));
+
+    const threadId = `thread_${agent.id.slice("agent_".length)}`;
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
+    const repoEvent = events.find((event) => event.payload_summary?.event_kind === "RepositoryContext");
+    assert.ok(repoEvent);
+    assert.equal(repoEvent.component_kind, "repository_context");
+    assert.equal(repoEvent.workflow_node_id, "runtime.repository-context");
+    assert.equal(repoEvent.payload_summary.branch, branch);
+    assert.equal(repoEvent.payload_summary.is_git_repository, true);
+    assert.equal(repoEvent.payload_summary.is_dirty, true);
+    assert.equal(repoEvent.payload_summary.staged_count, 1);
+    assert.equal(repoEvent.payload_summary.unstaged_count, 1);
+    assert.equal(repoEvent.payload_summary.untracked_count, 1);
+    assert.equal(repoEvent.payload_summary.mutation_executed, false);
+    assert.ok(repoEvent.receipt_refs.some((receiptRef) => receiptRef.endsWith("_repository_context")));
+    assert.ok(repoEvent.artifact_refs.includes("repository-context.json"));
+
+    const serializedProjection = JSON.stringify({ repositoryContext, repositories, trace, events });
+    assert.ok(!serializedProjection.includes("user:secret"));
+    assert.ok(!serializedProjection.includes("https://user:secret@example.invalid"));
+  } finally {
+    await daemon.close();
   }
 });
 
@@ -934,11 +1026,16 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
+  assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /runtime\.doctor/);
   assert.match(nodeRegistry, /runtime_doctor/);
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
   assert.match(nodeRegistry, /\/v1\/doctor/);
   assert.match(nodeRegistry, /blockOnRequiredFailures/);
+  assert.match(nodeRegistry, /repository_context/);
+  assert.match(nodeRegistry, /RepositoryContextNode/);
+  assert.match(nodeRegistry, /\/v1\/repository-context/);
+  assert.match(nodeRegistry, /repositoryDirtyField/);
   assert.match(nodeRegistry, /SkillNode/);
   assert.match(nodeRegistry, /SkillPackNode/);
   assert.match(nodeRegistry, /HookNode/);
@@ -970,6 +1067,9 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /runtime_doctor/);
   assert.match(harnessWorkflow, /RuntimeDoctorReport/);
   assert.match(harnessWorkflow, /runtime\.doctor\.read/);
+  assert.match(harnessWorkflow, /repository_context/);
+  assert.match(harnessWorkflow, /RepositoryContext/);
+  assert.match(harnessWorkflow, /repository\.context\.read/);
   assert.match(harnessWorkflow, /skill_registry/);
   assert.match(harnessWorkflow, /hook_registry/);
   assert.match(harnessWorkflow, /hook_policy/);

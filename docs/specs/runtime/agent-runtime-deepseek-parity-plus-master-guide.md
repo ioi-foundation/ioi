@@ -1424,6 +1424,35 @@ Acceptance evidence:
 - failed PR attempt is recorded without losing run state;
 - workflow graph can require review before PR creation.
 
+Implementation slice completed 2026-05-11, repository context foundation:
+
+- Added a read-only `ioi.agent-runtime.repository-context.v1` projection for
+  local Git/workspace state, exposed through `/v1/repository-context` and the
+  existing `/v1/repositories` catalog.
+- Repository context now captures repo root, workspace-relative path, branch,
+  detached-HEAD state, HEAD SHA, upstream, remotes, ahead/behind counts, dirty
+  status, staged/unstaged/untracked/conflicted counts, and redacted remote URL
+  hashes.
+- Each run now records repository context in task facts, postconditions,
+  minimum evidence, semantic impact, prompt audit, receipts, trace, artifacts,
+  and TTI events.
+- The `RepositoryContext` TTI event is workflow-addressable at
+  `runtime.repository-context`, with receipt refs and
+  `repository-context.json` artifact refs.
+- React Flow now has a `repository_context` / `RepositoryContextNode` contract
+  with branch, HEAD, dirty-state, endpoint, read-only, and redaction fields.
+- The default harness now includes a repository context component so later
+  branch policy, review, GitHub, and PR workflow nodes consume canonical repo
+  state instead of rediscovering it ad hoc.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-36-44-368Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:
