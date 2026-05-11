@@ -478,6 +478,18 @@ export interface NodeLogic {
   allowOptionalDegraded?: boolean;
   redactionProfile?: string;
   nodeTypeLabel?: string;
+  runtimeTaskEndpoint?: string;
+  runtimeTask?: unknown;
+  runtimeTaskField?: string;
+  runtimeTaskStatusField?: string;
+  runtimeTaskReceiptField?: string;
+  runtimeJobEndpoint?: string;
+  runtimeJob?: unknown;
+  runtimeJobField?: string;
+  runtimeJobStatusField?: string;
+  runtimeJobLifecycleField?: string;
+  runtimeJobQueueField?: string;
+  runtimeJobReceiptField?: string;
   repositoryEndpoint?: string;
   repositoryContext?: unknown;
   repositoryContextField?: string;
@@ -541,6 +553,8 @@ export interface NodeLogic {
   githubPrCreatePlanReceiptField?: string;
   activationGate?: {
     consumesDoctorReport?: boolean;
+    consumesRuntimeTask?: boolean;
+    consumesRuntimeJob?: boolean;
     consumesRepositoryContext?: boolean;
     consumesBranchPolicy?: boolean;
     consumesGithubContext?: boolean;
@@ -551,6 +565,10 @@ export interface NodeLogic {
     consumesSkillHookManifest?: boolean;
     blockerField?: string;
     optionalWarningsField?: string;
+    runtimeTaskField?: string;
+    runtimeTaskStatusField?: string;
+    runtimeJobField?: string;
+    runtimeJobStatusField?: string;
     githubPrCreatePlanField?: string;
     githubPrCreatePlanStatusField?: string;
     githubPrCreatePlanBlockersField?: string;
@@ -1021,6 +1039,8 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"budget_gate">
   | WorkflowNodeConfigBase<"capability_sequence">
   | WorkflowNodeConfigBase<"runtime_doctor">
+  | WorkflowNodeConfigBase<"runtime_task">
+  | WorkflowNodeConfigBase<"runtime_job">
   | WorkflowNodeConfigBase<"repository_context">
   | WorkflowNodeConfigBase<"branch_policy">
   | WorkflowNodeConfigBase<"github_context">
@@ -3704,6 +3724,8 @@ export type WorkflowHarnessComponentKind =
   | "memory_write"
   | "memory_subagent_inheritance"
   | "runtime_doctor"
+  | "runtime_task"
+  | "runtime_job"
   | "repository_context"
   | "branch_policy"
   | "github_context"
@@ -4248,6 +4270,8 @@ export type WorkflowNodeKind =
   | "budget_gate"
   | "capability_sequence"
   | "runtime_doctor"
+  | "runtime_task"
+  | "runtime_job"
   | "repository_context"
   | "branch_policy"
   | "github_context"

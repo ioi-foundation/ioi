@@ -10218,6 +10218,8 @@ const LIVE_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
 const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "uncertainty_gate",
   "runtime_doctor",
+  "runtime_task",
+  "runtime_job",
   "repository_context",
   "branch_policy",
   "github_context",
@@ -10258,6 +10260,8 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
     "prompt_assembler",
     "task_state",
     "runtime_doctor",
+    "runtime_task",
+    "runtime_job",
     "repository_context",
     "branch_policy",
     "github_context",
@@ -10459,6 +10463,30 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       evidence: ["runtime.doctor", "doctor.blockers", "doctor.redaction"],
       group: "Governance",
       icon: "activity",
+    }),
+    makeComponent({
+      kind: "runtime_task",
+      label: "Runtime task",
+      description:
+        "Projects the durable task record for a daemon run, including task family, mode, prompt hash, replayability, and redaction posture.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::runtimeTaskRecord",
+      capabilityScope: ["runtime.task.read", "workflow.context.read"],
+      eventKinds: ["RuntimeTaskRecord"],
+      evidence: ["runtime_task", "task.prompt_hash", "task.replayable", "task.redaction"],
+      group: "State",
+      icon: "clipboard-list",
+    }),
+    makeComponent({
+      kind: "runtime_job",
+      label: "Runtime job",
+      description:
+        "Projects the durable job record and lifecycle events for queued, started, completed, failed, or canceled daemon work.",
+      kernelRef: "packages/runtime-daemon/src/index.mjs::runtimeJobRecord",
+      capabilityScope: ["runtime.job.read", "runtime.task.read", "workflow.context.read"],
+      eventKinds: ["JobQueued", "JobStarted", "JobCompleted", "JobFailed", "JobCanceled"],
+      evidence: ["runtime_job", "job.lifecycle", "job.queue", "job.replayable"],
+      group: "State",
+      icon: "list-checks",
     }),
     makeComponent({
       kind: "repository_context",
@@ -11175,6 +11203,8 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     allowedComponentKinds: [
       "task_state",
       "runtime_doctor",
+      "runtime_task",
+      "runtime_job",
       "repository_context",
       "branch_policy",
       "github_context",
@@ -11247,6 +11277,8 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
       "merge_judge",
       "completion_gate",
       "gui_harness_validator",
+      "runtime_task",
+      "runtime_job",
       "pr_attempt",
       "review_gate",
       "github_pr_create",
@@ -11357,6 +11389,8 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "planner",
   "prompt_assembler",
   "runtime_doctor",
+  "runtime_task",
+  "runtime_job",
   "repository_context",
   "branch_policy",
   "github_context",
@@ -11409,6 +11443,8 @@ const SLOT_BY_KIND: Partial<
   prompt_assembler: ["state_policy"],
   task_state: ["state_policy"],
   runtime_doctor: ["state_policy", "verifier_policy"],
+  runtime_task: ["state_policy", "verifier_policy"],
+  runtime_job: ["state_policy", "verifier_policy"],
   repository_context: ["state_policy", "verifier_policy"],
   branch_policy: ["state_policy", "verifier_policy", "approval_policy"],
   github_context: ["state_policy", "verifier_policy", "approval_policy"],
@@ -11550,6 +11586,10 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
       return "task_state";
     case "runtime_doctor":
       return "runtime_doctor";
+    case "runtime_task":
+      return "runtime_task";
+    case "runtime_job":
+      return "runtime_job";
     case "repository_context":
       return "repository_context";
     case "branch_policy":
@@ -11635,6 +11675,104 @@ function nodeLogicFor(
     errorSchema: component.errorSchema,
   };
   switch (component.kind) {
+    case "runtime_task":
+      return {
+        ...base,
+        runtimeTaskEndpoint: "/v1/jobs",
+        runtimeTaskField: "runtimeTask",
+        runtimeTaskStatusField: "runtimeTask.status",
+        runtimeTaskReceiptField: "runtimeTask.receiptId",
+        readOnly: true,
+        redactionProfile: "runtime_task_safe",
+        activationGate: {
+          consumesRuntimeTask: true,
+          runtimeTaskField: "runtimeTask",
+          runtimeTaskStatusField: "runtimeTask.status",
+        },
+        nodeTypeLabel: "RuntimeTaskNode",
+        runtimeTask: {
+          schemaVersion: "ioi.agent-runtime.task-record.v1",
+          object: "ioi.runtime_task",
+          taskId: "task_default_harness_empty",
+          runId: "run_default_harness_empty",
+          agentId: null,
+          threadId: null,
+          turnId: null,
+          status: "queued",
+          mode: "send",
+          taskFamily: "conversation",
+          selectedStrategy: "direct_response",
+          promptHash: null,
+          promptIncluded: false,
+          objectivePreviewIncluded: false,
+          durable: true,
+          replayable: true,
+          workflowNodeId: "runtime.runtime-task",
+          redaction: {
+            profile: "runtime_task_safe",
+            promptIncluded: false,
+            secretValuesIncluded: false,
+          },
+          evidenceRefs: ["runtime_task", "runtime.tasks.durable_projection"],
+        },
+      };
+    case "runtime_job":
+      return {
+        ...base,
+        runtimeJobEndpoint: "/v1/jobs",
+        runtimeJobField: "runtimeJob",
+        runtimeJobStatusField: "runtimeJob.status",
+        runtimeJobLifecycleField: "runtimeJob.lifecycle",
+        runtimeJobQueueField: "runtimeJob.queueName",
+        runtimeJobReceiptField: "runtimeJob.receiptId",
+        runtimeTaskField: "runtimeTask",
+        readOnly: true,
+        redactionProfile: "runtime_job_safe",
+        activationGate: {
+          consumesRuntimeTask: true,
+          consumesRuntimeJob: true,
+          runtimeTaskField: "runtimeTask",
+          runtimeJobField: "runtimeJob",
+          runtimeJobStatusField: "runtimeJob.status",
+        },
+        nodeTypeLabel: "RuntimeJobNode",
+        runtimeJob: {
+          schemaVersion: "ioi.agent-runtime.job-record.v1",
+          object: "ioi.runtime_job",
+          jobId: "job_default_harness_empty",
+          taskId: "task_default_harness_empty",
+          runId: "run_default_harness_empty",
+          agentId: null,
+          threadId: null,
+          turnId: null,
+          status: "queued",
+          lifecycle: ["queued"],
+          queueName: "local-agentgres",
+          runner: "local-daemon-agentgres",
+          jobType: "agent_run",
+          priority: "normal",
+          background: true,
+          durable: true,
+          replayable: true,
+          progress: { completedSteps: 0, totalSteps: 1, percent: 0 },
+          artifactNames: ["runtime-task.json", "runtime-job.json"],
+          receiptKinds: ["runtime_task", "runtime_job"],
+          retryCount: 0,
+          endpoints: {
+            self: "/v1/jobs/job_default_harness_empty",
+            run: "/v1/runs/run_default_harness_empty",
+            events: "/v1/runs/run_default_harness_empty/events",
+            trace: "/v1/runs/run_default_harness_empty/trace",
+          },
+          workflowNodeId: "runtime.runtime-job",
+          redaction: {
+            profile: "runtime_job_safe",
+            promptIncluded: false,
+            secretValuesIncluded: false,
+          },
+          evidenceRefs: ["runtime_job", "runtime.jobs.durable_projection"],
+        },
+      };
     case "repository_context":
       return {
         ...base,

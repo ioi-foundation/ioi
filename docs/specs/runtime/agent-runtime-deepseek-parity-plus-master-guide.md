@@ -1677,6 +1677,35 @@ Acceptance evidence:
 - React Flow shows running, waiting, completed, failed, and canceled jobs from
   the same event store.
 
+Implementation slice completed 2026-05-11, runtime task/job ledger spine:
+
+- Added durable `ioi.agent-runtime.task-record.v1` and
+  `ioi.agent-runtime.job-record.v1` projections over canonical daemon runs.
+- Runtime tasks now record task family, mode, selected strategy, prompt hash,
+  thread/turn linkage, replayability, and redaction posture without storing the
+  raw prompt in the task projection.
+- Runtime jobs now record task linkage, run linkage, queue name, runner, job
+  type, lifecycle, progress, endpoints, artifacts, receipts, cancellation
+  state, replayability, and durability.
+- Added `/v1/jobs` and `/v1/jobs/{id}` so CLI/TUI, SDK surfaces, and React Flow
+  can inspect job status without reading private run internals.
+- Each run now emits `RuntimeTaskRecord`, `JobQueued`, `JobStarted`, and
+  `JobCompleted` TTI-visible events, with runtime task/job receipts and
+  `runtime-task.json` / `runtime-job.json` artifacts.
+- Cancellation updates the top-level task/job projection to `canceled` while
+  preserving single-terminal-event replay semantics.
+- React Flow now has `runtime_task` / `RuntimeTaskNode` and `runtime_job` /
+  `RuntimeJobNode` contracts, routed after `runtime_doctor` and before
+  repository/PR workflow nodes in the default harness.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T12-52-37-360Z/result.json`
+
 ### P2. Localization And Accessibility
 
 Problem:

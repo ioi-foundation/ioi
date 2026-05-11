@@ -86,9 +86,30 @@ test("local daemon public API persists canonical Agentgres state and replays wit
 
     const trace = await canceled.trace();
     assert.equal(trace.canonicalState.source, "agentgres_canonical_operation_log");
+    assert.equal(trace.runtimeTask.schemaVersion, "ioi.agent-runtime.task-record.v1");
+    assert.equal(trace.runtimeTask.object, "ioi.runtime_task");
+    assert.equal(trace.runtimeTask.runId, run.id);
+    assert.equal(trace.runtimeTask.status, "canceled");
+    assert.equal(trace.runtimeTask.promptIncluded, false);
+    assert.equal(trace.runtimeTask.durable, true);
+    assert.equal(trace.runtimeTask.replayable, true);
+    assert.equal(trace.runtimeJob.schemaVersion, "ioi.agent-runtime.job-record.v1");
+    assert.equal(trace.runtimeJob.object, "ioi.runtime_job");
+    assert.equal(trace.runtimeJob.runId, run.id);
+    assert.equal(trace.runtimeJob.taskId, trace.runtimeTask.taskId);
+    assert.equal(trace.runtimeJob.status, "canceled");
+    assert.deepEqual(trace.runtimeJob.lifecycle, ["queued", "started", "canceled"]);
+    assert.equal(trace.runtimeJob.queueName, "local-agentgres");
+    assert.equal(trace.runtimeJob.durable, true);
+    assert.equal(trace.runtimeJob.replayable, true);
     assert.ok(trace.receipts.some((receipt) => receipt.kind === "agentgres_canonical_write"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "runtime_task"));
+    assert.ok(trace.receipts.some((receipt) => receipt.kind === "runtime_job"));
     assert.equal((await canceled.scorecard()).verifierIndependence, 1);
-    assert.ok((await canceled.artifacts()).some((artifact) => artifact.name === "agentgres-projection.json"));
+    const canceledArtifacts = await canceled.artifacts();
+    assert.ok(canceledArtifacts.some((artifact) => artifact.name === "runtime-task.json"));
+    assert.ok(canceledArtifacts.some((artifact) => artifact.name === "runtime-job.json"));
+    assert.ok(canceledArtifacts.some((artifact) => artifact.name === "agentgres-projection.json"));
 
     const operationLog = path.join(stateDir, "operation-log.jsonl");
     assert.ok(fs.existsSync(operationLog));
@@ -96,6 +117,7 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     for (const relative of [
       ["runs", `${run.id}.json`],
       ["tasks", `${run.id}.json`],
+      ["jobs", trace.runtimeJob.jobId + ".json"],
       ["scorecards", `${run.id}.json`],
       ["ledgers", `${run.id}.json`],
       ["projections", `${run.id}.json`],
@@ -109,6 +131,35 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(account.source, "ioi-daemon-agentgres");
     const nodes = await Cursor.runtimeNodes.list({ substrateClient: client });
     assert.ok(nodes.some((node) => node.id === "local-daemon-agentgres"));
+
+    const jobs = await fetchJson(`${daemon.endpoint}/v1/jobs`);
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].schemaVersion, "ioi.agent-runtime.job-record.v1");
+    assert.equal(jobs[0].jobId, trace.runtimeJob.jobId);
+    assert.equal(jobs[0].taskId, trace.runtimeTask.taskId);
+    assert.equal(jobs[0].status, "canceled");
+    assert.equal(jobs[0].endpoints.self, `/v1/jobs/${jobs[0].jobId}`);
+    const job = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}`);
+    assert.equal(job.jobId, jobs[0].jobId);
+    assert.equal(job.runId, run.id);
+    const threadId = `thread_${agent.id.slice("agent_".length)}`;
+    const threadEvents = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`);
+    const runtimeTaskEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "RuntimeTaskRecord");
+    assert.ok(runtimeTaskEvent);
+    assert.equal(runtimeTaskEvent.component_kind, "runtime_task");
+    assert.equal(runtimeTaskEvent.workflow_node_id, "runtime.runtime-task");
+    assert.equal(runtimeTaskEvent.payload_summary.prompt_included, false);
+    assert.ok(runtimeTaskEvent.artifact_refs.includes("runtime-task.json"));
+    const jobQueuedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobQueued");
+    const jobStartedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobStarted");
+    const jobCompletedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobCompleted");
+    assert.ok(jobQueuedEvent);
+    assert.ok(jobStartedEvent);
+    assert.ok(jobCompletedEvent);
+    assert.equal(jobQueuedEvent.component_kind, "runtime_job");
+    assert.equal(jobStartedEvent.workflow_node_id, "runtime.runtime-job");
+    assert.equal(jobCompletedEvent.payload_summary.lifecycle_status, "completed");
+    assert.ok(jobCompletedEvent.artifact_refs.includes("runtime-job.json"));
 
     const cliView = await fetch(`${daemon.endpoint}/v1/runs/${run.id}/trace`).then((response) =>
       response.json(),
@@ -1423,6 +1474,8 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
+  assert.match(workflowContracts, /runtime\.task/);
+  assert.match(workflowContracts, /runtime\.job/);
   assert.match(workflowContracts, /repository\.context/);
   assert.match(workflowContracts, /repository\.branch_policy/);
   assert.match(workflowContracts, /repository\.github_context/);
@@ -1435,6 +1488,13 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /RuntimeDoctorNode/);
   assert.match(nodeRegistry, /\/v1\/doctor/);
   assert.match(nodeRegistry, /blockOnRequiredFailures/);
+  assert.match(nodeRegistry, /runtime_task/);
+  assert.match(nodeRegistry, /RuntimeTaskNode/);
+  assert.match(nodeRegistry, /runtimeTaskStatusField/);
+  assert.match(nodeRegistry, /runtime_job/);
+  assert.match(nodeRegistry, /RuntimeJobNode/);
+  assert.match(nodeRegistry, /\/v1\/jobs/);
+  assert.match(nodeRegistry, /runtimeJobLifecycleField/);
   assert.match(nodeRegistry, /repository_context/);
   assert.match(nodeRegistry, /RepositoryContextNode/);
   assert.match(nodeRegistry, /\/v1\/repository-context/);
@@ -1494,6 +1554,12 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(harnessWorkflow, /runtime_doctor/);
   assert.match(harnessWorkflow, /RuntimeDoctorReport/);
   assert.match(harnessWorkflow, /runtime\.doctor\.read/);
+  assert.match(harnessWorkflow, /runtime_task/);
+  assert.match(harnessWorkflow, /RuntimeTaskRecord/);
+  assert.match(harnessWorkflow, /runtime\.task\.read/);
+  assert.match(harnessWorkflow, /runtime_job/);
+  assert.match(harnessWorkflow, /JobQueued/);
+  assert.match(harnessWorkflow, /runtime\.job\.read/);
   assert.match(harnessWorkflow, /repository_context/);
   assert.match(harnessWorkflow, /RepositoryContext/);
   assert.match(harnessWorkflow, /repository\.context\.read/);
