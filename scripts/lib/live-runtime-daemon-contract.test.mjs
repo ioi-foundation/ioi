@@ -1506,6 +1506,18 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-ui-strings.ts"),
     "utf8",
   );
+  const canvasNode = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx"),
+    "utf8",
+  );
+  const inspector = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Editor/Inspector/Inspector.tsx"),
+    "utf8",
+  );
+  const workflowRailPanel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx"),
+    "utf8",
+  );
   const workflowValidation = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-validation.ts"),
     "utf8",
@@ -1535,6 +1547,7 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /\/v1\/doctor/);
   assert.match(nodeRegistry, /blockOnRequiredFailures/);
   assert.match(nodeRegistry, /runtimeUiStringCatalogRef/);
+  assert.match(nodeRegistry, /workflowChromeLocale/);
   assert.match(nodeRegistry, /localeKey/);
   assert.match(nodeRegistry, /ariaLabelKey/);
   assert.match(nodeRegistry, /statusAnnouncementKey/);
@@ -1600,6 +1613,23 @@ test("React Flow memory, doctor, skill, and hook node contracts remain workflow-
   assert.match(nodeRegistry, /hookEscalationReceiptField/);
   assert.match(nodeRegistry, /activeSkillSetHash/);
   assert.match(nodeRegistry, /activeHookSetHash/);
+  assert.match(workflowRuntimeUiStrings, /resolveWorkflowRuntimeUiString/);
+  assert.match(workflowRuntimeUiStrings, /workflowRuntimeNodeChrome/);
+  assert.match(workflowRuntimeUiStrings, /normalizeWorkflowRuntimeLocale/);
+  assert.match(workflowRuntimeUiStrings, /workflowRuntimeAccessibleStatusLabel/);
+  assert.match(workflowRuntimeUiStrings, /modelOutputLocalized: false/);
+  assert.match(canvasNode, /workflowRuntimeNodeChrome/);
+  assert.match(canvasNode, /aria-label=\{chrome\.ariaLabel\}/);
+  assert.match(canvasNode, /data-accessible-status-text=\{chrome\.statusText\}/);
+  assert.match(canvasNode, /workflow-canvas-node-accessible-status/);
+  assert.match(inspector, /workflow-runtime-chrome-locale/);
+  assert.match(inspector, /workflowChromeLocale/);
+  assert.match(inspector, /data-model-output-localized/);
+  assert.match(workflowRailPanel, /workflowRuntimeAccessibleStatusLabel/);
+  assert.match(workflowRailPanel, /workflowRuntimeNodeChrome/);
+  assert.match(workflowRailPanel, /workflow-selected-node-status-announcement/);
+  assert.match(workflowRailPanel, /data-accessible-status-text/);
+  assert.match(workflowRailPanel, /workflow-run-timeline/);
   assert.match(harnessWorkflow, /memory_read/);
   assert.match(harnessWorkflow, /memory_search/);
   assert.match(harnessWorkflow, /memory_list/);

@@ -6,6 +6,7 @@ import {
   WorkflowHarnessGroupView,
   WorkflowPortDefinition,
 } from "../../../../types/graph";
+import { workflowRuntimeNodeChrome } from "../../../../runtime/workflow-runtime-ui-strings";
 import "./CanvasNode.css";
 
 type CanvasNodeData = Node & Record<string, unknown>;
@@ -271,11 +272,23 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
     metrics?.records ??
     metrics?.time ??
     statusClass;
+  const chrome = workflowRuntimeNodeChrome(nodeData, {
+    fallbackLabel: isGhost ? "Proposed step" : String(name ?? nodeType),
+  });
+  const nodeTitle = isGhost ? "Proposed step" : chrome.label;
+  const nodeFamilyLabel = familyLabels[nodeType] || familyLabels[family] || "Step";
+  const footerStatus = chrome.colorIndependentStatus ? chrome.statusText : statusClass;
 
   return (
     <div
       className={`canvas-node canvas-node--${family} ${viewMacro ? "canvas-node--macro-member" : ""} ${harnessGroup ? "canvas-node--harness-group" : ""} ${selected ? "selected" : ""} ${ghostClass} ${activeClass} ${issueSummary ? "has-issues" : ""} ${(issueSummary?.blockerCount ?? 0) > 0 ? "has-blockers" : ""}`}
+      role="group"
+      aria-label={chrome.ariaLabel}
       data-node-family={family}
+      data-runtime-ui-catalog={chrome.isRuntimeChrome ? logic.runtimeUiStringCatalogRef : undefined}
+      data-runtime-ui-locale={chrome.isRuntimeChrome ? chrome.locale : undefined}
+      data-accessible-status={chrome.accessibleStatusValue}
+      data-accessible-status-text={chrome.statusText}
       data-macro-id={viewMacro?.macroId}
       data-macro-role={viewMacro?.role}
       data-harness-group-id={harnessGroup?.groupId}
@@ -321,7 +334,13 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
         </div>
       ))}
 
-      {!isGhost ? <div className={`status-dot status-${statusClass}`} /> : null}
+      {!isGhost ? (
+        <div
+          className={`status-dot status-${statusClass}`}
+          aria-hidden="true"
+          title={chrome.statusText}
+        />
+      ) : null}
       {issueSummary ? (
         <button
           type="button"
@@ -342,8 +361,8 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
 
       <div className="node-header">
         <span className="node-token">{familyTokens[nodeType] || familyTokens[family] || "WF"}</span>
-        <span className="node-title">{isGhost ? "Proposed step" : name}</span>
-        <span className="node-family-label">{familyLabels[nodeType] || familyLabels[family] || "Step"}</span>
+        <span className="node-title">{nodeTitle}</span>
+        <span className="node-family-label">{nodeFamilyLabel}</span>
       </div>
 
       <div className="node-io">
@@ -443,7 +462,9 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
       ))}
 
       <div className="node-footer">
-        <span>{isGhost ? "proposal" : statusClass}</span>
+        <span aria-live="polite" data-testid={`workflow-canvas-node-accessible-status-${nodeData.id}`}>
+          {isGhost ? "proposal" : footerStatus}
+        </span>
         <span>{nodeData.id?.slice(0, 8)}</span>
       </div>
     </div>

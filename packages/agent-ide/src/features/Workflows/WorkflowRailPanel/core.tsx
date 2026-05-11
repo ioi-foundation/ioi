@@ -27,6 +27,10 @@ import type {
 } from "../../../types/graph";
 import { workflowInterruptPreview } from "../../../runtime/workflow-bottom-panel-model";
 import {
+  workflowRuntimeAccessibleStatusLabel,
+  workflowRuntimeNodeChrome,
+} from "../../../runtime/workflow-runtime-ui-strings";
+import {
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   DEFAULT_AGENT_HARNESS_COMPONENTS,
   DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT,
@@ -2965,6 +2969,14 @@ export function WorkflowRailPanel({
   const bindingRegistryRows = workflowBindingRegistryRows(workflow);
   const bindingRegistrySummary =
     workflowBindingRegistrySummary(bindingRegistryRows);
+  const selectedRuntimeChrome = selectedNode
+    ? workflowRuntimeNodeChrome(selectedNode, {
+        fallbackLabel: selectedNode.name ?? selectedNode.type,
+      })
+    : null;
+  const workflowChromeLocale = selectedRuntimeChrome?.locale;
+  const accessibleStatusLabel = (status: unknown) =>
+    workflowRuntimeAccessibleStatusLabel(status, workflowChromeLocale);
   const handleCheckBinding = async (
     row: ReturnType<typeof workflowBindingRegistryRows>[number],
   ) => {
@@ -3266,9 +3278,14 @@ export function WorkflowRailPanel({
                   type="button"
                   className={runStatusFilter === status ? "is-active" : ""}
                   data-testid={`workflow-run-status-${status}`}
+                  aria-label={
+                    status === "all"
+                      ? "Filter runs by all statuses"
+                      : `Filter runs by ${accessibleStatusLabel(status)}`
+                  }
                   onClick={() => setRunStatusFilter(status)}
                 >
-                  {status}
+                  {status === "all" ? status : accessibleStatusLabel(status)}
                   <small>
                     {status === "all"
                       ? runs.length
@@ -3286,9 +3303,12 @@ export function WorkflowRailPanel({
               type="button"
               className={`workflow-run-card is-${run.status} ${selectedRunId === run.id ? "is-active" : ""} ${compareRunId === run.id ? "is-compare" : ""}`}
               data-testid={`workflow-run-${run.id}`}
+              data-accessible-status={run.status}
+              data-accessible-status-text={accessibleStatusLabel(run.status)}
+              aria-label={`Run ${accessibleStatusLabel(run.status)}: ${run.summary}`}
               onClick={() => onSelectRun(run)}
             >
-              <strong>{run.status}</strong>
+              <strong>{accessibleStatusLabel(run.status)}</strong>
               <span>{run.summary}</span>
               <small>
                 {workflowDurationLabel(run.startedAtMs, run.finishedAtMs)} ·{" "}
@@ -3411,6 +3431,9 @@ export function WorkflowRailPanel({
                   type="button"
                   className={`workflow-run-attempt is-${nodeRun.status}`}
                   data-testid={`workflow-run-attempt-${nodeRun.nodeId}`}
+                  data-accessible-status={nodeRun.status}
+                  data-accessible-status-text={accessibleStatusLabel(nodeRun.status)}
+                  aria-label={`${workflowNodeName(workflow, nodeRun.nodeId)} ${accessibleStatusLabel(nodeRun.status)} attempt ${nodeRun.attempt}`}
                   onClick={() => onInspectNode(nodeRun.nodeId)}
                 >
                   <strong>{workflowNodeName(workflow, nodeRun.nodeId)}</strong>
@@ -3478,11 +3501,14 @@ export function WorkflowRailPanel({
                       data-execution-mode={attempt.executionMode}
                       data-readiness={attempt.readiness}
                       data-status={attempt.status}
+                      data-accessible-status={attempt.status}
+                      data-accessible-status-text={accessibleStatusLabel(attempt.status)}
                       data-policy-decision={attempt.policyDecision ?? ""}
                       data-receipt-refs={attempt.receiptIds.join("|")}
                       data-replay-fixture-ref={attempt.replay.fixtureRef ?? ""}
                       data-input-hash={attempt.inputHash ?? ""}
                       data-output-hash={attempt.outputHash ?? ""}
+                      aria-label={`${workflowNodeName(workflow, attempt.workflowNodeId)} ${accessibleStatusLabel(attempt.status)} harness attempt`}
                     >
                       <strong>
                         {workflowNodeName(workflow, attempt.workflowNodeId)}
@@ -3538,6 +3564,9 @@ export function WorkflowRailPanel({
                 <li
                   key={event.id}
                   className={`is-${event.status ?? event.kind}`}
+                  data-accessible-status={event.status ?? event.kind}
+                  data-accessible-status-text={accessibleStatusLabel(event.status ?? event.kind)}
+                  aria-label={`${workflowEventLabel(event)} ${accessibleStatusLabel(event.status ?? event.kind)}`}
                 >
                   <strong>{workflowEventLabel(event)}</strong>
                   <span>
@@ -10815,14 +10844,27 @@ export function WorkflowRailPanel({
         <section
           className="workflow-node-inspector"
           data-testid="workflow-selected-node-inspector"
+          data-runtime-ui-locale={selectedRuntimeChrome?.locale}
+          data-accessible-status={selectedRuntimeChrome?.accessibleStatusValue}
+          data-accessible-status-text={selectedRuntimeChrome?.statusText}
+          aria-label={selectedRuntimeChrome?.ariaLabel}
         >
           <header>
             <div>
-              <strong>{selectedNode.name}</strong>
+              <strong>{selectedRuntimeChrome?.label ?? selectedNode.name}</strong>
               <span>
                 {selectedNode.type} ·{" "}
-                {selectedNodeRun?.status ?? selectedNode.status ?? "idle"}
+                {selectedRuntimeChrome?.statusText ??
+                  accessibleStatusLabel(selectedNodeRun?.status ?? selectedNode.status ?? "idle")}
               </span>
+              {selectedRuntimeChrome?.isRuntimeChrome ? (
+                <small
+                  data-testid="workflow-selected-node-status-announcement"
+                  aria-live="polite"
+                >
+                  {selectedRuntimeChrome.statusAnnouncement}
+                </small>
+              ) : null}
             </div>
             <button
               type="button"
@@ -10907,7 +10949,7 @@ export function WorkflowRailPanel({
           >
             <div>
               <dt>Run</dt>
-              <dd>{selectedNodeRun?.status ?? "not run"}</dd>
+              <dd>{accessibleStatusLabel(selectedNodeRun?.status ?? "not_run")}</dd>
             </div>
             <div>
               <dt>Attempt</dt>
@@ -11192,7 +11234,7 @@ export function WorkflowRailPanel({
             <article data-testid="workflow-selected-node-output-zone">
               <header>
                 <strong>Output</strong>
-                <span>{selectedNodeRun?.status ?? "not run"}</span>
+                <span>{accessibleStatusLabel(selectedNodeRun?.status ?? "not_run")}</span>
               </header>
               <span>{selectedOutputPreview.summary}</span>
               <small>

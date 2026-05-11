@@ -39,6 +39,41 @@
   color: var(--text-tertiary);
 }
 
+.runtime-chrome-summary {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.runtime-chrome-summary > span {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.runtime-chrome-summary label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 8px;
+}
+
+.runtime-chrome-summary label span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-chrome-summary select {
+  min-width: 0;
+}
+
 .inspector-tabs {
   display: flex;
   gap: 2px;
