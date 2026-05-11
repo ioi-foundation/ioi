@@ -4216,6 +4216,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const controllerPath =
     "packages/agent-ide/src/WorkflowComposer/controller.tsx";
   const viewPath = "packages/agent-ide/src/WorkflowComposer/view.tsx";
+  const bottomShelfPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
@@ -4227,6 +4229,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railModel = readFileSync(resolve(repoRoot, railModelPath), "utf8");
   const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
   const view = readFileSync(resolve(repoRoot, viewPath), "utf8");
+  const bottomShelf = readFileSync(resolve(repoRoot, bottomShelfPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
   const restoreCommand = readFileSync(
     resolve(repoRoot, restoreCommandPath),
@@ -4512,6 +4515,24 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
         harnessWorkflow,
       ) &&
       /gateResults:[\s\S]*evidenceRefs/.test(validation),
+    workflowPackageRunOutputSurfaces:
+      /export interface WorkflowPackageNodeOutputSummary/.test(railModel) &&
+      /workflowPackageNodeOutputSummary/.test(railModel) &&
+      /workflowPackageNodeOutputStatus/.test(railModel) &&
+      /workflow\.package\.export/.test(railModel) &&
+      /workflow\.package\.import/.test(railModel) &&
+      /workflowChromeLocalePreserved/.test(railModel) &&
+      /WorkflowPackageOutputSummaryCard/.test(rail) &&
+      /workflow-selected-node-package-output-summary/.test(rail) &&
+      /data-package-node-kind/.test(rail) &&
+      /data-package-path/.test(rail) &&
+      /data-package-readiness-status/.test(rail) &&
+      /data-imported-workflow-path/.test(rail) &&
+      /data-workflow-chrome-locale-preserved/.test(rail) &&
+      /workflow-selection-package-output-summary/.test(bottomShelf) &&
+      /workflowPackageNodeOutputSummary/.test(bottomShelf) &&
+      /workflowPackageNodeOutputStatus/.test(bottomShelf) &&
+      /data-package-evidence-ready/.test(bottomShelf),
     interactiveReceiptSelection:
       /data-selected-receipt-ref/.test(rail) &&
       /selectedHarnessReceiptRef === receiptRef/.test(rail) &&
@@ -4697,6 +4718,13 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       promoteClusterLive: "workflow-harness-promote-cluster-live",
       groupPromotionEligibility: "workflow-harness-group-promotion-eligibility",
       groupPromotionAttempt: "workflow-harness-group-promotion-attempt",
+      selectedNodePackageOutput:
+        "workflow-selected-node-package-output-summary",
+      selectedNodePackagePath:
+        "workflow-selected-node-package-output-summary[data-package-path]",
+      selectedNodePackageImportedWorkflow:
+        "workflow-selected-node-package-output-summary[data-imported-workflow-path]",
+      bottomShelfPackageOutput: "workflow-selection-package-output-summary",
     },
     sourceRefs: [
       railPath,
@@ -4705,6 +4733,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       railModelPath,
       controllerPath,
       viewPath,
+      bottomShelfPath,
       graphPath,
       restoreCommandPath,
     ],

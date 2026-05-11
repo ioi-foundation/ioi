@@ -110,6 +110,22 @@ export interface WorkflowChildRunLineage {
   childThreadId: string;
 }
 
+export interface WorkflowPackageNodeOutputSummary {
+  kind: "export" | "import";
+  status: string;
+  toolName: string;
+  packagePath: string | null;
+  manifestPath: string | null;
+  readinessStatus: string | null;
+  portable: boolean | null;
+  workflowChromeLocale: string | null;
+  packageEvidenceReady: boolean | null;
+  importedWorkflowPath: string | null;
+  workflowChromeLocalePreserved: boolean | null;
+  sourceWorkflowChromeLocale: string | null;
+  importedWorkflowChromeLocale: string | null;
+}
+
 function workflowUnknownRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -195,6 +211,146 @@ function workflowProofStringArray(
   const value = proof?.[key];
   if (!Array.isArray(value)) return fallback;
   return workflowStringList(value);
+}
+
+function workflowOutputString(
+  value: Record<string, unknown>,
+  key: string,
+): string | null {
+  const item = value[key];
+  return typeof item === "string" && item.length > 0 ? item : null;
+}
+
+function workflowOutputBoolean(
+  value: Record<string, unknown>,
+  key: string,
+): boolean | null {
+  const item = value[key];
+  return typeof item === "boolean" ? item : null;
+}
+
+function workflowOutputRecord(
+  value: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  return workflowUnknownRecord(value[key]);
+}
+
+function workflowPackageOutputKind(
+  nodeType: string | null | undefined,
+  output: Record<string, unknown>,
+): WorkflowPackageNodeOutputSummary["kind"] | null {
+  const toolName = workflowOutputString(output, "toolName");
+  if (nodeType === "workflow_package_export" || toolName === "workflow.package.export") {
+    return "export";
+  }
+  if (nodeType === "workflow_package_import" || toolName === "workflow.package.import") {
+    return "import";
+  }
+  return null;
+}
+
+export function workflowPackageNodeOutputSummary(
+  nodeType: string | null | undefined,
+  outputValue: unknown,
+): WorkflowPackageNodeOutputSummary | null {
+  const output = workflowUnknownRecord(outputValue);
+  const hasPackageOutput =
+    workflowOutputString(output, "toolName") ||
+    workflowOutputString(output, "schemaVersion")?.startsWith(
+      "workflow.package-",
+    ) ||
+    output.workflowPackageExport !== undefined ||
+    output.workflowPackageImport !== undefined ||
+    output.workflowPackageImportReview !== undefined ||
+    workflowOutputString(output, "packagePath");
+  if (!hasPackageOutput) return null;
+  const kind = workflowPackageOutputKind(nodeType, output);
+  if (!kind) return null;
+
+  const manifest = workflowOutputRecord(output, "manifest");
+  const exportPackage = workflowOutputRecord(output, "workflowPackageExport");
+  const exportPackageManifest = workflowOutputRecord(exportPackage, "manifest");
+  const review =
+    workflowOutputRecord(output, "workflowPackageImportReview").schemaVersion
+      ? workflowOutputRecord(output, "workflowPackageImportReview")
+      : workflowOutputRecord(output, "review");
+  const reviewSource = workflowOutputRecord(review, "source");
+  const reviewImported = workflowOutputRecord(review, "imported");
+  const reviewEvidence = workflowOutputRecord(review, "evidence");
+  const importPackage = workflowOutputRecord(output, "workflowPackageImport");
+
+  const exportedManifest =
+    Object.keys(manifest).length > 0 ? manifest : exportPackageManifest;
+  const packageEvidenceReady =
+    workflowOutputBoolean(output, "packageEvidenceReady") ??
+    workflowOutputBoolean(reviewEvidence, "packageEvidenceReady") ??
+    (exportedManifest.harnessPackageManifest !== undefined
+      ? Boolean(exportedManifest.harnessPackageManifest)
+      : null);
+  const workflowChromeLocale =
+    workflowOutputString(output, "workflowChromeLocale") ??
+    workflowOutputString(exportedManifest, "workflowChromeLocale") ??
+    workflowOutputString(reviewSource, "workflowChromeLocale") ??
+    workflowOutputString(reviewImported, "workflowChromeLocale");
+  const importedWorkflowChromeLocale =
+    workflowOutputString(output, "importedWorkflowChromeLocale") ??
+    workflowOutputString(reviewImported, "workflowChromeLocale");
+
+  return {
+    kind,
+    status: workflowOutputString(output, "status") ?? "unknown",
+    toolName:
+      workflowOutputString(output, "toolName") ??
+      (kind === "export" ? "workflow.package.export" : "workflow.package.import"),
+    packagePath:
+      workflowOutputString(output, "packagePath") ??
+      workflowOutputString(exportPackage, "packagePath") ??
+      workflowOutputString(importPackage, "packagePath") ??
+      workflowOutputString(reviewSource, "packagePath"),
+    manifestPath:
+      workflowOutputString(output, "manifestPath") ??
+      workflowOutputString(exportPackage, "manifestPath"),
+    readinessStatus:
+      workflowOutputString(output, "readinessStatus") ??
+      workflowOutputString(exportedManifest, "readinessStatus") ??
+      workflowOutputString(reviewSource, "readinessStatus"),
+    portable:
+      workflowOutputBoolean(output, "portable") ??
+      workflowOutputBoolean(exportedManifest, "portable"),
+    workflowChromeLocale,
+    packageEvidenceReady,
+    importedWorkflowPath:
+      workflowOutputString(output, "importedWorkflowPath") ??
+      workflowOutputString(reviewImported, "workflowPath") ??
+      workflowOutputString(importPackage, "workflowPath"),
+    workflowChromeLocalePreserved:
+      workflowOutputBoolean(output, "workflowChromeLocalePreserved") ??
+      workflowOutputBoolean(reviewEvidence, "workflowChromeLocalePreserved"),
+    sourceWorkflowChromeLocale:
+      workflowOutputString(output, "sourceWorkflowChromeLocale") ??
+      workflowOutputString(reviewSource, "workflowChromeLocale"),
+    importedWorkflowChromeLocale,
+  };
+}
+
+export function workflowPackageNodeOutputStatus(
+  summary: WorkflowPackageNodeOutputSummary,
+): "ready" | "blocked" | "warning" {
+  if (summary.status === "dry_run") {
+    return "warning";
+  }
+  if (
+    summary.status === "ok" ||
+    summary.readinessStatus === "passed" ||
+    summary.packageEvidenceReady === true
+  ) {
+    return "ready";
+  }
+  if (summary.status === "blocked" || summary.packageEvidenceReady === false) {
+    return "blocked";
+  }
+  return "warning";
 }
 
 export interface WorkflowHarnessReceiptInspection {

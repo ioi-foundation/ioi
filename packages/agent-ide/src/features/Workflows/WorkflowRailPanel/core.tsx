@@ -67,6 +67,8 @@ import {
   workflowIssueTitle,
   workflowNodeRunChildLineage,
   workflowNodeName,
+  workflowPackageNodeOutputSummary,
+  workflowPackageNodeOutputStatus,
   workflowRailSearchResults,
   workflowReadinessStatusLabel,
   workflowSelectedNodeBindingSummary,
@@ -75,6 +77,7 @@ import {
   workflowWorkbenchCheckSummary,
   workflowWorkbenchCheckTitle,
   workflowTimeLabel,
+  type WorkflowPackageNodeOutputSummary,
 } from "../../../runtime/workflow-rail-model";
 
 import type {
@@ -95,6 +98,89 @@ import {
   workflowProofStringArray,
   workflowRevisionBindingDeepLinkRef,
 } from "./statusPrimitives";
+
+function workflowPackageSummaryBoolean(value: boolean | null): string {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "";
+}
+
+function WorkflowPackageOutputSummaryCard({
+  summary,
+  testId,
+}: {
+  summary: WorkflowPackageNodeOutputSummary;
+  testId: string;
+}) {
+  const evidenceLabel =
+    summary.packageEvidenceReady === true
+      ? "evidence ready"
+      : summary.packageEvidenceReady === false
+        ? "evidence pending"
+        : "evidence unknown";
+  const localeLabel =
+    summary.kind === "import"
+      ? `${summary.sourceWorkflowChromeLocale ?? "default"} -> ${
+          summary.importedWorkflowChromeLocale ?? "default"
+        }`
+      : (summary.workflowChromeLocale ?? "default");
+  return (
+    <article
+      className={`workflow-output-row is-${workflowPackageNodeOutputStatus(
+        summary,
+      )}`}
+      data-testid={testId}
+      data-package-node-kind={summary.kind}
+      data-package-tool-name={summary.toolName}
+      data-package-status={summary.status}
+      data-package-path={summary.packagePath ?? ""}
+      data-package-manifest-path={summary.manifestPath ?? ""}
+      data-package-readiness-status={summary.readinessStatus ?? ""}
+      data-package-portable={workflowPackageSummaryBoolean(summary.portable)}
+      data-package-evidence-ready={workflowPackageSummaryBoolean(
+        summary.packageEvidenceReady,
+      )}
+      data-imported-workflow-path={summary.importedWorkflowPath ?? ""}
+      data-workflow-chrome-locale={summary.workflowChromeLocale ?? ""}
+      data-package-import-source-chrome-locale={
+        summary.sourceWorkflowChromeLocale ?? ""
+      }
+      data-package-import-imported-chrome-locale={
+        summary.importedWorkflowChromeLocale ?? ""
+      }
+      data-workflow-chrome-locale-preserved={workflowPackageSummaryBoolean(
+        summary.workflowChromeLocalePreserved,
+      )}
+    >
+      <strong>
+        {summary.kind === "export" ? "Package export output" : "Package import output"}
+      </strong>
+      <span>
+        {summary.status} · {summary.readinessStatus ?? "readiness pending"} ·{" "}
+        {evidenceLabel}
+      </span>
+      <small>
+        {summary.kind === "import"
+          ? (summary.importedWorkflowPath ?? "imported workflow pending")
+          : (summary.packagePath ?? "package path pending")}
+      </small>
+      <small>
+        locale {localeLabel}
+        {summary.kind === "import"
+          ? ` · preserved ${
+              summary.workflowChromeLocalePreserved === true ? "yes" : "review"
+            }`
+          : ` · portable ${
+              summary.portable === true
+                ? "yes"
+                : summary.portable === false
+                  ? "no"
+                  : "unknown"
+            }`}
+      </small>
+    </article>
+  );
+}
 
 export function WorkflowRailPanel({
   panel,
@@ -9345,6 +9431,10 @@ export function WorkflowRailPanel({
     selectedNodeFixtures.find((fixture) => fixture.pinned) ??
     selectedNodeFixtures[0] ??
     null;
+  const selectedPackageOutputSummary = workflowPackageNodeOutputSummary(
+    selectedNode?.type,
+    selectedNodeRun?.output ?? selectedPinnedFixture?.output ?? null,
+  );
   const selectedStaleFixtureCount = selectedNodeFixtures.filter(
     (fixture) => fixture.stale || fixture.validationStatus === "stale",
   ).length;
@@ -11314,6 +11404,18 @@ export function WorkflowRailPanel({
               </small>
             </article>
           </section>
+          {selectedPackageOutputSummary ? (
+            <section
+              className="workflow-node-inspector-section"
+              data-testid="workflow-selected-node-package-output"
+            >
+              <h4>Package output</h4>
+              <WorkflowPackageOutputSummaryCard
+                summary={selectedPackageOutputSummary}
+                testId="workflow-selected-node-package-output-summary"
+              />
+            </section>
+          ) : null}
           {showAiCluster ? (
             <section
               className="workflow-node-inspector-section workflow-node-ai-cluster"
