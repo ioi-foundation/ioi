@@ -1453,6 +1453,37 @@ Validation evidence:
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T05-36-44-368Z/result.json`
 
+Implementation slice completed 2026-05-11, branch policy gate:
+
+- Added a read-only `ioi.agent-runtime.branch-policy.v1` decision that
+  consumes canonical `RepositoryContext` before any branch mutation or PR path.
+- Branch policy now evaluates Git availability, named branch vs detached HEAD,
+  protected/default branch status, HEAD, upstream, ahead/behind, dirty state,
+  untracked files, and conflicted worktree counts.
+- Decisions are deterministic as `passed`, `warning`, or `blocked`, and expose
+  blockers, warnings, review requirements, approval requirements,
+  `mutationAllowed`, and `prCreationAllowed`.
+- Each run now records branch policy in task facts, postconditions, minimum
+  evidence, semantic impact, prompt audit, receipts, trace, artifacts, and TTI
+  events.
+- The `BranchPolicyDecision` TTI event is workflow-addressable at
+  `runtime.branch-policy`, with receipt refs and `branch-policy.json` artifact
+  refs.
+- React Flow now has a `branch_policy` / `BranchPolicyNode` contract that
+  consumes repository context and exposes branch policy status, blockers,
+  warnings, receipt refs, and protected-branch configuration.
+- The default harness now routes `branch_policy` immediately after
+  `repository_context`, making later PR, review, and GitHub workflow nodes
+  consume a canonical branch gate.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build:ide`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T11-16-23-615Z/result.json`
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:

@@ -22,6 +22,7 @@ const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
   repository_context: "item.completed",
+  branch_policy: "item.completed",
   model_route_decision: "item.completed",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
@@ -1184,6 +1185,13 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  branchPolicy() {
+    return branchPolicyForRepositoryContext({
+      repositoryContext: this.repositoryContext(),
+      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    });
+  }
+
   getAccount() {
     return {
       id: "local-operator",
@@ -1456,6 +1464,10 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/repository-context") {
       writeJsonResponse(response, store.repositoryContext());
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/branch-policy") {
+      writeJsonResponse(response, store.branchPolicy());
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -3507,6 +3519,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     contextId: `repoctx_${runId}`,
     generatedAt: createdAt,
   });
+  const branchPolicy = branchPolicyForRepositoryContext({
+    runId,
+    repositoryContext,
+    generatedAt: createdAt,
+  });
   const taskState = {
     currentObjective: prompt,
     knownFacts: [
@@ -3514,6 +3531,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "Agentgres v0 is the canonical owner for this run state",
       `Selected model profile: ${selectedModel}`,
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
+      `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
       ...(memoryPolicy
         ? [
             `Memory policy: disabled=${Boolean(memoryPolicy.disabled)}, injection=${memoryPolicy.injectionEnabled !== false}, readOnly=${Boolean(memoryPolicy.readOnly)}, writeRequiresApproval=${Boolean(memoryPolicy.writeRequiresApproval)}`,
@@ -3539,6 +3557,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "ioi_daemon_public_runtime_api",
       "agentgres_canonical_operation_log",
       repositoryContext.contextId,
+      branchPolicy.policyId,
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
@@ -3609,6 +3628,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         status: "passed",
       },
       {
+        checkId: "branch-policy-read-only",
+        description: "Branch policy decision consumes repository context without mutating branch, index, or worktree state.",
+        status: "passed",
+      },
+      {
         checkId: "hook-dry-run-plan",
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
@@ -3630,6 +3654,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "scorecard",
       "agentgres_operation_log",
       "repository_context",
+      "branch_policy",
       "active_skill_hook_manifest",
       "hook_dry_run_plan",
       "hook_invocation_ledger",
@@ -3647,6 +3672,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "/v1/skills",
       "/v1/hooks",
       "/v1/repository-context",
+      "/v1/branch-policy",
       "/v1/repositories",
     ],
     changedSchemas: [
@@ -3654,6 +3680,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "RuntimeTraceBundle",
       "AgentgresRuntimeStateV0",
       "RepositoryContext",
+      "BranchPolicyDecision",
       "ModelRouteDecision",
       "AgentMemoryRecord",
       "SubagentMemoryInheritanceProjection",
@@ -3672,6 +3699,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         ? [`memory.subagent_inheritance.${subagentMemoryInheritance.mode}`]
         : []),
       "repository.context.read_only",
+      "repository.branch_policy.read_only",
       "skills_hooks.active_manifest.read_only",
       "hooks.dry_run_preview_only",
       "hooks.invocation_ledger_preview_only",
@@ -3757,6 +3785,18 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "repository.context.read_only",
     ].filter(Boolean),
   };
+  const branchPolicyReceipt = {
+    id: `receipt_${runId}_branch_policy`,
+    kind: "branch_policy",
+    summary: branchPolicy.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      branchPolicy.policyId,
+      repositoryContext.contextId,
+      "BranchPolicyNode",
+      "repository.branch_policy.read_only",
+    ].filter(Boolean),
+  };
   const skillHookReceipt = {
     id: `receipt_${runId}_skill_hook_manifest`,
     kind: "active_skill_hook_manifest",
@@ -3817,6 +3857,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteReceipt,
     subagentMemoryReceipt,
     repositoryContextReceipt,
+    branchPolicyReceipt,
     skillHookReceipt,
     hookDryRunReceipt,
     hookPolicyReceipt,
@@ -3844,6 +3885,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     receiptId: repositoryContextReceipt.id,
     eventKind: "RepositoryContext",
     workflowNodeId: "runtime.repository-context",
+  });
+  addEvent("branch_policy", "Branch policy decision recorded", {
+    ...branchPolicy,
+    receiptId: branchPolicyReceipt.id,
+    eventKind: "BranchPolicyDecision",
+    workflowNodeId: "runtime.branch-policy",
   });
   addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
     ...activeSkillHookManifest,
@@ -3902,6 +3949,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     artifactNames: [
       "trace.json",
       "repository-context.json",
+      "branch-policy.json",
       "active-skill-hook-manifest.json",
       "hook-dry-run-plan.json",
       "hook-invocations.json",
@@ -3926,6 +3974,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteDecision,
     activeSkillHookManifest,
     repositoryContext,
+    branchPolicy,
     hookDryRunPlan,
     hookInvocationLedger,
     promptAudit: {
@@ -3933,6 +3982,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       runId,
       promptHash: doctorHash(prompt),
       repositoryContextId: repositoryContext.contextId,
+      branchPolicyId: branchPolicy.policyId,
       activeSkillHookManifestId: activeSkillHookManifest.manifestId,
       activeSkillSetHash: activeSkillHookManifest.activeSkillSetHash,
       activeHookSetHash: activeSkillHookManifest.activeHookSetHash,
@@ -3945,7 +3995,12 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         promptIncluded: false,
         hookCommandsIncluded: false,
       },
-      evidenceRefs: ["prompt_audit", repositoryContext.contextId, activeSkillHookManifest.manifestId],
+      evidenceRefs: [
+        "prompt_audit",
+        repositoryContext.contextId,
+        branchPolicy.policyId,
+        activeSkillHookManifest.manifestId,
+      ],
     },
     memoryPolicy,
     memoryRecords,
@@ -3963,6 +4018,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "application/json",
       repositoryContextReceipt.id,
       repositoryContext,
+      "redacted",
+    ),
+    artifact(
+      runId,
+      "branch-policy.json",
+      "application/json",
+      branchPolicyReceipt.id,
+      branchPolicy,
       "redacted",
     ),
     artifact(
@@ -4023,6 +4086,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     modelRouteReceiptId,
     activeSkillHookManifest,
     repositoryContext,
+    branchPolicy,
     hookDryRunPlan,
     hookInvocationLedger,
     memoryPolicy,
@@ -4080,6 +4144,7 @@ function repositoryContextForWorkspace({ cwd, contextId, generatedAt } = {}) {
   const aheadBehind = repositoryAheadBehind(branchStatus);
   const counts = repositoryStatusCounts(porcelain);
   const remotes = parseGitRemotes(gitOutput(repoRoot, ["remote", "-v"]) ?? "");
+  const defaultBranch = repositoryDefaultBranch(repoRoot);
   return {
     ...baseContext,
     status: repositoryStatusProjection("available", counts, aheadBehind, porcelain),
@@ -4088,6 +4153,7 @@ function repositoryContextForWorkspace({ cwd, contextId, generatedAt } = {}) {
     repoRootHash: doctorHash(repoRoot),
     workspaceRelativePath: relative(repoRoot, workspaceRoot),
     branch: branchName ?? (detachedHead ? null : abbrevRef),
+    defaultBranch,
     detachedHead,
     headSha,
     headShortSha: headSha ? headSha.slice(0, 12) : null,
@@ -4096,6 +4162,122 @@ function repositoryContextForWorkspace({ cwd, contextId, generatedAt } = {}) {
     remotes,
     redaction: repositoryContextRedaction(),
   };
+}
+
+function branchPolicyForRepositoryContext({
+  runId,
+  policyId,
+  repositoryContext,
+  generatedAt,
+} = {}) {
+  const context = repositoryContext ?? repositoryContextForWorkspace({});
+  const counts = context.status?.counts ?? repositoryStatusCounts("");
+  const protectedBranchNames = uniqueStrings([
+    context.defaultBranch,
+    "main",
+    "master",
+    "trunk",
+    "production",
+    "release",
+    "stable",
+  ]);
+  const branch = context.branch ?? null;
+  const protectedBranch = Boolean(branch && protectedBranchNames.includes(branch));
+  const blockers = [];
+  const warnings = [];
+  if (!context.isGitRepository) blockers.push("not_a_git_repository");
+  if (!context.headSha && context.isGitRepository) blockers.push("missing_head");
+  if (context.detachedHead || !branch) blockers.push("detached_head");
+  if ((counts.conflicted ?? 0) > 0) blockers.push("conflicted_worktree");
+  if (protectedBranch) blockers.push("protected_branch");
+  if (context.status?.isDirty) warnings.push("dirty_worktree");
+  if ((counts.untracked ?? 0) > 0) warnings.push("untracked_files");
+  if (!context.upstream && context.isGitRepository) warnings.push("missing_upstream");
+  if ((context.status?.ahead ?? 0) > 0) warnings.push("ahead_of_upstream");
+  if ((context.status?.behind ?? 0) > 0) warnings.push("behind_upstream");
+
+  const status = blockers.length > 0 ? "blocked" : warnings.length > 0 ? "warning" : "passed";
+  const mutationAllowed = status === "passed";
+  const summary = branchPolicySummary({ status, branch, protectedBranch, blockers, warnings });
+  const id = policyId ?? (runId ? `branch_policy_${runId}` : `branch_policy_${doctorHash(context.contextId ?? "workspace").slice(0, 12)}`);
+  return {
+    schemaVersion: "ioi.agent-runtime.branch-policy.v1",
+    object: "ioi.branch_policy_decision",
+    policyId: id,
+    generatedAt: generatedAt ?? new Date().toISOString(),
+    repositoryContextId: context.contextId ?? null,
+    status,
+    decision: status,
+    summary,
+    readOnly: true,
+    mutationExecuted: false,
+    mutationAllowed,
+    prCreationAllowed: mutationAllowed,
+    reviewRequired: warnings.length > 0 || blockers.length > 0,
+    approvalRequired: warnings.length > 0 || blockers.length > 0,
+    branch,
+    defaultBranch: context.defaultBranch ?? null,
+    protectedBranch,
+    protectedBranchNames,
+    detachedHead: Boolean(context.detachedHead),
+    headSha: context.headSha ?? null,
+    headShortSha: context.headShortSha ?? null,
+    upstream: context.upstream ?? null,
+    ahead: context.status?.ahead ?? 0,
+    behind: context.status?.behind ?? 0,
+    dirty: Boolean(context.status?.isDirty),
+    counts,
+    blockers: uniqueStrings(blockers),
+    warnings: uniqueStrings(warnings),
+    recommendedNextAction: branchPolicyRecommendedNextAction({ status, blockers, warnings }),
+    redaction: {
+      profile: "branch_policy_safe",
+      remoteCredentialsIncluded: false,
+      statusPathsIncluded: false,
+    },
+    evidenceRefs: [
+      "branch_policy",
+      "repository.branch_policy.read_only",
+      "BranchPolicyNode",
+      context.contextId,
+    ].filter(Boolean),
+  };
+}
+
+function branchPolicySummary({ status, branch, protectedBranch, blockers, warnings }) {
+  if (status === "passed") {
+    return `Branch policy passed for ${branch ?? "detached HEAD"}; mutation and PR workflows may proceed.`;
+  }
+  if (status === "blocked") {
+    return `Branch policy blocked ${branch ?? "detached HEAD"}${protectedBranch ? " because it is protected/default" : ""}: ${blockers.join(", ")}.`;
+  }
+  return `Branch policy warning for ${branch ?? "detached HEAD"}: ${warnings.join(", ")}.`;
+}
+
+function branchPolicyRecommendedNextAction({ status, blockers, warnings }) {
+  if (status === "passed") return "Proceed to review or PR workflow gates.";
+  if (blockers.includes("protected_branch")) {
+    return "Create or switch to a feature branch before requesting branch mutation or PR creation.";
+  }
+  if (blockers.includes("conflicted_worktree")) {
+    return "Resolve merge conflicts before requesting branch mutation or PR creation.";
+  }
+  if (blockers.includes("detached_head")) {
+    return "Check out a named feature branch before requesting branch mutation or PR creation.";
+  }
+  if (warnings.includes("dirty_worktree")) {
+    return "Review, stage, or commit local worktree changes before requesting PR creation.";
+  }
+  if (warnings.includes("missing_upstream")) {
+    return "Configure an upstream branch or accept a review gate before PR creation.";
+  }
+  return "Review branch policy warnings before requesting mutation.";
+}
+
+function repositoryDefaultBranch(repoRoot) {
+  const remoteHead = emptyToNull(gitOutput(repoRoot, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]));
+  if (remoteHead?.startsWith("origin/")) return remoteHead.slice("origin/".length);
+  return remoteHead;
 }
 
 function gitOutput(cwd, args) {
@@ -4819,6 +5001,10 @@ function modelRouteBindingFromReceipt(receipt, requestedModelId) {
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function uniqueStrings(values) {
+  return [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))];
 }
 
 function loadCursorCompatibilityConfig(cwd) {
@@ -5681,6 +5867,31 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "repository_context_safe",
     };
   }
+  if (event.type === "branch_policy") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "BranchPolicyDecision",
+      policy_id: event.data?.policyId ?? null,
+      repository_context_id: event.data?.repositoryContextId ?? null,
+      status: event.data?.status ?? null,
+      branch: event.data?.branch ?? null,
+      default_branch: event.data?.defaultBranch ?? null,
+      protected_branch: Boolean(event.data?.protectedBranch),
+      detached_head: Boolean(event.data?.detachedHead),
+      dirty: Boolean(event.data?.dirty),
+      upstream: event.data?.upstream ?? null,
+      ahead: event.data?.ahead ?? 0,
+      behind: event.data?.behind ?? 0,
+      blocker_count: normalizeArray(event.data?.blockers).length,
+      warning_count: normalizeArray(event.data?.warnings).length,
+      mutation_allowed: Boolean(event.data?.mutationAllowed),
+      pr_creation_allowed: Boolean(event.data?.prCreationAllowed),
+      review_required: Boolean(event.data?.reviewRequired),
+      mutation_executed: Boolean(event.data?.mutationExecuted),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: event.data?.redaction?.profile ?? "branch_policy_safe",
+    };
+  }
   if (event.type === "skill_hook_manifest") {
     return {
       ...summary,
@@ -5757,6 +5968,8 @@ function componentKindForRunEvent(eventOrType) {
   switch (type) {
     case "repository_context":
       return "repository_context";
+    case "branch_policy":
+      return "branch_policy";
     case "model_route_decision":
       return "model_router";
     case "skill_hook_manifest":
@@ -5803,6 +6016,7 @@ function workflowNodeForRunEvent(eventOrType) {
     typeof eventOrType !== "string" &&
     (eventOrType?.type === "model_route_decision" ||
       eventOrType?.type === "repository_context" ||
+      eventOrType?.type === "branch_policy" ||
       eventOrType?.type === "memory_update" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
@@ -5820,6 +6034,9 @@ function receiptRefsForRunEvent(event) {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "repository_context") {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "branch_policy") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
   if (event.type === "skill_hook_manifest") {
@@ -5846,6 +6063,7 @@ function receiptRefsForRunEvent(event) {
 
 function artifactRefsForRunEvent(event) {
   if (event.type === "repository_context") return ["repository-context.json"];
+  if (event.type === "branch_policy") return ["branch-policy.json"];
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
   if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];
