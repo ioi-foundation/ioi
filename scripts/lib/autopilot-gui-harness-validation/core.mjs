@@ -4247,6 +4247,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs";
   const projectWorkflowBindingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs";
+  const projectWorkflowCheckpointLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs";
   const projectWorkflowMemoryLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowOutputLanePath =
@@ -4294,6 +4296,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowBindingLane = readFileSync(
     resolve(repoRoot, projectWorkflowBindingLanePath),
+    "utf8",
+  );
+  const projectWorkflowCheckpointLane = readFileSync(
+    resolve(repoRoot, projectWorkflowCheckpointLanePath),
     "utf8",
   );
   const projectWorkflowMemoryLane = readFileSync(
@@ -4679,6 +4685,14 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow_function_input_schema/.test(projectWorkflowBindingLane) &&
       /workflow_function_output_schema/.test(projectWorkflowBindingLane),
+    workflowCheckpointRuntimeLane:
+      /workflow_checkpoint_lane/.test(projectRuntime) &&
+      /fn workflow_checkpoint_state\(/.test(projectWorkflowCheckpointLane) &&
+      /WorkflowCheckpoint/.test(projectWorkflowCheckpointLane) &&
+      /WorkflowStateSnapshot/.test(projectWorkflowCheckpointLane) &&
+      /save_workflow_checkpoint/.test(projectWorkflowCheckpointLane) &&
+      /unique_runtime_id/.test(projectWorkflowCheckpointLane) &&
+      /active_node_ids\.sort/.test(projectWorkflowCheckpointLane),
     workflowOutputRuntimeLane:
       /workflow_output_lane/.test(projectRuntime) &&
       /workflow_output_satisfies_schema/.test(projectWorkflowOutputLane) &&
