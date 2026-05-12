@@ -3003,3 +3003,36 @@ Validation evidence:
   - injected bridge turn submission persists `turn.started` and
     `turn.completed` rows and returns a locked `RuntimeTurnRecord`;
   - `/v1/runs/{id}/events` returns the bridge-backed owning turn event ids.
+
+## Slice 92. 2026-05-12 - RuntimeAgentService command bridge adapter
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- packages/runtime-daemon/src/runtime-agent-service-adapter.mjs
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/runtime-agent-service-adapter.mjs`
+- `node --check packages/runtime-daemon/src/runtime-api-bridge.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 schema snapshot contract subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 14 daemon/API contract subtests passed;
+  - `runtime_profile=runtime_service` still fails closed without a bridge;
+  - env-configured `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND` starts a
+    command bridge using `ioi.runtime.bridge.command.v1`;
+  - command bridge `start_thread` persists `thread.started` with
+    `source_event_kind=RuntimeAgentService.handle_service_call.start@v1`;
+  - command bridge `submit_turn` persists `turn.started` and `turn.completed`
+    over the same stored event stream with `fixture_profile: null`;
+  - command bridge trace proves `start_thread` and `submit_turn` both received
+    the schema version, bridge id, runtime profile, thread id, and runtime
+    session id expected by the adapter boundary.
+- `git diff --check`

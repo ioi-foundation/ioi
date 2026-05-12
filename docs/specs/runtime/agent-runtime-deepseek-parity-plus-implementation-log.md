@@ -4661,3 +4661,44 @@ Validation evidence:
   - 13 daemon/API contract subtests passed, including runtime-service
     fail-closed behavior, injected bridge thread projection, bridge turn
     projection, null fixture profile preservation, and run-event alias parity.
+
+### Slice 92. 2026-05-12 - RuntimeAgentService command bridge adapter
+
+Implementation slice completed 2026-05-12, RuntimeAgentService command bridge
+adapter:
+
+- Added
+  `packages/runtime-daemon/src/runtime-agent-service-adapter.mjs` as the first
+  concrete process adapter behind `RuntimeApiBridge`.
+- Locked the command protocol as `ioi.runtime.bridge.command.v1`: the daemon
+  sends `{ schema_version, bridge_id, operation, input }` on stdin and expects a
+  JSON bridge result on stdout.
+- Added env auto-wiring through
+  `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND`,
+  `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS`,
+  `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID`, and timeout controls so
+  `runtime_profile=runtime_service` can bind to an external Rust/Tauri-owned
+  bridge without injected test objects.
+- Preserved fail-closed behavior: no env command still produces the
+  `RuntimeApiBridge` external blocker; command failures surface as
+  `runtime_bridge_command` errors with bounded stdout/stderr evidence.
+- Exported the command adapter from `@ioi/runtime-daemon` and added daemon
+  contract coverage proving env-configured command start and turn submission
+  persist canonical `RuntimeEventEnvelope` rows with `fixture_profile: null`.
+- Updated the master guide tactical queue so the next P0 slice is the Rust/Tauri
+  executable that implements this command protocol with durable
+  `RuntimeAgentService` state and KernelEvent mapping.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/runtime-agent-service-adapter.mjs`
+- `node --check packages/runtime-daemon/src/runtime-api-bridge.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm test --workspace=@ioi/agent-sdk`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 14 daemon/API contract subtests passed, including env-configured command
+    bridge start/turn submission and the prior injected bridge/fail-closed
+    contract.
+- `git diff --check`

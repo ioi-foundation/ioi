@@ -97,20 +97,23 @@ Completed workstream snapshot as of 2026-05-12:
   tests.
 - The active strategic risk remains the P0 live runtime API bridge plus durable
   thread/turn/item event model; the schema snapshot and daemon event-store
-  spine are now locked, replay aliases resolve over stored event ids, and the
-  daemon now has an explicit `RuntimeApiBridge` boundary that prevents
-  runtime-service mode from falling back to fixture success paths. The active
-  tactical cleanup stream remains React Flow settings-harness panel
-  decomposition.
+  spine are now locked, replay aliases resolve over stored event ids, the
+  daemon has an explicit `RuntimeApiBridge` boundary that prevents
+  runtime-service mode from falling back to fixture success paths, and an
+  env-configured command adapter can now bind that boundary to an external
+  Rust/Tauri-owned runtime bridge process. The active tactical cleanup stream
+  remains React Flow settings-harness panel decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 RuntimeApiBridge boundary and turn projection
+- 2026-05-12: P0 RuntimeAgentService command bridge adapter
 - Artifacts: packages/runtime-daemon/src/index.mjs,
   packages/runtime-daemon/src/runtime-api-bridge.mjs,
+  packages/runtime-daemon/src/runtime-agent-service-adapter.mjs,
   scripts/lib/live-runtime-daemon-contract.test.mjs
-- Validation: daemon bridge/fail-closed contract, SDK compatibility tests, and
-  schema guard; see the validation ledger.
+- Validation: daemon command-bridge contract, injected bridge/fail-closed
+  contract, SDK compatibility tests, and schema guard; see the validation
+  ledger.
 
 Most recent live GUI implementation evidence:
 
@@ -121,6 +124,7 @@ Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | RuntimeAgentService command bridge adapter | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | RuntimeApiBridge boundary and turn projection | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Runtime event replay alias parity | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Daemon event-store spine | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -137,9 +141,10 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Attach the real Rust/Tauri `RuntimeAgentService` adapter behind
-   `RuntimeApiBridge` for `start@v1`, message submission, step execution, and
-   event subscription.
+1. Implement the Rust/Tauri bridge command that speaks
+   `ioi.runtime.bridge.command.v1`, owns durable `RuntimeAgentService`
+   `start@v1`, `post_message@v1`, and `step@v1` execution, and emits
+   bridge-ready TTI events.
 2. Expand bridge event mapping from the current `thread.started`,
    `turn.started`, and `turn.completed` contract into the first KernelEvent
    variants: reasoning delta, tool result, approval/policy, and receipt events.
@@ -1677,16 +1682,15 @@ The live bridge contract is now locked in
 runtime slices should implement that contract in small, testable pieces while
 keeping React Flow cleanup slices small and source-contract guarded.
 
-Runtime bridge implementation sequence:
+Remaining runtime bridge implementation sequence:
 
-1. Add shared schema definitions and generated TS/Rust snapshots.
-2. Add an append-only daemon event store with cursor and idempotency tests.
-3. Bridge one live `RuntimeAgentService` session into
-   `/v1/threads/{id}/events`.
-4. Expose SSE replay with `since_seq` and `Last-Event-ID`.
-5. Add minimal SDK and React Flow runtime thread/turn/event projections.
-6. Convert `/v1/runs/*` to compatibility aliases over turn/event records.
-7. Prove a live event appears in SDK, CLI/TUI, and React Flow from the same
+1. Implement the Rust/Tauri command bridge executable for
+   `ioi.runtime.bridge.command.v1` using durable `RuntimeAgentService` state.
+2. Map first real `KernelEvent` variants into bridge-ready TTI events:
+   reasoning delta, tool result, approval/policy, and receipt events.
+3. Add minimal SDK and React Flow runtime thread/turn/event projections.
+4. Add CLI/TUI stream commands over the same stored event stream.
+5. Prove one live event appears in SDK, CLI/TUI, and React Flow from the same
    `seq`.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
