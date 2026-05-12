@@ -97,6 +97,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
@@ -167,7 +168,7 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
     /workflow-settings-harness-summary/,
-    1_000,
+    500,
   );
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
@@ -179,6 +180,11 @@ test("workflow rail modules own extracted implementation", () => {
     /workflow-harness-worker-binding-inspector/,
     1_000,
   );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
+    /workflow-harness-promotion-clusters/,
+    800,
+  );
   {
     const settingsHarnessPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
@@ -188,6 +194,9 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessWorkerBindingPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
+    );
+    const settingsHarnessPromotionPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
     );
     for (const expectedInterface of [
       "WorkflowSettingsHarnessActivationProps",
@@ -213,6 +222,11 @@ test("workflow rail modules own extracted implementation", () => {
       /WorkflowSettingsHarnessWorkerBindingPanel/,
       "settings harness panel should delegate worker binding UI to its extracted component",
     );
+    assert.match(
+      settingsHarnessPanel,
+      /WorkflowSettingsHarnessPromotionPanel/,
+      "settings harness panel should delegate promotion UI to its extracted component",
+    );
     assert.doesNotMatch(
       settingsHarnessPanel,
       /workflow-harness-activation-gate-inspector/,
@@ -223,6 +237,11 @@ test("workflow rail modules own extracted implementation", () => {
       /workflow-harness-worker-binding-inspector/,
       "settings harness panel should not keep the worker binding inspector implementation inline",
     );
+    assert.doesNotMatch(
+      settingsHarnessPanel,
+      /workflow-harness-promotion-clusters/,
+      "settings harness panel should not keep the promotion cluster implementation inline",
+    );
     assert.match(
       settingsHarnessActivationPanel,
       /WorkflowSettingsHarnessActivationPanelProps/,
@@ -232,6 +251,11 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessWorkerBindingPanel,
       /WorkflowSettingsHarnessWorkerBindingPanelProps/,
       "settings harness worker binding panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessPromotionPanel,
+      /WorkflowSettingsHarnessPromotionPanelProps/,
+      "settings harness promotion panel should expose a typed prop boundary",
     );
     assert.doesNotMatch(
       settingsHarnessPanel,
@@ -247,6 +271,11 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessWorkerBindingPanel,
       /\bany\b/,
       "settings harness worker binding panel should keep its prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPromotionPanel,
+      /\bany\b/,
+      "settings harness promotion panel should keep its prop boundary typed",
     );
   }
   assertOwnsImplementation(
