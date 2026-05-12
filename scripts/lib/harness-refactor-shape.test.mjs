@@ -97,6 +97,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
@@ -181,6 +182,11 @@ test("workflow rail modules own extracted implementation", () => {
   );
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
+    /workflow-harness-activation-wizard/,
+    500,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
     /workflow-harness-activation-gate-inspector/,
     1_000,
   );
@@ -218,6 +224,9 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessActivationPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
+    );
+    const settingsHarnessActivationGatePanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
     );
     const settingsHarnessWorkerBindingPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
@@ -282,6 +291,26 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessActivationPanel,
       /WorkflowSettingsHarnessActivationPanelProps/,
       "settings harness activation panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessActivationPanel,
+      /WorkflowSettingsHarnessActivationGatePanel/,
+      "settings harness activation panel should delegate gate evidence UI to its extracted component",
+    );
+    assert.match(
+      settingsHarnessActivationGatePanel,
+      /WorkflowSettingsHarnessActivationGatePanelProps/,
+      "settings harness activation gate panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessActivationGatePanel,
+      /workflow-harness-activation-gate-inspector/,
+      "settings harness activation gate panel should own gate evidence inspector UI",
+    );
+    assert.doesNotMatch(
+      settingsHarnessActivationPanel,
+      /data-testid="workflow-harness-activation-gate-inspector"/,
+      "settings harness activation panel should not keep gate evidence inspector implementation inline",
     );
     assert.match(
       settingsHarnessWorkerBindingPanel,
@@ -363,8 +392,14 @@ test("workflow rail modules own extracted implementation", () => {
       /\bany\b/,
       "settings harness activation panel should keep its prop boundary typed",
     );
+    assert.doesNotMatch(
+      settingsHarnessActivationGatePanel,
+      /\bany\b/,
+      "settings harness activation gate panel should keep its prop boundary typed",
+    );
     for (const [source, label] of [
       [settingsHarnessActivationPanel, "activation"],
+      [settingsHarnessActivationGatePanel, "activation gate"],
       [settingsHarnessWorkerBindingPanel, "worker binding"],
       [settingsHarnessActiveRuntimeRollbackPanel, "active runtime rollback"],
       [settingsHarnessActiveRuntimeBindingPanel, "active runtime binding"],
