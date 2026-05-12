@@ -1629,6 +1629,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowSettingsHarnessRollbackRestoreProofPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
+    ),
+    "utf8",
+  );
   const workflowSettingsHarnessPromotionPanel = fs.readFileSync(
     path.join(
       root,
@@ -3035,7 +3042,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowSettingsHarnessWorkerBindingPanel, /WorkflowSettingsHarnessActiveRuntimeRollbackPanel/);
   assert.match(workflowSettingsHarnessActiveRuntimeRollbackPanel, /data-worker-binding-registry-bound/);
   assert.match(workflowSettingsHarnessActiveRuntimeRollbackPanel, /workflow-harness-active-runtime-rollback-proof/);
-  assert.match(workflowSettingsHarnessActiveRuntimeRollbackPanel, /workflow-harness-git-restore-proof/);
+  assert.match(workflowSettingsHarnessActiveRuntimeRollbackPanel, /WorkflowSettingsHarnessRollbackRestoreProofPanel/);
+  assert.match(workflowSettingsHarnessRollbackRestoreProofPanel, /workflow-harness-git-restore-proof/);
+  assert.doesNotMatch(workflowSettingsHarnessRollbackRestoreProofPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessActiveRuntimeRollbackPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessWorkerBindingPanel, /settingsHarnessPanel/);
   assert.match(workflowSettingsHarnessPromotionPanel, /workflow-harness-promotion-clusters/);
