@@ -64,6 +64,14 @@ async function fetchJsonStatus(url, options) {
   };
 }
 
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
+
 function git(cwd, args) {
   return execFileSync("git", ["-C", cwd, ...args], {
     encoding: "utf8",
@@ -1355,6 +1363,184 @@ test("runtime_service thread creation requires RuntimeApiBridge and preserves br
     assert.deepEqual(runEvents.map((event) => event.event_id), replayed.slice(1).map((event) => event.event_id));
   } finally {
     await daemon.close();
+  }
+});
+
+test("runtime_service profile auto-wires RuntimeAgentService command bridge from env", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-command-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-command-state-"));
+  const bridgeDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-command-bridge-"));
+  const bridgeScript = path.join(bridgeDir, "bridge-command.mjs");
+  const traceFile = path.join(bridgeDir, "bridge-trace.jsonl");
+  const runtimeSessionId = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+  fs.writeFileSync(
+    bridgeScript,
+    `
+import fs from "node:fs";
+
+const request = JSON.parse(fs.readFileSync(0, "utf8"));
+fs.appendFileSync(process.env.BRIDGE_TRACE_FILE, JSON.stringify({
+  schema_version: request.schema_version,
+  bridge_id: request.bridge_id,
+  operation: request.operation,
+  runtime_profile: request.input?.runtimeProfile,
+  thread_id: request.input?.threadId,
+  session_id: request.input?.sessionId ?? null,
+}) + "\\n");
+
+const input = request.input ?? {};
+const sessionId = "${runtimeSessionId}";
+
+if (request.operation === "start_thread") {
+  console.log("RuntimeAgentService command bridge accepted start_thread");
+  console.log(JSON.stringify({
+    ok: true,
+    result: {
+      bridge_id: request.bridge_id,
+      session_id: sessionId,
+      source: "runtime_service",
+      status: "active",
+      events: [{
+        item_id: input.threadId + ":item:runtime-command-started",
+        idempotency_key: "runtime-command:" + sessionId + ":thread.started",
+        source_event_kind: "RuntimeAgentService.handle_service_call.start@v1",
+        event_kind: "thread.started",
+        status: "running",
+        actor: "runtime",
+        created_at: "2026-05-12T00:00:03.000Z",
+        component_kind: "runtime_thread",
+        workflow_node_id: "runtime.runtime-thread",
+        payload_schema_version: "ioi.runtime.thread.v1",
+        payload: {
+          bridge_schema_version: request.schema_version,
+          session_id: sessionId,
+          runtime_profile: input.runtimeProfile,
+        },
+        fixture_profile: null,
+      }],
+    },
+  }));
+} else if (request.operation === "submit_turn") {
+  const turnId = "turn_runtime_command_001";
+  console.log(JSON.stringify({
+    ok: true,
+    result: {
+      bridge_id: request.bridge_id,
+      run_id: "run_runtime_command_001",
+      turn_id: turnId,
+      source: "runtime_service",
+      status: "completed",
+      result: "RuntimeAgentService command bridge turn completed.",
+      stop_reason: "runtime_bridge_completed",
+      created_at: "2026-05-12T00:00:04.000Z",
+      updated_at: "2026-05-12T00:00:05.000Z",
+      events: [
+        {
+          item_id: turnId + ":item:user-message",
+          idempotency_key: "runtime-command:" + sessionId + ":" + turnId + ":started",
+          source_event_kind: "RuntimeAgentService.handle_service_call.post_message@v1",
+          event_kind: "turn.started",
+          status: "running",
+          actor: "user",
+          created_at: "2026-05-12T00:00:04.000Z",
+          component_kind: "runtime_turn",
+          workflow_node_id: "runtime.runtime-turn",
+          payload_schema_version: "ioi.runtime.event.v1",
+          payload: {
+            prompt: input.request?.prompt,
+            session_id: input.sessionId,
+          },
+          fixture_profile: null,
+        },
+        {
+          item_id: turnId + ":item:assistant-message",
+          idempotency_key: "runtime-command:" + sessionId + ":" + turnId + ":completed",
+          source_event_kind: "RuntimeAgentService.handle_service_call.step@v1",
+          event_kind: "turn.completed",
+          status: "completed",
+          actor: "assistant",
+          created_at: "2026-05-12T00:00:05.000Z",
+          component_kind: "runtime_turn",
+          workflow_node_id: "runtime.runtime-turn",
+          payload_schema_version: "ioi.runtime.event.v1",
+          payload: {
+            summary: "RuntimeAgentService command bridge turn completed.",
+            session_id: input.sessionId,
+          },
+          fixture_profile: null,
+        },
+      ],
+    },
+  }));
+} else {
+  console.log(JSON.stringify({
+    ok: false,
+    error: {
+      code: "unsupported_operation",
+      message: "unsupported operation " + request.operation,
+    },
+  }));
+}
+`,
+  );
+
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+    trace: process.env.BRIDGE_TRACE_FILE,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = process.execPath;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify([bridgeScript]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "env-command-runtime-agent-service";
+  process.env.BRIDGE_TRACE_FILE = traceFile;
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    assert.equal(thread.session_id, runtimeSessionId);
+    assert.equal(thread.runtime_bridge_id, "env-command-runtime-agent-service");
+    assert.equal(thread.fixture_profile, null);
+
+    const startEvents = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    assert.equal(startEvents.length, 1);
+    assert.equal(startEvents[0].source_event_kind, "RuntimeAgentService.handle_service_call.start@v1");
+    assert.equal(startEvents[0].payload.bridge_schema_version, "ioi.runtime.bridge.command.v1");
+
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "Flow through the command bridge." }),
+    });
+    assert.equal(turn.turn_id, "turn_runtime_command_001");
+    assert.equal(turn.request_id, "run_runtime_command_001");
+    assert.equal(turn.status, "completed");
+    assert.equal(turn.stop_reason, "runtime_bridge_completed");
+    assert.equal(turn.fixture_profile, null);
+    assert.equal(turn.seq_start, 2);
+    assert.equal(turn.seq_end, 3);
+
+    const trace = fs.readFileSync(traceFile, "utf8")
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => JSON.parse(line));
+    assert.deepEqual(trace.map((entry) => entry.operation), ["start_thread", "submit_turn"]);
+    assert.ok(trace.every((entry) => entry.schema_version === "ioi.runtime.bridge.command.v1"));
+    assert.ok(trace.every((entry) => entry.bridge_id === "env-command-runtime-agent-service"));
+    assert.equal(trace[0].runtime_profile, "runtime_service");
+    assert.equal(trace[1].session_id, runtimeSessionId);
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+    restoreEnv("BRIDGE_TRACE_FILE", previousEnv.trace);
   }
 });
 

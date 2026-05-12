@@ -22,6 +22,13 @@ import {
   runtimeProfileForRequest,
 } from "./runtime-api-bridge.mjs";
 
+export {
+  RuntimeAgentServiceCommandAdapter,
+  RuntimeAgentServiceCommandAdapterError,
+  createRuntimeAgentServiceCommandAdapter,
+  createRuntimeAgentServiceCommandAdapterFromEnv,
+} from "./runtime-agent-service-adapter.mjs";
+
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
 const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_canceled"]);
 const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
