@@ -34,6 +34,7 @@ mod workflow_node_contract_lane;
 mod workflow_node_execution_lane;
 mod workflow_output_lane;
 mod workflow_package_lane;
+mod workflow_run_lifecycle_lane;
 mod workflow_state_lane;
 mod workflow_value_helpers;
 pub use commands::*;
@@ -54,6 +55,7 @@ pub(crate) use workflow_node_execution_lane::execute_workflow_harness_canary_nod
 pub(crate) use workflow_node_execution_lane::execute_workflow_harness_live_default_node;
 use workflow_node_execution_lane::*;
 use workflow_output_lane::*;
+use workflow_run_lifecycle_lane::*;
 use workflow_state_lane::*;
 
 fn default_gitignore() -> &'static str {
