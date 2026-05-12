@@ -3,6 +3,10 @@
 use super::workflow_graph_execution_lane::{
     workflow_edge_connection_class, workflow_edge_from_port, workflow_edge_to_port,
 };
+use super::workflow_node_metadata_lane::{
+    workflow_node_id, workflow_node_law, workflow_node_logic, workflow_node_name,
+    workflow_node_type,
+};
 use super::workflow_value_helpers::{
     workflow_logic_string, workflow_value_bool_any, workflow_value_string_any,
 };

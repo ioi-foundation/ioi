@@ -2,7 +2,9 @@ use super::explorer::sort_paths;
 use super::ids::now_ms;
 use super::paths::workflow_package_file_record;
 use super::types::{WorkflowPortablePackageFile, WorkflowPortablePackageManifest, WorkflowProject};
-use super::{workflow_node_id, workflow_node_logic, workflow_node_name, workflow_node_type};
+use super::workflow_node_metadata_lane::{
+    workflow_node_id, workflow_node_logic, workflow_node_name, workflow_node_type,
+};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};

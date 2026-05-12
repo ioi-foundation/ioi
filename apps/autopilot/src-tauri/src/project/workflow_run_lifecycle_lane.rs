@@ -1,6 +1,5 @@
 // apps/autopilot/src-tauri/src/project/workflow_run_lifecycle_lane.rs
 
-use super::runtime::{workflow_node_by_id, workflow_node_name, workflow_node_type};
 use super::workflow_checkpoint_lane::workflow_checkpoint_state;
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::workflow_execution_results_lane::{
@@ -9,6 +8,9 @@ use super::workflow_execution_results_lane::{
 use super::workflow_graph_execution_lane::workflow_node_lifecycle_steps;
 use super::workflow_harness_results_lane::workflow_attach_harness_run_artifacts;
 use super::workflow_node_execution_lane::execute_workflow_node;
+use super::workflow_node_metadata_lane::{
+    workflow_node_by_id, workflow_node_name, workflow_node_type,
+};
 use super::*;
 
 pub(super) fn workflow_push_event(
