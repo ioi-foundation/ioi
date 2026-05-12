@@ -4240,6 +4240,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx";
   const fileBundleModelPath =
     "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts";
+  const settingsPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx";
+  const settingsModelPath =
+    "packages/agent-ide/src/runtime/workflow-settings-model.ts";
   const readinessPanelPath =
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
   const readinessModelPath =
@@ -4343,6 +4347,14 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const filesPanel = readFileSync(resolve(repoRoot, filesPanelPath), "utf8");
   const fileBundleModel = readFileSync(
     resolve(repoRoot, fileBundleModelPath),
+    "utf8",
+  );
+  const settingsPanel = readFileSync(
+    resolve(repoRoot, settingsPanelPath),
+    "utf8",
+  );
+  const settingsModel = readFileSync(
+    resolve(repoRoot, settingsModelPath),
     "utf8",
   );
   const readinessPanel = readFileSync(
@@ -4902,6 +4914,16 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /readyItems/.test(fileBundleModel) &&
       /pendingItems/.test(fileBundleModel) &&
       /portablePackageExported/.test(fileBundleModel),
+    workflowSettingsModelUi:
+      /WorkflowSettingsPanel/.test(rail) &&
+      /workflowSettingsModel/.test(rail) &&
+      /workflow-settings-summary/.test(settingsPanel) &&
+      /workflow-settings-chrome-locale-select/.test(settingsPanel) &&
+      /workflow-environment-profile/.test(settingsPanel) &&
+      /workflow-settings-binding-registry/.test(settingsPanel) &&
+      /workflow-settings-production-profile/.test(settingsPanel) &&
+      /productionSummary/.test(settingsModel) &&
+      /packageReadinessStatus/.test(settingsModel),
     workflowUnitTestReadinessModelUi:
       /WorkflowUnitTestsPanel/.test(rail) &&
       /workflowTestReadinessModel/.test(rail) &&
@@ -5648,6 +5670,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       entrypointsModelPath,
       filesPanelPath,
       fileBundleModelPath,
+      settingsPanelPath,
+      settingsModelPath,
       readinessPanelPath,
       readinessModelPath,
       unitTestsPanelPath,
@@ -11008,6 +11032,8 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
+	        "packages/agent-ide/src/runtime/workflow-settings-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
