@@ -1572,6 +1572,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts"),
     "utf8",
   );
+  const workflowFilesPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowFileBundleModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts"),
+    "utf8",
+  );
   const workflowReadinessPanel = fs.readFileSync(
     path.join(
       root,
@@ -2934,6 +2945,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowEntrypointsModel, /readyStartPoints/);
   assert.match(workflowEntrypointsModel, /readyTriggers/);
   assert.match(workflowEntrypointsModel, /blockedTriggers/);
+  assert.match(workflowRailPanel, /WorkflowFilesPanel/);
+  assert.match(workflowRailPanel, /workflowFileBundleModel/);
+  assert.match(workflowFilesPanel, /workflow-files-list/);
+  assert.match(workflowFilesPanel, /workflow-file-/);
+  assert.match(workflowFilesPanel, /data-file-ready/);
+  assert.match(workflowFileBundleModel, /workflowFileBundleModel/);
+  assert.match(workflowFileBundleModel, /readyItems/);
+  assert.match(workflowFileBundleModel, /pendingItems/);
+  assert.match(workflowFileBundleModel, /portablePackageExported/);
   assert.match(workflowRailPanel, /workflow-settings-chrome-locale-select/);
   assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /onUpdateWorkflowChromeLocale/);

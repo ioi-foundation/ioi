@@ -4236,6 +4236,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx";
   const entrypointsModelPath =
     "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts";
+  const filesPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx";
+  const fileBundleModelPath =
+    "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts";
   const readinessPanelPath =
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
   const readinessModelPath =
@@ -4334,6 +4338,11 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const entrypointsModel = readFileSync(
     resolve(repoRoot, entrypointsModelPath),
+    "utf8",
+  );
+  const filesPanel = readFileSync(resolve(repoRoot, filesPanelPath), "utf8");
+  const fileBundleModel = readFileSync(
+    resolve(repoRoot, fileBundleModelPath),
     "utf8",
   );
   const readinessPanel = readFileSync(
@@ -4884,6 +4893,15 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /readyStartPoints/.test(entrypointsModel) &&
       /readyTriggers/.test(entrypointsModel) &&
       /blockedTriggers/.test(entrypointsModel),
+    workflowFileBundleModelUi:
+      /WorkflowFilesPanel/.test(rail) &&
+      /workflowFileBundleModel/.test(rail) &&
+      /workflow-files-list/.test(filesPanel) &&
+      /workflow-file-/.test(filesPanel) &&
+      /data-file-ready/.test(filesPanel) &&
+      /readyItems/.test(fileBundleModel) &&
+      /pendingItems/.test(fileBundleModel) &&
+      /portablePackageExported/.test(fileBundleModel),
     workflowUnitTestReadinessModelUi:
       /WorkflowUnitTestsPanel/.test(rail) &&
       /workflowTestReadinessModel/.test(rail) &&
@@ -5628,6 +5646,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       railSearchModelPath,
       entrypointsPanelPath,
       entrypointsModelPath,
+      filesPanelPath,
+      fileBundleModelPath,
       readinessPanelPath,
       readinessModelPath,
       unitTestsPanelPath,
@@ -10986,6 +11006,8 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/runtime/workflow-rail-search-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
+	        "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",

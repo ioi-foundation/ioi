@@ -92,6 +92,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/rollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
@@ -99,6 +100,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
     "packages/agent-ide/src/runtime/workflow-rail-search-model.ts",
     "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
+    "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
     "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
     "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
     "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
@@ -134,6 +136,16 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
     /workflowEntrypointsModel/,
+    80,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
+    /workflow-files-list/,
+    30,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
+    /workflowFileBundleModel/,
     80,
   );
   assertOwnsImplementation(
@@ -202,7 +214,7 @@ test("core files do not grow past the refactor checkpoint without updating the g
   for (const [relativePath, maxLines] of [
     ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 13_500],
     ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 11_430],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_700],
+    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_710],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,
