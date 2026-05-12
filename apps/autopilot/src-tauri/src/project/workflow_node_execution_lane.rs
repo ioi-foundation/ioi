@@ -20,6 +20,9 @@ use super::workflow_binding_lane::{
 };
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::workflow_memory_lane::{workflow_memory_query_output, workflow_memory_send_options};
+use super::workflow_node_metadata_lane::{
+    workflow_node_id, workflow_node_logic, workflow_node_type,
+};
 use super::workflow_output_lane::{
     workflow_output_bundle, workflow_output_satisfies_schema, workflow_truncate_output,
 };

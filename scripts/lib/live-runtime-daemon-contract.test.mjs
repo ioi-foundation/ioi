@@ -1582,6 +1582,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "apps/autopilot/src-tauri/src/project/runtime.rs"),
     "utf8",
   );
+  const tauriProjectPackage = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/project/package.rs"),
+    "utf8",
+  );
+  const tauriProjectValidation = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/project/validation.rs"),
+    "utf8",
+  );
   const tauriProjectWorkflowAuthorityToolingLane = fs.readFileSync(
     path.join(
       root,
@@ -1621,6 +1629,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(
       root,
       "apps/autopilot/src-tauri/src/project/workflow_node_contract_lane.rs",
+    ),
+    "utf8",
+  );
+  const tauriProjectWorkflowNodeMetadataLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_node_metadata_lane.rs",
     ),
     "utf8",
   );
@@ -1882,6 +1897,23 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectWorkflowNodeContractLane, /workflow_logic_string/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_action_frame/);
   assert.match(tauriProjectRuntime, /workflow_max_attempts/);
+  assert.match(tauriProjectRuntime, /workflow_node_metadata_lane/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_value_string\(/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_node_id\(/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_node_type\(/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_node_name\(/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_node_logic\(/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_node_law\(/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /fn workflow_node_by_id/);
+  assert.match(tauriProjectWorkflowNodeMetadataLane, /WorkflowProject/);
+  assert.match(tauriProjectWorkflowRunLifecycleLane, /workflow_node_metadata_lane/);
+  assert.doesNotMatch(tauriProjectWorkflowRunLifecycleLane, /use super::runtime::/);
+  assert.match(tauriProjectWorkflowNodeContractLane, /workflow_node_metadata_lane/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_node_metadata_lane/);
+  assert.match(tauriProjectWorkflowStateLane, /workflow_node_metadata_lane/);
+  assert.match(tauriProjectWorkflowApprovalInterruptLane, /workflow_node_metadata_lane/);
+  assert.match(tauriProjectValidation, /workflow_node_metadata_lane/);
+  assert.match(tauriProjectPackage, /workflow_node_metadata_lane/);
   assert.match(tauriProjectRuntime, /workflow_run_lifecycle_lane/);
   assert.match(tauriProjectWorkflowRunLifecycleLane, /fn workflow_push_event\(/);
   assert.match(tauriProjectWorkflowRunLifecycleLane, /fn new_workflow_thread\(/);

@@ -4240,6 +4240,9 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
+  const projectPackagePath = "apps/autopilot/src-tauri/src/project/package.rs";
+  const projectRustValidationPath =
+    "apps/autopilot/src-tauri/src/project/validation.rs";
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
   const projectWorkflowAuthorityToolingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
@@ -4253,6 +4256,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs";
   const projectWorkflowNodeContractLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_node_contract_lane.rs";
+  const projectWorkflowNodeMetadataLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_node_metadata_lane.rs";
   const projectWorkflowRunLifecycleLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_run_lifecycle_lane.rs";
   const projectWorkflowNodeExecutionLanePath =
@@ -4290,6 +4295,11 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     resolve(repoRoot, restoreCommandPath),
     "utf8",
   );
+  const projectPackage = readFileSync(resolve(repoRoot, projectPackagePath), "utf8");
+  const projectRustValidation = readFileSync(
+    resolve(repoRoot, projectRustValidationPath),
+    "utf8",
+  );
   const projectRuntime = readFileSync(
     resolve(repoRoot, projectRuntimePath),
     "utf8",
@@ -4316,6 +4326,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowNodeContractLane = readFileSync(
     resolve(repoRoot, projectWorkflowNodeContractLanePath),
+    "utf8",
+  );
+  const projectWorkflowNodeMetadataLane = readFileSync(
+    resolve(repoRoot, projectWorkflowNodeMetadataLanePath),
     "utf8",
   );
   const projectWorkflowRunLifecycleLane = readFileSync(
@@ -4752,6 +4766,26 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_logic_string/.test(projectWorkflowNodeContractLane) &&
       /workflow_action_frame/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_max_attempts/.test(projectRuntime),
+    workflowNodeMetadataRuntimeLane:
+      /workflow_node_metadata_lane/.test(projectRuntime) &&
+      /fn workflow_value_string\(/.test(projectWorkflowNodeMetadataLane) &&
+      /fn workflow_node_id\(/.test(projectWorkflowNodeMetadataLane) &&
+      /fn workflow_node_type\(/.test(projectWorkflowNodeMetadataLane) &&
+      /fn workflow_node_name\(/.test(projectWorkflowNodeMetadataLane) &&
+      /fn workflow_node_logic\(/.test(projectWorkflowNodeMetadataLane) &&
+      /fn workflow_node_law\(/.test(projectWorkflowNodeMetadataLane) &&
+      /fn workflow_node_by_id/.test(projectWorkflowNodeMetadataLane) &&
+      /WorkflowProject/.test(projectWorkflowNodeMetadataLane) &&
+      /workflow_node_metadata_lane/.test(projectWorkflowRunLifecycleLane) &&
+      !/use super::runtime::/.test(projectWorkflowRunLifecycleLane) &&
+      /workflow_node_metadata_lane/.test(projectWorkflowNodeContractLane) &&
+      /workflow_node_metadata_lane/.test(projectWorkflowNodeExecutionLane) &&
+      /workflow_node_metadata_lane/.test(projectWorkflowStateLane) &&
+      /workflow_node_metadata_lane/.test(
+        projectWorkflowApprovalInterruptLane,
+      ) &&
+      /workflow_node_metadata_lane/.test(projectRustValidation) &&
+      /workflow_node_metadata_lane/.test(projectPackage),
     workflowRunLifecycleRuntimeLane:
       /workflow_run_lifecycle_lane/.test(projectRuntime) &&
       /fn workflow_push_event\(/.test(projectWorkflowRunLifecycleLane) &&

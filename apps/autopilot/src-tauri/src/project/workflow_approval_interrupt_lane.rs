@@ -1,6 +1,10 @@
 // apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs
 
 use super::workflow_binding_lane::{workflow_connector_binding, workflow_tool_binding};
+use super::workflow_node_metadata_lane::{
+    workflow_node_id, workflow_node_law, workflow_node_logic, workflow_node_name,
+    workflow_node_type,
+};
 use super::workflow_value_helpers::{
     workflow_logic_string, workflow_value_bool_any, workflow_value_string_any,
 };
