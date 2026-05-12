@@ -5248,6 +5248,88 @@ Validation evidence:
     and
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx`.
 
+Implementation slice completed 2026-05-12, React Flow settings harness package
+import/rows extraction:
+
+- Split package import review identity, activation handoff, reviewed-import
+  activation apply controls, replay-integrity blockers, and evidence row
+  deep-link dispatch out of
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx`
+  into
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx`
+  and
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx`.
+- The parent package evidence panel now stays focused on the
+  `workflow-harness-package-evidence-review` shell, package-evidence gate
+  counters, review summary attributes, and typed child composition. This keeps
+  the React Flow workflow creator's reviewed-import surface modular: import
+  review/handoff can be addressed independently from evidence rows and package
+  manifest/chrome-locality summary state.
+- Retargeted daemon, refactor-shape, and live GUI source-contract validation so
+  `WorkflowSettingsHarnessPackageEvidencePanel` must delegate to
+  `WorkflowSettingsHarnessPackageImportReviewPanel` and
+  `WorkflowSettingsHarnessPackageEvidenceRowsPanel`. The rows panel now owns
+  `workflow-harness-package-evidence-row-*`, receipt refs, replay refs, and
+  package evidence deep links, while the import-review panel owns
+  `workflow-harness-package-import-review`,
+  `workflow-harness-package-import-handoff`,
+  `data-package-import-chrome-locale-preserved`, and the reviewed-import
+  activation controls without reintroducing `any`.
+- Updated live GUI validation source aggregation so rollback/restore canary and
+  promotion-transition proof bundles include the package import-review and
+  evidence-row panels alongside the parent, activation gate, activation gate
+  refs/timeline, shared types, activation, worker-binding, active runtime
+  binding/rollback, restore proof, promotion, promotion readiness, and harness
+  model source files.
+- `settingsHarnessPackageEvidencePanel.tsx` is reduced from 671 to 179 lines.
+  The new `settingsHarnessPackageImportReviewPanel.tsx` is 427 lines,
+  `settingsHarnessPackageEvidenceRowsPanel.tsx` is 194 lines, and
+  `scripts/lib/autopilot-gui-harness-validation/core.mjs` remains inside its
+  11,775-line guard at 11,772 lines.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- `npm run validate:autopilot-gui-harness:run`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSettingsHarnessModelUi === true`;
+  - `checks.activationGateEvidenceInspector === true`;
+  - `checks.workerSessionCheckpointUi === true`;
+  - `checks.rollbackExecutionReceiptRefs === true`;
+  - `checks.promotionTransitionControls === true`;
+  - rollback proof `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx`
+    and
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx`;
+  - `promotion-transition-live-gui-interaction-proof.json` has
+    `passed === true`;
+  - `checks.packageEvidenceGateClickProof === true`;
+  - `checks.packageEvidenceImportRoundTripProof === true`;
+  - `checks.packageImportReviewProof === true`;
+  - `checks.packageImportActivationHandoffProof === true`;
+  - `checks.packageImportActivationApplyProof === true`;
+  - `checks.packageImportActivationReplayIntegrityProof === true`;
+  - `checks.coldStartDeepLinkRestore === true`;
+  - `checks.livePromotionReadinessBound === true`;
+  - `checks.activeWorkerBinding === true`;
+  - `checks.workerBindingRegistryBound === true`;
+  - `checks.activeRuntimeRollbackProofWorkbench === true`;
+  - `checks.activeRuntimeRollbackExecutionWorkbench === true`;
+  - `checks.activeRuntimeRollbackApplyExecution === true`;
+  - `checks.activeRuntimeRollbackNegativeApply === true`;
+  - promotion live proof `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx`
+    and
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
