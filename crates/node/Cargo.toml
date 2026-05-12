@@ -50,6 +50,7 @@ tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }
 rcgen = { workspace = true }
+time = { workspace = true, features = ["formatting"] }
 serde_json = { workspace = true }
 bs58 = "0.4"
 async-trait = { workspace = true }
@@ -245,4 +246,9 @@ required-features = ["bridge-mode"]
 [[bin]]
 name = "ioi-agent"
 path = "src/bin/ioi-agent.rs"
+required-features = ["local-mode"]
+
+[[bin]]
+name = "ioi-runtime-bridge"
+path = "src/bin/ioi-runtime-bridge.rs"
 required-features = ["local-mode"]

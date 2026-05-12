@@ -99,21 +99,19 @@ Completed workstream snapshot as of 2026-05-12:
   thread/turn/item event model; the schema snapshot and daemon event-store
   spine are now locked, replay aliases resolve over stored event ids, the
   daemon has an explicit `RuntimeApiBridge` boundary that prevents
-  runtime-service mode from falling back to fixture success paths, and an
-  env-configured command adapter can now bind that boundary to an external
-  Rust/Tauri-owned runtime bridge process. The active tactical cleanup stream
+  runtime-service mode from falling back to fixture success paths, and the
+  `ioi-runtime-bridge` Rust executable now owns durable
+  `RuntimeAgentService` `start@v1`, `post_message@v1`, and `step@v1`
+  execution behind the command adapter. The active tactical cleanup stream
   remains React Flow settings-harness panel decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 RuntimeAgentService command bridge adapter
-- Artifacts: packages/runtime-daemon/src/index.mjs,
-  packages/runtime-daemon/src/runtime-api-bridge.mjs,
-  packages/runtime-daemon/src/runtime-agent-service-adapter.mjs,
-  scripts/lib/live-runtime-daemon-contract.test.mjs
-- Validation: daemon command-bridge contract, injected bridge/fail-closed
-  contract, SDK compatibility tests, and schema guard; see the validation
-  ledger.
+- 2026-05-12: P0 Rust RuntimeAgentService bridge executable
+- Artifacts: crates/node/src/bin/ioi-runtime-bridge.rs,
+  crates/node/Cargo.toml
+- Validation: targeted Rust compile/unit tests and two-invocation command
+  smoke; see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
@@ -124,6 +122,7 @@ Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | Rust RuntimeAgentService bridge executable | crates/node/src/bin/ioi-runtime-bridge.rs |
 | 2026-05-12 | P0 live runtime bridge | RuntimeAgentService command bridge adapter | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | RuntimeApiBridge boundary and turn projection | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Runtime event replay alias parity | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -141,10 +140,9 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Implement the Rust/Tauri bridge command that speaks
-   `ioi.runtime.bridge.command.v1`, owns durable `RuntimeAgentService`
-   `start@v1`, `post_message@v1`, and `step@v1` execution, and emits
-   bridge-ready TTI events.
+1. Wire the daemon's env command adapter to `ioi-runtime-bridge` in local
+   runtime-service mode and add a daemon contract that starts a thread through
+   the real Rust executable instead of the JS command fixture.
 2. Expand bridge event mapping from the current `thread.started`,
    `turn.started`, and `turn.completed` contract into the first KernelEvent
    variants: reasoning delta, tool result, approval/policy, and receipt events.
@@ -1684,8 +1682,8 @@ keeping React Flow cleanup slices small and source-contract guarded.
 
 Remaining runtime bridge implementation sequence:
 
-1. Implement the Rust/Tauri command bridge executable for
-   `ioi.runtime.bridge.command.v1` using durable `RuntimeAgentService` state.
+1. Wire daemon local runtime-service profile to `ioi-runtime-bridge` with a
+   real executable smoke in the daemon contract.
 2. Map first real `KernelEvent` variants into bridge-ready TTI events:
    reasoning delta, tool result, approval/policy, and receipt events.
 3. Add minimal SDK and React Flow runtime thread/turn/event projections.
