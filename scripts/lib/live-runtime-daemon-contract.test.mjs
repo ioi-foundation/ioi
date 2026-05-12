@@ -1561,6 +1561,20 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-readiness-model.ts"),
     "utf8",
   );
+  const workflowUnitTestsPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowTestReadinessModel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
+    ),
+    "utf8",
+  );
   const workflowRailModel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-rail-model.ts"),
     "utf8",
@@ -1923,6 +1937,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowReadinessModel, /readinessItems/);
   assert.match(workflowReadinessPanel, /workflow-readiness-scheduler-lanes/);
   assert.match(workflowReadinessPanel, /data-proof-check/);
+  assert.match(workflowRailPanel, /WorkflowUnitTestsPanel/);
+  assert.match(workflowRailPanel, /workflowTestReadinessModel/);
+  assert.match(workflowUnitTestsPanel, /workflow-unit-test-list/);
+  assert.match(workflowUnitTestsPanel, /workflow-unit-test-uncovered/);
+  assert.match(workflowTestReadinessModel, /coveredNodeIds/);
+  assert.match(workflowTestReadinessModel, /uncoveredNodes/);
   assert.doesNotMatch(tauriProjectRuntime, /fn execute_workflow_project\(/);
   assert.match(
     tauriProjectWorkflowSchedulerLane,
