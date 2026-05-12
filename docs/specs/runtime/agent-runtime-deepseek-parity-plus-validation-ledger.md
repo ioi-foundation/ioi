@@ -3153,3 +3153,41 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
   - GUI harness preflight passed outside the worktree.
 - `git diff --check`
+
+## Slice 96. 2026-05-12 - SDK Thread/Turn canonical event projection
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/agent-sdk/src/thread.ts
+- packages/agent-sdk/src/runtime-events.ts
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/test/sdk.test.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+
+Validation evidence:
+
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 TTI schema snapshot subtests passed after keeping
+    `RuntimeEventEnvelope` exact and moving daemon convenience fields into
+    projection-only parsing.
+- `npm test --workspace=@ioi/agent-sdk`
+  - 11 SDK subtests passed;
+  - the new Thread/Turn wrapper test proves canonical daemon
+    `RuntimeEventEnvelope` rows become typed SDK runtime events, including
+    mapped `KernelEvent::AgentActionResult` metadata.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract validates `Thread.open(...).events({ sinceSeq: 0 })`
+    over a Rust runtime-service thread and confirms the mapped KernelEvent row
+    projects to `tool_completed` or `tool_failed` with
+    `componentKind=tool_result`, `workflowNodeId=runtime.tool-result`,
+    `toolName=system::intent_clarification`, `agentStatus=Paused`, and
+    `stepIndex=0`.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-sdk-thread-turn-final`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-sdk-thread-turn-final/2026-05-12T21-56-13-739Z/result.json`.

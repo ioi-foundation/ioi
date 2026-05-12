@@ -3,6 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
+import {
+  eventStreamIdForThread,
+  mockRuntimeCursorSeq,
+  mockRuntimeEnvelopeForSdkEvent,
+  mockRuntimeEventEnvelope,
+  runtimeThreadEventFromEnvelope,
+  runtimeTurnStatusForRun,
+  turnIdForRun,
+} from "./runtime-events.js";
 import type {
   AgentOptions,
   CloudAgentOptions,
@@ -29,8 +38,11 @@ import type {
   RuntimeEventEnvelope,
   RuntimeNodeProfile,
   RuntimeScorecard,
+  RuntimeThreadEvent,
+  RuntimeThreadRecord,
   RuntimeToolCatalogEntry,
   RuntimeTraceBundle,
+  RuntimeTurnRecord,
   SemanticImpactProjection,
   StopConditionProjection,
   SubagentMemoryInheritanceProjection,
@@ -38,6 +50,8 @@ import type {
   UncertaintyProjection,
 } from "./messages.js";
 import type { RuntimeModelCatalogEntry } from "./model-mounts.js";
+
+export { runtimeThreadEventFromEnvelope } from "./runtime-events.js";
 
 export interface RuntimeArtifact {
   id: string;
@@ -179,7 +193,46 @@ export interface AgentMemoryPathProjection {
   effectivePolicyId: string;
 }
 
+export interface RuntimeThreadCreateInput {
+  options?: AgentOptions;
+  runtime_profile?: string;
+  goal?: string;
+  max_steps?: number;
+  [key: string]: unknown;
+}
+
+export interface RuntimeThreadForkInput {
+  options?: AgentOptions;
+  [key: string]: unknown;
+}
+
+export interface RuntimeTurnCreateInput {
+  prompt?: string;
+  message?: string;
+  input?: string;
+  mode?: RuntimeRunRecord["mode"];
+  options?: SendOptions | PlanOptions | DryRunOptions | HandoffOptions;
+  memory?: SendOptions["memory"];
+  remember?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeEventStreamOptions {
+  sinceSeq?: number;
+  lastEventId?: string;
+  signal?: AbortSignal;
+}
+
 export interface RuntimeSubstrateClient {
+  createThread(input?: RuntimeThreadCreateInput): Promise<RuntimeThreadRecord>;
+  listThreads(): Promise<RuntimeThreadRecord[]>;
+  getThread(threadId: string): Promise<RuntimeThreadRecord>;
+  resumeThread(threadId: string): Promise<RuntimeThreadRecord>;
+  forkThread(threadId: string, input?: RuntimeThreadForkInput): Promise<RuntimeThreadRecord>;
+  submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
+  listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
+  getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
+  streamThreadEvents(threadId: string, options?: RuntimeEventStreamOptions): AsyncIterable<RuntimeThreadEvent>;
   createAgent(options: AgentOptions): Promise<RuntimeAgentRecord>;
   resumeAgent(agentId: string): Promise<RuntimeAgentRecord>;
   closeAgent(agentId: string): Promise<void>;
@@ -249,6 +302,56 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     this.endpoint = options.endpoint ?? process.env.IOI_DAEMON_ENDPOINT;
     this.apiKey = options.apiKey ?? process.env.IOI_DAEMON_TOKEN;
     this.headers = options.headers ?? {};
+  }
+
+  async createThread(input: RuntimeThreadCreateInput = {}): Promise<RuntimeThreadRecord> {
+    return this.request("createThread", "POST", "/v1/threads", input);
+  }
+
+  async listThreads(): Promise<RuntimeThreadRecord[]> {
+    return this.request("listThreads", "GET", "/v1/threads");
+  }
+
+  async getThread(threadId: string): Promise<RuntimeThreadRecord> {
+    return this.request("getThread", "GET", `/v1/threads/${encodePath(threadId)}`);
+  }
+
+  async resumeThread(threadId: string): Promise<RuntimeThreadRecord> {
+    return this.request("resumeThread", "POST", `/v1/threads/${encodePath(threadId)}/resume`);
+  }
+
+  async forkThread(threadId: string, input: RuntimeThreadForkInput = {}): Promise<RuntimeThreadRecord> {
+    return this.request("forkThread", "POST", `/v1/threads/${encodePath(threadId)}/fork`, input);
+  }
+
+  async submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord> {
+    return this.request("submitTurn", "POST", `/v1/threads/${encodePath(threadId)}/turns`, input);
+  }
+
+  async listTurns(threadId: string): Promise<RuntimeTurnRecord[]> {
+    return this.request("listTurns", "GET", `/v1/threads/${encodePath(threadId)}/turns`);
+  }
+
+  async getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord> {
+    return this.request(
+      "getTurn",
+      "GET",
+      `/v1/threads/${encodePath(threadId)}/turns/${encodePath(turnId)}`,
+    );
+  }
+
+  async *streamThreadEvents(
+    threadId: string,
+    options: RuntimeEventStreamOptions = {},
+  ): AsyncIterable<RuntimeThreadEvent> {
+    const events = await this.requestRuntimeEvents(
+      "streamThreadEvents",
+      `/v1/threads/${encodePath(threadId)}/events${runtimeEventQuery(options)}`,
+    );
+    for (const event of events) {
+      options.signal?.throwIfAborted();
+      yield runtimeThreadEventFromEnvelope(event);
+    }
   }
 
   async createAgent(options: AgentOptions): Promise<RuntimeAgentRecord> {
@@ -524,6 +627,46 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       : eventsFromResponse(parseDaemonResponseBody(text) as IOISDKMessage[] | { events: IOISDKMessage[] });
   }
 
+  private async requestRuntimeEvents(sdkMethod: string, route: string): Promise<RuntimeEventEnvelope[]> {
+    const endpoint = this.requireEndpoint(sdkMethod);
+    const url = new URL(route.replace(/^\/+/, ""), endpoint);
+    const headers: Record<string, string> = {
+      accept: "text/event-stream, application/json",
+      ...this.headers,
+    };
+    if (this.apiKey) {
+      headers.authorization = `Bearer ${this.apiKey}`;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(url, { method: "GET", headers });
+    } catch (error) {
+      throw new IoiAgentError({
+        code: "network",
+        message: `IOI daemon runtime event stream failed for ${sdkMethod}.`,
+        cause: error,
+        details: { method: sdkMethod, endpoint: this.endpoint, route },
+      });
+    }
+
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const text = await response.text();
+    if (!response.ok) {
+      throw errorFromDaemonResponse({
+        sdkMethod,
+        route,
+        status: response.status,
+        requestId,
+        parsed: parseDaemonResponseBody(text),
+      });
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    return contentType.includes("text/event-stream")
+      ? parseServerSentRuntimeEvents(text)
+      : runtimeEventsFromResponse(parseDaemonResponseBody(text));
+  }
+
   private requireEndpoint(method: string): URL {
     if (!this.endpoint) {
       throw this.unavailableError(method);
@@ -617,6 +760,61 @@ function parseServerSentEvents(text: string): IOISDKMessage[] {
     events.push(parsed);
   }
   return normalizeDaemonEvents(events);
+}
+
+function parseServerSentRuntimeEvents(text: string): RuntimeEventEnvelope[] {
+  const events: unknown[] = [];
+  for (const block of text.split(/\r?\n\r?\n/)) {
+    const dataLines = block
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).trimStart());
+    if (dataLines.length === 0) {
+      continue;
+    }
+    const data = dataLines.join("\n").trim();
+    if (!data || data === "[DONE]") {
+      continue;
+    }
+    events.push(parseDaemonResponseBody(data));
+  }
+  return runtimeEventsFromResponse(events);
+}
+
+function runtimeEventsFromResponse(value: unknown): RuntimeEventEnvelope[] {
+  const values = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && Array.isArray((value as { events?: unknown[] }).events)
+      ? (value as { events: unknown[] }).events
+      : null;
+  if (!values) {
+    throw new IoiAgentError({
+      code: "runtime",
+      message: "IOI daemon runtime event endpoint returned an invalid event stream projection.",
+      details: { value },
+    });
+  }
+  return values.map((event) => {
+    if (!isRuntimeEventEnvelope(event)) {
+      throw new IoiAgentError({
+        code: "runtime",
+        message: "IOI daemon runtime event endpoint returned a non-TTI event envelope.",
+        details: { event },
+      });
+    }
+    return event;
+  });
+}
+
+function runtimeEventQuery(options: RuntimeEventStreamOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.sinceSeq !== undefined) {
+    params.set("since_seq", String(options.sinceSeq));
+  } else if (options.lastEventId) {
+    params.set("lastEventId", options.lastEventId);
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
 }
 
 function normalizeDaemonEvents(values: unknown[]): IOISDKMessage[] {
@@ -818,6 +1016,75 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       options.checkpointDir ?? path.join(this.cwd, ".ioi", "agent-sdk-mock"),
     );
     this.loadCheckpoints();
+  }
+
+  async createThread(input: RuntimeThreadCreateInput = {}): Promise<RuntimeThreadRecord> {
+    const agent = await this.createAgent(input.options ?? (input as AgentOptions));
+    return this.threadRecordForAgent(agent);
+  }
+
+  async listThreads(): Promise<RuntimeThreadRecord[]> {
+    return (await this.listAgents()).map((agent) => this.threadRecordForAgent(agent));
+  }
+
+  async getThread(threadId: string): Promise<RuntimeThreadRecord> {
+    return this.threadRecordForAgent(await this.agentForThread(threadId));
+  }
+
+  async resumeThread(threadId: string): Promise<RuntimeThreadRecord> {
+    const agent = await this.agentForThread(threadId);
+    return this.threadRecordForAgent(await this.resumeAgent(agent.id));
+  }
+
+  async forkThread(threadId: string, input: RuntimeThreadForkInput = {}): Promise<RuntimeThreadRecord> {
+    const source = await this.getThread(threadId);
+    const agent = await this.createAgent({
+      ...(input.options ?? {}),
+      local: input.options?.local ?? { cwd: source.workspace_root },
+      model: input.options?.model ?? { id: source.model_route },
+    });
+    return {
+      ...this.threadRecordForAgent(agent),
+      agentgres_projection_ref: `forked_from:${source.thread_id}:${source.latest_seq}`,
+    };
+  }
+
+  async submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord> {
+    const agent = await this.agentForThread(threadId);
+    const prompt = input.prompt ?? input.message ?? input.input ?? "";
+    const options = {
+      ...(input.options ?? {}),
+      ...(input.memory ? { memory: input.memory } : {}),
+      ...(input.remember ? { memory: { ...(input.options?.memory ?? {}), remember: input.remember } } : {}),
+    } as SendOptions;
+    const run = await this.createRun(agent.id, prompt, input.mode ?? "send", options);
+    return this.turnRecordForRun(run);
+  }
+
+  async listTurns(threadId: string): Promise<RuntimeTurnRecord[]> {
+    const agent = await this.agentForThread(threadId);
+    return (await this.listRuns(agent.id)).map((run) => this.turnRecordForRun(run));
+  }
+
+  async getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord> {
+    const turn = (await this.listTurns(threadId)).find((candidate) => candidate.turn_id === turnId);
+    if (!turn) {
+      throw new IoiAgentError({ code: "not_found", message: `Turn not found: ${turnId}` });
+    }
+    return turn;
+  }
+
+  async *streamThreadEvents(
+    threadId: string,
+    options: RuntimeEventStreamOptions = {},
+  ): AsyncIterable<RuntimeThreadEvent> {
+    const agent = await this.agentForThread(threadId);
+    const events = this.threadRuntimeEvents(agent);
+    const cursorSeq = mockRuntimeCursorSeq(events, options);
+    for (const event of events.filter((candidate) => candidate.seq > cursorSeq)) {
+      options.signal?.throwIfAborted();
+      yield runtimeThreadEventFromEnvelope(event);
+    }
   }
 
   async createAgent(options: AgentOptions): Promise<RuntimeAgentRecord> {
@@ -1549,6 +1816,126 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         ...records.map((record) => record.id),
       ].filter((value): value is string => Boolean(value)),
     };
+  }
+
+  private async agentForThread(threadId: string): Promise<RuntimeAgentRecord> {
+    const agent = [...this.agents.values()].find((candidate) => threadIdForAgent(candidate.id) === threadId);
+    if (!agent) {
+      throw new IoiAgentError({ code: "not_found", message: `Thread not found: ${threadId}` });
+    }
+    return agent;
+  }
+
+  private threadRecordForAgent(agent: RuntimeAgentRecord): RuntimeThreadRecord {
+    const runs = [...this.runs.values()]
+      .filter((run) => run.agentId === agent.id)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const latestRun = runs.at(-1);
+    const threadId = threadIdForAgent(agent.id);
+    const events = this.threadRuntimeEvents(agent);
+    return {
+      schema_version: "ioi.runtime.thread.v1",
+      thread_id: threadId,
+      session_id: `session_${agent.id}`,
+      agent_id: agent.id,
+      workspace_root: agent.cwd,
+      title: latestRun?.objective ?? agent.cwd,
+      mode: "agent",
+      approval_mode: "suggest",
+      trust_profile: "local_private",
+      model_route: agent.modelId,
+      status: this.threadRecordStatus(agent),
+      latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
+      latest_seq: events.at(-1)?.seq ?? 0,
+      event_stream_id: eventStreamIdForThread(threadId),
+      workflow_graph_id: null,
+      harness_binding_id: null,
+      agentgres_projection_ref: `agents/${agent.id}.json`,
+      created_at: agent.createdAt,
+      updated_at: agent.updatedAt,
+      archived_at: agent.status === "archived" ? agent.updatedAt : null,
+      fixture_profile: "agent_sdk_mock",
+    };
+  }
+
+  private turnRecordForRun(run: RuntimeRunRecord): RuntimeTurnRecord {
+    const turnId = turnIdForRun(run.id);
+    const events = this.threadRuntimeEvents(this.agents.get(run.agentId)).filter(
+      (event) => event.turn_id === turnId,
+    );
+    const status = runtimeTurnStatusForRun(run.status);
+    return {
+      schema_version: "ioi.runtime.turn.v1",
+      turn_id: turnId,
+      thread_id: threadIdForAgent(run.agentId),
+      parent_turn_id: null,
+      request_id: run.id,
+      status,
+      input_item_ids: events.filter((event) => event.event_kind === "turn.started").map((event) => event.item_id),
+      output_item_ids: events.filter((event) => event.event_kind !== "turn.started").map((event) => event.item_id),
+      seq_start: events.at(0)?.seq ?? null,
+      seq_end: status === "running" || status === "queued" ? null : (events.at(-1)?.seq ?? null),
+      started_at: run.createdAt,
+      completed_at: run.status === "running" || run.status === "queued" ? null : run.updatedAt,
+      mode: "agent",
+      approval_mode: "suggest",
+      model_route_decision_id: run.modelRouteDecision?.decisionId ?? null,
+      usage: null,
+      stop_reason: run.trace.stopCondition.reason,
+      error: run.status === "failed" ? run.result : null,
+      rollback_snapshot_id: null,
+      quality_ledger_ref: run.trace.qualityLedger.ledgerId,
+      workflow_execution_ref: null,
+      fixture_profile: "agent_sdk_mock",
+    };
+  }
+
+  private threadRuntimeEvents(agent?: RuntimeAgentRecord): RuntimeEventEnvelope[] {
+    if (!agent) return [];
+    const threadId = threadIdForAgent(agent.id);
+    const streamId = eventStreamIdForThread(threadId);
+    const events: RuntimeEventEnvelope[] = [
+      mockRuntimeEventEnvelope({
+        agent,
+        threadId,
+        streamId,
+        seq: 1,
+        eventKind: "thread.started",
+        sourceEventKind: "agent.create",
+        itemId: `${threadId}:item:thread-started`,
+        payload: {
+          event_kind: "ThreadStarted",
+          agent_id: agent.id,
+          thread_id: threadId,
+          status: this.threadRecordStatus(agent),
+        },
+        createdAt: agent.createdAt,
+        componentKind: "runtime_thread",
+        workflowNodeId: "runtime.runtime-thread",
+      }),
+    ];
+    const runs = [...this.runs.values()]
+      .filter((run) => run.agentId === agent.id)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    for (const run of runs) {
+      const turnId = turnIdForRun(run.id);
+      for (const event of run.events) {
+        events.push(mockRuntimeEnvelopeForSdkEvent({
+          agent,
+          event,
+          run,
+          seq: events.length + 1,
+          streamId,
+          threadId,
+          turnId,
+        }));
+      }
+    }
+    return events;
+  }
+
+  private threadRecordStatus(agent: RuntimeAgentRecord): RuntimeThreadRecord["status"] {
+    return agent.status === "archived" ? "archived" : agent.status === "closed" ? "completed" : "active";
   }
 
   private rmQuiet(filePath: string): void {

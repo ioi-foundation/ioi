@@ -23,6 +23,11 @@
       "import": "./dist/run.js",
       "require": "./dist/run.cjs"
     },
+    "./thread": {
+      "types": "./dist/thread.d.ts",
+      "import": "./dist/thread.js",
+      "require": "./dist/thread.cjs"
+    },
     "./messages": {
       "types": "./dist/messages.d.ts",
       "import": "./dist/messages.js",

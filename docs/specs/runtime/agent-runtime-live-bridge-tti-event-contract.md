@@ -591,7 +591,9 @@ Minimum contract-lock tests before implementation:
    next implementation slice.
 4. Expose `/v1/threads/{id}/events` and SSE replay with `Last-Event-ID`.
    Completed 2026-05-12 for the daemon event-store projection.
-5. Add SDK `Thread`/`Turn` wrappers over the same stream.
+5. Add SDK `Thread`/`Turn` wrappers over the same stream. Completed
+   2026-05-12 for create/open/list/resume/fork, turn submission/list/get, and
+   typed event replay over canonical `RuntimeEventEnvelope` rows.
 6. Add minimal React Flow runtime thread/turn/event projection.
 7. Convert `/v1/runs/*` to aliases over turn/event records. Completed
    2026-05-12 for `/events` and `/replay`; trace/inspect aliases remain on the
