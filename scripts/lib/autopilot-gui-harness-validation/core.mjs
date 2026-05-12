@@ -4967,9 +4967,18 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-runs-list/.test(runsPanel) &&
       /workflow-run-inspector/.test(runsPanel) &&
       /workflow-run-timeline/.test(runsPanel) &&
+      /workflow-run-runtime-event-graph/.test(runsPanel) &&
+      /workflow-run-runtime-event-node-/.test(runsPanel) &&
+      /data-event-cursor/.test(runsPanel) &&
+      /data-receipt-refs/.test(runsPanel) &&
+      /loadWorkflowRuntimeThreadEvents/.test(controller) &&
+      /setRuntimeThreadEvents/.test(controller) &&
+      /runtimeThreadEvents=\{runtimeThreadEvents\}/.test(view) &&
       /visibleRows/.test(runHistoryModel) &&
       /timelineEvents/.test(runHistoryModel) &&
-      /comparison/.test(runHistoryModel),
+      /comparison/.test(runHistoryModel) &&
+      /runtimeEventProjection/.test(runHistoryModel) &&
+      /projectRuntimeThreadEventsToWorkflowProjection/.test(runHistoryModel),
     workflowSchedulerRuntimeLane:
       /workflow_scheduler_lane/.test(projectRuntime) &&
       !/fn execute_workflow_project\(/.test(projectRuntime) &&

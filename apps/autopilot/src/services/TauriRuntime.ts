@@ -756,6 +756,13 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         return this.loadAssistantSessionEvents<T>(threadId, options);
     }
 
+    async loadWorkflowRuntimeThreadEvents<T>(
+        threadId: string,
+        options?: AssistantSessionThreadLoadOptions
+    ): Promise<T[]> {
+        return this.loadSessionThreadEvents<T>(threadId, options);
+    }
+
     async loadAssistantSessionArtifacts<T>(threadId: string): Promise<T[]> {
         return invoke<T[]>("get_thread_artifacts", {
             threadId,

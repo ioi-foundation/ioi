@@ -56,6 +56,7 @@ import { workflowEntrypointsModel } from "../../../runtime/workflow-entrypoints-
 import { workflowFileBundleModel } from "../../../runtime/workflow-file-bundle-model";
 import { workflowSettingsModel } from "../../../runtime/workflow-settings-model";
 import { workflowSettingsHarnessModel } from "../../../runtime/workflow-settings-harness-model";
+import type { WorkflowRuntimeThreadEventLike } from "../../../runtime/workflow-runtime-event-projection";
 import {
   resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
@@ -325,6 +326,7 @@ export function WorkflowRailPanel({
   compareRunResult,
   compareRunId,
   runEvents,
+  runtimeThreadEvents,
   dogfoodRun,
   packageImportReview,
   portablePackage,
@@ -401,6 +403,7 @@ export function WorkflowRailPanel({
   compareRunResult: WorkflowRunResult | null;
   compareRunId: string | null;
   runEvents: WorkflowStreamEvent[];
+  runtimeThreadEvents?: WorkflowRuntimeThreadEventLike[];
   dogfoodRun: WorkflowDogfoodRun | null;
   packageImportReview: WorkflowPackageImportReview | null;
   portablePackage: WorkflowPortablePackage | null;
@@ -492,6 +495,7 @@ export function WorkflowRailPanel({
     selectedRunId,
     compareRunId,
     runEvents,
+    runtimeThreadEvents,
     searchQuery: runSearchQuery,
     statusFilter: runStatusFilter,
   });

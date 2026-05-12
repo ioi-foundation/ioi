@@ -8,6 +8,7 @@ import type {
   WorkflowStreamEvent,
 } from "../types/graph";
 import { workflowRunHistoryModel } from "./workflow-run-history-model";
+import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 
 const workflow = {
   version: "1",
@@ -83,6 +84,35 @@ function event(id: string, runId = "run-a"): WorkflowStreamEvent {
     nodeId: "model",
     status: "success",
     message: `event ${id}`,
+  };
+}
+
+function runtimeThreadEvent(
+  id: string,
+  seq: number,
+  overrides: Partial<WorkflowRuntimeThreadEventLike> = {},
+): WorkflowRuntimeThreadEventLike {
+  return {
+    id,
+    cursor: `events_thread:${seq}`,
+    seq,
+    threadId: "thread",
+    turnId: "turn-a",
+    type: "runtime_step",
+    eventKind: "runtime.step",
+    sourceEventKind: "KernelEvent::RuntimeStep",
+    status: "completed",
+    createdAt: `2026-05-12T00:00:0${seq}.000Z`,
+    componentKind: null,
+    workflowNodeId: null,
+    workflowGraphId: "workflow",
+    payloadSchemaVersion: "ioi.agent-sdk.thread-event.v1",
+    receiptRefs: [],
+    artifactRefs: [],
+    policyDecisionRefs: [],
+    rollbackRefs: [],
+    payload: {},
+    ...overrides,
   };
 }
 
@@ -192,6 +222,60 @@ test("workflow run history model binds selected run, timeline, and comparison", 
   assert.equal(model.comparison?.baselineRunId, "run-b");
   assert.equal(model.comparison?.targetRunId, "run-a");
   assert.equal(model.comparison?.changedNodes[0]?.nodeId, "model");
+});
+
+test("workflow run history model projects canonical runtime thread events", () => {
+  const target = runResult("run-a", "passed", { answer: "new" });
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    runtimeThreadEvents: [
+      runtimeThreadEvent("event-1", 1, {
+        type: "reasoning_delta",
+        eventKind: "reasoning.delta",
+        sourceEventKind: "KernelEvent::AgentThought",
+        workflowNodeId: "runtime.reasoning",
+        componentKind: "reasoning_delta",
+        status: "running",
+      }),
+      runtimeThreadEvent("event-2", 2, {
+        type: "tool_completed",
+        eventKind: "tool.completed",
+        sourceEventKind: "KernelEvent::AgentActionResult",
+        workflowNodeId: "runtime.tool-result",
+        componentKind: "tool_result",
+        toolName: "shell",
+        receiptRefs: ["receipt-tool"],
+        artifactRefs: ["artifact-tool"],
+      }),
+    ],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.runtimeEventProjection.eventCount, 2);
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowNodes.map((node) => node.id),
+    ["runtime.reasoning", "runtime.tool-result"],
+  );
+  assert.equal(
+    model.runtimeEventProjection.reactFlowNodes[1]?.data.latestCursor,
+    "events_thread:2",
+  );
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowNodes[1]?.data.receiptRefs,
+    ["receipt-tool"],
+  );
+  assert.equal(
+    model.runtimeEventProjection.reactFlowEdges[0]?.source,
+    "runtime.reasoning",
+  );
+  assert.equal(model.timelineEvents[0]?.runId, "run-a");
 });
 
 test("workflow run history model falls back to ambient events without selected run", () => {

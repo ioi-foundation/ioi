@@ -38,6 +38,7 @@ import type {
   WorkflowValidationResult,
   WorkflowWorkbenchBundle,
 } from "../types/graph";
+import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 
 // Wire-format payload for graph execution requests.
 export interface GraphPayload {
@@ -85,6 +86,11 @@ export interface GraphRuntimeCapabilityOption {
   status: string;
   availableCount: number;
   operatorSummary: string;
+}
+
+export interface WorkflowRuntimeThreadEventLoadOptions {
+  limit?: number;
+  cursor?: number;
 }
 
 export interface GraphCapabilityCatalog {
@@ -200,6 +206,10 @@ export interface GraphExecutionRuntime {
     path: string,
     runId: string,
   ): AsyncIterable<WorkflowStreamEvent>;
+  loadWorkflowRuntimeThreadEvents?<T = WorkflowRuntimeThreadEventLike>(
+    threadId: string,
+    options?: WorkflowRuntimeThreadEventLoadOptions,
+  ): Promise<T[]>;
   loadWorkflowRun?(
     path: string,
     runId: string,

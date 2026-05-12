@@ -4913,3 +4913,39 @@ Validation evidence:
   - 10 GUI harness contract subtests passed.
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection`
   - GUI harness preflight passed outside the worktree.
+
+### Slice 98. 2026-05-12 - Workflow run inspector runtime event graph
+
+Implementation slice completed 2026-05-12, React Flow workflow run inspector
+runtime event graph:
+
+- Extended `workflow-run-history-model` to accept canonical
+  `WorkflowRuntimeThreadEventLike` rows, project them with
+  `projectRuntimeThreadEventsToWorkflowProjection(...)`, and keep the derived
+  graph separate from workflow-local timeline events.
+- Added a runtime-thread-event loader to the workflow composer controller using
+  `loadWorkflowRuntimeThreadEvents(...)`, with Tauri runtime wiring that aliases
+  the existing durable thread event command.
+- Rendered a read-only runtime event graph in `WorkflowRunsPanel`, including
+  React Flow node/edge ids, statuses, cursors, event ids, component kinds,
+  receipt/artifact/policy/rollback refs, tool names, approval ids, and
+  expandable event details.
+- Kept the inspector operational and compact by reusing the existing run panel
+  hierarchy rather than introducing a second editable canvas.
+- Extended source contracts so future changes must preserve the controller
+  loader, projection model, runtime event graph UI, and evidence-ref data
+  attributes.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- Built-bundle smoke import of `projectRuntimeThreadEventsToWorkflowProjection`
+  returned `{"nodes":2,"latestCursor":"events_thread:5"}` for policy/receipt
+  canonical events.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-runtime-event-inspector`
+  - GUI harness preflight passed outside the worktree.

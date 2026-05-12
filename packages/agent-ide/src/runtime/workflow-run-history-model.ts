@@ -15,6 +15,11 @@ import {
   workflowInterruptPreview,
   type WorkflowInterruptPreview,
 } from "./workflow-bottom-panel-model";
+import {
+  projectRuntimeThreadEventsToWorkflowProjection,
+  type WorkflowRuntimeEventProjection,
+  type WorkflowRuntimeThreadEventLike,
+} from "./workflow-runtime-event-projection";
 
 export type WorkflowRunHistoryRow = {
   run: WorkflowRunSummary;
@@ -34,6 +39,7 @@ export type WorkflowRunHistoryModelInput = {
   selectedRunId: string | null;
   compareRunId: string | null;
   runEvents: WorkflowStreamEvent[];
+  runtimeThreadEvents?: WorkflowRuntimeThreadEventLike[];
   searchQuery: string;
   statusFilter: string;
 };
@@ -47,6 +53,7 @@ export type WorkflowRunHistoryModel = {
   visibleRows: WorkflowRunHistoryRow[];
   selectedRun: WorkflowRunResult | null;
   comparison: WorkflowRunComparison | null;
+  runtimeEventProjection: WorkflowRuntimeEventProjection;
   defaultCompareRun: WorkflowRunSummary | null;
   timelineEvents: WorkflowStreamEvent[];
   interruptPreview: WorkflowInterruptPreview | undefined;
@@ -74,6 +81,7 @@ export function workflowRunHistoryModel({
   selectedRunId,
   compareRunId,
   runEvents,
+  runtimeThreadEvents,
   searchQuery,
   statusFilter,
 }: WorkflowRunHistoryModelInput): WorkflowRunHistoryModel {
@@ -89,6 +97,12 @@ export function workflowRunHistoryModel({
   const defaultCompareRun =
     runs.find((run) => run.id !== selectedRunId) ?? null;
   const timelineEvents = selectedRun?.events ?? runEvents;
+  const canonicalRuntimeThreadEvents =
+    runtimeThreadEvents ?? runtimeThreadEventsForRunResult(selectedRun);
+  const runtimeEventProjection = projectRuntimeThreadEventsToWorkflowProjection(
+    canonicalRuntimeThreadEvents,
+    { columns: 2 },
+  );
   const runStatuses = Array.from(new Set(runs.map((run) => run.status))).sort();
   const statusCounts = runs.reduce<WorkflowRunHistoryStatusCounts>(
     (counts, run) => {
@@ -118,6 +132,7 @@ export function workflowRunHistoryModel({
     visibleRows,
     selectedRun,
     comparison,
+    runtimeEventProjection,
     defaultCompareRun,
     timelineEvents,
     interruptPreview: workflowInterruptPreview(lastRunResult),
@@ -125,4 +140,35 @@ export function workflowRunHistoryModel({
     harnessAttempts: selectedRun?.harnessAttempts ?? [],
     harnessComparisons: selectedRun?.harnessShadowComparisons ?? [],
   };
+}
+
+function runtimeThreadEventsForRunResult(
+  run: WorkflowRunResult | null,
+): WorkflowRuntimeThreadEventLike[] {
+  const events = (run as { runtimeThreadEvents?: unknown } | null)
+    ?.runtimeThreadEvents;
+  if (!Array.isArray(events)) return [];
+  return events.filter(isWorkflowRuntimeThreadEventLike);
+}
+
+function isWorkflowRuntimeThreadEventLike(
+  event: unknown,
+): event is WorkflowRuntimeThreadEventLike {
+  if (!event || typeof event !== "object") return false;
+  const candidate = event as Partial<WorkflowRuntimeThreadEventLike>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.cursor === "string" &&
+    typeof candidate.seq === "number" &&
+    typeof candidate.threadId === "string" &&
+    typeof candidate.type === "string" &&
+    typeof candidate.eventKind === "string" &&
+    typeof candidate.sourceEventKind === "string" &&
+    typeof candidate.status === "string" &&
+    typeof candidate.payloadSchemaVersion === "string" &&
+    Array.isArray(candidate.receiptRefs) &&
+    Array.isArray(candidate.artifactRefs) &&
+    Array.isArray(candidate.policyDecisionRefs) &&
+    Array.isArray(candidate.rollbackRefs)
+  );
 }

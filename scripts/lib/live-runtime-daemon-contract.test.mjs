@@ -2786,9 +2786,19 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-runs-list/);
   assert.match(workflowRunsPanel, /workflow-run-inspector/);
   assert.match(workflowRunsPanel, /workflow-run-timeline/);
+  assert.match(workflowRunsPanel, /workflow-run-runtime-event-graph/);
+  assert.match(workflowRunsPanel, /workflow-run-runtime-event-node-/);
+  assert.match(workflowRunsPanel, /data-event-cursor/);
+  assert.match(workflowRunsPanel, /data-receipt-refs/);
+  assert.match(workflowRunsPanel, /data-policy-decision-refs/);
+  assert.match(workflowComposerController, /loadWorkflowRuntimeThreadEvents/);
+  assert.match(workflowComposerController, /setRuntimeThreadEvents/);
+  assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowRunHistoryModel, /visibleRows/);
   assert.match(workflowRunHistoryModel, /timelineEvents/);
   assert.match(workflowRunHistoryModel, /comparison/);
+  assert.match(workflowRunHistoryModel, /runtimeEventProjection/);
+  assert.match(workflowRunHistoryModel, /projectRuntimeThreadEventsToWorkflowProjection/);
   assert.doesNotMatch(tauriProjectRuntime, /fn execute_workflow_project\(/);
   assert.match(
     tauriProjectWorkflowSchedulerLane,

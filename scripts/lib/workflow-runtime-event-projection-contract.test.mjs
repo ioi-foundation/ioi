@@ -18,6 +18,26 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const typeTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
   );
+  const runHistoryModel = read(
+    "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+  );
+  const runHistoryModelTest = read(
+    "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
+  );
+  const runsPanel = read(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+  );
+  const railPanel = read(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+  );
+  const composerController = read(
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+  );
+  const composerView = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+  const graphRuntimeTypes = read(
+    "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+  );
+  const tauriRuntime = read("apps/autopilot/src/services/TauriRuntime.ts");
 
   assert.match(
     projection,
@@ -64,4 +84,25 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(typeTest, /projects Thread\.events runtime events/);
   assert.match(typeTest, /approval_required/);
   assert.match(typeTest, /policy_blocked/);
+  assert.match(runHistoryModel, /projectRuntimeThreadEventsToWorkflowProjection/);
+  assert.match(runHistoryModel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
+  assert.match(runHistoryModel, /runtimeEventProjection: WorkflowRuntimeEventProjection/);
+  assert.match(runHistoryModel, /runtimeThreadEventsForRunResult/);
+  assert.match(runHistoryModelTest, /projects canonical runtime thread events/);
+  assert.match(railPanel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
+  assert.match(railPanel, /runtimeThreadEvents,/);
+  assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
+  assert.match(composerController, /setRuntimeThreadEvents/);
+  assert.match(composerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
+  assert.match(graphRuntimeTypes, /loadWorkflowRuntimeThreadEvents/);
+  assert.match(tauriRuntime, /loadWorkflowRuntimeThreadEvents/);
+  assert.match(runsPanel, /workflow-run-runtime-event-graph/);
+  assert.match(runsPanel, /workflow-run-runtime-event-node-/);
+  assert.match(runsPanel, /workflow-run-runtime-event-edge-/);
+  assert.match(runsPanel, /data-event-id/);
+  assert.match(runsPanel, /data-event-cursor/);
+  assert.match(runsPanel, /data-receipt-refs/);
+  assert.match(runsPanel, /data-artifact-refs/);
+  assert.match(runsPanel, /data-policy-decision-refs/);
+  assert.match(runsPanel, /data-rollback-refs/);
 });
