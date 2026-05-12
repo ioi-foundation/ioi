@@ -4251,6 +4251,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs";
   const projectWorkflowStateLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs";
+  const projectWorkflowNodeContractLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_node_contract_lane.rs";
   const projectWorkflowNodeExecutionLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs";
   const projectWorkflowMemoryLanePath =
@@ -4308,6 +4310,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowStateLane = readFileSync(
     resolve(repoRoot, projectWorkflowStateLanePath),
+    "utf8",
+  );
+  const projectWorkflowNodeContractLane = readFileSync(
+    resolve(repoRoot, projectWorkflowNodeContractLanePath),
     "utf8",
   );
   const projectWorkflowNodeExecutionLane = readFileSync(
@@ -4719,6 +4725,27 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow_value_at_path/.test(projectWorkflowStateLane) &&
       /workflow_edge_from_port/.test(projectWorkflowStateLane),
+    workflowNodeContractRuntimeLane:
+      /fn workflow_action_frame\(/.test(projectWorkflowNodeContractLane) &&
+      /fn workflow_node_port_connection_class\(/.test(
+        projectWorkflowNodeContractLane,
+      ) &&
+      /fn workflow_default_port_connection_class\(/.test(
+        projectWorkflowNodeContractLane,
+      ) &&
+      /fn validate_workflow_edge_ports\(/.test(
+        projectWorkflowNodeContractLane,
+      ) &&
+      /fn workflow_max_attempts\(/.test(projectWorkflowNodeContractLane) &&
+      /ActionFrame/.test(projectWorkflowNodeContractLane) &&
+      /ActionBindingRef/.test(projectWorkflowNodeContractLane) &&
+      /workflow_edge_connection_class/.test(projectWorkflowNodeContractLane) &&
+      /validate_workflow_connection_class/.test(
+        projectWorkflowNodeContractLane,
+      ) &&
+      /workflow_logic_string/.test(projectWorkflowNodeContractLane) &&
+      /workflow_action_frame/.test(projectWorkflowNodeExecutionLane) &&
+      /workflow_max_attempts/.test(projectRuntime),
     workflowNodeExecutionRuntimeLane:
       /fn execute_workflow_tool_binding\(/.test(
         projectWorkflowNodeExecutionLane,
@@ -4852,7 +4879,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-github-pr-create-missing-scopes/.test(bottomShelf) &&
       /ActionKind::GithubPrCreate/.test(projectWorkflowNodeExecutionLane) &&
       /repository_pr_lane/.test(projectWorkflowNodeExecutionLane) &&
-      /workflow_value_helpers/.test(projectRuntime) &&
+      /workflow_value_helpers/.test(projectWorkflowNodeContractLane) &&
       /workflow_value_helpers/.test(projectRepositoryPrLane) &&
       /workflow_github_pr_create_output/.test(projectRepositoryPrLane) &&
       /workflow_value_at_path/.test(projectWorkflowValueHelpers) &&
