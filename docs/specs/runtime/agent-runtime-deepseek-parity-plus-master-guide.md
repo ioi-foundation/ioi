@@ -4077,6 +4077,57 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-readiness-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow unit-test readiness
+model extraction:
+
+- Extracted unit-test search, coverage accounting, uncovered-node detection,
+  status rollups, latest-result lookup, target-node binding, and row status
+  projection into the pure runtime helper
+  `packages/agent-ide/src/runtime/workflow-test-readiness-model.ts`.
+- Added
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx`
+  as the presentational React Flow rail surface for the existing unit-test
+  summary, search, result rows, target-node links, and uncovered-node prompts.
+- `WorkflowRailPanel/core.tsx` now delegates the `panel === "unit_tests"` branch
+  to `WorkflowUnitTestsPanel` and reuses the model's `coveredNodeIds` for the
+  readiness panel, so evaluation coverage becomes a reusable workflow-development
+  model instead of rail-only inline logic.
+- Added
+  `packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts` to lock
+  coverage counts, status counts, search by assertion/status/target id, latest
+  result row projection, and uncovered-node reporting.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so
+  unit-test readiness must exist in both the runtime model and the React Flow
+  panel. The live rollback proof now includes `workflowUnitTestReadinessModelUi`
+  and source refs for both files.
+- `WorkflowRailPanel/core.tsx` is reduced from 11,427 to 11,310 lines. The new
+  unit-test panel is 105 lines, and the test-readiness model is 110 lines with a
+  190-line focused model test.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `npm run validate:autopilot-gui-harness`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T12-29-29-676Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include both
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx`
+    and `packages/agent-ide/src/runtime/workflow-test-readiness-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

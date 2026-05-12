@@ -91,9 +91,11 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/timelinePanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/rollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
     "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+    "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
   ]) {
     assertExists(relativePath);
   }
@@ -116,6 +118,16 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
     /workflowReadinessModel/,
+    80,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
+    /workflow-unit-test-list/,
+    80,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
+    /workflowTestReadinessModel/,
     80,
   );
 });
@@ -154,7 +166,7 @@ test("core files do not grow past the refactor checkpoint without updating the g
   for (const [relativePath, maxLines] of [
     ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 13_500],
     ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 11_430],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_600],
+    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_620],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,

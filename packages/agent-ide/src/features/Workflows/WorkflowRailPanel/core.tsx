@@ -50,6 +50,7 @@ import {
   workflowIsHarnessFork,
 } from "../../../runtime/harness-workflow";
 import { workflowValuePreview } from "../../../runtime/workflow-value-preview";
+import { workflowTestReadinessModel } from "../../../runtime/workflow-test-readiness-model";
 import {
   compareRunRecords,
   resolveWorkflowHarnessNodeAttemptInspection,
@@ -100,6 +101,7 @@ import {
   workflowRevisionBindingDeepLinkRef,
 } from "./statusPrimitives";
 import { WorkflowReadinessPanel } from "./readinessPanel";
+import { WorkflowUnitTestsPanel } from "./unitTestsPanel";
 
 function workflowPackageSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
@@ -458,7 +460,6 @@ export function WorkflowRailPanel({
     Record<string, WorkflowBindingCheckResult>
   >({});
   const normalizedRailSearch = railSearchQuery.trim().toLowerCase();
-  const normalizedUnitTestSearch = unitTestSearchQuery.trim().toLowerCase();
   const normalizedRunSearch = runSearchQuery.trim().toLowerCase();
   const outputNodes = workflow.nodes.filter(
     (nodeItem) => nodeItem.type === "output",
@@ -482,35 +483,13 @@ export function WorkflowRailPanel({
     portablePackage,
     bindingManifest,
   );
-  const testResultById = new Map(
-    (testResult?.results ?? []).map((result) => [result.testId, result]),
-  );
-  const filteredUnitTests = tests.filter((test) => {
-    if (!normalizedUnitTestSearch) return true;
-    return [
-      test.id,
-      test.name,
-      test.status,
-      test.lastMessage,
-      test.assertion.kind,
-      ...test.targetNodeIds,
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(normalizedUnitTestSearch);
+  const unitTestModel = workflowTestReadinessModel({
+    workflow,
+    tests,
+    testResult,
+    searchQuery: unitTestSearchQuery,
   });
-  const coveredNodeIds = new Set(tests.flatMap((test) => test.targetNodeIds));
-  const uncoveredNodes = workflow.nodes.filter(
-    (nodeItem) => !coveredNodeIds.has(nodeItem.id),
-  );
-  const testStatusCounts = tests.reduce(
-    (counts, test) => {
-      const status = test.status ?? "idle";
-      counts[status] = (counts[status] ?? 0) + 1;
-      return counts;
-    },
-    {} as Record<string, number>,
-  );
+  const { coveredNodeIds } = unitTestModel;
   const modelBindingItems = Object.entries(
     workflow.global_config.modelBindings ?? {},
   );
@@ -3262,109 +3241,13 @@ export function WorkflowRailPanel({
     ) : null;
   if (panel === "unit_tests") {
     return (
-      <>
-        <h3>Unit tests</h3>
-        <input
-          data-testid="workflow-unit-test-search-input"
-          placeholder="Search tests, assertions, targets..."
-          value={unitTestSearchQuery}
-          onChange={(event) => setUnitTestSearchQuery(event.target.value)}
-        />
-        <dl
-          className="workflow-rail-stats"
-          data-testid="workflow-unit-test-summary"
-        >
-          <div>
-            <dt>Total</dt>
-            <dd>{tests.length}</dd>
-          </div>
-          <div>
-            <dt>Covered</dt>
-            <dd>{coveredNodeIds.size}</dd>
-          </div>
-          <div>
-            <dt>Uncovered</dt>
-            <dd>{uncoveredNodes.length}</dd>
-          </div>
-          <div>
-            <dt>Last run</dt>
-            <dd>{testResult?.status ?? "none"}</dd>
-          </div>
-        </dl>
-        <p data-testid="workflow-unit-test-status-counts">
-          Passed {testStatusCounts.passed ?? 0} · Failed{" "}
-          {testStatusCounts.failed ?? 0} · Blocked{" "}
-          {testStatusCounts.blocked ?? 0}
-        </p>
-        <div
-          className="workflow-rail-list"
-          data-testid="workflow-unit-test-list"
-        >
-          {filteredUnitTests.map((test) => {
-            const latestResult = testResultById.get(test.id);
-            const targetNode = test.targetNodeIds[0]
-              ? (workflow.nodes.find(
-                  (nodeItem) => nodeItem.id === test.targetNodeIds[0],
-                ) ?? null)
-              : null;
-            return (
-              <article
-                key={test.id}
-                className={`workflow-test-row is-${latestResult?.status ?? test.status ?? "idle"}`}
-                data-testid={`workflow-unit-test-${test.id}`}
-              >
-                <strong>{test.name}</strong>
-                <span>
-                  {latestResult?.message ||
-                    test.lastMessage ||
-                    `${test.targetNodeIds.length} covered targets`}
-                </span>
-                <small>{test.assertion.kind}</small>
-                {targetNode ? (
-                  <button
-                    type="button"
-                    className="workflow-inline-link"
-                    data-testid={`workflow-unit-test-target-${test.id}`}
-                    onClick={() => onInspectNode(targetNode.id)}
-                  >
-                    {targetNode.name}
-                  </button>
-                ) : null}
-              </article>
-            );
-          })}
-          {filteredUnitTests.length === 0 ? (
-            <article className="workflow-output-row">
-              <strong>No matching tests</strong>
-              <span>
-                Try a test name, assertion kind, status, or target node id.
-              </span>
-            </article>
-          ) : null}
-        </div>
-        {uncoveredNodes.length > 0 ? (
-          <section
-            className="workflow-rail-section"
-            data-testid="workflow-unit-test-uncovered"
-          >
-            <h4>Untested nodes</h4>
-            {uncoveredNodes.slice(0, 6).map((nodeItem) => (
-              <button
-                key={nodeItem.id}
-                type="button"
-                className="workflow-search-result"
-                data-testid={`workflow-unit-test-uncovered-${nodeItem.id}`}
-                onClick={() => onInspectNode(nodeItem.id)}
-              >
-                <strong>{nodeItem.name}</strong>
-                <span>
-                  {nodeItem.type} · {nodeItem.status ?? "idle"}
-                </span>
-              </button>
-            ))}
-          </section>
-        ) : null}
-      </>
+      <WorkflowUnitTestsPanel
+        model={unitTestModel}
+        searchQuery={unitTestSearchQuery}
+        lastRunStatus={testResult?.status ?? "none"}
+        onSearchQueryChange={setUnitTestSearchQuery}
+        onInspectNode={onInspectNode}
+      />
     );
   }
   if (panel === "changes") {

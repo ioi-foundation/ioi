@@ -4232,6 +4232,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
   const readinessModelPath =
     "packages/agent-ide/src/runtime/workflow-readiness-model.ts";
+  const unitTestsPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx";
+  const testReadinessModelPath =
+    "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts";
   const validationPath =
     "packages/agent-ide/src/runtime/workflow-validation.ts";
   const schedulerLaneReadinessPath =
@@ -4313,6 +4317,14 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const readinessModel = readFileSync(
     resolve(repoRoot, readinessModelPath),
+    "utf8",
+  );
+  const unitTestsPanel = readFileSync(
+    resolve(repoRoot, unitTestsPanelPath),
+    "utf8",
+  );
+  const testReadinessModel = readFileSync(
+    resolve(repoRoot, testReadinessModelPath),
     "utf8",
   );
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
@@ -4823,6 +4835,14 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-readiness-scheduler-lane-/.test(readinessPanel) &&
       /data-proof-check/.test(readinessPanel) &&
       /data-capability-scope/.test(readinessPanel),
+    workflowUnitTestReadinessModelUi:
+      /WorkflowUnitTestsPanel/.test(rail) &&
+      /workflowTestReadinessModel/.test(rail) &&
+      /workflow-unit-test-list/.test(unitTestsPanel) &&
+      /workflow-unit-test-uncovered/.test(unitTestsPanel) &&
+      /coveredNodeIds/.test(testReadinessModel) &&
+      /uncoveredNodes/.test(testReadinessModel) &&
+      /statusCounts/.test(testReadinessModel),
     workflowSchedulerRuntimeLane:
       /workflow_scheduler_lane/.test(projectRuntime) &&
       !/fn execute_workflow_project\(/.test(projectRuntime) &&
@@ -5548,6 +5568,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       railPath,
       readinessPanelPath,
       readinessModelPath,
+      unitTestsPanelPath,
+      testReadinessModelPath,
       validationPath,
       harnessWorkflowPath,
       railModelPath,
@@ -10898,6 +10920,8 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
+	        "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
 	        "packages/agent-ide/src/runtime/harness-workflow/index.ts",
 	      ],
     };
