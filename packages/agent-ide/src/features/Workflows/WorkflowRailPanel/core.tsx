@@ -24,7 +24,6 @@ import type {
   WorkflowTestRunResult,
   WorkflowValidationResult,
 } from "../../../types/graph";
-import { workflowInterruptPreview } from "../../../runtime/workflow-bottom-panel-model";
 import {
   WORKFLOW_RUNTIME_UI_STRING_CATALOG,
   normalizeWorkflowRuntimeLocale,
@@ -51,23 +50,20 @@ import {
 } from "../../../runtime/harness-workflow";
 import { workflowValuePreview } from "../../../runtime/workflow-value-preview";
 import { workflowTestReadinessModel } from "../../../runtime/workflow-test-readiness-model";
+import { workflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
 import {
-  compareRunRecords,
   resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
   resolveWorkflowHarnessReplayInspection,
   workflowBindingCheckResult,
   workflowBindingRegistryRows,
   workflowBindingRegistrySummary,
-  workflowDurationLabel,
   workflowEnvironmentProfile,
-  workflowEventLabel,
   workflowFileBundleItems,
   workflowGithubPrCreatePlanSummary,
   workflowGithubPrCreatePlanStatus,
   workflowIssueActionLabel,
   workflowIssueTitle,
-  workflowNodeRunChildLineage,
   workflowNodeName,
   workflowPackageNodeOutputSummary,
   workflowPackageNodeOutputStatus,
@@ -75,8 +71,6 @@ import {
   workflowSelectedNodeBindingSummary,
   workflowUniqueReceiptRefs,
   workflowUniqueReplayFixtureRefs,
-  workflowWorkbenchCheckSummary,
-  workflowWorkbenchCheckTitle,
   workflowTimeLabel,
   type WorkflowGithubPrCreatePlanSummary,
   type WorkflowPackageNodeOutputSummary,
@@ -102,6 +96,7 @@ import {
 } from "./statusPrimitives";
 import { WorkflowReadinessPanel } from "./readinessPanel";
 import { WorkflowUnitTestsPanel } from "./unitTestsPanel";
+import { WorkflowRunsPanel } from "./runsPanel";
 
 function workflowPackageSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
@@ -460,7 +455,6 @@ export function WorkflowRailPanel({
     Record<string, WorkflowBindingCheckResult>
   >({});
   const normalizedRailSearch = railSearchQuery.trim().toLowerCase();
-  const normalizedRunSearch = runSearchQuery.trim().toLowerCase();
   const outputNodes = workflow.nodes.filter(
     (nodeItem) => nodeItem.type === "output",
   );
@@ -490,6 +484,17 @@ export function WorkflowRailPanel({
     searchQuery: unitTestSearchQuery,
   });
   const { coveredNodeIds } = unitTestModel;
+  const runHistoryModel = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult,
+    compareRunResult,
+    selectedRunId,
+    compareRunId,
+    runEvents,
+    searchQuery: runSearchQuery,
+    statusFilter: runStatusFilter,
+  });
   const modelBindingItems = Object.entries(
     workflow.global_config.modelBindings ?? {},
   );
@@ -3293,398 +3298,22 @@ export function WorkflowRailPanel({
     );
   }
   if (panel === "runs") {
-    const selectedRun =
-      lastRunResult?.summary.id === selectedRunId ? lastRunResult : null;
-    const comparison =
-      selectedRun &&
-      compareRunResult &&
-      compareRunResult.summary.id !== selectedRun.summary.id
-        ? compareRunRecords(workflow, selectedRun, compareRunResult)
-        : null;
-    const defaultCompareRun = runs.find((run) => run.id !== selectedRunId);
-    const timelineEvents = selectedRun?.events ?? runEvents;
-    const interruptPreview = workflowInterruptPreview(lastRunResult);
-    const runStatuses = Array.from(
-      new Set(runs.map((run) => run.status)),
-    ).sort();
-    const filteredRuns = runs.filter((run) => {
-      const matchesStatus =
-        runStatusFilter === "all" || run.status === runStatusFilter;
-      const matchesSearch =
-        !normalizedRunSearch ||
-        [run.id, run.status, run.summary]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedRunSearch);
-      return matchesStatus && matchesSearch;
-    });
-    const visibleRuns = filteredRuns.slice(0, 8);
-    const harnessAttempts = selectedRun?.harnessAttempts ?? [];
-    const harnessComparisons = selectedRun?.harnessShadowComparisons ?? [];
     return (
-      <>
-        <h3>Runs</h3>
-        <p>
-          {runs.length === 0
-            ? "No runs yet."
-            : `Showing ${visibleRuns.length} of ${filteredRuns.length} matching runs. Select one to inspect attempts and state changes.`}
-        </p>
-        {onOpenExecutions ? (
-          <button
-            type="button"
-            className="workflow-secondary-action"
-            data-testid="workflow-open-executions"
-            onClick={onOpenExecutions}
-          >
-            Open Executions
-          </button>
-        ) : null}
-        {runs.length > 0 ? (
-          <div
-            className="workflow-run-filters"
-            data-testid="workflow-run-filters"
-          >
-            <input
-              data-testid="workflow-run-search-input"
-              placeholder="Search runs..."
-              value={runSearchQuery}
-              onChange={(event) => setRunSearchQuery(event.target.value)}
-            />
-            <div
-              className="workflow-node-group-filter"
-              data-testid="workflow-run-status-filter"
-            >
-              {["all", ...runStatuses].map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  className={runStatusFilter === status ? "is-active" : ""}
-                  data-testid={`workflow-run-status-${status}`}
-                  aria-label={
-                    status === "all"
-                      ? "Filter runs by all statuses"
-                      : `Filter runs by ${accessibleStatusLabel(status)}`
-                  }
-                  onClick={() => setRunStatusFilter(status)}
-                >
-                  {status === "all" ? status : accessibleStatusLabel(status)}
-                  <small>
-                    {status === "all"
-                      ? runs.length
-                      : runs.filter((run) => run.status === status).length}
-                  </small>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <div className="workflow-run-list" data-testid="workflow-runs-list">
-          {visibleRuns.map((run) => (
-            <button
-              key={run.id}
-              type="button"
-              className={`workflow-run-card is-${run.status} ${selectedRunId === run.id ? "is-active" : ""} ${compareRunId === run.id ? "is-compare" : ""}`}
-              data-testid={`workflow-run-${run.id}`}
-              data-accessible-status={run.status}
-              data-accessible-status-text={accessibleStatusLabel(run.status)}
-              aria-label={`Run ${accessibleStatusLabel(run.status)}: ${run.summary}`}
-              onClick={() => onSelectRun(run)}
-            >
-              <strong>{accessibleStatusLabel(run.status)}</strong>
-              <span>{run.summary}</span>
-              <small>
-                {workflowDurationLabel(run.startedAtMs, run.finishedAtMs)} ·{" "}
-                {run.checkpointCount ?? 0} checkpoints
-              </small>
-            </button>
-          ))}
-          {runs.length > 0 && visibleRuns.length === 0 ? (
-            <article
-              className="workflow-output-row"
-              data-testid="workflow-runs-empty-filtered"
-            >
-              <strong>No matching runs</strong>
-              <span>
-                Adjust the status filter or search by run summary, status, or
-                id.
-              </span>
-            </article>
-          ) : null}
-        </div>
-        {selectedRun && defaultCompareRun ? (
-          <button
-            type="button"
-            className="workflow-secondary-action"
-            data-testid="workflow-compare-run"
-            onClick={() => onCompareRun(defaultCompareRun)}
-          >
-            Compare with previous run
-          </button>
-        ) : null}
-        {comparison ? (
-          <article
-            className="workflow-run-comparison"
-            data-testid="workflow-run-compare"
-          >
-            <strong>Run comparison</strong>
-            <span>
-              {comparison.baselineStatus} to {comparison.targetStatus} ·{" "}
-              {comparison.changedNodes.length} node changes
-            </span>
-            <dl>
-              <div>
-                <dt>Duration</dt>
-                <dd>
-                  {comparison.durationDeltaMs === null
-                    ? "running"
-                    : `${comparison.durationDeltaMs >= 0 ? "+" : ""}${comparison.durationDeltaMs} ms`}
-                </dd>
-              </div>
-              <div>
-                <dt>Checkpoints</dt>
-                <dd>
-                  {comparison.checkpointDelta >= 0 ? "+" : ""}
-                  {comparison.checkpointDelta}
-                </dd>
-              </div>
-              <div>
-                <dt>Events</dt>
-                <dd>
-                  {comparison.eventDelta >= 0 ? "+" : ""}
-                  {comparison.eventDelta}
-                </dd>
-              </div>
-              <div>
-                <dt>State</dt>
-                <dd>{comparison.stateChanges.length} changes</dd>
-              </div>
-            </dl>
-            {comparison.changedNodes.slice(0, 5).map((change) => (
-              <button
-                key={change.nodeId}
-                type="button"
-                className="workflow-run-comparison-node"
-                data-testid={`workflow-run-compare-node-${change.nodeId}`}
-                onClick={() => onInspectNode(change.nodeId)}
-              >
-                <strong>{change.nodeName}</strong>
-                <span>
-                  {change.before}
-                  {" -> "}
-                  {change.after}
-                </span>
-                <small>
-                  {change.inputChanged ? "input changed" : "input stable"}
-                  {" · "}
-                  {change.outputChanged ? "output changed" : "output stable"}
-                  {change.errorChanged ? " · error changed" : ""}
-                </small>
-              </button>
-            ))}
-          </article>
-        ) : null}
-        {lastRunResult?.interrupt ? (
-          <article
-            className="workflow-output-row"
-            data-testid="workflow-run-interrupt"
-          >
-            <strong>Paused at human input</strong>
-            <span>{lastRunResult.interrupt.prompt}</span>
-            {interruptPreview?.binding ? (
-              <small data-testid="workflow-interrupt-preview">
-                {interruptPreview.binding.bindingKind ?? "action"} ·{" "}
-                {interruptPreview.binding.ref ?? "configured node"} ·{" "}
-                {interruptPreview.binding.sideEffectClass ?? "side effect"}
-              </small>
-            ) : null}
-          </article>
-        ) : null}
-        {selectedRun ? (
-          <div
-            className="workflow-run-inspector"
-            data-testid="workflow-run-inspector"
-          >
-            <h4>Attempts</h4>
-            {selectedRun.nodeRuns.slice(0, 8).map((nodeRun) => {
-              const childLineage = workflowNodeRunChildLineage(nodeRun);
-              return (
-                <button
-                  key={`${nodeRun.nodeId}-${nodeRun.attempt}-${nodeRun.startedAtMs}`}
-                  type="button"
-                  className={`workflow-run-attempt is-${nodeRun.status}`}
-                  data-testid={`workflow-run-attempt-${nodeRun.nodeId}`}
-                  data-accessible-status={nodeRun.status}
-                  data-accessible-status-text={accessibleStatusLabel(nodeRun.status)}
-                  aria-label={`${workflowNodeName(workflow, nodeRun.nodeId)} ${accessibleStatusLabel(nodeRun.status)} attempt ${nodeRun.attempt}`}
-                  onClick={() => onInspectNode(nodeRun.nodeId)}
-                >
-                  <strong>{workflowNodeName(workflow, nodeRun.nodeId)}</strong>
-                  <span>
-                    {nodeRun.status} · attempt {nodeRun.attempt}
-                  </span>
-                  <small>
-                    {workflowDurationLabel(
-                      nodeRun.startedAtMs,
-                      nodeRun.finishedAtMs,
-                    )}
-                    {" · "}
-                    {nodeRun.input === undefined
-                      ? "input not captured"
-                      : "input captured"}
-                  </small>
-                  <small
-                    className="workflow-run-lifecycle"
-                    data-testid="workflow-run-attempt-lifecycle"
-                  >
-                    {(nodeRun.lifecycle?.length ?? 0) > 0
-                      ? `${nodeRun.lifecycle?.length} run steps`
-                      : "run steps pending"}
-                    {nodeRun.checkpointId ? ` · checkpoint saved` : ""}
-                  </small>
-                  {childLineage ? (
-                    <small
-                      className="workflow-run-child-lineage"
-                      data-testid="workflow-run-child-lineage"
-                      data-node-id={nodeRun.nodeId}
-                    >
-                      Child run {childLineage.childRunStatus} ·{" "}
-                      {childLineage.childRunId}
-                    </small>
-                  ) : null}
-                  {nodeRun.harnessAttempt ? (
-                    <small data-testid="workflow-run-harness-attempt">
-                      {nodeRun.harnessAttempt.executionMode} ·{" "}
-                      {nodeRun.harnessAttempt.readiness} ·{" "}
-                      {nodeRun.harnessAttempt.replay.determinism}
-                    </small>
-                  ) : null}
-                </button>
-              );
-            })}
-            {harnessAttempts.length > 0 ? (
-              <>
-                <h4>Harness timeline</h4>
-                <ol
-                  className="workflow-run-timeline"
-                  data-testid="workflow-run-harness-timeline"
-                >
-                  {harnessAttempts.slice(-10).map((attempt) => (
-                    <li
-                      key={attempt.attemptId}
-                      className={`is-${attempt.status}`}
-                      tabIndex={0}
-                      data-testid={`workflow-run-harness-timeline-node-${attempt.attemptId}`}
-                      data-node-attempt-id={attempt.attemptId}
-                      data-workflow-node-id={attempt.workflowNodeId}
-                      data-component-kind={attempt.componentKind}
-                      data-component-id={attempt.componentId}
-                      data-harness-workflow-id={attempt.harnessWorkflowId}
-                      data-harness-activation-id={attempt.harnessActivationId}
-                      data-harness-hash={attempt.harnessHash}
-                      data-execution-mode={attempt.executionMode}
-                      data-readiness={attempt.readiness}
-                      data-status={attempt.status}
-                      data-accessible-status={attempt.status}
-                      data-accessible-status-text={accessibleStatusLabel(attempt.status)}
-                      data-policy-decision={attempt.policyDecision ?? ""}
-                      data-receipt-refs={attempt.receiptIds.join("|")}
-                      data-replay-fixture-ref={attempt.replay.fixtureRef ?? ""}
-                      data-input-hash={attempt.inputHash ?? ""}
-                      data-output-hash={attempt.outputHash ?? ""}
-                      aria-label={`${workflowNodeName(workflow, attempt.workflowNodeId)} ${accessibleStatusLabel(attempt.status)} harness attempt`}
-                    >
-                      <strong>
-                        {workflowNodeName(workflow, attempt.workflowNodeId)}
-                      </strong>
-                      <span>
-                        {attempt.executionMode} · {attempt.readiness} ·{" "}
-                        {attempt.replay.determinism}
-                      </span>
-                      <small>
-                        {attempt.receiptIds.length} receipts ·{" "}
-                        {attempt.replay.redactionPolicy}
-                      </small>
-                    </li>
-                  ))}
-                </ol>
-              </>
-            ) : null}
-            {harnessComparisons.length > 0 ? (
-              <>
-                <h4>Live vs shadow</h4>
-                <ol
-                  className="workflow-run-timeline"
-                  data-testid="workflow-run-harness-shadow-comparison"
-                >
-                  {harnessComparisons.slice(-6).map((comparison) => (
-                    <li
-                      key={`${comparison.liveAttemptId}-${comparison.shadowAttemptId}`}
-                      className={`is-${comparison.divergence}`}
-                      tabIndex={0}
-                      data-live-attempt-id={comparison.liveAttemptId}
-                      data-shadow-attempt-id={comparison.shadowAttemptId}
-                      data-workflow-node-id={comparison.workflowNodeId}
-                      data-component-kind={comparison.componentKind}
-                      data-divergence={comparison.divergence}
-                      data-blocking={comparison.blocking ? "true" : "false"}
-                      data-evidence-refs={comparison.evidenceRefs.join("|")}
-                    >
-                      <strong>{comparison.divergence}</strong>
-                      <span>{comparison.summary}</span>
-                      <small>
-                        {comparison.blocking ? "blocking" : "non-blocking"}
-                      </small>
-                    </li>
-                  ))}
-                </ol>
-              </>
-            ) : null}
-            <h4>Timeline</h4>
-            <ol
-              className="workflow-run-timeline"
-              data-testid="workflow-run-timeline"
-            >
-              {timelineEvents.slice(-10).map((event) => (
-                <li
-                  key={event.id}
-                  className={`is-${event.status ?? event.kind}`}
-                  tabIndex={0}
-                  data-accessible-status={event.status ?? event.kind}
-                  data-accessible-status-text={accessibleStatusLabel(event.status ?? event.kind)}
-                  aria-label={`${workflowEventLabel(event)} ${accessibleStatusLabel(event.status ?? event.kind)}`}
-                >
-                  <strong>{workflowEventLabel(event)}</strong>
-                  <span>
-                    {event.message ?? workflowNodeName(workflow, event.nodeId)}
-                  </span>
-                  <small>{workflowTimeLabel(event.createdAtMs)}</small>
-                </li>
-              ))}
-            </ol>
-          </div>
-        ) : null}
-        {checkpoints.slice(0, 4).map((checkpoint) => (
-          <article
-            key={checkpoint.id}
-            className="workflow-output-row"
-            data-testid={`workflow-checkpoint-${checkpoint.id}`}
-          >
-            <strong>{checkpoint.status}</strong>
-            <span>{checkpoint.summary}</span>
-          </article>
-        ))}
-        {dogfoodRun ? (
-          <article
-            className="workflow-output-row"
-            data-testid="workflow-dogfood-result"
-          >
-            <strong>{workflowWorkbenchCheckTitle(dogfoodRun.status)}</strong>
-            <span>
-              {workflowWorkbenchCheckSummary(dogfoodRun.workflowPaths.length)}
-            </span>
-          </article>
-        ) : null}
-      </>
+      <WorkflowRunsPanel
+        workflow={workflow}
+        model={runHistoryModel}
+        runSearchQuery={runSearchQuery}
+        runStatusFilter={runStatusFilter}
+        checkpoints={checkpoints}
+        dogfoodRun={dogfoodRun}
+        accessibleStatusLabel={accessibleStatusLabel}
+        onRunSearchQueryChange={setRunSearchQuery}
+        onRunStatusFilterChange={setRunStatusFilter}
+        onOpenExecutions={onOpenExecutions}
+        onSelectRun={onSelectRun}
+        onCompareRun={onCompareRun}
+        onInspectNode={onInspectNode}
+      />
     );
   }
   if (panel === "readiness") {

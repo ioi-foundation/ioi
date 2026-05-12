@@ -4128,6 +4128,61 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-test-readiness-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow run-history model
+extraction:
+
+- Extracted run search/filtering, status rollups, visible row selection,
+  selected-run binding, default comparison target, comparison projection,
+  interrupt preview, timeline fallback, and harness attempt/shadow comparison
+  projection into
+  `packages/agent-ide/src/runtime/workflow-run-history-model.ts`.
+- Added
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx`
+  as the presentational React Flow rail surface for run filters, run cards,
+  comparison details, interrupt preview, attempt inspection, harness timelines,
+  shadow comparisons, event timeline, checkpoints, and workbench dogfood
+  summaries.
+- `WorkflowRailPanel/core.tsx` now delegates the `panel === "runs"` branch to
+  `WorkflowRunsPanel` over `workflowRunHistoryModel(...)`, keeping durable run
+  history and replay/inspection state reusable by workflow authoring surfaces.
+- Added
+  `packages/agent-ide/src/runtime/workflow-run-history-model.test.ts` to lock
+  status/search filtering, selected/compare row flags, selected-run timeline
+  binding, comparison generation, ambient-event fallback, interrupt preview,
+  and harness attempt/shadow comparison projection.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so run
+  history must exist in both the runtime model and the React Flow panel. The
+  live rollback proof now includes `workflowRunHistoryModelUi` and source refs
+  for both files.
+- `WorkflowRailPanel/core.tsx` is reduced from 11,310 to 10,939 lines. The new
+  runs panel is 424 lines, and the run-history model is 128 lines with a
+  295-line focused model test.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run validate:autopilot-gui-harness`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T12-53-40-859Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowRunHistoryModelUi === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include both
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx`
+    and `packages/agent-ide/src/runtime/workflow-run-history-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
