@@ -1589,6 +1589,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowSchedulerInterruptLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowSchedulerValidationLane = fs.readFileSync(
     path.join(
       root,
@@ -1812,6 +1819,54 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(
     tauriProjectWorkflowSchedulerLane,
     /fn execute_workflow_project\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerLane,
+    /workflow_scheduler_interrupt_lane/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /fn workflow_scheduler_interrupted_result\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_runtime_interrupt/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_runtime_interrupt_notice/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_checkpoint_state/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_node_lifecycle_steps/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_interrupt_path/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /save_workflow_thread/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_finalize_run_result/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_attach_harness_run_artifacts/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_completion_requirements/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerInterruptLane,
+    /workflow_push_event/,
   );
   assert.match(
     tauriProjectWorkflowSchedulerLane,
