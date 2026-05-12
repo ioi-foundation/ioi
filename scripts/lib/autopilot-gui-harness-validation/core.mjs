@@ -4256,6 +4256,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs";
   const projectWorkflowSchedulerNodeOutcomeLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs";
+  const projectWorkflowSchedulerNodeFailureOutcomeLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_failure_outcome_lane.rs";
   const projectWorkflowSchedulerNodeSuccessEventLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_success_event_lane.rs";
   const projectWorkflowSchedulerNodeStateUpdateLanePath =
@@ -4344,6 +4346,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowSchedulerNodeOutcomeLane = readFileSync(
     resolve(repoRoot, projectWorkflowSchedulerNodeOutcomeLanePath),
+    "utf8",
+  );
+  const projectWorkflowSchedulerNodeFailureOutcomeLane = readFileSync(
+    resolve(repoRoot, projectWorkflowSchedulerNodeFailureOutcomeLanePath),
     "utf8",
   );
   const projectWorkflowSchedulerNodeSuccessEventLane = readFileSync(
@@ -4871,6 +4877,12 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_scheduler_emit_node_success_events/.test(
         projectWorkflowSchedulerNodeOutcomeLane,
       ) &&
+      /workflow_scheduler_node_failure_outcome_lane/.test(
+        projectWorkflowSchedulerNodeOutcomeLane,
+      ) &&
+      /workflow_scheduler_handle_node_failure_outcome/.test(
+        projectWorkflowSchedulerNodeOutcomeLane,
+      ) &&
       !/workflow_next_ready_nodes/.test(
         projectWorkflowSchedulerNodeOutcomeLane,
       ) &&
@@ -4885,12 +4897,32 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       !/workflow_node_logic/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       !/pending_writes/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
-      /workflow_push_event/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
+      !/workflow_push_event/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       !/node_succeeded/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
-      /node_failed/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
+      !/node_failed/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       !/child_run_completed/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       !/output_created/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       !/asset_materialized/.test(projectWorkflowSchedulerNodeOutcomeLane),
+    workflowSchedulerNodeFailureOutcomeRuntimeLane:
+      /fn workflow_scheduler_handle_node_failure_outcome\(/.test(
+        projectWorkflowSchedulerNodeFailureOutcomeLane,
+      ) &&
+      /WorkflowSchedulerNodeExecutionFlow/.test(
+        projectWorkflowSchedulerNodeFailureOutcomeLane,
+      ) &&
+      /workflow_checkpoint_state/.test(
+        projectWorkflowSchedulerNodeFailureOutcomeLane,
+      ) &&
+      /workflow_node_lifecycle_steps/.test(
+        projectWorkflowSchedulerNodeFailureOutcomeLane,
+      ) &&
+      /workflow_node_name/.test(projectWorkflowSchedulerNodeFailureOutcomeLane) &&
+      /workflow_push_event/.test(
+        projectWorkflowSchedulerNodeFailureOutcomeLane,
+      ) &&
+      /blocked_node_ids/.test(projectWorkflowSchedulerNodeFailureOutcomeLane) &&
+      /node_failed/.test(projectWorkflowSchedulerNodeFailureOutcomeLane) &&
+      /error/.test(projectWorkflowSchedulerNodeFailureOutcomeLane),
     workflowSchedulerNodeSuccessEventRuntimeLane:
       /fn workflow_scheduler_emit_node_success_events\(/.test(
         projectWorkflowSchedulerNodeSuccessEventLane,
