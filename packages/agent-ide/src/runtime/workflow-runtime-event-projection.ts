@@ -9,6 +9,7 @@ export type WorkflowRuntimeThreadEventType =
   | "turn_completed"
   | "turn_failed"
   | "turn_canceled"
+  | "turn_interrupted"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -27,6 +28,7 @@ export type WorkflowRuntimeProjectedStatus =
   | "failed"
   | "blocked"
   | "canceled"
+  | "interrupted"
   | "unknown";
 
 export interface WorkflowRuntimeThreadEventLike {
@@ -224,6 +226,8 @@ export function workflowNodeIdForRuntimeThreadEvent(
       return "runtime.turn-failed";
     case "turn_canceled":
       return "runtime.turn-canceled";
+    case "turn_interrupted":
+      return "runtime.operator-interrupt";
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -254,6 +258,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "turn_completed":
     case "turn_failed":
     case "turn_canceled":
+    case "turn_interrupted":
       return "output";
     case "reasoning_delta":
       return "task_state";
@@ -398,6 +403,7 @@ function componentKindForRuntimeThreadEvent(
     case "turn_completed":
     case "turn_failed":
     case "turn_canceled":
+    case "turn_interrupted":
       return "runtime_turn";
     case "reasoning_delta":
       return "reasoning_delta";
@@ -432,6 +438,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Turn failed";
     case "turn_canceled":
       return "Turn canceled";
+    case "turn_interrupted":
+      return "Turn interrupted";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":
@@ -460,6 +468,7 @@ function projectedStatusForRuntimeThreadEvent(
   if (event.type === "policy_blocked") return "blocked";
   if (event.type === "tool_failed" || event.type === "turn_failed") return "failed";
   if (event.type === "turn_canceled") return "canceled";
+  if (event.type === "turn_interrupted") return "interrupted";
 
   const normalizedStatus = event.status.toLowerCase();
   if (normalizedStatus.includes("queued")) return "queued";
@@ -472,6 +481,7 @@ function projectedStatusForRuntimeThreadEvent(
   if (normalizedStatus.includes("canceled") || normalizedStatus.includes("cancelled")) {
     return "canceled";
   }
+  if (normalizedStatus.includes("interrupted")) return "interrupted";
   if (normalizedStatus.includes("completed") || normalizedStatus.includes("succeeded")) {
     return "completed";
   }

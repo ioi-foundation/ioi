@@ -224,6 +224,27 @@ pub enum AgentCommands {
     Events(SnapshotArgs),
     /// Stream canonical thread/run events for CLI and TUI inspectors.
     Stream(AgentEventStreamArgs),
+    /// Interrupt a canonical runtime turn through the daemon control endpoint.
+    Interrupt {
+        /// Runtime thread id that owns the turn.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Runtime turn id to interrupt.
+        #[clap(long = "turn-id")]
+        turn_id: String,
+        /// Operator-visible reason.
+        #[clap(long, default_value = "operator requested interrupt")]
+        reason: String,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Print the runtime trace bundle projection for a session step.
     Trace(SnapshotArgs),
     /// Verify a substrate snapshot contains the required runtime evidence.
@@ -426,6 +447,14 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         } => print_status(session_id, step, rpc, json).await,
         AgentCommands::Events(args) => print_events(args).await,
         AgentCommands::Stream(args) => stream_agent_events(args).await,
+        AgentCommands::Interrupt {
+            thread_id,
+            turn_id,
+            reason,
+            endpoint,
+            token,
+            json,
+        } => interrupt_turn(thread_id, turn_id, reason, endpoint, token, json).await,
         AgentCommands::Trace(args) => print_runtime_trace(args).await,
         AgentCommands::Verify(args) => verify_snapshot_command(args).await,
         AgentCommands::Replay(args) => replay_snapshot_command(args).await,
@@ -538,6 +567,45 @@ fn print_submission(json: bool, action: &str, session_id: [u8; 32], tx_hash: Str
         action,
         hex::encode(session_id),
         tx_hash
+    );
+    Ok(())
+}
+
+async fn interrupt_turn(
+    thread_id: String,
+    turn_id: String,
+    reason: String,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let route = format!("/v1/threads/{thread_id}/turns/{turn_id}/interrupt");
+    let response = daemon_request(
+        endpoint.as_deref(),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::json!({
+            "reason": reason,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Interrupt",
+            "component_kind": "operator_control",
+            "workflow_node_id": "runtime.operator-interrupt",
+        })),
+    )
+    .await?;
+    if json {
+        return print_json(&response);
+    }
+    println!(
+        "Interrupted turn {} on thread {}: status={}",
+        turn_id,
+        thread_id,
+        response
+            .get("status")
+            .and_then(|value| value.as_str())
+            .unwrap_or("unknown")
     );
     Ok(())
 }
@@ -1560,6 +1628,30 @@ mod tests {
                 json: true,
                 ..
             }))
+        ));
+
+        let interrupt = AgentArgs::try_parse_from([
+            "agent",
+            "interrupt",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--turn-id",
+            "turn_runtime_cli",
+            "--reason",
+            "operator validation",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--json",
+        ])
+        .expect("interrupt command should parse");
+        assert!(matches!(
+            interrupt.command,
+            Some(AgentCommands::Interrupt {
+                thread_id,
+                turn_id,
+                json: true,
+                ..
+            }) if thread_id == "thread_runtime_cli" && turn_id == "turn_runtime_cli"
         ));
 
         let model = AgentArgs::try_parse_from(["agent", "model", "--json"])

@@ -18,6 +18,7 @@ export type IOISDKMessageType =
   | "artifact"
   | "completed"
   | "canceled"
+  | "interrupted"
   | "error";
 
 export interface IOISDKMessage {
@@ -138,6 +139,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "turn_completed",
   "turn_failed",
   "turn_canceled",
+  "turn_interrupted",
   "reasoning_delta",
   "tool_completed",
   "tool_failed",

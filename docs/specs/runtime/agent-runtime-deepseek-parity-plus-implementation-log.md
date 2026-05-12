@@ -5046,3 +5046,50 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-cross-surface-event-seq`
   - GUI harness preflight passed outside the worktree at
     `/tmp/ioi-autopilot-gui-harness-cross-surface-event-seq/2026-05-12T22-40-35-479Z/result.json`.
+
+### Slice 101. 2026-05-12 - Live operator interrupt turn-control event
+
+Implementation slice completed 2026-05-12, live operator interrupt
+turn-control event:
+
+- Added `POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt` to the daemon
+  thread API. The endpoint appends one idempotent canonical `turn.interrupted`
+  event with `source_event_kind=OperatorControl.Interrupt`,
+  `component_kind=operator_control`, `workflow_node_id=runtime.operator-interrupt`,
+  `payload_schema_version=ioi.runtime.operator-control.v1`, receipt refs, and
+  policy decision refs.
+- Added SDK `Turn.interrupt({ reason })` plus typed `turn_interrupted` event
+  mapping so daemon SSE rows project through `Thread.events()` and
+  `Turn.events()` without losing event id, seq, cursor, node id, or evidence
+  refs.
+- Added CLI/TUI `ioi agent interrupt --thread-id <id> --turn-id <id>` over the
+  daemon control endpoint, with JSON output suitable for the future TUI control
+  surface.
+- Extended the React Flow runtime event projection so `turn_interrupted` rows
+  render as an interrupted `runtime.operator-interrupt` control node.
+- Added a live runtime-service proof that starts the Rust bridge, creates a
+  turn, interrupts it through CLI, verifies SDK idempotency, and checks React
+  Flow consumes the exact same stored event.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "operator interrupt keeps one canonical control event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "local daemon projects Agentgres runs" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-operator-interrupt-control`
+  - GUI harness preflight passed outside the worktree at
+    `/tmp/ioi-autopilot-gui-harness-operator-interrupt-control/2026-05-12T22-55-37-243Z/result.json`.
+
+Known validation note:
+
+- `cargo test -p ioi-cli parses_agent_operator_surface_commands` still compiles
+  unrelated integration tests and fails before the targeted unit because
+  pre-existing `crates/cli/tests/*` fixtures construct `StartAgentParams`
+  without `runtime_route_frame`. The binary-only command test above is the
+  scoped Rust signal for this slice.

@@ -95,6 +95,7 @@ export interface RuntimeRunRecord {
   id: string;
   agentId: string;
   status: "queued" | "running" | "completed" | "canceled" | "failed" | "blocked";
+  turnStatus?: RuntimeTurnRecord["status"];
   objective: string;
   mode: "send" | "plan" | "dry_run" | "handoff" | "learn";
   createdAt: string;
@@ -217,6 +218,15 @@ export interface RuntimeTurnCreateInput {
   [key: string]: unknown;
 }
 
+export interface RuntimeTurnInterruptInput {
+  reason?: string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  [key: string]: unknown;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -232,6 +242,7 @@ export interface RuntimeSubstrateClient {
   submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
+  interruptTurn(threadId: string, turnId: string, input?: RuntimeTurnInterruptInput): Promise<RuntimeTurnRecord>;
   streamThreadEvents(threadId: string, options?: RuntimeEventStreamOptions): AsyncIterable<RuntimeThreadEvent>;
   createAgent(options: AgentOptions): Promise<RuntimeAgentRecord>;
   resumeAgent(agentId: string): Promise<RuntimeAgentRecord>;
@@ -337,6 +348,22 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "getTurn",
       "GET",
       `/v1/threads/${encodePath(threadId)}/turns/${encodePath(turnId)}`,
+    );
+  }
+
+  async interruptTurn(
+    threadId: string,
+    turnId: string,
+    input: RuntimeTurnInterruptInput = {},
+  ): Promise<RuntimeTurnRecord> {
+    return this.request(
+      "interruptTurn",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/turns/${encodePath(turnId)}/interrupt`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
     );
   }
 
@@ -1072,6 +1099,64 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       throw new IoiAgentError({ code: "not_found", message: `Turn not found: ${turnId}` });
     }
     return turn;
+  }
+
+  async interruptTurn(
+    threadId: string,
+    turnId: string,
+    input: RuntimeTurnInterruptInput = {},
+  ): Promise<RuntimeTurnRecord> {
+    const turn = await this.getTurn(threadId, turnId);
+    const run = await this.getRun(turn.request_id);
+    const reason = typeof input.reason === "string" && input.reason.trim()
+      ? input.reason.trim()
+      : "operator requested interrupt";
+    const source = typeof input.source === "string" && input.source.trim()
+      ? input.source.trim()
+      : "sdk_client";
+    const events = run.events.filter((event) => event.type !== "interrupted");
+    const interruptedEvent = makeEvent(
+      run.id,
+      run.agentId,
+      events.length,
+      "interrupted",
+      "Turn interrupted",
+      {
+        eventKind: "OperatorControl.Interrupt",
+        reason,
+        source,
+        threadId,
+        turnId,
+        workflowNodeId: input.workflowNodeId ?? "runtime.operator-interrupt",
+      },
+    );
+    const stopCondition: StopConditionProjection = {
+      reason: "operator_interrupt",
+      evidenceSufficient: true,
+      rationale: `Operator interrupt accepted from ${source}: ${reason}`,
+    };
+    const trace = {
+      ...run.trace,
+      events: [...events, interruptedEvent],
+      stopCondition,
+      qualityLedger: {
+        ...run.trace.qualityLedger,
+        failureOntologyLabels: [
+          ...new Set([...run.trace.qualityLedger.failureOntologyLabels, "operator_interrupt"]),
+        ],
+      },
+    };
+    const interrupted = {
+      ...run,
+      status: ["queued", "running", "blocked"].includes(run.status) ? "canceled" as const : run.status,
+      turnStatus: "interrupted" as const,
+      updatedAt: interruptedEvent.createdAt,
+      events: trace.events,
+      trace,
+      result: `Turn interrupted by operator: ${reason}`,
+    };
+    this.persistRun(interrupted);
+    return this.turnRecordForRun(interrupted);
   }
 
   async *streamThreadEvents(
@@ -1863,7 +1948,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const events = this.threadRuntimeEvents(this.agents.get(run.agentId)).filter(
       (event) => event.turn_id === turnId,
     );
-    const status = runtimeTurnStatusForRun(run.status);
+    const status = run.turnStatus ?? runtimeTurnStatusForRun(run.status);
     return {
       schema_version: "ioi.runtime.turn.v1",
       turn_id: turnId,

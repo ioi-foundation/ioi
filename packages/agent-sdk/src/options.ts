@@ -11,6 +11,7 @@ export type StopReason =
   | "policy_prevents_progress"
   | "external_dependency_blocked"
   | "marginal_improvement_too_low"
+  | "operator_interrupt"
   | "unknown";
 
 export interface ModelSelection {

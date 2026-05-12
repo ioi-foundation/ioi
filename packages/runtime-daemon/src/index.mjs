@@ -1402,7 +1402,7 @@ export class AgentgresRuntimeStateStore {
       approval_mode: "suggest",
       trust_profile: "local_private",
       model_route: agent.modelId,
-      status: threadStatusForAgent(agent.status),
+      status: latestRun?.turnStatus === "interrupted" ? "interrupted" : threadStatusForAgent(agent.status),
       latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
       latest_seq: latestSeq,
       event_stream_id: eventStreamIdForThread(threadId),
@@ -1438,14 +1438,17 @@ export class AgentgresRuntimeStateStore {
     this.projectRunEvents(run, agent);
     const turnEvents = this.runtimeEventsForTurn(turnIdForRun(run.id));
     const seqStart = turnEvents.at(0)?.seq ?? null;
-    const seqEnd = lifecycleStatusForRun(run.status) === "running" ? null : (turnEvents.at(-1)?.seq ?? null);
+    const status = run.turnStatus ?? lifecycleStatusForRun(run.status);
+    const isOpen = status === "queued" || status === "running" || status === "waiting_for_approval" || status === "waiting_for_input";
+    const seqEnd = isOpen ? null : (turnEvents.at(-1)?.seq ?? null);
+    const completedAt = isOpen ? null : run.updatedAt;
     return {
       schema_version: RUNTIME_TURN_SCHEMA_VERSION,
       turn_id: turnIdForRun(run.id),
       thread_id: threadIdForAgent(run.agentId),
       parent_turn_id: null,
       request_id: run.id,
-      status: lifecycleStatusForRun(run.status),
+      status,
       input_item_ids: turnEvents
         .filter((event) => event.event_kind === "turn.started")
         .map((event) => event.item_id),
@@ -1455,7 +1458,7 @@ export class AgentgresRuntimeStateStore {
       seq_start: seqStart,
       seq_end: seqEnd,
       started_at: run.createdAt,
-      completed_at: TERMINAL_EVENT_TYPES.has(run.status) || run.status === "completed" ? run.updatedAt : null,
+      completed_at: completedAt,
       mode: "agent",
       approval_mode: "suggest",
       model_route_decision_id: run.modelRouteDecision?.decisionId ?? run.trace?.modelRouteDecision?.decisionId ?? null,
@@ -1467,9 +1470,7 @@ export class AgentgresRuntimeStateStore {
       workflow_execution_ref: null,
       fixture_profile: fixtureProfileForAgent(agent),
       started_at_ms: Date.parse(run.createdAt) || 0,
-      completed_at_ms: TERMINAL_EVENT_TYPES.has(run.status) || run.status === "completed"
-        ? Date.parse(run.updatedAt) || 0
-        : null,
+      completed_at_ms: completedAt ? Date.parse(completedAt) || 0 : null,
       error_summary: run.status === "failed" ? run.result : null,
       model_route_decision: run.modelRouteDecision ?? run.trace?.modelRouteDecision ?? null,
       model_route_receipt_id: run.modelRouteReceiptId ?? null,
@@ -1484,6 +1485,96 @@ export class AgentgresRuntimeStateStore {
         run.activeSkillHookManifest?.manifestId,
       ].filter(Boolean),
     };
+  }
+
+  interruptTurn(threadId, turnId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const runId = runIdForTurn(turnId);
+    const run = this.getRun(runId);
+    if (run.agentId !== agent.id) {
+      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+    }
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested interrupt";
+    const now = new Date().toISOString();
+    const previousStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId}:item:operator-interrupt`,
+      idempotency_key: `turn:${turnId}:operator.interrupt`,
+      source,
+      source_event_kind: "OperatorControl.Interrupt",
+      event_kind: "turn.interrupted",
+      status: "interrupted",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.operator-interrupt",
+      component_kind: "operator_control",
+      payload_schema_version: "ioi.runtime.operator-control.v1",
+      payload: {
+        event_kind: "OperatorControl.Interrupt",
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        previous_status: previousStatus,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId,
+        run_id: run.id,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [`receipt_${run.id}_operator_interrupt`],
+      policy_decision_refs: [`policy_${run.id}_operator_interrupt_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "interrupt",
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      createdAt: event.created_at,
+    };
+    const stopCondition = {
+      reason: "operator_interrupt",
+      evidenceSufficient: true,
+      rationale: `Operator interrupt accepted from ${source}: ${reason}`,
+    };
+    const updated = {
+      ...run,
+      status: ["queued", "running", "blocked"].includes(run.status) ? "canceled" : run.status,
+      turnStatus: "interrupted",
+      updatedAt: event.created_at,
+      result: `Turn interrupted by operator: ${reason}`,
+      trace: {
+        ...run.trace,
+        status: "interrupted",
+        stopCondition,
+        operatorControls: [...normalizeArray(run.trace?.operatorControls), control],
+        qualityLedger: {
+          ...run.trace?.qualityLedger,
+          failureOntologyLabels: [
+            ...new Set([
+              ...normalizeArray(run.trace?.qualityLedger?.failureOntologyLabels),
+              "operator_interrupt",
+            ]),
+          ],
+        },
+      },
+      operatorControls: [...normalizeArray(run.operatorControls), control],
+    };
+    this.runs.set(run.id, updated);
+    this.writeRun(updated, "turn.interrupt");
+    return this.turnForRun(updated);
   }
 
   listJobs(options = {}) {
@@ -4160,6 +4251,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "turns" && !segments[4]) {
     writeJsonResponse(response, await store.createTurn(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "interrupt" && !segments[6]) {
+    writeJsonResponse(response, store.interruptTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "turns" && !segments[4]) {
@@ -7927,6 +8022,11 @@ function optionalString(value) {
   if (value === undefined || value === null) return undefined;
   const text = String(value).trim();
   return text ? text : undefined;
+}
+
+function operatorControlSource(value) {
+  const source = optionalString(value);
+  return ["cli_tui", "react_flow", "sdk_client"].includes(source) ? source : "sdk_client";
 }
 
 function safeId(value) {

@@ -1865,6 +1865,133 @@ test("mapped KernelEvent row keeps one canonical sequence across SDK, CLI, and R
   }
 });
 
+test("operator interrupt keeps one canonical control event across SDK, CLI, and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-interrupt-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-interrupt-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-interrupt-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-interrupt";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove operator interrupt control has one cross-surface event.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare an interruptible turn for operator control validation.",
+      }),
+    });
+
+    const cliResult = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "interrupt",
+        "--thread-id",
+        thread.thread_id,
+        "--turn-id",
+        turn.turn_id,
+        "--reason",
+        "operator validation interrupt",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const cliTurn = JSON.parse(cliResult.stdout);
+    assert.equal(cliTurn.status, "interrupted");
+    assert.equal(cliTurn.stop_reason, "operator_interrupt");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const interruptEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Interrupt",
+    );
+    assert.ok(interruptEvent);
+    assert.equal(interruptEvent.event_kind, "turn.interrupted");
+    assert.equal(interruptEvent.status, "interrupted");
+    assert.equal(interruptEvent.source, "cli_tui");
+    assert.equal(interruptEvent.actor, "user");
+    assert.equal(interruptEvent.thread_id, thread.thread_id);
+    assert.equal(interruptEvent.turn_id, turn.turn_id);
+    assert.equal(interruptEvent.component_kind, "operator_control");
+    assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
+    assert.equal(interruptEvent.payload_schema_version, "ioi.runtime.operator-control.v1");
+    assert.equal(interruptEvent.payload.reason, "operator validation interrupt");
+    assert.ok(interruptEvent.receipt_refs.includes(`receipt_${turn.request_id}_operator_interrupt`));
+    assert.ok(interruptEvent.policy_decision_refs.includes(`policy_${turn.request_id}_operator_interrupt_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkTurn = await sdkThread.turn(turn.turn_id);
+    assert.equal(sdkTurn.status, "interrupted");
+    const sdkInterrupted = await sdkTurn.interrupt({ reason: "sdk idempotency probe" });
+    assert.equal(sdkInterrupted.status, "interrupted");
+    const afterSdkInterrupt = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    assert.equal(
+      afterSdkInterrupt.filter((event) => event.source_event_kind === "OperatorControl.Interrupt").length,
+      1,
+    );
+
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkInterruptEvent = sdkEvents.find((event) => event.id === interruptEvent.event_id);
+    assert.ok(sdkInterruptEvent);
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(interruptEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+
+    const canonicalCursor = `${interruptEvent.event_stream_id}:${interruptEvent.seq}`;
+    assert.equal(sdkInterruptEvent.type, "turn_interrupted");
+    assert.equal(sdkInterruptEvent.seq, interruptEvent.seq);
+    assert.equal(sdkInterruptEvent.cursor, canonicalCursor);
+    assert.equal(sdkInterruptEvent.eventKind, interruptEvent.event_kind);
+    assert.equal(sdkInterruptEvent.sourceEventKind, interruptEvent.source_event_kind);
+    assert.equal(sdkInterruptEvent.componentKind, interruptEvent.component_kind);
+    assert.equal(sdkInterruptEvent.workflowNodeId, interruptEvent.workflow_node_id);
+    assert.equal(sdkInterruptEvent.payloadSchemaVersion, interruptEvent.payload_schema_version);
+    assert.deepEqual(sdkInterruptEvent.receiptRefs, interruptEvent.receipt_refs);
+    assert.deepEqual(sdkInterruptEvent.policyDecisionRefs, interruptEvent.policy_decision_refs);
+
+    assert.equal(reactFlowNode.latestSeq, interruptEvent.seq);
+    assert.equal(reactFlowNode.latestCursor, canonicalCursor);
+    assert.equal(reactFlowNode.latestEventId, interruptEvent.event_id);
+    assert.equal(reactFlowNode.componentKind, "operator_control");
+    assert.equal(reactFlowNode.workflowNodeId, "runtime.operator-interrupt");
+    assert.equal(reactFlowNode.status, "interrupted");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Interrupt"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("daemon runtime event store is append-only and idempotent per stream", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
@@ -2313,6 +2440,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /AgentCommands::Memory/);
   assert.match(source, /AgentCommands::Doctor/);
   assert.match(source, /AgentCommands::Stream/);
+  assert.match(source, /AgentCommands::Interrupt/);
   assert.match(source, /AgentEventStreamArgs/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
@@ -2329,6 +2457,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{id\}\/events/);
   assert.match(source, /\/v1\/threads\/\{id\}\/events\/stream/);
   assert.match(source, /\/v1\/runs\/\{id\}\/events/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
+  assert.match(source, /OperatorControl\.Interrupt/);
+  assert.match(source, /operator_control/);
   assert.match(source, /since_seq/);
   assert.match(source, /Last-Event-ID/);
   assert.match(source, /parse_runtime_event_sse_blocks/);
