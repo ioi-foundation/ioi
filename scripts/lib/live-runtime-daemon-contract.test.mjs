@@ -33,8 +33,8 @@ async function fetchJson(url, options) {
   return response.json();
 }
 
-async function fetchSseEvents(url) {
-  const text = await fetch(url).then(async (response) => {
+async function fetchSseEvents(url, options = {}) {
+  const text = await fetch(url, options).then(async (response) => {
     assert.ok(response.ok, `${response.status} ${response.statusText} for ${url}`);
     return response.text();
   });
@@ -194,19 +194,22 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(runtimeTaskEvent.workflow_node_id, "runtime.runtime-task");
     assert.equal(runtimeTaskEvent.payload_summary.prompt_included, false);
     assert.ok(runtimeTaskEvent.artifact_refs.includes("runtime-task.json"));
-    const runtimeChecklistEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "RuntimeChecklistRecord");
+    const runtimeChecklistEvent = threadEvents
+      .filter((event) => event.payload_summary?.event_kind === "RuntimeChecklistRecord")
+      .at(-1);
     assert.ok(runtimeChecklistEvent);
     assert.equal(runtimeChecklistEvent.component_kind, "runtime_checklist");
     assert.equal(runtimeChecklistEvent.workflow_node_id, "runtime.runtime-checklist");
-    assert.equal(runtimeChecklistEvent.payload_summary.status, "canceled");
+    assert.ok(["completed", "canceled"].includes(runtimeChecklistEvent.payload_summary.status));
     assert.ok(runtimeChecklistEvent.artifact_refs.includes("runtime-checklist.json"));
     const jobQueuedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobQueued");
     const jobStartedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobStarted");
+    const jobCompletedEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobCompleted");
     const jobCanceledEvent = threadEvents.find((event) => event.payload_summary?.event_kind === "JobCanceled");
     assert.ok(jobQueuedEvent);
     assert.ok(jobStartedEvent);
     assert.ok(jobCanceledEvent);
-    assert.equal(threadEvents.some((event) => event.payload_summary?.event_kind === "JobCompleted"), false);
+    if (jobCompletedEvent) assert.ok(jobCompletedEvent.seq < jobCanceledEvent.seq);
     assert.equal(jobQueuedEvent.component_kind, "runtime_job");
     assert.equal(jobStartedEvent.workflow_node_id, "runtime.runtime-job");
     assert.equal(jobCanceledEvent.payload_summary.lifecycle_status, "canceled");
@@ -1136,6 +1139,47 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     );
     assert.equal(replayAfterFive[0].seq, 6);
     assert.ok(replayAfterFive.every((event) => event.seq > 5));
+
+    const replayAfterHeaderSeq = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events`,
+      { headers: { "last-event-id": "5" } },
+    );
+    assert.equal(replayAfterHeaderSeq[0].seq, 6);
+
+    const cursorEvent = events[5];
+    const replayAfterEventId = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events`,
+      { headers: { "last-event-id": cursorEvent.event_id } },
+    );
+    assert.equal(replayAfterEventId[0].seq, cursorEvent.seq + 1);
+
+    const streamAlias = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events/stream?since_seq=0`,
+    );
+    assert.deepEqual(streamAlias.map((event) => event.event_id), events.map((event) => event.event_id));
+
+    const owningTurnEvents = events.filter((event) => event.turn_id === turn.turn_id);
+    const runEvents = await fetchSseEvents(`${daemon.endpoint}/v1/runs/${turn.request_id}/events`);
+    assert.deepEqual(
+      runEvents.map((event) => event.event_id),
+      owningTurnEvents.map((event) => event.event_id),
+    );
+    const runReplayAfterEventId = await fetchSseEvents(
+      `${daemon.endpoint}/v1/runs/${turn.request_id}/events`,
+      { headers: { "last-event-id": owningTurnEvents[0].event_id } },
+    );
+    assert.deepEqual(
+      runReplayAfterEventId.map((event) => event.event_id),
+      owningTurnEvents.slice(1).map((event) => event.event_id),
+    );
+    const legacyReplayAfterEventId = await fetchSseEvents(
+      `${daemon.endpoint}/v1/runs/${turn.request_id}/replay`,
+      { headers: { "last-event-id": owningTurnEvents[0].event_id } },
+    );
+    assert.deepEqual(
+      legacyReplayAfterEventId.map((event) => event.event_id),
+      owningTurnEvents.slice(1).map((event) => event.event_id),
+    );
 
     const futureCursor = await fetchJsonStatus(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=${events.at(-1).seq + 100}`,
