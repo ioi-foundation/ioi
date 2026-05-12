@@ -4244,7 +4244,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx";
   const settingsModelPath =
     "packages/agent-ide/src/runtime/workflow-settings-model.ts";
-  const settingsHarnessPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx"; const settingsHarnessTypesPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts"; const settingsHarnessActivationPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx"; const settingsHarnessWorkerBindingPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx"; const settingsHarnessActiveRuntimeRollbackPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx"; const settingsHarnessPromotionPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx";
+  const settingsHarnessPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx"; const settingsHarnessTypesPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts"; const settingsHarnessActivationPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx"; const settingsHarnessWorkerBindingPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx"; const settingsHarnessActiveRuntimeRollbackPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx"; const settingsHarnessRollbackRestoreProofPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx"; const settingsHarnessPromotionPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx";
   const settingsHarnessModelPath =
     "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts";
   const readinessPanelPath =
@@ -4368,12 +4368,12 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     resolve(repoRoot, settingsHarnessActivationPanelPath),
     "utf8",
   );
-  const settingsHarnessTypes = readFileSync(resolve(repoRoot, settingsHarnessTypesPath), "utf8"); const settingsHarnessWorkerBindingPanel = readFileSync(resolve(repoRoot, settingsHarnessWorkerBindingPanelPath), "utf8"); const settingsHarnessActiveRuntimeRollbackPanel = readFileSync(resolve(repoRoot, settingsHarnessActiveRuntimeRollbackPanelPath), "utf8"); const settingsHarnessPromotionPanel = readFileSync(resolve(repoRoot, settingsHarnessPromotionPanelPath), "utf8");
+  const settingsHarnessTypes = readFileSync(resolve(repoRoot, settingsHarnessTypesPath), "utf8"); const settingsHarnessWorkerBindingPanel = readFileSync(resolve(repoRoot, settingsHarnessWorkerBindingPanelPath), "utf8"); const settingsHarnessActiveRuntimeRollbackPanel = readFileSync(resolve(repoRoot, settingsHarnessActiveRuntimeRollbackPanelPath), "utf8"); const settingsHarnessRollbackRestoreProofPanel = readFileSync(resolve(repoRoot, settingsHarnessRollbackRestoreProofPanelPath), "utf8"); const settingsHarnessPromotionPanel = readFileSync(resolve(repoRoot, settingsHarnessPromotionPanelPath), "utf8");
   const settingsHarnessModel = readFileSync(
     resolve(repoRoot, settingsHarnessModelPath),
     "utf8",
   );
-  rail = `${rail}\n${settingsHarnessPanel}\n${settingsHarnessTypes}\n${settingsHarnessActivationPanel}\n${settingsHarnessWorkerBindingPanel}\n${settingsHarnessActiveRuntimeRollbackPanel}\n${settingsHarnessPromotionPanel}`;
+  rail = `${rail}\n${settingsHarnessPanel}\n${settingsHarnessTypes}\n${settingsHarnessActivationPanel}\n${settingsHarnessWorkerBindingPanel}\n${settingsHarnessActiveRuntimeRollbackPanel}\n${settingsHarnessRollbackRestoreProofPanel}\n${settingsHarnessPromotionPanel}`;
   const readinessPanel = readFileSync(
     resolve(repoRoot, readinessPanelPath),
     "utf8",
@@ -4951,7 +4951,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-activation-gate-inspector/.test(
         settingsHarnessActivationPanel,
       ) &&
-      /WorkflowSettingsHarnessActiveRuntimeRollbackPanel/.test(settingsHarnessWorkerBindingPanel) && /data-worker-binding-registry-bound/.test(settingsHarnessActiveRuntimeRollbackPanel) && /workflow-harness-active-runtime-rollback-proof/.test(settingsHarnessActiveRuntimeRollbackPanel) &&
+      /WorkflowSettingsHarnessActiveRuntimeRollbackPanel/.test(settingsHarnessWorkerBindingPanel) && /data-worker-binding-registry-bound/.test(settingsHarnessActiveRuntimeRollbackPanel) && /workflow-harness-active-runtime-rollback-proof/.test(settingsHarnessActiveRuntimeRollbackPanel) && /WorkflowSettingsHarnessRollbackRestoreProofPanel/.test(settingsHarnessActiveRuntimeRollbackPanel) && /workflow-harness-git-restore-proof/.test(settingsHarnessRollbackRestoreProofPanel) &&
       /workflow-harness-promotion-clusters/.test(settingsHarnessPromotionPanel) &&
       /workflowSettingsHarnessModel/.test(settingsHarnessModel) &&
       /gatedClustersLabel/.test(settingsHarnessModel),
@@ -5706,7 +5706,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       settingsHarnessPanelPath,
       settingsHarnessTypesPath,
       settingsHarnessActivationPanelPath,
-      settingsHarnessWorkerBindingPanelPath, settingsHarnessActiveRuntimeRollbackPanelPath, settingsHarnessPromotionPanelPath,
+      settingsHarnessWorkerBindingPanelPath, settingsHarnessActiveRuntimeRollbackPanelPath, settingsHarnessRollbackRestoreProofPanelPath, settingsHarnessPromotionPanelPath,
       settingsHarnessModelPath,
       readinessPanelPath,
       readinessModelPath,
@@ -11071,7 +11071,7 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-settings-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
