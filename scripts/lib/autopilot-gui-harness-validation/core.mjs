@@ -4251,6 +4251,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs";
   const projectWorkflowStateLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs";
+  const projectWorkflowNodeExecutionLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs";
   const projectWorkflowMemoryLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowOutputLanePath =
@@ -4306,6 +4308,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowStateLane = readFileSync(
     resolve(repoRoot, projectWorkflowStateLanePath),
+    "utf8",
+  );
+  const projectWorkflowNodeExecutionLane = readFileSync(
+    resolve(repoRoot, projectWorkflowNodeExecutionLanePath),
     "utf8",
   );
   const projectWorkflowMemoryLane = readFileSync(
@@ -4625,14 +4631,14 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /gateResults:[\s\S]*evidenceRefs/.test(validation),
     workflowMemoryRuntimeLane:
-      /workflow_memory_lane/.test(projectRuntime) &&
+      /workflow_memory_lane/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_memory_send_options/.test(projectWorkflowMemoryLane) &&
       /workflow_memory_query_output/.test(projectWorkflowMemoryLane) &&
       /memory_search/.test(projectWorkflowMemoryLane) &&
       /memory_list/.test(projectWorkflowMemoryLane) &&
       /workflow_redacted_memory_record/.test(projectWorkflowMemoryLane),
     workflowAuthorityToolingRuntimeLane:
-      /workflow_authority_tooling_lane/.test(projectRuntime) &&
+      /workflow_authority_tooling_lane/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_live_mcp_provider_catalog/.test(
         projectWorkflowAuthorityToolingLane,
       ) &&
@@ -4677,7 +4683,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowInterrupt/.test(projectWorkflowApprovalInterruptLane) &&
       /requiresApproval/.test(projectWorkflowApprovalInterruptLane),
     workflowBindingRuntimeLane:
-      /workflow_binding_lane/.test(projectRuntime) &&
+      /workflow_binding_lane/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_node_schema/.test(projectWorkflowBindingLane) &&
       /workflow_function_binding/.test(projectWorkflowBindingLane) &&
       /workflow_tool_binding/.test(projectWorkflowBindingLane) &&
@@ -4713,8 +4719,33 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow_value_at_path/.test(projectWorkflowStateLane) &&
       /workflow_edge_from_port/.test(projectWorkflowStateLane),
+    workflowNodeExecutionRuntimeLane:
+      /fn execute_workflow_tool_binding\(/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /fn execute_workflow_function_node\(/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /fn execute_workflow_node\(/.test(projectWorkflowNodeExecutionLane) &&
+      /fn execute_workflow_harness_canary_node\(/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /fn execute_workflow_harness_live_default_node\(/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /ActionKind::GithubPrCreate/.test(projectWorkflowNodeExecutionLane) &&
+      /ActionKind::WorkflowPackageExport/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /ActionKind::WorkflowPackageImport/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /workflow_output_satisfies_schema/.test(
+        projectWorkflowNodeExecutionLane,
+      ) &&
+      /workflow_memory_send_options/.test(projectWorkflowNodeExecutionLane),
     workflowOutputRuntimeLane:
-      /workflow_output_lane/.test(projectRuntime) &&
+      /workflow_output_lane/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_output_satisfies_schema/.test(projectWorkflowOutputLane) &&
       /workflow_truncate_output/.test(projectWorkflowOutputLane) &&
       /workflow_output_bundle/.test(projectWorkflowOutputLane) &&
@@ -4790,9 +4821,9 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflowPackageNodeOutputSummary/.test(bottomShelf) &&
       /workflowPackageNodeOutputStatus/.test(bottomShelf) &&
       /data-package-evidence-ready/.test(bottomShelf) &&
-      /ActionKind::WorkflowPackageExport/.test(projectRuntime) &&
-      /ActionKind::WorkflowPackageImport/.test(projectRuntime) &&
-      /workflow_package_lane/.test(projectRuntime) &&
+      /ActionKind::WorkflowPackageExport/.test(projectWorkflowNodeExecutionLane) &&
+      /ActionKind::WorkflowPackageImport/.test(projectWorkflowNodeExecutionLane) &&
+      /workflow_package_lane/.test(projectWorkflowNodeExecutionLane) &&
       /execute_workflow_package_export_node/.test(projectWorkflowPackageLane) &&
       /execute_workflow_package_import_node/.test(projectWorkflowPackageLane) &&
       /workflowPackageImportReview/.test(projectWorkflowPackageLane),
@@ -4819,8 +4850,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflowGithubPrCreatePlanStatus/.test(bottomShelf) &&
       /data-github-pr-create-request-hash/.test(bottomShelf) &&
       /data-github-pr-create-missing-scopes/.test(bottomShelf) &&
-      /ActionKind::GithubPrCreate/.test(projectRuntime) &&
-      /repository_pr_lane/.test(projectRuntime) &&
+      /ActionKind::GithubPrCreate/.test(projectWorkflowNodeExecutionLane) &&
+      /repository_pr_lane/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_value_helpers/.test(projectRuntime) &&
       /workflow_value_helpers/.test(projectRepositoryPrLane) &&
       /workflow_github_pr_create_output/.test(projectRepositoryPrLane) &&
