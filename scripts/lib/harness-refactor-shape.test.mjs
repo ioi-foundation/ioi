@@ -95,6 +95,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
@@ -167,9 +168,17 @@ test("workflow rail modules own extracted implementation", () => {
     /workflow-settings-harness-summary/,
     1_000,
   );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
+    /workflow-harness-activation-gate-inspector/,
+    1_000,
+  );
   {
     const settingsHarnessPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
+    );
+    const settingsHarnessActivationPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
     );
     for (const expectedInterface of [
       "WorkflowSettingsHarnessActivationProps",
@@ -185,10 +194,30 @@ test("workflow rail modules own extracted implementation", () => {
         `settings harness panel should expose ${expectedInterface}`,
       );
     }
+    assert.match(
+      settingsHarnessPanel,
+      /WorkflowSettingsHarnessActivationPanel/,
+      "settings harness panel should delegate activation UI to its extracted component",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPanel,
+      /workflow-harness-activation-gate-inspector/,
+      "settings harness panel should not keep the activation gate inspector implementation inline",
+    );
+    assert.match(
+      settingsHarnessActivationPanel,
+      /WorkflowSettingsHarnessActivationPanelProps/,
+      "settings harness activation panel should expose a typed prop boundary",
+    );
     assert.doesNotMatch(
       settingsHarnessPanel,
       /\bany\b/,
       "settings harness panel should keep its extracted prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessActivationPanel,
+      /\bany\b/,
+      "settings harness activation panel should keep its prop boundary typed",
     );
   }
   assertOwnsImplementation(
