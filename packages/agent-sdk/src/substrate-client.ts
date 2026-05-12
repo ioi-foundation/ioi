@@ -26,6 +26,7 @@ import type {
   ProbeProjection,
   RuntimeReceipt,
   RuntimeAccountProfile,
+  RuntimeEventEnvelope,
   RuntimeNodeProfile,
   RuntimeScorecard,
   RuntimeToolCatalogEntry,
@@ -584,12 +585,12 @@ function parseDaemonResponseBody(text: string): unknown {
   }
 }
 
-function eventsFromResponse(value: IOISDKMessage[] | { events: IOISDKMessage[] }): IOISDKMessage[] {
+function eventsFromResponse(value: unknown): IOISDKMessage[] {
   if (Array.isArray(value)) {
-    return value;
+    return normalizeDaemonEvents(value);
   }
-  if (value && Array.isArray(value.events)) {
-    return value.events;
+  if (value && typeof value === "object" && Array.isArray((value as { events?: unknown[] }).events)) {
+    return normalizeDaemonEvents((value as { events: unknown[] }).events);
   }
   throw new IoiAgentError({
     code: "runtime",
@@ -599,7 +600,7 @@ function eventsFromResponse(value: IOISDKMessage[] | { events: IOISDKMessage[] }
 }
 
 function parseServerSentEvents(text: string): IOISDKMessage[] {
-  const events: IOISDKMessage[] = [];
+  const events: unknown[] = [];
   for (const block of text.split(/\r?\n\r?\n/)) {
     const dataLines = block
       .split(/\r?\n/)
@@ -613,16 +614,32 @@ function parseServerSentEvents(text: string): IOISDKMessage[] {
       continue;
     }
     const parsed = parseDaemonResponseBody(data);
-    if (!isSdkMessage(parsed)) {
-      throw new IoiAgentError({
-        code: "runtime",
-        message: "IOI daemon SSE stream yielded an invalid SDK event.",
-        details: { data: data.slice(0, 240) },
-      });
-    }
     events.push(parsed);
   }
-  return events;
+  return normalizeDaemonEvents(events);
+}
+
+function normalizeDaemonEvents(values: unknown[]): IOISDKMessage[] {
+  const latestTerminalByRun = new Map<string, number>();
+  for (const value of values) {
+    if (!isRuntimeEventEnvelope(value) || !isRuntimeTerminalEvent(value)) continue;
+    latestTerminalByRun.set(runtimeEventRunId(value), value.seq);
+  }
+  return values.map((value) => normalizeDaemonEvent(value, latestTerminalByRun));
+}
+
+function normalizeDaemonEvent(value: unknown, latestTerminalByRun = new Map<string, number>()): IOISDKMessage {
+  if (isSdkMessage(value)) return value;
+  if (isRuntimeEventEnvelope(value)) {
+    const terminalSuperseded =
+      isRuntimeTerminalEvent(value) && latestTerminalByRun.get(runtimeEventRunId(value)) !== value.seq;
+    return sdkMessageFromRuntimeEvent(value, { terminalSuperseded });
+  }
+  throw new IoiAgentError({
+    code: "runtime",
+    message: "IOI daemon event endpoint returned an invalid event stream projection.",
+    details: { value },
+  });
 }
 
 function isSdkMessage(value: unknown): value is IOISDKMessage {
@@ -634,6 +651,96 @@ function isSdkMessage(value: unknown): value is IOISDKMessage {
       typeof (value as IOISDKMessage).type === "string" &&
       typeof (value as IOISDKMessage).cursor === "string",
   );
+}
+
+function isRuntimeEventEnvelope(value: unknown): value is RuntimeEventEnvelope {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      (value as RuntimeEventEnvelope).schema_version === "ioi.runtime.event.v1" &&
+      typeof (value as RuntimeEventEnvelope).event_id === "string" &&
+      typeof (value as RuntimeEventEnvelope).event_stream_id === "string" &&
+      typeof (value as RuntimeEventEnvelope).seq === "number",
+  );
+}
+
+function sdkMessageFromRuntimeEvent(
+  event: RuntimeEventEnvelope,
+  options: { terminalSuperseded?: boolean } = {},
+): IOISDKMessage {
+  const payload = event.payload ?? {};
+  const type = options.terminalSuperseded ? "step" : sdkMessageTypeFromRuntimeEvent(event);
+  return {
+    id: event.event_id,
+    runId: runtimeEventRunId(event),
+    agentId: payload.agent_id ?? event.thread_id.replace(/^thread_/, "agent_"),
+    type,
+    cursor: `${event.event_stream_id}:${event.seq}`,
+    createdAt: event.created_at,
+    summary: payload.summary ?? event.event_kind,
+    data: {
+      ...payload,
+      runtimeEventEnvelope: event,
+    },
+  };
+}
+
+function runtimeEventRunId(event: RuntimeEventEnvelope): string {
+  return event.payload?.run_id ?? event.turn_id.replace(/^turn_/, "run_");
+}
+
+function isRuntimeTerminalEvent(event: RuntimeEventEnvelope): boolean {
+  return ["turn.completed", "turn.canceled", "turn.failed"].includes(event.event_kind);
+}
+
+function sdkMessageTypeFromRuntimeEvent(event: RuntimeEventEnvelope): IOISDKMessage["type"] {
+  const legacyType = event.payload?.legacy_event_type;
+  if (typeof legacyType === "string" && isSdkMessageType(legacyType)) return legacyType;
+  switch (event.event_kind) {
+    case "thread.started":
+    case "turn.started":
+      return "run_started";
+    case "reasoning.delta":
+    case "item.delta":
+      return "delta";
+    case "tool.completed":
+    case "tool.failed":
+      return "tool_result";
+    case "turn.completed":
+      return "completed";
+    case "turn.canceled":
+      return "canceled";
+    case "turn.failed":
+      return "error";
+    case "model.route_decision":
+    case "tool.route_decision":
+      return "model_route_decision";
+    default:
+      return "step";
+  }
+}
+
+function isSdkMessageType(value: string): value is IOISDKMessage["type"] {
+  return [
+    "run_started",
+    "model_route_decision",
+    "memory_update",
+    "step",
+    "delta",
+    "tool_call",
+    "tool_result",
+    "task_state",
+    "uncertainty",
+    "probe",
+    "postcondition_synthesized",
+    "semantic_impact",
+    "stop_condition",
+    "quality_ledger",
+    "artifact",
+    "completed",
+    "canceled",
+    "error",
+  ].includes(value);
 }
 
 function errorFromDaemonResponse({

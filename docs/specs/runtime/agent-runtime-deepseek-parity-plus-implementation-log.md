@@ -4602,3 +4602,32 @@ Validation evidence:
 - `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
   - 12 daemon/API contract subtests passed, including persisted event-store
     idempotency and Agentgres-backed thread/turn/event replay.
+
+### Slice 90. 2026-05-12 - runtime event replay alias parity
+
+Implementation slice completed 2026-05-12, runtime event replay alias parity:
+
+- Routed thread event replay through a shared canonical cursor parser that
+  accepts `since_seq`, `Last-Event-ID: <seq>`, and
+  `Last-Event-ID: <event_id>`.
+- Added `/v1/threads/{thread_id}/events/stream` as an SSE alias over the same
+  persisted `RuntimeEventEnvelope` stream as `/events`.
+- Converted `/v1/runs/{run_id}/events` and `/v1/runs/{run_id}/replay` to return
+  the owning turn's stored runtime event rows instead of legacy
+  `IOISDKMessage` rows.
+- Updated SDK daemon event parsing so stored `RuntimeEventEnvelope` rows are
+  normalized back into `IOISDKMessage` at the compatibility edge, preserving
+  reconnect behavior while exposing the canonical envelope in event data.
+- Added replay contract coverage for sequence cursors, event-id cursors, stream
+  aliases, run-event alias parity, run replay parity, and future cursor errors.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:agent-sdk`
+- `npm test --workspace=@ioi/agent-sdk`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 12 daemon/API contract subtests passed, including event-store persistence,
+    `Last-Event-ID` replay, `/events/stream`, run-event alias parity, and
+    future cursor error details.

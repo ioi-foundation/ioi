@@ -980,10 +980,17 @@ export class AgentgresRuntimeStateStore {
     return turn;
   }
 
-  eventsForThread(threadId, sinceSeq = 0) {
+  eventsForThread(threadId, cursor = {}) {
     const agent = this.agentForThread(threadId);
     this.projectThreadEvents(agent);
-    return this.runtimeEventsForStream(eventStreamIdForThread(threadIdForAgent(agent.id)), sinceSeq);
+    return this.runtimeEventsForStream(eventStreamIdForThread(threadIdForAgent(agent.id)), cursor);
+  }
+
+  eventsForRun(runId, cursor = {}) {
+    const run = this.getRun(runId);
+    const agent = this.getAgent(run.agentId);
+    this.projectThreadEvents(agent);
+    return this.runtimeEventsForTurn(turnIdForRun(run.id), cursor);
   }
 
   ensureThreadStartedEvent(agent) {
@@ -1073,26 +1080,72 @@ export class AgentgresRuntimeStateStore {
     return record;
   }
 
-  runtimeEventsForStream(eventStreamId, sinceSeq = 0) {
+  runtimeEventsForStream(eventStreamId, cursor = {}) {
     const stream = this.runtimeEventStream(eventStreamId);
-    const cursor = Number(sinceSeq) || 0;
+    const cursorSeq = this.runtimeCursorSeq(stream, cursor);
+    return stream.events.filter((event) => event.seq > cursorSeq);
+  }
+
+  runtimeEventsForTurn(turnId, cursor = {}) {
+    const events = [...this.runtimeEventStreams.values()]
+      .flatMap((stream) => stream.events)
+      .filter((event) => event.turn_id === turnId)
+      .sort((left, right) => left.seq - right.seq);
+    if (!events.length) return [];
+    const stream = this.runtimeEventStream(events[0].event_stream_id);
+    const cursorSeq = this.runtimeCursorSeq(stream, cursor);
+    return events.filter((event) => event.seq > cursorSeq);
+  }
+
+  runtimeCursorSeq(stream, cursor = {}) {
     const latestSeq = stream.events.at(-1)?.seq ?? 0;
-    if (cursor > latestSeq) {
+    if (typeof cursor === "number") {
+      return this.assertRuntimeCursorSeq(Number(cursor) || 0, latestSeq, {
+        eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
+        sinceSeq: Number(cursor) || 0,
+      });
+    }
+    if (typeof cursor === "string") {
+      return this.runtimeCursorSeq(stream, { lastEventId: cursor });
+    }
+    if (cursor.sinceSeq !== null && cursor.sinceSeq !== undefined) {
+      return this.assertRuntimeCursorSeq(Number(cursor.sinceSeq) || 0, latestSeq, {
+        eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
+        sinceSeq: Number(cursor.sinceSeq) || 0,
+      });
+    }
+    const lastEventId = String(cursor.lastEventId ?? "").trim();
+    if (!lastEventId) return 0;
+    if (/^\d+$/.test(lastEventId)) {
+      return this.assertRuntimeCursorSeq(Number(lastEventId), latestSeq, {
+        eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
+        lastEventId,
+      });
+    }
+    const match = stream.events.find((event) => event.event_id === lastEventId || event.id === lastEventId);
+    if (match) return match.seq;
+    throw runtimeError({
+      status: 409,
+      code: "event_cursor_out_of_range",
+      message: "Runtime event cursor does not exist in this stream.",
+      details: {
+        eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
+        lastEventId,
+        latestSeq,
+      },
+    });
+  }
+
+  assertRuntimeCursorSeq(cursorSeq, latestSeq, details = {}) {
+    if (cursorSeq > latestSeq) {
       throw runtimeError({
         status: 409,
         code: "event_cursor_out_of_range",
         message: "Runtime event cursor is beyond the latest committed sequence.",
-        details: { eventStreamId, sinceSeq: cursor, latestSeq },
+        details: { ...details, sinceSeq: cursorSeq, latestSeq },
       });
     }
-    return stream.events.filter((event) => event.seq > cursor);
-  }
-
-  runtimeEventsForTurn(turnId) {
-    return [...this.runtimeEventStreams.values()]
-      .flatMap((stream) => stream.events)
-      .filter((event) => event.turn_id === turnId)
-      .sort((left, right) => left.seq - right.seq);
+    return cursorSeq;
   }
 
   latestRuntimeEventSeq(eventStreamId) {
@@ -1446,15 +1499,15 @@ export class AgentgresRuntimeStateStore {
     return updated;
   }
 
-  eventsForRun(runId, lastEventId) {
+  legacyEventsForRun(runId, lastEventId) {
     const events = this.getRun(runId).events;
     if (!lastEventId) return events;
     const index = events.findIndex((event) => event.id === lastEventId);
     return events.slice(index >= 0 ? index + 1 : 0);
   }
 
-  replayFromCanonicalState(runId, lastEventId) {
-    return this.eventsForRun(runId, lastEventId);
+  replayFromCanonicalState(runId, cursor) {
+    return this.eventsForRun(runId, cursor);
   }
 
   traceFromCanonicalState(runId) {
@@ -3793,6 +3846,19 @@ function baseUrlForRequest(request) {
   return host ? `http://${host}` : null;
 }
 
+function runtimeEventCursorFromRequest({ request, url }) {
+  if (url.searchParams.has("since_seq")) {
+    return { sinceSeq: Number(url.searchParams.get("since_seq") ?? 0) || 0 };
+  }
+  return {
+    lastEventId:
+      url.searchParams.get("lastEventId") ??
+      url.searchParams.get("last_event_id") ??
+      request.headers["last-event-id"] ??
+      "",
+  };
+}
+
 async function handleAgentRoute({ request, response, store, url, segments }) {
   const agentId = decodeURIComponent(segments[2]);
   const action = segments[3];
@@ -3894,9 +3960,8 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     writeJsonResponse(response, store.getTurn(threadId, decodeURIComponent(segments[4])));
     return;
   }
-  if (request.method === "GET" && action === "events") {
-    const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
-    writeSse(response, store.eventsForThread(threadId, sinceSeq));
+  if (request.method === "GET" && action === "events" && (!segments[4] || segments[4] === "stream")) {
+    writeSse(response, store.eventsForThread(threadId, runtimeEventCursorFromRequest({ request, url })));
     return;
   }
   if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
@@ -3964,7 +4029,7 @@ async function handleRunRoute({ request, response, store, url, segments }) {
       response,
       store.eventsForRun(
         runId,
-        url.searchParams.get("lastEventId") ?? request.headers["last-event-id"],
+        runtimeEventCursorFromRequest({ request, url }),
       ),
     );
     return;
@@ -3974,7 +4039,7 @@ async function handleRunRoute({ request, response, store, url, segments }) {
       response,
       store.replayFromCanonicalState(
         runId,
-        url.searchParams.get("lastEventId") ?? request.headers["last-event-id"],
+        runtimeEventCursorFromRequest({ request, url }),
       ),
     );
     return;
@@ -7933,6 +7998,7 @@ function payloadSummaryForRunEvent(event) {
     legacy_event_id: event.id,
     legacy_event_type: event.type,
     run_id: event.runId,
+    agent_id: event.agentId,
     summary: event.summary,
   };
   if (event.type === "memory_update") {
@@ -8465,7 +8531,11 @@ function writeSse(response, events) {
   response.statusCode = 200;
   response.setHeader("content-type", "text/event-stream");
   response.setHeader("cache-control", "no-cache");
-  response.end(events.map((event) => `id: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`).join(""));
+  response.end(
+    events
+      .map((event) => `id: ${event.id ?? event.seq}\nevent: runtime.event\ndata: ${JSON.stringify(event)}\n\n`)
+      .join(""),
+  );
 }
 
 function writeJsonResponse(response, value, status = 200) {

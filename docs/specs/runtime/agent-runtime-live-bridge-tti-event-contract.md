@@ -59,6 +59,11 @@ Implementation status:
   append-only JSONL streams, assigns monotonic `seq`, returns the original row
   for duplicate idempotency keys, and returns `event_cursor_out_of_range` for
   future cursors.
+- 2026-05-12: daemon replay alias slice resolves `Last-Event-ID` as either
+  sequence or `event_id`, exposes `/v1/threads/{id}/events/stream`, maps
+  `/v1/runs/{id}/events` and `/v1/runs/{id}/replay` to the owning turn event
+  range, and keeps SDK `IOISDKMessage` compatibility by normalizing stored
+  `RuntimeEventEnvelope` rows at the client edge.
 
 ## Non Goals
 
@@ -534,9 +539,12 @@ Minimum contract-lock tests before implementation:
    Completed 2026-05-12.
 3. Bridge one `RuntimeAgentService` session into thread/turn/event records.
 4. Expose `/v1/threads/{id}/events` and SSE replay with `Last-Event-ID`.
+   Completed 2026-05-12 for the daemon event-store projection.
 5. Add SDK `Thread`/`Turn` wrappers over the same stream.
 6. Add minimal React Flow runtime thread/turn/event projection.
-7. Convert `/v1/runs/*` to aliases over turn/event records.
+7. Convert `/v1/runs/*` to aliases over turn/event records. Completed
+   2026-05-12 for `/events` and `/replay`; trace/inspect aliases remain on the
+   existing trace projection until the live runtime bridge lands.
 
 ## Acceptance Gate
 

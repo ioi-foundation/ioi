@@ -168,6 +168,7 @@ Validation evidence:
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
+
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-17-06-563Z/result.json`
 
@@ -2948,3 +2949,31 @@ Validation evidence:
   - thread event replay emits `ioi.runtime.event.v1` rows and returns
     `event_cursor_out_of_range` for a future cursor.
 - `git diff --check`
+
+## Slice 90. 2026-05-12 - runtime event replay alias parity
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- packages/agent-sdk/test/sdk.test.mjs
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build:agent-sdk`
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed, including stream reconnect cursor behavior and
+    daemon-backed public substrate HTTP usage.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 schema snapshot contract subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 12 daemon/API contract subtests passed;
+  - thread replay accepts `since_seq`, `Last-Event-ID` sequence cursors, and
+    `Last-Event-ID` event-id cursors;
+  - `/v1/threads/{id}/events/stream` returns the same stored event ids as
+    `/events`;
+  - `/v1/runs/{id}/events` and `/v1/runs/{id}/replay` return the owning turn's
+    stored event ids;
+  - future cursors return `event_cursor_out_of_range` with `latestSeq`.
