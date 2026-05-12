@@ -113,29 +113,34 @@ Completed workstream snapshot as of 2026-05-12:
   thread events, emitting stable nodes, edges, statuses, cursors, and evidence
   refs without becoming a second truth store. The workflow run inspector now
   loads canonical runtime thread events for selected workflow runs and renders
-  the projection as read-only graph-addressable status evidence. The active
-  tactical cleanup stream remains React Flow settings-harness panel
-  decomposition.
+  the projection as read-only graph-addressable status evidence. The CLI/TUI
+  operator surface now has a no-fallback `agent stream` command over the same
+  daemon event store, including `since_seq`, `Last-Event-ID`, thread/run
+  replay, compact KernelEvent row output, and JSON replay for downstream TUI
+  use. The active tactical cleanup stream remains React Flow settings-harness
+  panel decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 Workflow run inspector runtime event graph
-- Artifacts: packages/agent-ide/src/runtime/workflow-run-history-model.ts,
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx,
-  packages/agent-ide/src/WorkflowComposer/controller.tsx
-- Validation: IDE build, source contract, daemon live contract, and GUI harness
-  preflight; see the validation ledger.
+- 2026-05-12: P0 CLI/TUI runtime event stream command
+- Artifacts: crates/cli/src/commands/agent_event_stream.rs,
+  crates/cli/src/commands/agent.rs,
+  scripts/lib/live-runtime-daemon-contract.test.mjs
+- Validation: CLI binary tests/check/build, live daemon contract, ad hoc live
+  CLI daemon replay, React Flow projection contract, and GUI harness preflight;
+  see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: Workflow run inspector runtime event graph GUI preflight
+- 2026-05-12: CLI/TUI runtime event stream command GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-runtime-event-inspector/2026-05-12T22-17-29-609Z/result.json
+  /tmp/ioi-autopilot-gui-harness-cli-event-stream/2026-05-12T22-34-03-536Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | CLI/TUI runtime event stream command | crates/cli/src/commands/agent_event_stream.rs |
 | 2026-05-12 | P0 live runtime bridge | Workflow run inspector runtime event graph | packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx |
 | 2026-05-12 | P0 live runtime bridge | React Flow runtime event projection over Thread.events | packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts |
 | 2026-05-12 | P0 live runtime bridge | SDK Thread/Turn canonical event projection | packages/agent-sdk/src/thread.ts |
@@ -159,8 +164,10 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Add CLI/TUI stream commands over the same stored event stream, including
-   mapped KernelEvent rows.
+1. Add a cross-surface same-sequence proof that one live mapped KernelEvent row
+   appears in SDK `Thread.events()`, CLI/TUI `agent stream`, and the React Flow
+   runtime event projection with identical `event_id`, `seq`, cursor,
+   component kind, workflow node id, and evidence refs.
 2. Extend SDK turn controls beyond submission/replay with steer, interrupt,
    compact, and fork aliases once daemon endpoints are live.
 3. Continue React Flow settings-harness modularization by splitting remaining
@@ -1695,9 +1702,7 @@ keeping React Flow cleanup slices small and source-contract guarded.
 
 Remaining runtime bridge implementation sequence:
 
-1. Add minimal SDK and React Flow runtime thread/turn/event projections.
-2. Add CLI/TUI stream commands over the same stored event stream.
-3. Prove one live mapped KernelEvent appears in SDK, CLI/TUI, and React Flow
+1. Prove one live mapped KernelEvent appears in SDK, CLI/TUI, and React Flow
    from the same `seq`.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes

@@ -4949,3 +4949,61 @@ Validation evidence:
   - 10 GUI harness contract subtests passed.
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-runtime-event-inspector`
   - GUI harness preflight passed outside the worktree.
+
+### Slice 99. 2026-05-12 - CLI/TUI runtime event stream command
+
+Implementation slice completed 2026-05-12, CLI/TUI runtime event stream
+command over canonical daemon events:
+
+- Added `crates/cli/src/commands/agent_event_stream.rs` as the modular CLI/TUI
+  event stream client for the daemon's stored runtime event stream.
+- Added `cli agent stream --thread-id <id>` and `--run-id <id>` routing through
+  `/v1/threads/{id}/events`, `/v1/threads/{id}/events/stream`, and
+  `/v1/runs/{id}/events`.
+- Supported `--since-seq`, `--last-event-id`, `--follow`, `--endpoint`,
+  `--token`, and `--json` without any fixture or local fallback path.
+- Added compact operator output for mapped KernelEvent rows, including
+  canonical cursor, `source_event_kind`, `event_kind`, `component_kind`,
+  `workflow_node_id`, `workflow_graph_id`, payload schema/version details,
+  tool/run metadata, receipt refs, policy refs, artifact refs, and event id.
+- Kept `agent.rs` as command wiring only, so future TUI/runtime stream controls
+  can reuse the same daemon client module without bloating the legacy agent
+  command file.
+- Extended the daemon live source contract so CLI/TUI stream support remains
+  locked to canonical event endpoints and evidence-bearing row fields.
+
+Validation evidence:
+
+- `cargo fmt --package ioi-cli`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test -p ioi-cli --bin cli commands::agent`
+  - 7 CLI binary unit tests passed, including stream parsing, route/cursor
+    construction, SSE parsing, and mapped KernelEvent compact formatting.
+- `cargo check -p ioi-cli --bin cli`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed, including the CLI stream source
+    contract alongside existing SDK and React Flow event parity checks.
+- `cargo build -p ioi-cli --bin cli`
+- Ad hoc live daemon CLI replay:
+  - started a runtime daemon, appended a mapped
+    `KernelEvent::AgentActionResult`-shaped row, and verified
+    `target/debug/cli agent stream` read the stored event by JSON and compact
+    output with matching component/node ids, receipt refs, and policy refs.
+  - mapped event id:
+    `thread_4e6cec3d-c755-4a17-b1bd-432b84e347f1:events:seq:00000002`.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-cli-event-stream`
+  - GUI harness preflight passed outside the worktree at
+    `/tmp/ioi-autopilot-gui-harness-cli-event-stream/2026-05-12T22-34-03-536Z/result.json`.
+- `git diff --check`
+
+Known validation note:
+
+- `cargo test -p ioi-cli commands::agent` still compiles integration tests and
+  fails before this slice's tests because multiple pre-existing
+  `crates/cli/tests/*` fixtures construct `StartAgentParams` without the newer
+  `runtime_route_frame` field. The slice therefore uses the binary-only agent
+  unit test and `cargo check -p ioi-cli --bin cli` as the scoped Rust
+  validation.

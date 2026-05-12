@@ -2139,12 +2139,17 @@ test("local daemon projects subagent memory inheritance modes with receipts", as
   }
 });
 
-test("agent CLI exposes model and thinking control contracts", () => {
-  const source = fs.readFileSync(path.join(root, "crates/cli/src/commands/agent.rs"), "utf8");
+test("agent CLI exposes model, thinking, and stream control contracts", () => {
+  const source = [
+    "crates/cli/src/commands/agent.rs",
+    "crates/cli/src/commands/agent_event_stream.rs",
+  ].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
   assert.match(source, /AgentCommands::Model/);
   assert.match(source, /AgentCommands::Thinking/);
   assert.match(source, /AgentCommands::Memory/);
   assert.match(source, /AgentCommands::Doctor/);
+  assert.match(source, /AgentCommands::Stream/);
+  assert.match(source, /AgentEventStreamArgs/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
   assert.match(source, /# remember/);
@@ -2157,6 +2162,18 @@ test("agent CLI exposes model and thinking control contracts", () => {
   assert.match(source, /\/v1\/doctor/);
   assert.match(source, /\/v1\/skills/);
   assert.match(source, /\/v1\/hooks/);
+  assert.match(source, /\/v1\/threads\/\{id\}\/events/);
+  assert.match(source, /\/v1\/threads\/\{id\}\/events\/stream/);
+  assert.match(source, /\/v1\/runs\/\{id\}\/events/);
+  assert.match(source, /since_seq/);
+  assert.match(source, /Last-Event-ID/);
+  assert.match(source, /parse_runtime_event_sse_blocks/);
+  assert.match(source, /format_runtime_event_line/);
+  assert.match(source, /event_kind/);
+  assert.match(source, /component_kind/);
+  assert.match(source, /workflow_node_id/);
+  assert.match(source, /receipt_refs/);
+  assert.match(source, /policy_decision_refs/);
   assert.match(source, /ioi\.agent-runtime\.doctor\.v1/);
   assert.match(source, /ioi\.agent-runtime\.skills\.v1/);
   assert.match(source, /ioi\.agent-runtime\.hooks\.v1/);

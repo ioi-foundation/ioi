@@ -1,5 +1,6 @@
 // Path: crates/cli/src/commands/agent.rs
 
+use super::agent_event_stream::{stream_agent_events, AgentEventStreamArgs};
 use super::model_mount_http::daemon_request;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
@@ -221,6 +222,8 @@ pub enum AgentCommands {
     },
     /// Print replayable runtime events from a substrate snapshot.
     Events(SnapshotArgs),
+    /// Stream canonical thread/run events for CLI and TUI inspectors.
+    Stream(AgentEventStreamArgs),
     /// Print the runtime trace bundle projection for a session step.
     Trace(SnapshotArgs),
     /// Verify a substrate snapshot contains the required runtime evidence.
@@ -422,6 +425,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
             json,
         } => print_status(session_id, step, rpc, json).await,
         AgentCommands::Events(args) => print_events(args).await,
+        AgentCommands::Stream(args) => stream_agent_events(args).await,
         AgentCommands::Trace(args) => print_runtime_trace(args).await,
         AgentCommands::Verify(args) => verify_snapshot_command(args).await,
         AgentCommands::Replay(args) => replay_snapshot_command(args).await,
@@ -1516,6 +1520,46 @@ mod tests {
         assert!(matches!(
             events.command,
             Some(AgentCommands::Events(SnapshotArgs { json: true, .. }))
+        ));
+
+        let stream = AgentArgs::try_parse_from([
+            "agent",
+            "stream",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--since-seq",
+            "0",
+            "--last-event-id",
+            "thread_runtime_cli:events:1",
+            "--follow",
+            "--json",
+        ])
+        .expect("stream command should parse");
+        match stream.command {
+            Some(AgentCommands::Stream(args)) => {
+                assert_eq!(args.thread_id.as_deref(), Some("thread_runtime_cli"));
+                assert_eq!(args.run_id, None);
+                assert_eq!(args.since_seq, Some(0));
+                assert_eq!(
+                    args.last_event_id.as_deref(),
+                    Some("thread_runtime_cli:events:1")
+                );
+                assert!(args.follow);
+                assert!(args.json);
+            }
+            other => panic!("expected stream command, got {other:?}"),
+        }
+
+        let run_stream =
+            AgentArgs::try_parse_from(["agent", "stream", "--run-id", "run_runtime_cli", "--json"])
+                .expect("run stream command should parse");
+        assert!(matches!(
+            run_stream.command,
+            Some(AgentCommands::Stream(AgentEventStreamArgs {
+                run_id: Some(_),
+                json: true,
+                ..
+            }))
         ));
 
         let model = AgentArgs::try_parse_from(["agent", "model", "--json"])
