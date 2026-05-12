@@ -4294,6 +4294,63 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-entrypoints-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow file-bundle model
+extraction:
+
+- Extracted workflow graph/tests/proposals/runs/binding-manifest/portable
+  package file-bundle projection, workflow path resolution, dirty state,
+  sidecar counts, binding manifest readiness, portable package export state,
+  and ready/pending rollups into
+  `packages/agent-ide/src/runtime/workflow-file-bundle-model.ts`.
+- Added
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx`
+  as the presentational React Flow rail surface for `workflow-files-list`,
+  file rows, readiness/export metadata, and workflow-path provenance.
+- `WorkflowRailPanel/core.tsx` now delegates `panel === "files"` to
+  `WorkflowFilesPanel` over `workflowFileBundleModel(...)`, keeping bundle
+  provenance reusable by React Flow, chat/autopilot workflow creation,
+  export/import, and future TUI parity surfaces.
+- Added
+  `packages/agent-ide/src/runtime/workflow-file-bundle-model.test.ts` to lock
+  default sidecar paths, dirty graph paths, test/proposal/run counts, binding
+  manifest readiness, portable package export labels, and blocked portable
+  package pending state.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so
+  file-bundle provenance must exist in both the runtime model and React Flow
+  panel. The live rollback proof now includes `workflowFileBundleModelUi` and
+  source refs for both files.
+- `WorkflowRailPanel/core.tsx` is reduced from 10,802 to 10,786 lines. The new
+  files panel is 38 lines, and the file-bundle model is 113 lines with a
+  235-line focused model test.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-file-bundle-model.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-file-bundle-model.test.ts packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T13-48-13-986Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowFileBundleModelUi === true`;
+  - `checks.workflowEntrypointsModelUi === true`;
+  - `checks.workflowRailSearchModelUi === true`;
+  - `checks.workflowRunHistoryModelUi === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include both
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx`
+    and `packages/agent-ide/src/runtime/workflow-file-bundle-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

@@ -53,6 +53,7 @@ import { workflowTestReadinessModel } from "../../../runtime/workflow-test-readi
 import { workflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
 import { workflowRailSearchModel } from "../../../runtime/workflow-rail-search-model";
 import { workflowEntrypointsModel } from "../../../runtime/workflow-entrypoints-model";
+import { workflowFileBundleModel } from "../../../runtime/workflow-file-bundle-model";
 import {
   resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
@@ -61,7 +62,6 @@ import {
   workflowBindingRegistryRows,
   workflowBindingRegistrySummary,
   workflowEnvironmentProfile,
-  workflowFileBundleItems,
   workflowGithubPrCreatePlanSummary,
   workflowGithubPrCreatePlanStatus,
   workflowIssueActionLabel,
@@ -100,6 +100,7 @@ import { WorkflowUnitTestsPanel } from "./unitTestsPanel";
 import { WorkflowRunsPanel } from "./runsPanel";
 import { WorkflowSearchPanel } from "./searchPanel";
 import { WorkflowEntrypointsPanel } from "./entrypointsPanel";
+import { WorkflowFilesPanel } from "./filesPanel";
 
 function workflowPackageSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
@@ -466,14 +467,14 @@ export function WorkflowRailPanel({
     searchQuery: railSearchQuery,
   });
   const entrypointsModel = workflowEntrypointsModel(workflow);
-  const fileBundleItems = workflowFileBundleItems(
+  const fileBundleModel = workflowFileBundleModel({
     workflow,
     tests,
     proposals,
     runs,
     portablePackage,
     bindingManifest,
-  );
+  });
   const unitTestModel = workflowTestReadinessModel({
     workflow,
     tests,
@@ -3361,24 +3362,7 @@ export function WorkflowRailPanel({
     );
   }
   if (panel === "files") {
-    return (
-      <>
-        <h3>Files</h3>
-        <p>
-          Git-backed bundle surfaces stay separate from run state and local UI
-          state.
-        </p>
-        <div className="workflow-rail-list" data-testid="workflow-files-list">
-          {fileBundleItems.map((item) => (
-            <article key={item.label} className="workflow-file-row">
-              <strong>{item.label}</strong>
-              <code>{item.path}</code>
-              <span>{item.status}</span>
-            </article>
-          ))}
-        </div>
-      </>
-    );
+    return <WorkflowFilesPanel model={fileBundleModel} />;
   }
   if (panel === "schedules") {
     return (
