@@ -1992,6 +1992,134 @@ test("operator interrupt keeps one canonical control event across SDK, CLI, and 
   }
 });
 
+test("operator steer keeps one canonical guidance event across SDK, CLI, and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-steer-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-steer-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-steer-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const guidance = "focus on the current failing assertion";
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-steer";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove operator steer control has one cross-surface event.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a steerable turn for operator control validation.",
+      }),
+    });
+
+    const cliResult = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "steer",
+        "--thread-id",
+        thread.thread_id,
+        "--turn-id",
+        turn.turn_id,
+        "--guidance",
+        guidance,
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const cliTurn = JSON.parse(cliResult.stdout);
+    assert.equal(cliTurn.status, turn.status);
+    assert.equal(cliTurn.stop_reason, turn.stop_reason);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const steerEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Steer",
+    );
+    assert.ok(steerEvent);
+    assert.equal(steerEvent.event_kind, "turn.steered");
+    assert.equal(steerEvent.status, "completed");
+    assert.equal(steerEvent.source, "cli_tui");
+    assert.equal(steerEvent.actor, "user");
+    assert.equal(steerEvent.thread_id, thread.thread_id);
+    assert.equal(steerEvent.turn_id, turn.turn_id);
+    assert.equal(steerEvent.component_kind, "operator_control");
+    assert.equal(steerEvent.workflow_node_id, "runtime.operator-steer");
+    assert.equal(steerEvent.payload_schema_version, "ioi.runtime.operator-control.v1");
+    assert.equal(steerEvent.payload.guidance, guidance);
+    assert.ok(steerEvent.receipt_refs.some((ref) => ref.startsWith(`receipt_${turn.request_id}_operator_steer_`)));
+    assert.ok(steerEvent.policy_decision_refs.includes(`policy_${turn.request_id}_operator_steer_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkTurn = await sdkThread.turn(turn.turn_id);
+    assert.equal(sdkTurn.status, cliTurn.status);
+    const sdkSteered = await sdkTurn.steer({ guidance });
+    assert.equal(sdkSteered.status, cliTurn.status);
+    const afterSdkSteer = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    assert.equal(
+      afterSdkSteer.filter((event) => event.source_event_kind === "OperatorControl.Steer").length,
+      1,
+    );
+
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkSteerEvent = sdkEvents.find((event) => event.id === steerEvent.event_id);
+    assert.ok(sdkSteerEvent);
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(steerEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+
+    const canonicalCursor = `${steerEvent.event_stream_id}:${steerEvent.seq}`;
+    assert.equal(sdkSteerEvent.type, "turn_steered");
+    assert.equal(sdkSteerEvent.seq, steerEvent.seq);
+    assert.equal(sdkSteerEvent.cursor, canonicalCursor);
+    assert.equal(sdkSteerEvent.eventKind, steerEvent.event_kind);
+    assert.equal(sdkSteerEvent.sourceEventKind, steerEvent.source_event_kind);
+    assert.equal(sdkSteerEvent.componentKind, steerEvent.component_kind);
+    assert.equal(sdkSteerEvent.workflowNodeId, steerEvent.workflow_node_id);
+    assert.equal(sdkSteerEvent.payloadSchemaVersion, steerEvent.payload_schema_version);
+    assert.deepEqual(sdkSteerEvent.receiptRefs, steerEvent.receipt_refs);
+    assert.deepEqual(sdkSteerEvent.policyDecisionRefs, steerEvent.policy_decision_refs);
+
+    assert.equal(reactFlowNode.latestSeq, steerEvent.seq);
+    assert.equal(reactFlowNode.latestCursor, canonicalCursor);
+    assert.equal(reactFlowNode.latestEventId, steerEvent.event_id);
+    assert.equal(reactFlowNode.componentKind, "operator_control");
+    assert.equal(reactFlowNode.workflowNodeId, "runtime.operator-steer");
+    assert.equal(reactFlowNode.status, "completed");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Steer"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("daemon runtime event store is append-only and idempotent per stream", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
@@ -2441,6 +2569,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /AgentCommands::Doctor/);
   assert.match(source, /AgentCommands::Stream/);
   assert.match(source, /AgentCommands::Interrupt/);
+  assert.match(source, /AgentCommands::Steer/);
   assert.match(source, /AgentEventStreamArgs/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
@@ -2458,7 +2587,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{id\}\/events\/stream/);
   assert.match(source, /\/v1\/runs\/\{id\}\/events/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
   assert.match(source, /OperatorControl\.Interrupt/);
+  assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /operator_control/);
   assert.match(source, /since_seq/);
   assert.match(source, /Last-Event-ID/);

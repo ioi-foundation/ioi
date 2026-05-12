@@ -102,9 +102,9 @@ export function mockRuntimeEnvelopeForSdkEvent({
     turnId,
     itemId: `${turnId}:item:${String(seq).padStart(4, "0")}`,
     eventKind,
-    sourceEventKind: event.type === "interrupted" ? "OperatorControl.Interrupt" : `run.${event.type}`,
+    sourceEventKind: sourceEventKindForSdkMessage(event.type),
     status: runtimeEventStatusForSdkMessage(event.type),
-    payloadSchemaVersion: event.type === "interrupted" ? "ioi.runtime.operator-control.v1" : "ioi.agent-sdk.event.v1",
+    payloadSchemaVersion: payloadSchemaVersionForSdkMessage(event.type),
     payload: {
       ...(event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data : {}),
       event_kind: event.type,
@@ -210,6 +210,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "turn_canceled";
     case "turn.interrupted":
       return "turn_interrupted";
+    case "turn.steered":
+      return "turn_steered";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -257,6 +259,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "turn.canceled";
     case "interrupted":
       return "turn.interrupted";
+    case "steered":
+      return "turn.steered";
     case "error":
       return "turn.failed";
     default:
@@ -273,7 +277,7 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
-  if (type === "interrupted") return "operator_control";
+  if (type === "interrupted" || type === "steered") return "operator_control";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -282,10 +286,22 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
 
 function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "runtime.operator-interrupt";
+  if (type === "steered") return "runtime.operator-steer";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
   return `runtime.${type.replaceAll("_", "-")}`;
+}
+
+function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "interrupted") return "OperatorControl.Interrupt";
+  if (type === "steered") return "OperatorControl.Steer";
+  return `run.${type}`;
+}
+
+function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "interrupted" || type === "steered") return "ioi.runtime.operator-control.v1";
+  return "ioi.agent-sdk.event.v1";
 }
 
 function optionalString(value: unknown): string | null {

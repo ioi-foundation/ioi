@@ -558,7 +558,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
   const interruptedTurnRecord = {
     ...turnRecord,
     status: "interrupted",
-    seq_end: 5,
+    seq_end: 6,
     completed_at: now,
     stop_reason: "operator_interrupt",
   };
@@ -638,7 +638,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       const body = await readBody(request);
       assert.equal(body.reason, "operator validation");
       runtimeEvents.push(runtimeEnvelope({
-        seq: 5,
+        seq: 6,
         eventKind: "turn.interrupted",
         sourceEventKind: "OperatorControl.Interrupt",
         itemId: "item_operator_interrupt",
@@ -653,6 +653,27 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
         createdAt: now,
       }));
       response.end(JSON.stringify(interruptedTurnRecord));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/turns/turn_sdk/steer") {
+      const body = await readBody(request);
+      assert.equal(body.guidance, "focus on the failing assertion");
+      runtimeEvents.push(runtimeEnvelope({
+        seq: 5,
+        eventKind: "turn.steered",
+        sourceEventKind: "OperatorControl.Steer",
+        itemId: "item_operator_steer",
+        componentKind: "operator_control",
+        workflowNodeId: "runtime.operator-steer",
+        payloadSchemaVersion: "ioi.runtime.operator-control.v1",
+        payload: {
+          event_kind: "OperatorControl.Steer",
+          guidance: "focus on the failing assertion",
+        },
+        status: "completed",
+        createdAt: now,
+      }));
+      response.end(JSON.stringify(turnRecord));
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/threads/thread_sdk/events") {
@@ -694,10 +715,21 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       "tool_completed",
       "turn_completed",
     ]);
+    const steered = await turn.steer({ guidance: "focus on the failing assertion" });
+    assert.equal(steered.status, "completed");
+    const steeredEvents = [];
+    for await (const item of thread.events({ sinceSeq: 4 })) steeredEvents.push(item);
+    assert.deepEqual(steeredEvents.map((item) => item.type), ["turn_steered"]);
+    assert.equal(steeredEvents[0].eventKind, "turn.steered");
+    assert.equal(steeredEvents[0].sourceEventKind, "OperatorControl.Steer");
+    assert.equal(steeredEvents[0].componentKind, "operator_control");
+    assert.equal(steeredEvents[0].workflowNodeId, "runtime.operator-steer");
+    assert.equal(steeredEvents[0].payloadSchemaVersion, "ioi.runtime.operator-control.v1");
+
     const interrupted = await turn.interrupt({ reason: "operator validation" });
     assert.equal(interrupted.status, "interrupted");
     const interruptedEvents = [];
-    for await (const item of thread.events({ sinceSeq: 4 })) interruptedEvents.push(item);
+    for await (const item of thread.events({ sinceSeq: 5 })) interruptedEvents.push(item);
     assert.deepEqual(interruptedEvents.map((item) => item.type), ["turn_interrupted"]);
     assert.equal(interruptedEvents[0].eventKind, "turn.interrupted");
     assert.equal(interruptedEvents[0].sourceEventKind, "OperatorControl.Interrupt");
@@ -706,6 +738,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     assert.equal(interruptedEvents[0].payloadSchemaVersion, "ioi.runtime.operator-control.v1");
     assert.ok(requests.includes("POST /v1/threads"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns"));
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns/turn_sdk/steer"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns/turn_sdk/interrupt"));
     assert.ok(requests.includes("GET /v1/threads/thread_sdk/events?since_seq=0"));
   } finally {

@@ -139,3 +139,27 @@ test("projects operator interrupt events into the runtime control node", () => {
   assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-interrupt"]);
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-interrupt-allow"]);
 });
+
+test("projects operator steer events into the runtime control node", () => {
+  const steer = event("event-steer", 5, {
+    type: "turn_steered",
+    eventKind: "turn.steered",
+    sourceEventKind: "OperatorControl.Steer",
+    status: "completed",
+    componentKind: "operator_control",
+    workflowNodeId: "runtime.operator-steer",
+    receiptRefs: ["receipt-steer"],
+    policyDecisionRefs: ["policy-steer-allow"],
+    payloadSchemaVersion: "ioi.runtime.operator-control.v1",
+    payload: { guidance: "focus on the failing assertion" },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([steer]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(steer), "runtime.operator-steer");
+  assert.equal(nodes[0]?.nodeKind, "state");
+  assert.equal(nodes[0]?.componentKind, "operator_control");
+  assert.equal(nodes[0]?.label, "Turn steered");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-steer"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-steer-allow"]);
+});
