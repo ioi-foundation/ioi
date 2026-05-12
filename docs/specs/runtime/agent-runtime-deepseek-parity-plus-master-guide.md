@@ -4746,6 +4746,73 @@ Validation evidence:
     and
     `packages/agent-ide/src/runtime/workflow-settings-harness-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow settings harness active
+runtime rollback panel extraction:
+
+- Split active runtime binding, active runtime rollback dry-run/apply controls,
+  worker rollback proof workbench, rollback drill/execute controls, rollback
+  execution receipts, and git restore proof from
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx`
+  into
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx`.
+- The new panel exposes a typed
+  `WorkflowSettingsHarnessActiveRuntimeRollbackPanelProps` boundary over the
+  shared activation, rollback, worker-binding, promotion, and callback concern
+  interfaces. This makes active runtime rollback a reusable React Flow workflow
+  creator surface while leaving the worker-binding panel focused on worker
+  identity, registry selection, revision binding, and activation audit history.
+- Retargeted daemon, refactor-shape, and live GUI source-contract validation so
+  `WorkflowSettingsHarnessWorkerBindingPanel` must delegate to
+  `WorkflowSettingsHarnessActiveRuntimeRollbackPanel`, while the extracted panel
+  owns `workflow-harness-active-runtime-rollback-proof`,
+  `data-worker-binding-registry-bound`, and `workflow-harness-git-restore-proof`
+  without reintroducing `any`.
+- Updated live GUI validation source aggregation so rollback/restore canary and
+  promotion-transition proof bundles include the active runtime rollback panel
+  alongside the parent, shared types, activation, worker-binding, promotion, and
+  harness model source files.
+- `settingsHarnessWorkerBindingPanel.tsx` is reduced from 2,041 to 711 lines.
+  The new `settingsHarnessActiveRuntimeRollbackPanel.tsx` is 1,468 lines. The
+  parent `settingsHarnessPanel.tsx` remains 490 lines and
+  `scripts/lib/autopilot-gui-harness-validation/core.mjs` remains inside its
+  11,775-line guard at 11,774 lines.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- `npm run validate:autopilot-gui-harness:run`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-11-04-005Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSettingsHarnessModelUi === true`;
+  - `checks.workerSessionCheckpointUi === true`;
+  - `checks.rollbackExecutionReceiptRefs === true`;
+  - `checks.promotionTransitionControls === true`;
+  - `promotion-transition-live-gui-interaction-proof.json` has
+    `passed === true`;
+  - `checks.livePromotionReadinessBound === true`;
+  - `checks.activeWorkerBinding === true`;
+  - `checks.workerBindingRegistryBound === true`;
+  - `checks.activeRuntimeRollbackProofWorkbench === true`;
+  - `checks.activeRuntimeRollbackExecutionWorkbench === true`;
+  - `checks.activeRuntimeRollbackApplyExecution === true`;
+  - `checks.activeRuntimeRollbackNegativeApply === true`;
+  - rollback/restore and promotion live proof `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx`,
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts`,
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx`,
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx`,
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx`,
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx`,
+    and
+    `packages/agent-ide/src/runtime/workflow-settings-harness-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
