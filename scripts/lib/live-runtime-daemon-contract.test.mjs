@@ -1624,6 +1624,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowSchedulerNodeStateUpdateLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_state_update_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowSchedulerValidationLane = fs.readFileSync(
     path.join(
       root,
@@ -1937,6 +1944,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   );
   assert.match(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /workflow_scheduler_node_state_update_lane/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /workflow_scheduler_apply_node_state_update/,
+  );
+  assert.doesNotMatch(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_next_ready_nodes/,
   );
   assert.match(
@@ -1947,13 +1962,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_node_lifecycle_steps/,
   );
-  assert.match(
+  assert.doesNotMatch(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_selected_output/,
   );
-  assert.match(
+  assert.doesNotMatch(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_node_logic/,
+  );
+  assert.doesNotMatch(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /pending_writes/,
   );
   assert.match(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
@@ -1970,6 +1989,48 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /asset_materialized/,
   );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /fn workflow_scheduler_apply_node_state_update\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /WorkflowStateUpdate/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /workflow_next_ready_nodes/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /workflow_selected_output/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /workflow_node_logic/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /branch_decisions/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /pending_writes/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /completed_node_ids/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /interrupted_node_ids/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeStateUpdateLane,
+    /node_outputs/,
+  );
+  assert.match(tauriProjectWorkflowSchedulerNodeStateUpdateLane, /merge/);
+  assert.match(tauriProjectWorkflowSchedulerNodeStateUpdateLane, /append/);
   assert.match(
     tauriProjectWorkflowSchedulerFinalizationLane,
     /fn workflow_scheduler_finalized_result\(/,
