@@ -4248,6 +4248,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs";
   const projectWorkflowSchedulerFinalizationLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs";
+  const projectWorkflowSchedulerTerminalResultLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs";
   const projectWorkflowSchedulerInterruptLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs";
   const projectWorkflowSchedulerNodeExecutionLanePath =
@@ -4320,6 +4322,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowSchedulerFinalizationLane = readFileSync(
     resolve(repoRoot, projectWorkflowSchedulerFinalizationLanePath),
+    "utf8",
+  );
+  const projectWorkflowSchedulerTerminalResultLane = readFileSync(
+    resolve(repoRoot, projectWorkflowSchedulerTerminalResultLanePath),
     "utf8",
   );
   const projectWorkflowSchedulerInterruptLane = readFileSync(
@@ -4751,16 +4757,41 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_checkpoint_state/.test(
         projectWorkflowSchedulerFinalizationLane,
       ) &&
-      /workflow_push_event/.test(projectWorkflowSchedulerFinalizationLane) &&
-      /run_completed/.test(projectWorkflowSchedulerFinalizationLane) &&
-      /save_workflow_thread/.test(projectWorkflowSchedulerFinalizationLane) &&
-      /workflow_attach_harness_run_artifacts/.test(
+      /workflow_scheduler_terminal_result_lane/.test(
         projectWorkflowSchedulerFinalizationLane,
+      ) &&
+      /workflow_scheduler_terminal_result/.test(
+        projectWorkflowSchedulerFinalizationLane,
+      ) &&
+      /workflow_scheduler_terminal_summary/.test(
+        projectWorkflowSchedulerFinalizationLane,
+      ) &&
+      /WorkflowSchedulerTerminalResultParts/.test(
+        projectWorkflowSchedulerFinalizationLane,
+      ),
+    workflowSchedulerTerminalResultRuntimeLane:
+      /struct WorkflowSchedulerTerminalResultParts/.test(
+        projectWorkflowSchedulerTerminalResultLane,
+      ) &&
+      /fn workflow_scheduler_terminal_summary\(/.test(
+        projectWorkflowSchedulerTerminalResultLane,
+      ) &&
+      /fn workflow_scheduler_terminal_result\(/.test(
+        projectWorkflowSchedulerTerminalResultLane,
+      ) &&
+      /workflow_completion_requirements/.test(
+        projectWorkflowSchedulerTerminalResultLane,
+      ) &&
+      /workflow_push_event/.test(projectWorkflowSchedulerTerminalResultLane) &&
+      /run_completed/.test(projectWorkflowSchedulerTerminalResultLane) &&
+      /save_workflow_thread/.test(projectWorkflowSchedulerTerminalResultLane) &&
+      /workflow_attach_harness_run_artifacts/.test(
+        projectWorkflowSchedulerTerminalResultLane,
       ) &&
       /workflow_finalize_run_result/.test(
-        projectWorkflowSchedulerFinalizationLane,
+        projectWorkflowSchedulerTerminalResultLane,
       ) &&
-      /WorkflowRunResultParts/.test(projectWorkflowSchedulerFinalizationLane),
+      /WorkflowRunResultParts/.test(projectWorkflowSchedulerTerminalResultLane),
     workflowSchedulerNodeExecutionRuntimeLane:
       /workflow_scheduler_node_execution_lane/.test(
         projectWorkflowSchedulerLane,
@@ -4814,14 +4845,20 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
         projectWorkflowSchedulerInterruptLane,
       ) &&
       /workflow_interrupt_path/.test(projectWorkflowSchedulerInterruptLane) &&
-      /save_workflow_thread/.test(projectWorkflowSchedulerInterruptLane) &&
-      /workflow_finalize_run_result/.test(
+      /workflow_scheduler_terminal_result_lane/.test(
         projectWorkflowSchedulerInterruptLane,
       ) &&
-      /workflow_attach_harness_run_artifacts/.test(
+      /workflow_scheduler_terminal_result/.test(
         projectWorkflowSchedulerInterruptLane,
       ) &&
-      /workflow_completion_requirements/.test(
+      /workflow_scheduler_terminal_summary/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /WorkflowSchedulerTerminalResultParts/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      !/workflow_finalize_run_result/.test(projectWorkflowSchedulerInterruptLane) &&
+      !/workflow_attach_harness_run_artifacts/.test(
         projectWorkflowSchedulerInterruptLane,
       ) &&
       /workflow_push_event/.test(projectWorkflowSchedulerInterruptLane),
@@ -4833,16 +4870,25 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_checkpoint_state/.test(
         projectWorkflowSchedulerValidationLane,
       ) &&
-      /workflow_finalize_run_result/.test(
+      /workflow_scheduler_terminal_result_lane/.test(
         projectWorkflowSchedulerValidationLane,
       ) &&
-      /workflow_attach_harness_run_artifacts/.test(
+      /workflow_scheduler_terminal_result/.test(
         projectWorkflowSchedulerValidationLane,
       ) &&
-      /workflow_completion_requirements/.test(
+      /workflow_scheduler_terminal_summary/.test(
         projectWorkflowSchedulerValidationLane,
       ) &&
-      /workflow_push_event/.test(projectWorkflowSchedulerValidationLane),
+      /WorkflowSchedulerTerminalResultParts/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      !/workflow_finalize_run_result/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      !/workflow_attach_harness_run_artifacts/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      !/workflow_push_event/.test(projectWorkflowSchedulerValidationLane),
     workflowApprovalInterruptRuntimeLane:
       /workflow_approval_interrupt_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_runtime_approval_binding\(/.test(
@@ -4990,7 +5036,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowDeliveryTarget/.test(projectWorkflowOutputLane),
     workflowExecutionResultsRuntimeLane:
       /workflow_execution_results_lane/.test(
-        projectWorkflowSchedulerFinalizationLane,
+        projectWorkflowSchedulerTerminalResultLane,
       ) &&
       /struct WorkflowRunResultParts/.test(
         projectWorkflowExecutionResultsLane,
@@ -5024,7 +5070,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_node_lifecycle_steps/.test(projectWorkflowGraphExecutionLane),
     workflowHarnessResultsRuntimeLane:
       /workflow_harness_results_lane/.test(
-        projectWorkflowSchedulerFinalizationLane,
+        projectWorkflowSchedulerTerminalResultLane,
       ) &&
       /workflow_attach_harness_run_artifacts/.test(
         projectWorkflowHarnessResultsLane,
