@@ -3346,3 +3346,57 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-cross-surface-event-seq`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-cross-surface-event-seq/2026-05-12T22-40-35-479Z/result.json`.
+
+## Slice 101. 2026-05-12 - Live operator interrupt turn-control event
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/thread.ts
+- crates/cli/src/commands/agent.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declarations and dist bundle rebuilt with `Turn.interrupt(...)` and
+    `turn_interrupted` event typing.
+- `npm run build --workspace=@ioi/agent-ide`
+  - React Flow projection bundle rebuilt with `turn_interrupted` support.
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+  - CLI parser accepted `agent interrupt --thread-id ... --turn-id ...`.
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+  - 11 SDK subtests passed, including the daemon HTTP wrapper proof for
+    `Turn.interrupt(...)`.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source contract passed with `turn_interrupted`.
+- `node --test --test-name-pattern "operator interrupt keeps one canonical control event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live Rust runtime-service proof passed;
+  - CLI/TUI `agent interrupt` appended one canonical `turn.interrupted` event;
+  - SDK and React Flow found the same `event_id`, `seq`, cursor,
+    `source_event_kind`, `component_kind`, `workflow_node_id`, payload schema,
+    receipt refs, and policy refs;
+  - repeated SDK interrupt stayed idempotent.
+- `node --test --test-name-pattern "local daemon projects Agentgres runs" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - existing thread/turn/event projection contract still passed after adding
+    turn-status override handling.
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - CLI source contract passed with the interrupt endpoint and operator-control
+    event constants.
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-operator-interrupt-control`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-operator-interrupt-control/2026-05-12T22-55-37-243Z/result.json`.
+
+Known validation note:
+
+- `cargo test -p ioi-cli parses_agent_operator_surface_commands` still compiles
+  unrelated integration tests and fails before the targeted unit because
+  existing e2e fixtures construct `StartAgentParams` without
+  `runtime_route_frame`. The passing binary-only unit test is the scoped CLI
+  signal for this slice.

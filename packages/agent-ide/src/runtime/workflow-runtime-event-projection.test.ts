@@ -115,3 +115,27 @@ test("projects approval and policy events without workflow node ids", () => {
   assert.equal(nodes[1]?.status, "blocked");
   assert.deepEqual(nodes[1]?.policyDecisionRefs, ["policy-deny"]);
 });
+
+test("projects operator interrupt events into the runtime control node", () => {
+  const interrupt = event("event-interrupt", 4, {
+    type: "turn_interrupted",
+    eventKind: "turn.interrupted",
+    sourceEventKind: "OperatorControl.Interrupt",
+    status: "interrupted",
+    componentKind: "operator_control",
+    workflowNodeId: "runtime.operator-interrupt",
+    receiptRefs: ["receipt-interrupt"],
+    policyDecisionRefs: ["policy-interrupt-allow"],
+    payloadSchemaVersion: "ioi.runtime.operator-control.v1",
+    payload: { reason: "operator paused live validation" },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([interrupt]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(interrupt), "runtime.operator-interrupt");
+  assert.equal(nodes[0]?.nodeKind, "output");
+  assert.equal(nodes[0]?.componentKind, "operator_control");
+  assert.equal(nodes[0]?.label, "Turn interrupted");
+  assert.equal(nodes[0]?.status, "interrupted");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-interrupt"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-interrupt-allow"]);
+});

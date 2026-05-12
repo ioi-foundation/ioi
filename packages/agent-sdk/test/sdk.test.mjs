@@ -555,6 +555,13 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     workflow_execution_ref: null,
     fixture_profile: null,
   };
+  const interruptedTurnRecord = {
+    ...turnRecord,
+    status: "interrupted",
+    seq_end: 5,
+    completed_at: now,
+    stop_reason: "operator_interrupt",
+  };
   const runtimeEvents = [
     runtimeEnvelope({
       seq: 1,
@@ -627,6 +634,27 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       response.end(JSON.stringify(turnRecord));
       return;
     }
+    if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/turns/turn_sdk/interrupt") {
+      const body = await readBody(request);
+      assert.equal(body.reason, "operator validation");
+      runtimeEvents.push(runtimeEnvelope({
+        seq: 5,
+        eventKind: "turn.interrupted",
+        sourceEventKind: "OperatorControl.Interrupt",
+        itemId: "item_operator_interrupt",
+        componentKind: "operator_control",
+        workflowNodeId: "runtime.operator-interrupt",
+        payloadSchemaVersion: "ioi.runtime.operator-control.v1",
+        payload: {
+          event_kind: "OperatorControl.Interrupt",
+          reason: "operator validation",
+        },
+        status: "interrupted",
+        createdAt: now,
+      }));
+      response.end(JSON.stringify(interruptedTurnRecord));
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/v1/threads/thread_sdk/events") {
       const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
       response.setHeader("content-type", "text/event-stream");
@@ -666,8 +694,19 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       "tool_completed",
       "turn_completed",
     ]);
+    const interrupted = await turn.interrupt({ reason: "operator validation" });
+    assert.equal(interrupted.status, "interrupted");
+    const interruptedEvents = [];
+    for await (const item of thread.events({ sinceSeq: 4 })) interruptedEvents.push(item);
+    assert.deepEqual(interruptedEvents.map((item) => item.type), ["turn_interrupted"]);
+    assert.equal(interruptedEvents[0].eventKind, "turn.interrupted");
+    assert.equal(interruptedEvents[0].sourceEventKind, "OperatorControl.Interrupt");
+    assert.equal(interruptedEvents[0].componentKind, "operator_control");
+    assert.equal(interruptedEvents[0].workflowNodeId, "runtime.operator-interrupt");
+    assert.equal(interruptedEvents[0].payloadSchemaVersion, "ioi.runtime.operator-control.v1");
     assert.ok(requests.includes("POST /v1/threads"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns"));
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns/turn_sdk/interrupt"));
     assert.ok(requests.includes("GET /v1/threads/thread_sdk/events?since_seq=0"));
   } finally {
     await close(server);
@@ -697,6 +736,7 @@ function runtimeEnvelope({
   componentKind = null,
   workflowNodeId = null,
   payloadSchemaVersion = "ioi.runtime.event.v1",
+  status,
 }) {
   return {
     schema_version: "ioi.runtime.event.v1",
@@ -711,7 +751,7 @@ function runtimeEnvelope({
     source: "runtime_service",
     source_event_kind: sourceEventKind,
     event_kind: eventKind,
-    status: eventKind.endsWith(".started") ? "running" : "completed",
+    status: status ?? (eventKind.endsWith(".started") ? "running" : "completed"),
     actor: "runtime",
     created_at: createdAt,
     workspace_root: process.cwd(),

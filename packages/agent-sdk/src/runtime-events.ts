@@ -102,9 +102,9 @@ export function mockRuntimeEnvelopeForSdkEvent({
     turnId,
     itemId: `${turnId}:item:${String(seq).padStart(4, "0")}`,
     eventKind,
-    sourceEventKind: `run.${event.type}`,
+    sourceEventKind: event.type === "interrupted" ? "OperatorControl.Interrupt" : `run.${event.type}`,
     status: runtimeEventStatusForSdkMessage(event.type),
-    payloadSchemaVersion: "ioi.agent-sdk.event.v1",
+    payloadSchemaVersion: event.type === "interrupted" ? "ioi.runtime.operator-control.v1" : "ioi.agent-sdk.event.v1",
     payload: {
       ...(event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data : {}),
       event_kind: event.type,
@@ -208,6 +208,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "turn_failed";
     case "turn.canceled":
       return "turn_canceled";
+    case "turn.interrupted":
+      return "turn_interrupted";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -253,6 +255,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "turn.completed";
     case "canceled":
       return "turn.canceled";
+    case "interrupted":
+      return "turn.interrupted";
     case "error":
       return "turn.failed";
     default:
@@ -263,11 +267,13 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
 function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "run_started" || type === "delta") return "running";
   if (type === "canceled") return "canceled";
+  if (type === "interrupted") return "interrupted";
   if (type === "error") return "failed";
   return "completed";
 }
 
 function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "interrupted") return "operator_control";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -275,6 +281,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "interrupted") return "runtime.operator-interrupt";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
