@@ -3191,3 +3191,36 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-sdk-thread-turn-final`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-sdk-thread-turn-final/2026-05-12T21-56-13-739Z/result.json`.
+
+## Slice 97. 2026-05-12 - React Flow runtime event projection over Thread.events
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+  - TypeScript and Vite build passed after proving the projection compiles
+    under the package's ES2020 target.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - Source contract passed, locking the schema id, canonical event fields,
+    React Flow node/edge outputs, and reasoning/tool/approval/policy/receipt/
+    router event families.
+- Built-bundle smoke import of
+  `projectRuntimeThreadEventsToWorkflowProjection`
+  - projected a reasoning-to-tool event sample as 2 React Flow nodes, 1 edge,
+    and `latestEventId=e2`.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed, preserving the live
+    runtime-service replay path that supplies the canonical thread events.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection/2026-05-12T22-04-30-270Z/result.json`.

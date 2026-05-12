@@ -1,0 +1,117 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
+  projectRuntimeThreadEventsToWorkflowNodes,
+  projectRuntimeThreadEventsToWorkflowProjection,
+  workflowNodeIdForRuntimeThreadEvent,
+  type WorkflowRuntimeThreadEventLike,
+} from "./workflow-runtime-event-projection";
+
+function event(
+  id: string,
+  seq: number,
+  overrides: Partial<WorkflowRuntimeThreadEventLike> = {},
+): WorkflowRuntimeThreadEventLike {
+  return {
+    id,
+    cursor: `events_thread:test:${seq}`,
+    seq,
+    threadId: "thread-test",
+    turnId: "turn-test",
+    type: "runtime_step",
+    eventKind: "runtime.step",
+    sourceEventKind: "KernelEvent::RuntimeStep",
+    status: "completed",
+    createdAt: `2026-05-12T00:00:0${seq}.000Z`,
+    componentKind: null,
+    workflowNodeId: null,
+    workflowGraphId: "workflow-test",
+    payloadSchemaVersion: "ioi.agent-sdk.thread-event.v1",
+    receiptRefs: [],
+    artifactRefs: [],
+    policyDecisionRefs: [],
+    rollbackRefs: [],
+    payload: {},
+    ...overrides,
+  };
+}
+
+test("projects Thread.events runtime events into stable React Flow nodes and edges", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-3", 3, {
+      type: "tool_completed",
+      eventKind: "tool.completed",
+      sourceEventKind: "KernelEvent::ToolCompleted",
+      workflowNodeId: "runtime.tool-result",
+      componentKind: "tool_result",
+      toolName: "shell",
+      receiptRefs: ["receipt-tool"],
+    }),
+    event("event-1", 1, {
+      type: "reasoning_delta",
+      eventKind: "reasoning.delta",
+      sourceEventKind: "KernelEvent::ReasoningDelta",
+      workflowNodeId: "runtime.reasoning",
+      componentKind: "reasoning_delta",
+      status: "running",
+      payload: { summary: "Thinking through the patch." },
+    }),
+    event("event-2", 2, {
+      type: "model_route_decision",
+      eventKind: "model.route_decision",
+      sourceEventKind: "KernelEvent::ModelRouteDecision",
+    }),
+  ]);
+
+  assert.equal(
+    projection.schemaVersion,
+    WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
+  );
+  assert.deepEqual(
+    projection.reactFlowNodes.map((node) => node.id),
+    ["runtime.reasoning", "runtime.model-router", "runtime.tool-result"],
+  );
+  assert.equal(projection.reactFlowNodes[0]?.data.nodeKind, "task_state");
+  assert.equal(projection.reactFlowNodes[0]?.data.status, "running");
+  assert.equal(projection.reactFlowNodes[0]?.data.summary, "Thinking through the patch.");
+  assert.equal(projection.reactFlowNodes[1]?.data.nodeKind, "model_binding");
+  assert.equal(projection.reactFlowNodes[1]?.data.componentKind, "model_router");
+  assert.equal(projection.reactFlowNodes[2]?.data.nodeKind, "plugin_tool");
+  assert.deepEqual(projection.reactFlowNodes[2]?.data.receiptRefs, ["receipt-tool"]);
+  assert.deepEqual(
+    projection.reactFlowEdges.map((edge) => [edge.source, edge.target]),
+    [
+      ["runtime.reasoning", "runtime.model-router"],
+      ["runtime.model-router", "runtime.tool-result"],
+    ],
+  );
+  assert.equal(projection.latestEventId, "event-3");
+  assert.equal(projection.latestCursor, "events_thread:test:3");
+});
+
+test("projects approval and policy events without workflow node ids", () => {
+  const approval = event("event-approval", 1, {
+    type: "approval_required",
+    eventKind: "approval.required",
+    sourceEventKind: "KernelEvent::ApprovalRequired",
+    approvalId: "approval-123",
+    status: "waiting_for_input",
+  });
+  const policy = event("event-policy", 2, {
+    type: "policy_blocked",
+    eventKind: "policy.blocked",
+    sourceEventKind: "KernelEvent::PolicyBlocked",
+    status: "blocked",
+    policyDecisionRefs: ["policy-deny"],
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([approval, policy]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(approval), "runtime.approval.approval-123");
+  assert.equal(nodes[0]?.nodeKind, "human_gate");
+  assert.equal(nodes[0]?.status, "waiting");
+  assert.equal(nodes[1]?.workflowNodeId, "runtime.policy");
+  assert.equal(nodes[1]?.nodeKind, "hook_policy");
+  assert.equal(nodes[1]?.status, "blocked");
+  assert.deepEqual(nodes[1]?.policyDecisionRefs, ["policy-deny"]);
+});

@@ -4878,3 +4878,38 @@ Validation evidence:
   - 10 GUI harness contract subtests passed.
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-sdk-thread-turn-final`
   - GUI harness preflight passed outside the worktree.
+
+### Slice 97. 2026-05-12 - React Flow runtime event projection over Thread.events
+
+Implementation slice completed 2026-05-12, React Flow runtime event projection
+over canonical SDK thread events:
+
+- Added `packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts`
+  as a pure, package-local projection from `Thread.events()`-shaped canonical
+  runtime events into React Flow compatible nodes and sequential edges.
+- The projection groups by canonical `workflowNodeId` when present and falls
+  back to stable runtime ids for reasoning, model routing, tool results,
+  approvals, policy blocks, receipts, and terminal turn events.
+- Projected nodes carry status, component kind, workflow graph id, cursor,
+  sequence, latest event id, payload schema version, receipt/artifact/policy/
+  rollback refs, tool/approval metadata, and source event kinds.
+- Exported the projection helpers from `@ioi/agent-ide` without adding an SDK
+  dependency to the IDE package, preserving modular package boundaries while
+  accepting the same event shape produced by `Thread.events()`.
+- Added a focused source contract and compile-time test coverage so future
+  React Flow integration cannot quietly drop cursor/evidence metadata or the
+  policy/approval/tool/receipt event families.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- Built-bundle smoke import of `projectRuntimeThreadEventsToWorkflowProjection`
+  returned `{"nodes":2,"edges":1,"latestEventId":"e2"}` for a
+  reasoning-to-tool canonical event sample.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection`
+  - GUI harness preflight passed outside the worktree.

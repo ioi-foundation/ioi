@@ -34,6 +34,13 @@ export {
   validateActionEdge,
   workflowNodeTypeForActionKind,
 } from "./runtime/runtime-projection-adapter";
+export {
+  WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
+  projectRuntimeThreadEventsToWorkflowNodes,
+  projectRuntimeThreadEventsToWorkflowProjection,
+  workflowNodeIdForRuntimeThreadEvent,
+  workflowNodeKindForRuntimeThreadEvent,
+} from "./runtime/workflow-runtime-event-projection";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -276,6 +283,20 @@ export type {
   AgentActionValidationIssue,
   AgentExecutionSurface,
 } from "./runtime/runtime-projection-adapter";
+export type {
+  WorkflowRuntimeEventProjection,
+  WorkflowRuntimeProjectedEdge,
+  WorkflowRuntimeProjectedNode,
+  WorkflowRuntimeProjectedStatus,
+  WorkflowRuntimeProjectionOptions,
+  WorkflowRuntimeReactFlowEdge,
+  WorkflowRuntimeReactFlowEdgeData,
+  WorkflowRuntimeReactFlowNode,
+  WorkflowRuntimeReactFlowNodeData,
+  WorkflowRuntimeReactFlowPosition,
+  WorkflowRuntimeThreadEventLike,
+  WorkflowRuntimeThreadEventType,
+} from "./runtime/workflow-runtime-event-projection";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";
