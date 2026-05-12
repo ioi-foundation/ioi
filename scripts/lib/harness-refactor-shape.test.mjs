@@ -21,7 +21,10 @@ function lineCount(relativePath) {
 }
 
 function assertExists(relativePath) {
-  assert.ok(fs.existsSync(fullPath(relativePath)), `${relativePath} should exist`);
+  assert.ok(
+    fs.existsSync(fullPath(relativePath)),
+    `${relativePath} should exist`,
+  );
 }
 
 function assertFacade(relativePath, maxLines) {
@@ -39,7 +42,11 @@ function assertOwnsImplementation(relativePath, pattern, minLines = 8) {
     lineCount(relativePath) >= minLines,
     `${relativePath} should contain extracted implementation, not just a placeholder`,
   );
-  assert.match(source, pattern, `${relativePath} is missing its expected implementation surface`);
+  assert.match(
+    source,
+    pattern,
+    `${relativePath} is missing its expected implementation surface`,
+  );
 }
 
 test("runtime and workflow harness compatibility facades stay thin", () => {
@@ -98,6 +105,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
@@ -189,7 +197,12 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
     /workflow-harness-activation-gate-inspector/,
-    1_000,
+    500,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
+    /workflow-harness-package-evidence-review/,
+    600,
   );
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
@@ -233,6 +246,9 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessActivationGatePanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
+    );
+    const settingsHarnessPackageEvidencePanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
     );
     const settingsHarnessWorkerBindingPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
@@ -315,6 +331,31 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessActivationGatePanel,
       /workflow-harness-activation-gate-inspector/,
       "settings harness activation gate panel should own gate evidence inspector UI",
+    );
+    assert.match(
+      settingsHarnessActivationGatePanel,
+      /WorkflowSettingsHarnessPackageEvidencePanel/,
+      "settings harness activation gate panel should delegate package evidence UI to its extracted component",
+    );
+    assert.match(
+      settingsHarnessPackageEvidencePanel,
+      /WorkflowSettingsHarnessPackageEvidencePanelProps/,
+      "settings harness package evidence panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessPackageEvidencePanel,
+      /workflow-harness-package-evidence-review/,
+      "settings harness package evidence panel should own package evidence review UI",
+    );
+    assert.match(
+      settingsHarnessPackageEvidencePanel,
+      /workflow-harness-package-import-review/,
+      "settings harness package evidence panel should own import review UI",
+    );
+    assert.doesNotMatch(
+      settingsHarnessActivationGatePanel,
+      /data-testid="workflow-harness-package-evidence-review"/,
+      "settings harness activation gate panel should not keep package evidence implementation inline",
     );
     assert.doesNotMatch(
       settingsHarnessActivationPanel,
@@ -426,9 +467,15 @@ test("workflow rail modules own extracted implementation", () => {
       /\bany\b/,
       "settings harness activation gate panel should keep its prop boundary typed",
     );
+    assert.doesNotMatch(
+      settingsHarnessPackageEvidencePanel,
+      /\bany\b/,
+      "settings harness package evidence panel should keep its prop boundary typed",
+    );
     for (const [source, label] of [
       [settingsHarnessActivationPanel, "activation"],
       [settingsHarnessActivationGatePanel, "activation gate"],
+      [settingsHarnessPackageEvidencePanel, "package evidence"],
       [settingsHarnessWorkerBindingPanel, "worker binding"],
       [settingsHarnessActiveRuntimeRollbackPanel, "active runtime rollback"],
       [settingsHarnessActiveRuntimeBindingPanel, "active runtime binding"],
@@ -548,7 +595,10 @@ test("GUI harness validation modules remain split by concern", () => {
 test("core files do not grow past the refactor checkpoint without updating the guard", () => {
   for (const [relativePath, maxLines] of [
     ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 13_500],
-    ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 5_830],
+    [
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+      5_830,
+    ],
     ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_775],
   ]) {
     assert.ok(
