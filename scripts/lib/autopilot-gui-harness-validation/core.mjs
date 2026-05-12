@@ -4256,6 +4256,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs";
   const projectWorkflowSchedulerNodeOutcomeLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs";
+  const projectWorkflowSchedulerNodeStateUpdateLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_state_update_lane.rs";
   const projectWorkflowSchedulerValidationLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs";
   const projectWorkflowAuthorityToolingLanePath =
@@ -4340,6 +4342,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowSchedulerNodeOutcomeLane = readFileSync(
     resolve(repoRoot, projectWorkflowSchedulerNodeOutcomeLanePath),
+    "utf8",
+  );
+  const projectWorkflowSchedulerNodeStateUpdateLane = readFileSync(
+    resolve(repoRoot, projectWorkflowSchedulerNodeStateUpdateLanePath),
     "utf8",
   );
   const projectWorkflowSchedulerValidationLane = readFileSync(
@@ -4847,21 +4853,51 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowSchedulerNodeExecutionFlow/.test(
         projectWorkflowSchedulerNodeOutcomeLane,
       ) &&
-      /workflow_next_ready_nodes/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
+      /workflow_scheduler_node_state_update_lane/.test(
+        projectWorkflowSchedulerNodeOutcomeLane,
+      ) &&
+      /workflow_scheduler_apply_node_state_update/.test(
+        projectWorkflowSchedulerNodeOutcomeLane,
+      ) &&
+      !/workflow_next_ready_nodes/.test(
+        projectWorkflowSchedulerNodeOutcomeLane,
+      ) &&
       /workflow_checkpoint_state/.test(
         projectWorkflowSchedulerNodeOutcomeLane,
       ) &&
       /workflow_node_lifecycle_steps/.test(
         projectWorkflowSchedulerNodeOutcomeLane,
       ) &&
-      /workflow_selected_output/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
-      /workflow_node_logic/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
+      !/workflow_selected_output/.test(
+        projectWorkflowSchedulerNodeOutcomeLane,
+      ) &&
+      !/workflow_node_logic/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
+      !/pending_writes/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       /workflow_push_event/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       /node_succeeded/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       /node_failed/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       /child_run_completed/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       /output_created/.test(projectWorkflowSchedulerNodeOutcomeLane) &&
       /asset_materialized/.test(projectWorkflowSchedulerNodeOutcomeLane),
+    workflowSchedulerNodeStateUpdateRuntimeLane:
+      /fn workflow_scheduler_apply_node_state_update\(/.test(
+        projectWorkflowSchedulerNodeStateUpdateLane,
+      ) &&
+      /WorkflowStateUpdate/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /workflow_next_ready_nodes/.test(
+        projectWorkflowSchedulerNodeStateUpdateLane,
+      ) &&
+      /workflow_selected_output/.test(
+        projectWorkflowSchedulerNodeStateUpdateLane,
+      ) &&
+      /workflow_node_logic/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /branch_decisions/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /pending_writes/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /completed_node_ids/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /interrupted_node_ids/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /node_outputs/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /merge/.test(projectWorkflowSchedulerNodeStateUpdateLane) &&
+      /append/.test(projectWorkflowSchedulerNodeStateUpdateLane),
     workflowSchedulerInterruptRuntimeLane:
       /workflow_scheduler_interrupt_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_scheduler_interrupted_result\(/.test(
