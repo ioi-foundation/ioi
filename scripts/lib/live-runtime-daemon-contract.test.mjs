@@ -1622,6 +1622,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowSettingsHarnessPackageEvidencePanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
+    ),
+    "utf8",
+  );
   const workflowSettingsHarnessWorkerBindingPanel = fs.readFileSync(
     path.join(
       root,
@@ -2822,7 +2829,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRailPanel, /data-workflow-chrome-locale/);
   assert.match(workflowRailPanel, /data-package-import-source-chrome-locale/);
   assert.match(workflowRailPanel, /data-package-import-imported-chrome-locale/);
-  assert.match(workflowSettingsHarnessActivationGatePanel, /data-package-import-chrome-locale-preserved/);
+  assert.match(workflowSettingsHarnessPackageEvidencePanel, /data-package-import-chrome-locale-preserved/);
   assert.match(workflowRailModel, /manifest\.workflowChromeLocale/);
   assert.match(workflowRailModel, /workflowPackageNodeOutputSummary/);
   assert.match(workflowRailModel, /workflowPackageNodeOutputStatus/);
@@ -3060,8 +3067,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowSettingsHarnessTypes, /WorkflowSettingsHarnessActivationProps/);
   assert.match(workflowSettingsHarnessActivationPanel, /WorkflowSettingsHarnessActivationGatePanel/);
   assert.match(workflowSettingsHarnessActivationGatePanel, /workflow-harness-activation-gate-inspector/);
+  assert.match(workflowSettingsHarnessActivationGatePanel, /WorkflowSettingsHarnessPackageEvidencePanel/);
+  assert.match(workflowSettingsHarnessPackageEvidencePanel, /workflow-harness-package-evidence-review/);
+  assert.match(workflowSettingsHarnessPackageEvidencePanel, /workflow-harness-package-import-review/);
   assert.doesNotMatch(workflowSettingsHarnessActivationPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessActivationGatePanel, /settingsHarnessPanel/);
+  assert.doesNotMatch(workflowSettingsHarnessPackageEvidencePanel, /settingsHarnessPanel/);
   assert.match(workflowSettingsHarnessWorkerBindingPanel, /WorkflowSettingsHarnessActiveRuntimeRollbackPanel/);
   assert.match(workflowSettingsHarnessActiveRuntimeRollbackPanel, /WorkflowSettingsHarnessActiveRuntimeBindingPanel/);
   assert.match(workflowSettingsHarnessActiveRuntimeBindingPanel, /data-worker-binding-registry-bound/);
