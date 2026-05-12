@@ -5171,6 +5171,83 @@ Validation evidence:
   - promotion live proof `sourceRefs` include
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx`.
 
+Implementation slice completed 2026-05-12, React Flow settings harness
+activation gate refs/timeline extraction:
+
+- Split activation-gate evidence refs, receipt refs, replay fixture refs, node
+  attempt refs, and node-attempt timeline rows from
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx`
+  into
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx`
+  and
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx`.
+- The refs panel exposes a typed
+  `WorkflowSettingsHarnessActivationGateRefsPanelProps` boundary over
+  activation, worker-binding, and callback concern interfaces. The timeline
+  panel exposes a typed
+  `WorkflowSettingsHarnessActivationGateTimelinePanelProps` boundary over
+  activation, promotion, worker-binding, and callback concern interfaces. This
+  lets the React Flow workflow creator address activation gate refs and node
+  timelines as independent inspector modules.
+- Retargeted daemon, refactor-shape, and live GUI source-contract validation so
+  `WorkflowSettingsHarnessActivationGatePanel` must delegate to
+  `WorkflowSettingsHarnessActivationGateRefsPanel` and
+  `WorkflowSettingsHarnessActivationGateTimelinePanel`, while the new panels own
+  `workflow-harness-activation-gate-evidence-refs`,
+  `workflow-harness-activation-gate-receipt-refs`,
+  `workflow-harness-activation-gate-replay-refs`,
+  `workflow-harness-activation-gate-node-attempt-refs`, and
+  `workflow-harness-activation-gate-node-timeline` without reintroducing `any`.
+- Updated live GUI validation source aggregation so rollback/restore canary and
+  promotion-transition proof bundles include the refs and timeline panels
+  alongside the parent, package evidence, shared types, activation,
+  worker-binding, active runtime binding/rollback, restore proof, promotion,
+  promotion readiness, and harness model source files.
+- `settingsHarnessActivationGatePanel.tsx` is reduced from 586 to 391 lines.
+  The new `settingsHarnessActivationGateRefsPanel.tsx` is 169 lines,
+  `settingsHarnessActivationGateTimelinePanel.tsx` is 147 lines, and
+  `scripts/lib/autopilot-gui-harness-validation/core.mjs` remains inside its
+  11,775-line guard at 11,772 lines.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- `npm run validate:autopilot-gui-harness:run`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-05-02-607Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSettingsHarnessModelUi === true`;
+  - `checks.activationGateEvidenceInspector === true`;
+  - `checks.workerSessionCheckpointUi === true`;
+  - `checks.rollbackExecutionReceiptRefs === true`;
+  - `checks.promotionTransitionControls === true`;
+  - rollback proof `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx`
+    and
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx`;
+  - `promotion-transition-live-gui-interaction-proof.json` has
+    `passed === true`;
+  - `checks.routeStatefulActivationGateReferenceDeepLinks === true`;
+  - `checks.activationGateMutationCanaryNodeInspectorDeepLink === true`;
+  - `checks.activationGateNodeTimelineDeepLink === true`;
+  - `checks.livePromotionReadinessBound === true`;
+  - `checks.activeWorkerBinding === true`;
+  - `checks.workerBindingRegistryBound === true`;
+  - `checks.activeRuntimeRollbackProofWorkbench === true`;
+  - `checks.activeRuntimeRollbackExecutionWorkbench === true`;
+  - `checks.activeRuntimeRollbackApplyExecution === true`;
+  - `checks.activeRuntimeRollbackNegativeApply === true`;
+  - promotion live proof `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx`
+    and
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

@@ -1622,6 +1622,20 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowSettingsHarnessActivationGateRefsPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowSettingsHarnessActivationGateTimelinePanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx",
+    ),
+    "utf8",
+  );
   const workflowSettingsHarnessPackageEvidencePanel = fs.readFileSync(
     path.join(
       root,
@@ -3067,11 +3081,20 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowSettingsHarnessTypes, /WorkflowSettingsHarnessActivationProps/);
   assert.match(workflowSettingsHarnessActivationPanel, /WorkflowSettingsHarnessActivationGatePanel/);
   assert.match(workflowSettingsHarnessActivationGatePanel, /workflow-harness-activation-gate-inspector/);
+  assert.match(workflowSettingsHarnessActivationGatePanel, /WorkflowSettingsHarnessActivationGateRefsPanel/);
+  assert.match(workflowSettingsHarnessActivationGatePanel, /WorkflowSettingsHarnessActivationGateTimelinePanel/);
+  assert.match(workflowSettingsHarnessActivationGateRefsPanel, /workflow-harness-activation-gate-evidence-refs/);
+  assert.match(workflowSettingsHarnessActivationGateRefsPanel, /workflow-harness-activation-gate-receipt-refs/);
+  assert.match(workflowSettingsHarnessActivationGateRefsPanel, /workflow-harness-activation-gate-replay-refs/);
+  assert.match(workflowSettingsHarnessActivationGateTimelinePanel, /workflow-harness-activation-gate-node-attempt-refs/);
+  assert.match(workflowSettingsHarnessActivationGateTimelinePanel, /workflow-harness-activation-gate-node-timeline/);
   assert.match(workflowSettingsHarnessActivationGatePanel, /WorkflowSettingsHarnessPackageEvidencePanel/);
   assert.match(workflowSettingsHarnessPackageEvidencePanel, /workflow-harness-package-evidence-review/);
   assert.match(workflowSettingsHarnessPackageEvidencePanel, /workflow-harness-package-import-review/);
   assert.doesNotMatch(workflowSettingsHarnessActivationPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessActivationGatePanel, /settingsHarnessPanel/);
+  assert.doesNotMatch(workflowSettingsHarnessActivationGateRefsPanel, /settingsHarnessPanel/);
+  assert.doesNotMatch(workflowSettingsHarnessActivationGateTimelinePanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessPackageEvidencePanel, /settingsHarnessPanel/);
   assert.match(workflowSettingsHarnessWorkerBindingPanel, /WorkflowSettingsHarnessActiveRuntimeRollbackPanel/);
   assert.match(workflowSettingsHarnessActiveRuntimeRollbackPanel, /WorkflowSettingsHarnessActiveRuntimeBindingPanel/);
