@@ -34,6 +34,7 @@ export type {
   RuntimeThreadForkInput,
   RuntimeTurnCreateInput,
   RuntimeTurnInterruptInput,
+  RuntimeTurnSteerInput,
   UpdateMemoryRecordInput,
 } from "./substrate-client.js";
 export type {

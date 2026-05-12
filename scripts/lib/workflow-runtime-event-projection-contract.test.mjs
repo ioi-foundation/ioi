@@ -67,6 +67,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "tool_completed",
     "tool_failed",
     "turn_interrupted",
+    "turn_steered",
     "approval_required",
     "policy_blocked",
     "receipt_emitted",

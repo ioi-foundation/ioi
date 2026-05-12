@@ -7,6 +7,7 @@ import {
   type RuntimeThreadForkInput,
   type RuntimeTurnCreateInput,
   type RuntimeTurnInterruptInput,
+  type RuntimeTurnSteerInput,
 } from "./substrate-client.js";
 import type { RuntimeThreadEvent, RuntimeThreadRecord, RuntimeTurnRecord } from "./messages.js";
 
@@ -137,6 +138,10 @@ export class Turn {
 
   async interrupt(input: RuntimeTurnInterruptInput = {}): Promise<Turn> {
     return new Turn(this.client, await this.client.interruptTurn(this.threadId, this.id, input));
+  }
+
+  async steer(input: RuntimeTurnSteerInput = {}): Promise<Turn> {
+    return new Turn(this.client, await this.client.steerTurn(this.threadId, this.id, input));
   }
 
   async *events(options: RuntimeEventStreamOptions = {}): AsyncIterable<RuntimeThreadEvent> {

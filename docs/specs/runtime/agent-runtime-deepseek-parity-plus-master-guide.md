@@ -121,33 +121,36 @@ Completed workstream snapshot as of 2026-05-12:
   the same `event_id`, `seq`, cursor, component kind, workflow node id, payload
   schema, and evidence-ref arrays across daemon SSE replay, SDK
   `Thread.events()`, CLI/TUI `agent stream`, and the React Flow projection. The
-  first live turn-control slice is now landed: operator interrupt creates a
-  canonical `turn.interrupted` event that daemon SSE, SDK, CLI/TUI, and React
-  Flow consume by the same `event_id`, `seq`, cursor, component kind, workflow
-  node id, payload schema, receipt refs, and policy refs.
+  first two live turn-control slices are now landed: operator interrupt creates
+  a canonical terminal `turn.interrupted` event, and operator steer creates a
+  non-terminal `turn.steered` guidance event. Daemon SSE, SDK, CLI/TUI, and
+  React Flow consume both controls by the same `event_id`, `seq`, cursor,
+  component kind, workflow node id, payload schema, receipt refs, and policy
+  refs.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 live operator interrupt turn-control event
+- 2026-05-12: P0 live operator steer turn-control event
 - Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
   packages/runtime-daemon/src/index.mjs, packages/agent-sdk/src/thread.ts,
   crates/cli/src/commands/agent.rs,
   packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts,
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
 - Validation: targeted live daemon contract with daemon, SDK, CLI/TUI
-  `agent interrupt`, and React Flow projections in the same runtime-service
-  proof; see the validation ledger.
+  `agent steer`, and React Flow projections in the same runtime-service proof;
+  see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: Operator interrupt turn-control GUI preflight
+- 2026-05-12: Operator steer turn-control GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-operator-interrupt-control/2026-05-12T22-55-37-243Z/result.json
+  /tmp/ioi-autopilot-gui-harness-operator-steer-control/2026-05-12T23-06-03-227Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | Live operator steer turn-control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live operator interrupt turn-control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Cross-surface same-sequence KernelEvent proof | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | CLI/TUI runtime event stream command | crates/cli/src/commands/agent_event_stream.rs |
@@ -174,9 +177,9 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Implement the next live turn-control endpoint, preferably steer, with the
-   same daemon/SDK/CLI/React Flow event proof shape as interrupt.
-2. Continue compact and fork control endpoints after steer, ensuring each emits
+1. Implement the next live turn-control endpoint, preferably compact, with the
+   same daemon/SDK/CLI/React Flow event proof shape as interrupt and steer.
+2. Continue fork control endpoints after compact, ensuring each emits
    canonical TTI events and React Flow node metadata.
 3. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
@@ -1711,10 +1714,10 @@ keeping React Flow cleanup slices small and source-contract guarded.
 Remaining runtime bridge implementation sequence:
 
 The bridge/event projection loop is closed for the current mapped KernelEvent
-foundation, and the first live turn-control path, operator interrupt, is
-implemented as a canonical `turn.interrupted` event. The next runtime slices
-should add steer, compact, and fork controls with the same proof pattern across
-SDK, CLI/TUI, and React Flow.
+foundation, and the first live turn-control paths, operator interrupt and
+operator steer, are implemented as canonical `turn.interrupted` and
+`turn.steered` events. The next runtime slices should add compact and fork
+controls with the same proof pattern across SDK, CLI/TUI, and React Flow.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
 straightforward once live threads, events, and tool contracts are real. Keep

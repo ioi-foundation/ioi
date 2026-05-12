@@ -1559,7 +1559,7 @@ export class AgentgresRuntimeStateStore {
         ...run.trace,
         status: "interrupted",
         stopCondition,
-        operatorControls: [...normalizeArray(run.trace?.operatorControls), control],
+        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
         qualityLedger: {
           ...run.trace?.qualityLedger,
           failureOntologyLabels: [
@@ -1570,10 +1570,85 @@ export class AgentgresRuntimeStateStore {
           ],
         },
       },
-      operatorControls: [...normalizeArray(run.operatorControls), control],
+      operatorControls: appendOperatorControl(run.operatorControls, control),
     };
     this.runs.set(run.id, updated);
     this.writeRun(updated, "turn.interrupt");
+    return this.turnForRun(updated);
+  }
+
+  steerTurn(threadId, turnId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const runId = runIdForTurn(turnId);
+    const run = this.getRun(runId);
+    if (run.agentId !== agent.id) {
+      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+    }
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const guidance =
+      optionalString(request.guidance ?? request.message ?? request.input) ?? "operator provided steering guidance";
+    const now = new Date().toISOString();
+    const previousStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
+    const guidanceHash = crypto.createHash("sha256").update(guidance).digest("hex").slice(0, 16);
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId}:item:operator-steer:${guidanceHash}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `turn:${turnId}:operator.steer:${guidanceHash}`,
+      source,
+      source_event_kind: "OperatorControl.Steer",
+      event_kind: "turn.steered",
+      status: "completed",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.operator-steer",
+      component_kind: "operator_control",
+      payload_schema_version: "ioi.runtime.operator-control.v1",
+      payload: {
+        event_kind: "OperatorControl.Steer",
+        guidance,
+        requested_by: requestedBy,
+        control_surface: source,
+        previous_status: previousStatus,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId,
+        run_id: run.id,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [`receipt_${run.id}_operator_steer_${guidanceHash}`],
+      policy_decision_refs: [`policy_${run.id}_operator_steer_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "steer",
+      source,
+      guidance,
+      eventId: event.event_id,
+      seq: event.seq,
+      createdAt: event.created_at,
+    };
+    const updated = {
+      ...run,
+      updatedAt: event.created_at,
+      trace: {
+        ...run.trace,
+        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+      },
+      operatorControls: appendOperatorControl(run.operatorControls, control),
+    };
+    this.runs.set(run.id, updated);
+    this.writeRun(updated, "turn.steer");
     return this.turnForRun(updated);
   }
 
@@ -4255,6 +4330,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "interrupt" && !segments[6]) {
     writeJsonResponse(response, store.interruptTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "steer" && !segments[6]) {
+    writeJsonResponse(response, store.steerTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "turns" && !segments[4]) {
@@ -8027,6 +8106,12 @@ function optionalString(value) {
 function operatorControlSource(value) {
   const source = optionalString(value);
   return ["cli_tui", "react_flow", "sdk_client"].includes(source) ? source : "sdk_client";
+}
+
+function appendOperatorControl(controls, control) {
+  const existing = normalizeArray(controls);
+  if (existing.some((candidate) => candidate?.eventId === control.eventId)) return existing;
+  return [...existing, control];
 }
 
 function safeId(value) {

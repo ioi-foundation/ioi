@@ -227,6 +227,17 @@ export interface RuntimeTurnInterruptInput {
   [key: string]: unknown;
 }
 
+export interface RuntimeTurnSteerInput {
+  guidance?: string;
+  message?: string;
+  input?: string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  [key: string]: unknown;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -243,6 +254,7 @@ export interface RuntimeSubstrateClient {
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
   interruptTurn(threadId: string, turnId: string, input?: RuntimeTurnInterruptInput): Promise<RuntimeTurnRecord>;
+  steerTurn(threadId: string, turnId: string, input?: RuntimeTurnSteerInput): Promise<RuntimeTurnRecord>;
   streamThreadEvents(threadId: string, options?: RuntimeEventStreamOptions): AsyncIterable<RuntimeThreadEvent>;
   createAgent(options: AgentOptions): Promise<RuntimeAgentRecord>;
   resumeAgent(agentId: string): Promise<RuntimeAgentRecord>;
@@ -360,6 +372,22 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "interruptTurn",
       "POST",
       `/v1/threads/${encodePath(threadId)}/turns/${encodePath(turnId)}/interrupt`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async steerTurn(
+    threadId: string,
+    turnId: string,
+    input: RuntimeTurnSteerInput = {},
+  ): Promise<RuntimeTurnRecord> {
+    return this.request(
+      "steerTurn",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/turns/${encodePath(turnId)}/steer`,
       {
         source: "sdk_client",
         ...input,
@@ -1157,6 +1185,71 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     };
     this.persistRun(interrupted);
     return this.turnRecordForRun(interrupted);
+  }
+
+  async steerTurn(
+    threadId: string,
+    turnId: string,
+    input: RuntimeTurnSteerInput = {},
+  ): Promise<RuntimeTurnRecord> {
+    const turn = await this.getTurn(threadId, turnId);
+    const run = await this.getRun(turn.request_id);
+    const guidance = typeof input.guidance === "string" && input.guidance.trim()
+      ? input.guidance.trim()
+      : typeof input.message === "string" && input.message.trim()
+        ? input.message.trim()
+        : typeof input.input === "string" && input.input.trim()
+          ? input.input.trim()
+          : "operator provided steering guidance";
+    const source = typeof input.source === "string" && input.source.trim()
+      ? input.source.trim()
+      : "sdk_client";
+    const existingSteer = run.events.find(
+      (event) =>
+        event.type === "steered" &&
+        event.data &&
+        typeof event.data === "object" &&
+        !Array.isArray(event.data) &&
+        (event.data as { guidance?: unknown }).guidance === guidance,
+    );
+    if (existingSteer) return this.turnRecordForRun(run);
+    const events = run.events;
+    const steeredEvent = makeEvent(
+      run.id,
+      run.agentId,
+      events.length,
+      "steered",
+      "Turn steered",
+      {
+        eventKind: "OperatorControl.Steer",
+        guidance,
+        source,
+        threadId,
+        turnId,
+        workflowNodeId: input.workflowNodeId ?? "runtime.operator-steer",
+      },
+    );
+    const steered = {
+      ...run,
+      updatedAt: steeredEvent.createdAt,
+      events: [...events, steeredEvent],
+      trace: {
+        ...run.trace,
+        events: [...events, steeredEvent],
+        operatorControls: [
+          ...((run.trace as { operatorControls?: unknown[] }).operatorControls ?? []),
+          {
+            control: "steer",
+            source,
+            guidance,
+            eventId: steeredEvent.id,
+            createdAt: steeredEvent.createdAt,
+          },
+        ],
+      },
+    };
+    this.persistRun(steered);
+    return this.turnRecordForRun(steered);
   }
 
   async *streamThreadEvents(

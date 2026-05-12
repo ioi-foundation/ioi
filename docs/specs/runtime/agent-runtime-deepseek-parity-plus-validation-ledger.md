@@ -3400,3 +3400,60 @@ Known validation note:
   existing e2e fixtures construct `StartAgentParams` without
   `runtime_route_frame`. The passing binary-only unit test is the scoped CLI
   signal for this slice.
+
+## Slice 102. 2026-05-12 - Live operator steer turn-control event
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/thread.ts
+- crates/cli/src/commands/agent.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declarations and dist bundle rebuilt with `Turn.steer(...)` and
+    `turn_steered` event typing.
+- `npm run build --workspace=@ioi/agent-ide`
+  - React Flow projection bundle rebuilt with `turn_steered` support.
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `cargo fmt --package ioi-cli`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+  - CLI parser accepted `agent steer --thread-id ... --turn-id ...`.
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+  - 11 SDK subtests passed, including the daemon HTTP wrapper proof for
+    `Turn.steer(...)`.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source contract passed with `turn_steered`.
+- `node --test --test-name-pattern "operator steer keeps one canonical guidance event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live Rust runtime-service proof passed;
+  - CLI/TUI `agent steer` appended one canonical `turn.steered` event;
+  - SDK and React Flow found the same `event_id`, `seq`, cursor,
+    `source_event_kind`, `component_kind`, `workflow_node_id`, payload schema,
+    receipt refs, and policy refs;
+  - repeated SDK steer with the same guidance stayed idempotent.
+- `node --test --test-name-pattern "operator interrupt keeps one canonical control event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - prior interrupt control proof stayed green after sharing the
+    operator-control evidence helper.
+- `node --test --test-name-pattern "local daemon projects Agentgres runs" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - existing thread/turn/event projection contract still passed.
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - CLI source contract passed with the steer endpoint and operator-control
+    event constants.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-operator-steer-control`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-operator-steer-control/2026-05-12T23-06-03-227Z/result.json`.
+
+Known validation note:
+
+- `cargo test -p ioi-cli parses_agent_operator_surface_commands` still compiles
+  unrelated integration tests and fails before the targeted unit because
+  existing e2e fixtures construct `StartAgentParams` without
+  `runtime_route_frame`. The passing binary-only unit test is the scoped CLI
+  signal for this slice.

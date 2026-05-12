@@ -245,6 +245,27 @@ pub enum AgentCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Add operator steering guidance to a canonical runtime turn.
+    Steer {
+        /// Runtime thread id that owns the turn.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Runtime turn id to steer.
+        #[clap(long = "turn-id")]
+        turn_id: String,
+        /// Operator-visible steering guidance.
+        #[clap(long, default_value = "operator provided steering guidance")]
+        guidance: String,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Print the runtime trace bundle projection for a session step.
     Trace(SnapshotArgs),
     /// Verify a substrate snapshot contains the required runtime evidence.
@@ -455,6 +476,14 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
             token,
             json,
         } => interrupt_turn(thread_id, turn_id, reason, endpoint, token, json).await,
+        AgentCommands::Steer {
+            thread_id,
+            turn_id,
+            guidance,
+            endpoint,
+            token,
+            json,
+        } => steer_turn(thread_id, turn_id, guidance, endpoint, token, json).await,
         AgentCommands::Trace(args) => print_runtime_trace(args).await,
         AgentCommands::Verify(args) => verify_snapshot_command(args).await,
         AgentCommands::Replay(args) => replay_snapshot_command(args).await,
@@ -600,6 +629,45 @@ async fn interrupt_turn(
     }
     println!(
         "Interrupted turn {} on thread {}: status={}",
+        turn_id,
+        thread_id,
+        response
+            .get("status")
+            .and_then(|value| value.as_str())
+            .unwrap_or("unknown")
+    );
+    Ok(())
+}
+
+async fn steer_turn(
+    thread_id: String,
+    turn_id: String,
+    guidance: String,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let route = format!("/v1/threads/{thread_id}/turns/{turn_id}/steer");
+    let response = daemon_request(
+        endpoint.as_deref(),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::json!({
+            "guidance": guidance,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Steer",
+            "component_kind": "operator_control",
+            "workflow_node_id": "runtime.operator-steer",
+        })),
+    )
+    .await?;
+    if json {
+        return print_json(&response);
+    }
+    println!(
+        "Steered turn {} on thread {}: status={}",
         turn_id,
         thread_id,
         response
@@ -1647,6 +1715,30 @@ mod tests {
         assert!(matches!(
             interrupt.command,
             Some(AgentCommands::Interrupt {
+                thread_id,
+                turn_id,
+                json: true,
+                ..
+            }) if thread_id == "thread_runtime_cli" && turn_id == "turn_runtime_cli"
+        ));
+
+        let steer = AgentArgs::try_parse_from([
+            "agent",
+            "steer",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--turn-id",
+            "turn_runtime_cli",
+            "--guidance",
+            "focus on the current failing assertion",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--json",
+        ])
+        .expect("steer command should parse");
+        assert!(matches!(
+            steer.command,
+            Some(AgentCommands::Steer {
                 thread_id,
                 turn_id,
                 json: true,
