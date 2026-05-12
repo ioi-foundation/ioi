@@ -1,16 +1,11 @@
 // apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs
 
 use super::workflow_approval_interrupt_lane::workflow_runtime_approval_preview;
-use super::workflow_checkpoint_lane::workflow_checkpoint_state;
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
-use super::workflow_execution_results_lane::{
-    workflow_completion_has_missing, workflow_completion_requirements,
-    workflow_finalize_run_result, WorkflowRunResultParts,
-};
 use super::workflow_graph_execution_lane::workflow_next_ready_nodes;
-use super::workflow_harness_results_lane::workflow_attach_harness_run_artifacts;
 use super::workflow_node_metadata_lane::{workflow_node_by_id, workflow_node_type};
 use super::workflow_run_lifecycle_lane::workflow_push_event;
+use super::workflow_scheduler_finalization_lane::workflow_scheduler_finalized_result;
 use super::workflow_scheduler_interrupt_lane::workflow_scheduler_interrupted_result;
 use super::workflow_scheduler_node_execution_lane::{
     workflow_scheduler_execute_node, WorkflowSchedulerNodeExecutionFlow,
@@ -146,88 +141,17 @@ pub(super) fn execute_workflow_project(
         }
     }
 
-    let mut status = if !state.blocked_node_ids.is_empty() {
-        "failed"
-    } else if !state.interrupted_node_ids.is_empty() {
-        "interrupted"
-    } else {
-        "passed"
-    };
-    let mut completion_requirements =
-        workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
-    if status == "passed" && workflow_completion_has_missing(&completion_requirements) {
-        status = "failed";
-        state
-            .blocked_node_ids
-            .extend(completion_requirements.iter().filter_map(|requirement| {
-                (requirement.status != "satisfied")
-                    .then(|| requirement.node_id.clone())
-                    .flatten()
-            }));
-        state.blocked_node_ids.sort();
-        state.blocked_node_ids.dedup();
-        completion_requirements =
-            workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
-    }
-    let checkpoint_id = workflow_checkpoint_state(
-        workflow_path,
-        &mut state,
-        &run_id,
-        &thread_id,
-        None,
-        status,
-        format!("Workflow run {}.", status),
-        &mut checkpoints,
-    )?;
-    let summary = WorkflowRunSummary {
-        id: run_id.clone(),
-        thread_id: Some(thread_id.clone()),
-        status: status.to_string(),
-        started_at_ms,
-        finished_at_ms: Some(now_ms()),
-        node_count: bundle.workflow.nodes.len(),
-        test_count: Some(bundle.tests.len()),
-        checkpoint_count: Some(checkpoints.len()),
-        interrupt_id: None,
-        summary: if status == "passed" {
-            "Workflow completed with durable checkpoints.".to_string()
-        } else {
-            format!("Workflow {} with structured blockers.", status)
-        },
-        evidence_path: Some(workflow_evidence_path(workflow_path).display().to_string()),
-    };
-    workflow_push_event(
-        &mut events,
-        &run_id,
-        &thread_id,
-        "run_completed",
-        None,
-        Some(status),
-        Some(summary.summary.clone()),
-        None,
-    );
-    let mut final_thread = thread.clone();
-    final_thread.status = status.to_string();
-    final_thread.latest_checkpoint_id = Some(checkpoint_id);
-    save_workflow_thread(workflow_path, &final_thread)?;
-    let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
-        workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
-    let result = workflow_finalize_run_result(
+    workflow_scheduler_finalized_result(
         workflow_path,
         &bundle.workflow,
-        WorkflowRunResultParts {
-            summary,
-            thread: final_thread,
-            final_state: state,
-            node_runs,
-            checkpoints,
-            events,
-            harness_attempts,
-            harness_shadow_comparisons,
-            harness_gated_cluster_runs,
-            completion_requirements,
-            interrupt: None,
-        },
-    )?;
-    Ok(result)
+        bundle.tests.len(),
+        thread,
+        state,
+        started_at_ms,
+        &run_id,
+        &thread_id,
+        node_runs,
+        checkpoints,
+        events,
+    )
 }
