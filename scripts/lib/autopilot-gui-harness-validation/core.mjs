@@ -4244,6 +4244,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRustValidationPath =
     "apps/autopilot/src-tauri/src/project/validation.rs";
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+  const projectWorkflowSchedulerLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs";
   const projectWorkflowAuthorityToolingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
   const projectWorkflowApprovalInterruptLanePath =
@@ -4302,6 +4304,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectRuntime = readFileSync(
     resolve(repoRoot, projectRuntimePath),
+    "utf8",
+  );
+  const projectWorkflowSchedulerLane = readFileSync(
+    resolve(repoRoot, projectWorkflowSchedulerLanePath),
     "utf8",
   );
   const projectWorkflowAuthorityToolingLane = readFileSync(
@@ -4689,8 +4695,20 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_live_authority_destructive_denial/.test(
         projectWorkflowAuthorityToolingLane,
       ),
+    workflowSchedulerRuntimeLane:
+      /workflow_scheduler_lane/.test(projectRuntime) &&
+      !/fn execute_workflow_project\(/.test(projectRuntime) &&
+      /fn execute_workflow_project\(/.test(projectWorkflowSchedulerLane) &&
+      /workflow_next_ready_nodes/.test(projectWorkflowSchedulerLane) &&
+      /workflow_runtime_interrupt/.test(projectWorkflowSchedulerLane) &&
+      /workflow_completion_requirements/.test(projectWorkflowSchedulerLane) &&
+      /workflow_attach_harness_run_artifacts/.test(
+        projectWorkflowSchedulerLane,
+      ) &&
+      /execute_workflow_node/.test(projectWorkflowSchedulerLane) &&
+      /workflow_push_event/.test(projectWorkflowSchedulerLane),
     workflowApprovalInterruptRuntimeLane:
-      /workflow_approval_interrupt_lane/.test(projectRuntime) &&
+      /workflow_approval_interrupt_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_runtime_approval_binding\(/.test(
         projectWorkflowApprovalInterruptLane,
       ) &&
@@ -4724,7 +4742,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_function_input_schema/.test(projectWorkflowBindingLane) &&
       /workflow_function_output_schema/.test(projectWorkflowBindingLane),
     workflowCheckpointRuntimeLane:
-      /workflow_checkpoint_lane/.test(projectRuntime) &&
+      /workflow_checkpoint_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_checkpoint_state\(/.test(projectWorkflowCheckpointLane) &&
       /WorkflowCheckpoint/.test(projectWorkflowCheckpointLane) &&
       /WorkflowStateSnapshot/.test(projectWorkflowCheckpointLane) &&
@@ -4732,7 +4750,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /unique_runtime_id/.test(projectWorkflowCheckpointLane) &&
       /active_node_ids\.sort/.test(projectWorkflowCheckpointLane),
     workflowStateRuntimeLane:
-      /workflow_state_lane/.test(projectRuntime) &&
+      /workflow_state_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_predecessor_output\(/.test(projectWorkflowStateLane) &&
       /fn workflow_mapped_node_input\(/.test(projectWorkflowStateLane) &&
       /fn workflow_first_expression_source\(/.test(projectWorkflowStateLane) &&
@@ -4765,9 +4783,9 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow_logic_string/.test(projectWorkflowNodeContractLane) &&
       /workflow_action_frame/.test(projectWorkflowNodeExecutionLane) &&
-      /workflow_max_attempts/.test(projectRuntime),
+      /workflow_max_attempts/.test(projectWorkflowSchedulerLane),
     workflowNodeMetadataRuntimeLane:
-      /workflow_node_metadata_lane/.test(projectRuntime) &&
+      /workflow_node_metadata_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_value_string\(/.test(projectWorkflowNodeMetadataLane) &&
       /fn workflow_node_id\(/.test(projectWorkflowNodeMetadataLane) &&
       /fn workflow_node_type\(/.test(projectWorkflowNodeMetadataLane) &&
@@ -4787,7 +4805,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_node_metadata_lane/.test(projectRustValidation) &&
       /workflow_node_metadata_lane/.test(projectPackage),
     workflowRunLifecycleRuntimeLane:
-      /workflow_run_lifecycle_lane/.test(projectRuntime) &&
+      /workflow_run_lifecycle_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_push_event\(/.test(projectWorkflowRunLifecycleLane) &&
       /fn new_workflow_thread\(/.test(projectWorkflowRunLifecycleLane) &&
       /fn initial_workflow_state\(/.test(projectWorkflowRunLifecycleLane) &&
@@ -4833,7 +4851,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowRendererRef/.test(projectWorkflowOutputLane) &&
       /WorkflowDeliveryTarget/.test(projectWorkflowOutputLane),
     workflowExecutionResultsRuntimeLane:
-      /workflow_execution_results_lane/.test(projectRuntime) &&
+      /workflow_execution_results_lane/.test(projectWorkflowSchedulerLane) &&
       /struct WorkflowRunResultParts/.test(
         projectWorkflowExecutionResultsLane,
       ) &&
@@ -4853,7 +4871,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
         projectWorkflowExecutionResultsLane,
       ),
     workflowGraphExecutionRuntimeLane:
-      /workflow_graph_execution_lane/.test(projectRuntime) &&
+      /workflow_graph_execution_lane/.test(projectWorkflowSchedulerLane) &&
       /workflow_edge_from/.test(projectWorkflowGraphExecutionLane) &&
       /workflow_edge_to/.test(projectWorkflowGraphExecutionLane) &&
       /workflow_edge_connection_class/.test(projectWorkflowGraphExecutionLane) &&
@@ -4865,7 +4883,7 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_next_ready_nodes/.test(projectWorkflowGraphExecutionLane) &&
       /workflow_node_lifecycle_steps/.test(projectWorkflowGraphExecutionLane),
     workflowHarnessResultsRuntimeLane:
-      /workflow_harness_results_lane/.test(projectRuntime) &&
+      /workflow_harness_results_lane/.test(projectWorkflowSchedulerLane) &&
       /workflow_attach_harness_run_artifacts/.test(
         projectWorkflowHarnessResultsLane,
       ) &&
@@ -5227,6 +5245,8 @@ export function collectWorkflowSkillContextProof(outputRoot) {
     harnessTools: "packages/agent-ide/src/runtime/workflow-harness-tools.ts",
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectWorkflowSchedulerLane:
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs",
     projectCodingRouteLane:
       "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
     projectCommands: "apps/autopilot/src-tauri/src/project/commands.rs",
@@ -5259,7 +5279,8 @@ export function collectWorkflowSkillContextProof(outputRoot) {
       /getSkillDetail\(skill\.skill_hash\)/.test(source.tauriRuntime) &&
       /workflowOptionsWithSkillCatalog/.test(source.tauriRuntime),
     resolverExecution:
-      /workflow_coding_route_lane/.test(source.projectRuntime) &&
+      /workflow_scheduler_lane/.test(source.projectRuntime) &&
+      /workflow_coding_route_lane/.test(source.projectWorkflowSchedulerLane) &&
       /struct WorkflowSkillResolver/.test(source.projectCodingRouteLane) &&
       /resolve_skill_context/.test(source.projectCodingRouteLane) &&
       /workflow\.skill-context\.v1/.test(source.projectCodingRouteLane) &&
@@ -5308,6 +5329,8 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectWorkflowSchedulerLane:
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs",
     projectCodingRouteLane:
       "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
     runtimeTests:
@@ -5341,7 +5364,8 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
       /edge-skill-context-model-context/.test(source.projectTemplates) &&
       /"context"/.test(source.projectTemplates),
     classifierAndEvidence:
-      /workflow_coding_route_lane/.test(source.projectRuntime) &&
+      /workflow_scheduler_lane/.test(source.projectRuntime) &&
+      /workflow_coding_route_lane/.test(source.projectWorkflowSchedulerLane) &&
       /workflow_classify_coding_route/.test(source.projectCodingRouteLane) &&
       /workflow_coding_route_evidence_from_run/.test(
         source.projectCodingRouteLane,
@@ -5412,6 +5436,8 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
+    projectWorkflowSchedulerLane:
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs",
     projectCodingRouteLane:
       "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
     runtimeTests:
@@ -5444,7 +5470,8 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
       /allowDraftForBenchmark/.test(source.projectTemplates) &&
       /allowDraftForBenchmark/.test(source.projectCodingRouteLane),
     promotionRuntime:
-      /workflow_coding_route_lane/.test(source.projectRuntime) &&
+      /workflow_scheduler_lane/.test(source.projectRuntime) &&
+      /workflow_coding_route_lane/.test(source.projectWorkflowSchedulerLane) &&
       /workflow_coding_route_benchmark_results/.test(
         source.projectCodingRouteLane,
       ) &&
