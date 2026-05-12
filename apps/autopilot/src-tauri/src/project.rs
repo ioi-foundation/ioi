@@ -38,6 +38,7 @@ mod workflow_package_lane;
 mod workflow_run_lifecycle_lane;
 mod workflow_scheduler_interrupt_lane;
 mod workflow_scheduler_lane;
+mod workflow_scheduler_node_execution_lane;
 mod workflow_scheduler_validation_lane;
 mod workflow_state_lane;
 mod workflow_value_helpers;
