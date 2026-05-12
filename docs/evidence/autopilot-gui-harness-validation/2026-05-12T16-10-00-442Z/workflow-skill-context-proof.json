@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "workflow.skill-context.gui-proof.v1",
+  "passed": true,
+  "scenario": "workflow_skill_context_create_run",
+  "checks": {
+    "nodeKindTyped": true,
+    "creatorVariants": true,
+    "configUi": true,
+    "catalogTool": true,
+    "registryBackedRuntime": true,
+    "resolverExecution": true,
+    "runCommandsPassResolver": true,
+    "createAndRunTests": true
+  },
+  "validatedSurfaces": [
+    "composer node registry",
+    "node config UI",
+    "runtime registry resolver",
+    "node/project run commands",
+    "harness catalog tool",
+    "create-and-run runtime contract tests"
+  ]
+}
