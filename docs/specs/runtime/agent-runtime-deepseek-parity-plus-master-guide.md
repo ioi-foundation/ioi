@@ -3478,10 +3478,10 @@ refactor:
   terminal checkpoint creation, final thread persistence, harness artifact
   attachment, or result assembly.
 - The new lane owns status derivation from blocked/interrupted node state,
-  completion requirement checks and missing-output blockers, final checkpoint
-  creation, `run_completed` event emission, final thread save,
-  harness-attempt/shadow/gated-cluster attachment, and
-  `workflow_finalize_run_result(...)`.
+  completion requirement checks and missing-output blockers, and final
+  checkpoint creation. The following terminal-result consolidation slice moves
+  shared event/thread/harness/result assembly behind a common helper while
+  preserving this lane as the normal post-loop finalization owner.
 - Validation-blocked finalization remains in
   `workflow_scheduler_validation_lane.rs`; interrupt/approval pause
   finalization remains in `workflow_scheduler_interrupt_lane.rs`. This keeps
@@ -3495,8 +3495,7 @@ refactor:
   `workflow_scheduler_finalization_lane`,
   `workflow_scheduler_finalized_result(...)`,
   `workflowSchedulerFinalizationRuntimeLane`, and the finalization lane's
-  ownership of completion requirements, checkpointing, run-completed events,
-  thread persistence, harness artifact attachment, and final result assembly.
+  ownership of completion requirements and final checkpointing.
 - `runtime.rs` remains 3 lines; the scheduler lane is reduced from 233 to 157
   lines; the finalization lane is 107 lines; the node execution lane remains
   318 lines; the interrupt lane remains 130 lines; the validation lane remains
@@ -3530,6 +3529,86 @@ Validation evidence:
   - `rollback-restore-canary-ui-proof.json` has `passed === true` with
     `checks.workflowSchedulerRuntimeLane === true`,
     `checks.workflowSchedulerFinalizationRuntimeLane === true`,
+    `checks.workflowSchedulerNodeExecutionRuntimeLane === true`,
+    `checks.workflowSchedulerInterruptRuntimeLane === true`, and
+    `checks.workflowSchedulerValidationRuntimeLane === true`;
+  - all prior runtime lane checks remain true, including node metadata, run
+    lifecycle, node contract, node execution, state, checkpoint, approval,
+    output, binding, graph execution, harness results, execution results,
+    authority/tooling, memory, package run output, and GitHub PR create output;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow comparison component
+    set with `github_pr_create`, `approval_gate`, `policy_gate`,
+    `connector_call`, `mcp_provider`, `mcp_tool_call`, `tool_call`, and
+    `wallet_capability`;
+  - `runtime-artifacts.json` reports
+    `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
+Implementation slice completed 2026-05-12, workflow scheduler terminal result
+lane refactor:
+
+- Added
+  `apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs`
+  as the shared terminal-result assembly owner for workflow scheduler terminal
+  paths.
+- The terminal-result lane provides
+  `workflow_scheduler_terminal_summary(...)` for consistent
+  `WorkflowRunSummary` creation and `workflow_scheduler_terminal_result(...)`
+  for `run_completed` event emission, final thread status/checkpoint
+  persistence, completion requirement fallback computation, harness artifact
+  attachment, and `workflow_finalize_run_result(...)`.
+- `workflow_scheduler_finalization_lane.rs`,
+  `workflow_scheduler_validation_lane.rs`, and
+  `workflow_scheduler_interrupt_lane.rs` now keep their distinct terminal path
+  decisions while delegating shared result assembly to the terminal-result
+  lane. Normal finalization still owns post-loop status repair and missing
+  completion blockers; validation still owns validation-blocked checkpoints;
+  interrupt still owns interrupt creation, interrupt persistence, and
+  node-interrupted events.
+- This also makes validation-blocked terminal runs persist the final thread via
+  the same path as normal and interrupted terminal runs.
+- The daemon and live GUI source-contract proofs now assert
+  `workflow_scheduler_terminal_result_lane`,
+  `workflow_scheduler_terminal_result(...)`,
+  `workflow_scheduler_terminal_summary(...)`,
+  `WorkflowSchedulerTerminalResultParts`, and
+  `workflowSchedulerTerminalResultRuntimeLane`, while asserting that
+  validation and interrupt lanes no longer own direct final-result or harness
+  assembly.
+- `runtime.rs` remains 3 lines; the scheduler lane remains 157 lines; the
+  finalization lane is reduced from 107 to 93 lines; the terminal-result lane is
+  93 lines; the interrupt lane is reduced from 130 to 113 lines; the validation
+  lane is reduced from 88 to 72 lines; the node execution lane remains 318
+  lines.
+
+Validation evidence:
+
+- `cargo test workflow_skill_context --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_expression_refs_require_connected_output_ports --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_field_mappings_prepare_runtime_node_input --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test coding_route --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_run_interrupt_resume_and_checkpoint_fork_are_durable --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_failed_function_resumes_from_repaired_checkpoint --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_retry_preserves_failed_attempt_evidence --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tool_binding_requires_schema_and_retry_contract --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tool_side_effect_pauses_for_contextual_approval --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_output_delivery_pauses_for_contextual_approval --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tests_can_pass_target_outputs_before_downstream_interrupt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T03-49-14-148Z/result.json`
+  - `validation.ok === true`;
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true` with
+    `checks.workflowSchedulerRuntimeLane === true`,
+    `checks.workflowSchedulerFinalizationRuntimeLane === true`,
+    `checks.workflowSchedulerTerminalResultRuntimeLane === true`,
     `checks.workflowSchedulerNodeExecutionRuntimeLane === true`,
     `checks.workflowSchedulerInterruptRuntimeLane === true`, and
     `checks.workflowSchedulerValidationRuntimeLane === true`;

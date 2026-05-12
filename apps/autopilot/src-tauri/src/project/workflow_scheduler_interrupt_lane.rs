@@ -4,13 +4,13 @@ use super::workflow_approval_interrupt_lane::{
     workflow_runtime_interrupt, workflow_runtime_interrupt_notice,
 };
 use super::workflow_checkpoint_lane::workflow_checkpoint_state;
-use super::workflow_execution_results_lane::{
-    workflow_completion_requirements, workflow_finalize_run_result, WorkflowRunResultParts,
-};
 use super::workflow_graph_execution_lane::workflow_node_lifecycle_steps;
-use super::workflow_harness_results_lane::workflow_attach_harness_run_artifacts;
 use super::workflow_node_metadata_lane::workflow_node_name;
 use super::workflow_run_lifecycle_lane::workflow_push_event;
+use super::workflow_scheduler_terminal_result_lane::{
+    workflow_scheduler_terminal_result, workflow_scheduler_terminal_summary,
+    WorkflowSchedulerTerminalResultParts,
+};
 use super::*;
 
 pub(super) fn workflow_scheduler_interrupted_result(
@@ -77,53 +77,36 @@ pub(super) fn workflow_scheduler_interrupted_result(
         lifecycle: workflow_node_lifecycle_steps("interrupted"),
         harness_attempt: None,
     });
-    workflow_push_event(
-        &mut events,
-        run_id,
-        thread_id,
-        "run_completed",
-        None,
-        Some("interrupted"),
-        Some("Run paused for human input.".to_string()),
-        None,
-    );
     fs::create_dir_all(workflow_interrupts_dir(workflow_path))
         .map_err(|error| format!("Failed to create interrupts directory: {}", error))?;
     write_json_pretty(&workflow_interrupt_path(workflow_path, run_id), &interrupt)?;
-    let summary = WorkflowRunSummary {
-        id: run_id.to_string(),
-        thread_id: Some(thread_id.to_string()),
-        status: "interrupted".to_string(),
-        started_at_ms,
-        finished_at_ms: Some(now_ms()),
-        node_count: workflow.nodes.len(),
-        test_count: Some(test_count),
-        checkpoint_count: Some(checkpoints.len()),
-        interrupt_id: Some(interrupt_id),
-        summary: format!("Run paused at '{}'.", workflow_node_name(node)),
-        evidence_path: Some(workflow_evidence_path(workflow_path).display().to_string()),
-    };
-    let mut final_thread = thread;
-    final_thread.status = "interrupted".to_string();
-    final_thread.latest_checkpoint_id = Some(checkpoint_id);
-    save_workflow_thread(workflow_path, &final_thread)?;
-    let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
-        workflow_attach_harness_run_artifacts(workflow, run_id, &mut node_runs);
-    let completion_requirements = workflow_completion_requirements(workflow, &state, &node_runs);
-    workflow_finalize_run_result(
+    let summary = workflow_scheduler_terminal_summary(
         workflow_path,
         workflow,
-        WorkflowRunResultParts {
+        test_count,
+        started_at_ms,
+        run_id,
+        thread_id,
+        "interrupted",
+        checkpoints.len(),
+        Some(interrupt_id),
+        format!("Run paused at '{}'.", workflow_node_name(node)),
+    );
+    workflow_scheduler_terminal_result(
+        workflow_path,
+        workflow,
+        thread,
+        run_id,
+        thread_id,
+        WorkflowSchedulerTerminalResultParts {
             summary,
-            thread: final_thread,
+            checkpoint_id,
+            run_completed_message: "Run paused for human input.".to_string(),
             final_state: state,
             node_runs,
             checkpoints,
             events,
-            harness_attempts,
-            harness_shadow_comparisons,
-            harness_gated_cluster_runs,
-            completion_requirements,
+            completion_requirements: None,
             interrupt: Some(interrupt),
         },
     )
