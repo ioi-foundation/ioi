@@ -1561,6 +1561,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-rail-search-model.ts"),
     "utf8",
   );
+  const workflowEntrypointsPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowEntrypointsModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts"),
+    "utf8",
+  );
   const workflowReadinessPanel = fs.readFileSync(
     path.join(
       root,
@@ -2913,6 +2924,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRailSearchModel, /visibleResults/);
   assert.match(workflowRailSearchModel, /resultGroups/);
   assert.match(workflowRailSearchModel, /resultKindCounts/);
+  assert.match(workflowRailPanel, /WorkflowEntrypointsPanel/);
+  assert.match(workflowRailPanel, /workflowEntrypointsModel/);
+  assert.match(workflowEntrypointsPanel, /workflow-sources-list/);
+  assert.match(workflowEntrypointsPanel, /workflow-schedules-list/);
+  assert.match(workflowEntrypointsPanel, /workflow-source-node-/);
+  assert.match(workflowEntrypointsPanel, /workflow-schedule-node-/);
+  assert.match(workflowEntrypointsModel, /workflowEntrypointsModel/);
+  assert.match(workflowEntrypointsModel, /readyStartPoints/);
+  assert.match(workflowEntrypointsModel, /readyTriggers/);
+  assert.match(workflowEntrypointsModel, /blockedTriggers/);
   assert.match(workflowRailPanel, /workflow-settings-chrome-locale-select/);
   assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /onUpdateWorkflowChromeLocale/);

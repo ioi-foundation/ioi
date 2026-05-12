@@ -4237,6 +4237,63 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-rail-search-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow entrypoints model
+extraction:
+
+- Extracted source/trigger start-point readiness, source payload readiness,
+  manual/event/scheduled trigger classification, schedule/event configuration
+  readiness, and ready/blocked rollups into
+  `packages/agent-ide/src/runtime/workflow-entrypoints-model.ts`.
+- Added
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx`
+  as the shared React Flow rail surface for both `sources` and `schedules`,
+  preserving `workflow-sources-list`, `workflow-source-node-*`,
+  `workflow-schedules-list`, and `workflow-schedule-node-*`.
+- `WorkflowRailPanel/core.tsx` now delegates both `panel === "sources"` and
+  `panel === "schedules"` to `WorkflowEntrypointsPanel` over
+  `workflowEntrypointsModel(...)`, making workflow activation start conditions
+  reusable by the workflow creator, chat/autopilot workflow generation, and
+  React Flow graph inspection.
+- Added
+  `packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts` to lock
+  source payload states, manual trigger readiness, scheduled trigger readiness,
+  event trigger readiness, blocked trigger labels/details, and non-entrypoint
+  filtering.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so
+  entrypoints must exist in both the runtime model and React Flow panel. The
+  live rollback proof now includes `workflowEntrypointsModelUi` and source refs
+  for both files.
+- `WorkflowRailPanel/core.tsx` is reduced from 10,903 to 10,802 lines. The new
+  entrypoints panel is 102 lines, and the entrypoints model is 130 lines with a
+  197-line focused model test.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T13-32-20-984Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowEntrypointsModelUi === true`;
+  - `checks.workflowRailSearchModelUi === true`;
+  - `checks.workflowRunHistoryModelUi === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include both
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx`
+    and `packages/agent-ide/src/runtime/workflow-entrypoints-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
