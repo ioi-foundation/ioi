@@ -1589,6 +1589,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowSchedulerValidationLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectPackage = fs.readFileSync(
     path.join(root, "apps/autopilot/src-tauri/src/project/package.rs"),
     "utf8",
@@ -1805,6 +1812,34 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(
     tauriProjectWorkflowSchedulerLane,
     /fn execute_workflow_project\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerLane,
+    /workflow_scheduler_validation_lane/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerValidationLane,
+    /fn workflow_scheduler_validation_blocked_result\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerValidationLane,
+    /workflow_checkpoint_state/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerValidationLane,
+    /workflow_finalize_run_result/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerValidationLane,
+    /workflow_attach_harness_run_artifacts/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerValidationLane,
+    /workflow_completion_requirements/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerValidationLane,
+    /workflow_push_event/,
   );
   assert.match(
     tauriProjectWorkflowSchedulerLane,

@@ -4246,6 +4246,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
   const projectWorkflowSchedulerLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs";
+  const projectWorkflowSchedulerValidationLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs";
   const projectWorkflowAuthorityToolingLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
   const projectWorkflowApprovalInterruptLanePath =
@@ -4308,6 +4310,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowSchedulerLane = readFileSync(
     resolve(repoRoot, projectWorkflowSchedulerLanePath),
+    "utf8",
+  );
+  const projectWorkflowSchedulerValidationLane = readFileSync(
+    resolve(repoRoot, projectWorkflowSchedulerValidationLanePath),
     "utf8",
   );
   const projectWorkflowAuthorityToolingLane = readFileSync(
@@ -4707,6 +4713,24 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /execute_workflow_node/.test(projectWorkflowSchedulerLane) &&
       /workflow_push_event/.test(projectWorkflowSchedulerLane),
+    workflowSchedulerValidationRuntimeLane:
+      /workflow_scheduler_validation_lane/.test(projectWorkflowSchedulerLane) &&
+      /fn workflow_scheduler_validation_blocked_result\(/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      /workflow_checkpoint_state/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      /workflow_finalize_run_result/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      /workflow_attach_harness_run_artifacts/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      /workflow_completion_requirements/.test(
+        projectWorkflowSchedulerValidationLane,
+      ) &&
+      /workflow_push_event/.test(projectWorkflowSchedulerValidationLane),
     workflowApprovalInterruptRuntimeLane:
       /workflow_approval_interrupt_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_runtime_approval_binding\(/.test(

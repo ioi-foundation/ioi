@@ -18,6 +18,7 @@ use super::workflow_node_metadata_lane::{
     workflow_node_by_id, workflow_node_logic, workflow_node_name, workflow_node_type,
 };
 use super::workflow_run_lifecycle_lane::workflow_push_event;
+use super::workflow_scheduler_validation_lane::workflow_scheduler_validation_blocked_result;
 use super::workflow_state_lane::{workflow_predecessor_output, workflow_selected_output};
 use super::*;
 
@@ -60,71 +61,20 @@ pub(super) fn execute_workflow_project(
     );
 
     if validation.status != "passed" {
-        state.blocked_node_ids = validation.blocked_nodes.clone();
-        let checkpoint_id = workflow_checkpoint_state(
-            workflow_path,
-            &mut state,
-            &run_id,
-            &thread_id,
-            None,
-            &validation.status,
-            format!(
-                "Workflow blocked by {} validation issue(s).",
-                validation.blocked_nodes.len()
-            ),
-            &mut checkpoints,
-        )?;
-        let summary = WorkflowRunSummary {
-            id: run_id.clone(),
-            thread_id: Some(thread_id.clone()),
-            status: validation.status.clone(),
-            started_at_ms,
-            finished_at_ms: Some(now_ms()),
-            node_count: bundle.workflow.nodes.len(),
-            test_count: Some(bundle.tests.len()),
-            checkpoint_count: Some(checkpoints.len()),
-            interrupt_id: None,
-            summary: format!(
-                "Workflow blocked by {} validation issue(s).",
-                validation.errors.len() + validation.warnings.len()
-            ),
-            evidence_path: Some(workflow_evidence_path(workflow_path).display().to_string()),
-        };
-        workflow_push_event(
-            &mut events,
-            &run_id,
-            &thread_id,
-            "run_completed",
-            None,
-            Some(&summary.status),
-            Some(summary.summary.clone()),
-            None,
-        );
-        let mut final_thread = thread.clone();
-        final_thread.status = summary.status.clone();
-        final_thread.latest_checkpoint_id = Some(checkpoint_id);
-        let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
-            workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
-        let completion_requirements =
-            workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
-        let result = workflow_finalize_run_result(
+        return workflow_scheduler_validation_blocked_result(
             workflow_path,
             &bundle.workflow,
-            WorkflowRunResultParts {
-                summary,
-                thread: final_thread,
-                final_state: state,
-                node_runs,
-                checkpoints,
-                events,
-                harness_attempts,
-                harness_shadow_comparisons,
-                harness_gated_cluster_runs,
-                completion_requirements,
-                interrupt: None,
-            },
-        )?;
-        return Ok(result);
+            bundle.tests.len(),
+            thread,
+            state,
+            validation,
+            started_at_ms,
+            &run_id,
+            &thread_id,
+            node_runs,
+            checkpoints,
+            events,
+        );
     }
 
     let max_steps = bundle.workflow.nodes.len().saturating_mul(4).max(1);
