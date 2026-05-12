@@ -103,6 +103,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
@@ -213,6 +214,11 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
     /workflow-harness-promotion-clusters/,
+    300,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
+    /workflow-harness-selector-live-promotion-readiness/,
     800,
   );
   {
@@ -242,6 +248,9 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessPromotionPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
+    );
+    const settingsHarnessPromotionReadinessPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
     );
     for (const expectedInterface of [
       "WorkflowSettingsHarnessActivationProps",
@@ -382,6 +391,26 @@ test("workflow rail modules own extracted implementation", () => {
       /WorkflowSettingsHarnessPromotionPanelProps/,
       "settings harness promotion panel should expose a typed prop boundary",
     );
+    assert.match(
+      settingsHarnessPromotionPanel,
+      /WorkflowSettingsHarnessPromotionReadinessPanel/,
+      "settings harness promotion panel should delegate live readiness UI to its extracted component",
+    );
+    assert.match(
+      settingsHarnessPromotionReadinessPanel,
+      /WorkflowSettingsHarnessPromotionReadinessPanelProps/,
+      "settings harness promotion readiness panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessPromotionReadinessPanel,
+      /workflow-harness-authority-gate-live/,
+      "settings harness promotion readiness panel should own authority gate live UI",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPromotionPanel,
+      /data-testid="workflow-harness-selector-live-promotion-readiness"/,
+      "settings harness promotion panel should not keep live readiness implementation inline",
+    );
     assert.doesNotMatch(
       settingsHarnessPanel,
       /\bany\b/,
@@ -405,6 +434,7 @@ test("workflow rail modules own extracted implementation", () => {
       [settingsHarnessActiveRuntimeBindingPanel, "active runtime binding"],
       [settingsHarnessRollbackRestoreProofPanel, "rollback restore proof"],
       [settingsHarnessPromotionPanel, "promotion"],
+      [settingsHarnessPromotionReadinessPanel, "promotion readiness"],
     ]) {
       assert.doesNotMatch(
         source,
@@ -441,6 +471,11 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessPromotionPanel,
       /\bany\b/,
       "settings harness promotion panel should keep its prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPromotionReadinessPanel,
+      /\bany\b/,
+      "settings harness promotion readiness panel should keep its prop boundary typed",
     );
   }
   assertOwnsImplementation(

@@ -1657,6 +1657,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowSettingsHarnessPromotionReadinessPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
+    ),
+    "utf8",
+  );
   const workflowSettingsHarnessModel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts"),
     "utf8",
@@ -3066,7 +3073,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.doesNotMatch(workflowSettingsHarnessRollbackRestoreProofPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessActiveRuntimeRollbackPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessWorkerBindingPanel, /settingsHarnessPanel/);
+  assert.match(workflowSettingsHarnessPromotionPanel, /WorkflowSettingsHarnessPromotionReadinessPanel/);
   assert.match(workflowSettingsHarnessPromotionPanel, /workflow-harness-promotion-clusters/);
+  assert.match(workflowSettingsHarnessPromotionReadinessPanel, /workflow-harness-selector-live-promotion-readiness/);
+  assert.match(workflowSettingsHarnessPromotionReadinessPanel, /workflow-harness-authority-gate-live/);
+  assert.doesNotMatch(workflowSettingsHarnessPromotionReadinessPanel, /settingsHarnessPanel/);
   assert.doesNotMatch(workflowSettingsHarnessPromotionPanel, /settingsHarnessPanel/);
   assert.match(workflowSettingsHarnessModel, /workflowSettingsHarnessModel/);
   assert.match(workflowSettingsHarnessModel, /gatedClustersLabel/);
