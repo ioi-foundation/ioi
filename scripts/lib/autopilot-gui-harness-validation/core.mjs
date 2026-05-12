@@ -4249,6 +4249,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs";
   const projectWorkflowCheckpointLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs";
+  const projectWorkflowStateLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs";
   const projectWorkflowMemoryLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowOutputLanePath =
@@ -4300,6 +4302,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowCheckpointLane = readFileSync(
     resolve(repoRoot, projectWorkflowCheckpointLanePath),
+    "utf8",
+  );
+  const projectWorkflowStateLane = readFileSync(
+    resolve(repoRoot, projectWorkflowStateLanePath),
     "utf8",
   );
   const projectWorkflowMemoryLane = readFileSync(
@@ -4693,6 +4699,20 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /save_workflow_checkpoint/.test(projectWorkflowCheckpointLane) &&
       /unique_runtime_id/.test(projectWorkflowCheckpointLane) &&
       /active_node_ids\.sort/.test(projectWorkflowCheckpointLane),
+    workflowStateRuntimeLane:
+      /workflow_state_lane/.test(projectRuntime) &&
+      /fn workflow_predecessor_output\(/.test(projectWorkflowStateLane) &&
+      /fn workflow_mapped_node_input\(/.test(projectWorkflowStateLane) &&
+      /fn workflow_first_expression_source\(/.test(projectWorkflowStateLane) &&
+      /fn workflow_selected_output\(/.test(projectWorkflowStateLane) &&
+      /fn validate_workflow_expression_refs\(/.test(projectWorkflowStateLane) &&
+      /fn workflow_schema_from_sample\(/.test(projectWorkflowStateLane) &&
+      /fn workflow_schema_is_object_like\(/.test(projectWorkflowStateLane) &&
+      /fn workflow_node_declared_output_schema\(/.test(
+        projectWorkflowStateLane,
+      ) &&
+      /workflow_value_at_path/.test(projectWorkflowStateLane) &&
+      /workflow_edge_from_port/.test(projectWorkflowStateLane),
     workflowOutputRuntimeLane:
       /workflow_output_lane/.test(projectRuntime) &&
       /workflow_output_satisfies_schema/.test(projectWorkflowOutputLane) &&
