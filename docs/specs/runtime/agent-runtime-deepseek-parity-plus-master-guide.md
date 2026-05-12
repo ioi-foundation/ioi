@@ -3623,6 +3623,84 @@ Validation evidence:
   - `runtime-artifacts.json` reports
     `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-12, workflow scheduler node outcome
+lane refactor:
+
+- Added
+  `apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs`
+  as the shared post-execution success/failure owner for scheduler node runs.
+- `workflow_scheduler_node_execution_lane.rs` now owns node-run setup,
+  `node_started` emission, retry attempt policy/evidence, and executor calls,
+  then delegates the execution result to
+  `workflow_scheduler_handle_node_outcome(...)`.
+- The outcome lane owns selected-output projection, decision-branch output
+  routing, completed-node tracking, interrupted-node filtering, state-node
+  reducers, pending write advancement, ready-node expansion, active node set
+  refresh, success/failure checkpoints, node-run lifecycle metadata,
+  `node_succeeded`/`node_failed` events, child workflow completion events,
+  output-node events, and materialized asset events.
+- The daemon and live GUI source-contract proofs now assert
+  `workflow_scheduler_node_outcome_lane`,
+  `workflow_scheduler_handle_node_outcome(...)`,
+  `workflowSchedulerNodeOutcomeRuntimeLane`, and the scheduler event/checkpoint
+  markers that belong to the outcome lane, while asserting that the execution
+  lane no longer owns outcome-only selected-output, state update,
+  ready-node/checkpoint, child-output, and materialized-asset behavior.
+- `runtime.rs` remains 3 lines; the scheduler lane remains 157 lines; the
+  finalization lane remains 93 lines; the terminal-result lane remains 93
+  lines; the interrupt lane remains 113 lines; the validation lane remains 72
+  lines; the node execution lane is reduced from 318 to 127 lines; the new node
+  outcome lane is 238 lines.
+- The next file-size pressure is now the outcome lane itself. Its highest-value
+  follow-up split is a state update lane that extracts selected-output
+  selection, decision-branch handling, state reducers, pending writes, and ready
+  node expansion, leaving the outcome lane as the checkpoint/event
+  orchestrator.
+
+Validation evidence:
+
+- `cargo test workflow_skill_context --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_expression_refs_require_connected_output_ports --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_field_mappings_prepare_runtime_node_input --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test coding_route --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_run_interrupt_resume_and_checkpoint_fork_are_durable --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_failed_function_resumes_from_repaired_checkpoint --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_retry_preserves_failed_attempt_evidence --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tool_binding_requires_schema_and_retry_contract --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tool_side_effect_pauses_for_contextual_approval --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_output_delivery_pauses_for_contextual_approval --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_tests_can_pass_target_outputs_before_downstream_interrupt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_package_export_and_import_nodes_execute_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test github_pr_create_dry_run_node_executes_through_runtime --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test workflow_model_tool_memory_parser_loop_records_lineage --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test live_authority_policy_gate_emits_non_mutating_decision_receipt --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T04-02-51-456Z/result.json`
+  - `blocked === false`;
+  - all chat query scenarios have `passed === true`;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true` with
+    `checks.workflowSchedulerRuntimeLane === true`,
+    `checks.workflowSchedulerFinalizationRuntimeLane === true`,
+    `checks.workflowSchedulerTerminalResultRuntimeLane === true`,
+    `checks.workflowSchedulerNodeExecutionRuntimeLane === true`,
+    `checks.workflowSchedulerNodeOutcomeRuntimeLane === true`,
+    `checks.workflowSchedulerInterruptRuntimeLane === true`, and
+    `checks.workflowSchedulerValidationRuntimeLane === true`;
+  - all prior runtime lane checks remain true, including node metadata, run
+    lifecycle, node contract, node execution, state, checkpoint, approval,
+    output, binding, graph execution, harness results, execution results,
+    authority/tooling, memory, package run output, and GitHub PR create output;
+  - `runtime-artifacts.json` keeps the 21-kind live shadow comparison component
+    set with `github_pr_create`, `approval_gate`, `policy_gate`,
+    `connector_call`, `mcp_provider`, `mcp_tool_call`, `tool_call`, and
+    `wallet_capability`;
+  - `runtime-artifacts.json` reports
+    `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
