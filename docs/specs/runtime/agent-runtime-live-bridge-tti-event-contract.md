@@ -69,6 +69,14 @@ Implementation status:
   bridge, persists injected bridge `thread.started`, `turn.started`, and
   `turn.completed` rows with `fixture_profile: null`, and blocks silent fixture
   fallback for runtime-service threads.
+- 2026-05-12: daemon command adapter slice locks
+  `ioi.runtime.bridge.command.v1` as the stdin/stdout process protocol behind
+  `RuntimeApiBridge`.
+- 2026-05-12: Rust bridge executable slice adds
+  `crates/node/src/bin/ioi-runtime-bridge.rs`, which calls durable
+  `RuntimeAgentService` `start@v1`, `post_message@v1`, and `step@v1`
+  operations against `RedbFlatStore` and `MemoryRuntime` while returning
+  bridge-ready TTI events.
 
 ## Non Goals
 
@@ -100,6 +108,31 @@ The bridge must not:
 - fabricate successful turns when the runtime service is unavailable;
 - swallow approval, policy, PII, or wallet authority receipts;
 - reorder events after append.
+
+## Command Bridge Protocol
+
+The local runtime-service profile may bind `RuntimeApiBridge` to an external
+process using `ioi.runtime.bridge.command.v1`.
+
+Request shape on stdin:
+
+- `schema_version`: literal `ioi.runtime.bridge.command.v1`
+- `bridge_id`
+- `operation`: `start_thread | submit_turn`
+- `input`: the daemon bridge input object
+
+Response shape on stdout:
+
+- success: `{ "ok": true, "result": <RuntimeApiBridge result> }`
+- failure: `{ "ok": false, "error": { "code": "...", "message": "..." } }`
+
+The Rust owner is `ioi-runtime-bridge`. It must:
+
+- own durable `RuntimeAgentService` execution rather than fixture projection;
+- persist state across separate command invocations;
+- return `fixture_profile: null` for runtime-service events;
+- surface unavailable inference, policy, approval, and runtime blockers as
+  explicit bridge statuses/events instead of fabricated success.
 
 ## Stable Records
 

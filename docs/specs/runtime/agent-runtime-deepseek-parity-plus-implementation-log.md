@@ -4702,3 +4702,51 @@ Validation evidence:
     bridge start/turn submission and the prior injected bridge/fail-closed
     contract.
 - `git diff --check`
+
+### Slice 93. 2026-05-12 - Rust RuntimeAgentService bridge executable
+
+Implementation slice completed 2026-05-12, Rust RuntimeAgentService bridge
+executable:
+
+- Added `crates/node/src/bin/ioi-runtime-bridge.rs` behind the `local-mode`
+  feature as the Rust owner for the daemon command bridge protocol.
+- The executable reads `ioi.runtime.bridge.command.v1` requests from stdin and
+  emits the existing daemon bridge result envelope on stdout.
+- `start_thread` now creates a durable `RuntimeAgentService` session by calling
+  `handle_service_call("start@v1")` against a `RedbFlatStore` state backend and
+  SQLite `MemoryRuntime` checkpoint store.
+- `submit_turn` now reopens the same state, calls `post_message@v1` for the
+  user prompt, calls `step@v1`, commits durable state between invocations, and
+  returns bridge-ready `turn.started` plus terminal TTI events.
+- The bridge constructs real `RuntimeAgentService` instances with GUI,
+  terminal, browser, OS, memory, and unavailable-inference drivers, so local
+  runtime-service mode crosses the Rust runtime boundary without daemon-side
+  fixture execution.
+- Added lightweight unit coverage for protocol alias parsing and
+  `runtime_service` TTI source/fixture invariants.
+- Updated the master guide so the next tactical step is daemon local profile
+  wiring to the Rust executable, followed by richer KernelEvent mapping.
+
+Validation evidence:
+
+- `cargo check -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+- `cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+- `cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - 2 unit tests passed.
+- Two-invocation command smoke using `target/debug/ioi-runtime-bridge`:
+  - `start_thread` returned `source=runtime_service` and a `thread.started`
+    event;
+  - a separate `submit_turn` invocation reused the returned session id,
+    reopened durable state, returned `turn.started`, and emitted a terminal
+    TTI event from the runtime-owned step path.
+- Daemon env-adapter smoke with
+  `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND=target/debug/ioi-runtime-bridge`:
+  - `POST /v1/threads` returned a Rust-backed runtime session with
+    `fixture_profile: null`;
+  - `POST /v1/threads/{id}/turns` returned a Rust-backed turn;
+  - replay returned `thread.started`, `turn.started`, and `turn.completed`
+    from `source=runtime_service`.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 14 daemon/API contract subtests passed after the Rust bridge executable
+    landed.
+- `git diff --check`

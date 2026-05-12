@@ -3036,3 +3036,42 @@ Validation evidence:
     the schema version, bridge id, runtime profile, thread id, and runtime
     session id expected by the adapter boundary.
 - `git diff --check`
+
+## Slice 93. 2026-05-12 - Rust RuntimeAgentService bridge executable
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- crates/node/src/bin/ioi-runtime-bridge.rs
+- crates/node/Cargo.toml
+
+Validation evidence:
+
+- `cargo check -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - targeted local-mode bridge binary compiled successfully.
+- `cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - produced `target/debug/ioi-runtime-bridge` for live command-protocol smoke.
+- `cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - 2 unit tests passed:
+    - bridge request accepts `schemaVersion`/`bridgeId` aliases;
+    - TTI events preserve `source=runtime_service`, `fixture_profile=null`, and
+      the thread event stream id.
+- Two-invocation command smoke using `target/debug/ioi-runtime-bridge`
+  - `start_thread` returned a runtime session id and `thread.started`;
+  - a second process invocation called `submit_turn` with that session id and
+    returned `turn.started` plus terminal `turn.completed`;
+  - the terminal event came from the Rust runtime-owned step path rather than a
+    daemon fixture projection.
+- Daemon env-adapter smoke with
+  `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND=target/debug/ioi-runtime-bridge`
+  - `POST /v1/threads` returned a Rust-backed runtime session with
+    `fixture_profile: null`;
+  - `POST /v1/threads/{id}/turns` returned a Rust-backed turn;
+  - `/v1/threads/{id}/events?since_seq=0` replayed
+    `thread.started`, `turn.started`, and `turn.completed` from
+    `source=runtime_service`.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 14 daemon/API contract subtests passed after the Rust bridge executable
+    landed.
+- `git diff --check`
