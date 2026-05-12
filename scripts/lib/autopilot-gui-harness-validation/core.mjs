@@ -4246,6 +4246,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
   const projectWorkflowSchedulerLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs";
+  const projectWorkflowSchedulerInterruptLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs";
   const projectWorkflowSchedulerValidationLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs";
   const projectWorkflowAuthorityToolingLanePath =
@@ -4310,6 +4312,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowSchedulerLane = readFileSync(
     resolve(repoRoot, projectWorkflowSchedulerLanePath),
+    "utf8",
+  );
+  const projectWorkflowSchedulerInterruptLane = readFileSync(
+    resolve(repoRoot, projectWorkflowSchedulerInterruptLanePath),
     "utf8",
   );
   const projectWorkflowSchedulerValidationLane = readFileSync(
@@ -4706,13 +4712,42 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       !/fn execute_workflow_project\(/.test(projectRuntime) &&
       /fn execute_workflow_project\(/.test(projectWorkflowSchedulerLane) &&
       /workflow_next_ready_nodes/.test(projectWorkflowSchedulerLane) &&
-      /workflow_runtime_interrupt/.test(projectWorkflowSchedulerLane) &&
+      /workflow_scheduler_interrupt_lane/.test(projectWorkflowSchedulerLane) &&
       /workflow_completion_requirements/.test(projectWorkflowSchedulerLane) &&
       /workflow_attach_harness_run_artifacts/.test(
         projectWorkflowSchedulerLane,
       ) &&
       /execute_workflow_node/.test(projectWorkflowSchedulerLane) &&
       /workflow_push_event/.test(projectWorkflowSchedulerLane),
+    workflowSchedulerInterruptRuntimeLane:
+      /workflow_scheduler_interrupt_lane/.test(projectWorkflowSchedulerLane) &&
+      /fn workflow_scheduler_interrupted_result\(/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_runtime_interrupt/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_runtime_interrupt_notice/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_checkpoint_state/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_node_lifecycle_steps/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_interrupt_path/.test(projectWorkflowSchedulerInterruptLane) &&
+      /save_workflow_thread/.test(projectWorkflowSchedulerInterruptLane) &&
+      /workflow_finalize_run_result/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_attach_harness_run_artifacts/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_completion_requirements/.test(
+        projectWorkflowSchedulerInterruptLane,
+      ) &&
+      /workflow_push_event/.test(projectWorkflowSchedulerInterruptLane),
     workflowSchedulerValidationRuntimeLane:
       /workflow_scheduler_validation_lane/.test(projectWorkflowSchedulerLane) &&
       /fn workflow_scheduler_validation_blocked_result\(/.test(
