@@ -117,29 +117,32 @@ Completed workstream snapshot as of 2026-05-12:
   operator surface now has a no-fallback `agent stream` command over the same
   daemon event store, including `since_seq`, `Last-Event-ID`, thread/run
   replay, compact KernelEvent row output, and JSON replay for downstream TUI
-  use. The active tactical cleanup stream remains React Flow settings-harness
-  panel decomposition.
+  use. The daemon live contract now proves one real mapped KernelEvent row keeps
+  the same `event_id`, `seq`, cursor, component kind, workflow node id, payload
+  schema, and evidence-ref arrays across daemon SSE replay, SDK
+  `Thread.events()`, CLI/TUI `agent stream`, and the React Flow projection. The
+  active tactical cleanup stream remains React Flow settings-harness panel
+  decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 CLI/TUI runtime event stream command
-- Artifacts: crates/cli/src/commands/agent_event_stream.rs,
-  crates/cli/src/commands/agent.rs,
-  scripts/lib/live-runtime-daemon-contract.test.mjs
-- Validation: CLI binary tests/check/build, live daemon contract, ad hoc live
-  CLI daemon replay, React Flow projection contract, and GUI harness preflight;
-  see the validation ledger.
+- 2026-05-12: P0 cross-surface same-sequence KernelEvent proof
+- Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
+  docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- Validation: live daemon contract with daemon, SDK, CLI/TUI, and React Flow
+  projections in the same runtime-service proof; see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: CLI/TUI runtime event stream command GUI preflight
+- 2026-05-12: Cross-surface same-sequence KernelEvent proof GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-cli-event-stream/2026-05-12T22-34-03-536Z/result.json
+  /tmp/ioi-autopilot-gui-harness-cross-surface-event-seq/2026-05-12T22-40-35-479Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | Cross-surface same-sequence KernelEvent proof | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | CLI/TUI runtime event stream command | crates/cli/src/commands/agent_event_stream.rs |
 | 2026-05-12 | P0 live runtime bridge | Workflow run inspector runtime event graph | packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx |
 | 2026-05-12 | P0 live runtime bridge | React Flow runtime event projection over Thread.events | packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts |
@@ -164,12 +167,10 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Add a cross-surface same-sequence proof that one live mapped KernelEvent row
-   appears in SDK `Thread.events()`, CLI/TUI `agent stream`, and the React Flow
-   runtime event projection with identical `event_id`, `seq`, cursor,
-   component kind, workflow node id, and evidence refs.
-2. Extend SDK turn controls beyond submission/replay with steer, interrupt,
+1. Extend SDK turn controls beyond submission/replay with steer, interrupt,
    compact, and fork aliases once daemon endpoints are live.
+2. Add daemon/runtime control endpoints needed by those SDK turn controls,
+   ensuring each emits canonical TTI events and React Flow node metadata.
 3. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
@@ -1702,8 +1703,9 @@ keeping React Flow cleanup slices small and source-contract guarded.
 
 Remaining runtime bridge implementation sequence:
 
-1. Prove one live mapped KernelEvent appears in SDK, CLI/TUI, and React Flow
-   from the same `seq`.
+The bridge/event projection loop is closed for the current mapped
+KernelEvent foundation. The next runtime slices should add live turn-control
+operations and prove their events project through SDK, CLI/TUI, and React Flow.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
 straightforward once live threads, events, and tool contracts are real. Keep

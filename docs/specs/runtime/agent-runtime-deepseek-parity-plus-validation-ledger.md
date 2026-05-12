@@ -3314,3 +3314,35 @@ Known validation note:
   current integration fixtures fail on pre-existing `StartAgentParams`
   initializers missing `runtime_route_frame`. The passing binary-only tests and
   `cargo check -p ioi-cli --bin cli` validate the changed command surface.
+
+## Slice 100. 2026-05-12 - Cross-surface same-sequence KernelEvent proof
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+
+Validation evidence:
+
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 16 daemon/API contract subtests passed;
+  - `runtime_service` mode used the Rust `ioi-runtime-bridge`;
+  - one mapped `KernelEvent::AgentActionResult` row was captured from daemon
+    SSE replay and found by exact `event_id` through SDK `Thread.events()`,
+    CLI/TUI `agent stream --json`, and the React Flow
+    `projectRuntimeThreadEventsToWorkflowProjection(...)` output;
+  - the proof locked identical `seq`, cursor, `event_kind`,
+    `source_event_kind`, `component_kind`, `workflow_node_id`, payload schema,
+    receipt refs, policy refs, artifact refs, and rollback refs.
+- `cargo check -p ioi-cli --bin cli`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow canonical Thread.events projection source contract passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-cross-surface-event-seq`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-cross-surface-event-seq/2026-05-12T22-40-35-479Z/result.json`.

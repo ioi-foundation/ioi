@@ -5007,3 +5007,42 @@ Known validation note:
   `runtime_route_frame` field. The slice therefore uses the binary-only agent
   unit test and `cargo check -p ioi-cli --bin cli` as the scoped Rust
   validation.
+
+### Slice 100. 2026-05-12 - Cross-surface same-sequence KernelEvent proof
+
+Implementation slice completed 2026-05-12, cross-surface same-sequence proof
+for canonical mapped KernelEvent rows:
+
+- Extended `scripts/lib/live-runtime-daemon-contract.test.mjs` with a live
+  runtime-service proof that starts the Rust `ioi-runtime-bridge`, submits a
+  thread turn, captures the mapped `KernelEvent::AgentActionResult` row, and
+  then checks every consumer surface against that exact stored event.
+- Added cached CLI binary discovery/building for the live contract, honoring
+  `IOI_CLI_BIN` when provided and otherwise building `ioi-cli --bin cli`.
+- Added React Flow bundle import support for the live contract so
+  `projectRuntimeThreadEventsToWorkflowProjection(...)` participates in the
+  same runtime proof as daemon SSE, SDK `Thread.events()`, and CLI/TUI
+  `agent stream --json`.
+- Locked the same `event_id`, `seq`, canonical cursor, `event_kind`,
+  `source_event_kind`, `component_kind`, `workflow_node_id`, payload schema,
+  receipt refs, policy refs, artifact refs, and rollback refs across daemon,
+  SDK, CLI/TUI, and React Flow.
+- Updated the master guide to mark the current bridge/event projection loop as
+  closed and move the tactical queue to live turn controls.
+
+Validation evidence:
+
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 16 daemon/API contract subtests passed;
+  - the new subtest
+    `mapped KernelEvent row keeps one canonical sequence across SDK, CLI, and React Flow`
+    passed against a live Rust runtime-service thread.
+- `cargo check -p ioi-cli --bin cli`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow canonical Thread.events projection contract passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-cross-surface-event-seq`
+  - GUI harness preflight passed outside the worktree at
+    `/tmp/ioi-autopilot-gui-harness-cross-surface-event-seq/2026-05-12T22-40-35-479Z/result.json`.

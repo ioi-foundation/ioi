@@ -1,16 +1,31 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
+import { promisify } from "node:util";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const execFileAsync = promisify(execFile);
 
 async function importSdk() {
   return import("../../packages/agent-sdk/dist/index.js");
+}
+
+async function importAgentIde() {
+  const bundle = path.join(root, "packages/agent-ide/dist/index.es.js");
+  if (!fs.existsSync(bundle)) {
+    execFileSync("npm", ["run", "build", "--workspace=@ioi/agent-ide"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  }
+  return import(pathToFileURL(bundle).href);
 }
 
 async function collect(iterable) {
@@ -80,6 +95,7 @@ function git(cwd, args) {
 }
 
 let cachedRustRuntimeBridgeBinary;
+let cachedCliBinary;
 
 function rustRuntimeBridgeBinary() {
   if (cachedRustRuntimeBridgeBinary) return cachedRustRuntimeBridgeBinary;
@@ -104,6 +120,28 @@ function rustRuntimeBridgeBinary() {
   const binary = path.join(root, "target", "debug", binaryName);
   assert.ok(fs.existsSync(binary), `expected Rust runtime bridge binary at ${binary}`);
   cachedRustRuntimeBridgeBinary = binary;
+  return binary;
+}
+
+function cliBinary() {
+  if (cachedCliBinary) return cachedCliBinary;
+  if (process.env.IOI_CLI_BIN) {
+    const configured = process.env.IOI_CLI_BIN;
+    const binary = path.isAbsolute(configured) ? configured : path.resolve(root, configured);
+    assert.ok(fs.existsSync(binary), `IOI_CLI_BIN does not exist: ${binary}`);
+    cachedCliBinary = binary;
+    return binary;
+  }
+
+  execFileSync("cargo", ["build", "-p", "ioi-cli", "--bin", "cli"], {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const binaryName = process.platform === "win32" ? "cli.exe" : "cli";
+  const binary = path.join(root, "target", "debug", binaryName);
+  assert.ok(fs.existsSync(binary), `expected CLI binary at ${binary}`);
+  cachedCliBinary = binary;
   return binary;
 }
 
@@ -1693,6 +1731,132 @@ test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge exe
       sdkTurnEvents.map((event) => event.id),
       replayed.slice(1).map((event) => event.event_id),
     );
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
+test("mapped KernelEvent row keeps one canonical sequence across SDK, CLI, and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-cross-surface-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-cross-surface-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-cross-surface-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-cross-surface";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove one mapped KernelEvent has one cross-surface sequence.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Emit a mapped KernelEvent that every operator surface can inspect.",
+      }),
+    });
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const daemonKernelEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "KernelEvent::AgentActionResult",
+    );
+    assert.ok(daemonKernelEvent);
+    assert.ok(["tool.completed", "tool.failed"].includes(daemonKernelEvent.event_kind));
+    assert.equal(daemonKernelEvent.turn_id, turn.turn_id);
+    assert.equal(daemonKernelEvent.component_kind, "tool_result");
+    assert.equal(daemonKernelEvent.workflow_node_id, "runtime.tool-result");
+    assert.equal(daemonKernelEvent.payload_schema_version, "ioi.runtime.kernel-event.v1");
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkKernelEvent = sdkEvents.find((event) => event.id === daemonKernelEvent.event_id);
+    assert.ok(sdkKernelEvent);
+
+    const cliResult = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "stream",
+        "--thread-id",
+        thread.thread_id,
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const cliProjection = JSON.parse(cliResult.stdout);
+    const cliKernelEvent = cliProjection.events.find(
+      (event) => event.event_id === daemonKernelEvent.event_id,
+    );
+    assert.ok(cliKernelEvent);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(daemonKernelEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+
+    const canonicalCursor = `${daemonKernelEvent.event_stream_id}:${daemonKernelEvent.seq}`;
+    assert.equal(sdkKernelEvent.id, daemonKernelEvent.event_id);
+    assert.equal(sdkKernelEvent.seq, daemonKernelEvent.seq);
+    assert.equal(sdkKernelEvent.cursor, canonicalCursor);
+    assert.equal(sdkKernelEvent.eventKind, daemonKernelEvent.event_kind);
+    assert.equal(sdkKernelEvent.sourceEventKind, daemonKernelEvent.source_event_kind);
+    assert.equal(sdkKernelEvent.componentKind, daemonKernelEvent.component_kind);
+    assert.equal(sdkKernelEvent.workflowNodeId, daemonKernelEvent.workflow_node_id);
+    assert.equal(sdkKernelEvent.payloadSchemaVersion, daemonKernelEvent.payload_schema_version);
+    assert.deepEqual(sdkKernelEvent.receiptRefs, daemonKernelEvent.receipt_refs);
+    assert.deepEqual(sdkKernelEvent.policyDecisionRefs, daemonKernelEvent.policy_decision_refs);
+    assert.deepEqual(sdkKernelEvent.artifactRefs, daemonKernelEvent.artifact_refs);
+    assert.deepEqual(sdkKernelEvent.rollbackRefs, daemonKernelEvent.rollback_refs);
+
+    assert.equal(cliProjection.schema_version, "ioi.agent-cli.runtime-event-stream.v1");
+    assert.equal(cliKernelEvent.seq, daemonKernelEvent.seq);
+    assert.equal(cliKernelEvent.event_stream_id, daemonKernelEvent.event_stream_id);
+    assert.equal(cliKernelEvent.event_kind, daemonKernelEvent.event_kind);
+    assert.equal(cliKernelEvent.source_event_kind, daemonKernelEvent.source_event_kind);
+    assert.equal(cliKernelEvent.component_kind, daemonKernelEvent.component_kind);
+    assert.equal(cliKernelEvent.workflow_node_id, daemonKernelEvent.workflow_node_id);
+    assert.equal(cliKernelEvent.payload_schema_version, daemonKernelEvent.payload_schema_version);
+    assert.deepEqual(cliKernelEvent.receipt_refs, daemonKernelEvent.receipt_refs);
+    assert.deepEqual(cliKernelEvent.policy_decision_refs, daemonKernelEvent.policy_decision_refs);
+    assert.deepEqual(cliKernelEvent.artifact_refs, daemonKernelEvent.artifact_refs);
+    assert.deepEqual(cliKernelEvent.rollback_refs, daemonKernelEvent.rollback_refs);
+
+    assert.equal(reactFlowNode.latestSeq, daemonKernelEvent.seq);
+    assert.equal(reactFlowNode.latestCursor, canonicalCursor);
+    assert.equal(reactFlowNode.latestEventId, daemonKernelEvent.event_id);
+    assert.equal(reactFlowNode.componentKind, daemonKernelEvent.component_kind);
+    assert.equal(reactFlowNode.workflowNodeId, daemonKernelEvent.workflow_node_id);
+    assert.equal(reactFlowNode.latestPayloadSchemaVersion, daemonKernelEvent.payload_schema_version);
+    assert.deepEqual(reactFlowNode.receiptRefs, daemonKernelEvent.receipt_refs);
+    assert.deepEqual(reactFlowNode.policyDecisionRefs, daemonKernelEvent.policy_decision_refs);
+    assert.deepEqual(reactFlowNode.artifactRefs, daemonKernelEvent.artifact_refs);
+    assert.deepEqual(reactFlowNode.rollbackRefs, daemonKernelEvent.rollback_refs);
+    assert.ok(reactFlowNode.sourceEventKinds.includes(daemonKernelEvent.source_event_kind));
   } finally {
     if (daemon) await daemon.close();
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
