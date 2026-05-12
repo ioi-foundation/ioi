@@ -1594,6 +1594,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-settings-model.ts"),
     "utf8",
   );
+  const workflowSettingsHarnessPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowSettingsHarnessModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts"),
+    "utf8",
+  );
   const workflowReadinessPanel = fs.readFileSync(
     path.join(
       root,
@@ -2748,7 +2759,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRailPanel, /data-workflow-chrome-locale/);
   assert.match(workflowRailPanel, /data-package-import-source-chrome-locale/);
   assert.match(workflowRailPanel, /data-package-import-imported-chrome-locale/);
-  assert.match(workflowRailPanel, /data-package-import-chrome-locale-preserved/);
+  assert.match(workflowSettingsHarnessPanel, /data-package-import-chrome-locale-preserved/);
   assert.match(workflowRailModel, /manifest\.workflowChromeLocale/);
   assert.match(workflowRailModel, /workflowPackageNodeOutputSummary/);
   assert.match(workflowRailModel, /workflowPackageNodeOutputStatus/);
@@ -2966,7 +2977,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowFileBundleModel, /pendingItems/);
   assert.match(workflowFileBundleModel, /portablePackageExported/);
   assert.match(workflowRailPanel, /WorkflowSettingsPanel/);
+  assert.match(workflowRailPanel, /WorkflowSettingsHarnessPanel/);
   assert.match(workflowRailPanel, /workflowSettingsModel/);
+  assert.match(workflowRailPanel, /workflowSettingsHarnessModel/);
   assert.match(workflowSettingsPanel, /workflow-settings-summary/);
   assert.match(workflowSettingsPanel, /workflow-settings-chrome-locale-select/);
   assert.match(workflowSettingsPanel, /workflow-environment-profile/);
@@ -2975,12 +2988,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowSettingsModel, /workflowSettingsModel/);
   assert.match(workflowSettingsModel, /productionSummary/);
   assert.match(workflowSettingsModel, /packageReadinessStatus/);
+  assert.match(workflowSettingsHarnessPanel, /workflow-settings-harness-summary/);
+  assert.match(workflowSettingsHarnessPanel, /workflow-harness-activation-gate-inspector/);
+  assert.match(workflowSettingsHarnessPanel, /data-worker-binding-registry-bound/);
+  assert.match(workflowSettingsHarnessModel, /workflowSettingsHarnessModel/);
+  assert.match(workflowSettingsHarnessModel, /gatedClustersLabel/);
   assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /onUpdateWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /workflow-selected-node-status-announcement/);
   assert.match(workflowRailPanel, /data-accessible-status-text/);
-  assert.match(workflowRailPanel, /workflow-run-timeline/);
-  assert.match(workflowRailPanel, /tabIndex=\{0\}/);
+  assert.match(workflowRunsPanel, /workflow-run-timeline/);
+  assert.match(workflowRunsPanel, /tabIndex=\{0\}/);
   assert.match(workflowRailPanel, /workflow-selected-node-inspector/);
   assert.match(workflowBottomShelf, /workflow-bottom-run-timeline/);
   assert.match(workflowBottomShelf, /workflow-run-event-snapshot/);
