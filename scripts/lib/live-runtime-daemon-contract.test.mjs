@@ -1608,6 +1608,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowSettingsHarnessWorkerBindingPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
+    ),
+    "utf8",
+  );
   const workflowSettingsHarnessModel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts"),
     "utf8",
@@ -2997,8 +3004,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowSettingsModel, /packageReadinessStatus/);
   assert.match(workflowSettingsHarnessPanel, /workflow-settings-harness-summary/);
   assert.match(workflowSettingsHarnessPanel, /WorkflowSettingsHarnessActivationPanel/);
+  assert.match(workflowSettingsHarnessPanel, /WorkflowSettingsHarnessWorkerBindingPanel/);
   assert.match(workflowSettingsHarnessActivationPanel, /workflow-harness-activation-gate-inspector/);
-  assert.match(workflowSettingsHarnessPanel, /data-worker-binding-registry-bound/);
+  assert.match(workflowSettingsHarnessWorkerBindingPanel, /data-worker-binding-registry-bound/);
   assert.match(workflowSettingsHarnessModel, /workflowSettingsHarnessModel/);
   assert.match(workflowSettingsHarnessModel, /gatedClustersLabel/);
   assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
