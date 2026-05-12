@@ -1570,6 +1570,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-validation.ts"),
     "utf8",
   );
+  const workflowSchedulerLaneReadiness = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-scheduler-lane-readiness.ts",
+    ),
+    "utf8",
+  );
   const tauriProjectTypes = fs.readFileSync(
     path.join(root, "apps/autopilot/src-tauri/src/project/types.rs"),
     "utf8",
@@ -1864,6 +1871,43 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     /workflow_live_authority_destructive_denial/,
   );
   assert.match(tauriProjectRuntime, /workflow_scheduler_lane/);
+  assert.match(
+    workflowSchedulerLaneReadiness,
+    /EXPECTED_WORKFLOW_SCHEDULER_LANE_CAPABILITY_IDS/,
+  );
+  assert.match(workflowSchedulerLaneReadiness, /WORKFLOW_SCHEDULER_LANE_CAPABILITIES/);
+  for (const capabilityId of [
+    "scheduler",
+    "scheduler.finalization",
+    "terminalResult",
+    "nodeExecution",
+    "nodeOutcome",
+    "nodeStateUpdate",
+    "nodeSuccessEvent",
+    "nodeFailureOutcome",
+    "interrupt",
+    "validation",
+  ]) {
+    assert.match(workflowSchedulerLaneReadiness, new RegExp(`"${capabilityId}"`));
+  }
+  for (const proofKey of [
+    "workflowSchedulerRuntimeLane",
+    "workflowSchedulerFinalizationRuntimeLane",
+    "workflowSchedulerTerminalResultRuntimeLane",
+    "workflowSchedulerNodeExecutionRuntimeLane",
+    "workflowSchedulerNodeOutcomeRuntimeLane",
+    "workflowSchedulerNodeStateUpdateRuntimeLane",
+    "workflowSchedulerNodeSuccessEventRuntimeLane",
+    "workflowSchedulerNodeFailureOutcomeRuntimeLane",
+    "workflowSchedulerInterruptRuntimeLane",
+    "workflowSchedulerValidationRuntimeLane",
+  ]) {
+    assert.match(workflowSchedulerLaneReadiness, new RegExp(proofKey));
+  }
+  assert.match(workflowValidation, /schedulerLaneReadiness/);
+  assert.match(workflowValidation, /gateId: "scheduler-lanes"/);
+  assert.match(workflowRailPanel, /workflow-readiness-scheduler-lanes/);
+  assert.match(workflowRailPanel, /data-proof-check/);
   assert.doesNotMatch(tauriProjectRuntime, /fn execute_workflow_project\(/);
   assert.match(
     tauriProjectWorkflowSchedulerLane,

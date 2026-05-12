@@ -32,6 +32,7 @@ import {
   workflowRuntimeAccessibleStatusLabel,
   workflowRuntimeNodeChrome,
 } from "../../../runtime/workflow-runtime-ui-strings";
+import { workflowSchedulerLaneReadiness } from "../../../runtime/workflow-scheduler-lane-readiness";
 import {
   DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   DEFAULT_AGENT_HARNESS_COMPONENTS,
@@ -112,6 +113,10 @@ function workflowPrCreateSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
   if (value === false) return "false";
   return "";
+}
+
+function workflowSchedulerLaneDomId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function WorkflowPackageOutputSummaryCard({
@@ -3818,6 +3823,11 @@ export function WorkflowRailPanel({
       : [];
     const readinessWarnings = result?.warnings ?? [];
     const policyRequiredNodeIds = result?.policyRequiredNodes ?? [];
+    const schedulerLaneReadiness =
+      result?.schedulerLaneReadiness ?? workflowSchedulerLaneReadiness();
+    const schedulerLaneReadyCount = schedulerLaneReadiness.filter(
+      (lane) => lane.status === "ready",
+    ).length;
     const hasIncomingConnectionClass = (
       nodeId: string,
       connectionClass: WorkflowConnectionClass,
@@ -3906,6 +3916,12 @@ export function WorkflowRailPanel({
         ready:
           !harnessWorkflow ||
           harnessSlots.every((slot) => boundHarnessSlotIds.has(slot.slotId)),
+      },
+      {
+        label: "Scheduler lanes",
+        ready:
+          schedulerLaneReadiness.length > 0 &&
+          schedulerLaneReadyCount === schedulerLaneReadiness.length,
       },
       { label: "Harness activation", ready: harnessActivationReady },
       {
@@ -3998,6 +4014,33 @@ export function WorkflowRailPanel({
             </article>
           ))}
         </div>
+        <section
+          className="workflow-rail-section"
+          data-testid="workflow-readiness-scheduler-lanes"
+          data-ready-count={schedulerLaneReadyCount}
+          data-total-count={schedulerLaneReadiness.length}
+        >
+          <h4>Scheduler lanes</h4>
+          <div className="workflow-rail-list">
+            {schedulerLaneReadiness.map((lane) => (
+              <article
+                key={lane.id}
+                className={`workflow-test-row is-${lane.status === "ready" ? "passed" : "blocked"}`}
+                data-testid={`workflow-readiness-scheduler-lane-${workflowSchedulerLaneDomId(lane.id)}`}
+                data-readiness={lane.status}
+                data-proof-check={lane.proofCheckKey}
+                data-capability-scope={lane.capabilityScope}
+              >
+                <strong>{lane.label}</strong>
+                <span>
+                  {lane.status === "ready" ? "Ready" : "Needs attention"}
+                </span>
+                <small>{lane.capabilityScope}</small>
+                <small>{lane.proofCheckKey}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         {blockers.length > 0 ? (
           <section
             className="workflow-rail-section"
