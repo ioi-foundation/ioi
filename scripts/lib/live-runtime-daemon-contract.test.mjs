@@ -1589,6 +1589,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowSchedulerFinalizationLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowSchedulerInterruptLane = fs.readFileSync(
     path.join(
       root,
@@ -1832,6 +1839,18 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     /workflow_scheduler_node_execution_lane/,
   );
   assert.match(
+    tauriProjectWorkflowSchedulerLane,
+    /workflow_scheduler_finalization_lane/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerLane,
+    /workflow_scheduler_finalized_result/,
+  );
+  assert.doesNotMatch(
+    tauriProjectWorkflowSchedulerLane,
+    /workflow_finalize_run_result/,
+  );
+  assert.match(
     tauriProjectWorkflowSchedulerNodeExecutionLane,
     /fn workflow_scheduler_execute_node\(/,
   );
@@ -1881,6 +1900,43 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(
     tauriProjectWorkflowSchedulerNodeExecutionLane,
     /asset_materialized/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /fn workflow_scheduler_finalized_result\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_completion_has_missing/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_completion_requirements/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_checkpoint_state/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_push_event/,
+  );
+  assert.match(tauriProjectWorkflowSchedulerFinalizationLane, /run_completed/);
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /save_workflow_thread/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_attach_harness_run_artifacts/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_finalize_run_result/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /WorkflowRunResultParts/,
   );
   assert.match(
     tauriProjectWorkflowSchedulerLane,
@@ -2008,7 +2064,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowBindingLane,
     /workflow_function_output_schema/,
   );
-  assert.match(tauriProjectWorkflowSchedulerLane, /workflow_checkpoint_lane/);
+  assert.match(
+    tauriProjectWorkflowSchedulerFinalizationLane,
+    /workflow_checkpoint_lane/,
+  );
   assert.match(
     tauriProjectWorkflowCheckpointLane,
     /fn workflow_checkpoint_state\(/,
@@ -2170,7 +2229,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     /workflow_route_verification_evidence/,
   );
   assert.match(
-    tauriProjectWorkflowSchedulerLane,
+    tauriProjectWorkflowSchedulerFinalizationLane,
     /workflow_execution_results_lane/,
   );
   assert.match(
@@ -2225,7 +2284,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     /workflow_node_lifecycle_steps/,
   );
   assert.match(
-    tauriProjectWorkflowSchedulerLane,
+    tauriProjectWorkflowSchedulerFinalizationLane,
     /workflow_harness_results_lane/,
   );
   assert.match(
