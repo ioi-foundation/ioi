@@ -15,7 +15,7 @@ import type {
   WorkflowSettingsHarnessPromotionProps,
   WorkflowSettingsHarnessRollbackProps,
   WorkflowSettingsHarnessWorkerBindingProps,
-} from "./settingsHarnessPanel";
+} from "./settingsHarnessTypes";
 import type { WorkflowHarnessActivationGateAction } from "./types";
 
 export interface WorkflowSettingsHarnessActivationPanelProps

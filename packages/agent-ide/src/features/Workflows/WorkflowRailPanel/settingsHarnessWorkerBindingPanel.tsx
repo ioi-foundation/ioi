@@ -7,7 +7,7 @@ import type {
   WorkflowSettingsHarnessPromotionProps,
   WorkflowSettingsHarnessRollbackProps,
   WorkflowSettingsHarnessWorkerBindingProps,
-} from "./settingsHarnessPanel";
+} from "./settingsHarnessTypes";
 
 export interface WorkflowSettingsHarnessWorkerBindingPanelProps
   extends
