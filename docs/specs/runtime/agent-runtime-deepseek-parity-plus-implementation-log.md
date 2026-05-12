@@ -4750,3 +4750,46 @@ Validation evidence:
   - 14 daemon/API contract subtests passed after the Rust bridge executable
     landed.
 - `git diff --check`
+
+### Slice 94. 2026-05-12 - Daemon Rust bridge executable contract
+
+Implementation slice completed 2026-05-12, daemon Rust bridge executable
+contract:
+
+- Added a live daemon contract that auto-wires
+  `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND` to the real
+  `ioi-runtime-bridge` executable rather than the JS command fixture.
+- The contract builds the local-mode Rust bridge when
+  `IOI_RUNTIME_BRIDGE_RUST_BIN` is not supplied, then passes an isolated
+  `--data-dir` so the bridge proves durable state across separate
+  `start_thread` and `submit_turn` command invocations.
+- The contract verifies `runtime_profile=runtime_service` thread creation
+  returns a real Rust session id, preserves `runtime_bridge_id`, and stores
+  `thread.started` with
+  `RuntimeAgentService.handle_service_call.start@v1`.
+- The contract verifies turn submission stores `turn.started` and a terminal
+  runtime event from `post_message@v1` and `step@v1`, keeps
+  `fixture_profile: null`, creates Rust-owned run/turn ids, and exposes the
+  same turn events through `/v1/runs/{id}/events`.
+- Updated the master guide so the next immediate runtime slice is richer
+  KernelEvent mapping, with SDK/React Flow projections following after the
+  event vocabulary expands.
+
+Validation evidence:
+
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo check -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+- `cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - 2 bridge executable unit tests passed.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 TTI schema snapshot subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed, including the Rust executable env
+    auto-wiring contract.
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
+  - GUI harness preflight passed outside the worktree.
+- `git diff --check`

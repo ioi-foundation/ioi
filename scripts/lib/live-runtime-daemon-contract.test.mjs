@@ -79,6 +79,34 @@ function git(cwd, args) {
   }).trim();
 }
 
+let cachedRustRuntimeBridgeBinary;
+
+function rustRuntimeBridgeBinary() {
+  if (cachedRustRuntimeBridgeBinary) return cachedRustRuntimeBridgeBinary;
+  if (process.env.IOI_RUNTIME_BRIDGE_RUST_BIN) {
+    const configured = process.env.IOI_RUNTIME_BRIDGE_RUST_BIN;
+    const binary = path.isAbsolute(configured) ? configured : path.resolve(root, configured);
+    assert.ok(fs.existsSync(binary), `IOI_RUNTIME_BRIDGE_RUST_BIN does not exist: ${binary}`);
+    cachedRustRuntimeBridgeBinary = binary;
+    return binary;
+  }
+
+  execFileSync(
+    "cargo",
+    ["build", "-p", "ioi-node", "--bin", "ioi-runtime-bridge", "--features", "local-mode"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  const binaryName = process.platform === "win32" ? "ioi-runtime-bridge.exe" : "ioi-runtime-bridge";
+  const binary = path.join(root, "target", "debug", binaryName);
+  assert.ok(fs.existsSync(binary), `expected Rust runtime bridge binary at ${binary}`);
+  cachedRustRuntimeBridgeBinary = binary;
+  return binary;
+}
+
 test("local daemon public API persists canonical Agentgres state and replays without terminal duplication", async () => {
   const { Agent, Cursor, createRuntimeSubstrateClient } = await importSdk();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-live-daemon-workspace-"));
@@ -1541,6 +1569,100 @@ if (request.operation === "start_thread") {
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
     restoreEnv("BRIDGE_TRACE_FILE", previousEnv.trace);
+  }
+});
+
+test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge executable from env", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-rust-bridge-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-rust-bridge-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-rust-bridge-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-contract";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Start a durable Rust-backed runtime-service thread.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    assert.equal(thread.schema_version, "ioi.runtime.thread.v1");
+    assert.match(thread.session_id, /^[a-f0-9]{64}$/);
+    assert.equal(thread.runtime_profile, "runtime_service");
+    assert.equal(thread.runtime_bridge_id, "rust-runtime-agent-service-contract");
+    assert.equal(thread.fixture_profile, null);
+    assert.equal(thread.latest_seq, 1);
+
+    const startEvents = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    assert.equal(startEvents.length, 1);
+    assert.equal(startEvents[0].source, "runtime_service");
+    assert.equal(startEvents[0].source_event_kind, "RuntimeAgentService.handle_service_call.start@v1");
+    assert.equal(startEvents[0].event_kind, "thread.started");
+    assert.equal(startEvents[0].component_kind, "runtime_thread");
+    assert.equal(startEvents[0].workflow_node_id, "runtime.runtime-thread");
+    assert.equal(startEvents[0].fixture_profile, null);
+    assert.equal(startEvents[0].payload.bridge_schema_version, "ioi.runtime.bridge.command.v1");
+    assert.equal(startEvents[0].payload.session_id, thread.session_id);
+    assert.equal(startEvents[0].payload.goal, "Start a durable Rust-backed runtime-service thread.");
+    assert.equal(Number(startEvents[0].payload.max_steps), 2);
+
+    const prompt = "Exercise the Rust RuntimeAgentService bridge executable.";
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    });
+    assert.equal(turn.schema_version, "ioi.runtime.turn.v1");
+    assert.match(turn.turn_id, /^turn_runtime_service_[a-f0-9]{16}_\d+$/);
+    assert.match(turn.request_id, /^run_runtime_service_[a-f0-9]{16}_\d+$/);
+    assert.equal(turn.fixture_profile, null);
+    assert.ok(["completed", "blocked", "failed"].includes(turn.status));
+    assert.match(turn.stop_reason, /^runtime_bridge_/);
+    assert.equal(turn.seq_start, 2);
+    assert.equal(turn.seq_end, 3);
+
+    const replayed = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    assert.equal(replayed.length, 3);
+    assert.deepEqual(replayed.map((event) => event.source_event_kind), [
+      "RuntimeAgentService.handle_service_call.start@v1",
+      "RuntimeAgentService.handle_service_call.post_message@v1",
+      "RuntimeAgentService.handle_service_call.step@v1",
+    ]);
+    assert.deepEqual(replayed.map((event) => event.event_kind).slice(0, 2), [
+      "thread.started",
+      "turn.started",
+    ]);
+    assert.ok(["turn.completed", "turn.failed"].includes(replayed[2].event_kind));
+    assert.ok(replayed.every((event) => event.source === "runtime_service"));
+    assert.ok(replayed.every((event) => event.fixture_profile === null));
+    assert.ok(replayed.every((event) => event.payload.session_id === thread.session_id));
+    assert.equal(replayed[1].payload.prompt, prompt);
+    assert.equal(typeof replayed[2].payload.agent_status, "string");
+    assert.ok(Number.isFinite(Number(replayed[2].payload.step_count)));
+    assert.ok(fs.existsSync(path.join(bridgeData, "runtime-state.redb")));
+    assert.ok(fs.existsSync(path.join(bridgeData, "desktop-memory.db")));
+
+    const runEvents = await fetchSseEvents(`${daemon.endpoint}/v1/runs/${turn.request_id}/events`);
+    assert.deepEqual(
+      runEvents.map((event) => event.event_id),
+      replayed.slice(1).map((event) => event.event_id),
+    );
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
   }
 });
 
