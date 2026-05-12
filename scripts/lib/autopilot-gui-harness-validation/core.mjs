@@ -4253,6 +4253,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs";
   const projectWorkflowNodeContractLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_node_contract_lane.rs";
+  const projectWorkflowRunLifecycleLanePath =
+    "apps/autopilot/src-tauri/src/project/workflow_run_lifecycle_lane.rs";
   const projectWorkflowNodeExecutionLanePath =
     "apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs";
   const projectWorkflowMemoryLanePath =
@@ -4314,6 +4316,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   );
   const projectWorkflowNodeContractLane = readFileSync(
     resolve(repoRoot, projectWorkflowNodeContractLanePath),
+    "utf8",
+  );
+  const projectWorkflowRunLifecycleLane = readFileSync(
+    resolve(repoRoot, projectWorkflowRunLifecycleLanePath),
     "utf8",
   );
   const projectWorkflowNodeExecutionLane = readFileSync(
@@ -4746,6 +4752,18 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_logic_string/.test(projectWorkflowNodeContractLane) &&
       /workflow_action_frame/.test(projectWorkflowNodeExecutionLane) &&
       /workflow_max_attempts/.test(projectRuntime),
+    workflowRunLifecycleRuntimeLane:
+      /workflow_run_lifecycle_lane/.test(projectRuntime) &&
+      /fn workflow_push_event\(/.test(projectWorkflowRunLifecycleLane) &&
+      /fn new_workflow_thread\(/.test(projectWorkflowRunLifecycleLane) &&
+      /fn initial_workflow_state\(/.test(projectWorkflowRunLifecycleLane) &&
+      /fn workflow_single_node_result\(/.test(
+        projectWorkflowRunLifecycleLane,
+      ) &&
+      /WorkflowStreamEvent/.test(projectWorkflowRunLifecycleLane) &&
+      /WorkflowStateSnapshot/.test(projectWorkflowRunLifecycleLane) &&
+      /execute_workflow_node/.test(projectWorkflowRunLifecycleLane) &&
+      /workflow_finalize_run_result/.test(projectWorkflowRunLifecycleLane),
     workflowNodeExecutionRuntimeLane:
       /fn execute_workflow_tool_binding\(/.test(
         projectWorkflowNodeExecutionLane,

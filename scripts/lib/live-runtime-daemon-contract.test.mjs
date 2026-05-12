@@ -1624,6 +1624,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowRunLifecycleLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_run_lifecycle_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowNodeExecutionLane = fs.readFileSync(
     path.join(
       root,
@@ -1875,6 +1882,24 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectWorkflowNodeContractLane, /workflow_logic_string/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_action_frame/);
   assert.match(tauriProjectRuntime, /workflow_max_attempts/);
+  assert.match(tauriProjectRuntime, /workflow_run_lifecycle_lane/);
+  assert.match(tauriProjectWorkflowRunLifecycleLane, /fn workflow_push_event\(/);
+  assert.match(tauriProjectWorkflowRunLifecycleLane, /fn new_workflow_thread\(/);
+  assert.match(
+    tauriProjectWorkflowRunLifecycleLane,
+    /fn initial_workflow_state\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowRunLifecycleLane,
+    /fn workflow_single_node_result\(/,
+  );
+  assert.match(tauriProjectWorkflowRunLifecycleLane, /WorkflowStreamEvent/);
+  assert.match(tauriProjectWorkflowRunLifecycleLane, /WorkflowStateSnapshot/);
+  assert.match(tauriProjectWorkflowRunLifecycleLane, /execute_workflow_node/);
+  assert.match(
+    tauriProjectWorkflowRunLifecycleLane,
+    /workflow_finalize_run_result/,
+  );
   assert.match(
     tauriProjectWorkflowNodeExecutionLane,
     /fn execute_workflow_tool_binding\(/,
