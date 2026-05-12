@@ -1610,6 +1610,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowStateLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowMemoryLane = fs.readFileSync(
     path.join(
       root,
@@ -1804,6 +1811,26 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectWorkflowCheckpointLane, /save_workflow_checkpoint/);
   assert.match(tauriProjectWorkflowCheckpointLane, /unique_runtime_id/);
   assert.match(tauriProjectWorkflowCheckpointLane, /active_node_ids\.sort/);
+  assert.match(tauriProjectRuntime, /workflow_state_lane/);
+  assert.match(tauriProjectWorkflowStateLane, /fn workflow_predecessor_output\(/);
+  assert.match(tauriProjectWorkflowStateLane, /fn workflow_mapped_node_input\(/);
+  assert.match(
+    tauriProjectWorkflowStateLane,
+    /fn workflow_first_expression_source\(/,
+  );
+  assert.match(tauriProjectWorkflowStateLane, /fn workflow_selected_output\(/);
+  assert.match(
+    tauriProjectWorkflowStateLane,
+    /fn validate_workflow_expression_refs\(/,
+  );
+  assert.match(tauriProjectWorkflowStateLane, /fn workflow_schema_from_sample\(/);
+  assert.match(tauriProjectWorkflowStateLane, /fn workflow_schema_is_object_like\(/);
+  assert.match(
+    tauriProjectWorkflowStateLane,
+    /fn workflow_node_declared_output_schema\(/,
+  );
+  assert.match(tauriProjectWorkflowStateLane, /workflow_value_at_path/);
+  assert.match(tauriProjectWorkflowStateLane, /workflow_edge_from_port/);
   assert.match(tauriProjectRuntime, /workflow_output_lane/);
   assert.match(
     tauriProjectWorkflowOutputLane,
