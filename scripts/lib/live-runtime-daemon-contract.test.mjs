@@ -1617,6 +1617,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowNodeExecutionLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowMemoryLane = fs.readFileSync(
     path.join(
       root,
@@ -1715,13 +1722,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
-  assert.match(tauriProjectRuntime, /workflow_memory_lane/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_memory_lane/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_send_options/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_query_output/);
   assert.match(tauriProjectWorkflowMemoryLane, /memory_search/);
   assert.match(tauriProjectWorkflowMemoryLane, /memory_list/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_redacted_memory_record/);
-  assert.match(tauriProjectRuntime, /workflow_authority_tooling_lane/);
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /workflow_authority_tooling_lane/,
+  );
   assert.match(
     tauriProjectWorkflowAuthorityToolingLane,
     /workflow_live_mcp_provider_catalog/,
@@ -1777,7 +1787,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   );
   assert.match(tauriProjectWorkflowApprovalInterruptLane, /WorkflowInterrupt/);
   assert.match(tauriProjectWorkflowApprovalInterruptLane, /requiresApproval/);
-  assert.match(tauriProjectRuntime, /workflow_binding_lane/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_binding_lane/);
   assert.match(tauriProjectWorkflowBindingLane, /workflow_node_schema/);
   assert.match(tauriProjectWorkflowBindingLane, /workflow_function_binding/);
   assert.match(tauriProjectWorkflowBindingLane, /workflow_tool_binding/);
@@ -1831,7 +1841,36 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   );
   assert.match(tauriProjectWorkflowStateLane, /workflow_value_at_path/);
   assert.match(tauriProjectWorkflowStateLane, /workflow_edge_from_port/);
-  assert.match(tauriProjectRuntime, /workflow_output_lane/);
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /fn execute_workflow_tool_binding\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /fn execute_workflow_function_node\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /fn execute_workflow_node\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /fn execute_workflow_harness_canary_node\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /fn execute_workflow_harness_live_default_node\(/,
+  );
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_output_lane/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::GithubPrCreate/);
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /ActionKind::WorkflowPackageExport/,
+  );
+  assert.match(
+    tauriProjectWorkflowNodeExecutionLane,
+    /ActionKind::WorkflowPackageImport/,
+  );
   assert.match(
     tauriProjectWorkflowOutputLane,
     /workflow_output_satisfies_schema/,
@@ -1996,13 +2035,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTypes, /workflow_chrome_locale: Option<String>/);
   assert.match(tauriProjectCommands, /get\("workflowChromeLocale"\)/);
   assert.match(tauriProjectCommands, /manifest\.workflow_chrome_locale/);
-  assert.match(tauriProjectRuntime, /ActionKind::WorkflowPackageExport/);
-  assert.match(tauriProjectRuntime, /ActionKind::WorkflowPackageImport/);
-  assert.match(tauriProjectRuntime, /ActionKind::GithubPrCreate/);
-  assert.match(tauriProjectRuntime, /workflow_package_lane/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::WorkflowPackageExport/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::WorkflowPackageImport/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::GithubPrCreate/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_package_lane/);
   assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_export_node/);
   assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_import_node/);
-  assert.match(tauriProjectRuntime, /repository_pr_lane/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /repository_pr_lane/);
   assert.match(tauriProjectRuntime, /workflow_value_helpers/);
   assert.match(tauriProjectWorkflowPackageLane, /workflow_value_helpers/);
   assert.match(tauriProjectRepositoryPrLane, /workflow_value_helpers/);
