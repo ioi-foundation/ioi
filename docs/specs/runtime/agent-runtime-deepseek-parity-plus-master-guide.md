@@ -108,29 +108,32 @@ Completed workstream snapshot as of 2026-05-12:
   emitted `KernelEvent` rows and maps the first reasoning/tool/policy/receipt
   variants into workflow-addressable TTI events. The SDK now exposes typed
   `Thread`/`Turn` wrappers over the canonical thread/turn/event API, including
-  mapped KernelEvent projection metadata that React Flow can consume. The
-  active tactical cleanup stream remains React Flow settings-harness panel
-  decomposition.
+  mapped KernelEvent projection metadata that React Flow can consume. The React
+  Flow workflow surface now has a pure runtime event projection over those
+  thread events, emitting stable nodes, edges, statuses, cursors, and evidence
+  refs without becoming a second truth store. The active tactical cleanup stream
+  remains React Flow settings-harness panel decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 SDK Thread/Turn canonical event projection
-- Artifacts: packages/agent-sdk/src/thread.ts,
-  packages/agent-sdk/src/runtime-events.ts,
-  packages/agent-sdk/src/substrate-client.ts,
-  scripts/lib/live-runtime-daemon-contract.test.mjs
-- Validation: SDK package tests and daemon live contract; see the
-  validation ledger.
+- 2026-05-12: P0 React Flow runtime event projection over Thread.events
+- Artifacts: packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts,
+  packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts,
+  scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- Validation: IDE build, source contract, daemon live contract, and GUI harness
+  preflight; see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: React Flow settings harness package import/rows extraction
-- Evidence: docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json
+- 2026-05-12: React Flow runtime event projection GUI harness preflight
+- Evidence:
+  /tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection/2026-05-12T22-04-30-270Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | React Flow runtime event projection over Thread.events | packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts |
 | 2026-05-12 | P0 live runtime bridge | SDK Thread/Turn canonical event projection | packages/agent-sdk/src/thread.ts |
 | 2026-05-12 | P0 live runtime bridge | KernelEvent bridge mapper foundation | crates/node/src/runtime_bridge_events.rs |
 | 2026-05-12 | P0 live runtime bridge | Daemon Rust bridge executable contract | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -152,8 +155,8 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Add a minimal React Flow runtime event projection that reads the canonical
-   thread/turn/event store instead of duplicating workflow truth.
+1. Wire the React Flow runtime event projection into the workflow run inspector
+   so live thread events can render as graph-addressable status nodes.
 2. Add CLI/TUI stream commands over the same stored event stream, including
    mapped KernelEvent rows.
 3. Extend SDK turn controls beyond submission/replay with steer, interrupt,
