@@ -52,6 +52,18 @@ async function fetchSseEvents(url) {
     });
 }
 
+async function fetchJsonStatus(url, options) {
+  const response = await fetch(url, {
+    headers: { "content-type": "application/json" },
+    ...options,
+  });
+  const text = await response.text();
+  return {
+    status: response.status,
+    body: text ? JSON.parse(text) : null,
+  };
+}
+
 function git(cwd, args) {
   return execFileSync("git", ["-C", cwd, ...args], {
     encoding: "utf8",
@@ -1049,11 +1061,15 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
         },
       }),
     });
-    assert.equal(thread.schema_version, "ioi.agent-runtime.tti.v1");
+    assert.equal(thread.schema_version, "ioi.runtime.thread.v1");
     assert.match(thread.thread_id, /^thread_/);
     assert.match(thread.session_id, /^agent_/);
-    assert.equal(thread.latest_seq, 0);
+    assert.equal(thread.agent_id, thread.session_id);
+    assert.equal(thread.event_stream_id, `${thread.thread_id}:events`);
+    assert.equal(thread.latest_seq, 1);
+    assert.equal(thread.workspace_root, cwd);
     assert.equal(thread.workspace, cwd);
+    assert.equal(thread.fixture_profile, "local_daemon_agentgres_projection");
     assert.equal(thread.requested_model, "auto");
     assert.equal(thread.model_route_id, "route.native-local");
     assert.equal(thread.model_route_decision.eventKind, "ModelRouteDecision");
@@ -1069,10 +1085,12 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
         mode: "send",
       }),
     });
-    assert.equal(turn.schema_version, "ioi.agent-runtime.tti.v1");
+    assert.equal(turn.schema_version, "ioi.runtime.turn.v1");
     assert.equal(turn.thread_id, thread.thread_id);
     assert.match(turn.turn_id, /^turn_/);
     assert.equal(turn.status, "completed");
+    assert.ok(turn.seq_start > 1);
+    assert.ok(turn.seq_end >= turn.seq_start);
     assert.equal(turn.stop_reason, "evidence_sufficient");
     assert.ok(turn.quality_ledger_ref);
     assert.equal(turn.model_route_decision.eventKind, "ModelRouteDecision");
@@ -1091,29 +1109,132 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
       events.map((event) => event.seq),
       Array.from({ length: events.length }, (_, index) => index + 1),
     );
-    assert.equal(events[0].schema_version, "ioi.agent-runtime.event-envelope.v1");
+    assert.equal(events[0].schema_version, "ioi.runtime.event.v1");
     assert.equal(events[0].thread_id, thread.thread_id);
-    assert.equal(events[0].turn_id, turn.turn_id);
-    assert.equal(events[0].event, "turn.started");
+    assert.equal(events[0].event_stream_id, thread.event_stream_id);
+    assert.equal(events[0].event_kind, "thread.started");
+    assert.equal(events[0].event, "thread.started");
+    const turnStartedEvent = events.find((event) => event.event_kind === "turn.started");
+    assert.equal(turnStartedEvent.turn_id, turn.turn_id);
+    assert.equal(turnStartedEvent.event, "turn.started");
     assert.equal(events[0].workflow_node_id, "runtime.runtime-thread");
     const routeEvent = events.find((event) => event.payload_summary?.event_kind === "ModelRouteDecision");
+    assert.equal(routeEvent.event_kind, "item.completed");
     assert.equal(routeEvent.component_kind, "model_router");
     assert.equal(routeEvent.workflow_node_id, "workflow.model-router");
     assert.equal(routeEvent.payload_summary.selected_model, "autopilot:native-fixture");
+    assert.equal(routeEvent.payload.selected_model, "autopilot:native-fixture");
     assert.equal(routeEvent.payload_summary.reasoning_effort, "low");
     assert.ok(routeEvent.payload_summary.model_route_decision_id);
     assert.deepEqual(routeEvent.receipt_refs, [thread.model_route_receipt_id]);
     assert.equal(events.at(-1).event, "turn.completed");
     assert.ok(events.some((event) => event.workflow_node_id === "runtime.quality-ledger"));
-    assert.ok(events.every((event) => event.payload_summary?.run_id));
+    assert.ok(events.filter((event) => event.turn_id === turn.turn_id).every((event) => event.payload_summary?.run_id));
 
     const replayAfterFive = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=5`,
     );
     assert.equal(replayAfterFive[0].seq, 6);
     assert.ok(replayAfterFive.every((event) => event.seq > 5));
+
+    const futureCursor = await fetchJsonStatus(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=${events.at(-1).seq + 100}`,
+    );
+    assert.equal(futureCursor.status, 409);
+    assert.equal(futureCursor.body.error.code, "event_cursor_out_of_range");
+    assert.equal(futureCursor.body.error.details.latestSeq, events.at(-1).seq);
   } finally {
     await daemon.close();
+  }
+});
+
+test("daemon runtime event store is append-only and idempotent per stream", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const first = daemon.store.appendRuntimeEvent({
+      event_stream_id: "event-store-contract:events",
+      thread_id: "thread_event_store_contract",
+      turn_id: "turn_event_store_contract",
+      item_id: "item_event_store_contract",
+      idempotency_key: "request:first",
+      source: "daemon_bridge",
+      source_event_kind: "contract.first",
+      event_kind: "contract.first",
+      status: "completed",
+      actor: "runtime",
+      created_at: "2026-05-12T00:00:00.000Z",
+      workspace_root: cwd,
+      payload_schema_version: "ioi.runtime.event.v1",
+      payload: { value: "first" },
+    });
+    const duplicate = daemon.store.appendRuntimeEvent({
+      ...first,
+      payload: { value: "duplicate" },
+    });
+    const second = daemon.store.appendRuntimeEvent({
+      event_stream_id: "event-store-contract:events",
+      thread_id: "thread_event_store_contract",
+      turn_id: "turn_event_store_contract",
+      item_id: "item_event_store_contract_2",
+      idempotency_key: "request:second",
+      source: "daemon_bridge",
+      source_event_kind: "contract.second",
+      event_kind: "contract.second",
+      status: "completed",
+      actor: "runtime",
+      created_at: "2026-05-12T00:00:01.000Z",
+      workspace_root: cwd,
+      payload_schema_version: "ioi.runtime.event.v1",
+      payload: { value: "second" },
+    });
+
+    assert.equal(first.seq, 1);
+    assert.equal(first.parent_seq, null);
+    assert.equal(duplicate.seq, first.seq);
+    assert.equal(duplicate.payload.value, "first");
+    assert.equal(second.seq, 2);
+    assert.equal(second.parent_seq, 1);
+    assert.deepEqual(
+      daemon.store.runtimeEventsForStream("event-store-contract:events", 0).map((event) => event.seq),
+      [1, 2],
+    );
+    assert.deepEqual(
+      daemon.store.runtimeEventsForStream("event-store-contract:events", 1).map((event) => event.seq),
+      [2],
+    );
+
+    await daemon.close();
+    const reloaded = await startRuntimeDaemonService({ cwd, stateDir });
+    try {
+      assert.deepEqual(
+        reloaded.store.runtimeEventsForStream("event-store-contract:events", 0).map((event) => event.seq),
+        [1, 2],
+      );
+      const persistedDuplicate = reloaded.store.appendRuntimeEvent({
+        event_stream_id: "event-store-contract:events",
+        thread_id: "thread_event_store_contract",
+        turn_id: "turn_event_store_contract",
+        item_id: "item_event_store_contract",
+        idempotency_key: "request:first",
+        source: "daemon_bridge",
+        source_event_kind: "contract.first",
+        event_kind: "contract.first",
+        status: "completed",
+        actor: "runtime",
+        created_at: "2026-05-12T00:00:02.000Z",
+        workspace_root: cwd,
+        payload_schema_version: "ioi.runtime.event.v1",
+        payload: { value: "after-reload" },
+      });
+      assert.equal(persistedDuplicate.seq, 1);
+      assert.equal(persistedDuplicate.payload.value, "first");
+    } finally {
+      await reloaded.close();
+    }
+  } finally {
+    await daemon.close().catch(() => {});
   }
 });
 

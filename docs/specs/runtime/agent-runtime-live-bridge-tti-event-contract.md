@@ -55,6 +55,10 @@ Implementation status:
   exported from the SDK root.
 - `scripts/lib/live-bridge-tti-schema-contract.test.mjs` compares schema
   literals, enum literal arrays, required record fields, and export surfaces.
+- 2026-05-12: daemon event-store slice persists `RuntimeEventEnvelope` rows as
+  append-only JSONL streams, assigns monotonic `seq`, returns the original row
+  for duplicate idempotency keys, and returns `event_cursor_out_of_range` for
+  future cursors.
 
 ## Non Goals
 
@@ -527,6 +531,7 @@ Minimum contract-lock tests before implementation:
 1. Add shared schema definitions and generated TS/Rust snapshots. Completed
    2026-05-12.
 2. Add an append-only daemon event store with cursor and idempotency tests.
+   Completed 2026-05-12.
 3. Bridge one `RuntimeAgentService` session into thread/turn/event records.
 4. Expose `/v1/threads/{id}/events` and SSE replay with `Last-Event-ID`.
 5. Add SDK `Thread`/`Turn` wrappers over the same stream.

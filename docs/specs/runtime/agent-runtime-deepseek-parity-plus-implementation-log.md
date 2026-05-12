@@ -4570,3 +4570,35 @@ Validation evidence:
 - `cargo check -p ioi-types`
 - `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `git diff --check`
+
+### Slice 89. 2026-05-12 - daemon runtime event-store spine
+
+Implementation slice completed 2026-05-12, daemon runtime event-store spine:
+
+- Added a persistent append-only runtime event stream inside
+  `packages/runtime-daemon/src/index.mjs`, backed by JSONL files under the
+  daemon Agentgres state directory's `events/` relation.
+- `appendRuntimeEvent` now assigns monotonic `seq` per `event_stream_id`,
+  derives `parent_seq`, requires `idempotency_key`, and returns the first
+  appended row when `(event_stream_id, idempotency_key)` is replayed.
+- Thread event reads now project legacy daemon run events into locked
+  `RuntimeEventEnvelope` rows with the new `ioi.runtime.event.v1` schema while
+  retaining temporary `event` and `payload_summary` aliases for existing SDK and
+  test callers during migration.
+- Thread and turn projections now emit the locked
+  `ioi.runtime.thread.v1`/`ioi.runtime.turn.v1` schema fields, including
+  `event_stream_id`, `latest_seq`, `seq_start`, `seq_end`, `fixture_profile`,
+  and id-linked workflow component metadata.
+- Added future-cursor handling for thread event replay:
+  `since_seq > latest_seq` returns `event_cursor_out_of_range` with the latest
+  committed sequence.
+- Added a daemon contract subtest proving append-only ordering, idempotency,
+  `since_seq` replay, and restart persistence for the event store.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 12 daemon/API contract subtests passed, including persisted event-store
+    idempotency and Agentgres-backed thread/turn/event replay.

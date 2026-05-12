@@ -18,8 +18,10 @@ import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
 const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_canceled"]);
-const RUNTIME_TTI_SCHEMA_VERSION = "ioi.agent-runtime.tti.v1";
-const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.agent-runtime.event-envelope.v1";
+const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
+const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
+const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
+const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
   runtime_task: "item.completed",
@@ -125,6 +127,7 @@ export class AgentgresRuntimeStateStore {
     this.homeDir = path.resolve(options.homeDir ?? process.env.HOME ?? os.homedir());
     this.agents = new Map();
     this.runs = new Map();
+    this.runtimeEventStreams = new Map();
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
@@ -668,6 +671,7 @@ export class AgentgresRuntimeStateStore {
   createThread(request = {}) {
     const options = request.options ?? request;
     const agent = this.createAgent(options);
+    this.ensureThreadStartedEvent(agent);
     return this.threadForAgent(agent);
   }
 
@@ -978,73 +982,232 @@ export class AgentgresRuntimeStateStore {
 
   eventsForThread(threadId, sinceSeq = 0) {
     const agent = this.agentForThread(threadId);
-    let seq = 0;
-    const events = [];
+    this.projectThreadEvents(agent);
+    return this.runtimeEventsForStream(eventStreamIdForThread(threadIdForAgent(agent.id)), sinceSeq);
+  }
+
+  ensureThreadStartedEvent(agent) {
+    const threadId = threadIdForAgent(agent.id);
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: "",
+      item_id: `${threadId}:item:thread-started`,
+      idempotency_key: `agent:${agent.id}:thread.started`,
+      source: "daemon_bridge",
+      source_event_kind: "agent.create",
+      event_kind: "thread.started",
+      status: threadStatusForAgent(agent.status),
+      actor: "runtime",
+      created_at: agent.createdAt,
+      workspace_root: agent.cwd,
+      component_kind: "runtime_thread",
+      workflow_node_id: "runtime.runtime-thread",
+      payload_schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
+      payload: {
+        event_kind: "ThreadStarted",
+        agent_id: agent.id,
+        thread_id: threadId,
+        status: threadStatusForAgent(agent.status),
+      },
+      artifact_refs: [],
+      receipt_refs: [agent.modelRouteReceiptId].filter(Boolean),
+      fixture_profile: DAEMON_FIXTURE_PROFILE,
+    });
+  }
+
+  projectThreadEvents(agent) {
+    this.ensureThreadStartedEvent(agent);
     for (const run of this.listRuns(agent.id)) {
-      const turnId = turnIdForRun(run.id);
-      for (const event of run.events) {
-        seq += 1;
-        const envelope = ttiEnvelopeForRunEvent({
-          event,
-          seq,
-          threadId: threadIdForAgent(agent.id),
-          turnId,
-        });
-        if (envelope.seq > sinceSeq) events.push(envelope);
-      }
+      this.projectRunEvents(run, agent);
     }
-    return events;
+  }
+
+  projectRunEvents(run, agent = this.getAgent(run.agentId)) {
+    const threadId = threadIdForAgent(agent.id);
+    const turnId = turnIdForRun(run.id);
+    for (const event of run.events) {
+      this.appendRuntimeEvent(
+        ttiEnvelopeForRunEvent({
+          event,
+          threadId,
+          turnId,
+          workspaceRoot: agent.cwd,
+        }),
+      );
+    }
+  }
+
+  appendRuntimeEvent(event) {
+    const streamId = event.event_stream_id;
+    if (!streamId) {
+      throw runtimeError({
+        status: 400,
+        code: "runtime_event_stream_required",
+        message: "Runtime events require event_stream_id.",
+        details: { eventKind: event.event_kind ?? event.event ?? null },
+      });
+    }
+    const stream = this.runtimeEventStream(streamId);
+    const idempotencyKey = String(event.idempotency_key ?? event.event_id ?? "");
+    if (!idempotencyKey) {
+      throw runtimeError({
+        status: 400,
+        code: "runtime_event_idempotency_required",
+        message: "Runtime events require idempotency_key.",
+        details: { eventStreamId: streamId, eventKind: event.event_kind ?? event.event ?? null },
+      });
+    }
+    const duplicate = stream.idempotency.get(idempotencyKey);
+    if (duplicate) return duplicate;
+
+    const seq = stream.events.length + 1;
+    const record = normalizeRuntimeEventEnvelope(event, {
+      seq,
+      parentSeq: seq > 1 ? stream.events.at(-1).seq : null,
+      idempotencyKey,
+    });
+    stream.events.push(record);
+    stream.idempotency.set(record.idempotency_key, record);
+    fs.appendFileSync(this.runtimeEventStreamPath(streamId), `${JSON.stringify(record)}\n`);
+    return record;
+  }
+
+  runtimeEventsForStream(eventStreamId, sinceSeq = 0) {
+    const stream = this.runtimeEventStream(eventStreamId);
+    const cursor = Number(sinceSeq) || 0;
+    const latestSeq = stream.events.at(-1)?.seq ?? 0;
+    if (cursor > latestSeq) {
+      throw runtimeError({
+        status: 409,
+        code: "event_cursor_out_of_range",
+        message: "Runtime event cursor is beyond the latest committed sequence.",
+        details: { eventStreamId, sinceSeq: cursor, latestSeq },
+      });
+    }
+    return stream.events.filter((event) => event.seq > cursor);
+  }
+
+  runtimeEventsForTurn(turnId) {
+    return [...this.runtimeEventStreams.values()]
+      .flatMap((stream) => stream.events)
+      .filter((event) => event.turn_id === turnId)
+      .sort((left, right) => left.seq - right.seq);
+  }
+
+  latestRuntimeEventSeq(eventStreamId) {
+    return this.runtimeEventStream(eventStreamId).events.at(-1)?.seq ?? 0;
+  }
+
+  runtimeEventStream(eventStreamId) {
+    const key = String(eventStreamId);
+    let stream = this.runtimeEventStreams.get(key);
+    if (!stream) {
+      stream = { events: [], idempotency: new Map() };
+      this.runtimeEventStreams.set(key, stream);
+    }
+    return stream;
+  }
+
+  registerRuntimeEvent(record) {
+    const stream = this.runtimeEventStream(record.event_stream_id);
+    if (stream.idempotency.has(record.idempotency_key)) return;
+    stream.events.push(record);
+    stream.events.sort((left, right) => left.seq - right.seq);
+    stream.idempotency.set(record.idempotency_key, record);
+  }
+
+  runtimeEventStreamPath(eventStreamId) {
+    return this.pathFor("events", `${runtimeEventStreamFileName(eventStreamId)}.jsonl`);
   }
 
   threadForAgent(agent) {
     const runs = this.listRuns(agent.id);
     const latestRun = runs.at(-1);
+    this.projectThreadEvents(agent);
+    const threadId = threadIdForAgent(agent.id);
+    const latestSeq = this.latestRuntimeEventSeq(eventStreamIdForThread(threadId));
+    const updatedAt = Math.max(
+      Date.parse(agent.updatedAt) || 0,
+      ...runs.map((run) => Date.parse(run.updatedAt) || 0),
+    );
     return {
-      schema_version: RUNTIME_TTI_SCHEMA_VERSION,
-      thread_id: threadIdForAgent(agent.id),
+      schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
+      thread_id: threadId,
       session_id: agent.id,
-      created_at_ms: Date.parse(agent.createdAt) || 0,
-      updated_at_ms: Math.max(
-        Date.parse(agent.updatedAt) || 0,
-        ...runs.map((run) => Date.parse(run.updatedAt) || 0),
-      ),
-      workspace: agent.cwd,
+      agent_id: agent.id,
+      workspace_root: agent.cwd,
       title: latestRun?.objective ?? agent.cwd,
       mode: "agent",
       approval_mode: "suggest",
+      trust_profile: "local_private",
       model_route: agent.modelId,
+      status: threadStatusForAgent(agent.status),
+      latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
+      latest_seq: latestSeq,
+      event_stream_id: eventStreamIdForThread(threadId),
+      workflow_graph_id: null,
+      harness_binding_id: null,
+      agentgres_projection_ref: `agents/${agent.id}.json`,
+      created_at: agent.createdAt,
+      updated_at: new Date(updatedAt || Date.parse(agent.updatedAt) || Date.now()).toISOString(),
+      archived_at: agent.status === "archived" ? agent.updatedAt : null,
+      fixture_profile: DAEMON_FIXTURE_PROFILE,
+      created_at_ms: Date.parse(agent.createdAt) || 0,
+      updated_at_ms: updatedAt,
+      workspace: agent.cwd,
       requested_model: agent.requestedModelId ?? agent.modelId,
       model_route_id: agent.modelRouteId ?? null,
       model_route_receipt_id: agent.modelRouteReceiptId ?? null,
       model_route_decision: agent.modelRouteDecision ?? null,
       memory_count: this.memory.list({
         agent,
-        threadId: threadIdForAgent(agent.id),
+        threadId,
         workspace: agent.cwd,
       }).length,
-      latest_turn_id: latestRun ? turnIdForRun(latestRun.id) : null,
-      latest_seq: this.eventsForThread(threadIdForAgent(agent.id), 0).at(-1)?.seq ?? 0,
       archived: agent.status === "archived",
-      workflow_graph_id: null,
-      harness_binding_id: null,
-      agentgres_projection_ref: `agents/${agent.id}.json`,
       evidence_refs: ["agentgres_canonical_operation_log", "runtime_tti_projection"],
     };
   }
 
   turnForRun(run) {
+    const agent = this.getAgent(run.agentId);
+    this.projectRunEvents(run, agent);
+    const turnEvents = this.runtimeEventsForTurn(turnIdForRun(run.id));
+    const seqStart = turnEvents.at(0)?.seq ?? null;
+    const seqEnd = lifecycleStatusForRun(run.status) === "running" ? null : (turnEvents.at(-1)?.seq ?? null);
     return {
-      schema_version: RUNTIME_TTI_SCHEMA_VERSION,
+      schema_version: RUNTIME_TURN_SCHEMA_VERSION,
       turn_id: turnIdForRun(run.id),
       thread_id: threadIdForAgent(run.agentId),
+      parent_turn_id: null,
+      request_id: run.id,
       status: lifecycleStatusForRun(run.status),
+      input_item_ids: turnEvents
+        .filter((event) => event.event_kind === "turn.started")
+        .map((event) => event.item_id),
+      output_item_ids: turnEvents
+        .filter((event) => event.event_kind !== "turn.started")
+        .map((event) => event.item_id),
+      seq_start: seqStart,
+      seq_end: seqEnd,
+      started_at: run.createdAt,
+      completed_at: TERMINAL_EVENT_TYPES.has(run.status) || run.status === "completed" ? run.updatedAt : null,
+      mode: "agent",
+      approval_mode: "suggest",
+      model_route_decision_id: run.modelRouteDecision?.decisionId ?? run.trace?.modelRouteDecision?.decisionId ?? null,
+      usage: null,
+      stop_reason: run.trace?.stopCondition?.reason ?? null,
+      error: run.status === "failed" ? run.result : null,
+      rollback_snapshot_id: null,
+      quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
+      workflow_execution_ref: null,
+      fixture_profile: DAEMON_FIXTURE_PROFILE,
       started_at_ms: Date.parse(run.createdAt) || 0,
       completed_at_ms: TERMINAL_EVENT_TYPES.has(run.status) || run.status === "completed"
         ? Date.parse(run.updatedAt) || 0
         : null,
-      usage: null,
       error_summary: run.status === "failed" ? run.result : null,
-      stop_reason: run.trace?.stopCondition?.reason ?? null,
       model_route_decision: run.modelRouteDecision ?? run.trace?.modelRouteDecision ?? null,
       model_route_receipt_id: run.modelRouteReceiptId ?? null,
       active_skill_hook_manifest_ref: run.activeSkillHookManifest?.manifestId ?? null,
@@ -1052,9 +1215,6 @@ export class AgentgresRuntimeStateStore {
       active_hook_set_hash: run.activeSkillHookManifest?.activeHookSetHash ?? null,
       memory_refs: run.memoryRecords?.map((record) => record.id) ?? [],
       memory_write_receipt_ids: run.memoryWriteReceipts?.map((receipt) => receipt.id) ?? [],
-      rollback_snapshot_id: null,
-      quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
-      workflow_execution_ref: null,
       evidence_refs: [
         "agentgres_canonical_operation_log",
         `run:${run.id}`,
@@ -1609,6 +1769,7 @@ export class AgentgresRuntimeStateStore {
       "mcp-servers",
       "memory-records",
       "memory-policies",
+      "events",
     ]) {
       fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
     }
@@ -1626,6 +1787,16 @@ export class AgentgresRuntimeStateStore {
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
         memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
+        runtimeEvents: [
+          "event_stream_id",
+          "seq",
+          "idempotency_key",
+          "thread_id",
+          "turn_id",
+          "item_id",
+          "event_kind",
+          "created_at",
+        ],
         quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
         operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
         ...this.modelMounting.writeSchemaRelationSchemas(),
@@ -1643,6 +1814,11 @@ export class AgentgresRuntimeStateStore {
     for (const file of listJson(this.pathFor("runs"))) {
       const run = readJson(file);
       this.runs.set(run.id, run);
+    }
+    for (const file of listJsonl(this.pathFor("events"))) {
+      for (const record of readJsonl(file)) {
+        this.registerRuntimeEvent(record);
+      }
     }
   }
 
@@ -7615,12 +7791,29 @@ function turnIdForRun(runId) {
   return runId.startsWith("run_") ? `turn_${runId.slice("run_".length)}` : `turn_${runId}`;
 }
 
+function eventStreamIdForThread(threadId) {
+  return `${threadId}:events`;
+}
+
+function threadStatusForAgent(status) {
+  switch (status) {
+    case "archived":
+    case "closed":
+      return "archived";
+    case "failed":
+    case "error":
+      return "failed";
+    default:
+      return "active";
+  }
+}
+
 function lifecycleStatusForRun(status) {
   switch (status) {
     case "queued":
       return "queued";
     case "running":
-      return "in_progress";
+      return "running";
     case "canceled":
       return "canceled";
     case "failed":
@@ -7632,28 +7825,107 @@ function lifecycleStatusForRun(status) {
   }
 }
 
-function ttiEnvelopeForRunEvent({ event, seq, threadId, turnId }) {
+function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
   const eventKind = RUN_EVENT_TO_TTI_EVENT[event.type] ?? `item.${event.type}`;
+  const payload = payloadSummaryForRunEvent(event);
   return {
-    id: String(seq),
     schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
-    event_id: `${threadId}:seq:${String(seq).padStart(8, "0")}`,
-    seq,
-    parent_seq: seq > 1 ? seq - 1 : null,
-    timestamp_ms: Date.parse(event.createdAt) || 0,
+    event_stream_id: eventStreamIdForThread(threadId),
     thread_id: threadId,
     turn_id: turnId,
-    item_id: `${turnId}:item:${String(seq).padStart(3, "0")}`,
-    event: eventKind,
+    item_id: `${turnId}:item:${doctorHash(event.id).slice(0, 12)}`,
+    idempotency_key: `run:${event.runId}:event:${event.id}`,
+    source: "daemon_bridge",
+    source_event_kind: `run.${event.type}`,
+    event_kind: eventKind,
+    status: runtimeEventStatusForRunEvent(event),
     actor: event.type === "delta" ? "assistant" : "runtime",
+    created_at: event.createdAt,
+    workspace_root: workspaceRoot,
+    workflow_graph_id: event.data?.workflowGraphId ?? event.data?.workflow_graph_id ?? null,
     component_kind: componentKindForRunEvent(event),
     workflow_node_id: workflowNodeForRunEvent(event),
-    payload_schema_version: RUNTIME_TTI_SCHEMA_VERSION,
-    payload_summary: payloadSummaryForRunEvent(event),
+    tool_call_id: event.data?.toolCallId ?? event.data?.tool_call_id ?? null,
+    approval_id: event.data?.approvalId ?? event.data?.approval_id ?? null,
+    policy_decision_refs: policyDecisionRefsForRunEvent(event),
+    rollback_refs: normalizeArray(event.data?.rollbackRefs ?? event.data?.rollback_refs),
+    payload_schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+    payload,
+    payload_ref: null,
     receipt_refs: receiptRefsForRunEvent(event),
     artifact_refs: artifactRefsForRunEvent(event),
     redaction_profile: "internal",
+    fixture_profile: DAEMON_FIXTURE_PROFILE,
   };
+}
+
+function normalizeRuntimeEventEnvelope(event, { seq, parentSeq, idempotencyKey }) {
+  const eventKind = event.event_kind ?? event.event ?? "runtime.event";
+  const createdAt = event.created_at ?? new Date().toISOString();
+  const payloadSummary = event.payload_summary ?? event.payload ?? {};
+  return {
+    schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+    event_id: event.event_id ?? `${event.event_stream_id}:seq:${String(seq).padStart(8, "0")}`,
+    event_stream_id: event.event_stream_id,
+    thread_id: event.thread_id ?? "",
+    turn_id: event.turn_id ?? "",
+    item_id: event.item_id ?? "",
+    seq,
+    parent_seq: parentSeq,
+    idempotency_key: idempotencyKey,
+    source: event.source ?? "daemon_bridge",
+    source_event_kind: event.source_event_kind ?? eventKind,
+    event_kind: eventKind,
+    status: event.status ?? "completed",
+    actor: event.actor ?? "runtime",
+    created_at: createdAt,
+    workspace_root: event.workspace_root ?? "",
+    workflow_graph_id: event.workflow_graph_id ?? null,
+    workflow_node_id: event.workflow_node_id ?? null,
+    component_kind: event.component_kind ?? null,
+    tool_call_id: event.tool_call_id ?? null,
+    approval_id: event.approval_id ?? null,
+    artifact_refs: normalizeArray(event.artifact_refs),
+    receipt_refs: normalizeArray(event.receipt_refs),
+    policy_decision_refs: normalizeArray(event.policy_decision_refs),
+    rollback_refs: normalizeArray(event.rollback_refs),
+    payload_schema_version: event.payload_schema_version ?? RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+    payload_ref: event.payload_ref ?? null,
+    payload: stringRecord(payloadSummary),
+    redaction_profile: event.redaction_profile ?? "internal",
+    fixture_profile: event.fixture_profile ?? DAEMON_FIXTURE_PROFILE,
+    id: String(seq),
+    timestamp_ms: Date.parse(createdAt) || 0,
+    event: eventKind,
+    payload_summary: payloadSummary,
+  };
+}
+
+function runtimeEventStatusForRunEvent(event) {
+  if (event.type === "job_queued") return "queued";
+  if (event.type === "job_started" || event.type === "run_started" || event.type === "delta") return "running";
+  if (event.type === "canceled" || event.type === "job_canceled") return "canceled";
+  if (event.type === "failed" || event.type === "error" || event.type === "job_failed") return "failed";
+  return "completed";
+}
+
+function policyDecisionRefsForRunEvent(event) {
+  return [
+    event.data?.policyDecisionId,
+    event.data?.policy_decision_id,
+    event.data?.policyDecisionRef,
+    event.data?.policy_decision_ref,
+  ].filter(Boolean);
+}
+
+function stringRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      typeof item === "string" ? item : JSON.stringify(item),
+    ]),
+  );
 }
 
 function payloadSummaryForRunEvent(event) {
@@ -8273,6 +8545,27 @@ function listJson(dir) {
     .readdirSync(dir)
     .filter((file) => file.endsWith(".json"))
     .map((file) => path.join(dir, file));
+}
+
+function readJsonl(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  return fs
+    .readFileSync(filePath, "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function listJsonl(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((file) => file.endsWith(".jsonl"))
+    .map((file) => path.join(dir, file));
+}
+
+function runtimeEventStreamFileName(eventStreamId) {
+  return crypto.createHash("sha256").update(String(eventStreamId)).digest("hex");
 }
 
 function relative(from, to) {
