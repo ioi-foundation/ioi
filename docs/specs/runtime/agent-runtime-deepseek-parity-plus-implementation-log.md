@@ -5144,3 +5144,55 @@ Known validation note:
   pre-existing `crates/cli/tests/*` fixtures construct `StartAgentParams`
   without `runtime_route_frame`. The binary-only command test above is the
   scoped Rust signal for this slice.
+
+### Slice 103. 2026-05-12 - Live context compact control event
+
+Implementation slice completed 2026-05-12, live context compact control event:
+
+- Added `POST /v1/threads/{thread_id}/compact` to the daemon thread API. The
+  endpoint appends canonical `context.compacted` events with
+  `source_event_kind=OperatorControl.Compact`,
+  `component_kind=context_compaction`,
+  `workflow_node_id=runtime.context-compact`,
+  `payload_schema_version=ioi.runtime.context-compaction.v1`, receipt refs,
+  and policy decision refs.
+- Kept compaction non-terminal and thread-scoped while anchoring the event to
+  the latest turn when one exists, so React Flow and TUI consumers get a stable
+  graph address without making compaction a second runtime truth store.
+- Added SDK `Thread.compact({ reason, scope })` plus typed
+  `context_compacted` event mapping so daemon SSE rows project through
+  `Thread.events()` without losing event id, seq, cursor, node id, or evidence
+  refs.
+- Added CLI/TUI `ioi agent compact --thread-id <id>` over the daemon control
+  endpoint, with JSON output suitable for the future TUI control surface.
+- Extended the React Flow runtime event projection so `context_compacted` rows
+  render as `runtime.context-compact` nodes.
+- Added a live runtime-service proof that starts the Rust bridge, creates a
+  turn, compacts context through CLI, verifies SDK idempotency for the same
+  reason/scope, and checks React Flow consumes the exact same stored event.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-sdk`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `cargo fmt --package ioi-cli`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "context compact keeps one canonical compaction event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "operator steer keeps one canonical guidance event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "operator interrupt keeps one canonical control event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "local daemon projects Agentgres runs" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-context-compact-control`
+  - GUI harness preflight passed outside the worktree at
+    `/tmp/ioi-autopilot-gui-harness-context-compact-control/2026-05-12T23-14-55-807Z/result.json`.
+
+Known validation note:
+
+- `cargo test -p ioi-cli parses_agent_operator_surface_commands` still compiles
+  unrelated integration tests and fails before the targeted unit because
+  pre-existing `crates/cli/tests/*` fixtures construct `StartAgentParams`
+  without `runtime_route_frame`. The binary-only command test above is the
+  scoped Rust signal for this slice.

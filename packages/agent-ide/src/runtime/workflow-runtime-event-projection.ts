@@ -11,6 +11,7 @@ export type WorkflowRuntimeThreadEventType =
   | "turn_canceled"
   | "turn_interrupted"
   | "turn_steered"
+  | "context_compacted"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -231,6 +232,8 @@ export function workflowNodeIdForRuntimeThreadEvent(
       return "runtime.operator-interrupt";
     case "turn_steered":
       return "runtime.operator-steer";
+    case "context_compacted":
+      return "runtime.context-compact";
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -264,6 +267,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "turn_interrupted":
       return "output";
     case "turn_steered":
+    case "context_compacted":
       return "state";
     case "reasoning_delta":
       return "task_state";
@@ -412,6 +416,8 @@ function componentKindForRuntimeThreadEvent(
       return "runtime_turn";
     case "turn_steered":
       return "operator_control";
+    case "context_compacted":
+      return "context_compaction";
     case "reasoning_delta":
       return "reasoning_delta";
     case "tool_completed":
@@ -449,6 +455,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Turn interrupted";
     case "turn_steered":
       return "Turn steered";
+    case "context_compacted":
+      return "Context compacted";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":
