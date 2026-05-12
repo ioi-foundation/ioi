@@ -64,6 +64,11 @@ Implementation status:
   `/v1/runs/{id}/events` and `/v1/runs/{id}/replay` to the owning turn event
   range, and keeps SDK `IOISDKMessage` compatibility by normalizing stored
   `RuntimeEventEnvelope` rows at the client edge.
+- 2026-05-12: daemon `RuntimeApiBridge` boundary slice adds explicit
+  `runtime_profile=runtime_service` routing, fails closed without a configured
+  bridge, persists injected bridge `thread.started`, `turn.started`, and
+  `turn.completed` rows with `fixture_profile: null`, and blocks silent fixture
+  fallback for runtime-service threads.
 
 ## Non Goals
 
@@ -538,6 +543,9 @@ Minimum contract-lock tests before implementation:
 2. Add an append-only daemon event store with cursor and idempotency tests.
    Completed 2026-05-12.
 3. Bridge one `RuntimeAgentService` session into thread/turn/event records.
+   Completed 2026-05-12 for the daemon `RuntimeApiBridge` boundary and injected
+   runtime-service projection; the real Rust/Tauri service adapter remains the
+   next implementation slice.
 4. Expose `/v1/threads/{id}/events` and SSE replay with `Last-Event-ID`.
    Completed 2026-05-12 for the daemon event-store projection.
 5. Add SDK `Thread`/`Turn` wrappers over the same stream.

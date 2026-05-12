@@ -1192,6 +1192,172 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
   }
 });
 
+test("runtime_service thread creation requires RuntimeApiBridge and preserves bridge events", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-state-"));
+  const unavailable = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const blocked = await fetchJsonStatus(`${unavailable.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    assert.equal(blocked.status, 424);
+    assert.equal(blocked.body.error.code, "external_blocker");
+    assert.equal(blocked.body.error.details.requiredBridge, "RuntimeApiBridge");
+    assert.equal(blocked.body.error.details.syntheticFallbackAllowed, false);
+  } finally {
+    await unavailable.close();
+  }
+
+  const bridgeStateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-ready-state-"));
+  const runtimeSessionId = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+  const runtimeBridge = {
+    bridgeId: "test-runtime-agent-service",
+    async startThread(input) {
+      return {
+        bridge_id: "test-runtime-agent-service",
+        session_id: runtimeSessionId,
+        source: "runtime_service",
+        status: "active",
+        events: [
+          {
+            event_stream_id: `${input.threadId}:events`,
+            thread_id: input.threadId,
+            turn_id: "",
+            item_id: `${input.threadId}:item:runtime-thread-started`,
+            idempotency_key: `runtime-service:${runtimeSessionId}:thread.started`,
+            source: "runtime_service",
+            source_event_kind: "AgentState.start",
+            event_kind: "thread.started",
+            status: "running",
+            actor: "runtime",
+            created_at: "2026-05-12T00:00:00.000Z",
+            workspace_root: input.workspaceRoot,
+            component_kind: "runtime_thread",
+            workflow_node_id: "runtime.runtime-thread",
+            payload_schema_version: "ioi.runtime.thread.v1",
+            payload: {
+              event_kind: "AgentStateStarted",
+              session_id: runtimeSessionId,
+              agent_id: input.agentId,
+              thread_id: input.threadId,
+            },
+            fixture_profile: null,
+          },
+        ],
+      };
+    },
+    async submitTurn(input) {
+      const turnId = "turn_runtime_bridge_001";
+      return {
+        run_id: "run_runtime_bridge_001",
+        turn_id: turnId,
+        status: "completed",
+        result: "Runtime bridge turn completed.",
+        stop_reason: "runtime_bridge_completed",
+        created_at: "2026-05-12T00:00:01.000Z",
+        updated_at: "2026-05-12T00:00:02.000Z",
+        events: [
+          {
+            event_stream_id: `${input.threadId}:events`,
+            thread_id: input.threadId,
+            turn_id: turnId,
+            item_id: `${turnId}:item:user-request`,
+            idempotency_key: `runtime-service:${runtimeSessionId}:${turnId}:started`,
+            source: "runtime_service",
+            source_event_kind: "KernelEvent.AgentStep",
+            event_kind: "turn.started",
+            status: "running",
+            actor: "user",
+            created_at: "2026-05-12T00:00:01.000Z",
+            workspace_root: input.workspaceRoot,
+            component_kind: "runtime_turn",
+            workflow_node_id: "runtime.runtime-turn",
+            payload_schema_version: "ioi.runtime.event.v1",
+            payload: {
+              event_kind: "TurnStarted",
+              prompt: input.request.prompt,
+            },
+            fixture_profile: null,
+          },
+          {
+            event_stream_id: `${input.threadId}:events`,
+            thread_id: input.threadId,
+            turn_id: turnId,
+            item_id: `${turnId}:item:assistant-result`,
+            idempotency_key: `runtime-service:${runtimeSessionId}:${turnId}:completed`,
+            source: "runtime_service",
+            source_event_kind: "KernelEvent.AgentActionResult",
+            event_kind: "turn.completed",
+            status: "completed",
+            actor: "assistant",
+            created_at: "2026-05-12T00:00:02.000Z",
+            workspace_root: input.workspaceRoot,
+            component_kind: "runtime_turn",
+            workflow_node_id: "runtime.runtime-turn",
+            payload_schema_version: "ioi.runtime.event.v1",
+            payload: {
+              event_kind: "TurnCompleted",
+              summary: "Runtime bridge turn completed.",
+            },
+            fixture_profile: null,
+          },
+        ],
+      };
+    },
+  };
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir: bridgeStateDir, runtimeBridge });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    assert.equal(thread.schema_version, "ioi.runtime.thread.v1");
+    assert.equal(thread.session_id, runtimeSessionId);
+    assert.equal(thread.fixture_profile, null);
+    assert.equal(thread.runtime_profile, "runtime_service");
+    assert.equal(thread.runtime_bridge_id, "test-runtime-agent-service");
+    assert.equal(thread.latest_seq, 1);
+
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].schema_version, "ioi.runtime.event.v1");
+    assert.equal(events[0].source, "runtime_service");
+    assert.equal(events[0].source_event_kind, "AgentState.start");
+    assert.equal(events[0].fixture_profile, null);
+    assert.equal(events[0].payload.session_id, runtimeSessionId);
+    assert.equal(events[0].payload.agent_id, thread.agent_id);
+
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "This must flow through RuntimeApiBridge." }),
+    });
+    assert.equal(turn.schema_version, "ioi.runtime.turn.v1");
+    assert.equal(turn.turn_id, "turn_runtime_bridge_001");
+    assert.equal(turn.request_id, "run_runtime_bridge_001");
+    assert.equal(turn.fixture_profile, null);
+    assert.equal(turn.status, "completed");
+    assert.equal(turn.seq_start, 2);
+    assert.equal(turn.seq_end, 3);
+    assert.equal(turn.stop_reason, "runtime_bridge_completed");
+
+    const replayed = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    assert.deepEqual(replayed.map((event) => event.seq), [1, 2, 3]);
+    assert.ok(replayed.every((event) => event.source === "runtime_service"));
+    assert.ok(replayed.every((event) => event.fixture_profile === null));
+    const runEvents = await fetchSseEvents(`${daemon.endpoint}/v1/runs/${turn.request_id}/events`);
+    assert.deepEqual(runEvents.map((event) => event.event_id), replayed.slice(1).map((event) => event.event_id));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("daemon runtime event store is append-only and idempotent per stream", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
