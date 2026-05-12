@@ -2249,6 +2249,127 @@ test("context compact keeps one canonical compaction event across SDK, CLI, and 
   }
 });
 
+test("thread fork keeps one canonical source event across SDK, CLI, and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-fork-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-fork-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-fork-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const reason = "branch live context for validation";
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-fork";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove thread fork control has one cross-surface event.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a forkable turn for operator control validation.",
+      }),
+    });
+
+    const cliResult = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "fork",
+        "--thread-id",
+        thread.thread_id,
+        "--reason",
+        reason,
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const cliFork = JSON.parse(cliResult.stdout);
+    assert.equal(cliFork.source_thread_id, thread.thread_id);
+    assert.notEqual(cliFork.thread_id, thread.thread_id);
+    assert.ok(cliFork.forked_from_seq >= turn.seq_end);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const forkEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Fork",
+    );
+    assert.ok(forkEvent);
+    assert.equal(forkEvent.event_kind, "thread.forked");
+    assert.equal(forkEvent.status, "completed");
+    assert.equal(forkEvent.source, "cli_tui");
+    assert.equal(forkEvent.actor, "user");
+    assert.equal(forkEvent.thread_id, thread.thread_id);
+    assert.equal(forkEvent.turn_id, turn.turn_id);
+    assert.equal(forkEvent.component_kind, "thread_fork");
+    assert.equal(forkEvent.workflow_node_id, "runtime.thread-fork");
+    assert.equal(forkEvent.payload_schema_version, "ioi.runtime.thread-fork.v1");
+    assert.equal(forkEvent.payload.reason, reason);
+    assert.equal(forkEvent.payload.source_thread_id, thread.thread_id);
+    assert.equal(forkEvent.payload.fork_thread_id, cliFork.thread_id);
+    assert.equal(forkEvent.payload.source_latest_turn_id, turn.turn_id);
+    assert.equal(forkEvent.payload.source_latest_seq, String(cliFork.forked_from_seq));
+    assert.ok(forkEvent.receipt_refs.includes(`receipt_${thread.agent_id}_thread_fork_${cliFork.agent_id}`));
+    assert.ok(forkEvent.policy_decision_refs.includes(`policy_${thread.agent_id}_thread_fork_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const openedFork = await Thread.open(cliFork.thread_id, { substrateClient: sdkClient });
+    assert.equal(openedFork.id, cliFork.thread_id);
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkForkEvent = sdkEvents.find((event) => event.id === forkEvent.event_id);
+    assert.ok(sdkForkEvent);
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(forkEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+
+    const canonicalCursor = `${forkEvent.event_stream_id}:${forkEvent.seq}`;
+    assert.equal(sdkForkEvent.type, "thread_forked");
+    assert.equal(sdkForkEvent.seq, forkEvent.seq);
+    assert.equal(sdkForkEvent.cursor, canonicalCursor);
+    assert.equal(sdkForkEvent.eventKind, forkEvent.event_kind);
+    assert.equal(sdkForkEvent.sourceEventKind, forkEvent.source_event_kind);
+    assert.equal(sdkForkEvent.componentKind, forkEvent.component_kind);
+    assert.equal(sdkForkEvent.workflowNodeId, forkEvent.workflow_node_id);
+    assert.equal(sdkForkEvent.payloadSchemaVersion, forkEvent.payload_schema_version);
+    assert.deepEqual(sdkForkEvent.receiptRefs, forkEvent.receipt_refs);
+    assert.deepEqual(sdkForkEvent.policyDecisionRefs, forkEvent.policy_decision_refs);
+
+    assert.equal(reactFlowNode.latestSeq, forkEvent.seq);
+    assert.equal(reactFlowNode.latestCursor, canonicalCursor);
+    assert.equal(reactFlowNode.latestEventId, forkEvent.event_id);
+    assert.equal(reactFlowNode.componentKind, "thread_fork");
+    assert.equal(reactFlowNode.workflowNodeId, "runtime.thread-fork");
+    assert.equal(reactFlowNode.status, "completed");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Fork"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("daemon runtime event store is append-only and idempotent per stream", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
@@ -2700,6 +2821,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /AgentCommands::Interrupt/);
   assert.match(source, /AgentCommands::Steer/);
   assert.match(source, /AgentCommands::Compact/);
+  assert.match(source, /AgentCommands::Fork/);
   assert.match(source, /AgentEventStreamArgs/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
@@ -2719,11 +2841,14 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/compact/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/fork/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /OperatorControl\.Compact/);
+  assert.match(source, /OperatorControl\.Fork/);
   assert.match(source, /operator_control/);
   assert.match(source, /context_compaction/);
+  assert.match(source, /thread_fork/);
   assert.match(source, /since_seq/);
   assert.match(source, /Last-Event-ID/);
   assert.match(source, /parse_runtime_event_sse_blocks/);

@@ -1,6 +1,7 @@
 import type { StopReason } from "./options.js";
 
 export type IOISDKMessageType =
+  | "thread_forked"
   | "run_started"
   | "model_route_decision"
   | "memory_update"
@@ -137,6 +138,7 @@ export type RuntimeEventSource = (typeof RUNTIME_EVENT_SOURCES)[number];
 
 export const RUNTIME_THREAD_EVENT_TYPES = [
   "thread_started",
+  "thread_forked",
   "turn_started",
   "turn_completed",
   "turn_failed",

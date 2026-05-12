@@ -204,6 +204,11 @@ export interface RuntimeThreadCreateInput {
 
 export interface RuntimeThreadForkInput {
   options?: AgentOptions;
+  reason?: string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
   [key: string]: unknown;
 }
 
@@ -355,7 +360,10 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async forkThread(threadId: string, input: RuntimeThreadForkInput = {}): Promise<RuntimeThreadRecord> {
-    return this.request("forkThread", "POST", `/v1/threads/${encodePath(threadId)}/fork`, input);
+    return this.request("forkThread", "POST", `/v1/threads/${encodePath(threadId)}/fork`, {
+      source: "sdk_client",
+      ...input,
+    });
   }
 
   async compactThread(

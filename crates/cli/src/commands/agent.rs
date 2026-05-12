@@ -224,6 +224,24 @@ pub enum AgentCommands {
     Events(SnapshotArgs),
     /// Stream canonical thread/run events for CLI and TUI inspectors.
     Stream(AgentEventStreamArgs),
+    /// Fork a canonical runtime thread through the daemon control endpoint.
+    Fork {
+        /// Runtime thread id to fork.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Operator-visible fork reason.
+        #[clap(long, default_value = "operator requested thread fork")]
+        reason: String,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Interrupt a canonical runtime turn through the daemon control endpoint.
     Interrupt {
         /// Runtime thread id that owns the turn.
@@ -489,6 +507,13 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         } => print_status(session_id, step, rpc, json).await,
         AgentCommands::Events(args) => print_events(args).await,
         AgentCommands::Stream(args) => stream_agent_events(args).await,
+        AgentCommands::Fork {
+            thread_id,
+            reason,
+            endpoint,
+            token,
+            json,
+        } => fork_thread(thread_id, reason, endpoint, token, json).await,
         AgentCommands::Interrupt {
             thread_id,
             turn_id,
@@ -625,6 +650,43 @@ fn print_submission(json: bool, action: &str, session_id: [u8; 32], tx_hash: Str
         action,
         hex::encode(session_id),
         tx_hash
+    );
+    Ok(())
+}
+
+async fn fork_thread(
+    thread_id: String,
+    reason: String,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let route = format!("/v1/threads/{thread_id}/fork");
+    let response = daemon_request(
+        endpoint.as_deref(),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::json!({
+            "reason": reason,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Fork",
+            "component_kind": "thread_fork",
+            "workflow_node_id": "runtime.thread-fork",
+        })),
+    )
+    .await?;
+    if json {
+        return print_json(&response);
+    }
+    println!(
+        "Forked thread {} into {}",
+        thread_id,
+        response
+            .get("thread_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or("unknown")
     );
     Ok(())
 }
@@ -1765,6 +1827,27 @@ mod tests {
                 json: true,
                 ..
             }))
+        ));
+
+        let fork = AgentArgs::try_parse_from([
+            "agent",
+            "fork",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--reason",
+            "branch live context",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--json",
+        ])
+        .expect("fork command should parse");
+        assert!(matches!(
+            fork.command,
+            Some(AgentCommands::Fork {
+                thread_id,
+                json: true,
+                ..
+            }) if thread_id == "thread_runtime_cli"
         ));
 
         let interrupt = AgentArgs::try_parse_from([

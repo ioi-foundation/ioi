@@ -121,36 +121,39 @@ Completed workstream snapshot as of 2026-05-12:
   the same `event_id`, `seq`, cursor, component kind, workflow node id, payload
   schema, and evidence-ref arrays across daemon SSE replay, SDK
   `Thread.events()`, CLI/TUI `agent stream`, and the React Flow projection. The
-  first three live control slices are now landed: operator interrupt creates a
+  first four live control slices are now landed: operator interrupt creates a
   canonical terminal `turn.interrupted` event, operator steer creates a
   non-terminal `turn.steered` guidance event, and context compact creates a
   thread-level `context.compacted` event anchored to the latest turn when
-  available. Daemon SSE, SDK, CLI/TUI, and React Flow consume these controls by
+  available. Thread fork creates a source-thread `thread.forked` event with the
+  fork thread id, source seq, receipt, policy decision, and React Flow node
+  metadata. Daemon SSE, SDK, CLI/TUI, and React Flow consume these controls by
   the same `event_id`, `seq`, cursor, component kind, workflow node id, payload
   schema, receipt refs, and policy refs.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 live context compact control event
+- 2026-05-12: P0 live thread fork control event
 - Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
   packages/runtime-daemon/src/index.mjs, packages/agent-sdk/src/thread.ts,
   crates/cli/src/commands/agent.rs,
   packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts,
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
 - Validation: targeted live daemon contract with daemon, SDK, CLI/TUI
-  `agent compact`, and React Flow projections in the same runtime-service
+  `agent fork`, and React Flow projections in the same runtime-service
   proof; see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: Context compact control GUI preflight
+- 2026-05-12: Thread fork control GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-context-compact-control/2026-05-12T23-14-55-807Z/result.json
+  /tmp/ioi-autopilot-gui-harness-thread-fork-control/2026-05-12T23-30-08-711Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | Live thread fork control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live context compact control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live operator steer turn-control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live operator interrupt turn-control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -179,10 +182,12 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Implement the live fork control endpoint next, ensuring it emits canonical
-   TTI events and React Flow node metadata.
-2. Add fork to SDK, CLI/TUI, daemon SSE, and React Flow with the same
-   cross-surface proof shape as interrupt, steer, and compact.
+1. Wire the four live control contracts into the React Flow workflow-authoring
+   surface as configurable runtime control nodes, starting with
+   `runtime.thread-fork` because it already has a source-thread event.
+2. Prove React Flow-originated control requests preserve `workflow_graph_id`,
+   `workflow_node_id`, `source=react_flow`, receipt refs, and policy refs when
+   they round-trip through daemon SSE and `Thread.events()`.
 3. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
@@ -1717,10 +1722,12 @@ Remaining runtime bridge implementation sequence:
 
 The bridge/event projection loop is closed for the current mapped KernelEvent
 foundation, and the first live control paths, operator interrupt, operator
-steer, and context compact, are implemented as canonical `turn.interrupted`,
-`turn.steered`, and `context.compacted` events. The next runtime slice should
-add fork controls with the same proof pattern across SDK, CLI/TUI, and React
-Flow.
+steer, context compact, and thread fork, are implemented as canonical
+`turn.interrupted`, `turn.steered`, `context.compacted`, and `thread.forked`
+events. The next runtime slice should make these controls configurable from the
+React Flow workflow-authoring surface, starting with fork, and prove
+React Flow-originated requests preserve graph/node ids through daemon SSE, SDK
+events, and read-only workflow projection.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
 straightforward once live threads, events, and tool contracts are real. Keep

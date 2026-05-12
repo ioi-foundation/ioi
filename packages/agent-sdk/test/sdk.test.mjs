@@ -558,13 +558,24 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
   const interruptedTurnRecord = {
     ...turnRecord,
     status: "interrupted",
-    seq_end: 7,
+    seq_end: 8,
     completed_at: now,
     stop_reason: "operator_interrupt",
   };
+  const forkedThreadRecord = {
+    ...threadRecord,
+    thread_id: "thread_sdk_fork",
+    agent_id: "agent_sdk_fork",
+    session_id: "session_sdk_fork",
+    event_stream_id: "events_thread_sdk_fork",
+    latest_seq: 1,
+    agentgres_projection_ref: "agents/agent_sdk_fork.json",
+    source_thread_id: "thread_sdk",
+    forked_from_seq: 4,
+  };
   const compactedThreadRecord = {
     ...threadRecord,
-    latest_seq: 5,
+    latest_seq: 6,
   };
   const runtimeEvents = [
     runtimeEnvelope({
@@ -638,11 +649,36 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       response.end(JSON.stringify(turnRecord));
       return;
     }
+    if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/fork") {
+      const body = await readBody(request);
+      assert.equal(body.reason, "branch context");
+      assert.equal(body.source, "sdk_client");
+      runtimeEvents.push(runtimeEnvelope({
+        seq: 5,
+        eventKind: "thread.forked",
+        sourceEventKind: "OperatorControl.Fork",
+        turnId: "turn_sdk",
+        itemId: "item_thread_fork",
+        componentKind: "thread_fork",
+        workflowNodeId: "runtime.thread-fork",
+        payloadSchemaVersion: "ioi.runtime.thread-fork.v1",
+        payload: {
+          event_kind: "OperatorControl.Fork",
+          reason: "branch context",
+          source_thread_id: "thread_sdk",
+          fork_thread_id: "thread_sdk_fork",
+        },
+        status: "completed",
+        createdAt: now,
+      }));
+      response.end(JSON.stringify(forkedThreadRecord));
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/compact") {
       const body = await readBody(request);
       assert.equal(body.reason, "reduce stale context");
       runtimeEvents.push(runtimeEnvelope({
-        seq: 5,
+        seq: 6,
         eventKind: "context.compacted",
         sourceEventKind: "OperatorControl.Compact",
         itemId: "item_context_compact",
@@ -663,7 +699,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       const body = await readBody(request);
       assert.equal(body.reason, "operator validation");
       runtimeEvents.push(runtimeEnvelope({
-        seq: 7,
+        seq: 8,
         eventKind: "turn.interrupted",
         sourceEventKind: "OperatorControl.Interrupt",
         itemId: "item_operator_interrupt",
@@ -684,7 +720,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       const body = await readBody(request);
       assert.equal(body.guidance, "focus on the failing assertion");
       runtimeEvents.push(runtimeEnvelope({
-        seq: 6,
+        seq: 7,
         eventKind: "turn.steered",
         sourceEventKind: "OperatorControl.Steer",
         itemId: "item_operator_steer",
@@ -740,10 +776,21 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       "tool_completed",
       "turn_completed",
     ]);
+    const forked = await thread.fork({ reason: "branch context" });
+    assert.equal(forked.id, "thread_sdk_fork");
+    const forkedEvents = [];
+    for await (const item of thread.events({ sinceSeq: 4 })) forkedEvents.push(item);
+    assert.deepEqual(forkedEvents.map((item) => item.type), ["thread_forked"]);
+    assert.equal(forkedEvents[0].eventKind, "thread.forked");
+    assert.equal(forkedEvents[0].sourceEventKind, "OperatorControl.Fork");
+    assert.equal(forkedEvents[0].componentKind, "thread_fork");
+    assert.equal(forkedEvents[0].workflowNodeId, "runtime.thread-fork");
+    assert.equal(forkedEvents[0].payloadSchemaVersion, "ioi.runtime.thread-fork.v1");
+
     const compacted = await thread.compact({ reason: "reduce stale context" });
-    assert.equal(compacted.record.latest_seq, 5);
+    assert.equal(compacted.record.latest_seq, 6);
     const compactedEvents = [];
-    for await (const item of thread.events({ sinceSeq: 4 })) compactedEvents.push(item);
+    for await (const item of thread.events({ sinceSeq: 5 })) compactedEvents.push(item);
     assert.deepEqual(compactedEvents.map((item) => item.type), ["context_compacted"]);
     assert.equal(compactedEvents[0].eventKind, "context.compacted");
     assert.equal(compactedEvents[0].sourceEventKind, "OperatorControl.Compact");
@@ -754,7 +801,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     const steered = await turn.steer({ guidance: "focus on the failing assertion" });
     assert.equal(steered.status, "completed");
     const steeredEvents = [];
-    for await (const item of thread.events({ sinceSeq: 5 })) steeredEvents.push(item);
+    for await (const item of thread.events({ sinceSeq: 6 })) steeredEvents.push(item);
     assert.deepEqual(steeredEvents.map((item) => item.type), ["turn_steered"]);
     assert.equal(steeredEvents[0].eventKind, "turn.steered");
     assert.equal(steeredEvents[0].sourceEventKind, "OperatorControl.Steer");
@@ -765,7 +812,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     const interrupted = await turn.interrupt({ reason: "operator validation" });
     assert.equal(interrupted.status, "interrupted");
     const interruptedEvents = [];
-    for await (const item of thread.events({ sinceSeq: 6 })) interruptedEvents.push(item);
+    for await (const item of thread.events({ sinceSeq: 7 })) interruptedEvents.push(item);
     assert.deepEqual(interruptedEvents.map((item) => item.type), ["turn_interrupted"]);
     assert.equal(interruptedEvents[0].eventKind, "turn.interrupted");
     assert.equal(interruptedEvents[0].sourceEventKind, "OperatorControl.Interrupt");
@@ -774,6 +821,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     assert.equal(interruptedEvents[0].payloadSchemaVersion, "ioi.runtime.operator-control.v1");
     assert.ok(requests.includes("POST /v1/threads"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns"));
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/fork"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/compact"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns/turn_sdk/steer"));
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns/turn_sdk/interrupt"));
