@@ -167,6 +167,30 @@ test("workflow rail modules own extracted implementation", () => {
     /workflow-settings-harness-summary/,
     1_000,
   );
+  {
+    const settingsHarnessPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
+    );
+    for (const expectedInterface of [
+      "WorkflowSettingsHarnessActivationProps",
+      "WorkflowSettingsHarnessPackageRestoreProps",
+      "WorkflowSettingsHarnessRollbackProps",
+      "WorkflowSettingsHarnessWorkerBindingProps",
+      "WorkflowSettingsHarnessPromotionProps",
+      "WorkflowSettingsHarnessCallbacks",
+    ]) {
+      assert.match(
+        settingsHarnessPanel,
+        new RegExp(`export interface ${expectedInterface}`),
+        `settings harness panel should expose ${expectedInterface}`,
+      );
+    }
+    assert.doesNotMatch(
+      settingsHarnessPanel,
+      /\bany\b/,
+      "settings harness panel should keep its extracted prop boundary typed",
+    );
+  }
   assertOwnsImplementation(
     "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts",
     /workflowSettingsHarnessModel/,

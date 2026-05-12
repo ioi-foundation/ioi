@@ -1,4 +1,43 @@
 import type { ReactNode } from "react";
+import type {
+  WorkflowHarnessActivationAuditEvent,
+  WorkflowHarnessActivationCandidateGateResult,
+  WorkflowHarnessActivationRollbackExecution,
+  WorkflowHarnessActivationRollbackProof,
+  WorkflowHarnessActiveRuntimeRollbackApplyProof,
+  WorkflowHarnessActiveRuntimeRollbackExecutionProof,
+  WorkflowHarnessAuthorityToolingNodeAuthorityGate,
+  WorkflowHarnessCanaryExecutionBoundary,
+  WorkflowHarnessCognitionNodeAuthorityGate,
+  WorkflowHarnessComponentKind,
+  WorkflowHarnessDefaultRuntimeDispatchProof,
+  WorkflowHarnessForkActivationCandidate,
+  WorkflowHarnessForkActivationRecord,
+  WorkflowHarnessForkMutationCanary,
+  WorkflowHarnessLiveHandoffProof,
+  WorkflowHarnessLivePromotionReadinessProof,
+  WorkflowHarnessNodeAttemptRecord,
+  WorkflowHarnessPackageEvidenceLink,
+  WorkflowHarnessPackageEvidenceManifest,
+  WorkflowHarnessPromotionCluster,
+  WorkflowHarnessRoutingModelNodeAuthorityGate,
+  WorkflowHarnessRuntimeSelectorDecision,
+  WorkflowHarnessSlotSpec,
+  WorkflowHarnessVerificationOutputNodeAuthorityGate,
+  WorkflowHarnessWorkerAttachLifecycleEvent,
+  WorkflowHarnessWorkerAttachReceipt,
+  WorkflowHarnessWorkerBinding,
+  WorkflowHarnessWorkerBindingRegistryRecord,
+  WorkflowHarnessWorkerHandoffReceipt,
+  WorkflowHarnessWorkerLaunchEnvelope,
+  WorkflowHarnessWorkerSessionRecord,
+  WorkflowPackageImportActivationHandoff,
+  WorkflowPackageImportReview,
+  WorkflowProject,
+  WorkflowProposal,
+  WorkflowRevisionBinding,
+  WorkflowValidationIssue,
+} from "../../../types/graph";
 import { DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT } from "../../../runtime/harness-workflow";
 import type { WorkflowSettingsHarnessModel } from "../../../runtime/workflow-settings-harness-model";
 import {
@@ -10,152 +49,325 @@ import {
   workflowHarnessPackageDeepLinkTarget,
   workflowProofString,
 } from "./statusPrimitives";
+import type {
+  WorkflowHarnessActivationGateAction,
+  WorkflowHarnessActivationWizardStep,
+  WorkflowHarnessAuthorityGateProofView,
+  WorkflowHarnessWorkbenchDeepLinkTarget,
+} from "./types";
 
-export interface WorkflowSettingsHarnessPanelProps {
+type Nullable<T> = T | null | undefined;
+
+export interface WorkflowSettingsHarnessRollbackProofBinding {
+  bound: boolean;
+  blockers: string[];
+  readinessProofId: string;
+  liveShadowComparisonGateId: string;
+  liveShadowComparisonGateReady: boolean;
+  expectedLiveShadowComparisonGateId: string;
+  activationId: string;
+  harnessHash: string;
+  policyDecision: string;
+  launchEnvelope: WorkflowHarnessWorkerLaunchEnvelope | null;
+  handoffReceipt: WorkflowHarnessWorkerHandoffReceipt | null;
+  nodeAttempt: WorkflowHarnessNodeAttemptRecord | null;
+  replayFixtureRef: string;
+}
+
+export interface WorkflowSettingsHarnessActiveRuntimeBinding {
+  workflowId: string;
+  activationId: string;
+  harnessHash: string;
+  selectorDecisionId: string;
+  defaultDispatchId: string;
+  workerBindingId: string;
+  selectedSelector: string;
+  productionDefaultSelector: string;
+  executionMode: string;
+  runtimeAuthority: string;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  workerBinding: Nullable<WorkflowHarnessWorkerBinding>;
+  bindingMatched: boolean;
+  selectorDecisionLinksDispatch: boolean;
+  drivesRuntimeDecision: boolean;
+  selectorLivePromotionReadinessReady: boolean;
+  liveHandoffLivePromotionReadinessReady: boolean;
+  dispatchLivePromotionReadinessReady: boolean;
+  selectorLivePromotionReadinessProofId: string;
+  liveHandoffLivePromotionReadinessProofId: string;
+  dispatchLivePromotionReadinessProofId: string;
+  livePromotionReadinessProofIdsMatch: boolean;
+  invalidForkLiveActivationBlocked: boolean;
+  workerBindingAuthorityReady: boolean;
+  workerBindingAuthorityBlockers: string[];
+  workerLaunchReviewedImportInvariantBound: boolean;
+  workerRegistryReviewedPackageBound: boolean;
+  workerBindingRequiredInvariantIds: string[];
+  workerBindingInvariantBlockers: string[];
+  workerRegistryRequiredInvariantIds: string[];
+  workerRegistryInvariantBlockers: string[];
+  workerAttachRequiredInvariantIds: string[];
+  workerAttachInvariantBlockers: string[];
+  workerAttachLifecycleRequiredInvariantIds: string[];
+  workerAttachLifecycleInvariantBlockers: string[];
+  workerSessionRequiredInvariantIds: string[];
+  workerSessionInvariantBlockers: string[];
+  workerSessionLaunchAuthorityInvariantIds: string[];
+  workerSessionLaunchAuthorityInvariantBlockers: string[];
+  workerLaunchEnvelopeInvariantIds: string[];
+  workerLaunchEnvelopeInvariantBlockers: string[];
+  workerHandoffReceiptInvariantIds: string[];
+  workerHandoffReceiptInvariantBlockers: string[];
+  workerInvariantBlockers: string[];
+  workerBindingRegistryRecord: Nullable<WorkflowHarnessWorkerBindingRegistryRecord>;
+  workerBindingRegistryBound: boolean;
+  workerBindingRegistryStatus: string;
+  workerBindingRegistryBlockers: string[];
+  workerAttachReceipt: Nullable<WorkflowHarnessWorkerAttachReceipt>;
+  workerAttachResumeReceipt: Nullable<WorkflowHarnessWorkerAttachReceipt>;
+  workerAttachRollbackReceipt: Nullable<WorkflowHarnessWorkerAttachReceipt>;
+  workerAttachLifecycle: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerAttachLifecycleComplete: boolean;
+  workerAttachLifecycleStatuses: string[];
+  workerAttachLifecycleAttemptIds: string[];
+  workerSessionRecord: Nullable<WorkflowHarnessWorkerSessionRecord>;
+  workerSessionAccepted: boolean;
+  workerSessionStatus: string;
+  workerSessionRecordId: string;
+  workerSessionBlockers: string[];
+  workerLaunchEnvelopes: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts: WorkflowHarnessWorkerHandoffReceipt[];
+  workerLaunchEnvelopeIds: string[];
+  workerHandoffReceiptIds: string[];
+  workerHandoffNodeAttempts: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffNodeAttemptIds: string[];
+  workerHandoffReplayFixtureRefs: string[];
+  workerHandoffNodeTimelineBound: boolean;
+  workerRollbackProof: WorkflowSettingsHarnessRollbackProofBinding;
+  workerLaunchEnvelopesAccepted: boolean;
+  workerHandoffReceiptsAccepted: boolean;
+  workerAttachAccepted: boolean;
+  workerAttachStatus: string;
+  workerAttachBlockers: string[];
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  blockers: string[];
+}
+
+export interface WorkflowSettingsHarnessPackageEvidenceReviewRow {
+  id: string;
+  label: string;
+  ready: boolean;
+  value: string;
+  detail: string;
+  refs: string[];
+  kind: string;
+}
+
+export interface WorkflowSettingsHarnessActivationGateInspection
+  extends WorkflowHarnessActivationCandidateGateResult {
+  sourceKind: "activation_candidate" | "wizard_step";
+  nodeAttemptIds: string[];
+  receiptRefs: string[];
+  replayFixtureRefs: string[];
+  requiredInvariantIds: string[];
+  invariantBlockers: string[];
+  gateAction: WorkflowHarnessActivationGateAction | null;
+}
+
+export interface WorkflowSettingsHarnessReadOnlyRoutingProof {
+  mode?: string;
+  scenario?: string;
+  sideEffectsExecuted?: boolean;
+  mutationExecuted?: boolean;
+  rollbackAvailable?: boolean;
+  requiredScenarioSet?: string[];
+}
+
+export interface WorkflowSettingsHarnessForkComponentDiffRow {
+  componentId: string;
+  nodeId: string | null;
+  label: string;
+  kind: string;
+  blessedVersion: string;
+  forkVersion: string;
+  blessedReadiness: string;
+  forkReadiness: string;
+  status: string;
+}
+
+export interface WorkflowSettingsHarnessActivationProps {
+  activationGateProposal: WorkflowProposal | undefined;
+  blessedHarnessWorkflow: boolean;
+  boundHarnessSlotIds: Set<string>;
+  firstHarnessActivationBlocker: WorkflowValidationIssue | null;
+  harnessActivationAudit: WorkflowHarnessActivationAuditEvent[];
+  harnessActivationAuditReceiptRefs: string[];
+  harnessActivationBlockers: WorkflowValidationIssue[];
+  harnessActivationCandidate: Nullable<WorkflowHarnessForkActivationCandidate>;
+  harnessActivationGateActions: Record<string, WorkflowHarnessActivationGateAction>;
+  harnessActivationGateNodeAttempts: WorkflowHarnessNodeAttemptRecord[];
+  harnessActivationReady: boolean;
+  harnessActivationRecord: Nullable<WorkflowHarnessForkActivationRecord>;
+  harnessActivationRollbackExecution: Nullable<WorkflowHarnessActivationRollbackExecution>;
+  harnessActivationRollbackProof: Nullable<WorkflowHarnessActivationRollbackProof>;
+  harnessActivationWizardSteps: WorkflowHarnessActivationWizardStep[];
+  harnessActivationWorkerHandoffNodeAttemptIds: string[];
+  harnessActivationWorkerHandoffNodeAttempts: WorkflowHarnessNodeAttemptRecord[];
+  harnessActivationWorkerHandoffReplayFixtureRefs: string[];
+  harnessActivationWorkerHandoffTimelineReady: boolean;
+  harnessActivationWorkerInvariantBlockers: string[];
+  harnessActivationWorkerInvariantReady: boolean;
+  harnessActivationWorkerRequiredInvariantIds: string[];
+  latestHarnessActivationAudit: Nullable<WorkflowHarnessActivationAuditEvent>;
+  latestHarnessActivationAuditReceiptRefs: string[];
+  packageImportActivationEnabled: boolean;
+  packageImportActivationHandoff: Nullable<WorkflowPackageImportActivationHandoff>;
+  packageImportHandoffWorkerBindingId: string;
+  packageImportReplayIntegrityBlockers: string[];
+  packageImportReview: WorkflowPackageImportReview | null;
+  selectedHarnessActivationAuditEventId: string | null | undefined;
+  selectedHarnessActivationBlockerIndex: string | null | undefined;
+  selectedHarnessActivationBlockerRef: string | null | undefined;
+  selectedHarnessActivationGateEvidenceRef: string | null | undefined;
+  selectedHarnessActivationGateId: string | null | undefined;
+  selectedHarnessActivationGateInspection: WorkflowSettingsHarnessActivationGateInspection | null;
+  selectedHarnessActivationGateMutationCanary: WorkflowHarnessForkMutationCanary | null;
+  selectedHarnessActivationGateNodeAttempt: WorkflowHarnessNodeAttemptRecord | null;
+  selectedHarnessActivationGateNodeAttemptId: string | null | undefined;
+  selectedHarnessActivationGateReceiptRef: string | null | undefined;
+  selectedHarnessActivationGateReplayFixtureRef: string | null | undefined;
+}
+
+export interface WorkflowSettingsHarnessPackageRestoreProps {
+  harnessPackageDeepLinks: WorkflowHarnessPackageEvidenceLink[];
+  harnessPackageEvidenceBlockerCount: number;
+  harnessPackageEvidenceReady: boolean;
+  harnessPackageEvidenceRefValues: string[];
+  harnessPackageEvidenceReviewRows: WorkflowSettingsHarnessPackageEvidenceReviewRow[];
+  harnessPackageForkMutationCanary: Nullable<WorkflowHarnessForkMutationCanary>;
+  harnessPackageForkMutationCanaryNodeAttemptIds: string[];
+  harnessPackageForkMutationCanaryReceiptRefs: string[];
+  harnessPackageForkMutationCanaryReplayFixtureRefs: string[];
+  harnessPackageManifest: WorkflowHarnessPackageEvidenceManifest | null;
+  harnessPackageReceiptRefValues: string[];
+  harnessPackageReplayFixtureRefValues: string[];
+  harnessPackageRollbackRestoreReceiptRefs: string[];
+  harnessPackageWorkerHandoffNodeAttemptIds: string[];
+  harnessPackageWorkerHandoffReceiptIds: string[];
+}
+
+export interface WorkflowSettingsHarnessRollbackProps {
+  harnessActiveRuntimeBinding: WorkflowSettingsHarnessActiveRuntimeBinding | null;
+  harnessActiveRuntimeRollbackApplyBlockers: string[];
+  harnessActiveRuntimeRollbackApplyDisabled: boolean;
+  harnessActiveRuntimeRollbackApplyProof: Nullable<WorkflowHarnessActiveRuntimeRollbackApplyProof>;
+  harnessActiveRuntimeRollbackDryRunPassed: boolean;
+  harnessActiveRuntimeRollbackExecutionProof: Nullable<WorkflowHarnessActiveRuntimeRollbackExecutionProof>;
+  harnessActiveRuntimeRollbackProofBindingBlockers: string[];
+  harnessActiveRuntimeRollbackProofStillBound: boolean;
+  harnessBindingRollbackAvailable: boolean;
+  harnessBindingRollbackHash: string;
+  harnessBindingRollbackTargets: string[];
+  harnessCanaryExecutionBoundaries: WorkflowHarnessCanaryExecutionBoundary[];
+  harnessRollbackDrillReceiptRefs: string[];
+  harnessRollbackExecutionReceiptRefs: string[];
+  harnessRollbackRevisionBinding: Nullable<WorkflowRevisionBinding>;
+  harnessRollbackRevisionBindingRef: string | null;
+  harnessSelectedRollbackTarget: string;
+  rollbackReady: boolean;
+  selectedHarnessCanaryBoundary: WorkflowHarnessCanaryExecutionBoundary | null;
+  selectedHarnessRollbackDrillId: string | null | undefined;
+  selectedHarnessRollbackRestoreCanaryId: string | null | undefined;
+  selectedHarnessRollbackRestoreReceiptRef: string | null | undefined;
+  selectedHarnessRollbackTarget: string | null | undefined;
+}
+
+export interface WorkflowSettingsHarnessWorkerBindingProps {
+  harnessBindingInspectorStatus: string;
+  harnessBindingVersionEntries: Array<[string, string]>;
+  harnessCandidateRevisionBinding: Nullable<WorkflowRevisionBinding>;
+  harnessCandidateRevisionBindingRef: string | null;
+  harnessCandidateWorkerBinding: Nullable<WorkflowHarnessWorkerBinding>;
+  harnessCurrentWorkerBinding: Nullable<WorkflowHarnessWorkerBinding>;
+  harnessDefaultRuntimeDispatchProof: Nullable<WorkflowHarnessDefaultRuntimeDispatchProof>;
+  harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantBlockers: string[];
+  harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantIds: string[];
+  harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantBlockers: string[];
+  harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantIds: string[];
+  harnessDefaultRuntimeDispatchWorkerLaunchReviewedImportInvariantBound: boolean;
+  harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantBlockers: string[];
+  harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantIds: string[];
+  harnessRevisionBinding: Nullable<WorkflowRevisionBinding>;
+  harnessRevisionBindingRef: string | null;
+  harnessWorkerBinding: Nullable<WorkflowHarnessWorkerBinding>;
+  selectedHarnessDefaultDispatchId: string | null | undefined;
+  selectedHarnessNodeAttemptId: string | null | undefined;
+  selectedHarnessReceiptRef: string | null | undefined;
+  selectedHarnessReplayFixtureRef: string | null | undefined;
+  selectedHarnessRevisionBindingKind: string | null | undefined;
+  selectedHarnessRevisionBindingRef: string | null | undefined;
+  selectedHarnessSelectorDecisionId: string | null | undefined;
+  selectedHarnessWorkerBindingId: string | null | undefined;
+}
+
+export interface WorkflowSettingsHarnessPromotionProps {
+  harnessAuthorityGateLiveProofs: WorkflowHarnessAuthorityGateProofView[];
+  harnessAuthorityGateLiveReady: boolean;
+  harnessAuthorityGateReadyCount: number;
+  harnessAuthorityToolingNodeAuthorityGate: Nullable<WorkflowHarnessAuthorityToolingNodeAuthorityGate>;
+  harnessAuthorityToolingProof: Nullable<Record<string, unknown>>;
+  harnessCognitionNodeAuthorityGate: Nullable<WorkflowHarnessCognitionNodeAuthorityGate>;
+  harnessForkComponentDiffRows: WorkflowSettingsHarnessForkComponentDiffRow[];
+  harnessForkComponentDiffStats: Record<string, number>;
+  harnessForkMutationCanary: Nullable<WorkflowHarnessForkMutationCanary>;
+  harnessForkMutationCanaryNodeAttemptIds: string[];
+  harnessForkWorkflow: boolean;
+  harnessLiveHandoffProof: Nullable<WorkflowHarnessLiveHandoffProof>;
+  harnessPromotionClusters: WorkflowHarnessPromotionCluster[];
+  harnessReadOnlyRoutingNodeKinds: WorkflowHarnessComponentKind[];
+  harnessReadOnlyRoutingProof: WorkflowSettingsHarnessReadOnlyRoutingProof | null;
+  harnessReadOnlyRoutingReady: boolean;
+  harnessReadOnlyRoutingRequiredScenarios: string[];
+  harnessRoutingModelNodeAuthorityGate: Nullable<WorkflowHarnessRoutingModelNodeAuthorityGate>;
+  harnessRuntimeSelectorDecision: Nullable<WorkflowHarnessRuntimeSelectorDecision>;
+  harnessSelectorLivePromotionReadinessBlockers: string[];
+  harnessSelectorLivePromotionReadinessProof: Nullable<WorkflowHarnessLivePromotionReadinessProof>;
+  harnessSelectorLivePromotionReadinessReady: boolean;
+  harnessSlots: WorkflowHarnessSlotSpec[];
+  harnessVerificationOutputNodeAuthorityGate: Nullable<WorkflowHarnessVerificationOutputNodeAuthorityGate>;
+}
+
+export interface WorkflowSettingsHarnessCallbacks {
+  onApplyActiveRuntimeRollback?: () => void;
+  onApplyHarnessActivationCandidate?: () => void;
+  onCheckActivationReadiness?: () => void;
+  onCopyHarnessDeepLink?: (
+    target?: WorkflowHarnessWorkbenchDeepLinkTarget,
+  ) => void;
+  onExecuteHarnessRollback?: () => void;
+  onInspectNode: (nodeId: string) => void;
+  onResolveIssue: (issue: WorkflowValidationIssue) => void;
+  onRunActiveRuntimeRollbackDryRun?: () => void;
+  onRunHarnessActivationDryRun?: () => void;
+  onRunHarnessRollbackDrill?: () => void;
+  onSelectHarnessReceiptRef?: (receiptRef: string) => void;
+  onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
+  onSelectHarnessRollbackTarget?: (rollbackTarget: string) => void;
+  onSelectProposal: (proposal: WorkflowProposal) => void;
+}
+
+export interface WorkflowSettingsHarnessPanelProps
+  extends WorkflowSettingsHarnessActivationProps,
+    WorkflowSettingsHarnessPackageRestoreProps,
+    WorkflowSettingsHarnessRollbackProps,
+    WorkflowSettingsHarnessWorkerBindingProps,
+    WorkflowSettingsHarnessPromotionProps,
+    WorkflowSettingsHarnessCallbacks {
   model: WorkflowSettingsHarnessModel;
-  activationGateProposal: any;
-  blessedHarnessWorkflow: any;
-  boundHarnessSlotIds: any;
-  firstHarnessActivationBlocker: any;
-  harnessActivationAudit: any;
-  harnessActivationAuditReceiptRefs: any;
-  harnessActivationBlockers: any;
-  harnessActivationCandidate: any;
-  harnessActivationGateActions: any;
-  harnessActivationGateNodeAttempts: any;
-  harnessActivationReady: any;
-  harnessActivationRecord: any;
-  harnessActivationRollbackExecution: any;
-  harnessActivationRollbackProof: any;
-  harnessActivationWizardSteps: any;
-  harnessActivationWorkerHandoffNodeAttemptIds: any;
-  harnessActivationWorkerHandoffNodeAttempts: any;
-  harnessActivationWorkerHandoffReplayFixtureRefs: any;
-  harnessActivationWorkerHandoffTimelineReady: any;
-  harnessActivationWorkerInvariantBlockers: any;
-  harnessActivationWorkerInvariantReady: any;
-  harnessActivationWorkerRequiredInvariantIds: any;
-  harnessActiveRuntimeBinding: any;
-  harnessActiveRuntimeRollbackApplyBlockers: any;
-  harnessActiveRuntimeRollbackApplyDisabled: any;
-  harnessActiveRuntimeRollbackApplyProof: any;
-  harnessActiveRuntimeRollbackDryRunPassed: any;
-  harnessActiveRuntimeRollbackExecutionProof: any;
-  harnessActiveRuntimeRollbackProofBindingBlockers: any;
-  harnessActiveRuntimeRollbackProofStillBound: any;
-  harnessAuthorityGateLiveProofs: any;
-  harnessAuthorityGateLiveReady: any;
-  harnessAuthorityGateReadyCount: any;
-  harnessAuthorityToolingNodeAuthorityGate: any;
-  harnessAuthorityToolingProof: any;
-  harnessBindingInspectorStatus: any;
-  harnessBindingRollbackAvailable: any;
-  harnessBindingRollbackHash: any;
-  harnessBindingRollbackTargets: any;
-  harnessBindingVersionEntries: any;
-  harnessCanaryExecutionBoundaries: any;
-  harnessCandidateRevisionBinding: any;
-  harnessCandidateRevisionBindingRef: any;
-  harnessCandidateWorkerBinding: any;
-  harnessCognitionNodeAuthorityGate: any;
-  harnessCurrentWorkerBinding: any;
-  harnessDefaultRuntimeDispatchProof: any;
-  harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantBlockers: any;
-  harnessDefaultRuntimeDispatchWorkerHandoffReceiptInvariantIds: any;
-  harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantBlockers: any;
-  harnessDefaultRuntimeDispatchWorkerLaunchEnvelopeInvariantIds: any;
-  harnessDefaultRuntimeDispatchWorkerLaunchReviewedImportInvariantBound: any;
-  harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantBlockers: any;
-  harnessDefaultRuntimeDispatchWorkerSessionLaunchAuthorityInvariantIds: any;
-  harnessForkComponentDiffRows: any;
-  harnessForkComponentDiffStats: any;
-  harnessForkMutationCanary: any;
-  harnessForkMutationCanaryNodeAttemptIds: any;
-  harnessForkWorkflow: any;
-  harnessLiveHandoffProof: any;
-  harnessPackageDeepLinks: any;
-  harnessPackageEvidenceBlockerCount: any;
-  harnessPackageEvidenceReady: any;
-  harnessPackageEvidenceRefValues: any;
-  harnessPackageEvidenceReviewRows: any;
-  harnessPackageForkMutationCanary: any;
-  harnessPackageForkMutationCanaryNodeAttemptIds: any;
-  harnessPackageForkMutationCanaryReceiptRefs: any;
-  harnessPackageForkMutationCanaryReplayFixtureRefs: any;
-  harnessPackageManifest: any;
-  harnessPackageReceiptRefValues: any;
-  harnessPackageReplayFixtureRefValues: any;
-  harnessPackageRollbackRestoreReceiptRefs: any;
-  harnessPackageWorkerHandoffNodeAttemptIds: any;
-  harnessPackageWorkerHandoffReceiptIds: any;
-  harnessPromotionClusters: any;
-  harnessReadOnlyRoutingNodeKinds: any;
-  harnessReadOnlyRoutingProof: any;
-  harnessReadOnlyRoutingReady: any;
-  harnessReadOnlyRoutingRequiredScenarios: any;
-  harnessRevisionBinding: any;
-  harnessRevisionBindingRef: any;
-  harnessRollbackDrillReceiptRefs: any;
-  harnessRollbackExecutionReceiptRefs: any;
-  harnessRollbackRevisionBinding: any;
-  harnessRollbackRevisionBindingRef: any;
-  harnessRoutingModelNodeAuthorityGate: any;
-  harnessRuntimeSelectorDecision: any;
-  harnessSelectedRollbackTarget: any;
-  harnessSelectorLivePromotionReadinessBlockers: any;
-  harnessSelectorLivePromotionReadinessProof: any;
-  harnessSelectorLivePromotionReadinessReady: any;
-  harnessSlots: any;
-  harnessVerificationOutputNodeAuthorityGate: any;
-  harnessWorkerBinding: any;
-  harnessWorkflow: any;
-  latestHarnessActivationAudit: any;
-  latestHarnessActivationAuditReceiptRefs: any;
-  onApplyActiveRuntimeRollback: any;
-  onApplyHarnessActivationCandidate: any;
-  onCheckActivationReadiness: any;
-  onCopyHarnessDeepLink: any;
-  onExecuteHarnessRollback: any;
-  onInspectNode: any;
-  onResolveIssue: any;
-  onRunActiveRuntimeRollbackDryRun: any;
-  onRunHarnessActivationDryRun: any;
-  onRunHarnessRollbackDrill: any;
-  onSelectHarnessReceiptRef: any;
-  onSelectHarnessReplayFixtureRef: any;
-  onSelectHarnessRollbackTarget: any;
-  onSelectProposal: any;
-  packageImportActivationEnabled: any;
-  packageImportActivationHandoff: any;
-  packageImportHandoffWorkerBindingId: any;
-  packageImportReplayIntegrityBlockers: any;
-  packageImportReview: any;
-  rollbackReady: any;
-  selectedHarnessActivationAuditEventId: any;
-  selectedHarnessActivationBlockerIndex: any;
-  selectedHarnessActivationBlockerRef: any;
-  selectedHarnessActivationGateEvidenceRef: any;
-  selectedHarnessActivationGateId: any;
-  selectedHarnessActivationGateInspection: any;
-  selectedHarnessActivationGateMutationCanary: any;
-  selectedHarnessActivationGateNodeAttempt: any;
-  selectedHarnessActivationGateNodeAttemptId: any;
-  selectedHarnessActivationGateReceiptRef: any;
-  selectedHarnessActivationGateReplayFixtureRef: any;
-  selectedHarnessCanaryBoundary: any;
-  selectedHarnessDefaultDispatchId: any;
-  selectedHarnessNodeAttemptId: any;
-  selectedHarnessReceiptRef: any;
-  selectedHarnessReplayFixtureRef: any;
-  selectedHarnessRevisionBindingKind: any;
-  selectedHarnessRevisionBindingRef: any;
-  selectedHarnessRollbackDrillId: any;
-  selectedHarnessRollbackRestoreCanaryId: any;
-  selectedHarnessRollbackRestoreReceiptRef: any;
-  selectedHarnessRollbackTarget: any;
-  selectedHarnessSelectorDecisionId: any;
-  selectedHarnessWorkerBindingId: any;
-  workflow: any;
+  harnessWorkflow: boolean;
+  workflow: WorkflowProject;
 }
 
 export function WorkflowSettingsHarnessPanel({
@@ -305,7 +517,7 @@ export function WorkflowSettingsHarnessPanel({
   workflow,
 }: WorkflowSettingsHarnessPanelProps) {
   const renderHarnessActivationGateAction = (
-    action: any,
+    action: WorkflowHarnessActivationGateAction | null | undefined,
     testId: string,
   ): ReactNode =>
     action ? (
@@ -328,7 +540,7 @@ export function WorkflowSettingsHarnessPanel({
     ) : null;
 
   const renderHarnessAuthorityGateProofRows = (
-    gates: any[],
+    gates: WorkflowHarnessAuthorityGateProofView[],
     options: {
       listTestId: string;
       gateTestIdPrefix: string;
@@ -338,7 +550,7 @@ export function WorkflowSettingsHarnessPanel({
       className="workflow-rail-list workflow-harness-authority-gate-list"
       data-testid={options.listTestId}
     >
-      {gates.map((gate: any) => {
+      {gates.map((gate) => {
         const receiptRef = gate.receiptIds[0] ?? null;
         const replayFixtureRef = gate.replayFixtureRefs[0] ?? null;
         return (
@@ -461,7 +673,7 @@ export function WorkflowSettingsHarnessPanel({
                 <dt>Slots</dt>
                 <dd>
                   {
-                    harnessSlots.filter((slot: any) =>
+                    harnessSlots.filter((slot) =>
                       boundHarnessSlotIds.has(slot.slotId),
                     ).length
                   }
@@ -1018,7 +1230,7 @@ export function WorkflowSettingsHarnessPanel({
                   }
                   data-worker-rollback-handoff-receipt-status={
                     harnessActiveRuntimeBinding.workerHandoffReceipts.find(
-                      (receipt: any) => receipt.phase === "rollback",
+                      (receipt) => receipt.phase === "rollback",
                     )?.handoffStatus ?? ""
                   }
                 >
@@ -1627,7 +1839,7 @@ export function WorkflowSettingsHarnessPanel({
                   ) : null}
                   {harnessActiveRuntimeBinding.receiptRefs
                     .slice(0, 4)
-                    .map((receiptRef: any, index: number) => (
+                    .map((receiptRef, index: number) => (
                       <button
                         key={receiptRef}
                         type="button"
@@ -1652,7 +1864,7 @@ export function WorkflowSettingsHarnessPanel({
                     ))}
                   {harnessActiveRuntimeBinding.replayFixtureRefs
                     .slice(0, 4)
-                    .map((replayFixtureRef: any, index: number) => (
+                    .map((replayFixtureRef, index: number) => (
                       <button
                         key={replayFixtureRef}
                         type="button"
@@ -1684,7 +1896,7 @@ export function WorkflowSettingsHarnessPanel({
                       "|",
                     )}
                   >
-                    {harnessActiveRuntimeBinding.blockers.map((blocker: any) => (
+                    {harnessActiveRuntimeBinding.blockers.map((blocker) => (
                       <article
                         key={blocker}
                         className="workflow-test-row is-blocked"
@@ -1835,7 +2047,7 @@ export function WorkflowSettingsHarnessPanel({
                 className="workflow-harness-authority-gate-actions"
                 data-testid="workflow-harness-worker-binding-rollback-targets"
               >
-                {harnessBindingRollbackTargets.map((rollbackTarget: any, index: number) => (
+                {harnessBindingRollbackTargets.map((rollbackTarget, index: number) => (
                   <button
                     key={rollbackTarget}
                     type="button"
@@ -1860,7 +2072,7 @@ export function WorkflowSettingsHarnessPanel({
               >
                 {harnessBindingVersionEntries
                   .slice(0, 8)
-                  .map(([componentId, version]: any) => (
+                  .map(([componentId, version]) => (
                     <article
                       key={componentId}
                       className="workflow-test-row"
@@ -2114,7 +2326,7 @@ export function WorkflowSettingsHarnessPanel({
                     data-testid="workflow-harness-rollback-drill-receipt-refs"
                   >
                     {harnessRollbackDrillReceiptRefs.map(
-                      (receiptRef: any, index: number) => (
+                      (receiptRef, index: number) => (
                         <button
                           key={receiptRef}
                           type="button"
@@ -2190,7 +2402,7 @@ export function WorkflowSettingsHarnessPanel({
                     data-testid="workflow-harness-rollback-execution-receipt-refs"
                   >
                     {harnessRollbackExecutionReceiptRefs.map(
-                      (receiptRef: any, index: number) => (
+                      (receiptRef, index: number) => (
                         <button
                           key={receiptRef}
                           type="button"
@@ -2301,7 +2513,7 @@ export function WorkflowSettingsHarnessPanel({
                     data-testid="workflow-harness-git-restore-blockers"
                   >
                     {harnessActivationRollbackExecution.restoreBlockers.map(
-                      (blocker: any, index: number) => (
+                      (blocker, index: number) => (
                         <article
                           key={`${blocker}-${index}`}
                           className="workflow-test-row is-blocked"
@@ -2353,7 +2565,7 @@ export function WorkflowSettingsHarnessPanel({
                     data-testid="workflow-harness-activation-audit-summary-receipts"
                   >
                     {latestHarnessActivationAuditReceiptRefs.map(
-                      (receiptRef: any, index: number) => (
+                      (receiptRef, index: number) => (
                         <button
                           key={receiptRef}
                           type="button"
@@ -2378,7 +2590,7 @@ export function WorkflowSettingsHarnessPanel({
                   className="workflow-rail-list"
                   data-testid="workflow-harness-activation-audit-list"
                 >
-                  {harnessActivationAudit.slice(-6).map((event: any) => {
+                  {harnessActivationAudit.slice(-6).map((event) => {
                     const eventReceiptRefs = workflowUniqueReceiptRefs(
                       event.receiptRefs ?? [],
                     );
@@ -2433,7 +2645,7 @@ export function WorkflowSettingsHarnessPanel({
                                 <code>{event.eventId}</code>
                               </button>
                             ) : null}
-                            {eventReceiptRefs.map((receiptRef: any, index: number) => (
+                            {eventReceiptRefs.map((receiptRef, index: number) => (
                               <button
                                 key={receiptRef}
                                 type="button"
@@ -2740,7 +2952,7 @@ export function WorkflowSettingsHarnessPanel({
                         selectedHarnessActivationGateId ?? ""
                       }
                     >
-                      {harnessActivationCandidate.gateResults.map((gate: any) => {
+                      {harnessActivationCandidate.gateResults.map((gate) => {
                         const gateAction =
                           harnessActivationGateActions[gate.gateId] ?? null;
                         return (
@@ -2802,7 +3014,7 @@ export function WorkflowSettingsHarnessPanel({
                       >
                         {harnessActivationCandidate.activationBlockers
                           .slice(0, 5)
-                          .map((blocker: any) => (
+                          .map((blocker) => (
                             <article
                               key={blocker}
                               className="workflow-test-row is-blocked"
@@ -2836,7 +3048,7 @@ export function WorkflowSettingsHarnessPanel({
                     selectedHarnessActivationGateId ?? ""
                   }
                 >
-                  {harnessActivationWizardSteps.map((step: any) => (
+                  {harnessActivationWizardSteps.map((step) => (
                     <article
                       key={step.id}
                       className={`workflow-test-row is-${step.ready ? "passed" : "blocked"} ${
@@ -3570,7 +3782,7 @@ export function WorkflowSettingsHarnessPanel({
                           </article>
                         ) : null}
                         <h4>Package evidence</h4>
-                        {harnessPackageEvidenceReviewRows.map((row: any) => {
+                        {harnessPackageEvidenceReviewRows.map((row) => {
                           const rowRefs = workflowUniqueReceiptRefs(row.refs);
                           return (
                             <article
@@ -3600,7 +3812,7 @@ export function WorkflowSettingsHarnessPanel({
                                   const packageLink =
                                     row.kind === "package_deep_link"
                                       ? (harnessPackageDeepLinks.find(
-                                          (link: any) => link?.ref === ref,
+                                          (link) => link?.ref === ref,
                                         ) ?? null)
                                       : null;
                                   return (
@@ -3737,7 +3949,7 @@ export function WorkflowSettingsHarnessPanel({
                     >
                       {selectedHarnessActivationGateInspection.evidenceRefs
                         .slice(0, 8)
-                        .map((evidenceRef: any, index: number) => (
+                        .map((evidenceRef, index: number) => (
                           <button
                             type="button"
                             key={`${evidenceRef}-${index}`}
@@ -3782,7 +3994,7 @@ export function WorkflowSettingsHarnessPanel({
                         )}
                       >
                         {selectedHarnessActivationGateInspection.nodeAttemptIds.map(
-                          (nodeAttemptId: any, index: number) => (
+                          (nodeAttemptId, index: number) => (
                             <button
                               type="button"
                               key={`${nodeAttemptId}-${index}`}
@@ -3826,12 +4038,12 @@ export function WorkflowSettingsHarnessPanel({
                         )}
                       >
 	                        {harnessActivationGateNodeAttempts
-	                          .filter((attempt: any) =>
+	                          .filter((attempt) =>
 	                            selectedHarnessActivationGateInspection.nodeAttemptIds.includes(
 	                              attempt.attemptId,
 	                            ),
 	                          )
-	                          .map((attempt: any) => {
+	                          .map((attempt) => {
 	                            const attemptMutationCanary =
 	                              harnessForkMutationCanaryNodeAttemptIds.includes(
 	                                attempt.attemptId,
@@ -3897,7 +4109,7 @@ export function WorkflowSettingsHarnessPanel({
                         )}
                       >
                         {selectedHarnessActivationGateInspection.receiptRefs.map(
-                          (receiptRef: any, index: number) => (
+                          (receiptRef, index: number) => (
                             <button
                               type="button"
                               key={`${receiptRef}-${index}`}
@@ -3941,7 +4153,7 @@ export function WorkflowSettingsHarnessPanel({
                         )}
                       >
                         {selectedHarnessActivationGateInspection.replayFixtureRefs.map(
-                          (replayFixtureRef: any, index: number) => (
+                          (replayFixtureRef, index: number) => (
                             <button
                               type="button"
                               key={`${replayFixtureRef}-${index}`}
@@ -3990,7 +4202,7 @@ export function WorkflowSettingsHarnessPanel({
                   >
                     {harnessActivationBlockers
                       .slice(0, 5)
-                      .map((issue: any, index: number) => (
+                      .map((issue, index: number) => (
                         <button
                           key={`${issue.code}-${issue.nodeId ?? "workflow"}-${index}`}
                           type="button"
@@ -4380,7 +4592,7 @@ export function WorkflowSettingsHarnessPanel({
                 )}
                 data-worker-rollback-handoff-receipt-status={
                   harnessDefaultRuntimeDispatchProof.workerHandoffReceipts?.find(
-                    (receipt: any) => receipt.phase === "rollback",
+                    (receipt) => receipt.phase === "rollback",
                   )?.handoffStatus ?? ""
                 }
               >
@@ -4660,9 +4872,9 @@ export function WorkflowSettingsHarnessPanel({
                   className="workflow-rail-list"
                   data-testid="workflow-harness-read-only-routing-node-kinds"
                 >
-                  {harnessReadOnlyRoutingNodeKinds.map((kind: any) => {
+                  {harnessReadOnlyRoutingNodeKinds.map((kind) => {
                     const nodeItem = workflow.nodes.find(
-                      (candidate: any) =>
+                      (candidate) =>
                         candidate.runtimeBinding?.componentKind === kind,
                     );
                     return (
@@ -4734,7 +4946,7 @@ export function WorkflowSettingsHarnessPanel({
                     className="workflow-rail-list"
                     data-testid="workflow-harness-read-only-routing-scenarios"
                   >
-                    {harnessReadOnlyRoutingRequiredScenarios.map((scenario: any) => (
+                    {harnessReadOnlyRoutingRequiredScenarios.map((scenario) => (
                       <article
                         key={scenario}
                         className={`workflow-test-row is-${
@@ -4780,11 +4992,11 @@ export function WorkflowSettingsHarnessPanel({
                 }
                 data-rollback-drill-count={
                   harnessCanaryExecutionBoundaries.filter(
-                    (boundary: any) => boundary.rollbackDrill.drillStatus,
+                    (boundary) => boundary.rollbackDrill.drillStatus,
                   ).length
                 }
               >
-                {harnessCanaryExecutionBoundaries.map((boundary: any) => (
+                {harnessCanaryExecutionBoundaries.map((boundary) => (
                   <article
                     key={boundary.boundaryId}
                     className={`workflow-output-row ${
@@ -4909,7 +5121,7 @@ export function WorkflowSettingsHarnessPanel({
                   className="workflow-rail-list"
                   data-testid="workflow-harness-fork-component-diff-list"
                 >
-                  {harnessForkComponentDiffRows.map((row: any) => (
+                  {harnessForkComponentDiffRows.map((row) => (
                     <button
                       key={row.componentId}
                       type="button"
@@ -4938,7 +5150,7 @@ export function WorkflowSettingsHarnessPanel({
               className="workflow-rail-list"
               data-testid="workflow-harness-slots"
             >
-              {harnessSlots.map((slot: any) => {
+              {harnessSlots.map((slot) => {
                 const ready = boundHarnessSlotIds.has(slot.slotId);
                 return (
                   <article
@@ -4958,7 +5170,7 @@ export function WorkflowSettingsHarnessPanel({
               className="workflow-rail-list"
               data-testid="workflow-harness-promotion-clusters"
             >
-              {harnessPromotionClusters.map((cluster: any) => {
+              {harnessPromotionClusters.map((cluster) => {
                 const replayGateProof = cluster.replayGateProof;
                 const replayGateStatus =
                   replayGateProof?.gateStatus ?? "not_run";
@@ -5026,7 +5238,7 @@ export function WorkflowSettingsHarnessPanel({
                   <div className="workflow-harness-authority-gate-actions">
                     {(harnessActivationRecord?.activationBlockers ?? [])
                       .slice(0, 5)
-                      .map((blocker: any, index: number) => (
+                      .map((blocker, index: number) => (
                         <button
                           key={`${blocker}-${index}`}
                           type="button"

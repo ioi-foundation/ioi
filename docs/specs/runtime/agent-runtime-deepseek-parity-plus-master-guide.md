@@ -4477,6 +4477,53 @@ Validation evidence:
     and
     `packages/agent-ide/src/runtime/workflow-settings-harness-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow settings harness typed
+boundary:
+
+- Replaced the mechanical `any` prop surface in
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx`
+  with exported concern interfaces for activation, package/restore, rollback,
+  worker binding, promotion, and callbacks.
+- Added typed derived UI shapes for active runtime binding, rollback proof
+  binding, package evidence review rows, activation gate inspection,
+  read-only-routing proof projection, and fork component diff rows. Existing
+  graph-domain values now use the canonical `WorkflowHarness*`,
+  `WorkflowPackageImport*`, `WorkflowProject`, `WorkflowProposal`, and
+  `WorkflowValidationIssue` types from `packages/agent-ide/src/types/graph.ts`.
+- Kept the runtime behavior and React Flow wiring unchanged: `core.tsx` still
+  passes the same explicit props, but the extracted panel now has a typed
+  contract that future workflow creator panels can reuse and split by concern.
+- Extended `scripts/lib/harness-refactor-shape.test.mjs` so the settings
+  harness panel must expose the six concern interfaces and must not contain
+  `any`. This keeps the extracted boundary from regressing into an
+  unstructured prop bag.
+- `settingsHarnessPanel.tsx` is now 5,271 lines after the type surface is made
+  explicit. This is acceptable for this slice because behavior remained stable;
+  the next split should move typed activation/package/rollback/worker sections
+  into smaller subpanels.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-settings-harness-model.test.ts packages/agent-ide/src/runtime/workflow-settings-model.test.ts packages/agent-ide/src/runtime/workflow-file-bundle-model.test.ts packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `npm run validate:autopilot-gui-harness:run`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T15-19-43-946Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSettingsHarnessModelUi === true`;
+  - `checks.workflowSettingsModelUi === true`;
+  - `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx`
+    and
+    `packages/agent-ide/src/runtime/workflow-settings-harness-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
