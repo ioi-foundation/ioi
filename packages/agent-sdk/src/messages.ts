@@ -38,6 +38,219 @@ export interface ConversationMessage {
   createdAt?: string;
 }
 
+export const RUNTIME_TTI_SCHEMA_VERSIONS = {
+  thread: "ioi.runtime.thread.v1",
+  turn: "ioi.runtime.turn.v1",
+  item: "ioi.runtime.item.v1",
+  event: "ioi.runtime.event.v1",
+} as const;
+
+export const RUNTIME_TTI_SCHEMA_VERSION_LITERALS = [
+  RUNTIME_TTI_SCHEMA_VERSIONS.thread,
+  RUNTIME_TTI_SCHEMA_VERSIONS.turn,
+  RUNTIME_TTI_SCHEMA_VERSIONS.item,
+  RUNTIME_TTI_SCHEMA_VERSIONS.event,
+] as const;
+
+export const RUNTIME_THREAD_MODES = ["plan", "agent", "yolo", "custom"] as const;
+export const RUNTIME_APPROVAL_MODES = [
+  "suggest",
+  "auto_local",
+  "never_prompt",
+  "human_required",
+  "policy_required",
+] as const;
+export const RUNTIME_THREAD_STATUSES = [
+  "active",
+  "idle",
+  "waiting",
+  "interrupted",
+  "completed",
+  "failed",
+  "archived",
+] as const;
+export const RUNTIME_TURN_STATUSES = [
+  "queued",
+  "running",
+  "waiting_for_approval",
+  "waiting_for_input",
+  "interrupted",
+  "completed",
+  "failed",
+  "canceled",
+] as const;
+export const RUNTIME_ITEM_KINDS = [
+  "user_message",
+  "agent_message",
+  "reasoning_delta",
+  "tool_call",
+  "tool_result",
+  "file_change",
+  "command_execution",
+  "approval_required",
+  "approval_decision",
+  "context_compaction",
+  "lsp_diagnostics",
+  "memory_update",
+  "subagent_event",
+  "rollback_snapshot",
+  "status",
+  "error",
+] as const;
+export const RUNTIME_ITEM_STATUSES = [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "interrupted",
+  "canceled",
+  "blocked",
+] as const;
+export const RUNTIME_ITEM_ACTORS = [
+  "user",
+  "assistant",
+  "tool",
+  "runtime",
+  "policy",
+  "system",
+] as const;
+export const RUNTIME_EVENT_SOURCES = [
+  "runtime_service",
+  "daemon_bridge",
+  "sdk_client",
+  "cli_tui",
+  "react_flow",
+  "fixture",
+] as const;
+
+export type RuntimeThreadMode = (typeof RUNTIME_THREAD_MODES)[number];
+export type RuntimeApprovalMode = (typeof RUNTIME_APPROVAL_MODES)[number];
+export type RuntimeThreadStatus = (typeof RUNTIME_THREAD_STATUSES)[number];
+export type RuntimeTurnStatus = (typeof RUNTIME_TURN_STATUSES)[number];
+export type RuntimeItemKind = (typeof RUNTIME_ITEM_KINDS)[number];
+export type RuntimeItemStatus = (typeof RUNTIME_ITEM_STATUSES)[number];
+export type RuntimeItemActor = (typeof RUNTIME_ITEM_ACTORS)[number];
+export type RuntimeEventSource = (typeof RUNTIME_EVENT_SOURCES)[number];
+
+export interface RuntimeUsageRecord {
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  cached_input_tokens: number;
+  tool_result_tokens: number;
+  compacted_tokens: number;
+  estimated_cost_micros: number;
+  provider: string;
+  model: string;
+  latency_ms: number;
+}
+
+export interface RuntimeThreadRecord {
+  schema_version: typeof RUNTIME_TTI_SCHEMA_VERSIONS.thread;
+  thread_id: string;
+  session_id: string;
+  agent_id: string;
+  workspace_root: string;
+  title: string;
+  mode: RuntimeThreadMode;
+  approval_mode: RuntimeApprovalMode;
+  trust_profile: string;
+  model_route: string;
+  status: RuntimeThreadStatus;
+  latest_turn_id: string | null;
+  latest_seq: number;
+  event_stream_id: string;
+  workflow_graph_id: string | null;
+  harness_binding_id: string | null;
+  agentgres_projection_ref: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  fixture_profile: string | null;
+}
+
+export interface RuntimeTurnRecord {
+  schema_version: typeof RUNTIME_TTI_SCHEMA_VERSIONS.turn;
+  turn_id: string;
+  thread_id: string;
+  parent_turn_id: string | null;
+  request_id: string;
+  status: RuntimeTurnStatus;
+  input_item_ids: string[];
+  output_item_ids: string[];
+  seq_start: number | null;
+  seq_end: number | null;
+  started_at: string;
+  completed_at: string | null;
+  mode: RuntimeThreadMode;
+  approval_mode: RuntimeApprovalMode;
+  model_route_decision_id: string | null;
+  usage: RuntimeUsageRecord | null;
+  stop_reason: string | null;
+  error: string | null;
+  rollback_snapshot_id: string | null;
+  quality_ledger_ref: string | null;
+  workflow_execution_ref: string | null;
+  fixture_profile: string | null;
+}
+
+export interface RuntimeItemRecord {
+  schema_version: typeof RUNTIME_TTI_SCHEMA_VERSIONS.item;
+  item_id: string;
+  thread_id: string;
+  turn_id: string;
+  kind: RuntimeItemKind;
+  status: RuntimeItemStatus;
+  seq_start: number | null;
+  seq_end: number | null;
+  actor: RuntimeItemActor;
+  summary: string;
+  content_ref: string | null;
+  tool_name: string | null;
+  component_kind: string | null;
+  workflow_node_id: string | null;
+  receipt_refs: string[];
+  artifact_refs: string[];
+  approval_id: string | null;
+  policy_decision_id: string | null;
+  rollback_snapshot_id: string | null;
+  redaction_profile: string;
+  payload_schema_version: string;
+}
+
+export interface RuntimeEventEnvelope {
+  schema_version: typeof RUNTIME_TTI_SCHEMA_VERSIONS.event;
+  event_id: string;
+  event_stream_id: string;
+  thread_id: string;
+  turn_id: string;
+  item_id: string;
+  seq: number;
+  parent_seq: number | null;
+  idempotency_key: string;
+  source: RuntimeEventSource;
+  source_event_kind: string;
+  event_kind: string;
+  status: string;
+  actor: RuntimeItemActor;
+  created_at: string;
+  workspace_root: string;
+  workflow_graph_id: string | null;
+  workflow_node_id: string | null;
+  component_kind: string | null;
+  tool_call_id: string | null;
+  approval_id: string | null;
+  artifact_refs: string[];
+  receipt_refs: string[];
+  policy_decision_refs: string[];
+  rollback_refs: string[];
+  payload_schema_version: string;
+  payload_ref: string | null;
+  payload: Record<string, string>;
+  redaction_profile: string;
+  fixture_profile: string | null;
+}
+
 export interface RuntimeTraceBundle {
   schemaVersion: "ioi.agent-sdk.trace.v1";
   traceBundleId: string;

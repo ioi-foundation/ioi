@@ -4,6 +4,18 @@ use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+pub use super::runtime::thread_turn_item::{
+    RuntimeApprovalMode, RuntimeEventEnvelope, RuntimeEventSource, RuntimeItemActor,
+    RuntimeItemKind, RuntimeItemRecord, RuntimeItemStatus, RuntimeLifecycleStatus,
+    RuntimeThreadMode, RuntimeThreadRecord, RuntimeThreadStatus, RuntimeTurnRecord,
+    RuntimeTurnStatus, RuntimeUsageRecord, RUNTIME_APPROVAL_MODES,
+    RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION_V1, RUNTIME_EVENT_SOURCES, RUNTIME_ITEM_ACTORS,
+    RUNTIME_ITEM_KINDS, RUNTIME_ITEM_SCHEMA_VERSION_V1, RUNTIME_ITEM_STATUSES,
+    RUNTIME_THREAD_MODES, RUNTIME_THREAD_SCHEMA_VERSION_V1, RUNTIME_THREAD_STATUSES,
+    RUNTIME_TTI_SCHEMA_VERSION_LITERALS, RUNTIME_TTI_SCHEMA_VERSION_V1,
+    RUNTIME_TURN_SCHEMA_VERSION_V1, RUNTIME_TURN_STATUSES,
+};
+
 pub const RUNTIME_CONTRACT_SCHEMA_VERSION_V1: &str = "ioi.agent-runtime.substrate.v1";
 pub const AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION_V1: &str = "ioi.autopilot.gui-harness-validation.v1";
 pub const AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND: &str =

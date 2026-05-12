@@ -2900,3 +2900,29 @@ Validation evidence:
   - implementation and validation ledgers have matching slice counts;
   - referenced evidence result paths exist.
 - `git diff --check`
+
+## Slice 88. 2026-05-12 - live bridge TTI schema snapshots
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-bridge-tti-schema-contract.test.mjs
+
+Validation evidence:
+
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - Rust and TypeScript schema literals match for thread, turn, item, and event
+    records;
+  - literal arrays match for modes, approval modes, statuses, item kinds,
+    actors, and event sources;
+  - `RuntimeThreadRecord`, `RuntimeTurnRecord`, `RuntimeItemRecord`, and
+    `RuntimeEventEnvelope` required fields match across Rust and TypeScript;
+  - `runtime_contracts.rs` and the SDK root export the locked contracts.
+- `npm run build:agent-sdk`
+- `cargo test -p ioi-types thread_turn_item --lib`
+- `cargo check -p ioi-types`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 11 daemon/API contract subtests passed, including the existing
+    Agentgres-backed thread/turn/event projection smoke.
+- `git diff --check`

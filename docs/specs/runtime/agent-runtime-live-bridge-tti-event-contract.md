@@ -25,6 +25,7 @@ Canonical runtime owners:
 - `crates/services/src/agentic/runtime/substrate.rs`
 - `crates/types/src/app/events.rs`
 - `crates/types/src/app/runtime_contracts.rs`
+- `crates/types/src/app/runtime/thread_turn_item.rs`
 
 Projection and client owners:
 
@@ -40,7 +41,20 @@ Existing state and event vocabulary:
 - `ActionRequest` remains the canonical action intent shape before drivers.
 - `AgentRuntimeEvent` remains the typed runtime substrate event projection.
 - `RuntimeTraceBundle` and `IOISDKMessage` remain SDK-facing projections until
-  generated contract types replace them.
+  the new TTI SDK wrappers consume the locked record types directly.
+
+Implementation status:
+
+- 2026-05-12: schema snapshot slice is locked in Rust and TypeScript for
+  `RuntimeThreadRecord`, `RuntimeTurnRecord`, `RuntimeItemRecord`, and
+  `RuntimeEventEnvelope`.
+- The modular Rust owner is
+  `crates/types/src/app/runtime/thread_turn_item.rs`; the compatibility export
+  remains `crates/types/src/app/runtime_contracts.rs`.
+- The SDK wire snapshot lives in `packages/agent-sdk/src/messages.ts` and is
+  exported from the SDK root.
+- `scripts/lib/live-bridge-tti-schema-contract.test.mjs` compares schema
+  literals, enum literal arrays, required record fields, and export surfaces.
 
 ## Non Goals
 
@@ -510,7 +524,8 @@ Minimum contract-lock tests before implementation:
 
 ## First Implementation Slices
 
-1. Add shared schema definitions and generated TS/Rust snapshots.
+1. Add shared schema definitions and generated TS/Rust snapshots. Completed
+   2026-05-12.
 2. Add an append-only daemon event store with cursor and idempotency tests.
 3. Bridge one `RuntimeAgentService` session into thread/turn/event records.
 4. Expose `/v1/threads/{id}/events` and SSE replay with `Last-Event-ID`.
