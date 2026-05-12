@@ -200,6 +200,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
   switch (kind) {
     case "thread.started":
       return "thread_started";
+    case "thread.forked":
+      return "thread_forked";
     case "turn.started":
       return "turn_started";
     case "turn.completed":
@@ -247,6 +249,8 @@ function runtimePayloadStringRecord(payload: Record<string, unknown>): Record<st
 
 function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   switch (type) {
+    case "thread_forked":
+      return "thread.forked";
     case "run_started":
       return "turn.started";
     case "delta":
@@ -281,6 +285,7 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "thread_forked") return "thread_fork";
   if (type === "interrupted" || type === "steered") return "operator_control";
   if (type === "context_compacted") return "context_compaction";
   if (type === "model_route_decision") return "model_router";
@@ -290,6 +295,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "thread_forked") return "runtime.thread-fork";
   if (type === "interrupted") return "runtime.operator-interrupt";
   if (type === "steered") return "runtime.operator-steer";
   if (type === "context_compacted") return "runtime.context-compact";
@@ -300,6 +306,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "thread_forked") return "OperatorControl.Fork";
   if (type === "interrupted") return "OperatorControl.Interrupt";
   if (type === "steered") return "OperatorControl.Steer";
   if (type === "context_compacted") return "OperatorControl.Compact";
@@ -307,6 +314,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (type === "thread_forked") return "ioi.runtime.thread-fork.v1";
   if (type === "interrupted" || type === "steered") return "ioi.runtime.operator-control.v1";
   if (type === "context_compacted") return "ioi.runtime.context-compaction.v1";
   return "ioi.agent-sdk.event.v1";

@@ -63,6 +63,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     assert.match(projection, new RegExp(`${field}:`));
   }
   for (const eventType of [
+    "thread_forked",
     "reasoning_delta",
     "tool_completed",
     "tool_failed",

@@ -5,6 +5,7 @@ export const WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION =
 
 export type WorkflowRuntimeThreadEventType =
   | "thread_started"
+  | "thread_forked"
   | "turn_started"
   | "turn_completed"
   | "turn_failed"
@@ -220,6 +221,8 @@ export function workflowNodeIdForRuntimeThreadEvent(
   switch (event.type) {
     case "thread_started":
       return "runtime.thread";
+    case "thread_forked":
+      return "runtime.thread-fork";
     case "turn_started":
       return "runtime.turn";
     case "turn_completed":
@@ -261,6 +264,8 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "thread_started":
     case "turn_started":
       return "trigger";
+    case "thread_forked":
+      return "state";
     case "turn_completed":
     case "turn_failed":
     case "turn_canceled":
@@ -408,6 +413,8 @@ function componentKindForRuntimeThreadEvent(
   switch (event.type) {
     case "thread_started":
       return "runtime_thread";
+    case "thread_forked":
+      return "thread_fork";
     case "turn_started":
     case "turn_completed":
     case "turn_failed":
@@ -443,6 +450,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
   switch (event.type) {
     case "thread_started":
       return "Thread";
+    case "thread_forked":
+      return "Thread forked";
     case "turn_started":
       return "Turn";
     case "turn_completed":

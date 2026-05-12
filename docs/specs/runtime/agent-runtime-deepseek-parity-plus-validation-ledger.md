@@ -102,6 +102,7 @@ the practical workstream when the source heading is broad.
 | 85 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness activation gate refs/timeline extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-05-02-607Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler |
 | 86 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness package import/rows extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler |
 | 87 | 2026-05-12 | P0. Live Runtime API Bridge | live bridge TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md | docs integrity check<br>git diff --check |
+| 104 | 2026-05-12 | P0. Live Runtime API Bridge | Live thread fork control event | /tmp/ioi-autopilot-gui-harness-thread-fork-control/2026-05-12T23-30-08-711Z/result.json | npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test packages/agent-sdk/test/sdk.test.mjs<br>node --test --test-name-pattern "thread fork keeps one canonical source event" scripts/lib/live-runtime-daemon-contract.test.mjs |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -3515,3 +3516,58 @@ Known validation note:
   existing e2e fixtures construct `StartAgentParams` without
   `runtime_route_frame`. The passing binary-only unit test is the scoped CLI
   signal for this slice.
+
+## Slice 104. 2026-05-12 - Live thread fork control event
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/messages.ts
+- packages/agent-sdk/src/runtime-events.ts
+- packages/agent-sdk/src/substrate-client.ts
+- crates/cli/src/commands/agent.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+
+Validation evidence:
+
+- `cargo fmt --package ioi-cli`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declarations and dist bundle rebuilt with `thread_forked` typing and
+    daemon fork input defaults.
+- `npm run build --workspace=@ioi/agent-ide`
+  - React Flow projection bundle rebuilt with `thread_forked` support.
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+  - CLI parser accepted `agent fork --thread-id ...`.
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+  - 11 SDK subtests passed, including the daemon HTTP wrapper proof for
+    `Thread.fork(...)`.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source contract passed with `thread_forked`.
+- `node --test --test-name-pattern "thread fork keeps one canonical source event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live Rust runtime-service proof passed;
+  - CLI/TUI `agent fork` appended one canonical source-thread `thread.forked`
+    event;
+  - SDK and React Flow found the same `event_id`, `seq`, cursor,
+    `source_event_kind`, `component_kind`, `workflow_node_id`, payload schema,
+    receipt refs, and policy refs;
+  - the forked thread opened through the SDK as the returned branch.
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - CLI source contract passed with the fork endpoint and thread-fork event
+    constants.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-thread-fork-control`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-thread-fork-control/2026-05-12T23-30-08-711Z/result.json`.
+
+Known validation note:
+
+- Direct `node --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  is not a valid repo test command because Node does not load extensionless TS
+  imports for that source file. `npm run build --workspace=@ioi/agent-ide` and
+  `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  are the scoped React Flow validation signals for this slice.

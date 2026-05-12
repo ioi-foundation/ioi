@@ -5196,3 +5196,50 @@ Known validation note:
   pre-existing `crates/cli/tests/*` fixtures construct `StartAgentParams`
   without `runtime_route_frame`. The binary-only command test above is the
   scoped Rust signal for this slice.
+
+### Slice 104. 2026-05-12 - Live thread fork control event
+
+Implementation slice completed 2026-05-12, live thread fork control event:
+
+- Added source-thread canonical `thread.forked` events to daemon
+  `/v1/threads/{thread_id}/fork`. The event records
+  `source_event_kind=OperatorControl.Fork`, `component_kind=thread_fork`,
+  `workflow_node_id=runtime.thread-fork`,
+  `payload_schema_version=ioi.runtime.thread-fork.v1`, source latest seq,
+  source latest turn id, fork thread id, receipt refs, and policy refs.
+- Kept fork as a real thread branch while making the source thread carry the
+  audit event, so CLI/TUI, SDK, and React Flow can inspect the branch without
+  treating the forked thread's `thread.started` event as the control proof.
+- Extended SDK daemon input and typed runtime event mapping so `Thread.fork(...)`
+  defaults to `source=sdk_client`, and `Thread.events()` projects
+  `thread.forked` as `thread_forked` with canonical graph metadata.
+- Added CLI/TUI `ioi agent fork --thread-id <id>` over the daemon control
+  endpoint, with JSON output suitable for the future TUI control surface.
+- Extended the React Flow runtime event projection so `thread_forked` rows
+  render as `runtime.thread-fork` state nodes with evidence refs.
+- Added a live runtime-service proof that starts the Rust bridge, creates a
+  turn, forks the thread through CLI, opens both source and fork through the
+  SDK, and checks React Flow consumes the exact same stored source event.
+
+Validation evidence:
+
+- `cargo fmt --package ioi-cli`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "thread fork keeps one canonical source event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-thread-fork-control`
+  - GUI harness preflight passed outside the worktree at
+    `/tmp/ioi-autopilot-gui-harness-thread-fork-control/2026-05-12T23-30-08-711Z/result.json`.
+
+Known validation note:
+
+- Direct `node --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  is not a valid repo test command because Node does not load extensionless TS
+  imports for that source file. `npm run build --workspace=@ioi/agent-ide` and
+  `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  are the scoped React Flow validation signals for this slice.

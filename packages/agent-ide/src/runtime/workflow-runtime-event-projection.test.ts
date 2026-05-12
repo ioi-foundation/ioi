@@ -140,6 +140,30 @@ test("projects operator interrupt events into the runtime control node", () => {
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-interrupt-allow"]);
 });
 
+test("projects thread fork events into the runtime fork node", () => {
+  const fork = event("event-fork", 4, {
+    type: "thread_forked",
+    eventKind: "thread.forked",
+    sourceEventKind: "OperatorControl.Fork",
+    status: "completed",
+    componentKind: "thread_fork",
+    workflowNodeId: "runtime.thread-fork",
+    receiptRefs: ["receipt-fork"],
+    policyDecisionRefs: ["policy-fork-allow"],
+    payloadSchemaVersion: "ioi.runtime.thread-fork.v1",
+    payload: { fork_thread_id: "thread-fork" },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([fork]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(fork), "runtime.thread-fork");
+  assert.equal(nodes[0]?.nodeKind, "state");
+  assert.equal(nodes[0]?.componentKind, "thread_fork");
+  assert.equal(nodes[0]?.label, "Thread forked");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-fork"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-fork-allow"]);
+});
+
 test("projects operator steer events into the runtime control node", () => {
   const steer = event("event-steer", 5, {
     type: "turn_steered",
