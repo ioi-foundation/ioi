@@ -81,6 +81,12 @@ Implementation status:
   real `ioi-runtime-bridge` executable, then proves canonical thread/turn/run
   event replay over Rust-owned runtime-service events with
   `fixture_profile: null`.
+- 2026-05-12: KernelEvent mapper slice adds
+  `crates/node/src/runtime_bridge_events.rs`, drains the Rust
+  `RuntimeAgentService` broadcast channel, maps `AgentStep`, `AgentThought`,
+  `FirewallInterception`, `AgentActionResult`, `WorkloadReceipt`, and
+  `RoutingReceipt` into bridge-ready TTI events, and proves a live
+  `KernelEvent::AgentActionResult` row replays through the daemon.
 
 ## Non Goals
 

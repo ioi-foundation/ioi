@@ -3114,3 +3114,42 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
   - preflight passed and wrote a temporary result bundle outside the worktree.
 - `git diff --check`
+
+## Slice 95. 2026-05-12 - KernelEvent bridge mapper foundation
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- crates/node/src/runtime_bridge_events.rs
+- crates/node/src/bin/ioi-runtime-bridge.rs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+
+Validation evidence:
+
+- `cargo fmt --package ioi-node`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo check -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+- `cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - 6 bridge executable and mapper unit tests passed;
+  - mapper coverage locks `KernelEvent::AgentThought` to
+    `reasoning.delta`, `KernelEvent::AgentActionResult` to
+    `tool.completed` or `tool.failed`, `KernelEvent::FirewallInterception`
+    to `approval.required` or `policy.blocked`, and
+    `KernelEvent::WorkloadReceipt` to `receipt.emitted`.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 TTI schema snapshot subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed;
+  - the Rust bridge contract now observes a live
+    `KernelEvent::AgentActionResult` from `RuntimeAgentService`, maps it to
+    `tool.completed` with `component_kind=tool_result`, and replays it between
+    `turn.started` and the terminal runtime-service turn event;
+  - `/v1/runs/{id}/events` aliases the same stored mapped KernelEvent row.
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
+  - GUI harness preflight passed outside the worktree.
+- `git diff --check`

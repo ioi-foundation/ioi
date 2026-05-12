@@ -19,7 +19,7 @@ use ioi_services::agentic::runtime::{
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
-use ioi_types::app::{AccountId, ChainId};
+use ioi_types::app::{AccountId, ChainId, KernelEvent};
 use ioi_types::codec;
 use parity_scale_codec::Encode;
 use rand::RngCore;
@@ -32,6 +32,9 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+
+#[path = "../runtime_bridge_events.rs"]
+mod runtime_bridge_events;
 
 const COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.bridge.command.v1";
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
@@ -155,6 +158,7 @@ struct BridgeRuntime {
     state: RedbFlatStore<HashCommitmentScheme>,
     service: RuntimeAgentService,
     services: ServiceDirectory,
+    event_receiver: tokio::sync::broadcast::Receiver<KernelEvent>,
     height: u64,
 }
 
@@ -176,6 +180,7 @@ impl BridgeRuntime {
             "Runtime bridge inference is unavailable until a model route is configured.",
         ));
         let gui = Arc::new(IoiGuiDriver::new());
+        let (event_sender, event_receiver) = tokio::sync::broadcast::channel(1024);
         let service = RuntimeAgentService::new_hybrid(
             gui,
             Arc::new(TerminalDriver::new()),
@@ -186,11 +191,13 @@ impl BridgeRuntime {
         .with_memory_runtime(memory_runtime)
         .with_workspace_path(workspace.to_string_lossy().to_string())
         .with_os_driver(Arc::new(NativeOsDriver::new()))
+        .with_event_sender(event_sender)
         .with_som(true);
         Ok(Self {
             state,
             service,
             services: ServiceDirectory::new(vec![]),
+            event_receiver,
             height: unix_millis(),
         })
     }
@@ -217,37 +224,50 @@ impl BridgeRuntime {
         let state = self.agent_state(session_id)?;
         let session_hex = hex::encode(session_id);
         let created_at = input.created_at.unwrap_or_else(now_rfc3339);
+        let mut events = vec![tti_event(TtiEventInput {
+            thread_id: &input.thread_id,
+            turn_id: "",
+            item_id: &format!("{}:item:runtime-agent-service-started", input.thread_id),
+            idempotency_key: &format!("runtime-agent-service:{}:thread.started", session_hex),
+            source_event_kind: "RuntimeAgentService.handle_service_call.start@v1",
+            event_kind: "thread.started",
+            status: "running",
+            actor: "runtime",
+            created_at: &created_at,
+            workspace_root: input.workspace_root.as_deref(),
+            component_kind: "runtime_thread",
+            workflow_node_id: "runtime.runtime-thread",
+            payload_schema_version: THREAD_SCHEMA_VERSION,
+            payload: json!({
+                "bridge_schema_version": COMMAND_SCHEMA_VERSION,
+                "agent_id": input.agent_id,
+                "session_id": session_hex,
+                "runtime_profile": input.runtime_profile.unwrap_or_else(|| "runtime_service".to_string()),
+                "goal": state.goal,
+                "max_steps": state.max_steps,
+            }),
+        })];
+        for (ordinal, event) in self.drain_kernel_events().iter().enumerate() {
+            if let Some(mapped) = runtime_bridge_events::kernel_event_to_tti_event(
+                event,
+                &runtime_bridge_events::RuntimeBridgeEventContext {
+                    thread_id: &input.thread_id,
+                    turn_id: "",
+                    workspace_root: input.workspace_root.as_deref(),
+                    created_at: &created_at,
+                    ordinal,
+                },
+            ) {
+                events.push(mapped);
+            }
+        }
         Ok(json!({
             "bridge_id": bridge_id,
             "session_id": session_hex,
             "source": "runtime_service",
             "status": thread_status(&state.status),
             "updated_at": created_at,
-            "events": [
-                tti_event(TtiEventInput {
-                    thread_id: &input.thread_id,
-                    turn_id: "",
-                    item_id: &format!("{}:item:runtime-agent-service-started", input.thread_id),
-                    idempotency_key: &format!("runtime-agent-service:{}:thread.started", session_hex),
-                    source_event_kind: "RuntimeAgentService.handle_service_call.start@v1",
-                    event_kind: "thread.started",
-                    status: "running",
-                    actor: "runtime",
-                    created_at: &created_at,
-                    workspace_root: input.workspace_root.as_deref(),
-                    component_kind: "runtime_thread",
-                    workflow_node_id: "runtime.runtime-thread",
-                    payload_schema_version: THREAD_SCHEMA_VERSION,
-                    payload: json!({
-                        "bridge_schema_version": COMMAND_SCHEMA_VERSION,
-                        "agent_id": input.agent_id,
-                        "session_id": session_hex,
-                        "runtime_profile": input.runtime_profile.unwrap_or_else(|| "runtime_service".to_string()),
-                        "goal": state.goal,
-                        "max_steps": state.max_steps,
-                    }),
-                }),
-            ],
+            "events": events,
         }))
     }
 
@@ -296,6 +316,7 @@ impl BridgeRuntime {
         if step_result.is_ok() {
             self.commit()?;
         }
+        let kernel_events = self.drain_kernel_events();
         let state = self.agent_state(session_id)?;
         let completed_at = now_rfc3339();
         let (status, stop_reason, event_kind, event_status, summary) =
@@ -338,6 +359,20 @@ impl BridgeRuntime {
                     "Runtime step completed.".to_string(),
                 ),
             };
+        for (ordinal, event) in kernel_events.iter().enumerate() {
+            if let Some(mapped) = runtime_bridge_events::kernel_event_to_tti_event(
+                event,
+                &runtime_bridge_events::RuntimeBridgeEventContext {
+                    thread_id: &input.thread_id,
+                    turn_id: &turn_id,
+                    workspace_root: input.workspace_root.as_deref(),
+                    created_at: &completed_at,
+                    ordinal,
+                },
+            ) {
+                events.push(mapped);
+            }
+        }
         events.push(tti_event(TtiEventInput {
             thread_id: &input.thread_id,
             turn_id: &turn_id,
@@ -375,6 +410,19 @@ impl BridgeRuntime {
             "updated_at": completed_at,
             "events": events,
         }))
+    }
+
+    fn drain_kernel_events(&mut self) -> Vec<KernelEvent> {
+        let mut events = Vec::new();
+        loop {
+            match self.event_receiver.try_recv() {
+                Ok(event) => events.push(event),
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+                Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+            }
+        }
+        events
     }
 
     async fn call_service<T: Encode>(&mut self, method: &str, params: &T) -> Result<()> {
