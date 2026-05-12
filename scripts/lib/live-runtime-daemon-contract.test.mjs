@@ -1583,6 +1583,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts"),
     "utf8",
   );
+  const workflowSettingsPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowSettingsModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-settings-model.ts"),
+    "utf8",
+  );
   const workflowReadinessPanel = fs.readFileSync(
     path.join(
       root,
@@ -2954,7 +2965,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowFileBundleModel, /readyItems/);
   assert.match(workflowFileBundleModel, /pendingItems/);
   assert.match(workflowFileBundleModel, /portablePackageExported/);
-  assert.match(workflowRailPanel, /workflow-settings-chrome-locale-select/);
+  assert.match(workflowRailPanel, /WorkflowSettingsPanel/);
+  assert.match(workflowRailPanel, /workflowSettingsModel/);
+  assert.match(workflowSettingsPanel, /workflow-settings-summary/);
+  assert.match(workflowSettingsPanel, /workflow-settings-chrome-locale-select/);
+  assert.match(workflowSettingsPanel, /workflow-environment-profile/);
+  assert.match(workflowSettingsPanel, /workflow-settings-binding-registry/);
+  assert.match(workflowSettingsPanel, /workflow-settings-production-profile/);
+  assert.match(workflowSettingsModel, /workflowSettingsModel/);
+  assert.match(workflowSettingsModel, /productionSummary/);
+  assert.match(workflowSettingsModel, /packageReadinessStatus/);
   assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /onUpdateWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /workflow-selected-node-status-announcement/);

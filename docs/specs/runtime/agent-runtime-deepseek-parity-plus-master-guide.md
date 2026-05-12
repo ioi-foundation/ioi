@@ -4351,6 +4351,67 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-file-bundle-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow settings model
+extraction:
+
+- Extracted settings summary, workflow metadata, chrome locale normalization,
+  environment profile state, binding registry rollups, model binding/capability
+  projections, run policy, package readiness, and production checklist labels
+  into `packages/agent-ide/src/runtime/workflow-settings-model.ts`.
+- Added
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx`
+  as the presentational React Flow rail surface for settings summary, locale
+  selector, environment controls, binding registry, binding manifest, model
+  bindings, capabilities, policy, and production profile editor.
+- `WorkflowRailPanel/core.tsx` now delegates `panel === "settings"` to
+  `WorkflowSettingsPanel` over `workflowSettingsModel(...)`. The harness
+  settings subtree remains a child slot for this slice so activation gates,
+  deep links, rollback controls, and worker binding controls keep their
+  existing callback wiring while the general settings surface becomes reusable
+  by React Flow workflow creation and future TUI parity surfaces.
+- Added
+  `packages/agent-ide/src/runtime/workflow-settings-model.test.ts` to lock
+  summary status, workflow path fallback, read-only state, locale fallback,
+  environment defaults, binding summary counts, capability filtering, policy,
+  package readiness, and production summary defaults.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so the
+  settings rail must exist in both the runtime model and React Flow panel. The
+  live rollback proof now includes `workflowSettingsModelUi` and source refs for
+  both settings files.
+- `WorkflowRailPanel/core.tsx` is reduced from 10,786 to 10,322 lines. The new
+  settings panel is 506 lines, and the settings model is 136 lines with a
+  169-line focused model test.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-settings-model.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-settings-model.test.ts packages/agent-ide/src/runtime/workflow-file-bundle-model.test.ts packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+- `npm run validate:autopilot-gui-harness:run`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T14-16-54-801Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSettingsModelUi === true`;
+  - `checks.workflowFileBundleModelUi === true`;
+  - `checks.workflowEntrypointsModelUi === true`;
+  - `checks.workflowRailSearchModelUi === true`;
+  - `checks.workflowRunHistoryModelUi === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include both
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx`
+    and `packages/agent-ide/src/runtime/workflow-settings-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
