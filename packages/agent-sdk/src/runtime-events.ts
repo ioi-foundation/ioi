@@ -212,6 +212,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "turn_interrupted";
     case "turn.steered":
       return "turn_steered";
+    case "context.compacted":
+      return "context_compacted";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -261,6 +263,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "turn.interrupted";
     case "steered":
       return "turn.steered";
+    case "context_compacted":
+      return "context.compacted";
     case "error":
       return "turn.failed";
     default:
@@ -278,6 +282,7 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
 
 function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted" || type === "steered") return "operator_control";
+  if (type === "context_compacted") return "context_compaction";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -287,6 +292,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
 function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "runtime.operator-interrupt";
   if (type === "steered") return "runtime.operator-steer";
+  if (type === "context_compacted") return "runtime.context-compact";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
@@ -296,11 +302,13 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
 function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "OperatorControl.Interrupt";
   if (type === "steered") return "OperatorControl.Steer";
+  if (type === "context_compacted") return "OperatorControl.Compact";
   return `run.${type}`;
 }
 
 function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted" || type === "steered") return "ioi.runtime.operator-control.v1";
+  if (type === "context_compacted") return "ioi.runtime.context-compaction.v1";
   return "ioi.agent-sdk.event.v1";
 }
 

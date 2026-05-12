@@ -238,6 +238,16 @@ export interface RuntimeTurnSteerInput {
   [key: string]: unknown;
 }
 
+export interface RuntimeThreadCompactInput {
+  reason?: string;
+  scope?: "thread" | "turn" | string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  [key: string]: unknown;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -250,6 +260,7 @@ export interface RuntimeSubstrateClient {
   getThread(threadId: string): Promise<RuntimeThreadRecord>;
   resumeThread(threadId: string): Promise<RuntimeThreadRecord>;
   forkThread(threadId: string, input?: RuntimeThreadForkInput): Promise<RuntimeThreadRecord>;
+  compactThread(threadId: string, input?: RuntimeThreadCompactInput): Promise<RuntimeThreadRecord>;
   submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
@@ -345,6 +356,21 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async forkThread(threadId: string, input: RuntimeThreadForkInput = {}): Promise<RuntimeThreadRecord> {
     return this.request("forkThread", "POST", `/v1/threads/${encodePath(threadId)}/fork`, input);
+  }
+
+  async compactThread(
+    threadId: string,
+    input: RuntimeThreadCompactInput = {},
+  ): Promise<RuntimeThreadRecord> {
+    return this.request(
+      "compactThread",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/compact`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
   }
 
   async submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord> {
@@ -1102,6 +1128,73 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       ...this.threadRecordForAgent(agent),
       agentgres_projection_ref: `forked_from:${source.thread_id}:${source.latest_seq}`,
     };
+  }
+
+  async compactThread(
+    threadId: string,
+    input: RuntimeThreadCompactInput = {},
+  ): Promise<RuntimeThreadRecord> {
+    const agent = await this.agentForThread(threadId);
+    const reason = typeof input.reason === "string" && input.reason.trim()
+      ? input.reason.trim()
+      : "operator requested context compaction";
+    const source = typeof input.source === "string" && input.source.trim()
+      ? input.source.trim()
+      : "sdk_client";
+    const scope = typeof input.scope === "string" && input.scope.trim() ? input.scope.trim() : "thread";
+    const runs = (await this.listRuns(agent.id)).sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt),
+    );
+    const run = runs.at(-1);
+    if (!run) return this.threadRecordForAgent(agent);
+    const existingCompact = run.events.find(
+      (event) =>
+        event.type === "context_compacted" &&
+        event.data &&
+        typeof event.data === "object" &&
+        !Array.isArray(event.data) &&
+        (event.data as { reason?: unknown }).reason === reason,
+    );
+    if (existingCompact) return this.threadRecordForAgent(agent);
+    const turnId = turnIdForRun(run.id);
+    const compactedEvent = makeEvent(
+      run.id,
+      run.agentId,
+      run.events.length,
+      "context_compacted",
+      "Context compacted",
+      {
+        eventKind: "OperatorControl.Compact",
+        reason,
+        source,
+        scope,
+        threadId,
+        turnId,
+        workflowNodeId: input.workflowNodeId ?? "runtime.context-compact",
+      },
+    );
+    const compacted = {
+      ...run,
+      updatedAt: compactedEvent.createdAt,
+      events: [...run.events, compactedEvent],
+      trace: {
+        ...run.trace,
+        events: [...run.events, compactedEvent],
+        operatorControls: [
+          ...((run.trace as { operatorControls?: unknown[] }).operatorControls ?? []),
+          {
+            control: "compact",
+            source,
+            reason,
+            scope,
+            eventId: compactedEvent.id,
+            createdAt: compactedEvent.createdAt,
+          },
+        ],
+      },
+    };
+    this.persistRun(compacted);
+    return this.threadRecordForAgent(agent);
   }
 
   async submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord> {

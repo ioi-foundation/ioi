@@ -163,3 +163,27 @@ test("projects operator steer events into the runtime control node", () => {
   assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-steer"]);
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-steer-allow"]);
 });
+
+test("projects context compact events into the runtime compaction node", () => {
+  const compact = event("event-compact", 6, {
+    type: "context_compacted",
+    eventKind: "context.compacted",
+    sourceEventKind: "OperatorControl.Compact",
+    status: "completed",
+    componentKind: "context_compaction",
+    workflowNodeId: "runtime.context-compact",
+    receiptRefs: ["receipt-compact"],
+    policyDecisionRefs: ["policy-compact-allow"],
+    payloadSchemaVersion: "ioi.runtime.context-compaction.v1",
+    payload: { reason: "reduce stale context" },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([compact]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(compact), "runtime.context-compact");
+  assert.equal(nodes[0]?.nodeKind, "state");
+  assert.equal(nodes[0]?.componentKind, "context_compaction");
+  assert.equal(nodes[0]?.label, "Context compacted");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-compact"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-compact-allow"]);
+});

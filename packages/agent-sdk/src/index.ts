@@ -30,6 +30,7 @@ export type {
   RuntimeEventStreamOptions,
   RuntimeRunRecord,
   RuntimeSubstrateClient,
+  RuntimeThreadCompactInput,
   RuntimeThreadCreateInput,
   RuntimeThreadForkInput,
   RuntimeTurnCreateInput,

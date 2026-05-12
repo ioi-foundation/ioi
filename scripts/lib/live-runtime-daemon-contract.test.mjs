@@ -2120,6 +2120,135 @@ test("operator steer keeps one canonical guidance event across SDK, CLI, and Rea
   }
 });
 
+test("context compact keeps one canonical compaction event across SDK, CLI, and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-compact-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-compact-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-compact-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const reason = "reduce stale context for live validation";
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-compact";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove context compact control has one cross-surface event.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a turn with context for compaction validation.",
+      }),
+    });
+
+    const cliResult = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "compact",
+        "--thread-id",
+        thread.thread_id,
+        "--reason",
+        reason,
+        "--scope",
+        "thread",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const cliThread = JSON.parse(cliResult.stdout);
+    assert.equal(cliThread.thread_id, thread.thread_id);
+    assert.ok(cliThread.latest_seq > thread.latest_seq);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const compactEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Compact",
+    );
+    assert.ok(compactEvent);
+    assert.equal(compactEvent.event_kind, "context.compacted");
+    assert.equal(compactEvent.status, "completed");
+    assert.equal(compactEvent.source, "cli_tui");
+    assert.equal(compactEvent.actor, "user");
+    assert.equal(compactEvent.thread_id, thread.thread_id);
+    assert.equal(compactEvent.turn_id, turn.turn_id);
+    assert.equal(compactEvent.component_kind, "context_compaction");
+    assert.equal(compactEvent.workflow_node_id, "runtime.context-compact");
+    assert.equal(compactEvent.payload_schema_version, "ioi.runtime.context-compaction.v1");
+    assert.equal(compactEvent.payload.reason, reason);
+    assert.equal(compactEvent.payload.scope, "thread");
+    assert.ok(compactEvent.receipt_refs.some((ref) =>
+      ref.startsWith(`receipt_${turn.request_id}_context_compaction_`),
+    ));
+    assert.ok(compactEvent.policy_decision_refs.includes(`policy_${turn.request_id}_context_compaction_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkCompacted = await sdkThread.compact({ reason, scope: "thread" });
+    assert.equal(sdkCompacted.id, thread.thread_id);
+    const afterSdkCompact = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    assert.equal(
+      afterSdkCompact.filter((event) => event.source_event_kind === "OperatorControl.Compact").length,
+      1,
+    );
+
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkCompactEvent = sdkEvents.find((event) => event.id === compactEvent.event_id);
+    assert.ok(sdkCompactEvent);
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(compactEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+
+    const canonicalCursor = `${compactEvent.event_stream_id}:${compactEvent.seq}`;
+    assert.equal(sdkCompactEvent.type, "context_compacted");
+    assert.equal(sdkCompactEvent.seq, compactEvent.seq);
+    assert.equal(sdkCompactEvent.cursor, canonicalCursor);
+    assert.equal(sdkCompactEvent.eventKind, compactEvent.event_kind);
+    assert.equal(sdkCompactEvent.sourceEventKind, compactEvent.source_event_kind);
+    assert.equal(sdkCompactEvent.componentKind, compactEvent.component_kind);
+    assert.equal(sdkCompactEvent.workflowNodeId, compactEvent.workflow_node_id);
+    assert.equal(sdkCompactEvent.payloadSchemaVersion, compactEvent.payload_schema_version);
+    assert.deepEqual(sdkCompactEvent.receiptRefs, compactEvent.receipt_refs);
+    assert.deepEqual(sdkCompactEvent.policyDecisionRefs, compactEvent.policy_decision_refs);
+
+    assert.equal(reactFlowNode.latestSeq, compactEvent.seq);
+    assert.equal(reactFlowNode.latestCursor, canonicalCursor);
+    assert.equal(reactFlowNode.latestEventId, compactEvent.event_id);
+    assert.equal(reactFlowNode.componentKind, "context_compaction");
+    assert.equal(reactFlowNode.workflowNodeId, "runtime.context-compact");
+    assert.equal(reactFlowNode.status, "completed");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Compact"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("daemon runtime event store is append-only and idempotent per stream", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
@@ -2570,6 +2699,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /AgentCommands::Stream/);
   assert.match(source, /AgentCommands::Interrupt/);
   assert.match(source, /AgentCommands::Steer/);
+  assert.match(source, /AgentCommands::Compact/);
   assert.match(source, /AgentEventStreamArgs/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
@@ -2588,9 +2718,12 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/runs\/\{id\}\/events/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/compact/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
+  assert.match(source, /OperatorControl\.Compact/);
   assert.match(source, /operator_control/);
+  assert.match(source, /context_compaction/);
   assert.match(source, /since_seq/);
   assert.match(source, /Last-Event-ID/);
   assert.match(source, /parse_runtime_event_sse_blocks/);

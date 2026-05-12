@@ -266,6 +266,27 @@ pub enum AgentCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Compact canonical runtime thread context through the daemon control endpoint.
+    Compact {
+        /// Runtime thread id to compact.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Operator-visible compaction reason.
+        #[clap(long, default_value = "operator requested context compaction")]
+        reason: String,
+        /// Compaction scope.
+        #[clap(long, default_value = "thread")]
+        scope: String,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Print the runtime trace bundle projection for a session step.
     Trace(SnapshotArgs),
     /// Verify a substrate snapshot contains the required runtime evidence.
@@ -484,6 +505,14 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
             token,
             json,
         } => steer_turn(thread_id, turn_id, guidance, endpoint, token, json).await,
+        AgentCommands::Compact {
+            thread_id,
+            reason,
+            scope,
+            endpoint,
+            token,
+            json,
+        } => compact_thread(thread_id, reason, scope, endpoint, token, json).await,
         AgentCommands::Trace(args) => print_runtime_trace(args).await,
         AgentCommands::Verify(args) => verify_snapshot_command(args).await,
         AgentCommands::Replay(args) => replay_snapshot_command(args).await,
@@ -674,6 +703,46 @@ async fn steer_turn(
             .get("status")
             .and_then(|value| value.as_str())
             .unwrap_or("unknown")
+    );
+    Ok(())
+}
+
+async fn compact_thread(
+    thread_id: String,
+    reason: String,
+    scope: String,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let route = format!("/v1/threads/{thread_id}/compact");
+    let response = daemon_request(
+        endpoint.as_deref(),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::json!({
+            "reason": reason,
+            "scope": scope,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Compact",
+            "component_kind": "context_compaction",
+            "workflow_node_id": "runtime.context-compact",
+        })),
+    )
+    .await?;
+    if json {
+        return print_json(&response);
+    }
+    println!(
+        "Compacted thread {}: latest_seq={}",
+        thread_id,
+        response
+            .get("latest_seq")
+            .and_then(|value| value.as_u64())
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "unknown".to_string())
     );
     Ok(())
 }
@@ -1744,6 +1813,29 @@ mod tests {
                 json: true,
                 ..
             }) if thread_id == "thread_runtime_cli" && turn_id == "turn_runtime_cli"
+        ));
+
+        let compact = AgentArgs::try_parse_from([
+            "agent",
+            "compact",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--reason",
+            "reduce stale context",
+            "--scope",
+            "thread",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--json",
+        ])
+        .expect("compact command should parse");
+        assert!(matches!(
+            compact.command,
+            Some(AgentCommands::Compact {
+                thread_id,
+                json: true,
+                ..
+            }) if thread_id == "thread_runtime_cli"
         ));
 
         let model = AgentArgs::try_parse_from(["agent", "model", "--json"])

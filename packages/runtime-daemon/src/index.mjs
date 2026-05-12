@@ -1652,6 +1652,103 @@ export class AgentgresRuntimeStateStore {
     return this.turnForRun(updated);
   }
 
+  compactThread(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const runs = this.listRuns(agent.id);
+    const latestRun = runs.at(-1);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      (latestRun ? turnIdForRun(latestRun.id) : "");
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested context compaction";
+    const scope = optionalString(request.scope) ?? "thread";
+    const now = new Date().toISOString();
+    const streamId = eventStreamIdForThread(threadId);
+    const previousLatestSeq = this.latestRuntimeEventSeq(streamId);
+    const compactHash = crypto
+      .createHash("sha256")
+      .update(`${reason}:${scope}`)
+      .digest("hex")
+      .slice(0, 16);
+    const event = this.appendRuntimeEvent({
+      event_stream_id: streamId,
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:context-compact:${compactHash}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:context.compact:${compactHash}`,
+      source,
+      source_event_kind: "OperatorControl.Compact",
+      event_kind: "context.compacted",
+      status: "completed",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.context-compact",
+      component_kind: "context_compaction",
+      payload_schema_version: "ioi.runtime.context-compaction.v1",
+      payload: {
+        event_kind: "OperatorControl.Compact",
+        reason,
+        scope,
+        requested_by: requestedBy,
+        control_surface: source,
+        previous_latest_seq: previousLatestSeq,
+        compacted_tokens: 0,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: latestRun?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [`receipt_${latestRun?.id ?? agent.id}_context_compaction_${compactHash}`],
+      policy_decision_refs: [`policy_${latestRun?.id ?? agent.id}_context_compaction_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "compact",
+      source,
+      reason,
+      scope,
+      eventId: event.event_id,
+      seq: event.seq,
+      createdAt: event.created_at,
+    };
+    if (latestRun) {
+      const updated = {
+        ...latestRun,
+        updatedAt: event.created_at,
+        trace: {
+          ...latestRun.trace,
+          operatorControls: appendOperatorControl(latestRun.trace?.operatorControls, control),
+          contextCompaction: {
+            reason,
+            scope,
+            eventId: event.event_id,
+            seq: event.seq,
+            compactedTokens: 0,
+          },
+        },
+        operatorControls: appendOperatorControl(latestRun.operatorControls, control),
+      };
+      this.runs.set(latestRun.id, updated);
+      this.writeRun(updated, "thread.compact");
+      return this.threadForAgent(agent);
+    }
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, "thread.compact");
+    return this.threadForAgent(updatedAgent);
+  }
+
   listJobs(options = {}) {
     const agentId = options.agentId ?? options.agent_id ?? undefined;
     const status = options.status ?? undefined;
@@ -4322,6 +4419,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "fork") {
     writeJsonResponse(response, store.forkThread(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "compact") {
+    writeJsonResponse(response, store.compactThread(threadId, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "turns" && !segments[4]) {

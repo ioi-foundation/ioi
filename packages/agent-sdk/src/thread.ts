@@ -3,6 +3,7 @@ import {
   createRuntimeSubstrateClient,
   type RuntimeEventStreamOptions,
   type RuntimeSubstrateClient,
+  type RuntimeThreadCompactInput,
   type RuntimeThreadCreateInput,
   type RuntimeThreadForkInput,
   type RuntimeTurnCreateInput,
@@ -89,6 +90,10 @@ export class Thread {
 
   async fork(input: RuntimeThreadForkInput = {}): Promise<Thread> {
     return new Thread(this.client, await this.client.forkThread(this.id, input));
+  }
+
+  async compact(input: RuntimeThreadCompactInput = {}): Promise<Thread> {
+    return new Thread(this.client, await this.client.compactThread(this.id, input));
   }
 
   async submit(input: RuntimeTurnCreateInput): Promise<Turn> {
