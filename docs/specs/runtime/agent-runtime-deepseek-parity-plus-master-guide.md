@@ -4183,6 +4183,60 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-run-history-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow search model
+extraction:
+
+- Extracted rail-search normalization, result counting, result-kind grouping,
+  visible result slicing, hidden-result accounting, actionability flags, and
+  empty-state copy into
+  `packages/agent-ide/src/runtime/workflow-rail-search-model.ts`.
+- Added
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx`
+  as the presentational React Flow rail surface for search input, indexed
+  workflow counts, result actions, result metadata, and filtered empty states.
+- `WorkflowRailPanel/core.tsx` now delegates the `panel === "search"` branch to
+  `WorkflowSearchPanel` over `workflowRailSearchModel(...)`, keeping workflow
+  discovery/navigation reusable by chat/autopilot workflow creation and graph
+  authoring surfaces.
+- Added
+  `packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts` to lock
+  indexed counts, normalization, node/test/output filtering, result-kind
+  grouping, visible slicing, test target-node actions, and empty filtered
+  states.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so
+  rail search must exist in both the runtime model and React Flow panel. The
+  live rollback proof now includes `workflowRailSearchModelUi` and source refs
+  for both files.
+- `WorkflowRailPanel/core.tsx` is reduced from 10,939 to 10,903 lines. The new
+  search panel is 63 lines, and the rail-search model is 109 lines with a
+  177-line focused model test.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T13-15-19-853Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowRailSearchModelUi === true`;
+  - `checks.workflowRunHistoryModelUi === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include both
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx`
+    and `packages/agent-ide/src/runtime/workflow-rail-search-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

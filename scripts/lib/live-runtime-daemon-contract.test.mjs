@@ -1550,6 +1550,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx"),
     "utf8",
   );
+  const workflowSearchPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowRailSearchModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-rail-search-model.ts"),
+    "utf8",
+  );
   const workflowReadinessPanel = fs.readFileSync(
     path.join(
       root,
@@ -2893,6 +2904,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(inspector, /data-model-output-localized/);
   assert.match(workflowRailPanel, /workflowRuntimeAccessibleStatusLabel/);
   assert.match(workflowRailPanel, /workflowRuntimeNodeChrome/);
+  assert.match(workflowRailPanel, /WorkflowSearchPanel/);
+  assert.match(workflowRailPanel, /workflowRailSearchModel/);
+  assert.match(workflowSearchPanel, /workflow-rail-search-results/);
+  assert.match(workflowSearchPanel, /workflow-rail-search-index-summary/);
+  assert.match(workflowSearchPanel, /data-result-kind/);
+  assert.match(workflowRailSearchModel, /workflowRailSearchModel/);
+  assert.match(workflowRailSearchModel, /visibleResults/);
+  assert.match(workflowRailSearchModel, /resultGroups/);
+  assert.match(workflowRailSearchModel, /resultKindCounts/);
   assert.match(workflowRailPanel, /workflow-settings-chrome-locale-select/);
   assert.match(workflowRailPanel, /globalWorkflowChromeLocale/);
   assert.match(workflowRailPanel, /onUpdateWorkflowChromeLocale/);

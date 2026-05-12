@@ -4228,6 +4228,10 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
 export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railPath =
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx";
+  const searchPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx";
+  const railSearchModelPath =
+    "packages/agent-ide/src/runtime/workflow-rail-search-model.ts";
   const readinessPanelPath =
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
   const readinessModelPath =
@@ -4315,6 +4319,11 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimeTestsPath =
     "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
+  const searchPanel = readFileSync(resolve(repoRoot, searchPanelPath), "utf8");
+  const railSearchModel = readFileSync(
+    resolve(repoRoot, railSearchModelPath),
+    "utf8",
+  );
   const readinessPanel = readFileSync(
     resolve(repoRoot, readinessPanelPath),
     "utf8",
@@ -4844,6 +4853,15 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-readiness-scheduler-lane-/.test(readinessPanel) &&
       /data-proof-check/.test(readinessPanel) &&
       /data-capability-scope/.test(readinessPanel),
+    workflowRailSearchModelUi:
+      /WorkflowSearchPanel/.test(rail) &&
+      /workflowRailSearchModel/.test(rail) &&
+      /workflow-rail-search-results/.test(searchPanel) &&
+      /workflow-rail-search-index-summary/.test(searchPanel) &&
+      /data-result-kind/.test(searchPanel) &&
+      /visibleResults/.test(railSearchModel) &&
+      /resultGroups/.test(railSearchModel) &&
+      /resultKindCounts/.test(railSearchModel),
     workflowUnitTestReadinessModelUi:
       /WorkflowUnitTestsPanel/.test(rail) &&
       /workflowTestReadinessModel/.test(rail) &&
@@ -5584,6 +5602,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     },
     sourceRefs: [
       railPath,
+      searchPanelPath,
+      railSearchModelPath,
       readinessPanelPath,
       readinessModelPath,
       unitTestsPanelPath,
@@ -10938,6 +10958,8 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/WorkflowComposer/controller.tsx",
 	        "packages/agent-ide/src/WorkflowComposer/support.tsx",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
+	        "packages/agent-ide/src/runtime/workflow-rail-search-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
 	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",

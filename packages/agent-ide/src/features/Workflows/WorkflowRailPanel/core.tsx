@@ -51,6 +51,7 @@ import {
 import { workflowValuePreview } from "../../../runtime/workflow-value-preview";
 import { workflowTestReadinessModel } from "../../../runtime/workflow-test-readiness-model";
 import { workflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
+import { workflowRailSearchModel } from "../../../runtime/workflow-rail-search-model";
 import {
   resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
@@ -67,7 +68,6 @@ import {
   workflowNodeName,
   workflowPackageNodeOutputSummary,
   workflowPackageNodeOutputStatus,
-  workflowRailSearchResults,
   workflowSelectedNodeBindingSummary,
   workflowUniqueReceiptRefs,
   workflowUniqueReplayFixtureRefs,
@@ -97,6 +97,7 @@ import {
 import { WorkflowReadinessPanel } from "./readinessPanel";
 import { WorkflowUnitTestsPanel } from "./unitTestsPanel";
 import { WorkflowRunsPanel } from "./runsPanel";
+import { WorkflowSearchPanel } from "./searchPanel";
 
 function workflowPackageSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
@@ -454,15 +455,14 @@ export function WorkflowRailPanel({
   const [bindingCheckResults, setBindingCheckResults] = useState<
     Record<string, WorkflowBindingCheckResult>
   >({});
-  const normalizedRailSearch = railSearchQuery.trim().toLowerCase();
   const outputNodes = workflow.nodes.filter(
     (nodeItem) => nodeItem.type === "output",
   );
-  const workflowSearchResults = workflowRailSearchResults(
+  const workflowSearchModel = workflowRailSearchModel({
     workflow,
     tests,
-    normalizedRailSearch,
-  );
+    searchQuery: railSearchQuery,
+  });
   const sourceAndTriggerNodes = workflow.nodes.filter(
     (nodeItem) => nodeItem.type === "source" || nodeItem.type === "trigger",
   );
@@ -3346,48 +3346,12 @@ export function WorkflowRailPanel({
   }
   if (panel === "search") {
     return (
-      <>
-        <h3>Search</h3>
-        <input
-          data-testid="workflow-rail-search-input"
-          placeholder="Search nodes, tests, outputs..."
-          value={railSearchQuery}
-          onChange={(event) => setRailSearchQuery(event.target.value)}
-        />
-        <p>
-          {workflow.nodes.length} nodes, {tests.length} tests, and{" "}
-          {outputNodes.length} outputs indexed.
-        </p>
-        <div
-          className="workflow-search-results"
-          data-testid="workflow-rail-search-results"
-        >
-          {workflowSearchResults.slice(0, 18).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="workflow-search-result"
-              data-testid={`workflow-rail-search-result-${item.id}`}
-              disabled={!item.nodeId}
-              onClick={() => item.nodeId && onInspectNode(item.nodeId)}
-            >
-              <strong>{item.title}</strong>
-              <span>
-                {item.resultKind} · {item.subtitle}
-              </span>
-              {item.detail ? <small>{item.detail}</small> : null}
-            </button>
-          ))}
-          {workflowSearchResults.length === 0 ? (
-            <article className="workflow-output-row">
-              <strong>No matches</strong>
-              <span>
-                Try a node name, binding, test id, status, or output format.
-              </span>
-            </article>
-          ) : null}
-        </div>
-      </>
+      <WorkflowSearchPanel
+        model={workflowSearchModel}
+        searchQuery={railSearchQuery}
+        onSearchQueryChange={setRailSearchQuery}
+        onInspectNode={onInspectNode}
+      />
     );
   }
   if (panel === "sources") {
