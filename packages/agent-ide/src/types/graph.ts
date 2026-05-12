@@ -4779,6 +4779,34 @@ export interface WorkflowValidationIssue {
   suggestedCreatorId?: string;
 }
 
+export type WorkflowSchedulerLaneCapabilityId =
+  | "scheduler"
+  | "scheduler.finalization"
+  | "terminalResult"
+  | "nodeExecution"
+  | "nodeOutcome"
+  | "nodeStateUpdate"
+  | "nodeSuccessEvent"
+  | "nodeFailureOutcome"
+  | "interrupt"
+  | "validation";
+
+export type WorkflowSchedulerLaneReadinessStatus =
+  | "ready"
+  | "warning"
+  | "blocked";
+
+export interface WorkflowSchedulerLaneReadiness {
+  id: WorkflowSchedulerLaneCapabilityId;
+  label: string;
+  capabilityScope: string;
+  proofCheckKey: string;
+  status: WorkflowSchedulerLaneReadinessStatus;
+  detail: string;
+  evidenceRefs: string[];
+  blockerCode?: string;
+}
+
 export interface WorkflowValidationResult {
   status: "passed" | "failed" | "blocked";
   errors: WorkflowValidationIssue[];
@@ -4791,6 +4819,7 @@ export interface WorkflowValidationResult {
   connectorBindingIssues: WorkflowValidationIssue[];
   executionReadinessIssues?: WorkflowValidationIssue[];
   verificationIssues?: WorkflowValidationIssue[];
+  schedulerLaneReadiness?: WorkflowSchedulerLaneReadiness[];
 }
 
 export interface WorkflowEvidenceSummary {

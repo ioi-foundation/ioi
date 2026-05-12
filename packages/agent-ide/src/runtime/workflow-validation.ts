@@ -39,6 +39,10 @@ import {
   workflowSchemaHasFieldPath,
   workflowSchemaIsObjectLike,
 } from "./workflow-schema";
+import {
+  workflowSchedulerLaneReadiness,
+  workflowSchedulerLaneReadinessIssues,
+} from "./workflow-scheduler-lane-readiness";
 
 export function defaultTestsForWorkflow(workflow: WorkflowProject): WorkflowTestCase[] {
   if (workflow.nodes.length === 0) return [];
@@ -534,6 +538,11 @@ const WORKFLOW_REPAIR_BY_CODE: Record<
     repairActionId: "open-harness-worker-binding",
     repairLabel: "Bind worker identity",
   },
+  scheduler_lane_capability_missing: {
+    configSection: "advanced",
+    repairActionId: "open-harness-readiness",
+    repairLabel: "Review scheduler lanes",
+  },
   open_proposal: {
     configSection: "advanced",
     repairActionId: "open-proposals",
@@ -864,6 +873,7 @@ export function validateWorkflowProject(
   const connectorBindingIssues: WorkflowValidationResult["connectorBindingIssues"] = [];
   const executionReadinessIssues: WorkflowValidationResult["executionReadinessIssues"] = [];
   const verificationIssues: WorkflowValidationResult["verificationIssues"] = [];
+  const schedulerLaneReadiness = workflowSchedulerLaneReadiness();
   const unsupportedRuntimeNodes: string[] = [];
   const policyRequiredNodes: string[] = [];
   const coverageByNodeId: Record<string, string[]> = {};
@@ -917,6 +927,9 @@ export function validateWorkflowProject(
       }
     });
   }
+  executionReadinessIssues.push(
+    ...workflowSchedulerLaneReadinessIssues(schedulerLaneReadiness),
+  );
 
   tests.forEach((test) => {
     test.targetNodeIds.forEach((nodeId) => {
@@ -1289,6 +1302,7 @@ export function validateWorkflowProject(
     connectorBindingIssues: withWorkflowIssueListRepairMetadata(connectorBindingIssues),
     executionReadinessIssues: withWorkflowIssueListRepairMetadata(executionReadinessIssues),
     verificationIssues: withWorkflowIssueListRepairMetadata(verificationIssues),
+    schedulerLaneReadiness,
   };
 }
 
@@ -1311,6 +1325,8 @@ export function evaluateWorkflowActivationReadiness(
     connectorBindingIssues: [...baseResult.connectorBindingIssues],
     executionReadinessIssues: [...(baseResult.executionReadinessIssues ?? [])],
     verificationIssues: [...(baseResult.verificationIssues ?? [])],
+    schedulerLaneReadiness:
+      baseResult.schedulerLaneReadiness ?? workflowSchedulerLaneReadiness(),
   };
   const addReadinessIssue = (issue: WorkflowValidationIssue) => {
     const exists = next.executionReadinessIssues?.some(
@@ -1871,6 +1887,11 @@ export function createWorkflowHarnessActivationCandidate(
     Boolean(workerBindingPreview.harnessWorkflowId) &&
     workerBindingPreview.harnessActivationId === activationIdPreview &&
     Boolean(workerBindingPreview.harnessHash);
+  const schedulerLaneReadiness =
+    readinessResult.schedulerLaneReadiness ?? workflowSchedulerLaneReadiness();
+  const schedulerLaneReadyCount = schedulerLaneReadiness.filter(
+    (lane) => lane.status === "ready",
+  ).length;
   const gateResults: WorkflowHarnessActivationCandidateGateResult[] = [
     {
       gateId: "slots",
@@ -1940,6 +1961,21 @@ export function createWorkflowHarnessActivationCandidate(
       value: `${receiptReadyComponentCount}/${workflow.nodes.length}`,
       detail: "Every harness component must expose mapped receipt refs.",
       evidenceRefs: workflow.nodes.flatMap((node) => node.runtimeBinding?.receiptKinds ?? []),
+    },
+    {
+      gateId: "scheduler-lanes",
+      label: "Scheduler lanes",
+      status:
+        schedulerLaneReadyCount === schedulerLaneReadiness.length
+          ? "passed"
+          : "blocked",
+      value: `${schedulerLaneReadyCount}/${schedulerLaneReadiness.length}`,
+      detail:
+        "React Flow activation readiness must expose the runtime scheduler lane decomposition with matching source-contract proof keys.",
+      evidenceRefs: schedulerLaneReadiness.flatMap((lane) => [
+        lane.proofCheckKey,
+        ...lane.evidenceRefs,
+      ]),
     },
     {
       gateId: "package-evidence",

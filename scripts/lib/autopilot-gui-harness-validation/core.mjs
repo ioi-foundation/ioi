@@ -4230,6 +4230,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx";
   const validationPath =
     "packages/agent-ide/src/runtime/workflow-validation.ts";
+  const schedulerLaneReadinessPath =
+    "packages/agent-ide/src/runtime/workflow-scheduler-lane-readiness.ts";
   const harnessWorkflowPath =
     "packages/agent-ide/src/runtime/harness-workflow/core.ts";
   const railModelPath = "packages/agent-ide/src/runtime/workflow-rail-model.ts";
@@ -4311,6 +4313,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const view = readFileSync(resolve(repoRoot, viewPath), "utf8");
   const bottomShelf = readFileSync(resolve(repoRoot, bottomShelfPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
+  const schedulerLaneReadiness = readFileSync(
+    resolve(repoRoot, schedulerLaneReadinessPath),
+    "utf8",
+  );
   const restoreCommand = readFileSync(
     resolve(repoRoot, restoreCommandPath),
     "utf8",
@@ -4749,6 +4755,57 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow_live_authority_destructive_denial/.test(
         projectWorkflowAuthorityToolingLane,
       ),
+    workflowSchedulerLaneReadinessManifest:
+      /EXPECTED_WORKFLOW_SCHEDULER_LANE_CAPABILITY_IDS/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /WORKFLOW_SCHEDULER_LANE_CAPABILITIES/.test(schedulerLaneReadiness) &&
+      /"scheduler"/.test(schedulerLaneReadiness) &&
+      /"scheduler\.finalization"/.test(schedulerLaneReadiness) &&
+      /"terminalResult"/.test(schedulerLaneReadiness) &&
+      /"nodeExecution"/.test(schedulerLaneReadiness) &&
+      /"nodeOutcome"/.test(schedulerLaneReadiness) &&
+      /"nodeStateUpdate"/.test(schedulerLaneReadiness) &&
+      /"nodeSuccessEvent"/.test(schedulerLaneReadiness) &&
+      /"nodeFailureOutcome"/.test(schedulerLaneReadiness) &&
+      /"interrupt"/.test(schedulerLaneReadiness) &&
+      /"validation"/.test(schedulerLaneReadiness) &&
+      /workflowSchedulerRuntimeLane/.test(schedulerLaneReadiness) &&
+      /workflowSchedulerFinalizationRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerTerminalResultRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerNodeExecutionRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerNodeOutcomeRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerNodeStateUpdateRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerNodeSuccessEventRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerNodeFailureOutcomeRuntimeLane/.test(
+        schedulerLaneReadiness,
+      ) &&
+      /workflowSchedulerInterruptRuntimeLane/.test(schedulerLaneReadiness) &&
+      /workflowSchedulerValidationRuntimeLane/.test(schedulerLaneReadiness),
+    workflowSchedulerLaneReadinessActivationUi:
+      /WorkflowSchedulerLaneReadiness/.test(graph) &&
+      /schedulerLaneReadiness\?: WorkflowSchedulerLaneReadiness\[\]/.test(
+        graph,
+      ) &&
+      /workflowSchedulerLaneReadiness/.test(validation) &&
+      /workflowSchedulerLaneReadinessIssues/.test(validation) &&
+      /gateId: "scheduler-lanes"/.test(validation) &&
+      /workflow-readiness-scheduler-lanes/.test(rail) &&
+      /workflow-readiness-scheduler-lane-/.test(rail) &&
+      /data-proof-check/.test(rail) &&
+      /data-capability-scope/.test(rail),
     workflowSchedulerRuntimeLane:
       /workflow_scheduler_lane/.test(projectRuntime) &&
       !/fn execute_workflow_project\(/.test(projectRuntime) &&

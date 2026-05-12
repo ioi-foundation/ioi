@@ -3932,6 +3932,64 @@ Validation evidence:
   - `runtime-artifacts.json` reports
     `harnessAuthorityToolingGithubPrCreateDryRunCount === 5`.
 
+Implementation slice completed 2026-05-12, React Flow scheduler lane
+readiness UI:
+
+- Added a typed scheduler-lane readiness manifest at
+  `packages/agent-ide/src/runtime/workflow-scheduler-lane-readiness.ts`.
+  It enumerates the explicit parity-plus lane capabilities:
+  `scheduler`, `scheduler.finalization`, `terminalResult`, `nodeExecution`,
+  `nodeOutcome`, `nodeStateUpdate`, `nodeSuccessEvent`,
+  `nodeFailureOutcome`, `interrupt`, and `validation`.
+- `WorkflowValidationResult` now carries `schedulerLaneReadiness`, and
+  activation readiness converts missing lane manifest entries into
+  `scheduler_lane_capability_missing` execution-readiness blockers.
+- Harness activation candidates now include a `scheduler-lanes` gate with a
+  `10/10` proof-backed value when every lane is present. The gate evidence
+  binds each UI row to the existing harness/source proof keys:
+  `workflowSchedulerRuntimeLane`,
+  `workflowSchedulerFinalizationRuntimeLane`,
+  `workflowSchedulerTerminalResultRuntimeLane`,
+  `workflowSchedulerNodeExecutionRuntimeLane`,
+  `workflowSchedulerNodeOutcomeRuntimeLane`,
+  `workflowSchedulerNodeStateUpdateRuntimeLane`,
+  `workflowSchedulerNodeSuccessEventRuntimeLane`,
+  `workflowSchedulerNodeFailureOutcomeRuntimeLane`,
+  `workflowSchedulerInterruptRuntimeLane`, and
+  `workflowSchedulerValidationRuntimeLane`.
+- The React Flow workflow readiness rail now shows a dedicated
+  `workflow-readiness-scheduler-lanes` section. Each lane row exposes stable
+  `data-testid`, `data-readiness`, `data-proof-check`, and
+  `data-capability-scope` attributes so live GUI validation can prove the
+  scheduler decomposition is visible to operators, not only source-contract
+  tests.
+- The GUI and daemon contract harnesses now require both the typed readiness
+  manifest and the React Flow lane section, while retaining all existing Rust
+  scheduler lane source checks.
+- `WorkflowRailPanel/core.tsx` remains large at this checkpoint. The next
+  intuitive refactor is to extract readiness-panel primitives after the next
+  UI slice, so this change adds only a compact section and keeps scheduler
+  metadata in the runtime manifest.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- focused runtime import check:
+  `node --import tsx - <<'EOF' ... scheduler lane readiness check passed`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- `rustfmt --edition 2021 --check apps/autopilot/src-tauri/src/project.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_state_update_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_success_event_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_node_failure_outcome_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs`
+- `npm run validate:autopilot-gui-harness`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T11-23-50-090Z/result.json`
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSchedulerLaneReadinessManifest === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - all scheduler runtime lane checks remain true, including failure outcome,
+    success event, state update, node outcome, node execution, terminal result,
+    finalization, interrupt, validation, and the main scheduler lane.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
