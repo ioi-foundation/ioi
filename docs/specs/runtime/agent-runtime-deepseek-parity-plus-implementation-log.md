@@ -4537,3 +4537,36 @@ Validation evidence:
   matching extracted slice counts.
 - docs integrity check confirms referenced evidence result paths still exist.
 - `git diff --check`
+
+### Slice 88. 2026-05-12 - live bridge TTI schema snapshots
+
+Implementation slice completed 2026-05-12, live bridge TTI schema snapshots:
+
+- Replaced the early TTI draft in
+  `crates/types/src/app/runtime/thread_turn_item.rs` with the locked
+  `ioi.runtime.thread.v1`, `ioi.runtime.turn.v1`, `ioi.runtime.item.v1`, and
+  `ioi.runtime.event.v1` wire records from the live bridge spec.
+- Added explicit Rust literal arrays for thread modes, approval modes, thread
+  statuses, turn statuses, item kinds, item statuses, actors, and event
+  sources so schema drift can be caught before daemon/API wiring.
+- Re-exported the modular TTI records and constants through
+  `crates/types/src/app/runtime_contracts.rs` and
+  `crates/types/src/app/runtime/events.rs` so existing compatibility imports
+  and concern-oriented runtime imports both see the same contract.
+- Mirrored the wire records and literal arrays in
+  `packages/agent-sdk/src/messages.ts`, and exported the constants and record
+  types from `packages/agent-sdk/src/index.ts` for SDK clients.
+- Added `scripts/lib/live-bridge-tti-schema-contract.test.mjs` to prove the
+  Rust and TypeScript snapshots agree on schema literals, enum literal arrays,
+  required field order, and export surfaces.
+- Updated the live bridge contract spec and master guide so the next P0 slice is
+  the append-only daemon event store, not another schema pass.
+
+Validation evidence:
+
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `npm run build:agent-sdk`
+- `cargo test -p ioi-types thread_turn_item --lib`
+- `cargo check -p ioi-types`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`

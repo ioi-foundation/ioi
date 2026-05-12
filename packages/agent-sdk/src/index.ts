@@ -2,6 +2,18 @@ export { Agent, AgentMemory, AgentSubagent, Cursor, CursorCompatibleAgent, creat
 export { Run } from "./run.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
 export { createRuntimeSubstrateClient } from "./substrate-client.js";
+export {
+  RUNTIME_APPROVAL_MODES,
+  RUNTIME_EVENT_SOURCES,
+  RUNTIME_ITEM_ACTORS,
+  RUNTIME_ITEM_KINDS,
+  RUNTIME_ITEM_STATUSES,
+  RUNTIME_THREAD_MODES,
+  RUNTIME_THREAD_STATUSES,
+  RUNTIME_TTI_SCHEMA_VERSION_LITERALS,
+  RUNTIME_TTI_SCHEMA_VERSIONS,
+  RUNTIME_TURN_STATUSES,
+} from "./messages.js";
 export type {
   AgentMemoryPathProjection,
   AgentMemoryProjection,
@@ -44,11 +56,24 @@ export type {
   IOISDKMessage,
   ModelRouteDecision,
   RuntimeAccountProfile,
+  RuntimeApprovalMode,
+  RuntimeEventEnvelope,
+  RuntimeEventSource,
+  RuntimeItemActor,
+  RuntimeItemKind,
+  RuntimeItemRecord,
+  RuntimeItemStatus,
   RuntimeNodeProfile,
   RuntimeReceipt,
   RuntimeScorecard,
+  RuntimeThreadMode,
+  RuntimeThreadRecord,
+  RuntimeThreadStatus,
   RuntimeToolCatalogEntry,
   RuntimeTraceBundle,
+  RuntimeTurnRecord,
+  RuntimeTurnStatus,
+  RuntimeUsageRecord,
   SemanticImpactProjection,
   StopConditionProjection,
   TaskStateProjection,
