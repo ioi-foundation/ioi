@@ -26,6 +26,7 @@ mod validation;
 mod workflow_approval_interrupt_lane;
 mod workflow_authority_tooling_lane;
 mod workflow_binding_lane;
+mod workflow_checkpoint_lane;
 mod workflow_coding_route_lane;
 mod workflow_execution_results_lane;
 mod workflow_graph_execution_lane;
@@ -47,6 +48,7 @@ use templates::*;
 pub use types::*;
 use validation::*;
 use workflow_binding_lane::*;
+use workflow_checkpoint_lane::*;
 use workflow_graph_execution_lane::*;
 use workflow_output_lane::*;
 

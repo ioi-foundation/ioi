@@ -22,6 +22,7 @@ use super::workflow_binding_lane::{
     workflow_function_sandbox_precheck, workflow_model_binding, workflow_parser_binding,
     workflow_sandbox_policy, workflow_tool_binding,
 };
+use super::workflow_checkpoint_lane::workflow_checkpoint_state;
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::workflow_execution_results_lane::{
     workflow_completion_has_missing, workflow_completion_requirements,
@@ -1693,34 +1694,6 @@ pub(crate) fn execute_workflow_harness_live_default_node(
         default_human_gate_outcome.as_ref(),
         &WorkflowSkillResolver::default(),
     )
-}
-
-pub(super) fn workflow_checkpoint_state(
-    workflow_path: &Path,
-    state: &mut WorkflowStateSnapshot,
-    run_id: &str,
-    thread_id: &str,
-    node_id: Option<&str>,
-    status: &str,
-    summary: String,
-    checkpoints: &mut Vec<WorkflowCheckpoint>,
-) -> Result<String, String> {
-    let checkpoint_id = unique_runtime_id("checkpoint");
-    state.checkpoint_id = checkpoint_id.clone();
-    state.active_node_ids.sort();
-    let checkpoint = WorkflowCheckpoint {
-        id: checkpoint_id.clone(),
-        thread_id: thread_id.to_string(),
-        run_id: run_id.to_string(),
-        created_at_ms: now_ms(),
-        step_index: state.step_index,
-        node_id: node_id.map(str::to_string),
-        status: status.to_string(),
-        summary,
-    };
-    save_workflow_checkpoint(workflow_path, &checkpoint, state)?;
-    checkpoints.push(checkpoint);
-    Ok(checkpoint_id)
 }
 
 pub(super) fn execute_workflow_project(

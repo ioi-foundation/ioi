@@ -1603,6 +1603,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowCheckpointLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowMemoryLane = fs.readFileSync(
     path.join(
       root,
@@ -1787,6 +1794,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowBindingLane,
     /workflow_function_output_schema/,
   );
+  assert.match(tauriProjectRuntime, /workflow_checkpoint_lane/);
+  assert.match(
+    tauriProjectWorkflowCheckpointLane,
+    /fn workflow_checkpoint_state\(/,
+  );
+  assert.match(tauriProjectWorkflowCheckpointLane, /WorkflowCheckpoint/);
+  assert.match(tauriProjectWorkflowCheckpointLane, /WorkflowStateSnapshot/);
+  assert.match(tauriProjectWorkflowCheckpointLane, /save_workflow_checkpoint/);
+  assert.match(tauriProjectWorkflowCheckpointLane, /unique_runtime_id/);
+  assert.match(tauriProjectWorkflowCheckpointLane, /active_node_ids\.sort/);
   assert.match(tauriProjectRuntime, /workflow_output_lane/);
   assert.match(
     tauriProjectWorkflowOutputLane,
