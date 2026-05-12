@@ -93,6 +93,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
+    "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
   ]) {
     assertExists(relativePath);
   }
@@ -110,6 +111,11 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     /workflow-readiness-scheduler-lanes/,
+    80,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+    /workflowReadinessModel/,
     80,
   );
 });

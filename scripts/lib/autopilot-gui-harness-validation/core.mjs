@@ -4230,6 +4230,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx";
   const readinessPanelPath =
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
+  const readinessModelPath =
+    "packages/agent-ide/src/runtime/workflow-readiness-model.ts";
   const validationPath =
     "packages/agent-ide/src/runtime/workflow-validation.ts";
   const schedulerLaneReadinessPath =
@@ -4307,6 +4309,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   const readinessPanel = readFileSync(
     resolve(repoRoot, readinessPanelPath),
+    "utf8",
+  );
+  const readinessModel = readFileSync(
+    resolve(repoRoot, readinessModelPath),
     "utf8",
   );
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
@@ -4809,6 +4815,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflowSchedulerLaneReadinessIssues/.test(validation) &&
       /gateId: "scheduler-lanes"/.test(validation) &&
       /WorkflowReadinessPanel/.test(rail) &&
+      /workflowReadinessModel/.test(readinessModel) &&
+      /workflowSchedulerLaneReadiness/.test(readinessModel) &&
+      /readinessItems/.test(readinessModel) &&
+      /workflowReadinessModel/.test(readinessPanel) &&
       /workflow-readiness-scheduler-lanes/.test(readinessPanel) &&
       /workflow-readiness-scheduler-lane-/.test(readinessPanel) &&
       /data-proof-check/.test(readinessPanel) &&
@@ -5536,6 +5546,8 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     },
     sourceRefs: [
       railPath,
+      readinessPanelPath,
+      readinessModelPath,
       validationPath,
       harnessWorkflowPath,
       railModelPath,
@@ -10885,6 +10897,7 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/WorkflowComposer/support.tsx",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
 	        "packages/agent-ide/src/runtime/harness-workflow/index.ts",
 	      ],
     };
