@@ -96,18 +96,17 @@ Completed workstream snapshot as of 2026-05-12:
   settings harness surfaces have been heavily modularized with source-contract
   tests.
 - The active strategic risk remains the P0 live runtime API bridge plus durable
-  thread/turn/item event model; the first schema snapshot is now locked across
-  Rust and TypeScript. The active tactical cleanup stream remains React Flow
+  thread/turn/item event model; the schema snapshot and daemon event-store
+  spine are now locked. The active tactical cleanup stream remains React Flow
   settings-harness panel decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 live bridge TTI schema snapshots
-- Artifacts: crates/types/src/app/runtime/thread_turn_item.rs,
-  packages/agent-sdk/src/messages.ts,
-  scripts/lib/live-bridge-tti-schema-contract.test.mjs
-- Validation: schema contract test, Rust/SDK builds, and daemon contract smoke;
-  see the validation ledger.
+- 2026-05-12: P0 daemon runtime event-store spine
+- Artifacts: packages/runtime-daemon/src/index.mjs,
+  scripts/lib/live-runtime-daemon-contract.test.mjs
+- Validation: daemon contract smoke plus schema guard; see the validation
+  ledger.
 
 Most recent live GUI implementation evidence:
 
@@ -118,6 +117,7 @@ Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | Daemon event-store spine | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | TTI schema snapshots | scripts/lib/live-bridge-tti-schema-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md |
 | 2026-05-12 | React Flow settings harness | Active runtime rollback panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-11-04-005Z/result.json |
@@ -131,10 +131,10 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Add the append-only daemon event-store spine with cursor and idempotency
-   tests before wiring runtime execution.
-2. Bridge one `RuntimeAgentService` session into the locked
+1. Bridge one `RuntimeAgentService` session into the locked
    thread/turn/item/event records without daemon-side synthetic success paths.
+2. Add `Last-Event-ID` reconnect support and `/v1/runs/{id}/events` alias
+   parity over the same stored event ids before SDK `Thread`/`Turn` wrappers.
 3. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.

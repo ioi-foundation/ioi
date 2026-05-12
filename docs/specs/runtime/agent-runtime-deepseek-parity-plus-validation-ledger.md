@@ -2926,3 +2926,25 @@ Validation evidence:
   - 11 daemon/API contract subtests passed, including the existing
     Agentgres-backed thread/turn/event projection smoke.
 - `git diff --check`
+
+## Slice 89. 2026-05-12 - daemon runtime event-store spine
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 schema snapshot contract subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 12 daemon/API contract subtests passed;
+  - append-only event-store subtest proved seq `1, 2`, duplicate idempotency
+    returning seq `1`, `since_seq=1` replay returning seq `2`, and restart
+    persistence preserving the original payload;
+  - thread event replay emits `ioi.runtime.event.v1` rows and returns
+    `event_cursor_out_of_range` for a future cursor.
+- `git diff --check`
