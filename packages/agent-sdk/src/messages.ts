@@ -132,6 +132,25 @@ export type RuntimeItemStatus = (typeof RUNTIME_ITEM_STATUSES)[number];
 export type RuntimeItemActor = (typeof RUNTIME_ITEM_ACTORS)[number];
 export type RuntimeEventSource = (typeof RUNTIME_EVENT_SOURCES)[number];
 
+export const RUNTIME_THREAD_EVENT_TYPES = [
+  "thread_started",
+  "turn_started",
+  "turn_completed",
+  "turn_failed",
+  "turn_canceled",
+  "reasoning_delta",
+  "tool_completed",
+  "tool_failed",
+  "approval_required",
+  "policy_blocked",
+  "receipt_emitted",
+  "model_route_decision",
+  "tool_route_decision",
+  "runtime_step",
+] as const;
+
+export type RuntimeThreadEventType = (typeof RUNTIME_THREAD_EVENT_TYPES)[number];
+
 export interface RuntimeUsageRecord {
   input_tokens: number;
   output_tokens: number;
@@ -249,6 +268,37 @@ export interface RuntimeEventEnvelope {
   payload: Record<string, string>;
   redaction_profile: string;
   fixture_profile: string | null;
+}
+
+export interface RuntimeThreadEvent {
+  id: string;
+  cursor: string;
+  seq: number;
+  threadId: string;
+  turnId: string | null;
+  itemId: string | null;
+  type: RuntimeThreadEventType;
+  eventKind: string;
+  source: RuntimeEventSource | string;
+  sourceEventKind: string;
+  status: string;
+  actor: RuntimeItemActor | string;
+  createdAt: string;
+  componentKind: string | null;
+  workflowNodeId: string | null;
+  workflowGraphId: string | null;
+  toolCallId: string | null;
+  toolName: string | null;
+  approvalId: string | null;
+  agentStatus: string | null;
+  stepIndex: number | null;
+  payloadSchemaVersion: string;
+  receiptRefs: string[];
+  artifactRefs: string[];
+  policyDecisionRefs: string[];
+  rollbackRefs: string[];
+  payload: Record<string, unknown>;
+  envelope: RuntimeEventEnvelope;
 }
 
 export interface RuntimeTraceBundle {

@@ -1,13 +1,15 @@
 export { Agent, AgentMemory, AgentSubagent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
 export { Run } from "./run.js";
+export { Thread, Turn } from "./thread.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
-export { createRuntimeSubstrateClient } from "./substrate-client.js";
+export { createRuntimeSubstrateClient, runtimeThreadEventFromEnvelope } from "./substrate-client.js";
 export {
   RUNTIME_APPROVAL_MODES,
   RUNTIME_EVENT_SOURCES,
   RUNTIME_ITEM_ACTORS,
   RUNTIME_ITEM_KINDS,
   RUNTIME_ITEM_STATUSES,
+  RUNTIME_THREAD_EVENT_TYPES,
   RUNTIME_THREAD_MODES,
   RUNTIME_THREAD_STATUSES,
   RUNTIME_TTI_SCHEMA_VERSION_LITERALS,
@@ -25,8 +27,12 @@ export type {
   RememberMemoryResult,
   RuntimeAgentRecord,
   RuntimeArtifact,
+  RuntimeEventStreamOptions,
   RuntimeRunRecord,
   RuntimeSubstrateClient,
+  RuntimeThreadCreateInput,
+  RuntimeThreadForkInput,
+  RuntimeTurnCreateInput,
   UpdateMemoryRecordInput,
 } from "./substrate-client.js";
 export type {
@@ -47,6 +53,7 @@ export type {
   StreamOptions,
   SubagentDefinition,
 } from "./options.js";
+export type { ThreadCreateOptions } from "./thread.js";
 export type {
   AgentQualityLedgerProjection,
   AgentMemoryPolicy,
@@ -66,6 +73,8 @@ export type {
   RuntimeNodeProfile,
   RuntimeReceipt,
   RuntimeScorecard,
+  RuntimeThreadEvent,
+  RuntimeThreadEventType,
   RuntimeThreadMode,
   RuntimeThreadRecord,
   RuntimeThreadStatus,

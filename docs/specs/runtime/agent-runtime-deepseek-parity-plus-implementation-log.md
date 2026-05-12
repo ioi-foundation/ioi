@@ -4836,3 +4836,45 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
   - GUI harness preflight passed outside the worktree.
 - `git diff --check`
+
+### Slice 96. 2026-05-12 - SDK Thread/Turn canonical event projection
+
+Implementation slice completed 2026-05-12, SDK Thread/Turn canonical event
+projection:
+
+- Added `packages/agent-sdk/src/thread.ts` with public `Thread` and `Turn`
+  wrappers over the daemon's canonical `/v1/threads`, `/turns`, and `/events`
+  APIs.
+- Added `packages/agent-sdk/src/runtime-events.ts` to keep canonical event
+  projection and SDK mock TTI helpers out of the already-large substrate
+  client.
+- Extended `RuntimeSubstrateClient` with thread creation/open/list/resume/fork,
+  turn submission/list/get, and typed thread event streaming methods.
+- Added `RuntimeThreadEvent` projection types plus
+  `runtimeThreadEventFromEnvelope(...)` so daemon TTI envelopes normalize
+  consistently for SDK, chat, CLI/TUI, and future React Flow consumers.
+- Kept `Agent.send()` and `Run` compatibility intact while adding
+  `agent.thread()` as a bridge from existing agent ergonomics to the canonical
+  thread surface.
+- Locked an SDK HTTP contract that maps canonical daemon rows such as
+  `tool.completed` from `KernelEvent::AgentActionResult` into typed SDK event
+  fields: `type`, `componentKind`, `workflowNodeId`, `toolName`, `agentStatus`,
+  and `stepIndex`.
+- Extended the live daemon Rust bridge contract so SDK `Thread.open()` and
+  `Turn.events()` replay the same stored event ids as `/v1/threads/{id}/events`
+  and `/v1/runs/{id}/events`.
+
+Validation evidence:
+
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 TTI schema snapshot subtests passed.
+- `npm test --workspace=@ioi/agent-sdk`
+  - 11 SDK subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live runtime-service thread replay through SDK Thread/Turn wrappers passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-sdk-thread-turn-final`
+  - GUI harness preflight passed outside the worktree.

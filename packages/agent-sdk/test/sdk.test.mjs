@@ -9,6 +9,7 @@ import {
   Agent,
   Cursor,
   IoiAgentError,
+  Thread,
   createRuntimeSubstrateClient,
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
@@ -505,6 +506,174 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   }
 });
 
+test("Thread and Turn wrappers project canonical daemon events into typed SDK runtime events", async () => {
+  const now = new Date().toISOString();
+  const threadRecord = {
+    schema_version: "ioi.runtime.thread.v1",
+    thread_id: "thread_sdk",
+    session_id: "session_sdk",
+    agent_id: "agent_sdk",
+    workspace_root: process.cwd(),
+    title: "SDK thread projection",
+    mode: "agent",
+    approval_mode: "suggest",
+    trust_profile: "local_private",
+    model_route: "local:auto",
+    status: "active",
+    latest_turn_id: null,
+    latest_seq: 1,
+    event_stream_id: "events_thread_sdk",
+    workflow_graph_id: null,
+    harness_binding_id: null,
+    agentgres_projection_ref: "agents/agent_sdk.json",
+    created_at: now,
+    updated_at: now,
+    archived_at: null,
+    fixture_profile: null,
+  };
+  const turnRecord = {
+    schema_version: "ioi.runtime.turn.v1",
+    turn_id: "turn_sdk",
+    thread_id: "thread_sdk",
+    parent_turn_id: null,
+    request_id: "run_sdk",
+    status: "completed",
+    input_item_ids: ["item_turn_started"],
+    output_item_ids: ["item_tool", "item_terminal"],
+    seq_start: 2,
+    seq_end: 4,
+    started_at: now,
+    completed_at: now,
+    mode: "agent",
+    approval_mode: "suggest",
+    model_route_decision_id: null,
+    usage: null,
+    stop_reason: "runtime_bridge_completed",
+    error: null,
+    rollback_snapshot_id: null,
+    quality_ledger_ref: null,
+    workflow_execution_ref: null,
+    fixture_profile: null,
+  };
+  const runtimeEvents = [
+    runtimeEnvelope({
+      seq: 1,
+      eventKind: "thread.started",
+      sourceEventKind: "RuntimeAgentService.handle_service_call.start@v1",
+      turnId: "",
+      itemId: "item_thread_started",
+      componentKind: "runtime_thread",
+      workflowNodeId: "runtime.runtime-thread",
+      payload: { agent_id: "agent_sdk", thread_id: "thread_sdk" },
+      createdAt: now,
+    }),
+    runtimeEnvelope({
+      seq: 2,
+      eventKind: "turn.started",
+      sourceEventKind: "RuntimeAgentService.handle_service_call.post_message@v1",
+      itemId: "item_turn_started",
+      componentKind: "runtime_turn",
+      workflowNodeId: "runtime.runtime-turn",
+      payload: { agent_id: "agent_sdk", run_id: "run_sdk", prompt: "Exercise typed thread events." },
+      createdAt: now,
+    }),
+    runtimeEnvelope({
+      seq: 3,
+      eventKind: "tool.completed",
+      sourceEventKind: "KernelEvent::AgentActionResult",
+      itemId: "item_tool",
+      componentKind: "tool_result",
+      workflowNodeId: "runtime.tool-result",
+      payloadSchemaVersion: "ioi.runtime.kernel-event.v1",
+      payload: {
+        event_kind: "KernelEvent::AgentActionResult",
+        agent_id: "agent_sdk",
+        run_id: "run_sdk",
+        tool_name: "system::intent_clarification",
+        agent_status: "Paused",
+        step_index: 0,
+      },
+      createdAt: now,
+    }),
+    runtimeEnvelope({
+      seq: 4,
+      eventKind: "turn.completed",
+      sourceEventKind: "RuntimeAgentService.handle_service_call.step@v1",
+      itemId: "item_terminal",
+      componentKind: "runtime_turn",
+      workflowNodeId: "runtime.runtime-turn",
+      payload: { agent_id: "agent_sdk", run_id: "run_sdk", agent_status: "Paused" },
+      createdAt: now,
+    }),
+  ];
+  const requests = [];
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}${url.search}`);
+    response.setHeader("content-type", "application/json");
+    if (request.method === "POST" && url.pathname === "/v1/threads") {
+      const body = await readBody(request);
+      assert.equal(body.options.local.cwd, process.cwd());
+      response.end(JSON.stringify(threadRecord));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/threads/thread_sdk") {
+      response.end(JSON.stringify({ ...threadRecord, turns: [turnRecord] }));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/turns") {
+      const body = await readBody(request);
+      assert.equal(body.prompt, "Exercise typed thread events.");
+      response.end(JSON.stringify(turnRecord));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/threads/thread_sdk/events") {
+      const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
+      response.setHeader("content-type", "text/event-stream");
+      response.end(
+        runtimeEvents
+          .filter((item) => item.seq > sinceSeq)
+          .map((item) => `id: ${item.event_id}\ndata: ${JSON.stringify(item)}\n\n`)
+          .join(""),
+      );
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const thread = await Thread.create({ local: { cwd: process.cwd() }, substrateClient: client });
+    const turn = await thread.send("Exercise typed thread events.");
+    const threadEvents = [];
+    for await (const item of thread.events({ sinceSeq: 0 })) threadEvents.push(item);
+    const toolEvent = threadEvents.find((item) => item.sourceEventKind === "KernelEvent::AgentActionResult");
+    assert.equal(toolEvent.type, "tool_completed");
+    assert.equal(toolEvent.payloadSchemaVersion, "ioi.runtime.kernel-event.v1");
+    assert.equal(toolEvent.componentKind, "tool_result");
+    assert.equal(toolEvent.workflowNodeId, "runtime.tool-result");
+    assert.equal(toolEvent.toolName, "system::intent_clarification");
+    assert.equal(toolEvent.agentStatus, "Paused");
+    assert.equal(toolEvent.stepIndex, 0);
+
+    const turnEvents = [];
+    for await (const item of turn.events()) turnEvents.push(item);
+    assert.deepEqual(turnEvents.map((item) => item.type), [
+      "turn_started",
+      "tool_completed",
+      "turn_completed",
+    ]);
+    assert.ok(requests.includes("POST /v1/threads"));
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/turns"));
+    assert.ok(requests.includes("GET /v1/threads/thread_sdk/events?since_seq=0"));
+  } finally {
+    await close(server);
+  }
+});
+
 function event(id, type, summary, createdAt) {
   return {
     id,
@@ -514,6 +683,53 @@ function event(id, type, summary, createdAt) {
     cursor: id,
     createdAt,
     summary,
+  };
+}
+
+function runtimeEnvelope({
+  seq,
+  eventKind,
+  sourceEventKind,
+  payload,
+  createdAt,
+  itemId,
+  turnId = "turn_sdk",
+  componentKind = null,
+  workflowNodeId = null,
+  payloadSchemaVersion = "ioi.runtime.event.v1",
+}) {
+  return {
+    schema_version: "ioi.runtime.event.v1",
+    event_id: `events_thread_sdk:seq:${String(seq).padStart(8, "0")}`,
+    event_stream_id: "events_thread_sdk",
+    thread_id: "thread_sdk",
+    turn_id: turnId,
+    item_id: itemId,
+    seq,
+    parent_seq: seq > 1 ? seq - 1 : null,
+    idempotency_key: `${sourceEventKind}:${seq}`,
+    source: "runtime_service",
+    source_event_kind: sourceEventKind,
+    event_kind: eventKind,
+    status: eventKind.endsWith(".started") ? "running" : "completed",
+    actor: "runtime",
+    created_at: createdAt,
+    workspace_root: process.cwd(),
+    workflow_graph_id: null,
+    workflow_node_id: workflowNodeId,
+    component_kind: componentKind,
+    tool_call_id: null,
+    approval_id: null,
+    artifact_refs: [],
+    receipt_refs: [],
+    policy_decision_refs: [],
+    rollback_refs: [],
+    payload_schema_version: payloadSchemaVersion,
+    payload_ref: null,
+    payload: Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, String(value)])),
+    payload_summary: payload,
+    redaction_profile: "internal",
+    fixture_profile: null,
   };
 }
 

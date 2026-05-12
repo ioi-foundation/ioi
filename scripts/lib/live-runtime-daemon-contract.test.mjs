@@ -1573,6 +1573,7 @@ if (request.operation === "start_thread") {
 });
 
 test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge executable from env", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-rust-bridge-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-rust-bridge-state-"));
   const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-rust-bridge-data-"));
@@ -1669,6 +1670,27 @@ test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge exe
     const runEvents = await fetchSseEvents(`${daemon.endpoint}/v1/runs/${turn.request_id}/events`);
     assert.deepEqual(
       runEvents.map((event) => event.event_id),
+      replayed.slice(1).map((event) => event.event_id),
+    );
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkActionResult = sdkEvents.find(
+      (event) => event.sourceEventKind === "KernelEvent::AgentActionResult",
+    );
+    assert.ok(sdkActionResult);
+    assert.ok(["tool_completed", "tool_failed"].includes(sdkActionResult.type));
+    assert.equal(sdkActionResult.payloadSchemaVersion, "ioi.runtime.kernel-event.v1");
+    assert.equal(sdkActionResult.componentKind, "tool_result");
+    assert.equal(sdkActionResult.workflowNodeId, "runtime.tool-result");
+    assert.equal(sdkActionResult.toolName, "system::intent_clarification");
+    assert.equal(sdkActionResult.agentStatus, "Paused");
+    assert.equal(sdkActionResult.stepIndex, 0);
+    const sdkTurn = await sdkThread.turn(turn.turn_id);
+    const sdkTurnEvents = await collect(sdkTurn.events());
+    assert.deepEqual(
+      sdkTurnEvents.map((event) => event.id),
       replayed.slice(1).map((event) => event.event_id),
     );
   } finally {

@@ -106,16 +106,20 @@ Completed workstream snapshot as of 2026-05-12:
   executable through env auto-discovery and proves persisted runtime-service
   thread/turn replay from the real Rust boundary. The bridge now drains
   emitted `KernelEvent` rows and maps the first reasoning/tool/policy/receipt
-  variants into workflow-addressable TTI events. The active tactical cleanup
-  stream remains React Flow settings-harness panel decomposition.
+  variants into workflow-addressable TTI events. The SDK now exposes typed
+  `Thread`/`Turn` wrappers over the canonical thread/turn/event API, including
+  mapped KernelEvent projection metadata that React Flow can consume. The
+  active tactical cleanup stream remains React Flow settings-harness panel
+  decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 KernelEvent bridge mapper foundation
-- Artifacts: crates/node/src/runtime_bridge_events.rs,
-  crates/node/src/bin/ioi-runtime-bridge.rs,
+- 2026-05-12: P0 SDK Thread/Turn canonical event projection
+- Artifacts: packages/agent-sdk/src/thread.ts,
+  packages/agent-sdk/src/runtime-events.ts,
+  packages/agent-sdk/src/substrate-client.ts,
   scripts/lib/live-runtime-daemon-contract.test.mjs
-- Validation: Rust mapper unit tests and daemon live contract; see the
+- Validation: SDK package tests and daemon live contract; see the
   validation ledger.
 
 Most recent live GUI implementation evidence:
@@ -127,6 +131,7 @@ Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | SDK Thread/Turn canonical event projection | packages/agent-sdk/src/thread.ts |
 | 2026-05-12 | P0 live runtime bridge | KernelEvent bridge mapper foundation | crates/node/src/runtime_bridge_events.rs |
 | 2026-05-12 | P0 live runtime bridge | Daemon Rust bridge executable contract | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Rust RuntimeAgentService bridge executable | crates/node/src/bin/ioi-runtime-bridge.rs |
@@ -147,12 +152,12 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Add SDK `Thread`/`Turn` wrappers over the canonical thread/turn/event API
-   while keeping `Agent.send()` as a compatibility wrapper.
-2. Add a minimal React Flow runtime event projection that reads the canonical
+1. Add a minimal React Flow runtime event projection that reads the canonical
    thread/turn/event store instead of duplicating workflow truth.
-3. Add CLI/TUI stream commands over the same stored event stream, including
+2. Add CLI/TUI stream commands over the same stored event stream, including
    mapped KernelEvent rows.
+3. Extend SDK turn controls beyond submission/replay with steer, interrupt,
+   compact, and fork aliases once daemon endpoints are live.
 4. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.

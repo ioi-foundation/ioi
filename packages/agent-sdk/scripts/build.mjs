@@ -9,6 +9,8 @@ const packageEntryPoints = [
   "src/index.ts",
   "src/agent.ts",
   "src/run.ts",
+  "src/thread.ts",
+  "src/runtime-events.ts",
   "src/messages.ts",
   "src/options.ts",
   "src/errors.ts",

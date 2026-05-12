@@ -9,6 +9,7 @@ import type {
   SendOptions,
 } from "./options.js";
 import { Run } from "./run.js";
+import { Thread } from "./thread.js";
 import {
   createRuntimeSubstrateClient,
   type AgentMemoryPathProjection,
@@ -150,6 +151,10 @@ export class Agent {
     await this.client.closeAgent(this.id);
   }
 
+  async thread(): Promise<Thread> {
+    return new Thread(this.client, await this.client.getThread(threadIdForAgent(this.id)));
+  }
+
   async reload(): Promise<Agent> {
     return new Agent(this.client, await this.client.reloadAgent(this.id));
   }
@@ -181,6 +186,10 @@ export class Agent {
 }
 
 export const CursorCompatibleAgent = Agent;
+
+function threadIdForAgent(agentId: string): string {
+  return agentId.startsWith("agent_") ? `thread_${agentId.slice("agent_".length)}` : `thread_${agentId}`;
+}
 
 export class AgentMemory {
   constructor(
