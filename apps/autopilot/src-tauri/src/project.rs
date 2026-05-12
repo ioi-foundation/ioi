@@ -42,6 +42,7 @@ mod workflow_scheduler_lane;
 mod workflow_scheduler_node_execution_lane;
 mod workflow_scheduler_node_outcome_lane;
 mod workflow_scheduler_node_state_update_lane;
+mod workflow_scheduler_node_success_event_lane;
 mod workflow_scheduler_terminal_result_lane;
 mod workflow_scheduler_validation_lane;
 mod workflow_state_lane;
