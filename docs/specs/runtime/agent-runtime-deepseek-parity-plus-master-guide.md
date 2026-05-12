@@ -4412,6 +4412,71 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx`
     and `packages/agent-ide/src/runtime/workflow-settings-model.ts`.
 
+Implementation slice completed 2026-05-12, React Flow settings harness
+extraction:
+
+- Extracted the remaining harness-specific settings subtree from
+  `WorkflowRailPanel/core.tsx` into
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx`.
+  The extracted panel now owns the harness summary, activation gate inspector,
+  authority proof rows, package deep links, rollback/restore canary controls,
+  worker binding registry display, and live harness promotion controls.
+- Added
+  `packages/agent-ide/src/runtime/workflow-settings-harness-model.ts` so the
+  React Flow workflow development environment can consume harness readiness as
+  a configurable model instead of pulling labels and counts from the monolithic
+  rail component. The model currently projects activation state, blessed/fork
+  source, worker execution mode, readiness counters, gated cluster labels, and
+  promotion cluster labels.
+- Added
+  `packages/agent-ide/src/runtime/workflow-settings-harness-model.test.ts` to
+  lock blessed activation summaries, fallback fork defaults, readiness counts,
+  worker execution mode fallback, and gated/promotion cluster labels.
+- `WorkflowRailPanel/core.tsx` now composes `WorkflowSettingsPanel` with a
+  `WorkflowSettingsHarnessPanel` child over `workflowSettingsHarnessModel(...)`.
+  This keeps the settings rail componentized while preserving the exact callback
+  wiring that drives activation, packaging, restore, rollback, worker binding,
+  and live harness promotion controls.
+- Retargeted daemon, refactor-shape, and live GUI source-contract checks so the
+  rollback/restore canary proof treats the settings rail as the core rail plus
+  extracted settings panels. The live rollback proof now includes
+  `workflowSettingsHarnessModelUi` and source refs for both harness settings
+  files.
+- `WorkflowRailPanel/core.tsx` is reduced from 10,322 to 5,805 lines. The new
+  harness settings panel is 5,059 lines, and the harness settings model is 47
+  lines with an 87-line focused model test. The panel is intentionally still a
+  mechanical extraction boundary; future slices can narrow its prop contract and
+  split activation/package/rollback subsections once the current behavioral
+  proof remains stable.
+
+Validation evidence:
+
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-settings-harness-model.test.ts packages/agent-ide/src/runtime/workflow-settings-model.test.ts packages/agent-ide/src/runtime/workflow-file-bundle-model.test.ts packages/agent-ide/src/runtime/workflow-entrypoints-model.test.ts packages/agent-ide/src/runtime/workflow-rail-search-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-test-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness:run`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T14-57-39-502Z/result.json`
+  - `validation.ok === true`;
+  - `validation.failures` is empty;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSettingsHarnessModelUi === true`;
+  - `checks.workflowSettingsModelUi === true`;
+  - `checks.workflowFileBundleModelUi === true`;
+  - `checks.workflowEntrypointsModelUi === true`;
+  - `checks.workflowRailSearchModelUi === true`;
+  - `checks.workflowRunHistoryModelUi === true`;
+  - `checks.workflowUnitTestReadinessModelUi === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `sourceRefs` include
+    `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx`
+    and
+    `packages/agent-ide/src/runtime/workflow-settings-harness-model.ts`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every
