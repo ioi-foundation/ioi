@@ -60,6 +60,7 @@ export function WorkflowRunsPanel({
     harnessAttempts,
     harnessComparisons,
     timelineEvents,
+    runtimeEventProjection,
   } = model;
 
   return (
@@ -297,6 +298,128 @@ export function WorkflowRunsPanel({
               </button>
             );
           })}
+          {runtimeEventProjection.eventCount > 0 ? (
+            <section
+              className="workflow-run-runtime-event-graph"
+              data-testid="workflow-run-runtime-event-graph"
+              data-schema-version={runtimeEventProjection.schemaVersion}
+              data-event-count={runtimeEventProjection.eventCount}
+              data-latest-event-id={runtimeEventProjection.latestEventId ?? ""}
+              data-latest-cursor={runtimeEventProjection.latestCursor ?? ""}
+            >
+              <h4>Runtime event graph</h4>
+              <div
+                className="workflow-run-runtime-event-summary"
+                data-testid="workflow-run-runtime-event-summary"
+              >
+                <span>{runtimeEventProjection.eventCount} events</span>
+                <span>{runtimeEventProjection.reactFlowNodes.length} nodes</span>
+                <span>{runtimeEventProjection.reactFlowEdges.length} edges</span>
+              </div>
+              <ol
+                className="workflow-run-runtime-event-nodes"
+                data-testid="workflow-run-runtime-event-nodes"
+              >
+                {runtimeEventProjection.reactFlowNodes.slice(0, 8).map((node) => (
+                  <li
+                    key={node.id}
+                    className={`workflow-run-runtime-event-node is-${node.data.status}`}
+                    data-testid={`workflow-run-runtime-event-node-${node.id}`}
+                    data-react-flow-node-id={node.id}
+                    data-node-kind={node.data.nodeKind}
+                    data-workflow-node-id={node.data.workflowNodeId}
+                    data-workflow-graph-id={node.data.workflowGraphId ?? ""}
+                    data-component-kind={node.data.componentKind}
+                    data-accessible-status={node.data.status}
+                    data-accessible-status-text={accessibleStatusLabel(
+                      node.data.status,
+                    )}
+                    data-event-id={node.data.latestEventId}
+                    data-event-ids={node.data.eventIds.join("|")}
+                    data-event-cursor={node.data.latestCursor}
+                    data-latest-seq={node.data.latestSeq}
+                    data-receipt-refs={node.data.receiptRefs.join("|")}
+                    data-artifact-refs={node.data.artifactRefs.join("|")}
+                    data-policy-decision-refs={node.data.policyDecisionRefs.join("|")}
+                    data-rollback-refs={node.data.rollbackRefs.join("|")}
+                    data-tool-name={node.data.toolName ?? ""}
+                    data-approval-id={node.data.approvalId ?? ""}
+                  >
+                    <details>
+                      <summary
+                        aria-label={`${node.data.label} ${accessibleStatusLabel(
+                          node.data.status,
+                        )} runtime event node`}
+                      >
+                        <strong>{node.data.label}</strong>
+                        <span>
+                          {node.data.componentKind} ·{" "}
+                          {accessibleStatusLabel(node.data.status)}
+                        </span>
+                        <small>{node.data.latestCursor}</small>
+                      </summary>
+                      <dl>
+                        <div>
+                          <dt>Event</dt>
+                          <dd>{node.data.latestEventId}</dd>
+                        </div>
+                        <div>
+                          <dt>Seq</dt>
+                          <dd>
+                            {node.data.firstSeq} {"->"} {node.data.latestSeq}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Turn</dt>
+                          <dd>{node.data.turnIds.join(", ") || "none"}</dd>
+                        </div>
+                        <div>
+                          <dt>Evidence</dt>
+                          <dd>
+                            {node.data.receiptRefs.length} receipts ·{" "}
+                            {node.data.artifactRefs.length} artifacts ·{" "}
+                            {node.data.policyDecisionRefs.length} policies
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Runtime kind</dt>
+                          <dd>{node.data.eventKinds.join(", ")}</dd>
+                        </div>
+                      </dl>
+                    </details>
+                  </li>
+                ))}
+              </ol>
+              {runtimeEventProjection.reactFlowEdges.length > 0 ? (
+                <ol
+                  className="workflow-run-runtime-event-edges"
+                  data-testid="workflow-run-runtime-event-edges"
+                >
+                  {runtimeEventProjection.reactFlowEdges
+                    .slice(0, 8)
+                    .map((edge) => (
+                      <li
+                        key={edge.id}
+                        className="workflow-run-runtime-event-edge"
+                        data-testid={`workflow-run-runtime-event-edge-${edge.id}`}
+                        data-react-flow-edge-id={edge.id}
+                        data-source-node-id={edge.source}
+                        data-target-node-id={edge.target}
+                        data-event-ids={edge.data.eventIds.join("|")}
+                      >
+                        <span>
+                          {edge.source} {"->"} {edge.target}
+                        </span>
+                        <small>
+                          seq {edge.data.sourceLatestSeq} {"->"}{" "}
+                          {edge.data.targetFirstSeq}
+                        </small>
+                      </li>
+                    ))}
+                </ol>
+              ) : null}
+            </section>
+          ) : null}
           {harnessAttempts.length > 0 ? (
             <>
               <h4>Harness timeline</h4>

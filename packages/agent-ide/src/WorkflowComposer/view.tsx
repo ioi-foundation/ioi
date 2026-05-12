@@ -167,6 +167,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     Settings,
     runDetailLoading,
     runEvents,
+    runtimeThreadEvents,
     runs,
     Save,
     SCAFFOLD_GROUPS,
@@ -1331,6 +1332,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     compareRunResult={compareRunResult}
                     compareRunId={compareRunId}
                     runEvents={runEvents}
+                    runtimeThreadEvents={runtimeThreadEvents}
                     dogfoodRun={dogfoodRun}
                     packageImportReview={packageImportReview}
                     portablePackage={portablePackage}

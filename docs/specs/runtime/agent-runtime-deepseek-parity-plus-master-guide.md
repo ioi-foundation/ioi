@@ -111,28 +111,32 @@ Completed workstream snapshot as of 2026-05-12:
   mapped KernelEvent projection metadata that React Flow can consume. The React
   Flow workflow surface now has a pure runtime event projection over those
   thread events, emitting stable nodes, edges, statuses, cursors, and evidence
-  refs without becoming a second truth store. The active tactical cleanup stream
-  remains React Flow settings-harness panel decomposition.
+  refs without becoming a second truth store. The workflow run inspector now
+  loads canonical runtime thread events for selected workflow runs and renders
+  the projection as read-only graph-addressable status evidence. The active
+  tactical cleanup stream remains React Flow settings-harness panel
+  decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 React Flow runtime event projection over Thread.events
-- Artifacts: packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts,
-  packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts,
-  scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- 2026-05-12: P0 Workflow run inspector runtime event graph
+- Artifacts: packages/agent-ide/src/runtime/workflow-run-history-model.ts,
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx,
+  packages/agent-ide/src/WorkflowComposer/controller.tsx
 - Validation: IDE build, source contract, daemon live contract, and GUI harness
   preflight; see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: React Flow runtime event projection GUI harness preflight
+- 2026-05-12: Workflow run inspector runtime event graph GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection/2026-05-12T22-04-30-270Z/result.json
+  /tmp/ioi-autopilot-gui-harness-runtime-event-inspector/2026-05-12T22-17-29-609Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | Workflow run inspector runtime event graph | packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx |
 | 2026-05-12 | P0 live runtime bridge | React Flow runtime event projection over Thread.events | packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts |
 | 2026-05-12 | P0 live runtime bridge | SDK Thread/Turn canonical event projection | packages/agent-sdk/src/thread.ts |
 | 2026-05-12 | P0 live runtime bridge | KernelEvent bridge mapper foundation | crates/node/src/runtime_bridge_events.rs |
@@ -155,16 +159,14 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Wire the React Flow runtime event projection into the workflow run inspector
-   so live thread events can render as graph-addressable status nodes.
-2. Add CLI/TUI stream commands over the same stored event stream, including
+1. Add CLI/TUI stream commands over the same stored event stream, including
    mapped KernelEvent rows.
-3. Extend SDK turn controls beyond submission/replay with steer, interrupt,
+2. Extend SDK turn controls beyond submission/replay with steer, interrupt,
    compact, and fork aliases once daemon endpoints are live.
-4. Continue React Flow settings-harness modularization by splitting remaining
+3. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
-5. Keep the master guide clean by updating the companion ledgers instead of
+4. Keep the master guide clean by updating the companion ledgers instead of
    appending full validation runs inline.
 
 ## Reference Capability Inventory

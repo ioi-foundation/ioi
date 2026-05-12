@@ -118,6 +118,7 @@ import {
   validateActionEdge,
   validateWorkflowConnection,
 } from "../runtime/runtime-projection-adapter";
+import type { WorkflowRuntimeThreadEventLike } from "../runtime/workflow-runtime-event-projection";
 import {
   WORKFLOW_NODE_DEFINITIONS,
   type WorkflowNodeCreatorDefinition,
@@ -2562,6 +2563,9 @@ export function useWorkflowComposerController({
     null,
   );
   const [runEvents, setRunEvents] = useState<WorkflowStreamEvent[]>([]);
+  const [runtimeThreadEvents, setRuntimeThreadEvents] = useState<
+    WorkflowRuntimeThreadEventLike[]
+  >([]);
   const [checkpoints, setCheckpoints] = useState<WorkflowCheckpoint[]>([]);
   const [nodeRunStatusById, setNodeRunStatusById] = useState<
     Record<string, WorkflowNodeRun>
@@ -9301,6 +9305,7 @@ export function useWorkflowComposerController({
     setBindingManifest(null);
     setRunDetailLoading(false);
     setRunEvents([]);
+    setRuntimeThreadEvents([]);
     setCheckpoints([]);
     setNodeRunStatusById({});
     setNodeFixturesById({});
@@ -9311,6 +9316,19 @@ export function useWorkflowComposerController({
       setLastRunResult(result);
       setSelectedRunId(result.summary.id);
       setRunEvents(result.events);
+      let loadedRuntimeThreadEvents: WorkflowRuntimeThreadEventLike[] = [];
+      if (runtime.loadWorkflowRuntimeThreadEvents) {
+        try {
+          loadedRuntimeThreadEvents =
+            await runtime.loadWorkflowRuntimeThreadEvents<WorkflowRuntimeThreadEventLike>(
+              result.thread.id,
+              { limit: 500 },
+            );
+        } catch {
+          loadedRuntimeThreadEvents = [];
+        }
+      }
+      setRuntimeThreadEvents(loadedRuntimeThreadEvents);
       setRuns((current) => [
         result.summary,
         ...current.filter((run) => run.id !== result.summary.id),
@@ -13371,6 +13389,7 @@ export function useWorkflowComposerController({
     Settings,
     runDetailLoading,
     runEvents,
+    runtimeThreadEvents,
     runs,
     Save,
     SCAFFOLD_GROUPS,

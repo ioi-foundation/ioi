@@ -238,6 +238,134 @@
   color: var(--text-secondary);
 }
 
+.workflow-run-runtime-event-graph {
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-run-runtime-event-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.workflow-run-runtime-event-summary span {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 74%, transparent);
+  padding: 6px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-run-runtime-event-nodes,
+.workflow-run-runtime-event-edges {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-run-runtime-event-node {
+  border-left: 2px solid var(--border-default);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
+}
+
+.workflow-run-runtime-event-node details {
+  display: grid;
+  gap: 6px;
+}
+
+.workflow-run-runtime-event-node summary {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.72fr) minmax(0, 1fr) minmax(88px, 0.8fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.workflow-run-runtime-event-node summary:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.workflow-run-runtime-event-node strong,
+.workflow-run-runtime-event-node span,
+.workflow-run-runtime-event-node small,
+.workflow-run-runtime-event-edge span,
+.workflow-run-runtime-event-edge small {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-run-runtime-event-node span,
+.workflow-run-runtime-event-node small,
+.workflow-run-runtime-event-edge small {
+  color: var(--text-tertiary);
+}
+
+.workflow-run-runtime-event-node dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0 8px 8px;
+}
+
+.workflow-run-runtime-event-node dl div {
+  min-width: 0;
+}
+
+.workflow-run-runtime-event-node dt {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.workflow-run-runtime-event-node dd {
+  min-width: 0;
+  overflow: hidden;
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-run-runtime-event-edge {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border-left: 2px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 64%, transparent);
+  padding: 6px 8px;
+}
+
+.workflow-run-runtime-event-node.is-running {
+  border-left-color: var(--accent-blue);
+}
+
+.workflow-run-runtime-event-node.is-completed {
+  border-left-color: var(--status-success);
+}
+
+.workflow-run-runtime-event-node.is-waiting,
+.workflow-run-runtime-event-node.is-blocked,
+.workflow-run-runtime-event-node.is-failed {
+  border-left-color: var(--status-warning);
+}
+
 .workflow-secondary-action {
   justify-content: center;
   width: 100%;

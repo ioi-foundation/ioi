@@ -3224,3 +3224,36 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-reactflow-runtime-event-projection/2026-05-12T22-04-30-270Z/result.json`.
+
+## Slice 98. 2026-05-12 - Workflow run inspector runtime event graph
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-run-history-model.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- packages/agent-ide/src/WorkflowComposer/controller.tsx
+- apps/autopilot/src/services/TauriRuntime.ts
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+  - TypeScript and Vite build passed with the run inspector projection,
+    controller loader, graph runtime type, and CSS updates.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - Source contract passed, locking the controller loader, runtime event model
+    projection, run inspector graph test ids, and evidence-ref data attributes.
+- Built-bundle smoke import of
+  `projectRuntimeThreadEventsToWorkflowProjection`
+  - projected policy/receipt canonical events as 2 React Flow nodes with
+    `latestCursor=events_thread:5`.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed, including the React Flow source
+    contract checks for runtime event graph inspector wiring.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-runtime-event-inspector`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-event-inspector/2026-05-12T22-17-29-609Z/result.json`.
