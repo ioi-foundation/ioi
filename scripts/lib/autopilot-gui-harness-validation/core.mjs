@@ -4228,6 +4228,8 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
 export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railPath =
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx";
+  const readinessPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
   const validationPath =
     "packages/agent-ide/src/runtime/workflow-validation.ts";
   const schedulerLaneReadinessPath =
@@ -4303,6 +4305,10 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const projectRuntimeTestsPath =
     "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
+  const readinessPanel = readFileSync(
+    resolve(repoRoot, readinessPanelPath),
+    "utf8",
+  );
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
   const harnessWorkflow = readFileSync(
     resolve(repoRoot, harnessWorkflowPath),
@@ -4802,10 +4808,11 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflowSchedulerLaneReadiness/.test(validation) &&
       /workflowSchedulerLaneReadinessIssues/.test(validation) &&
       /gateId: "scheduler-lanes"/.test(validation) &&
-      /workflow-readiness-scheduler-lanes/.test(rail) &&
-      /workflow-readiness-scheduler-lane-/.test(rail) &&
-      /data-proof-check/.test(rail) &&
-      /data-capability-scope/.test(rail),
+      /WorkflowReadinessPanel/.test(rail) &&
+      /workflow-readiness-scheduler-lanes/.test(readinessPanel) &&
+      /workflow-readiness-scheduler-lane-/.test(readinessPanel) &&
+      /data-proof-check/.test(readinessPanel) &&
+      /data-capability-scope/.test(readinessPanel),
     workflowSchedulerRuntimeLane:
       /workflow_scheduler_lane/.test(projectRuntime) &&
       !/fn execute_workflow_project\(/.test(projectRuntime) &&
@@ -10877,6 +10884,7 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
 	        "packages/agent-ide/src/WorkflowComposer/controller.tsx",
 	        "packages/agent-ide/src/WorkflowComposer/support.tsx",
 	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
 	        "packages/agent-ide/src/runtime/harness-workflow/index.ts",
 	      ],
     };

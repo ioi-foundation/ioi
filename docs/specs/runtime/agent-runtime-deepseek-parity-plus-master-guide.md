@@ -3990,6 +3990,44 @@ Validation evidence:
     success event, state update, node outcome, node execution, terminal result,
     finalization, interrupt, validation, and the main scheduler lane.
 
+Implementation slice completed 2026-05-12, React Flow readiness panel
+extraction:
+
+- Extracted the `panel === "readiness"` branch from
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx` into
+  `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx`.
+- Preserved the readiness summary, checklist, blockers, warnings, policy node
+  prompts, portable package controls, and scheduler-lane readiness rows without
+  changing their stable `data-testid` contracts.
+- The extracted panel still renders `workflow-readiness-scheduler-lanes` and
+  per-lane `data-proof-check` / `data-capability-scope` attributes, so the
+  React Flow scheduler-lane proof remains workflow-addressable after the
+  refactor.
+- Retargeted daemon and live GUI source-contract checks to require
+  `WorkflowReadinessPanel` from the rail core and the scheduler readiness
+  markup from `readinessPanel.tsx`.
+- Updated the refactor-shape guard so `readinessPanel.tsx` is an owned rail
+  module, and refreshed stale core-file checkpoint ceilings to measured
+  current baselines. `WorkflowRailPanel/core.tsx` is now 11,427 lines, while
+  the extracted readiness panel is 444 lines.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check scripts/lib/autopilot-gui-harness-validation/core.mjs && node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `npm run validate:autopilot-gui-harness`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler`
+- live GUI/workflow harness:
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-12T11-44-32-936Z/result.json`
+  - `blocked === false`;
+  - `rollback-restore-canary-ui-proof.json` has `passed === true`;
+  - `checks.workflowSchedulerLaneReadinessManifest === true`;
+  - `checks.workflowSchedulerLaneReadinessActivationUi === true`;
+  - `checks.workflowSchedulerRuntimeLane === true`;
+  - `checks.workflowSchedulerNodeFailureOutcomeRuntimeLane === true`.
+
 ## React Flow Workflow Development Environment Requirements
 
 The workflow development environment is where IOI should exceed DeepSeek. Every

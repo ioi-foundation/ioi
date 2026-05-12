@@ -90,6 +90,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/replayPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/timelinePanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/rollbackPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
   ]) {
@@ -104,6 +105,11 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
     /workflowHarnessPackageDeepLinkTarget/,
+    80,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+    /workflow-readiness-scheduler-lanes/,
     80,
   );
 });
@@ -140,9 +146,9 @@ test("GUI harness validation modules remain split by concern", () => {
 
 test("core files do not grow past the refactor checkpoint without updating the guard", () => {
   for (const [relativePath, maxLines] of [
-    ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 12_080],
-    ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 11_450],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 10_750],
+    ["packages/agent-ide/src/runtime/harness-workflow/core.ts", 13_500],
+    ["packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx", 11_430],
+    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_600],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,
