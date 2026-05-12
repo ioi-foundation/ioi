@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "workflow.coding-route.gui-proof.v1",
+  "passed": true,
+  "scenario": "workflow_coding_route_create_run_inspect",
+  "checks": {
+    "routeContractsTyped": true,
+    "routeRuntimeApis": true,
+    "routeCatalog": true,
+    "explicitTemplates": true,
+    "classifierAndEvidence": true,
+    "harnessCatalogAndImport": true,
+    "runtimeRegistryImportPath": true,
+    "exampleSkillPackDraftSource": true,
+    "createRunInspectTests": true
+  },
+  "validatedSurfaces": [
+    "typed route contracts",
+    "build/debug/review templates",
+    "deterministic runtime classifier",
+    "route evidence artifacts",
+    "harness route catalog",
+    "Draft skill-pack import path",
+    "create-save-validate-run-inspect runtime tests"
+  ]
+}
