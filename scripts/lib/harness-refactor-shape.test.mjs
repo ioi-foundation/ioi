@@ -98,6 +98,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
@@ -184,6 +185,11 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
     /workflow-harness-worker-binding-inspector/,
+    600,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
+    /workflow-harness-active-runtime-rollback-proof/,
     1_000,
   );
   assertOwnsImplementation(
@@ -203,6 +209,9 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessWorkerBindingPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
+    );
+    const settingsHarnessActiveRuntimeRollbackPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     );
     const settingsHarnessPromotionPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
@@ -262,6 +271,31 @@ test("workflow rail modules own extracted implementation", () => {
       "settings harness worker binding panel should expose a typed prop boundary",
     );
     assert.match(
+      settingsHarnessWorkerBindingPanel,
+      /WorkflowSettingsHarnessActiveRuntimeRollbackPanel/,
+      "settings harness worker binding panel should delegate active runtime rollback UI to its extracted component",
+    );
+    assert.match(
+      settingsHarnessActiveRuntimeRollbackPanel,
+      /WorkflowSettingsHarnessActiveRuntimeRollbackPanelProps/,
+      "settings harness active runtime rollback panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessActiveRuntimeRollbackPanel,
+      /workflow-harness-git-restore-proof/,
+      "settings harness active runtime rollback panel should own restore proof UI",
+    );
+    assert.doesNotMatch(
+      settingsHarnessWorkerBindingPanel,
+      /workflow-harness-active-runtime-rollback-proof/,
+      "settings harness worker binding panel should not keep active runtime rollback proof inline",
+    );
+    assert.doesNotMatch(
+      settingsHarnessWorkerBindingPanel,
+      /workflow-harness-git-restore-proof/,
+      "settings harness worker binding panel should not keep git restore proof inline",
+    );
+    assert.match(
       settingsHarnessPromotionPanel,
       /WorkflowSettingsHarnessPromotionPanelProps/,
       "settings harness promotion panel should expose a typed prop boundary",
@@ -279,6 +313,7 @@ test("workflow rail modules own extracted implementation", () => {
     for (const [source, label] of [
       [settingsHarnessActivationPanel, "activation"],
       [settingsHarnessWorkerBindingPanel, "worker binding"],
+      [settingsHarnessActiveRuntimeRollbackPanel, "active runtime rollback"],
       [settingsHarnessPromotionPanel, "promotion"],
     ]) {
       assert.doesNotMatch(
@@ -296,6 +331,11 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessWorkerBindingPanel,
       /\bany\b/,
       "settings harness worker binding panel should keep its prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessActiveRuntimeRollbackPanel,
+      /\bany\b/,
+      "settings harness active runtime rollback panel should keep its prop boundary typed",
     );
     assert.doesNotMatch(
       settingsHarnessPromotionPanel,
