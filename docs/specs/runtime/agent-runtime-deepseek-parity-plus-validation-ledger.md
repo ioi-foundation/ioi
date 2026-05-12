@@ -3075,3 +3075,42 @@ Validation evidence:
   - 14 daemon/API contract subtests passed after the Rust bridge executable
     landed.
 - `git diff --check`
+
+## Slice 94. 2026-05-12 - Daemon Rust bridge executable contract
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- crates/node/src/bin/ioi-runtime-bridge.rs
+
+Validation evidence:
+
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo check -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+- `cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - 2 bridge executable unit tests passed.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 TTI schema snapshot subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed;
+  - the new Rust executable contract builds or uses
+    `IOI_RUNTIME_BRIDGE_RUST_BIN`, then wires
+    `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND` to the real
+    `ioi-runtime-bridge` binary;
+  - `POST /v1/threads` with `runtime_profile=runtime_service` returns a
+    Rust-backed session id, `runtime_bridge_id`, and `fixture_profile: null`;
+  - `POST /v1/threads/{id}/turns` returns a Rust-backed turn with
+    runtime-owned `run_runtime_service_*` and `turn_runtime_service_*` ids;
+  - replay returns `thread.started`, `turn.started`, and a terminal runtime
+    event from `RuntimeAgentService.handle_service_call.*` source kinds, all
+    from `source=runtime_service` and `fixture_profile: null`;
+  - `/v1/runs/{id}/events` aliases the same stored turn event ids.
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
+  - preflight passed and wrote a temporary result bundle outside the worktree.
+- `git diff --check`

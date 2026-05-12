@@ -77,6 +77,10 @@ Implementation status:
   `RuntimeAgentService` `start@v1`, `post_message@v1`, and `step@v1`
   operations against `RedbFlatStore` and `MemoryRuntime` while returning
   bridge-ready TTI events.
+- 2026-05-12: daemon Rust bridge contract wires the env command adapter to the
+  real `ioi-runtime-bridge` executable, then proves canonical thread/turn/run
+  event replay over Rust-owned runtime-service events with
+  `fixture_profile: null`.
 
 ## Non Goals
 
