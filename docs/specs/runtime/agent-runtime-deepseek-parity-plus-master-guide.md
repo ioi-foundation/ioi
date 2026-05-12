@@ -97,18 +97,20 @@ Completed workstream snapshot as of 2026-05-12:
   tests.
 - The active strategic risk remains the P0 live runtime API bridge plus durable
   thread/turn/item event model; the schema snapshot and daemon event-store
-  spine are now locked, and replay aliases now resolve over stored event ids.
-  The active tactical cleanup stream remains React Flow settings-harness panel
+  spine are now locked, replay aliases resolve over stored event ids, and the
+  daemon now has an explicit `RuntimeApiBridge` boundary that prevents
+  runtime-service mode from falling back to fixture success paths. The active
+  tactical cleanup stream remains React Flow settings-harness panel
   decomposition.
 
 Most recent guide slice:
 
-- 2026-05-12: P0 runtime event replay alias parity
+- 2026-05-12: P0 RuntimeApiBridge boundary and turn projection
 - Artifacts: packages/runtime-daemon/src/index.mjs,
-  packages/agent-sdk/src/substrate-client.ts,
+  packages/runtime-daemon/src/runtime-api-bridge.mjs,
   scripts/lib/live-runtime-daemon-contract.test.mjs
-- Validation: daemon replay contracts, SDK compatibility tests, and schema
-  guard; see the validation ledger.
+- Validation: daemon bridge/fail-closed contract, SDK compatibility tests, and
+  schema guard; see the validation ledger.
 
 Most recent live GUI implementation evidence:
 
@@ -119,6 +121,7 @@ Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | RuntimeApiBridge boundary and turn projection | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Runtime event replay alias parity | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Daemon event-store spine | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | TTI schema snapshots | scripts/lib/live-bridge-tti-schema-contract.test.mjs |
@@ -134,16 +137,20 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Bridge one `RuntimeAgentService` session into the locked
-   thread/turn/item/event records without daemon-side synthetic success paths.
-2. Add SDK `Thread`/`Turn` wrappers over the canonical thread/turn/event API
+1. Attach the real Rust/Tauri `RuntimeAgentService` adapter behind
+   `RuntimeApiBridge` for `start@v1`, message submission, step execution, and
+   event subscription.
+2. Expand bridge event mapping from the current `thread.started`,
+   `turn.started`, and `turn.completed` contract into the first KernelEvent
+   variants: reasoning delta, tool result, approval/policy, and receipt events.
+3. Add SDK `Thread`/`Turn` wrappers over the canonical thread/turn/event API
    while keeping `Agent.send()` as a compatibility wrapper.
-3. Add a minimal React Flow runtime event projection that reads the canonical
+4. Add a minimal React Flow runtime event projection that reads the canonical
    thread/turn/event store instead of duplicating workflow truth.
-4. Continue React Flow settings-harness modularization by splitting remaining
+5. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
-5. Keep the master guide clean by updating the companion ledgers instead of
+6. Keep the master guide clean by updating the companion ledgers instead of
    appending full validation runs inline.
 
 ## Reference Capability Inventory

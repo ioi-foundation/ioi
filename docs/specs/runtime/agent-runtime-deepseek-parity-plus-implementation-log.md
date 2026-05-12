@@ -4631,3 +4631,33 @@ Validation evidence:
   - 12 daemon/API contract subtests passed, including event-store persistence,
     `Last-Event-ID` replay, `/events/stream`, run-event alias parity, and
     future cursor error details.
+
+### Slice 91. 2026-05-12 - RuntimeApiBridge boundary and turn projection
+
+Implementation slice completed 2026-05-12, RuntimeApiBridge boundary and turn
+projection:
+
+- Added `packages/runtime-daemon/src/runtime-api-bridge.mjs` as the daemon-side
+  bridge contract for runtime-service profile routing.
+- `POST /v1/threads` now recognizes `runtime_profile=runtime_service` and fails
+  closed with `external_blocker` when no `RuntimeApiBridge` can start a thread.
+- Runtime-service threads no longer receive daemon-side synthetic
+  `thread.started` events; bridge-supplied events are appended directly to the
+  stored `RuntimeEventEnvelope` stream with `fixture_profile: null`.
+- Runtime-service turn submission now calls `RuntimeApiBridge.submitTurn`,
+  persists bridge-supplied `turn.started` and `turn.completed` rows, and returns
+  the locked `RuntimeTurnRecord` over the same event ids.
+- The compatibility `/v1/runs/{id}/events` alias reads the runtime-service
+  turn's stored event range, so fixture and bridge-backed turns use the same
+  replay spine.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/runtime-api-bridge.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm test --workspace=@ioi/agent-sdk`
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 13 daemon/API contract subtests passed, including runtime-service
+    fail-closed behavior, injected bridge thread projection, bridge turn
+    projection, null fixture profile preservation, and run-event alias parity.

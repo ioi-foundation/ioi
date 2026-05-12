@@ -15,6 +15,12 @@ import {
 } from "./model-mounting.mjs";
 import * as routeDecision from "./model-mounting/route-decision.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
+import {
+  RuntimeApiBridgeUnavailableError,
+  createRuntimeApiBridge,
+  isRuntimeServiceProfile,
+  runtimeProfileForRequest,
+} from "./runtime-api-bridge.mjs";
 
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
 const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_canceled"]);
@@ -86,6 +92,7 @@ export async function startRuntimeDaemonService(options = {}) {
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
     vaultSecrets: options.vaultSecrets,
+    runtimeBridge: options.runtimeBridge,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {
@@ -128,6 +135,7 @@ export class AgentgresRuntimeStateStore {
     this.agents = new Map();
     this.runs = new Map();
     this.runtimeEventStreams = new Map();
+    this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
@@ -668,11 +676,55 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  createThread(request = {}) {
+  async createThread(request = {}) {
     const options = request.options ?? request;
+    const runtimeProfile = runtimeProfileForRequest(request, options);
+    if (isRuntimeServiceProfile(runtimeProfile)) {
+      return this.createRuntimeBridgeThread({ request, options, runtimeProfile });
+    }
     const agent = this.createAgent(options);
     this.ensureThreadStartedEvent(agent);
     return this.threadForAgent(agent);
+  }
+
+  async createRuntimeBridgeThread({ request, options, runtimeProfile }) {
+    this.assertRuntimeBridgeAvailable({ runtimeProfile, operation: "start_thread" });
+    const agent = this.createAgent(options);
+    const threadId = threadIdForAgent(agent.id);
+    const input = {
+      request,
+      options,
+      runtimeProfile,
+      agentId: agent.id,
+      threadId,
+      workspaceRoot: agent.cwd,
+      modelRouteDecision: agent.modelRouteDecision ?? null,
+      createdAt: agent.createdAt,
+    };
+    let bridgeResult;
+    try {
+      bridgeResult = await this.runtimeBridge.startThread(input);
+    } catch (error) {
+      if (error instanceof RuntimeApiBridgeUnavailableError) {
+        throw this.runtimeBridgeUnavailable({ runtimeProfile, operation: "start_thread", details: error.details });
+      }
+      throw error;
+    }
+    const projection = this.normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile });
+    const updated = {
+      ...agent,
+      runtimeProfile,
+      runtimeSessionId: projection.sessionId,
+      runtimeBridgeId: projection.bridgeId,
+      runtimeBridgeStatus: projection.status,
+      runtimeBridgeSource: projection.source,
+      fixtureProfile: null,
+      updatedAt: projection.updatedAt,
+    };
+    this.agents.set(agent.id, updated);
+    this.writeAgent(updated, "thread.runtime_bridge.start");
+    for (const event of projection.events) this.appendRuntimeEvent(event);
+    return this.threadForAgent(updated);
   }
 
   listThreads() {
@@ -704,6 +756,118 @@ export class AgentgresRuntimeStateStore {
       ...thread,
       source_thread_id: source.thread_id,
       forked_from_seq: source.latest_seq,
+    };
+  }
+
+  assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
+    if (operation === "start_thread" && this.runtimeBridge.canStartThread) return;
+    if (operation === "submit_turn" && this.runtimeBridge.canSubmitTurn) return;
+    throw this.runtimeBridgeUnavailable({ runtimeProfile, operation });
+  }
+
+  runtimeBridgeUnavailable({ runtimeProfile, operation, details = {} }) {
+    return externalBlocker("RuntimeAgentService bridge is required for runtime_service profile.", {
+      runtimeProfile,
+      operation,
+      requiredBridge: "RuntimeApiBridge",
+      fixtureProfile: "fixture",
+      syntheticFallbackAllowed: false,
+      ...details,
+    });
+  }
+
+  normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }) {
+    const sessionId = String(bridgeResult?.session_id ?? bridgeResult?.sessionId ?? "").trim();
+    if (!sessionId) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_bridge_contract",
+        message: "RuntimeApiBridge startThread result must include session_id.",
+        details: { runtimeProfile, operation: "start_thread" },
+      });
+    }
+    const events = normalizeArray(bridgeResult?.events);
+    const hasThreadStarted = events.some((event) => event?.event_kind === "thread.started");
+    if (!hasThreadStarted) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_bridge_contract",
+        message: "RuntimeApiBridge startThread result must include a thread.started event.",
+        details: { runtimeProfile, sessionId, operation: "start_thread" },
+      });
+    }
+    const now = new Date().toISOString();
+    return {
+      sessionId,
+      bridgeId: bridgeResult?.bridge_id ?? bridgeResult?.bridgeId ?? this.runtimeBridge.bridgeId,
+      status: bridgeResult?.status ?? "active",
+      source: bridgeResult?.source ?? "runtime_service",
+      updatedAt: bridgeResult?.updated_at ?? bridgeResult?.updatedAt ?? now,
+      events: events.map((event) => ({
+        ...event,
+        event_stream_id: event.event_stream_id ?? eventStreamIdForThread(threadId),
+        thread_id: event.thread_id ?? threadId,
+        workspace_root: event.workspace_root ?? agent.cwd,
+        source: event.source ?? "runtime_service",
+        source_event_kind: event.source_event_kind ?? "RuntimeAgentService",
+        fixture_profile: Object.hasOwn(event, "fixture_profile") ? event.fixture_profile : null,
+        payload: {
+          agent_id: agent.id,
+          session_id: sessionId,
+          ...(event.payload ?? event.payload_summary ?? {}),
+        },
+      })),
+    };
+  }
+
+  normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId, request }) {
+    const turnId = String(bridgeResult?.turn_id ?? bridgeResult?.turnId ?? "").trim();
+    if (!turnId || !turnId.startsWith("turn_")) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_bridge_contract",
+        message: "RuntimeApiBridge submitTurn result must include turn_id.",
+        details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn" },
+      });
+    }
+    const runId = String(bridgeResult?.run_id ?? bridgeResult?.runId ?? runIdForTurn(turnId)).trim();
+    const events = normalizeArray(bridgeResult?.events);
+    const hasTurnStarted = events.some((event) => event?.event_kind === "turn.started");
+    if (!hasTurnStarted) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_bridge_contract",
+        message: "RuntimeApiBridge submitTurn result must include a turn.started event.",
+        details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn", turnId },
+      });
+    }
+    const now = new Date().toISOString();
+    return {
+      runId,
+      turnId,
+      status: bridgeResult?.status ?? "completed",
+      result: bridgeResult?.result ?? "",
+      createdAt: bridgeResult?.created_at ?? bridgeResult?.createdAt ?? now,
+      updatedAt: bridgeResult?.updated_at ?? bridgeResult?.updatedAt ?? now,
+      mode: request.mode ?? "send",
+      prompt: request.prompt ?? request.message ?? request.input ?? "",
+      stopReason: bridgeResult?.stop_reason ?? bridgeResult?.stopReason ?? "runtime_bridge_completed",
+      events: events.map((event) => ({
+        ...event,
+        event_stream_id: event.event_stream_id ?? eventStreamIdForThread(threadId),
+        thread_id: event.thread_id ?? threadId,
+        turn_id: event.turn_id ?? turnId,
+        workspace_root: event.workspace_root ?? agent.cwd,
+        source: event.source ?? "runtime_service",
+        source_event_kind: event.source_event_kind ?? "RuntimeAgentService",
+        fixture_profile: Object.hasOwn(event, "fixture_profile") ? event.fixture_profile : null,
+        payload: {
+          agent_id: agent.id,
+          run_id: runId,
+          session_id: runtimeSessionIdForAgent(agent),
+          ...(event.payload ?? event.payload_summary ?? {}),
+        },
+      })),
     };
   }
 
@@ -956,8 +1120,11 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
-  createTurn(threadId, request = {}) {
+  async createTurn(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
+    if (isRuntimeBackedAgent(agent)) {
+      return this.createRuntimeBridgeTurn({ agent, threadId, request });
+    }
     const prompt = request.prompt ?? request.message ?? request.input ?? "";
     const run = this.createRun(agent.id, {
       mode: request.mode ?? "send",
@@ -966,6 +1133,37 @@ export class AgentgresRuntimeStateStore {
       memory: request.memory,
       remember: request.remember,
     });
+    return this.turnForRun(run);
+  }
+
+  async createRuntimeBridgeTurn({ agent, threadId, request }) {
+    this.assertRuntimeBridgeAvailable({ runtimeProfile: agent.runtimeProfile, operation: "submit_turn" });
+    const input = {
+      request,
+      agentId: agent.id,
+      threadId,
+      sessionId: runtimeSessionIdForAgent(agent),
+      workspaceRoot: agent.cwd,
+      createdAt: new Date().toISOString(),
+    };
+    let bridgeResult;
+    try {
+      bridgeResult = await this.runtimeBridge.submitTurn(input);
+    } catch (error) {
+      if (error instanceof RuntimeApiBridgeUnavailableError) {
+        throw this.runtimeBridgeUnavailable({
+          runtimeProfile: agent.runtimeProfile,
+          operation: "submit_turn",
+          details: error.details,
+        });
+      }
+      throw error;
+    }
+    const projection = this.normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId, request });
+    for (const event of projection.events) this.appendRuntimeEvent(event);
+    const run = runtimeBridgeRunRecord({ agent, request, projection });
+    this.runs.set(run.id, run);
+    this.writeRun(run, "turn.runtime_bridge.submit");
     return this.turnForRun(run);
   }
 
@@ -1024,6 +1222,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   projectThreadEvents(agent) {
+    if (isRuntimeBackedAgent(agent)) return;
     this.ensureThreadStartedEvent(agent);
     for (const run of this.listRuns(agent.id)) {
       this.projectRunEvents(run, agent);
@@ -1031,6 +1230,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   projectRunEvents(run, agent = this.getAgent(run.agentId)) {
+    if (isRuntimeBackedAgent(agent)) return;
     const threadId = threadIdForAgent(agent.id);
     const turnId = turnIdForRun(run.id);
     for (const event of run.events) {
@@ -1187,7 +1387,7 @@ export class AgentgresRuntimeStateStore {
     return {
       schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
       thread_id: threadId,
-      session_id: agent.id,
+      session_id: runtimeSessionIdForAgent(agent),
       agent_id: agent.id,
       workspace_root: agent.cwd,
       title: latestRun?.objective ?? agent.cwd,
@@ -1205,7 +1405,7 @@ export class AgentgresRuntimeStateStore {
       created_at: agent.createdAt,
       updated_at: new Date(updatedAt || Date.parse(agent.updatedAt) || Date.now()).toISOString(),
       archived_at: agent.status === "archived" ? agent.updatedAt : null,
-      fixture_profile: DAEMON_FIXTURE_PROFILE,
+      fixture_profile: fixtureProfileForAgent(agent),
       created_at_ms: Date.parse(agent.createdAt) || 0,
       updated_at_ms: updatedAt,
       workspace: agent.cwd,
@@ -1220,6 +1420,9 @@ export class AgentgresRuntimeStateStore {
       }).length,
       archived: agent.status === "archived",
       evidence_refs: ["agentgres_canonical_operation_log", "runtime_tti_projection"],
+      runtime_profile: agent.runtimeProfile ?? "fixture",
+      runtime_bridge_id: agent.runtimeBridgeId ?? null,
+      runtime_bridge_source: agent.runtimeBridgeSource ?? null,
     };
   }
 
@@ -1255,7 +1458,7 @@ export class AgentgresRuntimeStateStore {
       rollback_snapshot_id: null,
       quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
       workflow_execution_ref: null,
-      fixture_profile: DAEMON_FIXTURE_PROFILE,
+      fixture_profile: fixtureProfileForAgent(agent),
       started_at_ms: Date.parse(run.createdAt) || 0,
       completed_at_ms: TERMINAL_EVENT_TYPES.has(run.status) || run.status === "completed"
         ? Date.parse(run.updatedAt) || 0
@@ -2053,7 +2256,7 @@ async function handleRequest({ request, response, store }) {
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/threads") {
-      writeJsonResponse(response, store.createThread(await readBody(request)));
+      writeJsonResponse(response, await store.createThread(await readBody(request)));
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/threads") {
@@ -3949,7 +4152,7 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "POST" && action === "turns" && !segments[4]) {
-    writeJsonResponse(response, store.createTurn(threadId, await readBody(request)));
+    writeJsonResponse(response, await store.createTurn(threadId, await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "turns" && !segments[4]) {
@@ -5214,6 +5417,88 @@ function runtimeTaskRecord({
       `run:${id}`,
       activeSkillHookManifest?.manifestId,
     ].filter(Boolean),
+  };
+}
+
+function runtimeBridgeRunRecord({ agent, request, projection }) {
+  const taskFamily = taskFamilyForMode(projection.mode);
+  const selectedStrategy = strategyForMode(projection.mode);
+  const stopCondition = {
+    reason: projection.stopReason,
+    evidenceSufficient: true,
+    rationale: "RuntimeAgentService bridge supplied the terminal turn event projection.",
+  };
+  const qualityLedger = {
+    ledgerId: `quality_${projection.runId}`,
+    taskFamily,
+    selectedStrategy,
+    toolSequence: [],
+    scorecardMetrics: {
+      task_pass_rate: 100,
+      recovery_success: 100,
+      memory_relevance: 100,
+      tool_quality: 100,
+      strategy_roi: 100,
+      operator_interventions: 0,
+      verifier_independence: 100,
+    },
+    failureOntologyLabels: [],
+  };
+  const scorecard = {
+    taskPassRate: 1,
+    recoverySuccess: 1,
+    memoryRelevance: 1,
+    toolQuality: 1,
+    strategyRoi: 1,
+    operatorInterventionRate: 0,
+    verifierIndependence: 1,
+  };
+  const trace = {
+    runId: projection.runId,
+    agentId: agent.id,
+    status: projection.status,
+    source: "runtime_service",
+    events: [],
+    receipts: [],
+    artifacts: [],
+    taskState: null,
+    uncertainty: null,
+    probe: null,
+    postconditions: null,
+    semanticImpact: null,
+    memoryPolicy: null,
+    memoryRecords: [],
+    memoryWrites: [],
+    stopCondition,
+    qualityLedger,
+    scorecard,
+  };
+  return {
+    id: projection.runId,
+    agentId: agent.id,
+    mode: projection.mode,
+    objective: projection.prompt,
+    status: projection.status,
+    createdAt: projection.createdAt,
+    updatedAt: projection.updatedAt,
+    source: "runtime_service",
+    runtimeProfile: agent.runtimeProfile,
+    runtimeSessionId: runtimeSessionIdForAgent(agent),
+    runtimeTurnId: projection.turnId,
+    result: projection.result,
+    events: [],
+    conversation: [
+      { role: "user", content: projection.prompt, createdAt: projection.createdAt },
+      ...(projection.result ? [{ role: "assistant", content: projection.result, createdAt: projection.updatedAt }] : []),
+    ],
+    trace,
+    artifacts: [],
+    receipts: [],
+    modelRouteDecision: agent.modelRouteDecision ?? null,
+    modelRouteReceiptId: agent.modelRouteReceiptId ?? null,
+    activeSkillHookManifest: null,
+    memoryRecords: [],
+    memoryWriteReceipts: [],
   };
 }
 
@@ -7852,8 +8137,24 @@ function agentIdForThread(threadId) {
   return threadId.startsWith("thread_") ? `agent_${threadId.slice("thread_".length)}` : threadId;
 }
 
+function runtimeSessionIdForAgent(agent) {
+  return agent.runtimeSessionId ?? agent.id;
+}
+
+function isRuntimeBackedAgent(agent) {
+  return isRuntimeServiceProfile(agent.runtimeProfile);
+}
+
+function fixtureProfileForAgent(agent) {
+  return Object.hasOwn(agent, "fixtureProfile") ? agent.fixtureProfile : DAEMON_FIXTURE_PROFILE;
+}
+
 function turnIdForRun(runId) {
   return runId.startsWith("run_") ? `turn_${runId.slice("run_".length)}` : `turn_${runId}`;
+}
+
+function runIdForTurn(turnId) {
+  return turnId.startsWith("turn_") ? `run_${turnId.slice("turn_".length)}` : `run_${turnId}`;
 }
 
 function eventStreamIdForThread(threadId) {
@@ -7958,7 +8259,7 @@ function normalizeRuntimeEventEnvelope(event, { seq, parentSeq, idempotencyKey }
     payload_ref: event.payload_ref ?? null,
     payload: stringRecord(payloadSummary),
     redaction_profile: event.redaction_profile ?? "internal",
-    fixture_profile: event.fixture_profile ?? DAEMON_FIXTURE_PROFILE,
+    fixture_profile: Object.hasOwn(event, "fixture_profile") ? event.fixture_profile : DAEMON_FIXTURE_PROFILE,
     id: String(seq),
     timestamp_ms: Date.parse(createdAt) || 0,
     event: eventKind,

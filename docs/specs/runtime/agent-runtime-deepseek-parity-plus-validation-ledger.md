@@ -2977,3 +2977,29 @@ Validation evidence:
   - `/v1/runs/{id}/events` and `/v1/runs/{id}/replay` return the owning turn's
     stored event ids;
   - future cursors return `event_cursor_out_of_range` with `latestSeq`.
+
+## Slice 91. 2026-05-12 - RuntimeApiBridge boundary and turn projection
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- packages/runtime-daemon/src/runtime-api-bridge.mjs
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/runtime-api-bridge.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 schema snapshot contract subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 13 daemon/API contract subtests passed;
+  - `runtime_profile=runtime_service` fails closed without `RuntimeApiBridge`;
+  - injected bridge thread start persists a `thread.started` event with
+    `fixture_profile: null`;
+  - injected bridge turn submission persists `turn.started` and
+    `turn.completed` rows and returns a locked `RuntimeTurnRecord`;
+  - `/v1/runs/{id}/events` returns the bridge-backed owning turn event ids.
