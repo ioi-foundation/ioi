@@ -10,6 +10,7 @@ Canonical IOI boundary references:
 - `docs/architecture/products/autopilot/local-app-workflow-canvas.md`
 - `crates/services/src/agentic/runtime/README.md`
 - `docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md`
+- `docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md`
 - `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
 - `docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md`
 
@@ -98,16 +99,22 @@ Completed workstream snapshot as of 2026-05-12:
   thread/turn/item event model. The active tactical cleanup stream remains
   React Flow settings-harness panel decomposition.
 
-Most recent validated implementation slice:
+Most recent guide slice:
+
+- 2026-05-12: P0 live bridge TTI/event contract lock
+- Artifact: docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md
+- Validation: docs integrity and whitespace checks; see the validation ledger.
+
+Most recent live GUI implementation evidence:
 
 - 2026-05-12: React Flow settings harness package import/rows extraction
-- Workstream: React Flow settings harness modularization
 - Evidence: docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-12 | P0 live runtime bridge | TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md |
 | 2026-05-12 | React Flow settings harness | Active runtime rollback panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-11-04-005Z/result.json |
 | 2026-05-12 | React Flow settings harness | Rollback restore proof panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-29-45-390Z/result.json |
 | 2026-05-12 | React Flow settings harness | Active runtime binding panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-46-33-581Z/result.json |
@@ -119,13 +126,16 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Keep the master guide clean by updating the companion ledgers instead of
-   appending full validation runs inline.
-2. Continue React Flow settings-harness modularization by splitting remaining
+1. Implement shared Rust/TypeScript schema snapshots for
+   `RuntimeThreadRecord`, `RuntimeTurnRecord`, `RuntimeItemRecord`, and
+   `RuntimeEventEnvelope` from the live bridge contract spec.
+2. Add the append-only daemon event-store spine with cursor and idempotency
+   tests before wiring runtime execution.
+3. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
-3. Return from UI modularization to the highest-risk parity gap: the live
-   runtime API bridge and durable thread/turn/item event model.
+4. Keep the master guide clean by updating the companion ledgers instead of
+   appending full validation runs inline.
 
 ## Reference Capability Inventory
 
@@ -1646,18 +1656,22 @@ This guide is complete when:
 
 ## Next Implementation Slices
 
-The first schema/bridge slice described below remains the highest strategic
-runtime risk, but current tactical work is finishing React Flow harness
-modularization so the workflow development environment stays componentized while
-parity gaps close.
+The live bridge contract is now locked in
+`docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md`. The next
+runtime slices should implement that contract in small, testable pieces while
+keeping React Flow cleanup slices small and source-contract guarded.
 
-Runtime bridge starter slice:
+Runtime bridge implementation sequence:
 
-1. Define TTI and event envelope schemas.
-2. Bridge one live `RuntimeAgentService` session into `/v1/threads/{id}/events`.
-3. Add a minimal React Flow runtime thread/turn/event projection.
-4. Add one coding tool node mapped to an existing tool contract.
-5. Prove a live event appears in SDK, CLI, and React Flow from the same `seq`.
+1. Add shared schema definitions and generated TS/Rust snapshots.
+2. Add an append-only daemon event store with cursor and idempotency tests.
+3. Bridge one live `RuntimeAgentService` session into
+   `/v1/threads/{id}/events`.
+4. Expose SSE replay with `since_seq` and `Last-Event-ID`.
+5. Add minimal SDK and React Flow runtime thread/turn/event projections.
+6. Convert `/v1/runs/*` to compatibility aliases over turn/event records.
+7. Prove a live event appears in SDK, CLI/TUI, and React Flow from the same
+   `seq`.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
 straightforward once live threads, events, and tool contracts are real. Keep

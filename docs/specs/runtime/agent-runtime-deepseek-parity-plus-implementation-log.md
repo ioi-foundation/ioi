@@ -103,6 +103,7 @@ workstream was narrower.
 | 84 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness package evidence panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T18-46-56-765Z/result.json |
 | 85 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness activation gate refs/timeline extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-05-02-607Z/result.json |
 | 86 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness package import/rows extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json |
+| 87 | 2026-05-12 | P0. Live Runtime API Bridge | live bridge TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -4501,3 +4502,38 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx`
     and
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx`.
+
+## P0. Live Runtime API Bridge
+
+### Slice 87. 2026-05-12 - live bridge TTI/event contract lock
+
+Implementation slice completed 2026-05-12, live bridge TTI/event contract lock:
+
+- Added
+  `docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md` as the
+  P0 contract-lock spec for replacing synthetic production daemon run
+  projections with a live `RuntimeAgentService` bridge.
+- Locked the canonical ownership boundary: `AgentState` remains the persisted
+  runtime session record, `KernelEvent` and `AgentRuntimeEvent` remain runtime
+  source streams, and the daemon adds an append-only public TTI/event
+  projection instead of creating a second runtime.
+- Defined `RuntimeThreadRecord`, `RuntimeTurnRecord`, `RuntimeItemRecord`, and
+  `RuntimeEventEnvelope` required fields, invariants, idempotency rules,
+  monotonic `seq`, redaction behavior, fixture profile visibility, and
+  production fail-closed semantics.
+- Specified daemon endpoints, `/v1/runs/*` compatibility alias behavior, SSE
+  replay through `since_seq` and `Last-Event-ID`, SDK `Thread`/`Turn` wrappers,
+  CLI/TUI commands, React Flow runtime nodes, persistence shape, error
+  semantics, and the first implementation sequence.
+- Updated the master guide so the immediate tactical queue now points at shared
+  schema snapshots and the append-only daemon event store before runtime
+  execution wiring.
+
+Validation evidence:
+
+- docs integrity check confirms the master guide has no inline completed-slice
+  or validation blocks after the slice.
+- docs integrity check confirms the implementation and validation ledgers have
+  matching extracted slice counts.
+- docs integrity check confirms referenced evidence result paths still exist.
+- `git diff --check`

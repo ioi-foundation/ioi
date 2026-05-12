@@ -101,6 +101,7 @@ the practical workstream when the source heading is broad.
 | 84 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness package evidence panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T18-46-56-765Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler |
 | 85 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness activation gate refs/timeline extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-05-02-607Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler |
 | 86 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness package import/rows extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scheduler |
+| 87 | 2026-05-12 | P0. Live Runtime API Bridge | live bridge TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md | docs integrity check<br>git diff --check |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -2882,3 +2883,20 @@ Validation evidence:
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx`
     and
     `packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx`.
+
+## Slice 87. 2026-05-12 - live bridge TTI/event contract lock
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md
+
+Validation evidence:
+
+- docs integrity check:
+  - master guide has no inline completed-slice blocks;
+  - master guide has no inline validation evidence blocks;
+  - implementation and validation ledgers have matching slice counts;
+  - referenced evidence result paths exist.
+- `git diff --check`
