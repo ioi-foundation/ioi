@@ -108,6 +108,8 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
@@ -214,7 +216,17 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
     /workflow-harness-package-evidence-review/,
-    600,
+    150,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx",
+    /workflow-harness-package-evidence-row-/,
+    180,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx",
+    /workflow-harness-package-import-review/,
+    400,
   );
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
@@ -267,6 +279,12 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessPackageEvidencePanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
+    );
+    const settingsHarnessPackageEvidenceRowsPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx",
+    );
+    const settingsHarnessPackageImportReviewPanel = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx",
     );
     const settingsHarnessWorkerBindingPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
@@ -422,8 +440,53 @@ test("workflow rail modules own extracted implementation", () => {
     );
     assert.match(
       settingsHarnessPackageEvidencePanel,
+      /WorkflowSettingsHarnessPackageEvidenceRowsPanel/,
+      "settings harness package evidence panel should delegate evidence rows to their extracted component",
+    );
+    assert.match(
+      settingsHarnessPackageEvidencePanel,
+      /WorkflowSettingsHarnessPackageImportReviewPanel/,
+      "settings harness package evidence panel should delegate import review to its extracted component",
+    );
+    assert.match(
+      settingsHarnessPackageEvidenceRowsPanel,
+      /WorkflowSettingsHarnessPackageEvidenceRowsPanelProps/,
+      "settings harness package evidence rows panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessPackageEvidenceRowsPanel,
+      /workflow-harness-package-evidence-row-/,
+      "settings harness package evidence rows panel should own evidence row UI",
+    );
+    assert.match(
+      settingsHarnessPackageEvidenceRowsPanel,
+      /workflow-harness-package-evidence-row-ref-/,
+      "settings harness package evidence rows panel should own row ref buttons",
+    );
+    assert.match(
+      settingsHarnessPackageImportReviewPanel,
+      /WorkflowSettingsHarnessPackageImportReviewPanelProps/,
+      "settings harness package import review panel should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessPackageImportReviewPanel,
       /workflow-harness-package-import-review/,
-      "settings harness package evidence panel should own import review UI",
+      "settings harness package import review panel should own import review UI",
+    );
+    assert.match(
+      settingsHarnessPackageImportReviewPanel,
+      /workflow-harness-package-import-handoff/,
+      "settings harness package import review panel should own import handoff UI",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPackageEvidencePanel,
+      /data-testid="workflow-harness-package-import-review"/,
+      "settings harness package evidence panel should not keep import review inline",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPackageEvidencePanel,
+      /workflow-harness-package-evidence-row-\$\{row\.id\}/,
+      "settings harness package evidence panel should not keep evidence rows inline",
     );
     assert.doesNotMatch(
       settingsHarnessActivationGatePanel,
@@ -555,12 +618,24 @@ test("workflow rail modules own extracted implementation", () => {
       /\bany\b/,
       "settings harness package evidence panel should keep its prop boundary typed",
     );
+    assert.doesNotMatch(
+      settingsHarnessPackageEvidenceRowsPanel,
+      /\bany\b/,
+      "settings harness package evidence rows panel should keep its prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessPackageImportReviewPanel,
+      /\bany\b/,
+      "settings harness package import review panel should keep its prop boundary typed",
+    );
     for (const [source, label] of [
       [settingsHarnessActivationPanel, "activation"],
       [settingsHarnessActivationGatePanel, "activation gate"],
       [settingsHarnessActivationGateRefsPanel, "activation gate refs"],
       [settingsHarnessActivationGateTimelinePanel, "activation gate timeline"],
       [settingsHarnessPackageEvidencePanel, "package evidence"],
+      [settingsHarnessPackageEvidenceRowsPanel, "package evidence rows"],
+      [settingsHarnessPackageImportReviewPanel, "package import review"],
       [settingsHarnessWorkerBindingPanel, "worker binding"],
       [settingsHarnessActiveRuntimeRollbackPanel, "active runtime rollback"],
       [settingsHarnessActiveRuntimeBindingPanel, "active runtime binding"],
