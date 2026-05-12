@@ -52,6 +52,7 @@ import { workflowValuePreview } from "../../../runtime/workflow-value-preview";
 import { workflowTestReadinessModel } from "../../../runtime/workflow-test-readiness-model";
 import { workflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
 import { workflowRailSearchModel } from "../../../runtime/workflow-rail-search-model";
+import { workflowEntrypointsModel } from "../../../runtime/workflow-entrypoints-model";
 import {
   resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
@@ -98,6 +99,7 @@ import { WorkflowReadinessPanel } from "./readinessPanel";
 import { WorkflowUnitTestsPanel } from "./unitTestsPanel";
 import { WorkflowRunsPanel } from "./runsPanel";
 import { WorkflowSearchPanel } from "./searchPanel";
+import { WorkflowEntrypointsPanel } from "./entrypointsPanel";
 
 function workflowPackageSummaryBoolean(value: boolean | null): string {
   if (value === true) return "true";
@@ -463,12 +465,7 @@ export function WorkflowRailPanel({
     tests,
     searchQuery: railSearchQuery,
   });
-  const sourceAndTriggerNodes = workflow.nodes.filter(
-    (nodeItem) => nodeItem.type === "source" || nodeItem.type === "trigger",
-  );
-  const triggerNodes = workflow.nodes.filter(
-    (nodeItem) => nodeItem.type === "trigger",
-  );
+  const entrypointsModel = workflowEntrypointsModel(workflow);
   const fileBundleItems = workflowFileBundleItems(
     workflow,
     tests,
@@ -3356,61 +3353,11 @@ export function WorkflowRailPanel({
   }
   if (panel === "sources") {
     return (
-      <>
-        <h3>Sources</h3>
-        <p>
-          {sourceAndTriggerNodes.length === 0
-            ? "No start points configured."
-            : `${sourceAndTriggerNodes.length} start point${sourceAndTriggerNodes.length === 1 ? "" : "s"} in this workflow.`}
-        </p>
-        <div className="workflow-rail-list" data-testid="workflow-sources-list">
-          {sourceAndTriggerNodes.map((nodeItem) => {
-            const logic = nodeItem.config?.logic ?? {};
-            const sourceStatus =
-              nodeItem.type === "trigger"
-                ? logic.triggerKind === "scheduled"
-                  ? logic.cronSchedule
-                    ? "scheduled"
-                    : "needs schedule"
-                  : logic.triggerKind === "event"
-                    ? logic.eventSourceRef
-                      ? "event"
-                      : "needs event source"
-                    : "manual"
-                : logic.payload === undefined
-                  ? "needs payload"
-                  : "payload ready";
-            return (
-              <button
-                key={nodeItem.id}
-                type="button"
-                className="workflow-search-result"
-                data-testid={`workflow-source-node-${nodeItem.id}`}
-                onClick={() => onInspectNode(nodeItem.id)}
-              >
-                <strong>{nodeItem.name}</strong>
-                <span>
-                  {nodeItem.type} · {sourceStatus}
-                </span>
-                <small>
-                  {nodeItem.type === "trigger"
-                    ? String(
-                        logic.eventSourceRef ??
-                          logic.cronSchedule ??
-                          logic.triggerKind ??
-                          "manual",
-                      )
-                    : typeof logic.payload === "string"
-                      ? logic.payload
-                      : logic.payload === undefined
-                        ? "No payload configured"
-                        : "Structured payload configured"}
-                </small>
-              </button>
-            );
-          })}
-        </div>
-      </>
+      <WorkflowEntrypointsPanel
+        mode="sources"
+        model={entrypointsModel}
+        onInspectNode={onInspectNode}
+      />
     );
   }
   if (panel === "files") {
@@ -3435,59 +3382,11 @@ export function WorkflowRailPanel({
   }
   if (panel === "schedules") {
     return (
-      <>
-        <h3>Schedules</h3>
-        <p>
-          {triggerNodes.length === 0
-            ? "No trigger nodes configured."
-            : `${triggerNodes.length} trigger node${triggerNodes.length === 1 ? "" : "s"} configured.`}
-        </p>
-        <div
-          className="workflow-rail-list"
-          data-testid="workflow-schedules-list"
-        >
-          {triggerNodes.map((nodeItem) => {
-            const logic = nodeItem.config?.logic ?? {};
-            const triggerKind = logic.triggerKind ?? "manual";
-            const ready =
-              triggerKind === "scheduled"
-                ? Boolean(logic.cronSchedule)
-                : triggerKind === "event"
-                  ? Boolean(logic.eventSourceRef)
-                  : true;
-            return (
-              <button
-                key={nodeItem.id}
-                type="button"
-                className={`workflow-search-result is-${ready ? "ready" : "blocked"}`}
-                data-testid={`workflow-schedule-node-${nodeItem.id}`}
-                onClick={() => onInspectNode(nodeItem.id)}
-              >
-                <strong>{nodeItem.name}</strong>
-                <span>
-                  {triggerKind} · {ready ? "ready" : "needs configuration"}
-                </span>
-                <small>
-                  {triggerKind === "scheduled"
-                    ? String(logic.cronSchedule ?? "No schedule")
-                    : triggerKind === "event"
-                      ? String(logic.eventSourceRef ?? "No event source")
-                      : "Manual invocation"}
-                </small>
-              </button>
-            );
-          })}
-          {triggerNodes.length === 0 ? (
-            <article className="workflow-output-row">
-              <strong>No trigger</strong>
-              <span>
-                Add a Trigger primitive when this workflow needs scheduled or
-                event-driven execution.
-              </span>
-            </article>
-          ) : null}
-        </div>
-      </>
+      <WorkflowEntrypointsPanel
+        mode="schedules"
+        model={entrypointsModel}
+        onInspectNode={onInspectNode}
+      />
     );
   }
   if (panel === "settings") {
