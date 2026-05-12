@@ -1575,6 +1575,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRunsPanel = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    ),
+    "utf8",
+  );
+  const workflowRunHistoryModel = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-run-history-model.ts"),
+    "utf8",
+  );
   const workflowRailModel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-rail-model.ts"),
     "utf8",
@@ -1943,6 +1954,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowUnitTestsPanel, /workflow-unit-test-uncovered/);
   assert.match(workflowTestReadinessModel, /coveredNodeIds/);
   assert.match(workflowTestReadinessModel, /uncoveredNodes/);
+  assert.match(workflowRailPanel, /WorkflowRunsPanel/);
+  assert.match(workflowRailPanel, /workflowRunHistoryModel/);
+  assert.match(workflowRunsPanel, /workflow-runs-list/);
+  assert.match(workflowRunsPanel, /workflow-run-inspector/);
+  assert.match(workflowRunsPanel, /workflow-run-timeline/);
+  assert.match(workflowRunHistoryModel, /visibleRows/);
+  assert.match(workflowRunHistoryModel, /timelineEvents/);
+  assert.match(workflowRunHistoryModel, /comparison/);
   assert.doesNotMatch(tauriProjectRuntime, /fn execute_workflow_project\(/);
   assert.match(
     tauriProjectWorkflowSchedulerLane,
