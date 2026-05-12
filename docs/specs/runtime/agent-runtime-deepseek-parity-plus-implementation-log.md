@@ -4793,3 +4793,46 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
   - GUI harness preflight passed outside the worktree.
 - `git diff --check`
+
+### Slice 95. 2026-05-12 - KernelEvent bridge mapper foundation
+
+Implementation slice completed 2026-05-12, KernelEvent bridge mapper
+foundation:
+
+- Added `crates/node/src/runtime_bridge_events.rs` as the Rust-side mapper from
+  low-level `KernelEvent` variants into bridge-ready TTI event envelopes.
+- The mapper currently covers `AgentStep`, `AgentThought`,
+  `FirewallInterception`, `AgentActionResult`, `WorkloadReceipt`, and
+  `RoutingReceipt`, assigning stable public event kinds, component kinds, and
+  workflow node ids for future React Flow/runtime projection.
+- The `ioi-runtime-bridge` executable now installs a
+  `RuntimeAgentService.with_event_sender(...)` broadcast channel, drains emitted
+  kernel events after `start@v1` and `step@v1`, and appends mapped runtime
+  events before the terminal turn event.
+- Updated the daemon Rust bridge contract so live runtime-service replay now
+  proves a mapped `KernelEvent::AgentActionResult` row with
+  `event_kind=tool.completed`, `component_kind=tool_result`, and
+  `workflow_node_id=runtime.tool-result` between `turn.started` and the
+  terminal `step@v1` event.
+- Updated the master guide so the next tactical slice is SDK/React Flow
+  projection over the canonical thread/turn/event API.
+
+Validation evidence:
+
+- `cargo fmt --package ioi-node`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo check -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+- `cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode`
+  - 6 bridge executable and mapper unit tests passed.
+- `node --test scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - 4 TTI schema snapshot subtests passed.
+- `node --test scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - 15 daemon/API contract subtests passed, including live mapped KernelEvent
+    replay through the Rust bridge.
+- `npm test --workspace=@ioi/agent-sdk`
+  - 10 SDK subtests passed.
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+  - 10 GUI harness contract subtests passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-preflight`
+  - GUI harness preflight passed outside the worktree.
+- `git diff --check`

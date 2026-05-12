@@ -1630,26 +1630,39 @@ test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge exe
     assert.ok(["completed", "blocked", "failed"].includes(turn.status));
     assert.match(turn.stop_reason, /^runtime_bridge_/);
     assert.equal(turn.seq_start, 2);
-    assert.equal(turn.seq_end, 3);
+    assert.ok(turn.seq_end >= 3);
 
     const replayed = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
-    assert.equal(replayed.length, 3);
-    assert.deepEqual(replayed.map((event) => event.source_event_kind), [
-      "RuntimeAgentService.handle_service_call.start@v1",
-      "RuntimeAgentService.handle_service_call.post_message@v1",
-      "RuntimeAgentService.handle_service_call.step@v1",
-    ]);
+    assert.ok(replayed.length >= 4);
+    assert.equal(turn.seq_end, replayed.at(-1).seq);
+    assert.equal(replayed[0].source_event_kind, "RuntimeAgentService.handle_service_call.start@v1");
+    assert.equal(replayed[1].source_event_kind, "RuntimeAgentService.handle_service_call.post_message@v1");
+    assert.equal(replayed.at(-1).source_event_kind, "RuntimeAgentService.handle_service_call.step@v1");
     assert.deepEqual(replayed.map((event) => event.event_kind).slice(0, 2), [
       "thread.started",
       "turn.started",
     ]);
-    assert.ok(["turn.completed", "turn.failed"].includes(replayed[2].event_kind));
+    const mappedKernelEvents = replayed.slice(2, -1);
+    assert.ok(mappedKernelEvents.length >= 1);
+    const actionResultEvent = mappedKernelEvents.find(
+      (event) => event.source_event_kind === "KernelEvent::AgentActionResult",
+    );
+    assert.ok(actionResultEvent);
+    assert.ok(["tool.completed", "tool.failed"].includes(actionResultEvent.event_kind));
+    assert.equal(actionResultEvent.component_kind, "tool_result");
+    assert.equal(actionResultEvent.workflow_node_id, "runtime.tool-result");
+    assert.equal(actionResultEvent.payload_schema_version, "ioi.runtime.kernel-event.v1");
+    assert.equal(actionResultEvent.payload.event_kind, "KernelEvent::AgentActionResult");
+    assert.equal(actionResultEvent.payload.tool_name, "system::intent_clarification");
+    assert.equal(actionResultEvent.payload.agent_status, "Paused");
+    assert.equal(Number(actionResultEvent.payload.step_index), 0);
+    assert.ok(["turn.completed", "turn.failed"].includes(replayed.at(-1).event_kind));
     assert.ok(replayed.every((event) => event.source === "runtime_service"));
     assert.ok(replayed.every((event) => event.fixture_profile === null));
     assert.ok(replayed.every((event) => event.payload.session_id === thread.session_id));
     assert.equal(replayed[1].payload.prompt, prompt);
-    assert.equal(typeof replayed[2].payload.agent_status, "string");
-    assert.ok(Number.isFinite(Number(replayed[2].payload.step_count)));
+    assert.equal(typeof replayed.at(-1).payload.agent_status, "string");
+    assert.ok(Number.isFinite(Number(replayed.at(-1).payload.step_count)));
     assert.ok(fs.existsSync(path.join(bridgeData, "runtime-state.redb")));
     assert.ok(fs.existsSync(path.join(bridgeData, "desktop-memory.db")));
 
