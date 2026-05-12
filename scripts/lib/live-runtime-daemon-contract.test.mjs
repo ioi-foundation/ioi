@@ -1624,6 +1624,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowSchedulerNodeSuccessEventLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_success_event_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowSchedulerNodeStateUpdateLane = fs.readFileSync(
     path.join(
       root,
@@ -1950,6 +1957,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_scheduler_apply_node_state_update/,
   );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /workflow_scheduler_node_success_event_lane/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /workflow_scheduler_emit_node_success_events/,
+  );
   assert.doesNotMatch(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_next_ready_nodes/,
@@ -1978,15 +1993,47 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /workflow_push_event/,
   );
-  assert.match(tauriProjectWorkflowSchedulerNodeOutcomeLane, /node_succeeded/);
+  assert.doesNotMatch(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /node_succeeded/,
+  );
   assert.match(tauriProjectWorkflowSchedulerNodeOutcomeLane, /node_failed/);
-  assert.match(
+  assert.doesNotMatch(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
     /child_run_completed/,
   );
-  assert.match(tauriProjectWorkflowSchedulerNodeOutcomeLane, /output_created/);
-  assert.match(
+  assert.doesNotMatch(
     tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /output_created/,
+  );
+  assert.doesNotMatch(
+    tauriProjectWorkflowSchedulerNodeOutcomeLane,
+    /asset_materialized/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeSuccessEventLane,
+    /fn workflow_scheduler_emit_node_success_events\(/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeSuccessEventLane,
+    /WorkflowStateUpdate/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeSuccessEventLane,
+    /workflow_push_event/,
+  );
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeSuccessEventLane,
+    /workflow_node_name/,
+  );
+  assert.match(tauriProjectWorkflowSchedulerNodeSuccessEventLane, /node_succeeded/);
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeSuccessEventLane,
+    /child_run_completed/,
+  );
+  assert.match(tauriProjectWorkflowSchedulerNodeSuccessEventLane, /output_created/);
+  assert.match(
+    tauriProjectWorkflowSchedulerNodeSuccessEventLane,
     /asset_materialized/,
   );
   assert.match(
