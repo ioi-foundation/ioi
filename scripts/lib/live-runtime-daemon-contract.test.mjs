@@ -18,7 +18,16 @@ async function importSdk() {
 
 async function importAgentIde() {
   const bundle = path.join(root, "packages/agent-ide/dist/index.es.js");
-  if (!fs.existsSync(bundle)) {
+  const sources = [
+    "packages/agent-ide/src/index.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+  ].map((file) => path.join(root, file));
+  const bundleMtime = fs.existsSync(bundle) ? fs.statSync(bundle).mtimeMs : 0;
+  const sourceIsNewer = sources.some(
+    (source) => fs.existsSync(source) && fs.statSync(source).mtimeMs > bundleMtime,
+  );
+  if (!fs.existsSync(bundle) || sourceIsNewer) {
     execFileSync("npm", ["run", "build", "--workspace=@ioi/agent-ide"], {
       cwd: root,
       encoding: "utf8",
@@ -3382,6 +3391,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /format_runtime_event_line/);
   assert.match(source, /TUI_PRIVATE_RUNTIME_LOOP: bool = false/);
   assert.match(source, /ioi\.agent-cli\.tui\.v1/);
+  assert.match(source, /ioi\.workflow\.runtime-tui-deeplink\.v1/);
+  assert.match(source, /tui_event_rows/);
+  assert.match(source, /tui_reopen/);
   assert.match(source, /event_kind/);
   assert.match(source, /component_kind/);
   assert.match(source, /workflow_node_id/);
@@ -3403,6 +3415,8 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /workflow_node_ids/);
+  assert.match(source, /tui_event_rows/);
+  assert.match(source, /tui_reopen_args/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
   assert.doesNotMatch(source, /submit_runtime_call/);
   assert.doesNotMatch(source, /StartAgentParams/);
@@ -3410,6 +3424,11 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
 });
 
 test("agent TUI thin shell starts a live thread, replays by cursor, and controls through daemon endpoints", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-state-"));
   const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-data-"));
@@ -3472,6 +3491,55 @@ test("agent TUI thin shell starts a live thread, replays by cursor, and controls
     assert.ok(interruptEvent);
     assert.equal(interruptEvent.source, "cli_tui");
     assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
+    const canonicalCursor = `${interruptEvent.event_stream_id}:${interruptEvent.seq}`;
+    const interruptRow = payload.event_rows.find(
+      (row) => row.event_id === interruptEvent.event_id,
+    );
+    assert.ok(interruptRow);
+    assert.equal(
+      interruptRow.schema_version,
+      WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    );
+    assert.equal(interruptRow.thread_id, payload.thread.thread_id);
+    assert.equal(interruptRow.turn_id, payload.submitted_turn.turn_id);
+    assert.equal(interruptRow.workflow_node_id, "runtime.operator-interrupt");
+    assert.equal(interruptRow.cursor, canonicalCursor);
+    assert.deepEqual(interruptRow.tui_reopen.args, [
+      "agent",
+      "tui",
+      "--thread-id",
+      payload.thread.thread_id,
+      "--since-seq",
+      String(interruptEvent.seq),
+    ]);
+    assert.equal(interruptRow.tui_reopen.command, "ioi agent tui");
+    assert.equal(interruptRow.tui_reopen.last_event_id, interruptEvent.event_id);
+    assert.equal(interruptRow.react_flow.workflow_node_id, "runtime.operator-interrupt");
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(payload.thread.thread_id, {
+      substrateClient: sdkClient,
+    });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkInterrupt = sdkEvents.find((event) => event.id === interruptEvent.event_id);
+    assert.ok(sdkInterrupt);
+    assert.equal(sdkInterrupt.cursor, canonicalCursor);
+    assert.equal(sdkInterrupt.workflowNodeId, interruptRow.workflow_node_id);
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(interruptEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.equal(
+      reactFlowNode.tuiDeepLink.schemaVersion,
+      WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    );
+    assert.equal(reactFlowNode.tuiDeepLink.threadId, interruptRow.thread_id);
+    assert.equal(reactFlowNode.tuiDeepLink.turnId, interruptRow.turn_id);
+    assert.equal(reactFlowNode.tuiDeepLink.workflowNodeId, interruptRow.workflow_node_id);
+    assert.equal(reactFlowNode.tuiDeepLink.eventId, interruptRow.event_id);
+    assert.equal(reactFlowNode.tuiDeepLink.cursor, interruptRow.cursor);
+    assert.deepEqual(reactFlowNode.tuiDeepLink.args, interruptRow.tui_reopen.args);
 
     const replay = await execFileAsync(
       cli,
@@ -3749,6 +3817,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   );
   const workflowRunHistoryModel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-run-history-model.ts"),
+    "utf8",
+  );
+  const workflowRuntimeEventProjection = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts"),
     "utf8",
   );
   const workflowRailModel = fs.readFileSync(
@@ -4127,8 +4199,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-runtime-event-graph/);
   assert.match(workflowRunsPanel, /workflow-run-runtime-event-node-/);
   assert.match(workflowRunsPanel, /data-event-cursor/);
+  assert.match(workflowRunsPanel, /data-thread-id/);
+  assert.match(workflowRunsPanel, /data-tui-reopen-command/);
+  assert.match(workflowRunsPanel, /workflow-run-runtime-event-tui-reopen/);
   assert.match(workflowRunsPanel, /data-receipt-refs/);
   assert.match(workflowRunsPanel, /data-policy-decision-refs/);
+  assert.match(workflowRuntimeEventProjection, /WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION/);
+  assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeTuiDeepLinkDescriptor/);
+  assert.match(workflowRuntimeEventProjection, /tuiDeepLinkForRuntimeThreadEvent/);
   assert.match(workflowComposerController, /loadWorkflowRuntimeThreadEvents/);
   assert.match(workflowComposerController, /setRuntimeThreadEvents/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);

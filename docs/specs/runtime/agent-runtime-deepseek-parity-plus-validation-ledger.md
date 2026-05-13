@@ -113,6 +113,7 @@ the practical workstream when the source heading is broad.
 | 112 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness activation panel split | /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness |
 | 113 | 2026-05-13 | Guide Governance | Master guide parity-gap triage cleanup | /tmp/ioi-autopilot-gui-harness-master-guide-triage/2026-05-13T01-35-47-401Z/result.json | node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-master-guide-triage<br>git diff --check |
 | 114 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Thin daemon-backed `ioi agent tui` shell | /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json | cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands<br>cargo test -p ioi-cli --bin cli agent_tui<br>cargo check -p ioi-cli --bin cli<br>node --test --test-name-pattern "agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell<br>git diff --check |
+| 115 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI runtime-event deep-link contract | /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json | cargo test -p ioi-cli --bin cli<br>cargo check -p ioi-cli --bin cli<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model&#124;React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4044,3 +4045,42 @@ Validation evidence:
     `/tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
+
+## Slice 115. 2026-05-13 - React Flow/TUI runtime-event deep-link contract
+
+Guide section: P0. Terminal Coding-Agent TUI
+
+Evidence bundles:
+
+- crates/cli/src/commands/agent_tui.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli`
+  - full CLI binary test suite passed with TUI event-row deep-link coverage.
+- `cargo check -p ioi-cli --bin cli`
+  - CLI binary type-check passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - React Flow runtime-event projection and run-history model tests passed with
+    the TUI reopen descriptor on projected nodes.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `node --test --test-name-pattern "agent TUI thin shell starts a live thread|agent TUI thin shell is daemon-backed|agent CLI exposes model|React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract passed: the operator-interrupt event kept the same
+    event id, cursor, workflow node id, and `ioi agent tui --thread-id ...`
+    reopen args across daemon SSE, SDK `Thread.events()`, TUI JSON event rows,
+    and React Flow projection.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live runtime daemon contract syntax check passed.
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - GUI harness validation core syntax check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json`.

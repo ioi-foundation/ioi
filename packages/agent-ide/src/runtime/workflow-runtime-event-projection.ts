@@ -2,6 +2,8 @@ import type { WorkflowNodeKind } from "../types/graph";
 
 export const WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION =
   "ioi.workflow.runtime-event-projection.v1" as const;
+export const WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION =
+  "ioi.workflow.runtime-tui-deeplink.v1" as const;
 
 export type WorkflowRuntimeThreadEventType =
   | "thread_started"
@@ -99,6 +101,25 @@ export interface WorkflowRuntimeReactFlowNodeData {
   approvalId: string | null;
   agentStatus: string | null;
   summary: string | null;
+  tuiDeepLink: WorkflowRuntimeTuiDeepLinkDescriptor;
+}
+
+export interface WorkflowRuntimeTuiDeepLinkDescriptor {
+  schemaVersion: typeof WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION;
+  command: "ioi agent tui";
+  args: string[];
+  reopenCommand: string;
+  threadId: string;
+  turnId: string | null;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventId: string;
+  eventKind: string;
+  componentKind: string;
+  seq: number;
+  cursor: string;
+  sinceSeq: number;
+  lastEventId: string;
 }
 
 export interface WorkflowRuntimeReactFlowNode {
@@ -336,6 +357,7 @@ function projectedNodeForBucket(
     approvalId: latestEvent.approvalId ?? null,
     agentStatus: latestEvent.agentStatus ?? null,
     summary: summaryForRuntimeThreadEvent(latestEvent),
+    tuiDeepLink: tuiDeepLinkForRuntimeThreadEvent(latestEvent, bucket.nodeId),
   };
   const reactFlowNode: WorkflowRuntimeReactFlowNode = {
     id: bucket.nodeId,
@@ -525,6 +547,37 @@ function summaryForRuntimeThreadEvent(
     if (typeof value === "string" && value.trim()) return value;
   }
   return null;
+}
+
+function tuiDeepLinkForRuntimeThreadEvent(
+  event: WorkflowRuntimeThreadEventLike,
+  workflowNodeId: string,
+): WorkflowRuntimeTuiDeepLinkDescriptor {
+  const args = [
+    "agent",
+    "tui",
+    "--thread-id",
+    event.threadId,
+    "--since-seq",
+    String(event.seq),
+  ];
+  return {
+    schemaVersion: WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    command: "ioi agent tui",
+    args,
+    reopenCommand: `ioi ${args.join(" ")}`,
+    threadId: event.threadId,
+    turnId: event.turnId,
+    workflowGraphId: event.workflowGraphId,
+    workflowNodeId,
+    eventId: event.id,
+    eventKind: event.eventKind,
+    componentKind: componentKindForRuntimeThreadEvent(event),
+    seq: event.seq,
+    cursor: event.cursor,
+    sinceSeq: event.seq,
+    lastEventId: event.id,
+  };
 }
 
 function sortRuntimeThreadEvents(

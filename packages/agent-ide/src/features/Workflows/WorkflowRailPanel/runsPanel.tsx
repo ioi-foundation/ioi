@@ -330,6 +330,7 @@ export function WorkflowRunsPanel({
                     data-workflow-node-id={node.data.workflowNodeId}
                     data-workflow-graph-id={node.data.workflowGraphId ?? ""}
                     data-component-kind={node.data.componentKind}
+                    data-thread-id={node.data.threadId}
                     data-accessible-status={node.data.status}
                     data-accessible-status-text={accessibleStatusLabel(
                       node.data.status,
@@ -344,6 +345,13 @@ export function WorkflowRunsPanel({
                     data-rollback-refs={node.data.rollbackRefs.join("|")}
                     data-tool-name={node.data.toolName ?? ""}
                     data-approval-id={node.data.approvalId ?? ""}
+                    data-tui-deep-link-schema-version={
+                      node.data.tuiDeepLink.schemaVersion
+                    }
+                    data-tui-reopen-command={node.data.tuiDeepLink.reopenCommand}
+                    data-tui-reopen-args={node.data.tuiDeepLink.args.join("|")}
+                    data-tui-since-seq={node.data.tuiDeepLink.sinceSeq}
+                    data-tui-last-event-id={node.data.tuiDeepLink.lastEventId}
                   >
                     <details>
                       <summary
@@ -384,6 +392,12 @@ export function WorkflowRunsPanel({
                         <div>
                           <dt>Runtime kind</dt>
                           <dd>{node.data.eventKinds.join(", ")}</dd>
+                        </div>
+                        <div>
+                          <dt>TUI</dt>
+                          <dd data-testid="workflow-run-runtime-event-tui-reopen">
+                            {node.data.tuiDeepLink.reopenCommand}
+                          </dd>
                         </div>
                       </dl>
                     </details>
