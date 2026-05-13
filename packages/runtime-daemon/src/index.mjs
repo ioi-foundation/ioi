@@ -116,6 +116,7 @@ const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
 ];
 const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
 const RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION = "ioi.runtime.context-budget-policy.v1";
+const RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION = "ioi.runtime.compaction-policy.v1";
 const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
 const MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT = 200;
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
@@ -5027,6 +5028,109 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  evaluateCompactionPolicy({ threadId, request = {} } = {}) {
+    const requestedThreadId =
+      optionalString(request.thread_id ?? request.threadId) ?? threadId;
+    if (!requestedThreadId) {
+      throw runtimeError({
+        status: 400,
+        code: "runtime_compaction_policy_thread_required",
+        message: "Compaction policy evaluation requires a thread id.",
+      });
+    }
+    const agent = this.agentForThread(requestedThreadId);
+    const latestRun = this.listRuns(agent.id).at(-1) ?? null;
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      (latestRun ? turnIdForRun(latestRun.id) : "");
+    const result = evaluateCompactionPolicyDecision({
+      threadId: requestedThreadId,
+      turnId,
+      request,
+    });
+    const streamId = eventStreamIdForThread(requestedThreadId);
+    let compactEvent = null;
+    if (
+      result.action === "compact" &&
+      result.approval_satisfied &&
+      result.execute_compaction
+    ) {
+      const previousLatestSeq = this.latestRuntimeEventSeq(streamId);
+      this.compactThread(requestedThreadId, {
+        reason: result.compact_reason,
+        scope: result.compact_scope,
+        turn_id: turnId,
+        source: request.source,
+        actor: optionalString(request.actor) ?? "operator",
+        workflow_graph_id: result.workflow_graph_id,
+        workflow_node_id: result.compact_workflow_node_id,
+        idempotency_key:
+          optionalString(request.compact_idempotency_key ?? request.compactIdempotencyKey) ??
+          `thread:${requestedThreadId}:compaction-policy:compact:${safeId(result.policy_decision_id)}`,
+      });
+      compactEvent =
+        this.runtimeEventsForStream(streamId, { sinceSeq: previousLatestSeq }).find(
+          (event) => event.component_kind === "context_compaction",
+        ) ?? null;
+      result.compaction_executed = Boolean(compactEvent);
+      result.compactionExecuted = result.compaction_executed;
+      result.compaction_event_id = compactEvent?.event_id ?? null;
+      result.compactionEventId = result.compaction_event_id;
+      result.compaction_seq = compactEvent?.seq ?? null;
+      result.compactionSeq = result.compaction_seq;
+    }
+    const now = new Date().toISOString();
+    const eventKind =
+      result.action === "stop"
+        ? "policy.blocked"
+        : result.action === "approval_required"
+          ? "approval.required"
+          : "compaction_policy.evaluated";
+    const eventStatus =
+      result.action === "stop"
+        ? "blocked"
+        : result.action === "approval_required"
+          ? "waiting"
+          : "completed";
+    const event = this.appendRuntimeEvent({
+      event_stream_id: streamId,
+      thread_id: requestedThreadId,
+      turn_id: turnId,
+      item_id: `${turnId || requestedThreadId}:item:compaction-policy:${safeId(result.policy_decision_id)}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${requestedThreadId}:compaction-policy:${safeId(result.policy_decision_id)}`,
+      source: operatorControlSource(request.source),
+      source_event_kind:
+        optionalString(request.eventKind ?? request.event_kind) ??
+        "RuntimeCompactionPolicy.Evaluate",
+      event_kind: eventKind,
+      status: eventStatus,
+      actor: optionalString(request.actor) ?? "operator",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: result.workflow_graph_id,
+      workflow_node_id: result.workflow_node_id,
+      approval_id: result.approval_id,
+      component_kind: "compaction_policy",
+      payload_schema_version: RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
+      payload_summary: result,
+      receipt_refs: result.receipt_refs,
+      policy_decision_refs: result.policy_decision_refs,
+      artifact_refs: compactEvent ? compactEvent.artifact_refs : [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    return {
+      ...result,
+      event,
+      event_id: event.event_id,
+      eventId: event.event_id,
+      seq: event.seq,
+    };
+  }
+
   cancelRun(runId) {
     const run = this.getRun(runId);
     const status = run.status === "canceled" ? "canceled" : "canceled";
@@ -9748,6 +9852,13 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     );
     return;
   }
+  if (request.method === "POST" && action === "compaction-policy" && !segments[4]) {
+    writeJsonResponse(
+      response,
+      store.evaluateCompactionPolicy({ threadId, request: await readBody(request) }),
+    );
+    return;
+  }
   if (request.method === "POST" && action === "resume") {
     writeJsonResponse(response, store.resumeThread(threadId));
     return;
@@ -10362,6 +10473,234 @@ function contextBudgetFirstObject(...values) {
   return values.find(
     (value) => value && typeof value === "object" && !Array.isArray(value),
   ) ?? null;
+}
+
+function evaluateCompactionPolicyDecision({ threadId, turnId = "", request = {} } = {}) {
+  const policy = contextBudgetFirstObject(request.policy, request.compactionPolicy, request.compaction_policy) ?? {};
+  const contextBudget = contextBudgetFirstObject(
+    request.contextBudget,
+    request.context_budget,
+    request.runtimeContextBudget,
+    request.runtime_context_budget,
+  ) ?? {};
+  const budgetStatus = compactionPolicyBudgetStatus(
+    request.contextBudgetStatus,
+    request.context_budget_status,
+    contextBudget.status,
+    contextBudget.policyDecision?.status,
+    contextBudget.policy_decision?.status,
+  );
+  const okAction = compactionPolicyAction(policy.okAction ?? policy.ok_action ?? request.okAction ?? request.ok_action, "noop");
+  const warnAction = compactionPolicyAction(policy.warnAction ?? policy.warn_action ?? request.warnAction ?? request.warn_action, "warn");
+  const blockedAction = compactionPolicyAction(
+    policy.blockedAction ?? policy.blocked_action ?? request.blockedAction ?? request.blocked_action,
+    "compact",
+  );
+  const selectedAction =
+    budgetStatus === "blocked" ? blockedAction : budgetStatus === "warn" ? warnAction : okAction;
+  const approvalRequired =
+    compactionPolicyBoolean(
+      policy.approvalRequired,
+      policy.approval_required,
+      request.approvalRequired,
+      request.approval_required,
+    ) || selectedAction === "approval_required";
+  const approvalGranted = compactionPolicyBoolean(
+    policy.approvalGranted,
+    policy.approval_granted,
+    request.approvalGranted,
+    request.approval_granted,
+    request.approved,
+    request.confirm,
+  );
+  const executeCompaction = compactionPolicyBoolean(
+    policy.executeCompaction,
+    policy.execute_compaction,
+    request.executeCompaction,
+    request.execute_compaction,
+  );
+  const action =
+    selectedAction === "approval_required" && approvalGranted
+      ? "compact"
+      : selectedAction === "compact" && approvalRequired && !approvalGranted
+        ? "approval_required"
+        : selectedAction;
+  const approvalSatisfied = !approvalRequired || approvalGranted;
+  const continuationAllowed = action !== "stop";
+  const workflowGraphId =
+    optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+  const workflowNodeId =
+    optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+    "runtime.compaction-policy";
+  const compactWorkflowNodeId =
+    optionalString(
+      policy.compactWorkflowNodeId ??
+        policy.compact_workflow_node_id ??
+        request.compactWorkflowNodeId ??
+        request.compact_workflow_node_id,
+    ) ?? "runtime.context-compact";
+  const contextBudgetSummary =
+    optionalString(contextBudget.summary ?? contextBudget.policyDecision?.summary) ??
+    `context budget status ${budgetStatus}`;
+  const compactReason =
+    optionalString(
+      policy.compactReason ??
+        policy.compact_reason ??
+        request.compactReason ??
+        request.compact_reason ??
+        request.reason,
+    ) ?? `Compaction policy ${budgetStatus}: ${contextBudgetSummary}`;
+  const compactScope =
+    optionalString(policy.compactScope ?? policy.compact_scope ?? request.compactScope ?? request.compact_scope) ??
+    "thread";
+  const decisionHash = doctorHash(
+    JSON.stringify({
+      threadId,
+      turnId,
+      workflowGraphId,
+      workflowNodeId,
+      budgetStatus,
+      selectedAction,
+      action,
+      approvalRequired,
+      approvalGranted,
+      executeCompaction,
+    }),
+  ).slice(0, 16);
+  const policyDecisionId = `policy_compaction_${safeId(threadId)}_${decisionHash}_${action}`;
+  const receiptId = `receipt_compaction_policy_${safeId(threadId)}_${decisionHash}`;
+  const approvalId =
+    action === "approval_required"
+      ? `approval_compaction_${safeId(threadId)}_${decisionHash}`
+      : null;
+  const status =
+    action === "stop"
+      ? "blocked"
+      : action === "approval_required"
+        ? "waiting"
+        : action === "compact"
+          ? executeCompaction && approvalSatisfied
+            ? "compacted"
+            : "compact_pending"
+          : action === "warn"
+            ? "warn"
+            : "ok";
+  const summary =
+    action === "stop"
+      ? "Compaction policy blocked continuation."
+      : action === "approval_required"
+        ? "Compaction policy requires operator approval before compacting."
+        : action === "compact"
+          ? executeCompaction
+            ? "Compaction policy executed context compaction."
+            : "Compaction policy selected context compaction."
+          : action === "warn"
+            ? "Compaction policy emitted a warning."
+            : "Compaction policy allowed continuation.";
+  const generatedAt = new Date().toISOString();
+  return {
+    schema_version: RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
+    object: "ioi.runtime_compaction_policy",
+    status,
+    action,
+    selected_action: selectedAction,
+    selectedAction,
+    budget_status: budgetStatus,
+    budgetStatus,
+    thread_id: threadId,
+    threadId,
+    turn_id: turnId || null,
+    turnId: turnId || null,
+    source: optionalString(request.source) ?? "react_flow",
+    actor: optionalString(request.actor) ?? "operator",
+    event_kind:
+      optionalString(request.event_kind ?? request.eventKind) ??
+      "RuntimeCompactionPolicy.Evaluate",
+    eventKind:
+      optionalString(request.eventKind ?? request.event_kind) ??
+      "RuntimeCompactionPolicy.Evaluate",
+    component_kind: "compaction_policy",
+    componentKind: "compaction_policy",
+    payload_schema_version: RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
+    payloadSchemaVersion: RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
+    workflow_graph_id: workflowGraphId,
+    workflowGraphId,
+    workflow_node_id: workflowNodeId,
+    workflowNodeId,
+    compact_workflow_node_id: compactWorkflowNodeId,
+    compactWorkflowNodeId,
+    context_budget: contextBudget,
+    contextBudget,
+    approval_required: approvalRequired,
+    approvalRequired,
+    approval_granted: approvalGranted,
+    approvalGranted,
+    approval_satisfied: approvalSatisfied,
+    approvalSatisfied,
+    approval_id: approvalId,
+    approvalId,
+    execute_compaction: executeCompaction,
+    executeCompaction,
+    compaction_requested: action === "compact",
+    compactionRequested: action === "compact",
+    compaction_executed: false,
+    compactionExecuted: false,
+    compaction_event_id: null,
+    compactionEventId: null,
+    compaction_seq: null,
+    compactionSeq: null,
+    compact_reason: compactReason,
+    compactReason,
+    compact_scope: compactScope,
+    compactScope,
+    continuation_allowed: continuationAllowed,
+    continuationAllowed,
+    receipt_refs: [receiptId],
+    receiptRefs: [receiptId],
+    policy_decision_refs: [policyDecisionId],
+    policyDecisionRefs: [policyDecisionId],
+    policy_decision_id: policyDecisionId,
+    policyDecisionId,
+    summary,
+    generated_at: generatedAt,
+    generatedAt,
+  };
+}
+
+function compactionPolicyBudgetStatus(...values) {
+  const status = values
+    .map((value) => optionalString(value)?.toLowerCase())
+    .find(Boolean);
+  if (status === "blocked" || status === "block") return "blocked";
+  if (status === "warn" || status === "warning") return "warn";
+  return "ok";
+}
+
+function compactionPolicyAction(value, fallback) {
+  const action = optionalString(value)?.toLowerCase();
+  if (
+    action === "noop" ||
+    action === "warn" ||
+    action === "compact" ||
+    action === "stop" ||
+    action === "approval_required"
+  ) {
+    return action;
+  }
+  return fallback;
+}
+
+function compactionPolicyBoolean(...values) {
+  for (const value of values) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const clean = value.trim().toLowerCase();
+      if (clean === "true" || clean === "1" || clean === "yes") return true;
+      if (clean === "false" || clean === "0" || clean === "no") return false;
+    }
+  }
+  return false;
 }
 
 function stringFromSearchParams(params, key) {

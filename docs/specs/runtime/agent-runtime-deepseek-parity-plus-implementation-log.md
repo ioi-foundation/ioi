@@ -165,6 +165,7 @@ workstream was narrower.
 | 163 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | RuntimeUsageTelemetry aggregation and projection | /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json |
 | 164 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow UsageMeterNode request compiler and live telemetry read | /tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json |
 | 165 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow ContextBudgetNode daemon policy evaluator | /tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json |
+| 166 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow CompactionPolicyNode daemon actuator | /tmp/ioi-autopilot-gui-harness-compaction-policy-node/2026-05-13T21-26-21-995Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -275,6 +276,45 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-budget-node`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json`.
+- `git diff --check`
+
+### Slice 166. 2026-05-13 - React Flow CompactionPolicyNode daemon actuator
+
+Implementation slice completed 2026-05-13, P1-D workflow-facing compaction
+policy:
+
+- Added first-class `runtime_compaction_policy` node kind, creator, graph
+  typing, localized label, declared workflow schemas, canvas label/token,
+  runtime action contract entry, and SDK runtime-event type mapping.
+- Added `workflow-runtime-compaction-policy-control-nodes` helpers that compile
+  `ContextBudgetNode` output into daemon-owned POST requests with warn/compact,
+  stop, approval-required, approval-granted, and execute-compaction settings.
+- Added daemon `/v1/threads/{thread_id}/compaction-policy` evaluation that
+  converts context-budget `ok`/`warn`/`blocked` outcomes into receipt-backed
+  policy action results and can execute approved context compaction through the
+  existing canonical compact endpoint/event contract.
+- Extended React Flow projection and live daemon proof so compaction-policy
+  events project to `runtime_compaction_policy`, executed compactions still
+  project to `runtime_context_compact`, and graph/node identity survives SDK
+  Thread event replay.
+- Updated the master guide to move the immediate P1-D queue to TUI `/cost` and
+  `/context` controls over the now-shared telemetry and action state.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts`
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+- `node --import tsx --test --test-name-pattern "compaction policy" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow compaction policy" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --check apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-compaction-policy-node`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-compaction-policy-node/2026-05-13T21-26-21-995Z/result.json`.
 - `git diff --check`
 
 ### Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort

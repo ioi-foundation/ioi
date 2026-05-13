@@ -27,6 +27,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const contextBudgetControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
   );
+  const compactionPolicyControlNodes = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
+  );
   const controlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
   );
@@ -35,6 +38,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   const contextBudgetControlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+  );
+  const compactionPolicyControlNodesTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts",
   );
   const runHistoryModel = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
@@ -89,6 +95,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "turn_steered",
     "context_compacted",
     "approval_required",
+    "compaction_policy_evaluated",
     "policy_blocked",
     "receipt_emitted",
     "model_route_decision",
@@ -117,6 +124,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /runtime_operator_steer/);
   assert.match(projection, /runtime_context_compact/);
   assert.match(projection, /runtime_context_budget/);
+  assert.match(projection, /runtime_compaction_policy/);
   assert.match(controlNodes, /createRuntimeThreadForkControlRequestFromWorkflowNode/);
   assert.match(controlNodes, /createRuntimeOperatorInterruptControlRequestFromWorkflowNode/);
   assert.match(controlNodes, /createRuntimeOperatorSteerControlRequestFromWorkflowNode/);
@@ -152,11 +160,17 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(contextBudgetControlNodes, /runtime_context_budget/);
   assert.match(contextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
   assert.match(contextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
+  assert.match(compactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
+  assert.match(compactionPolicyControlNodes, /runtime_compaction_policy/);
+  assert.match(compactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);
+  assert.match(compactionPolicyControlNodes, /RuntimeCompactionPolicy\.Evaluate/);
   assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "usage\.meter"/);
   assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "context\.budget"/);
+  assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "compaction\.policy"/);
   assert.match(controlNodesTest, /React Flow daemon request/);
   assert.match(usageControlNodesTest, /workflow\.react-flow\.usage-meter-proof/);
   assert.match(contextBudgetControlNodesTest, /workflow\.react-flow\.context-budget-proof/);
+  assert.match(compactionPolicyControlNodesTest, /workflow\.react-flow\.compaction-policy-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.thread-fork-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-interrupt-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-steer-proof/);
@@ -167,11 +181,13 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(exports, /workflow-runtime-control-nodes/);
   assert.match(exports, /workflow-runtime-usage-control-nodes/);
   assert.match(exports, /workflow-runtime-context-budget-control-nodes/);
+  assert.match(exports, /workflow-runtime-compaction-policy-control-nodes/);
   assert.match(typeTest, /projects Thread\.events runtime events/);
   assert.match(typeTest, /runtime_thread_fork/);
   assert.match(typeTest, /runtime_operator_interrupt/);
   assert.match(typeTest, /runtime_operator_steer/);
   assert.match(typeTest, /runtime_context_compact/);
+  assert.match(typeTest, /runtime_compaction_policy/);
   assert.match(typeTest, /approval_required/);
   assert.match(typeTest, /policy_blocked/);
   assert.match(runHistoryModel, /projectRuntimeThreadEventsToWorkflowProjection/);

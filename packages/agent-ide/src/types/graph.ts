@@ -600,7 +600,8 @@ export interface NodeLogic {
     | "subagent_resume"
     | "subagent_assign"
     | "usage_meter"
-    | "context_budget";
+    | "context_budget"
+    | "compaction_policy";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
   memoryRecordId?: string;
@@ -804,6 +805,58 @@ export interface NodeLogic {
   runtimeContextBudgetWorkflowNodeId?: string;
   runtimeContextBudgetSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeContextBudgetActor?: string;
+  runtimeCompactionPolicyEndpoint?: string;
+  runtimeCompactionPolicy?: unknown;
+  runtimeCompactionPolicyField?: string;
+  runtimeCompactionPolicyActionField?: string;
+  runtimeCompactionPolicyEventField?: string;
+  runtimeCompactionPolicyStatusField?: string;
+  runtimeCompactionPolicyThreadId?: string;
+  runtimeCompactionPolicyThreadIdField?: string;
+  runtimeCompactionPolicyTurnId?: string;
+  runtimeCompactionPolicyTurnIdField?: string;
+  runtimeCompactionPolicyContextBudget?: unknown;
+  runtimeCompactionPolicyContextBudgetField?: string;
+  runtimeCompactionPolicyContextBudgetStatus?: string;
+  runtimeCompactionPolicyContextBudgetStatusField?: string;
+  runtimeCompactionPolicyOkAction?:
+    | "noop"
+    | "warn"
+    | "compact"
+    | "stop"
+    | "approval_required"
+    | string;
+  runtimeCompactionPolicyOkActionField?: string;
+  runtimeCompactionPolicyWarnAction?:
+    | "noop"
+    | "warn"
+    | "compact"
+    | "stop"
+    | "approval_required"
+    | string;
+  runtimeCompactionPolicyWarnActionField?: string;
+  runtimeCompactionPolicyBlockedAction?:
+    | "noop"
+    | "warn"
+    | "compact"
+    | "stop"
+    | "approval_required"
+    | string;
+  runtimeCompactionPolicyBlockedActionField?: string;
+  runtimeCompactionPolicyApprovalRequired?: boolean;
+  runtimeCompactionPolicyApprovalRequiredField?: string;
+  runtimeCompactionPolicyApprovalGranted?: boolean;
+  runtimeCompactionPolicyApprovalGrantedField?: string;
+  runtimeCompactionPolicyExecuteCompaction?: boolean;
+  runtimeCompactionPolicyExecuteCompactionField?: string;
+  runtimeCompactionPolicyCompactReason?: string;
+  runtimeCompactionPolicyCompactReasonField?: string;
+  runtimeCompactionPolicyCompactScope?: string;
+  runtimeCompactionPolicyCompactScopeField?: string;
+  runtimeCompactionPolicyCompactWorkflowNodeId?: string;
+  runtimeCompactionPolicyWorkflowNodeId?: string;
+  runtimeCompactionPolicySource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeCompactionPolicyActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -897,6 +950,7 @@ export interface NodeLogic {
     consumesRuntimeContextCompact?: boolean;
     consumesRuntimeUsageMeter?: boolean;
     consumesRuntimeContextBudget?: boolean;
+    consumesRuntimeCompactionPolicy?: boolean;
     consumesRuntimeRollbackSnapshot?: boolean;
     consumesRuntimeRestoreGate?: boolean;
     consumesRuntimeDiagnosticsRepair?: boolean;
@@ -930,6 +984,8 @@ export interface NodeLogic {
     runtimeUsageMeterStatusField?: string;
     runtimeContextBudgetField?: string;
     runtimeContextBudgetStatusField?: string;
+    runtimeCompactionPolicyField?: string;
+    runtimeCompactionPolicyStatusField?: string;
     runtimeRollbackSnapshotField?: string;
     runtimeRollbackSnapshotStatusField?: string;
     runtimeRestoreGateField?: string;
@@ -1460,6 +1516,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_context_compact">
   | WorkflowNodeConfigBase<"runtime_usage_meter">
   | WorkflowNodeConfigBase<"runtime_context_budget">
+  | WorkflowNodeConfigBase<"runtime_compaction_policy">
   | WorkflowNodeConfigBase<"runtime_rollback_snapshot">
   | WorkflowNodeConfigBase<"runtime_restore_gate">
   | WorkflowNodeConfigBase<"runtime_diagnostics_repair">
@@ -4160,6 +4217,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_context_compact"
   | "runtime_usage_meter"
   | "runtime_context_budget"
+  | "runtime_compaction_policy"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"
@@ -4723,6 +4781,7 @@ export type WorkflowNodeKind =
   | "runtime_context_compact"
   | "runtime_usage_meter"
   | "runtime_context_budget"
+  | "runtime_compaction_policy"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"

@@ -681,6 +681,33 @@ test("projects context compact events into the runtime compaction node", () => {
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-compact-allow"]);
 });
 
+test("projects compaction policy events into the runtime policy node", () => {
+  const policy = event("event-compaction-policy", 7, {
+    type: "compaction_policy_evaluated",
+    eventKind: "compaction_policy.evaluated",
+    sourceEventKind: "RuntimeCompactionPolicy.Evaluate",
+    status: "completed",
+    componentKind: "compaction_policy",
+    workflowNodeId: "runtime.compaction-policy",
+    receiptRefs: ["receipt-compaction-policy"],
+    policyDecisionRefs: ["policy-compaction-compact"],
+    payloadSchemaVersion: "ioi.runtime.compaction-policy.v1",
+    payload: { action: "compact", budget_status: "blocked" },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([policy]);
+
+  assert.equal(
+    workflowNodeIdForRuntimeThreadEvent(policy),
+    "runtime.compaction-policy",
+  );
+  assert.equal(nodes[0]?.nodeKind, "runtime_compaction_policy");
+  assert.equal(nodes[0]?.componentKind, "compaction_policy");
+  assert.equal(nodes[0]?.label, "Compaction policy");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-compaction-policy"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-compaction-compact"]);
+});
+
 test("projects TUI control state into React Flow run-inspector rows", () => {
   const projection = projectRuntimeTuiControlStateToWorkflowProjection({
     schema_version: "ioi.agent-cli.tui-control-state.v1",
