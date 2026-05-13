@@ -10488,7 +10488,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /createRuntimeDiagnosticsRepairControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeDiagnosticsRepair/);
   assert.match(workflowComposerController, /createRuntimeContextCompactControlRequest/);
+  assert.match(workflowComposerController, /createRuntimeOperatorInterruptControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeContextPressureAction/);
+  assert.match(workflowComposerController, /action\.action !== "compact" && action\.action !== "stop"/);
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
@@ -10498,6 +10500,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeContextCompactControlRequest/);
+  assert.match(graphRuntimeTypes, /RuntimeOperatorInterruptControlRequest/);
   assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);
   assert.match(tauriArtifacts, /execute_workflow_runtime_control_request/);
   assert.match(tauriLib, /execute_workflow_runtime_control_request/);

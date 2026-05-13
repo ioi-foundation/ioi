@@ -170,8 +170,40 @@ workstream was narrower.
 | 168 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | streaming usage/context-pressure deltas | /tmp/ioi-autopilot-gui-harness-streaming-usage-context/2026-05-13T22-06-08-190Z/result.json |
 | 169 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | live React Flow telemetry hydration | /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json |
 | 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json |
+| 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 171. 2026-05-13 - Context-pressure stop action execution
+
+Implementation slice completed 2026-05-13, P1-D stop action execution:
+
+- Made high-pressure `stop` alert rows executable when the alert carries a
+  turn id, and kept them advisory with `missing_turn` status when no active
+  turn can be addressed.
+- Mapped `stop` actions to the existing `runtime.operator-interrupt` workflow
+  node and daemon `/v1/threads/{threadId}/turns/{turnId}/interrupt` control
+  route, preserving the runtime-owned turn interruption/cancel behavior.
+- Updated the React Flow context-pressure action executor to dispatch compact
+  actions through `runtime_context_compact` and stop actions through
+  `runtime_operator_interrupt`.
+- Widened the workflow runtime-control request union so context-pressure stop
+  actions, context compaction, and diagnostics repair share the same Tauri
+  daemon control bridge.
+- Updated source-contract and projection coverage so executable stop rows keep
+  stable action metadata and compile through the operator-interrupt request
+  builder.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json`.
 
 ### Slice 170. 2026-05-13 - Context-pressure alert/action rows
 
