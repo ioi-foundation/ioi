@@ -8,6 +8,7 @@ export const AGENT_ACTION_KINDS = [
   "capability_sequence",
   "workflow_package_export",
   "workflow_package_import",
+  "runtime_thread_fork",
   "function",
   "model_binding",
   "model_call",
@@ -64,4 +65,5 @@ export const AGENT_ACTION_COMPLETION_VERIFICATION_KINDS = [
   "gui_harness_validation",
   "workflow_package_export",
   "workflow_package_import",
+  "runtime_thread_fork",
 ] as const;

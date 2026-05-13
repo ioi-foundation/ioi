@@ -41,6 +41,16 @@ export {
   workflowNodeIdForRuntimeThreadEvent,
   workflowNodeKindForRuntimeThreadEvent,
 } from "./runtime/workflow-runtime-event-projection";
+export {
+  RUNTIME_THREAD_FORK_COMPONENT_KIND,
+  RUNTIME_THREAD_FORK_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_THREAD_FORK_SOURCE,
+  RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
+  RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+  createRuntimeThreadForkControlRequest,
+  createRuntimeThreadForkControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-control-nodes";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -297,6 +307,12 @@ export type {
   WorkflowRuntimeThreadEventLike,
   WorkflowRuntimeThreadEventType,
 } from "./runtime/workflow-runtime-event-projection";
+export type {
+  RuntimeThreadForkControlRequest,
+  RuntimeThreadForkControlRequestBody,
+  RuntimeThreadForkControlRequestInput,
+  RuntimeThreadForkWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-control-nodes";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";

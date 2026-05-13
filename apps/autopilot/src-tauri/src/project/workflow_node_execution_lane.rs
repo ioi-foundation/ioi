@@ -327,6 +327,110 @@ try {{
     }))
 }
 
+fn workflow_runtime_thread_fork_clean_string(value: String) -> Option<String> {
+    let value = value.trim().to_string();
+    (!value.is_empty()).then_some(value)
+}
+
+fn workflow_runtime_thread_fork_logic_string(logic: &Value, key: &str) -> Option<String> {
+    workflow_value_string(logic, key).and_then(workflow_runtime_thread_fork_clean_string)
+}
+
+fn workflow_runtime_thread_fork_value_at_path<'a>(
+    value: &'a Value,
+    path: &str,
+) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path.split('.').filter(|segment| !segment.trim().is_empty()) {
+        if segment == "[]" {
+            current = current.as_array()?.first()?;
+            continue;
+        }
+        current = current.get(segment)?;
+    }
+    Some(current)
+}
+
+fn workflow_runtime_thread_fork_input_string(input: &Value, path: &str) -> Option<String> {
+    workflow_runtime_thread_fork_value_at_path(input, path)
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .and_then(workflow_runtime_thread_fork_clean_string)
+}
+
+fn workflow_runtime_thread_fork_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let thread_id_field =
+        workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkThreadIdField")
+            .unwrap_or_else(|| "threadId".to_string());
+    let reason_field =
+        workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkReasonField")
+            .unwrap_or_else(|| "reason".to_string());
+    let thread_id = workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkThreadId")
+        .or_else(|| workflow_runtime_thread_fork_input_string(input, &thread_id_field))
+        .or_else(|| workflow_runtime_thread_fork_input_string(input, "thread_id"))
+        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
+    let reason = workflow_runtime_thread_fork_input_string(input, &reason_field)
+        .or_else(|| workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkReason"))
+        .unwrap_or_else(|| "Fork thread from React Flow workflow control.".to_string());
+    let workflow_graph_id = workflow
+        .map(|project| project.metadata.id.clone())
+        .filter(|value| !value.trim().is_empty());
+    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
+    let workflow_node_id =
+        workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkWorkflowNodeId")
+            .unwrap_or_else(|| "runtime.thread-fork".to_string());
+    let actor = workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkActor")
+        .unwrap_or_else(|| "operator".to_string());
+    let endpoint_template =
+        workflow_runtime_thread_fork_logic_string(logic, "runtimeThreadForkEndpoint")
+            .unwrap_or_else(|| "/v1/threads/{threadId}/fork".to_string());
+    let endpoint = endpoint_template.replace("{threadId}", &thread_id);
+    let request = json!({
+        "reason": reason,
+        "source": "react_flow",
+        "actor": actor,
+        "workflowGraphId": workflow_graph_id_value.clone(),
+        "workflowNodeId": workflow_node_id.clone(),
+        "eventKind": "OperatorControl.Fork",
+        "componentKind": "thread_fork",
+        "payloadSchemaVersion": "ioi.runtime.thread-fork.v1"
+    });
+    let runtime_thread_fork = json!({
+        "schemaVersion": "ioi.workflow.runtime-thread-fork-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "thread_fork",
+        "workflowGraphId": workflow_graph_id_value,
+        "workflowNodeId": workflow_node_id,
+        "threadId": thread_id,
+        "endpoint": endpoint,
+        "request": request,
+        "mutationExecuted": false
+    });
+    json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "schemaVersion": "ioi.workflow.runtime-thread-fork-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "thread_fork",
+        "workflowGraphId": runtime_thread_fork.get("workflowGraphId").cloned().unwrap_or(Value::Null),
+        "workflowNodeId": runtime_thread_fork.get("workflowNodeId").cloned().unwrap_or(Value::Null),
+        "threadId": runtime_thread_fork.get("threadId").cloned().unwrap_or(Value::Null),
+        "endpoint": runtime_thread_fork.get("endpoint").cloned().unwrap_or(Value::Null),
+        "request": runtime_thread_fork.get("request").cloned().unwrap_or(Value::Null),
+        "runtimeThreadFork": runtime_thread_fork,
+        "mutationExecuted": false,
+        "input": input
+    })
+}
+
 pub(super) fn execute_workflow_node(
     workflow_path: &Path,
     workflow: Option<&WorkflowProject>,
@@ -474,6 +578,9 @@ pub(super) fn execute_workflow_node(
             &input,
             evidence_kind,
         )?,
+        ActionKind::RuntimeThreadFork => {
+            workflow_runtime_thread_fork_output(workflow, &node_id, &logic, &input, evidence_kind)
+        }
         ActionKind::DryRun => {
             json!({
                 "nodeId": node_id,

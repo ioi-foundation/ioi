@@ -542,6 +542,20 @@ export interface NodeLogic {
   runtimeChecklistStatusField?: string;
   runtimeChecklistItemsField?: string;
   runtimeChecklistReceiptField?: string;
+  runtimeThreadForkEndpoint?: string;
+  runtimeThreadFork?: unknown;
+  runtimeThreadForkField?: string;
+  runtimeThreadForkEventField?: string;
+  runtimeThreadForkStatusField?: string;
+  runtimeThreadForkReceiptField?: string;
+  runtimeThreadForkPolicyField?: string;
+  runtimeThreadForkThreadId?: string;
+  runtimeThreadForkThreadIdField?: string;
+  runtimeThreadForkReason?: string;
+  runtimeThreadForkReasonField?: string;
+  runtimeThreadForkWorkflowNodeId?: string;
+  runtimeThreadForkSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeThreadForkActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -629,6 +643,7 @@ export interface NodeLogic {
     consumesRuntimeTask?: boolean;
     consumesRuntimeJob?: boolean;
     consumesRuntimeChecklist?: boolean;
+    consumesRuntimeThreadFork?: boolean;
     consumesWorkflowPackageExport?: boolean;
     consumesWorkflowPackageImportReview?: boolean;
     consumesRepositoryContext?: boolean;
@@ -647,6 +662,8 @@ export interface NodeLogic {
     runtimeJobStatusField?: string;
     runtimeChecklistField?: string;
     runtimeChecklistStatusField?: string;
+    runtimeThreadForkField?: string;
+    runtimeThreadForkStatusField?: string;
     workflowPackageExportField?: string;
     workflowPackageReadinessStatusField?: string;
     workflowPackagePortableField?: string;
@@ -1126,6 +1143,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_task">
   | WorkflowNodeConfigBase<"runtime_job">
   | WorkflowNodeConfigBase<"runtime_checklist">
+  | WorkflowNodeConfigBase<"runtime_thread_fork">
   | WorkflowNodeConfigBase<"workflow_package_export">
   | WorkflowNodeConfigBase<"workflow_package_import">
   | WorkflowNodeConfigBase<"repository_context">
@@ -3817,6 +3835,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_task"
   | "runtime_job"
   | "runtime_checklist"
+  | "runtime_thread_fork"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"
@@ -4371,6 +4390,7 @@ export type WorkflowNodeKind =
   | "runtime_task"
   | "runtime_job"
   | "runtime_checklist"
+  | "runtime_thread_fork"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"

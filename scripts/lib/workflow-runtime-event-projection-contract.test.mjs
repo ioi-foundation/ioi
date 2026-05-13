@@ -18,6 +18,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const typeTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
   );
+  const controlNodes = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+  );
+  const controlNodesTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+  );
   const runHistoryModel = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
   );
@@ -84,8 +90,19 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /reactFlowEdges/);
   assert.match(projection, /runtimeEventProjection/);
   assert.match(projection, /runtimeEventTransition/);
+  assert.match(projection, /runtime_thread_fork/);
+  assert.match(controlNodes, /createRuntimeThreadForkControlRequestFromWorkflowNode/);
+  assert.match(controlNodes, /runtime_thread_fork/);
+  assert.match(controlNodes, /runtime\.thread-fork/);
+  assert.match(controlNodes, /source: RUNTIME_THREAD_FORK_SOURCE/);
+  assert.match(controlNodes, /workflowGraphId/);
+  assert.match(controlNodes, /workflowNodeId/);
+  assert.match(controlNodesTest, /React Flow daemon request/);
+  assert.match(controlNodesTest, /workflow\.react-flow\.thread-fork-proof/);
   assert.match(exports, /workflow-runtime-event-projection/);
+  assert.match(exports, /workflow-runtime-control-nodes/);
   assert.match(typeTest, /projects Thread\.events runtime events/);
+  assert.match(typeTest, /runtime_thread_fork/);
   assert.match(typeTest, /approval_required/);
   assert.match(typeTest, /policy_blocked/);
   assert.match(runHistoryModel, /projectRuntimeThreadEventsToWorkflowProjection/);

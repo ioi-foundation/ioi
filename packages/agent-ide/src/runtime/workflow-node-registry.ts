@@ -632,6 +632,107 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: {},
   },
   {
+    type: "runtime_thread_fork",
+    label: "Runtime Thread Fork",
+    group: "Flow",
+    family: "flow_control",
+    token: "TF",
+    familyLabel: "Runtime",
+    metricLabel: "Fork",
+    metricValue: "control",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["thread"],
+    outputs: ["fork", "event", "status"],
+    portDefinitions: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("fork", "Fork request", "output", "state", "output", false, "state"),
+      port("event", "Fork event", "output", "state", "output", false, "state"),
+      port("status", "Fork status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("fork", "Fork request", "output", "state", "output", false, "state"),
+      port("event", "Fork event", "output", "state", "output", false, "state"),
+      port("status", "Fork status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeThreadForkEndpoint",
+        "runtimeThreadForkThreadIdField",
+        "runtimeThreadForkWorkflowNodeId",
+      ],
+      properties: {
+        runtimeThreadForkEndpoint: { type: "string" },
+        runtimeThreadForkField: { type: "string" },
+        runtimeThreadForkEventField: { type: "string" },
+        runtimeThreadForkStatusField: { type: "string" },
+        runtimeThreadForkReceiptField: { type: "string" },
+        runtimeThreadForkPolicyField: { type: "string" },
+        runtimeThreadForkThreadId: { type: "string" },
+        runtimeThreadForkThreadIdField: { type: "string" },
+        runtimeThreadForkReason: { type: "string" },
+        runtimeThreadForkReasonField: { type: "string" },
+        runtimeThreadForkWorkflowNodeId: { type: "string" },
+        runtimeThreadForkSource: { type: "string" },
+        runtimeThreadForkActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_thread_fork"),
+    accessibility: runtimeNodeAccessibility("runtime_thread_fork", "runtimeThreadFork.status"),
+    policyProfile: policyProfile("write"),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_thread_fork",
+      executorId: "workflow.runtime_thread_fork",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic("runtime_thread_fork", "runtimeThreadFork.status"),
+      runtimeThreadForkEndpoint: "/v1/threads/{threadId}/fork",
+      runtimeThreadForkField: "runtimeThreadFork",
+      runtimeThreadForkEventField: "runtimeThreadFork.event",
+      runtimeThreadForkStatusField: "runtimeThreadFork.status",
+      runtimeThreadForkReceiptField: "runtimeThreadFork.receiptRefs",
+      runtimeThreadForkPolicyField: "runtimeThreadFork.policyDecisionRefs",
+      runtimeThreadForkThreadIdField: "threadId",
+      runtimeThreadForkReasonField: "reason",
+      runtimeThreadForkReason: "Fork thread from React Flow workflow control.",
+      runtimeThreadForkWorkflowNodeId: "runtime.thread-fork",
+      runtimeThreadForkSource: "react_flow",
+      runtimeThreadForkActor: "operator",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_thread_fork_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeThreadFork: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeThreadFork: true,
+        runtimeThreadForkField: "runtimeThreadFork",
+        runtimeThreadForkStatusField: "runtimeThreadFork.status",
+      },
+      nodeTypeLabel: "RuntimeThreadForkNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.thread.fork"] },
+  },
+  {
     type: "workflow_package_export",
     label: "Workflow Package Export",
     group: "Tools",
@@ -3389,6 +3490,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
   switch (type) {
     case "runtime_doctor":
       return ["decision", "verifier", "output"];
+    case "runtime_thread_fork":
+      return ["runtime_checklist", "decision", "verifier", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -3489,6 +3592,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "hook_policy" ||
     type === "workflow_package_export" ||
     type === "workflow_package_import" ||
+    type === "runtime_thread_fork" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

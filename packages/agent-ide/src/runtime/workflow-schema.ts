@@ -74,6 +74,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       logic.schema ||
       node.type === "output" ||
       node.type === "runtime_doctor" ||
+      node.type === "runtime_thread_fork" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
       node.type === "skill_context" ||
@@ -112,6 +113,24 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
       },
     };
   }
+  if (node.type === "runtime_thread_fork") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeThreadFork: { type: "object" },
+      },
+    };
+  }
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
   if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;
@@ -135,6 +154,16 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
   if (logic.testInput !== undefined) return schemaFromSample(logic.testInput);
   if (logic.functionBinding?.testInput !== undefined) return schemaFromSample(logic.functionBinding.testInput);
   if (node.type === "model_call") return { type: "object", properties: { prompt: { type: "string" } } };
+  if (node.type === "runtime_thread_fork") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        reason: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
   if (node.type === "decision") return { type: "object", properties: { value: { type: "unknown" } } };
   if (node.type === "output") return { type: "object", properties: { value: { type: "unknown" } } };
   return { type: "object" };

@@ -31,6 +31,7 @@ pub enum ActionKind {
     GithubPrCreate,
     WorkflowPackageExport,
     WorkflowPackageImport,
+    RuntimeThreadFork,
     Function,
     ModelBinding,
     ModelCall,
@@ -77,6 +78,7 @@ impl ActionKind {
             "github_pr_create" => Self::GithubPrCreate,
             "workflow_package_export" => Self::WorkflowPackageExport,
             "workflow_package_import" => Self::WorkflowPackageImport,
+            "runtime_thread_fork" => Self::RuntimeThreadFork,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -123,6 +125,7 @@ impl ActionKind {
             Self::GithubPrCreate => "github_pr_create",
             Self::WorkflowPackageExport => "workflow_package_export",
             Self::WorkflowPackageImport => "workflow_package_import",
+            Self::RuntimeThreadFork => "runtime_thread_fork",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -169,6 +172,7 @@ impl ActionKind {
             Self::GithubPrCreate => "github_pr_create",
             Self::WorkflowPackageExport => "workflow_package_export",
             Self::WorkflowPackageImport => "workflow_package_import",
+            Self::RuntimeThreadFork => "runtime_thread_fork",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -232,6 +236,7 @@ impl ActionKind {
                 | Self::GithubPrCreate
                 | Self::WorkflowPackageExport
                 | Self::WorkflowPackageImport
+                | Self::RuntimeThreadFork
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -444,6 +449,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("workflow_package_import"),
             ActionKind::WorkflowPackageImport
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_thread_fork"),
+            ActionKind::RuntimeThreadFork
         );
         assert_eq!(
             ActionKind::from_node_type("repository_context"),
