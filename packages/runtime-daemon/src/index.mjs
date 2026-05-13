@@ -71,6 +71,7 @@ const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
 const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
 const LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID = "runtime.lsp-diagnostics.repair.restore-preview";
+const LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID = "runtime.lsp-diagnostics.repair.restore-apply";
 const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
 const LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS = 240;
 const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
@@ -3106,6 +3107,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
     const workflowNodeId =
       optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
+    const idempotencyKey = optionalString(request.idempotency_key ?? request.idempotencyKey);
     const approval = workspaceRestoreApplyApprovalForRequest(request);
     const allowConflicts = workspaceRestoreApplyAllowsConflicts(request);
     const conflictPolicy = allowConflicts ? "override_conflicts" : "clean_preview_only";
@@ -3230,6 +3232,8 @@ export class AgentgresRuntimeStateStore {
       artifact_refs: [artifactId],
       rollbackRefs: [normalizedSnapshotId],
       rollback_refs: [normalizedSnapshotId],
+      idempotencyKey,
+      idempotency_key: idempotencyKey,
       summary: workspaceRestoreApplySummary({
         snapshotId: normalizedSnapshotId,
         applyStatus,
@@ -3290,7 +3294,7 @@ export class AgentgresRuntimeStateStore {
         details: { threadId, decisionRef: target },
       });
     }
-    if (action !== "restore_preview") {
+    if (!["restore_preview", "restore_apply"].includes(action)) {
       throw runtimeError({
         status: 409,
         code: "diagnostics_repair_decision_action_unimplemented",
@@ -3299,7 +3303,7 @@ export class AgentgresRuntimeStateStore {
           threadId,
           decisionRef: target,
           action,
-          supportedActions: ["restore_preview"],
+          supportedActions: ["restore_preview", "restore_apply"],
         },
       });
     }
@@ -3322,7 +3326,7 @@ export class AgentgresRuntimeStateStore {
       throw runtimeError({
         status: 409,
         code: "diagnostics_repair_snapshot_required",
-        message: "Restore-preview repair decision requires a workspace snapshot ref.",
+        message: "Restore repair decision requires a workspace snapshot ref.",
         details: { threadId, decisionRef: target, action },
       });
     }
@@ -3331,20 +3335,69 @@ export class AgentgresRuntimeStateStore {
     );
     const workflowNodeId =
       optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID;
+      (action === "restore_apply"
+        ? LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID
+        : LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID);
     const decisionId = decision.decision_id ?? decision.decisionId ?? target;
-    const restorePreview = this.previewWorkspaceSnapshotRestore(threadId, snapshotId, {
-      source: request.source ?? "runtime_auto",
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      idempotency_key:
-        optionalString(request.restore_preview_idempotency_key ?? request.restorePreviewIdempotencyKey) ??
-        `thread:${threadId}:diagnostics-repair-preview:${decisionId}:${snapshotId}:${action}`,
-      actor: request.actor ?? "operator",
-      diagnostics_repair_decision_id: decisionId,
-      diagnostics_repair_action: action,
-      diagnostics_blocking_gate_event_id: gateEvent.event_id,
-    });
+    const executionResult =
+      action === "restore_apply"
+        ? this.applyWorkspaceSnapshotRestore(threadId, snapshotId, {
+            source: request.source ?? "runtime_auto",
+            workflow_graph_id: workflowGraphId,
+            workflow_node_id: workflowNodeId,
+            idempotency_key:
+              optionalString(request.restore_apply_idempotency_key ?? request.restoreApplyIdempotencyKey) ??
+              `thread:${threadId}:diagnostics-repair-apply:${decisionId}:${snapshotId}:${diagnosticsRepairApplyApprovalKey(request)}`,
+            actor: request.actor ?? "operator",
+            approval: request.approval,
+            approvalDecision: request.approvalDecision,
+            approval_decision: request.approval_decision,
+            policyDecision: request.policyDecision,
+            policy_decision: request.policy_decision,
+            decision: request.decision,
+            confirm: request.confirm,
+            confirmed: request.confirmed,
+            confirmRestoreApply: request.confirmRestoreApply,
+            confirm_restore_apply: request.confirm_restore_apply,
+            applyConfirmed: request.applyConfirmed,
+            apply_confirmed: request.apply_confirmed,
+            approvalGranted: request.approvalGranted,
+            approval_granted: request.approval_granted,
+            approved: request.approved,
+            allowConflicts: request.allowConflicts,
+            allow_conflicts: request.allow_conflicts,
+            overrideConflicts: request.overrideConflicts,
+            override_conflicts: request.override_conflicts,
+            restoreConflictPolicy:
+              request.restoreConflictPolicy ??
+              request.restore_conflict_policy ??
+              decision.restoreConflictPolicy ??
+              decision.restore_conflict_policy ??
+              repairPolicy.restoreConflictPolicy ??
+              repairPolicy.restore_conflict_policy,
+            restore_conflict_policy:
+              request.restore_conflict_policy ??
+              request.restoreConflictPolicy ??
+              decision.restore_conflict_policy ??
+              decision.restoreConflictPolicy ??
+              repairPolicy.restore_conflict_policy ??
+              repairPolicy.restoreConflictPolicy,
+            diagnostics_repair_decision_id: decisionId,
+            diagnostics_repair_action: action,
+            diagnostics_blocking_gate_event_id: gateEvent.event_id,
+          })
+        : this.previewWorkspaceSnapshotRestore(threadId, snapshotId, {
+            source: request.source ?? "runtime_auto",
+            workflow_graph_id: workflowGraphId,
+            workflow_node_id: workflowNodeId,
+            idempotency_key:
+              optionalString(request.restore_preview_idempotency_key ?? request.restorePreviewIdempotencyKey) ??
+              `thread:${threadId}:diagnostics-repair-preview:${decisionId}:${snapshotId}:${action}`,
+            actor: request.actor ?? "operator",
+            diagnostics_repair_decision_id: decisionId,
+            diagnostics_repair_action: action,
+            diagnostics_blocking_gate_event_id: gateEvent.event_id,
+          });
     const event = this.appendDiagnosticsRepairDecisionExecutedEvent({
       threadId,
       request,
@@ -3355,8 +3408,10 @@ export class AgentgresRuntimeStateStore {
       snapshotId,
       workflowGraphId,
       workflowNodeId,
-      executionResult: restorePreview,
+      executionResult,
     });
+    const restorePreview = action === "restore_preview" ? executionResult : null;
+    const restoreApply = action === "restore_apply" ? executionResult : null;
     return {
       schemaVersion: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
       schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
@@ -3366,7 +3421,7 @@ export class AgentgresRuntimeStateStore {
       decisionId: decision.decisionId ?? decision.decision_id ?? target,
       decision_id: decisionId,
       action,
-      status: "completed",
+      status: diagnosticsRepairExecutionStatus(executionResult),
       gateEventId: gateEvent.event_id,
       gate_event_id: gateEvent.event_id,
       policyId: repairPolicy.policyId ?? repairPolicy.policy_id ?? null,
@@ -3381,9 +3436,13 @@ export class AgentgresRuntimeStateStore {
       repairPolicy,
       repair_policy: repairPolicy,
       restorePreview,
+      restoreApply,
       restore_preview: restorePreview,
-      restorePreviewEvent: restorePreview.event ?? null,
-      restore_preview_event: restorePreview.event ?? null,
+      restore_apply: restoreApply,
+      restorePreviewEvent: restorePreview?.event ?? null,
+      restoreApplyEvent: restoreApply?.event ?? null,
+      restore_preview_event: restorePreview?.event ?? null,
+      restore_apply_event: restoreApply?.event ?? null,
       event,
       receiptRefs: event.receipt_refs,
       receipt_refs: event.receipt_refs,
@@ -3473,7 +3532,7 @@ export class AgentgresRuntimeStateStore {
       source: operatorControlSource(request.source),
       source_event_kind: "LspDiagnostics.RepairDecisionExecuted",
       event_kind: "diagnostics.repair_decision.executed",
-      status: executionResult?.preview_status === "blocked" ? "blocked" : "completed",
+      status: diagnosticsRepairExecutionStatus(executionResult),
       actor: optionalString(request.actor) ?? "operator",
       workspace_root: gateEvent?.workspace_root ?? "",
       workflow_graph_id: workflowGraphId,
@@ -3491,15 +3550,18 @@ export class AgentgresRuntimeStateStore {
         thread_id: threadId,
         decision_id: decisionId,
         action,
-        status: executionResult?.preview_status === "blocked" ? "blocked" : "completed",
+        status: diagnosticsRepairExecutionStatus(executionResult),
         gate_event_id: gateEvent?.event_id ?? null,
         gate_id: gateEvent?.payload_summary?.gate_id ?? null,
         policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
         snapshot_id: snapshotId,
         workflow_graph_id: workflowGraphId,
         workflow_node_id: workflowNodeId,
-        restore_preview_event_id: executionResult?.event?.event_id ?? null,
+        restore_preview_event_id: action === "restore_preview" ? executionResult?.event?.event_id ?? null : null,
         restore_preview_status: executionResult?.preview_status ?? executionResult?.previewStatus ?? null,
+        restore_apply_event_id: action === "restore_apply" ? executionResult?.event?.event_id ?? null : null,
+        restore_apply_status: executionResult?.apply_status ?? executionResult?.applyStatus ?? null,
+        approval_satisfied: executionResult?.approval_satisfied ?? executionResult?.approvalSatisfied ?? null,
         rollback_refs: rollbackRefs,
         receipt_refs: [receiptId],
         artifact_refs: artifactRefs,
@@ -3683,9 +3745,11 @@ export class AgentgresRuntimeStateStore {
       thread_id: threadId,
       turn_id: turnId || "",
       item_id: `${turnId || threadId}:item:workspace-restore-apply:${safeId(apply.snapshotId)}`,
-      idempotency_key: `thread:${threadId}:workspace-restore-apply:${apply.snapshotId}:${doctorHash(
-        JSON.stringify(apply.operations),
-      ).slice(0, 12)}`,
+      idempotency_key:
+        optionalString(apply.idempotency_key ?? apply.idempotencyKey) ??
+        `thread:${threadId}:workspace-restore-apply:${apply.snapshotId}:${doctorHash(
+          JSON.stringify(apply.operations),
+        ).slice(0, 12)}`,
       source: "runtime_auto",
       source_event_kind: "WorkspaceRestore.Applied",
       event_kind: "workspace.restore.applied",
@@ -10207,6 +10271,20 @@ function workspaceRestoreApplyApprovalForRequest(request = {}) {
     satisfied: approvedBoolean || approvedText.includes(text),
     source: approvedBoolean ? "boolean_confirmation" : approvedText.includes(text) ? text : "missing",
   };
+}
+
+function diagnosticsRepairApplyApprovalKey(request = {}) {
+  const approval = workspaceRestoreApplyApprovalForRequest(request);
+  return approval.satisfied ? `approval_${safeId(approval.source)}` : "approval_required";
+}
+
+function diagnosticsRepairExecutionStatus(result = {}) {
+  const applyStatus = optionalString(result.apply_status ?? result.applyStatus);
+  if (applyStatus === "blocked") return "blocked";
+  if (applyStatus === "failed") return "failed";
+  const previewStatus = optionalString(result.preview_status ?? result.previewStatus);
+  if (previewStatus === "blocked") return "blocked";
+  return "completed";
 }
 
 function workspaceRestoreApplyAllowsConflicts(request = {}) {
