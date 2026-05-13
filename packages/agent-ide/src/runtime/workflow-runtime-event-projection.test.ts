@@ -453,6 +453,45 @@ test("projects diagnostics repair retry executions as workflow-addressable polic
   assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
 });
 
+test("projects diagnostics operator overrides as workflow-addressable policy nodes", () => {
+  const operatorOverride = event("event-diagnostics-operator-override", 9, {
+    type: "runtime_step",
+    eventKind: "diagnostics.operator_override.executed",
+    sourceEventKind: "LspDiagnostics.OperatorOverrideExecuted",
+    status: "completed",
+    workflowNodeId: "workflow.diagnostics.repair.operator-override",
+    componentKind: "lsp_diagnostics_operator_override",
+    payloadSchemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+    receiptRefs: ["receipt-lsp-diagnostics-operator-override"],
+    policyDecisionRefs: [
+      "policy-lsp-diagnostics-gate",
+      "policy-lsp-diagnostics-gate-decision-operator-override",
+    ],
+    rollbackRefs: ["workspace_snapshot_123"],
+    payload: {
+      summary: "Diagnostics operator override granted.",
+      action: "operator_override",
+      approval_required: true,
+      approval_satisfied: true,
+      continuation_allowed: true,
+    },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([operatorOverride]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(operatorOverride), "workflow.diagnostics.repair.operator-override");
+  assert.equal(nodes[0]?.nodeKind, "hook_policy");
+  assert.equal(nodes[0]?.componentKind, "lsp_diagnostics_operator_override");
+  assert.equal(nodes[0]?.label, "Diagnostics operator override");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-lsp-diagnostics-operator-override"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, [
+    "policy-lsp-diagnostics-gate",
+    "policy-lsp-diagnostics-gate-decision-operator-override",
+  ]);
+  assert.deepEqual(nodes[0]?.rollbackRefs, ["workspace_snapshot_123"]);
+  assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+});
+
 test("projects operator interrupt events into the runtime control node", () => {
   const interrupt = event("event-interrupt", 4, {
     type: "turn_interrupted",

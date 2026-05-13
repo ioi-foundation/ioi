@@ -71,6 +71,7 @@ const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
 const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
 const LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID = "runtime.lsp-diagnostics.repair.retry";
+const LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID = "runtime.lsp-diagnostics.repair.operator-override";
 const LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID = "runtime.lsp-diagnostics.repair.restore-preview";
 const LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID = "runtime.lsp-diagnostics.repair.restore-apply";
 const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
@@ -3295,7 +3296,7 @@ export class AgentgresRuntimeStateStore {
         details: { threadId, decisionRef: target },
       });
     }
-    if (!["repair_retry", "restore_preview", "restore_apply"].includes(action)) {
+    if (!["repair_retry", "restore_preview", "restore_apply", "operator_override"].includes(action)) {
       throw runtimeError({
         status: 409,
         code: "diagnostics_repair_decision_action_unimplemented",
@@ -3304,7 +3305,7 @@ export class AgentgresRuntimeStateStore {
           threadId,
           decisionRef: target,
           action,
-          supportedActions: ["repair_retry", "restore_preview", "restore_apply"],
+          supportedActions: ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
         },
       });
     }
@@ -3323,7 +3324,7 @@ export class AgentgresRuntimeStateStore {
         ...normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
         ...normalizeArray(gateEvent.payload_summary?.workspace_snapshot_refs),
       ])[0];
-    if (!snapshotId && action !== "repair_retry") {
+    if (!snapshotId && ["restore_preview", "restore_apply"].includes(action)) {
       throw runtimeError({
         status: 409,
         code: "diagnostics_repair_snapshot_required",
@@ -3338,6 +3339,8 @@ export class AgentgresRuntimeStateStore {
       optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
       (action === "repair_retry"
         ? LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID
+        : action === "operator_override"
+        ? LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID
         : action === "restore_apply"
         ? LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID
         : LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID);
@@ -3345,6 +3348,16 @@ export class AgentgresRuntimeStateStore {
     const executionResult =
       action === "repair_retry"
         ? this.createDiagnosticsRepairRetryTurn(threadId, {
+            request,
+            gateEvent,
+            decision,
+            repairPolicy,
+            snapshotId,
+            workflowGraphId,
+            workflowNodeId,
+          })
+        : action === "operator_override"
+        ? this.executeDiagnosticsOperatorOverride(threadId, {
             request,
             gateEvent,
             decision,
@@ -3424,6 +3437,7 @@ export class AgentgresRuntimeStateStore {
       executionResult,
     });
     const repairRetry = action === "repair_retry" ? executionResult : null;
+    const operatorOverride = action === "operator_override" ? executionResult : null;
     const restorePreview = action === "restore_preview" ? executionResult : null;
     const restoreApply = action === "restore_apply" ? executionResult : null;
     return {
@@ -3455,6 +3469,10 @@ export class AgentgresRuntimeStateStore {
       repair_turn: repairRetry?.repair_turn ?? null,
       repairRetryEvent: repairRetry?.event ?? null,
       repair_retry_event: repairRetry?.event ?? null,
+      operatorOverride,
+      operator_override: operatorOverride,
+      operatorOverrideEvent: operatorOverride?.event ?? null,
+      operator_override_event: operatorOverride?.event ?? null,
       restorePreview,
       restoreApply,
       restore_preview: restorePreview,
@@ -3474,6 +3492,225 @@ export class AgentgresRuntimeStateStore {
       rollback_refs: event.rollback_refs,
       summary: `Executed diagnostics repair decision ${action}${snapshotId ? ` for ${snapshotId}` : ""}.`,
     };
+  }
+
+  executeDiagnosticsOperatorOverride(threadId, {
+    request = {},
+    gateEvent,
+    decision,
+    repairPolicy,
+    snapshotId = null,
+    workflowGraphId = null,
+    workflowNodeId = LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID,
+  } = {}) {
+    const agent = this.agentForThread(threadId);
+    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "operator_override";
+    const approval = diagnosticsOperatorOverrideApprovalForRequest(request, { decision, repairPolicy });
+    const approvalKey = diagnosticsOperatorOverrideApprovalKey(approval);
+    const idempotencyKey =
+      optionalString(request.operator_override_idempotency_key ?? request.operatorOverrideIdempotencyKey) ??
+      `thread:${threadId}:diagnostics-operator-override:${decisionId}:${gateEvent?.event_id ?? "gate"}:${approvalKey}`;
+    const duplicate = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(idempotencyKey);
+    if (duplicate) {
+      return diagnosticsOperatorOverrideResultFromEvent({
+        threadId,
+        event: duplicate,
+        turn: this.turnForOperatorOverrideEvent(duplicate),
+      });
+    }
+
+    const status = approval.required && !approval.satisfied ? "blocked" : "completed";
+    const targetTurnId = optionalString(gateEvent?.turn_id ?? gateEvent?.payload_summary?.turn_id);
+    const targetRunId = targetTurnId ? runIdForTurn(targetTurnId) : null;
+    let previousTurnStatus = null;
+    let nextTurnStatus = null;
+    let turn = null;
+    if (targetRunId && status === "completed") {
+      const run = this.getRun(targetRunId);
+      if (run.agentId !== agent.id) {
+        throw notFound(`Turn not found: ${targetTurnId}`, { threadId, turnId: targetTurnId, runId: targetRunId });
+      }
+      previousTurnStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
+      nextTurnStatus = "completed";
+    }
+
+    const event = this.appendDiagnosticsOperatorOverrideEvent({
+      threadId,
+      request,
+      gateEvent,
+      decision,
+      repairPolicy,
+      snapshotId,
+      workflowGraphId,
+      workflowNodeId,
+      approval,
+      status,
+      targetTurnId,
+      targetRunId,
+      previousTurnStatus,
+      nextTurnStatus,
+      idempotencyKey,
+    });
+
+    if (targetRunId && status === "completed") {
+      const run = this.getRun(targetRunId);
+      const control = {
+        control: "diagnostics_operator_override",
+        source: operatorControlSource(request.source),
+        decisionId,
+        gateEventId: gateEvent?.event_id ?? null,
+        approvalRequired: approval.required,
+        approvalSatisfied: approval.satisfied,
+        approvalSource: approval.source,
+        snapshotId,
+        eventId: event.event_id,
+        seq: event.seq,
+        createdAt: event.created_at,
+      };
+      const updatedDiagnosticsBlockingGate = run.diagnosticsBlockingGate
+        ? {
+            ...run.diagnosticsBlockingGate,
+            status: "overridden",
+            decision: "operator_override",
+            continuationAllowed: true,
+            continuation_allowed: true,
+            approvalRequired: approval.required,
+            approval_required: approval.required,
+            approvalSatisfied: approval.satisfied,
+            approval_satisfied: approval.satisfied,
+            operatorOverrideEventId: event.event_id,
+            operator_override_event_id: event.event_id,
+          }
+        : run.diagnosticsBlockingGate;
+      const updated = {
+        ...run,
+        status: "completed",
+        turnStatus: undefined,
+        updatedAt: event.created_at,
+        result: "Operator override granted; blocking diagnostics gate marked continuation-allowed.",
+        diagnosticsBlockingGate: updatedDiagnosticsBlockingGate,
+        trace: {
+          ...run.trace,
+          diagnosticsBlockingGate: updatedDiagnosticsBlockingGate,
+          stopCondition: {
+            ...(run.trace?.stopCondition ?? {}),
+            reason: "operator_override_granted",
+            evidenceSufficient: true,
+            rationale: "Operator override granted continuation despite blocking diagnostics.",
+          },
+          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+        },
+        operatorControls: appendOperatorControl(run.operatorControls, control),
+      };
+      this.runs.set(run.id, updated);
+      this.writeRun(updated, "diagnostics.operator_override.event");
+      turn = this.turnForRun(updated);
+      nextTurnStatus = turn.status;
+    }
+
+    return diagnosticsOperatorOverrideResultFromEvent({ threadId, event, turn });
+  }
+
+  turnForOperatorOverrideEvent(event = {}) {
+    const payload = event.payload_summary ?? event.payload ?? {};
+    const targetTurnId = optionalString(payload.target_turn_id ?? payload.targetTurnId);
+    if (!targetTurnId) return null;
+    try {
+      return this.getTurn(event.thread_id, targetTurnId);
+    } catch {
+      return null;
+    }
+  }
+
+  appendDiagnosticsOperatorOverrideEvent({
+    threadId,
+    request = {},
+    gateEvent,
+    decision,
+    repairPolicy,
+    snapshotId,
+    workflowGraphId,
+    workflowNodeId,
+    approval,
+    status,
+    targetTurnId,
+    targetRunId,
+    previousTurnStatus,
+    nextTurnStatus,
+    idempotencyKey,
+  } = {}) {
+    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "operator_override";
+    const receiptId = `receipt_lsp_diagnostics_operator_override_${doctorHash(
+      `${threadId}:${decisionId}:${status}:${approval?.source ?? ""}`,
+    ).slice(0, 12)}`;
+    const rollbackRefs = uniqueStrings([
+      snapshotId,
+      ...normalizeArray(decision?.rollbackRefs ?? decision?.rollback_refs),
+      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
+      ...normalizeArray(gateEvent?.rollback_refs),
+      ...normalizeArray(gateEvent?.payload_summary?.rollback_refs ?? gateEvent?.payload_summary?.rollbackRefs),
+    ]);
+    const policyDecisionRefs = uniqueStrings([
+      decisionId,
+      repairPolicy?.policy_id ?? repairPolicy?.policyId,
+      ...normalizeArray(gateEvent?.policy_decision_refs),
+      `policy_lsp_diagnostics_operator_override_${approval?.satisfied ? "approval_satisfied" : "approval_required"}`,
+      status === "completed" ? "policy_lsp_diagnostics_operator_override_continuation_allowed" : null,
+    ]);
+    const payloadSummary = {
+      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      event_kind: "LspDiagnosticsOperatorOverrideExecuted",
+      thread_id: threadId,
+      decision_id: decisionId,
+      action: "operator_override",
+      status,
+      gate_event_id: gateEvent?.event_id ?? null,
+      gate_id: gateEvent?.payload_summary?.gate_id ?? null,
+      policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
+      snapshot_id: snapshotId ?? null,
+      target_turn_id: targetTurnId ?? null,
+      target_run_id: targetRunId ?? null,
+      previous_turn_status: previousTurnStatus ?? null,
+      next_turn_status: nextTurnStatus ?? null,
+      approval_required: Boolean(approval?.required),
+      approval_satisfied: Boolean(approval?.satisfied),
+      approval_source: approval?.source ?? "missing",
+      continuation_allowed: status === "completed",
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      rollback_refs: rollbackRefs,
+      receipt_refs: [receiptId],
+      artifact_refs: [],
+      policy_decision_refs: policyDecisionRefs,
+      decision,
+      summary:
+        status === "completed"
+          ? `Diagnostics operator override granted for ${decisionId}.`
+          : `Diagnostics operator override blocked for ${decisionId}: approval is required.`,
+    };
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: targetTurnId ?? gateEvent?.turn_id ?? "",
+      item_id: `${targetTurnId || threadId}:item:diagnostics-operator-override:${safeId(String(decisionId))}`,
+      idempotency_key: idempotencyKey,
+      source: operatorControlSource(request.source),
+      source_event_kind: "LspDiagnostics.OperatorOverrideExecuted",
+      event_kind: "diagnostics.operator_override.executed",
+      status,
+      actor: optionalString(request.actor) ?? "operator",
+      workspace_root: gateEvent?.workspace_root ?? this.agentForThread(threadId).cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "lsp_diagnostics_operator_override",
+      tool_call_id: snapshotId ?? null,
+      receipt_refs: [receiptId],
+      artifact_refs: [],
+      policy_decision_refs: policyDecisionRefs,
+      rollback_refs: rollbackRefs,
+      payload_schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
   }
 
   createDiagnosticsRepairRetryTurn(threadId, {
@@ -3707,7 +3944,13 @@ export class AgentgresRuntimeStateStore {
       item_id: `${gateEvent?.turn_id || threadId}:item:diagnostics-repair:${safeId(String(decisionId))}`,
       idempotency_key:
         optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-        `thread:${threadId}:diagnostics-repair:${decisionId}:${snapshotId}:${action}`,
+        `thread:${threadId}:diagnostics-repair:${decisionId}:${snapshotId}:${action}:${
+          action === "operator_override"
+            ? diagnosticsOperatorOverrideApprovalKey(
+                diagnosticsOperatorOverrideApprovalForRequest(request, { decision, repairPolicy }),
+              )
+            : "default"
+        }`,
       source: operatorControlSource(request.source),
       source_event_kind: "LspDiagnostics.RepairDecisionExecuted",
       event_kind: "diagnostics.repair_decision.executed",
@@ -3745,6 +3988,23 @@ export class AgentgresRuntimeStateStore {
           action === "repair_retry"
             ? executionResult?.repair_turn?.request_id ?? executionResult?.repairTurn?.request_id ?? null
             : null,
+        operator_override_event_id: action === "operator_override" ? executionResult?.event?.event_id ?? null : null,
+        operator_override_status:
+          action === "operator_override"
+            ? executionResult?.override_status ?? executionResult?.overrideStatus ?? executionResult?.status ?? null
+            : null,
+        operator_override_approval_required:
+          action === "operator_override"
+            ? executionResult?.approval_required ?? executionResult?.approvalRequired ?? null
+            : null,
+        operator_override_approval_satisfied:
+          action === "operator_override"
+            ? executionResult?.approval_satisfied ?? executionResult?.approvalSatisfied ?? null
+            : null,
+        operator_override_continuation_allowed:
+          action === "operator_override"
+            ? executionResult?.continuation_allowed ?? executionResult?.continuationAllowed ?? null
+            : null,
         restore_preview_event_id: action === "restore_preview" ? executionResult?.event?.event_id ?? null : null,
         restore_preview_status: executionResult?.preview_status ?? executionResult?.previewStatus ?? null,
         restore_apply_event_id: action === "restore_apply" ? executionResult?.event?.event_id ?? null : null,
@@ -3755,7 +4015,7 @@ export class AgentgresRuntimeStateStore {
         artifact_refs: artifactRefs,
         policy_decision_refs: policyDecisionRefs,
         decision,
-        summary: `Diagnostics repair decision ${action} executed for ${snapshotId}.`,
+        summary: `Diagnostics repair decision ${action} executed${snapshotId ? ` for ${snapshotId}` : ""}.`,
       },
     });
   }
@@ -10461,6 +10721,58 @@ function workspaceRestoreApplyApprovalForRequest(request = {}) {
   };
 }
 
+function diagnosticsOperatorOverrideApprovalForRequest(request = {}, { decision = {}, repairPolicy = {} } = {}) {
+  const required = normalizeBooleanOption(
+    request.operatorOverrideRequiresApproval ??
+      request.operator_override_requires_approval ??
+      decision.requiresApproval ??
+      decision.requires_approval ??
+      repairPolicy.operatorOverrideRequiresApproval ??
+      repairPolicy.operator_override_requires_approval,
+    true,
+  );
+  const text = optionalString(
+    request.operatorOverrideApproval ??
+      request.operator_override_approval ??
+      request.approval ??
+      request.approvalDecision ??
+      request.approval_decision ??
+      request.policyDecision ??
+      request.policy_decision ??
+      request.decision ??
+      request.status,
+  )?.toLowerCase();
+  const approvedText = ["approve", "approved", "allow", "allowed", "accept", "accepted", "confirm", "confirmed", "override"];
+  const approvedBoolean = [
+    request.operatorOverrideApproved,
+    request.operator_override_approved,
+    request.overrideApproved,
+    request.override_approved,
+    request.confirm,
+    request.confirmed,
+    request.approvalGranted,
+    request.approval_granted,
+    request.approved,
+  ].some((value) => value === true || value === "true");
+  const satisfied = !required || approvedBoolean || approvedText.includes(text);
+  return {
+    required,
+    satisfied,
+    source: !required
+      ? "workflow_policy"
+      : approvedBoolean
+        ? "boolean_confirmation"
+        : approvedText.includes(text)
+          ? text
+          : "missing",
+  };
+}
+
+function diagnosticsOperatorOverrideApprovalKey(approval = {}) {
+  if (!approval.required) return "approval_not_required";
+  return approval.satisfied ? `approval_${safeId(approval.source)}` : "approval_required";
+}
+
 function diagnosticsRepairApplyApprovalKey(request = {}) {
   const approval = workspaceRestoreApplyApprovalForRequest(request);
   return approval.satisfied ? `approval_${safeId(approval.source)}` : "approval_required";
@@ -10572,6 +10884,49 @@ function diagnosticsRepairRetryResultFromEvent({ threadId, event, turn = null, r
     rollbackRefs: normalizeArray(event?.rollback_refs),
     rollback_refs: normalizeArray(event?.rollback_refs),
     summary: optionalString(payload.summary) ?? "Diagnostics repair retry turn created.",
+  };
+}
+
+function diagnosticsOperatorOverrideResultFromEvent({ threadId, event, turn = null } = {}) {
+  const payload = event?.payload_summary ?? event?.payload ?? {};
+  const status = optionalString(event?.status ?? payload.status) ?? "completed";
+  return {
+    schemaVersion: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+    schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+    object: "ioi.runtime_diagnostics_operator_override",
+    threadId,
+    thread_id: threadId,
+    status,
+    overrideStatus: status,
+    override_status: status,
+    gateEventId: payload.gate_event_id ?? payload.gateEventId ?? null,
+    gate_event_id: payload.gate_event_id ?? payload.gateEventId ?? null,
+    gateId: payload.gate_id ?? payload.gateId ?? null,
+    gate_id: payload.gate_id ?? payload.gateId ?? null,
+    targetTurnId: payload.target_turn_id ?? payload.targetTurnId ?? null,
+    target_turn_id: payload.target_turn_id ?? payload.targetTurnId ?? null,
+    targetRunId: payload.target_run_id ?? payload.targetRunId ?? null,
+    target_run_id: payload.target_run_id ?? payload.targetRunId ?? null,
+    approvalRequired: Boolean(payload.approval_required ?? payload.approvalRequired),
+    approval_required: Boolean(payload.approval_required ?? payload.approvalRequired),
+    approvalSatisfied: Boolean(payload.approval_satisfied ?? payload.approvalSatisfied),
+    approval_satisfied: Boolean(payload.approval_satisfied ?? payload.approvalSatisfied),
+    approvalSource: payload.approval_source ?? payload.approvalSource ?? null,
+    approval_source: payload.approval_source ?? payload.approvalSource ?? null,
+    continuationAllowed: Boolean(payload.continuation_allowed ?? payload.continuationAllowed),
+    continuation_allowed: Boolean(payload.continuation_allowed ?? payload.continuationAllowed),
+    turn,
+    event,
+    operator_override_event: event,
+    receiptRefs: normalizeArray(event?.receipt_refs),
+    receipt_refs: normalizeArray(event?.receipt_refs),
+    artifactRefs: normalizeArray(event?.artifact_refs),
+    artifact_refs: normalizeArray(event?.artifact_refs),
+    policyDecisionRefs: normalizeArray(event?.policy_decision_refs),
+    policy_decision_refs: normalizeArray(event?.policy_decision_refs),
+    rollbackRefs: normalizeArray(event?.rollback_refs),
+    rollback_refs: normalizeArray(event?.rollback_refs),
+    summary: optionalString(payload.summary) ?? "Diagnostics operator override executed.",
   };
 }
 

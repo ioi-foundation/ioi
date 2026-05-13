@@ -137,6 +137,7 @@ workstream was narrower.
 | 135 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair restore-preview | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-preview/2026-05-13T07-37-14-986Z/result.json |
 | 136 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair restore-apply | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply/2026-05-13T07-56-56-734Z/result.json |
 | 137 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair retry | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry/2026-05-13T08-20-57-956Z/result.json |
+| 138 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics operator override | /tmp/ioi-autopilot-gui-harness-diagnostics-operator-override/2026-05-13T08-53-15-768Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -1190,6 +1191,47 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry/2026-05-13T08-20-57-956Z/result.json`.
+
+### Slice 138. 2026-05-13 - Executable diagnostics operator override
+
+Implementation slice completed 2026-05-13, executable diagnostics operator
+override:
+
+- Extended diagnostics repair decision execution to support
+  `operator_override` alongside `repair_retry`, `restore_preview`, and
+  `restore_apply`, with a dedicated workflow node id and supported-action
+  contract.
+- Added a daemon-owned operator override execution path that preserves
+  diagnostics gate, policy, rollback, receipt, graph, and node identity.
+- Enforced workflow-configured override approval: unapproved required overrides
+  return `blocked` with an override event, while approved or approval-disabled
+  overrides emit `diagnostics.operator_override.executed` and mark the blocked
+  turn continuation-allowed.
+- Extended SDK result typing and the mock substrate client with
+  `operatorOverride` and `operatorOverrideEvent` fields so workflow callers can
+  observe approval state and continuation state through the same decision
+  execution method.
+- Added React Flow projection support for
+  `lsp_diagnostics_operator_override`, giving override executions their own
+  workflow-addressable policy row while retaining the generic repair decision
+  row.
+- Proved both operator override policies live: approval disabled completes
+  immediately and closes the blocked turn; approval required blocks without
+  approval and completes once `approvalGranted` is provided.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "diagnostics repair decisions|diagnostics repair retry|diagnostics operator overrides|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-operator-override`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-operator-override/2026-05-13T08-53-15-768Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
