@@ -14,6 +14,7 @@ export type IOISDKMessageType =
   | "probe"
   | "postcondition_synthesized"
   | "semantic_impact"
+  | "usage_final"
   | "stop_condition"
   | "quality_ledger"
   | "artifact"
@@ -202,6 +203,11 @@ export interface RuntimeThreadRecord {
   model_route_decision?: ModelRouteDecision | null;
   reasoning_effort?: string | null;
   runtime_controls?: RuntimeThreadControls | null;
+  usage?: RuntimeUsageRecord | null;
+  usage_telemetry?: RuntimeUsageRecord | null;
+  usageTelemetry?: RuntimeUsageRecord | null;
+  runtime_usage?: RuntimeUsageRecord | null;
+  runtimeUsage?: RuntimeUsageRecord | null;
 }
 
 export interface RuntimeThreadControls {
@@ -362,6 +368,10 @@ export interface RuntimeTraceBundle {
   memoryRecords?: AgentMemoryRecord[];
   memoryWrites?: AgentMemoryRecord[];
   subagentMemoryInheritance?: SubagentMemoryInheritanceProjection | null;
+  usage?: RuntimeUsageRecord | null;
+  usage_telemetry?: RuntimeUsageRecord | null;
+  usageTelemetry?: RuntimeUsageRecord | null;
+  runtimeUsage?: RuntimeUsageRecord | null;
   stopCondition: StopConditionProjection;
   qualityLedger: AgentQualityLedgerProjection;
   scorecard: RuntimeScorecard;
@@ -993,6 +1003,7 @@ export interface IOIRunResult {
   result: string;
   stopCondition: StopConditionProjection;
   routeDecision?: ModelRouteDecision | null;
+  usage?: RuntimeUsageRecord | null;
   trace: RuntimeTraceBundle;
   scorecard: RuntimeScorecard;
   git?: {

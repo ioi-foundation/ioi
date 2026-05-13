@@ -194,6 +194,7 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "memory_status"
   | "memory_policy"
   | "memory_record"
+  | "usage_status"
   | "subagent"
   | "approval"
   | "approval_decision"
@@ -248,6 +249,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   mcp_rows?: unknown[];
   memoryRows?: unknown[];
   memory_rows?: unknown[];
+  usageStatus?: unknown;
+  usage_status?: unknown;
   subagentRows?: unknown[];
   subagent_rows?: unknown[];
   commandHistory?: unknown[];
@@ -278,6 +281,15 @@ export interface WorkflowRuntimeTuiControlStateRow {
   memoryScope?: string | null;
   memoryKey?: string | null;
   memoryOperation?: string | null;
+  usageScope?: string | null;
+  usageTotalTokens?: number | null;
+  usageInputTokens?: number | null;
+  usageOutputTokens?: number | null;
+  usageCostEstimateUsd?: number | null;
+  usageContextPressure?: number | null;
+  usageContextPressureStatus?: string | null;
+  usageRunCount?: number | null;
+  usageSubagentCount?: number | null;
   subagentId?: string | null;
   subagentRole?: string | null;
   subagentOperation?: string | null;
@@ -421,6 +433,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   runLifecycleCount: number;
   mcpRowCount: number;
   memoryRowCount: number;
+  usageRowCount: number;
   subagentRowCount: number;
   subagentChildSubflowCount: number;
   rowCount: number;
@@ -521,6 +534,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
   );
   const mcpRows = arrayField(state, "mcpRows", "mcp_rows");
   const memoryRows = arrayField(state, "memoryRows", "memory_rows");
+  const usageStatus = recordField(state, "usageStatus", "usage_status");
   const subagentRows = arrayField(state, "subagentRows", "subagent_rows");
   const rows: WorkflowRuntimeTuiControlStateRow[] = [];
 
@@ -1121,6 +1135,18 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     });
   });
 
+  if (usageStatus) {
+    rows.push(
+      tuiUsageStatusRow({
+        usageStatus,
+        threadId,
+        currentTurnId,
+        lastCursor,
+        lastEventId,
+      }),
+    );
+  }
+
   commandHistory.forEach((entry, index) => {
     const command = stringField(entry, "command");
     const rawInput = stringField(entry, "rawInput", "raw_input") ?? command;
@@ -1212,6 +1238,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     runLifecycleCount: runLifecycleRows.length,
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
+    usageRowCount: usageStatus ? 1 : 0,
     subagentRowCount: subagentRows.length,
     subagentChildSubflowCount: subagentChildSubflows.length,
     rowCount: rows.length,
@@ -1219,6 +1246,120 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     subagentChildSubflows,
     subagentChildSubflowReactFlowNodes,
     subagentChildSubflowReactFlowEdges,
+  };
+}
+
+function tuiUsageStatusRow({
+  usageStatus,
+  threadId,
+  currentTurnId,
+  lastCursor,
+  lastEventId,
+}: {
+  usageStatus: Record<string, unknown>;
+  threadId: string | null;
+  currentTurnId: string | null;
+  lastCursor: string | null;
+  lastEventId: string | null;
+}): WorkflowRuntimeTuiControlStateRow {
+  const scope = stringField(usageStatus, "scope") ?? "thread";
+  const totalTokens = numberField(
+    usageStatus,
+    "usageTotalTokens",
+    "usage_total_tokens",
+    "totalTokens",
+    "total_tokens",
+  );
+  const inputTokens = numberField(
+    usageStatus,
+    "usageInputTokens",
+    "usage_input_tokens",
+    "inputTokens",
+    "input_tokens",
+  );
+  const outputTokens = numberField(
+    usageStatus,
+    "usageOutputTokens",
+    "usage_output_tokens",
+    "outputTokens",
+    "output_tokens",
+  );
+  const costUsd = numberField(
+    usageStatus,
+    "usageCostEstimateUsd",
+    "usage_cost_estimate_usd",
+    "estimatedCostUsd",
+    "estimated_cost_usd",
+  );
+  const contextPressure = numberField(
+    usageStatus,
+    "usageContextPressure",
+    "usage_context_pressure",
+    "contextPressure",
+    "context_pressure",
+  );
+  const contextStatus =
+    stringField(
+      usageStatus,
+      "usageContextPressureStatus",
+      "usage_context_pressure_status",
+      "contextPressureStatus",
+      "context_pressure_status",
+      "status",
+    ) ?? "nominal";
+  const sourceCounts = recordField(usageStatus, "sourceCounts", "source_counts");
+  const runCount =
+    numberField(usageStatus, "usageRunCount", "usage_run_count") ??
+    numberField(sourceCounts, "runs");
+  const subagentCount =
+    numberField(usageStatus, "usageSubagentCount", "usage_subagent_count") ??
+    numberField(sourceCounts, "subagents");
+  const usageNodeId =
+    stringField(usageStatus, "workflowNodeId", "workflow_node_id") ??
+    "runtime.usage-telemetry";
+  return {
+    id: stringField(usageStatus, "id") ?? `tui-usage-status:${slug(threadId ?? scope)}`,
+    rowKind: "usage_status",
+    status: contextStatus === "high" ? "blocked" : "current",
+    label: "Usage telemetry",
+    command: "usage",
+    rawInput: "/usage",
+    message:
+      stringField(usageStatus, "message", "summary") ??
+      [
+        totalTokens !== null ? `${totalTokens} tokens` : null,
+        costUsd !== null ? `$${costUsd}` : null,
+        contextPressure !== null ? `context ${contextPressure}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    approvalId: null,
+    jobId: null,
+    runId: null,
+    modelId: null,
+    routeId: null,
+    reasoningEffort: null,
+    usageScope: scope,
+    usageTotalTokens: totalTokens,
+    usageInputTokens: inputTokens,
+    usageOutputTokens: outputTokens,
+    usageCostEstimateUsd: costUsd,
+    usageContextPressure: contextPressure,
+    usageContextPressureStatus: contextStatus,
+    usageRunCount: runCount,
+    usageSubagentCount: subagentCount,
+    threadId: stringField(usageStatus, "threadId", "thread_id") ?? threadId,
+    turnId: stringField(usageStatus, "turnId", "turn_id") ?? currentTurnId,
+    cursor: stringField(usageStatus, "cursor") ?? lastCursor,
+    eventId: stringField(usageStatus, "eventId", "event_id") ?? lastEventId,
+    sequence: numberField(usageStatus, "sequence", "seq"),
+    receiptRefs: stringArrayField(usageStatus, "receiptRefs", "receipt_refs"),
+    policyDecisionRefs: stringArrayField(
+      usageStatus,
+      "policyDecisionRefs",
+      "policy_decision_refs",
+    ),
+    reactFlowNodeId: usageNodeId,
   };
 }
 

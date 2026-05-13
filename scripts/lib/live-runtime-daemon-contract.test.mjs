@@ -5592,6 +5592,104 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
   }
 });
 
+test("daemon aggregates usage, cost, and context telemetry across turns and delegated subagents", async () => {
+  const { projectRuntimeTuiControlStateToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-telemetry-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-telemetry-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        prompt: "Produce usage telemetry evidence for the parent runtime turn.",
+        mode: "send",
+      }),
+    });
+    assert.equal(turn.usage.schema_version, "ioi.runtime.usage-telemetry.v1");
+    assert.equal(turn.usage.scope, "run");
+    assert.ok(turn.usage.total_tokens > 0);
+    assert.ok(turn.usage.estimated_cost_usd > 0);
+
+    const runId = `run_${turn.turn_id.slice("turn_".length)}`;
+    const runUsage = await fetchJson(`${daemon.endpoint}/v1/runs/${runId}/usage`);
+    assert.equal(runUsage.run_id, runId);
+    assert.equal(runUsage.context_pressure_status, "nominal");
+
+    const subagent = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        actor: "workflow-author",
+        role: "usage-auditor",
+        prompt: "Inspect delegated usage telemetry and return concise evidence.",
+        budget: { maxTokens: 12000, maxCostUsd: 1 },
+        outputContract: ["SUMMARY", "EVIDENCE", "RECEIPTS"],
+        workflowGraphId: "workflow.runtime.usage-telemetry",
+        workflowNodeId: "runtime.subagent.spawn.usage-auditor",
+      }),
+    });
+    assert.equal(subagent.budget_status, "within_budget");
+    assert.ok(subagent.usage_telemetry.cumulative_total_tokens > 0);
+
+    const threadUsage = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/usage`);
+    assert.equal(threadUsage.schema_version, "ioi.runtime.usage-telemetry.v1");
+    assert.equal(threadUsage.scope, "thread");
+    assert.equal(threadUsage.thread_id, thread.thread_id);
+    assert.equal(threadUsage.source_counts.runs, 1);
+    assert.equal(threadUsage.source_counts.subagents, 1);
+    assert.ok(threadUsage.total_tokens >= runUsage.total_tokens);
+    assert.ok(threadUsage.total_tokens >= subagent.usage_telemetry.cumulative_total_tokens);
+    assert.ok(threadUsage.estimated_cost_usd >= runUsage.estimated_cost_usd);
+    assert.match(threadUsage.context_pressure_status, /nominal|elevated|high/);
+
+    const listedUsage = await fetchJson(`${daemon.endpoint}/v1/usage?group_by=thread`);
+    assert.equal(listedUsage.schema_version, "ioi.runtime.usage-telemetry.v1");
+    assert.equal(listedUsage.group_by, "thread");
+    assert.ok(listedUsage.usage.some((record) => record.thread_id === thread.thread_id));
+
+    const threadProjection = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}`);
+    assert.equal(threadProjection.usage.schema_version, "ioi.runtime.usage-telemetry.v1");
+    assert.equal(threadProjection.usage.total_tokens, threadUsage.total_tokens);
+
+    const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+      thread_id: thread.thread_id,
+      workflow_graph_id: "workflow.runtime.usage-telemetry",
+      usage_status: threadUsage,
+    });
+    assert.equal(projection.usageRowCount, 1);
+    assert.ok(
+      projection.rows.some(
+        (row) =>
+          row.rowKind === "usage_status" &&
+          row.usageTotalTokens === threadUsage.total_tokens &&
+          row.usageSubagentCount === 1 &&
+          row.reactFlowNodeId === "runtime.usage-telemetry",
+      ),
+    );
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    assert.ok(
+      events.some(
+        (event) =>
+          event.workflow_node_id === "runtime.usage-telemetry" &&
+          event.payload_summary?.eventKind === "RuntimeUsageTelemetry",
+      ),
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
@@ -9022,6 +9120,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/runtime-daemon/src/index.mjs"),
     "utf8",
   );
+  const runtimeUsageTelemetry = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/usage-telemetry.mjs"),
+    "utf8",
+  );
   const workflowNodeBindingEditorSections = fs.readFileSync(
     path.join(
       root,
@@ -9623,6 +9725,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeSubagentControlNodes, /subagentBudgetJson/);
   assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
   assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
+  assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);
+  assert.match(runtimeDaemon, /\/v1\/usage/);
+  assert.match(runtimeDaemon, /usage_final/);
+  assert.match(runtimeUsageTelemetry, /RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/);
+  assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForRun/);
+  assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForThread/);
+  assert.match(workflowRuntimeEventProjection, /usage_status/);
+  assert.match(workflowRuntimeEventProjection, /usageTotalTokens/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
@@ -9785,6 +9895,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /onExecuteRuntimeDiagnosticsRepair/);
   assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
   assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
+  assert.match(workflowRunsPanel, /data-usage-row-count/);
+  assert.match(workflowRunsPanel, /data-usage-total-tokens/);
+  assert.match(workflowRunsPanel, /data-usage-context-pressure-status/);
   assert.match(workflowRunsPanel, /data-child-thread-id/);
   assert.match(workflowRuntimeEventProjection, /WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION/);
   assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeTuiDeepLinkDescriptor/);

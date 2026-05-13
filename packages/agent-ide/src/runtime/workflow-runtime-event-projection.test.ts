@@ -870,6 +870,19 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         receipt_refs: ["receipt-memory-write"],
       },
     ],
+    usage_status: {
+      scope: "thread",
+      status: "nominal",
+      usage_total_tokens: "4321",
+      usage_input_tokens: "3000",
+      usage_output_tokens: "1321",
+      usage_cost_estimate_usd: "0.004321",
+      usage_context_pressure: "0.0338",
+      usage_context_pressure_status: "nominal",
+      usage_run_count: "1",
+      usage_subagent_count: "1",
+      workflow_node_id: "runtime.usage-telemetry",
+    },
     subagent_rows: [
       {
         id: "subagent-row",
@@ -950,9 +963,10 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.runLifecycleCount, 1);
   assert.equal(projection.mcpRowCount, 5);
   assert.equal(projection.memoryRowCount, 4);
+  assert.equal(projection.usageRowCount, 1);
   assert.equal(projection.subagentRowCount, 1);
   assert.equal(projection.subagentChildSubflowCount, 1);
-  assert.equal(projection.rowCount, 21);
+  assert.equal(projection.rowCount, 22);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -974,6 +988,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["approval_decision", "approve", "approved"],
       ["job", "jobs", "completed"],
       ["run_lifecycle", "run", "completed"],
+      ["usage_status", "usage", "current"],
       ["command", "events", "applied"],
       ["command", "steer", "applied"],
       ["validation_error", "steer", "validation_error"],
@@ -984,7 +999,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[19]?.reactFlowNodeId,
+    projection.rows[20]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
   assert.equal(projection.rows[2]?.modelId, "auto");
@@ -1010,6 +1025,10 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[13]?.subagentRestartCount, 1);
   assert.equal(projection.rows[13]?.workflowGraphId, "workflow-subagent-fanout");
   assert.equal(projection.rows[13]?.reactFlowNodeId, "runtime.subagent.spawn.explore");
+  assert.equal(projection.rows[18]?.usageTotalTokens, 4321);
+  assert.equal(projection.rows[18]?.usageCostEstimateUsd, 0.004321);
+  assert.equal(projection.rows[18]?.usageSubagentCount, 1);
+  assert.equal(projection.rows[18]?.reactFlowNodeId, "runtime.usage-telemetry");
   assert.equal(projection.subagentChildSubflows[0]?.workflowGraphId, "workflow-subagent-fanout");
   assert.equal(projection.subagentChildSubflows[0]?.parentReactFlowNodeId, "runtime.subagent.spawn.explore");
   assert.equal(projection.subagentChildSubflows[0]?.childThreadId, "thread-child-1");
@@ -1036,5 +1055,5 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   );
   assert.equal(projection.rows[16]?.jobId, "job-run-test");
   assert.equal(projection.rows[17]?.runId, "run-test");
-  assert.equal(projection.rows[20]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[21]?.message, "/steer requires guidance text");
 });

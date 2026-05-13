@@ -11,4 +11,7 @@ export type {
   RuntimeThreadCompactInput,
   RuntimeTurnInterruptInput,
   RuntimeTurnSteerInput,
+  RuntimeUsageListInput,
+  RuntimeUsageListResult,
+  RuntimeUsageTelemetry,
 } from "./substrate-client.js";

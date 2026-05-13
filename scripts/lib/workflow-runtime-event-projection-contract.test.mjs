@@ -95,6 +95,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /subagentBudgetStatus/);
   assert.match(projection, /subagentCostEstimateUsd/);
   assert.match(projection, /subagentTokenEstimate/);
+  assert.match(projection, /usage_status/);
+  assert.match(projection, /usageTotalTokens/);
+  assert.match(projection, /usageCostEstimateUsd/);
   assert.match(projection, /runtimeSubagentSubflow/);
   assert.match(projection, /runtimeSubagentRun/);
   assert.match(projection, /runtime_thread_fork/);
@@ -169,5 +172,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /data-subagent-budget-status/);
   assert.match(runsPanel, /data-subagent-cost-estimate-usd/);
   assert.match(runsPanel, /data-subagent-token-estimate/);
+  assert.match(runsPanel, /data-usage-total-tokens/);
+  assert.match(runsPanel, /data-usage-cost-estimate-usd/);
+  assert.match(runsPanel, /data-usage-context-pressure-status/);
   assert.match(runsPanel, /data-child-thread-id/);
 });

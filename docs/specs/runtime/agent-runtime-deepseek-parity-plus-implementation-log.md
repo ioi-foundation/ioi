@@ -162,8 +162,46 @@ workstream was narrower.
 | 160 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent fan-out workflow proof | /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout/2026-05-13T19-37-08-337Z/result.json |
 | 161 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent child-subflow projection | /tmp/ioi-autopilot-gui-harness-subagent-child-subflows/2026-05-13T19-50-06-418Z/result.json |
 | 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json |
+| 163 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | RuntimeUsageTelemetry aggregation and projection | /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 163. 2026-05-13 - RuntimeUsageTelemetry aggregation and projection
+
+Implementation slice completed 2026-05-13, P1-D usage/cost/context telemetry:
+
+- Added daemon-owned `RuntimeUsageTelemetry` helpers that normalize provider or
+  estimated input/output/reasoning tokens, cost estimates, model/provider/route
+  metadata, context window usage, pressure status, and contributing source refs.
+- Attached usage telemetry to local and runtime-bridge runs, turns, traces, and
+  thread projections, including delegated subagent budget telemetry as an
+  aggregate child-run source.
+- Exposed `/v1/usage?group_by=run|thread`, `/v1/threads/{id}/usage`, and
+  `/v1/runs/{id}/usage`, plus SDK list/thread/run helpers and mock-runtime
+  parity.
+- Emitted `usage_final` runtime events with workflow node identity so CLI/TUI,
+  SDK streams, and React Flow projections share one event-backed telemetry row.
+- Added TUI usage status rows and React Flow run-inspector usage rows/data
+  attributes for total/input/output tokens, cost estimate, context pressure,
+  run counts, and subagent counts.
+- Kept the master guide strategic by moving detailed command evidence to the
+  validation ledger and replacing the noisy validation appendix with a compact
+  pointer.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/usage-telemetry.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows --quiet`
+- `node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-telemetry`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json`.
 
 ### Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
