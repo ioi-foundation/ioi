@@ -73,6 +73,7 @@ import {
   normalizeSubagentRole,
   optionalPositiveInteger,
   subagentBudgetForRequest,
+  subagentCancellationPropagates,
   subagentContractOutputForRun,
   subagentIsActive,
   subagentManagerEventPayload,
@@ -1799,6 +1800,9 @@ export class AgentgresRuntimeStateStore {
     const reason =
       optionalString(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
       "operator_cancel";
+    const cancellationInherited = Boolean(request.inherited ?? request.cancellationInherited);
+    const propagatedFromThreadId =
+      optionalString(request.propagated_from_thread_id ?? request.propagatedFromThreadId) ?? null;
     const run = this.cancelRun(record.run_id ?? record.runId);
     const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
     const outputContractStatus = validateSubagentOutputContract(
@@ -1819,13 +1823,19 @@ export class AgentgresRuntimeStateStore {
       canceledAt: now,
       cancellation_reason: reason,
       cancellationReason: reason,
+      cancellation_inherited: cancellationInherited,
+      cancellationInherited,
+      propagated_from_thread_id: propagatedFromThreadId,
+      propagatedFromThreadId,
       cancellation: {
         reason,
         previous_status: previousStatus,
         previousStatus,
         requested_by: optionalString(request.actor) ?? "operator",
         requestedBy: optionalString(request.actor) ?? "operator",
-        inherited: Boolean(request.inherited ?? request.cancellationInherited),
+        inherited: cancellationInherited,
+        propagated_from_thread_id: propagatedFromThreadId,
+        propagatedFromThreadId,
         source: operatorControlSource(request.source),
       },
       updated_at: now,
@@ -1876,6 +1886,98 @@ export class AgentgresRuntimeStateStore {
       cancellation: saved.cancellation,
       receipt_refs: event.receipt_refs,
       receiptRefs: event.receipt_refs,
+    };
+  }
+
+  propagateSubagentCancellation(threadId, request = {}) {
+    const parentAgent = this.agentForThread(threadId);
+    const reason =
+      optionalString(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
+      "parent_cancel";
+    const source = operatorControlSource(request.source);
+    const requestBase = {
+      ...request,
+      source,
+      reason,
+      inherited: true,
+      cancellationInherited: true,
+      propagated_from_thread_id: threadId,
+      propagatedFromThreadId: threadId,
+    };
+    delete requestBase.idempotency_key;
+    delete requestBase.idempotencyKey;
+    const candidates = [...this.subagents.values()]
+      .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
+      .sort((left, right) =>
+        String(left.created_at ?? left.createdAt ?? "").localeCompare(
+          String(right.created_at ?? right.createdAt ?? ""),
+        ),
+      );
+    const canceled = [];
+    const skipped = [];
+    for (const record of candidates) {
+      const targetId = record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId;
+      const inheritance = record.cancellation_inheritance ?? record.cancellationInheritance ?? "propagate";
+      const status = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
+      if (!subagentCancellationPropagates(record)) {
+        skipped.push({
+          ...this.subagentProjection(record),
+          skip_reason: "cancellation_inheritance_not_propagate",
+          skipReason: "cancellation_inheritance_not_propagate",
+          cancellation_inheritance: inheritance,
+          cancellationInheritance: inheritance,
+        });
+        continue;
+      }
+      if (status === "canceled") {
+        skipped.push({
+          ...this.subagentProjection(record),
+          skip_reason: "already_canceled",
+          skipReason: "already_canceled",
+          cancellation_inheritance: inheritance,
+          cancellationInheritance: inheritance,
+        });
+        continue;
+      }
+      const childRequest = {
+        ...requestBase,
+        workflow_node_id:
+          optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+          `runtime.subagent.cancel.propagated.${safeId(record.role ?? "general")}`,
+        workflowNodeId:
+          optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+          `runtime.subagent.cancel.propagated.${safeId(record.role ?? "general")}`,
+      };
+      const result = this.cancelSubagent(threadId, String(targetId), childRequest);
+      canceled.push(result);
+    }
+    return {
+      schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      object: "ioi.runtime_subagent_cancellation_propagation",
+      thread_id: threadId,
+      threadId,
+      parent_agent_id: parentAgent.id,
+      parentAgentId: parentAgent.id,
+      status: "completed",
+      source,
+      reason,
+      propagation_policy: "cancellationInheritance=propagate",
+      propagationPolicy: "cancellationInheritance=propagate",
+      candidate_count: candidates.length,
+      candidateCount: candidates.length,
+      canceled_count: canceled.length,
+      canceledCount: canceled.length,
+      skipped_count: skipped.length,
+      skippedCount: skipped.length,
+      canceled_subagents: canceled.map((result) => result.subagent),
+      canceledSubagents: canceled.map((result) => result.subagent),
+      skipped_subagents: skipped,
+      skippedSubagents: skipped,
+      event_refs: canceled.map((result) => result.event?.event_id).filter(Boolean),
+      eventRefs: canceled.map((result) => result.event?.event_id).filter(Boolean),
+      receipt_refs: uniqueStrings(canceled.flatMap((result) => normalizeArray(result.receipt_refs))),
+      receiptRefs: uniqueStrings(canceled.flatMap((result) => normalizeArray(result.receiptRefs))),
     };
   }
 
@@ -9433,6 +9535,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "subagents" && !segments[4]) {
     writeJsonResponse(response, store.spawnSubagent(threadId, await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && action === "subagents" && segments[4] === "cancel" && !segments[5]) {
+    writeJsonResponse(response, store.propagateSubagentCancellation(threadId, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "wait" && !segments[6]) {
