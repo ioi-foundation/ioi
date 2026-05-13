@@ -423,6 +423,10 @@ export interface RuntimeMcpServerEntry {
   source?: string;
   source_path?: string | null;
   sourcePath?: string | null;
+  source_scope?: string | null;
+  sourceScope?: string | null;
+  config_compatibility?: string | null;
+  configCompatibility?: string | null;
   workspace_root?: string | null;
   workspaceRoot?: string | null;
   allowed_tools?: string[];

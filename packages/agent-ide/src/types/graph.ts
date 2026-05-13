@@ -450,6 +450,7 @@ export interface NodeLogic {
   mcpServerHeadersJson?: string;
   mcpServerConfigJson?: string;
   mcpImportJson?: string;
+  mcpConfigSourceMode?: "workspace_and_global" | "workspace" | "global" | string;
   mcpCatalogMode?: "summary" | "full" | string;
   mcpToolSearchQuery?: string;
   mcpToolCatalogPreviewLimit?: number;
@@ -950,6 +951,7 @@ export interface WorkflowToolBinding {
     catalogRef?: string;
     catalogMode?: "deferred" | "full" | string;
     catalogSearchQuery?: string;
+    configSourceMode?: "workspace_and_global" | "workspace" | "global" | string;
     validateBeforeInvoke?: boolean;
     containmentMode?: "read_only" | "sandboxed" | "review_required";
   };

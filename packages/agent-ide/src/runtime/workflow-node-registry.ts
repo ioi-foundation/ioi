@@ -2916,6 +2916,10 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         mcpServerHeadersJson: { type: "string" },
         mcpServerConfigJson: { type: "string" },
         mcpImportJson: { type: "string" },
+        mcpConfigSourceMode: {
+          type: "string",
+          enum: ["workspace_and_global", "workspace", "global"],
+        },
         mcpCatalogMode: { type: "string", enum: ["summary", "full"] },
         mcpToolSearchQuery: { type: "string" },
         mcpToolCatalogPreviewLimit: { type: "number" },
@@ -3730,6 +3734,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           catalogRef: "mcp.tool.catalog.read",
           catalogMode: "deferred",
           catalogSearchQuery: "",
+          configSourceMode: "workspace_and_global",
           validateBeforeInvoke: true,
           containmentMode: "read_only",
         },
@@ -4145,6 +4150,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       stateKey: "mcp",
       stateOperation: "mcp_status",
       reducer: "replace",
+      mcpConfigSourceMode: "workspace_and_global",
     },
   });
   const mcpToolSearch = creatorDefinition("state", {
@@ -4158,6 +4164,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
       mcpServerId: "",
       mcpToolSearchQuery: "",
+      mcpConfigSourceMode: "workspace_and_global",
       mcpCatalogMode: "summary",
       mcpToolCatalogPreviewLimit: 50,
     },
@@ -4173,6 +4180,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
       mcpServerId: "",
       mcpToolName: "",
+      mcpConfigSourceMode: "workspace_and_global",
       mcpCatalogMode: "summary",
       mcpToolCatalogPreviewLimit: 50,
     },

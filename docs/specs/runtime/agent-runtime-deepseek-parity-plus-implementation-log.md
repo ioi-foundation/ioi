@@ -150,6 +150,7 @@ workstream was narrower.
 | 148 | 2026-05-13 | P1. MCP Manager Parity | self-hosted MCP serve mode | /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json |
 | 149 | 2026-05-13 | P1. MCP Manager Parity | remote MCP auth/vault header hardening | /tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json |
 | 150 | 2026-05-13 | P1. MCP Manager Parity | large MCP catalog deferred search/fetch | /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json |
+| 151 | 2026-05-13 | P1. MCP Manager Parity | global IOI MCP config discovery | /tmp/ioi-autopilot-gui-harness-mcp-global-config/2026-05-13T16-20-04-651Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -270,6 +271,46 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 151. 2026-05-13 - Global IOI MCP config discovery
+
+Implementation slice completed 2026-05-13, global MCP resolver parity:
+
+- Added `$HOME/.ioi/mcp.json` as the global IOI MCP config source, loaded
+  before inline/thread and workspace sources so existing `.cursor`,
+  `.agents`, active registry, and model-mounting precedence remains intact.
+- Added `sourceScope`/`source_scope` and
+  `configCompatibility`/`config_compatibility` provenance to MCP server status,
+  validation payloads, and evidence refs without exposing vault refs or secret
+  material.
+- Added `mcp_config_source_mode` / `mcpConfigSourceMode` filtering for
+  workspace+global, workspace/thread-only, and global-only MCP catalog views.
+- Extended the live MCP contract with a temporary global home fixture to prove
+  global discovery, source filtering, secret redaction, status validation
+  provenance, and coexistence with large-catalog search/fetch plus live
+  stdio/HTTP/SSE fixtures.
+- Added SDK typing for MCP source provenance and React Flow authoring controls
+  for MCP config source mode on status/search/fetch nodes and MCP tool
+  bindings.
+- Updated the master guide so the next MCP-adjacent parity slice is
+  keyboard-first TUI `/mcp search` and `/mcp fetch` with source-mode flags.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "daemon owns MCP discovery" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "agent CLI exposes model|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-global-config`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-global-config/2026-05-13T16-20-04-651Z/result.json`.
 - `git diff --check`
 
 ### Slice 114. 2026-05-13 - Thin daemon-backed `ioi agent tui` shell

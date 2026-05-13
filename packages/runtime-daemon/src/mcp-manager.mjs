@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION =
@@ -14,26 +15,57 @@ const MCP_SECRET_REF_BINDINGS = Symbol.for("ioi.runtime.mcp.secretRefBindings");
 
 export function mcpRegistryForWorkspace(cwd, options = {}) {
   const workspaceRoot = path.resolve(options.local?.cwd ?? cwd ?? process.cwd());
+  const homeDir = path.resolve(options.homeDir ?? options.home_dir ?? process.env.HOME ?? os.homedir());
+  const sourceMode = normalizeMcpConfigSourceMode(
+    options.mcpConfigSourceMode ??
+      options.mcp_config_source_mode ??
+      options.configSourceMode ??
+      options.config_source_mode,
+  );
   const servers = [];
-  for (const [label, config] of Object.entries(options.mcpServers ?? {})) {
-    servers.push(
-      normalizeMcpServerRecord(label, config, {
-        workspaceRoot,
-        source: "inline_options",
-        status: "configured",
-      }),
-    );
+  if (sourceMode !== "workspace") {
+    for (const source of loadGlobalMcpConfigSources(homeDir)) {
+      for (const [label, config] of Object.entries(source.servers)) {
+        servers.push(
+          normalizeMcpServerRecord(label, config, {
+            workspaceRoot,
+            source: source.source,
+            sourcePath: source.path,
+            sourceScope: source.scope,
+            configCompatibility: source.compatibility,
+            status: "configured",
+          }),
+        );
+      }
+    }
   }
-  for (const source of loadMcpConfigSources(workspaceRoot)) {
-    for (const [label, config] of Object.entries(source.servers)) {
+  for (const [label, config] of Object.entries(options.mcpServers ?? {})) {
+    if (sourceMode !== "global") {
       servers.push(
         normalizeMcpServerRecord(label, config, {
           workspaceRoot,
-          source: source.source,
-          sourcePath: source.path,
+          source: "inline_options",
+          sourceScope: "thread",
+          configCompatibility: "inline",
           status: "configured",
         }),
       );
+    }
+  }
+  if (sourceMode !== "global") {
+    for (const source of loadWorkspaceMcpConfigSources(workspaceRoot)) {
+      for (const [label, config] of Object.entries(source.servers)) {
+        servers.push(
+          normalizeMcpServerRecord(label, config, {
+            workspaceRoot,
+            source: source.source,
+            sourcePath: source.path,
+            sourceScope: source.scope,
+            configCompatibility: source.compatibility,
+            status: "configured",
+          }),
+        );
+      }
     }
   }
   const byId = new Map();
@@ -70,6 +102,7 @@ export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
         {
           workspaceRoot,
           source: server.source ?? "validation_input",
+          sourceScope: server.sourceScope ?? server.source_scope ?? "validation",
           status: server.status ?? "configured",
         },
       ),
@@ -79,6 +112,7 @@ export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
     normalizeMcpServerRecord(label, config, {
       workspaceRoot,
       source: "validation_input",
+      sourceScope: "validation",
       status: "configured",
     }),
   );
@@ -150,6 +184,22 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
     sourcePath:
       optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
+    source_scope:
+      optionalString(config.sourceScope ?? config.source_scope) ??
+      optionalString(context.sourceScope ?? context.source_scope) ??
+      "workspace",
+    sourceScope:
+      optionalString(config.sourceScope ?? config.source_scope) ??
+      optionalString(context.sourceScope ?? context.source_scope) ??
+      "workspace",
+    config_compatibility:
+      optionalString(config.configCompatibility ?? config.config_compatibility) ??
+      optionalString(context.configCompatibility ?? context.config_compatibility) ??
+      null,
+    configCompatibility:
+      optionalString(config.configCompatibility ?? config.config_compatibility) ??
+      optionalString(context.configCompatibility ?? context.config_compatibility) ??
+      null,
     workspace_root: context.workspaceRoot ?? null,
     workspaceRoot: context.workspaceRoot ?? null,
     allowed_tools: declaredTools,
@@ -209,12 +259,16 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       "mcp.manager.catalog",
       context.source,
       context.sourcePath,
+      context.sourceScope,
+      context.configCompatibility,
       id,
     ]),
     evidenceRefs: uniqueStrings([
       "mcp.manager.catalog",
       context.source,
       context.sourcePath,
+      context.sourceScope,
+      context.configCompatibility,
       id,
     ]),
   };
@@ -1310,25 +1364,69 @@ function attachMcpSecretRefBindings(record, bindings = {}) {
   return record;
 }
 
-function loadMcpConfigSources(workspaceRoot) {
+function loadGlobalMcpConfigSources(homeDir) {
+  return loadMcpConfigSourceFiles([
+    {
+      source: "global.ioi/mcp.json",
+      path: path.join(homeDir, ".ioi", "mcp.json"),
+      scope: "global",
+      compatibility: "ioi",
+    },
+  ]);
+}
+
+function loadWorkspaceMcpConfigSources(workspaceRoot) {
+  return loadMcpConfigSourceFiles([
+    {
+      source: ".cursor/mcp.json",
+      path: path.join(workspaceRoot, ".cursor", "mcp.json"),
+      scope: "workspace",
+      compatibility: "cursor",
+    },
+    {
+      source: ".agents/mcp.json",
+      path: path.join(workspaceRoot, ".agents", "mcp.json"),
+      scope: "workspace",
+      compatibility: "agents",
+    },
+  ]);
+}
+
+function loadMcpConfigSourceFiles(candidates = []) {
   const sources = [];
-  for (const [source, filePath] of [
-    [".cursor/mcp.json", path.join(workspaceRoot, ".cursor", "mcp.json")],
-    [".agents/mcp.json", path.join(workspaceRoot, ".agents", "mcp.json")],
-  ]) {
-    if (!fs.existsSync(filePath)) continue;
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate.path)) continue;
     try {
-      const value = readJson(filePath);
+      const value = readJson(candidate.path);
       sources.push({
-        source,
-        path: filePath,
+        source: candidate.source,
+        path: candidate.path,
+        scope: candidate.scope,
+        compatibility: candidate.compatibility,
         servers: value.mcpServers ?? value.servers ?? {},
       });
     } catch {
-      sources.push({ source, path: filePath, servers: {} });
+      sources.push({
+        source: candidate.source,
+        path: candidate.path,
+        scope: candidate.scope,
+        compatibility: candidate.compatibility,
+        servers: {},
+      });
     }
   }
   return sources;
+}
+
+function normalizeMcpConfigSourceMode(value) {
+  const text = optionalString(value)?.toLowerCase().replace(/[-\s]+/g, "_");
+  if (["workspace", "workspace_only", "local", "local_only"].includes(text)) {
+    return "workspace";
+  }
+  if (["global", "global_only", "global_ioi", "ioi_global"].includes(text)) {
+    return "global";
+  }
+  return "workspace_and_global";
 }
 
 function readJson(filePath) {
