@@ -128,6 +128,7 @@ workstream was narrower.
 | 126 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | blocking post-edit diagnostics repair gate | /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json |
 | 127 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | project-aware diagnostics backend ladder | /tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json |
 | 128 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | workspace snapshot records for mutating coding tools | /tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json |
+| 129 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | content-backed workspace restore preview | /tmp/ioi-autopilot-gui-harness-workspace-restore-preview/2026-05-13T05-42-32-697Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -849,6 +850,43 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-snapshots`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json`.
+
+### Slice 129. 2026-05-13 - Content-backed workspace restore preview
+
+Implementation slice completed 2026-05-13, content-backed workspace restore
+preview:
+
+- Captured before/after UTF-8 content for applied `file.apply_patch` snapshots
+  inside a redacted snapshot-content artifact while keeping public tool results
+  metadata-first.
+- Promoted snapshot restore metadata from `metadata_only` to
+  `content_captured` when every touched file fits the capture policy.
+- Added daemon thread snapshot listing and
+  `/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-preview`, with
+  current-workspace drift detection, ready/noop/conflict/blocked operation rows,
+  preview diffs, receipts, artifacts, and rollback refs.
+- Added SDK helpers for listing thread workspace snapshots and previewing a
+  restore, plus mock-client support for workflow development.
+- Projected `workspace.restore.previewed` runtime events as React Flow
+  `restore_gate` rows so restore preview is workflow-addressable.
+- Extended the live contract to prove snapshot artifact readback, restore
+  preview route, SDK helper, SDK event projection, and React Flow restore-gate
+  projection.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "projects coding tool|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "agent CLI exposes model|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-restore-preview`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-workspace-restore-preview/2026-05-13T05-42-32-697Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

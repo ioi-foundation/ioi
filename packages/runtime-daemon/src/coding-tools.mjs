@@ -815,6 +815,18 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
           },
         ]
       : [],
+    workspaceSnapshotDrafts: changed && !dryRun
+      ? [
+          {
+            path: target.relativePath,
+            encoding: "utf8",
+            beforeExists: exists,
+            afterExists: true,
+            beforeContent: exists ? before : null,
+            afterContent: after,
+          },
+        ]
+      : [],
     diagnosticsRecommended: Boolean(changed && !dryRun),
     receiptRefs: [
       `receipt_file_apply_patch_${safeReceiptPath(target.relativePath)}_${afterHash.slice(0, 12)}`,

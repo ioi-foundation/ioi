@@ -228,6 +228,62 @@ export interface RuntimeThreadToolInvocationResult {
   error?: Record<string, unknown> | null;
 }
 
+export interface RuntimeWorkspaceSnapshotListResult {
+  schemaVersion: string;
+  object: "ioi.runtime_workspace_snapshot_list" | string;
+  threadId: string;
+  thread_id?: string;
+  snapshotCount: number;
+  snapshot_count?: number;
+  snapshots: Array<Record<string, unknown>>;
+}
+
+export interface RuntimeWorkspaceRestorePreviewInput {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeWorkspaceRestorePreviewResult {
+  schemaVersion: string;
+  schema_version?: string;
+  object: "ioi.runtime_workspace_restore_preview" | string;
+  threadId: string;
+  thread_id?: string;
+  snapshotId: string;
+  snapshot_id?: string;
+  previewStatus: string;
+  preview_status?: string;
+  previewSupported: boolean;
+  preview_supported?: boolean;
+  applySupported: boolean;
+  apply_supported?: boolean;
+  fileCount: number;
+  file_count?: number;
+  readyCount: number;
+  ready_count?: number;
+  noopCount: number;
+  noop_count?: number;
+  conflictCount: number;
+  conflict_count?: number;
+  blockedCount: number;
+  blocked_count?: number;
+  operations: Array<Record<string, unknown>>;
+  receiptRefs: string[];
+  receipt_refs?: string[];
+  artifactRefs: string[];
+  artifact_refs?: string[];
+  rollbackRefs: string[];
+  rollback_refs?: string[];
+  event?: RuntimeEventEnvelope | null;
+  restore_preview_event?: RuntimeEventEnvelope | null;
+  restorePreviewEvent?: RuntimeEventEnvelope | null;
+  summary?: string;
+}
+
 export interface AgentMemoryPathProjection {
   schemaVersion: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_path_projection";
@@ -353,6 +409,12 @@ export interface RuntimeSubstrateClient {
     toolId: string,
     input?: RuntimeThreadToolInvokeInput,
   ): Promise<RuntimeThreadToolInvocationResult>;
+  listThreadWorkspaceSnapshots(threadId: string): Promise<RuntimeWorkspaceSnapshotListResult>;
+  previewThreadWorkspaceRestore(
+    threadId: string,
+    snapshotId: string,
+    input?: RuntimeWorkspaceRestorePreviewInput,
+  ): Promise<RuntimeWorkspaceRestorePreviewResult>;
   rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
   listMemory(agentId: string, options?: MemoryListOptions): Promise<AgentMemoryProjection>;
   updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
@@ -641,6 +703,30 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "invokeThreadTool",
       "POST",
       `/v1/threads/${encodePath(threadId)}/tools/${encodePath(toolId)}/invoke`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async listThreadWorkspaceSnapshots(threadId: string): Promise<RuntimeWorkspaceSnapshotListResult> {
+    return this.request(
+      "listThreadWorkspaceSnapshots",
+      "GET",
+      `/v1/threads/${encodePath(threadId)}/snapshots`,
+    );
+  }
+
+  async previewThreadWorkspaceRestore(
+    threadId: string,
+    snapshotId: string,
+    input: RuntimeWorkspaceRestorePreviewInput = {},
+  ): Promise<RuntimeWorkspaceRestorePreviewResult> {
+    return this.request(
+      "previewThreadWorkspaceRestore",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/snapshots/${encodePath(snapshotId)}/restore-preview`,
       {
         source: "sdk_client",
         ...input,
@@ -1933,7 +2019,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
             snapshotKind: "pre_post_touched_files",
             fileCount: 1,
             changedFileCount: 1,
-            restore: { status: "metadata_only", previewSupported: false, applySupported: false },
+            restore: { status: "content_captured", previewSupported: true, applySupported: false },
             receiptRefs: [`receipt_workspace_snapshot_${toolCallId}`],
             artifactRefs: [`artifact_workspace_snapshot_${toolCallId}`],
           }
@@ -1996,6 +2082,95 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
           : {}),
       },
       error: null,
+    };
+  }
+
+  async listThreadWorkspaceSnapshots(threadId: string): Promise<RuntimeWorkspaceSnapshotListResult> {
+    return {
+      schemaVersion: "ioi.runtime.workspace-snapshot.v1",
+      object: "ioi.runtime_workspace_snapshot_list",
+      threadId,
+      thread_id: threadId,
+      snapshotCount: 1,
+      snapshot_count: 1,
+      snapshots: [
+        {
+          schemaVersion: "ioi.runtime.workspace-snapshot.v1",
+          snapshotId: `workspace_snapshot_mock_${threadId}`,
+          snapshotKind: "pre_post_touched_files",
+          restore: { status: "content_captured", previewSupported: true, applySupported: false },
+          receiptRefs: [`receipt_workspace_snapshot_mock_${threadId}`],
+          artifactRefs: [`artifact_workspace_snapshot_mock_${threadId}`],
+        },
+      ],
+    };
+  }
+
+  async previewThreadWorkspaceRestore(
+    threadId: string,
+    snapshotId: string,
+    input: RuntimeWorkspaceRestorePreviewInput = {},
+  ): Promise<RuntimeWorkspaceRestorePreviewResult> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "workspace.restore.previewed",
+      sourceEventKind: "WorkspaceRestore.Previewed",
+      itemId: `${threadId}:item:workspace-restore-preview:${snapshotId}`,
+      payload: {
+        event_kind: "WorkspaceRestorePreview",
+        snapshot_id: snapshotId,
+        preview_status: "ready",
+        summary: `Restore preview ready for 1 file(s) from ${snapshotId}.`,
+      },
+      createdAt: new Date().toISOString(),
+      componentKind: "restore_gate",
+      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? "runtime.restore-gate"),
+      receiptRefs: [`receipt_workspace_restore_preview_${snapshotId}`],
+    });
+    const previewEvent = {
+      ...event,
+      rollback_refs: [snapshotId],
+      artifact_refs: [`artifact_workspace_restore_preview_${snapshotId}`],
+    };
+    return {
+      schemaVersion: "ioi.runtime.workspace-restore-preview.v1",
+      schema_version: "ioi.runtime.workspace-restore-preview.v1",
+      object: "ioi.runtime_workspace_restore_preview",
+      threadId,
+      thread_id: threadId,
+      snapshotId,
+      snapshot_id: snapshotId,
+      previewStatus: "ready",
+      preview_status: "ready",
+      previewSupported: true,
+      preview_supported: true,
+      applySupported: false,
+      apply_supported: false,
+      fileCount: 1,
+      file_count: 1,
+      readyCount: 1,
+      ready_count: 1,
+      noopCount: 0,
+      noop_count: 0,
+      conflictCount: 0,
+      conflict_count: 0,
+      blockedCount: 0,
+      blocked_count: 0,
+      operations: [{ path: "mock-file.js", operation: "replace", status: "ready" }],
+      receiptRefs: event.receipt_refs,
+      receipt_refs: event.receipt_refs,
+      artifactRefs: [`artifact_workspace_restore_preview_${snapshotId}`],
+      artifact_refs: [`artifact_workspace_restore_preview_${snapshotId}`],
+      rollbackRefs: [snapshotId],
+      rollback_refs: [snapshotId],
+      event: previewEvent,
+      restore_preview_event: previewEvent,
+      restorePreviewEvent: previewEvent,
+      summary: `Restore preview ready for 1 file(s) from ${snapshotId}.`,
     };
   }
 
