@@ -171,8 +171,41 @@ workstream was narrower.
 | 169 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | live React Flow telemetry hydration | /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json |
 | 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json |
 | 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json |
+| 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 172. 2026-05-13 - Context-pressure approval request execution
+
+Implementation slice completed 2026-05-13, P1-D approval request execution:
+
+- Added daemon-owned `POST /v1/threads/{thread_id}/approvals` approval-request
+  creation that emits receipt-backed `approval.required` events with
+  `OperatorApproval.Request`, pressure metadata, alert/source event ids, and
+  preserved React Flow graph/node identity.
+- Made high-pressure `request_approval` alert actions executable, dispatchable
+  from the React Flow run inspector, and projected back as existing
+  `human_gate` approval rows after thread-event refresh.
+- Added reusable `runtime_approval_request` control builders, request types,
+  React Flow node metadata, workflow schema hooks, Tauri/Rust action-kind
+  support, validation hooks, and scaffold/template output so the same control
+  is workflow-authorable rather than only a run-inspector button.
+- Extended live daemon proof coverage to post a React Flow approval request,
+  verify the daemon/SDK/projection contract, and keep source contracts guarded.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --import tsx --test --test-name-pattern "runtime_approval_request|context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --import tsx --test --test-name-pattern "React Flow approval request control creates a daemon-owned approval gate" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+- `cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json`.
 
 ### Slice 171. 2026-05-13 - Context-pressure stop action execution
 

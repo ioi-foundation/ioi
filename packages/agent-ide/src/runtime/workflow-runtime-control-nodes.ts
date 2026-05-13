@@ -38,6 +38,16 @@ export const RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND =
   "OperatorControl.Compact" as const;
 export const RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.context-compaction.v1" as const;
+export const WORKFLOW_RUNTIME_APPROVAL_REQUEST_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-approval-request-control.v1" as const;
+export const RUNTIME_APPROVAL_REQUEST_WORKFLOW_NODE_ID =
+  "runtime.approval.context-pressure" as const;
+export const RUNTIME_APPROVAL_REQUEST_COMPONENT_KIND = "approval_gate" as const;
+export const RUNTIME_APPROVAL_REQUEST_SOURCE = "react_flow" as const;
+export const RUNTIME_APPROVAL_REQUEST_SOURCE_EVENT_KIND =
+  "OperatorApproval.Request" as const;
+export const RUNTIME_APPROVAL_REQUEST_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.approval-request.v1" as const;
 export const WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-rollback-snapshot-control.v1" as const;
 export const RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID =
@@ -231,6 +241,79 @@ export interface RuntimeContextCompactControlRequestInput {
 }
 
 export interface RuntimeContextCompactWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeApprovalRequestControlRequestBody {
+  approvalId: string;
+  approval_id: string;
+  reason: string;
+  scope: string;
+  turnId: string | null;
+  turn_id: string | null;
+  pressure: number | null;
+  pressureStatus: string | null;
+  pressure_status: string | null;
+  alertId: string | null;
+  alert_id: string | null;
+  sourceEventId: string | null;
+  source_event_id: string | null;
+  receiptRefs: string[];
+  receipt_refs: string[];
+  policyDecisionRefs: string[];
+  policy_decision_refs: string[];
+  source: typeof RUNTIME_APPROVAL_REQUEST_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_APPROVAL_REQUEST_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_APPROVAL_REQUEST_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_APPROVAL_REQUEST_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeApprovalRequestControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_APPROVAL_REQUEST_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_approval_request";
+  nodeId: string | null;
+  threadId: string;
+  turnId: string | null;
+  endpoint: string;
+  body: RuntimeApprovalRequestControlRequestBody;
+}
+
+export interface RuntimeApprovalRequestControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  turnId?: string | null;
+  turnIdField?: string | null;
+  input?: unknown;
+  approvalId?: string | null;
+  approvalIdField?: string | null;
+  reason?: string | null;
+  reasonField?: string | null;
+  scope?: string | null;
+  scopeField?: string | null;
+  pressure?: number | null;
+  pressureField?: string | null;
+  pressureStatus?: string | null;
+  pressureStatusField?: string | null;
+  alertId?: string | null;
+  alertIdField?: string | null;
+  sourceEventId?: string | null;
+  sourceEventIdField?: string | null;
+  receiptRefs?: string[] | null;
+  receiptRefsField?: string | null;
+  policyDecisionRefs?: string[] | null;
+  policyDecisionRefsField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeApprovalRequestWorkflowNodeOptions {
   workflowGraphId?: string | null;
   actor?: string | null;
 }
@@ -602,6 +685,96 @@ export function createRuntimeContextCompactControlRequest(
   };
 }
 
+export function createRuntimeApprovalRequestControlRequest(
+  params: RuntimeApprovalRequestControlRequestInput,
+): RuntimeApprovalRequestControlRequest {
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_APPROVAL_REQUEST_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_approval_request",
+      source: RUNTIME_APPROVAL_REQUEST_SOURCE,
+      eventKind: RUNTIME_APPROVAL_REQUEST_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_APPROVAL_REQUEST_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_APPROVAL_REQUEST_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_APPROVAL_REQUEST_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/approvals",
+      turnIdMode: "optional",
+    },
+    params,
+  );
+  const approvalId =
+    stringAtPath(params.input, params.approvalIdField ?? "approvalId") ??
+    stringAtPath(params.input, "approval_id") ??
+    cleanString(params.approvalId) ??
+    `approval-${envelope.threadId}-${envelope.turnId ?? "thread"}`;
+  const reason =
+    stringAtPath(params.input, params.reasonField ?? "") ??
+    cleanString(params.reason) ??
+    "Request operator approval from React Flow workflow control.";
+  const scope =
+    stringAtPath(params.input, params.scopeField ?? "") ??
+    cleanString(params.scope) ??
+    "thread";
+  const pressure =
+    numberAtPath(params.input, params.pressureField ?? "pressure") ??
+    params.pressure ??
+    null;
+  const pressureStatus =
+    stringAtPath(params.input, params.pressureStatusField ?? "pressureStatus") ??
+    stringAtPath(params.input, "pressure_status") ??
+    cleanString(params.pressureStatus);
+  const alertId =
+    stringAtPath(params.input, params.alertIdField ?? "alertId") ??
+    stringAtPath(params.input, "alert_id") ??
+    cleanString(params.alertId);
+  const sourceEventId =
+    stringAtPath(params.input, params.sourceEventIdField ?? "sourceEventId") ??
+    stringAtPath(params.input, "source_event_id") ??
+    cleanString(params.sourceEventId);
+  const receiptRefs = uniqueStringArray([
+    ...stringArrayAtPath(params.input, params.receiptRefsField ?? "receiptRefs"),
+    ...stringArrayAtPath(params.input, "receipt_refs"),
+    ...(params.receiptRefs ?? []),
+  ]);
+  const policyDecisionRefs = uniqueStringArray([
+    ...stringArrayAtPath(
+      params.input,
+      params.policyDecisionRefsField ?? "policyDecisionRefs",
+    ),
+    ...stringArrayAtPath(params.input, "policy_decision_refs"),
+    ...(params.policyDecisionRefs ?? []),
+  ]);
+
+  return {
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    turnId: envelope.turnId,
+    endpoint: envelope.endpoint,
+    body: {
+      approvalId,
+      approval_id: approvalId,
+      reason,
+      scope,
+      turnId: envelope.turnId,
+      turn_id: envelope.turnId,
+      pressure,
+      pressureStatus,
+      pressure_status: pressureStatus,
+      alertId,
+      alert_id: alertId,
+      sourceEventId,
+      source_event_id: sourceEventId,
+      receiptRefs,
+      receipt_refs: receiptRefs,
+      policyDecisionRefs,
+      policy_decision_refs: policyDecisionRefs,
+      ...envelope.metadata,
+    },
+  };
+}
+
 export function createRuntimeRollbackSnapshotControlRequest(
   params: RuntimeRollbackSnapshotControlRequestInput,
 ): RuntimeRollbackSnapshotControlRequest {
@@ -884,6 +1057,56 @@ export function createRuntimeContextCompactControlRequestFromWorkflowNode(
   });
 }
 
+export function createRuntimeApprovalRequestControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeApprovalRequestWorkflowNodeOptions = {},
+): RuntimeApprovalRequestControlRequest {
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_approval_request");
+  return createRuntimeApprovalRequestControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeApprovalRequestThreadId),
+    threadIdField: cleanString(logic.runtimeApprovalRequestThreadIdField) ?? "threadId",
+    turnId: cleanString(logic.runtimeApprovalRequestTurnId),
+    turnIdField: cleanString(logic.runtimeApprovalRequestTurnIdField) ?? "turnId",
+    approvalId: cleanString(logic.runtimeApprovalRequestApprovalId),
+    approvalIdField:
+      cleanString(logic.runtimeApprovalRequestApprovalIdField) ?? "approvalId",
+    reason: cleanString(logic.runtimeApprovalRequestReason),
+    reasonField: cleanString(logic.runtimeApprovalRequestReasonField) ?? "reason",
+    scope: cleanString(logic.runtimeApprovalRequestScope),
+    scopeField: cleanString(logic.runtimeApprovalRequestScopeField) ?? "scope",
+    pressureField:
+      cleanString(logic.runtimeApprovalRequestPressureField) ?? "pressure",
+    pressureStatus: cleanString(logic.runtimeApprovalRequestPressureStatus),
+    pressureStatusField:
+      cleanString(logic.runtimeApprovalRequestPressureStatusField) ??
+      "pressureStatus",
+    alertId: cleanString(logic.runtimeApprovalRequestAlertId),
+    alertIdField: cleanString(logic.runtimeApprovalRequestAlertIdField) ?? "alertId",
+    sourceEventId: cleanString(logic.runtimeApprovalRequestSourceEventId),
+    sourceEventIdField:
+      cleanString(logic.runtimeApprovalRequestSourceEventIdField) ??
+      "sourceEventId",
+    receiptRefsField:
+      cleanString(logic.runtimeApprovalRequestReceiptRefsField) ?? "receiptRefs",
+    policyDecisionRefsField:
+      cleanString(logic.runtimeApprovalRequestPolicyDecisionRefsField) ??
+      "policyDecisionRefs",
+    endpoint: cleanString(logic.runtimeApprovalRequestEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeApprovalRequestWorkflowNodeId) ??
+      RUNTIME_APPROVAL_REQUEST_WORKFLOW_NODE_ID,
+    actor: runtimeControlWorkflowActor(
+      options,
+      logic,
+      "runtimeApprovalRequestActor",
+    ),
+  });
+}
+
 export function createRuntimeRollbackSnapshotControlRequestFromWorkflowNode(
   node: Pick<Node, "id" | "type" | "config">,
   input: unknown = {},
@@ -1101,6 +1324,29 @@ function stringAtPath(value: unknown, path: string | null | undefined): string |
   if (!normalizedPath) return null;
   const found = valueAtPath(value, normalizedPath);
   return cleanString(found);
+}
+
+function numberAtPath(value: unknown, path: string | null | undefined): number | null {
+  const normalizedPath = cleanString(path);
+  if (!normalizedPath) return null;
+  const found = valueAtPath(value, normalizedPath);
+  return typeof found === "number" && Number.isFinite(found) ? found : null;
+}
+
+function stringArrayAtPath(
+  value: unknown,
+  path: string | null | undefined,
+): string[] {
+  const normalizedPath = cleanString(path);
+  if (!normalizedPath) return [];
+  return uniqueStringArray(valueAtPath(value, normalizedPath));
+}
+
+function uniqueStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(value.map((item) => cleanString(item)).filter(Boolean) as string[]),
+  );
 }
 
 function booleanAtPath(

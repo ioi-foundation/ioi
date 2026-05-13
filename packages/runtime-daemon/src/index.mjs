@@ -3415,6 +3415,169 @@ export class AgentgresRuntimeStateStore {
     return this.turnForRun(updated);
   }
 
+  requestThreadApproval(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const runs = this.listRuns(agent.id);
+    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
+    let turnId = requestedTurnId ?? "";
+    let run = null;
+    if (turnId) {
+      run = this.getRun(runIdForTurn(turnId));
+      if (run.agentId !== agent.id) {
+        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
+      }
+    } else {
+      run = runs.at(-1) ?? null;
+      turnId = run ? turnIdForRun(run.id) : "";
+    }
+
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message ?? request.input) ??
+      "operator requested approval";
+    const runOrAgentId = run?.id ?? agent.id;
+    const approvalSeed = `${threadId}:${turnId || "thread"}:${reason}`;
+    const approvalHash = crypto.createHash("sha256").update(approvalSeed).digest("hex").slice(0, 16);
+    const approvalId =
+      optionalString(request.approval_id ?? request.approvalId) ??
+      `approval_context_pressure_${safeId(threadId)}_${safeId(turnId || "thread")}_${approvalHash}`;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      `runtime.approval.${safeId(approvalId)}`;
+    const scope = optionalString(request.scope) ?? "thread";
+    const pressure = contextBudgetNumber(
+      request.pressure,
+      request.context_pressure,
+      request.contextPressure,
+    );
+    const pressureStatus =
+      optionalString(
+        request.pressure_status ??
+          request.pressureStatus ??
+          request.context_pressure_status ??
+          request.contextPressureStatus,
+      ) ?? null;
+    const alertId =
+      optionalString(request.alert_id ?? request.alertId ?? request.alert_event_id ?? request.alertEventId) ??
+      null;
+    const sourceEventId =
+      optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
+    const receiptRefs = uniqueStrings([
+      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
+      `receipt_${runOrAgentId}_approval_required_${safeId(approvalId)}`,
+    ]);
+    const policyDecisionRefs = uniqueStrings([
+      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
+      `policy_${runOrAgentId}_approval_required`,
+    ]);
+    const now = new Date().toISOString();
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:approval-required:${safeId(approvalId)}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:approval.required:${approvalId}`,
+      source,
+      source_event_kind: "OperatorApproval.Request",
+      event_kind: "approval.required",
+      status: "waiting_for_approval",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId,
+      component_kind: "approval_gate",
+      approval_id: approvalId,
+      payload_schema_version: "ioi.runtime.approval-request.v1",
+      payload: {
+        event_kind: "OperatorApproval.Request",
+        approval_id: approvalId,
+        approval_required: true,
+        approvalRequired: true,
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        action: "request_approval",
+        scope,
+        pressure: pressure ?? null,
+        pressure_status: pressureStatus,
+        pressureStatus,
+        alert_id: alertId,
+        alertId,
+        source_event_id: sourceEventId,
+        sourceEventId,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: run?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: receiptRefs,
+      policy_decision_refs: policyDecisionRefs,
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "approval_request",
+      approvalId,
+      status: "waiting_for_approval",
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    if (run) {
+      const updated = {
+        ...run,
+        status: run.status === "queued" || run.status === "running" ? "blocked" : run.status,
+        updatedAt: event.created_at,
+        turnStatus: "waiting_for_approval",
+        trace: {
+          ...run.trace,
+          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+          approvalRequests: appendOperatorControl(run.trace?.approvalRequests, control),
+        },
+        operatorControls: appendOperatorControl(run.operatorControls, control),
+        approvalRequests: appendOperatorControl(run.approvalRequests, control),
+      };
+      this.runs.set(run.id, updated);
+      this.writeRun(updated, "approval.required");
+      return {
+        ...this.turnForRun(updated),
+        approval_id: approvalId,
+        approval_required: true,
+        approvalRequired: true,
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      };
+    }
+
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, "approval.required");
+    return {
+      ...this.threadForAgent(updatedAgent),
+      approval_id: approvalId,
+      approval_required: true,
+      approvalRequired: true,
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+  }
+
   decideThreadApproval(threadId, approvalId, request = {}) {
     const agent = this.agentForThread(threadId);
     const normalizedApprovalId =
@@ -10063,6 +10226,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "steer" && !segments[6]) {
     writeJsonResponse(response, store.steerTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "approvals" && !segments[4]) {
+    writeJsonResponse(response, store.requestThreadApproval(threadId, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "decision" && !segments[6]) {
@@ -17345,7 +17512,7 @@ function contextPressureAlertPayload(usageDelta = {}) {
         action: "request_approval",
         label: "Request approval",
         status: "available",
-        executable: false,
+        executable: true,
         workflow_node_id: "runtime.approval.context-pressure",
         workflowNodeId: "runtime.approval.context-pressure",
         summary: "Ask the operator to approve continuing despite high context pressure.",

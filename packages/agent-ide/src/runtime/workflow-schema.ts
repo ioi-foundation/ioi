@@ -78,6 +78,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_operator_interrupt" ||
       node.type === "runtime_operator_steer" ||
       node.type === "runtime_context_compact" ||
+      node.type === "runtime_approval_request" ||
       node.type === "runtime_usage_meter" ||
       node.type === "runtime_context_budget" ||
       node.type === "runtime_compaction_policy" ||
@@ -194,6 +195,26 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
         endpoint: { type: "string" },
         request: { type: "object" },
         runtimeContextCompact: { type: "object" },
+      },
+    };
+  }
+  if (node.type === "runtime_approval_request") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        turnId: { type: ["string", "null"] },
+        approvalId: { type: "string" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeApprovalRequest: { type: "object" },
       },
     };
   }
@@ -387,6 +408,23 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         turnId: { type: "string" },
         reason: { type: "string" },
         scope: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_approval_request") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        turnId: { type: "string" },
+        approvalId: { type: "string" },
+        reason: { type: "string" },
+        scope: { type: "string" },
+        pressure: { type: "number" },
+        pressureStatus: { type: "string" },
+        alertId: { type: "string" },
+        sourceEventId: { type: "string" },
         workflowGraphId: { type: "string" },
       },
     };

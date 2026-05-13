@@ -795,7 +795,7 @@ test("projects context-pressure alerts into action rows", () => {
           action: "request_approval",
           label: "Request approval",
           status: "available",
-          executable: false,
+          executable: true,
           workflowNodeId: "runtime.approval.context-pressure",
         },
         {
@@ -839,7 +839,7 @@ test("projects context-pressure alerts into action rows", () => {
       [
         "request_approval",
         "runtime.approval.context-pressure",
-        false,
+        true,
         "subagent_aggregate",
         "high",
         "event-context-pressure",

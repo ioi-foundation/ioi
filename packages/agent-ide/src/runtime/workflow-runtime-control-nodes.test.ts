@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { makeWorkflowNode } from "./workflow-node-registry";
 import {
+  RUNTIME_APPROVAL_REQUEST_COMPONENT_KIND,
+  RUNTIME_APPROVAL_REQUEST_SOURCE_EVENT_KIND,
+  RUNTIME_APPROVAL_REQUEST_WORKFLOW_NODE_ID,
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
   RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
@@ -24,6 +27,7 @@ import {
   RUNTIME_THREAD_FORK_SOURCE,
   RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
   RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_APPROVAL_REQUEST_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
@@ -31,6 +35,7 @@ import {
   WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+  createRuntimeApprovalRequestControlRequestFromWorkflowNode,
   createRuntimeContextCompactControlRequestFromWorkflowNode,
   createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode,
   createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
@@ -137,6 +142,17 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
       { threadId: "thread-shared", turnId: "turn-shared" },
       { workflowGraphId: graphId, actor },
     ),
+    createRuntimeApprovalRequestControlRequestFromWorkflowNode(
+      makeWorkflowNode(
+        "approval-request-shared",
+        "runtime_approval_request",
+        "Approval",
+        0,
+        0,
+      ),
+      { threadId: "thread-shared", turnId: "turn-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
     createRuntimeRollbackSnapshotControlRequestFromWorkflowNode(
       makeWorkflowNode(
         "snapshot-shared",
@@ -205,6 +221,13 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
         actor,
         graphId,
         nodeId: RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_APPROVAL_REQUEST_WORKFLOW_NODE_ID,
         threadId: "thread-shared",
       },
       {
@@ -307,6 +330,115 @@ test("runtime_context_compact helper supports configurable fields from node logi
   );
   assert.equal(request.body.reason, "summarize stale context");
   assert.equal(request.body.scope, "thread");
+  assert.equal(request.body.actor, "workflow-author");
+  assert.equal(request.body.source, "react_flow");
+});
+
+test("runtime_approval_request workflow node builds a React Flow daemon request", () => {
+  const node = makeWorkflowNode(
+    "approval-request-control",
+    "runtime_approval_request",
+    "Approval request",
+    100,
+    120,
+  );
+  const request = createRuntimeApprovalRequestControlRequestFromWorkflowNode(
+    node,
+    {
+      threadId: "thread-react-flow-1",
+      turnId: "turn-react-flow-1",
+      approvalId: "approval-context-pressure",
+      reason: "continue through high context pressure",
+      scope: "subagent_aggregate",
+      pressure: 0.91,
+      pressureStatus: "high",
+      alertId: "event-context-alert",
+      sourceEventId: "event-context-pressure",
+      receiptRefs: ["receipt-context-alert"],
+      policyDecisionRefs: ["policy-context-alert-compact"],
+    },
+    { workflowGraphId: "workflow.react-flow.approval-request-proof" },
+  );
+
+  assert.equal(
+    request.schemaVersion,
+    WORKFLOW_RUNTIME_APPROVAL_REQUEST_CONTROL_SCHEMA_VERSION,
+  );
+  assert.equal(request.nodeType, "runtime_approval_request");
+  assert.equal(request.nodeId, "approval-request-control");
+  assert.equal(request.threadId, "thread-react-flow-1");
+  assert.equal(request.turnId, "turn-react-flow-1");
+  assert.equal(request.endpoint, "/v1/threads/thread-react-flow-1/approvals");
+  assert.equal(request.body.approvalId, "approval-context-pressure");
+  assert.equal(request.body.approval_id, "approval-context-pressure");
+  assert.equal(request.body.reason, "continue through high context pressure");
+  assert.equal(request.body.scope, "subagent_aggregate");
+  assert.equal(request.body.turnId, "turn-react-flow-1");
+  assert.equal(request.body.pressure, 0.91);
+  assert.equal(request.body.pressureStatus, "high");
+  assert.equal(request.body.alertId, "event-context-alert");
+  assert.equal(request.body.sourceEventId, "event-context-pressure");
+  assert.deepEqual(request.body.receiptRefs, ["receipt-context-alert"]);
+  assert.deepEqual(request.body.policyDecisionRefs, ["policy-context-alert-compact"]);
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.actor, "operator");
+  assert.equal(
+    request.body.workflowGraphId,
+    "workflow.react-flow.approval-request-proof",
+  );
+  assert.equal(request.body.workflowNodeId, RUNTIME_APPROVAL_REQUEST_WORKFLOW_NODE_ID);
+  assert.equal(request.body.eventKind, RUNTIME_APPROVAL_REQUEST_SOURCE_EVENT_KIND);
+  assert.equal(request.body.componentKind, RUNTIME_APPROVAL_REQUEST_COMPONENT_KIND);
+});
+
+test("runtime_approval_request helper supports configurable fields from node logic", () => {
+  const node = makeWorkflowNode(
+    "approval-request-configured",
+    "runtime_approval_request",
+    "Approval request",
+    100,
+    120,
+    {
+      runtimeApprovalRequestEndpoint: "/runtime/{threadId}/approval",
+      runtimeApprovalRequestThreadIdField: "runtime.threadId",
+      runtimeApprovalRequestTurnIdField: "runtime.turnId",
+      runtimeApprovalRequestApprovalIdField: "approval.id",
+      runtimeApprovalRequestReasonField: "approval.reason",
+      runtimeApprovalRequestScopeField: "approval.scope",
+      runtimeApprovalRequestPressureField: "approval.pressure",
+      runtimeApprovalRequestPressureStatusField: "approval.pressureStatus",
+      runtimeApprovalRequestAlertIdField: "approval.alertId",
+      runtimeApprovalRequestSourceEventIdField: "approval.sourceEventId",
+      runtimeApprovalRequestWorkflowNodeId: "runtime.approval.context-pressure",
+      runtimeApprovalRequestActor: "workflow-author",
+    },
+  );
+  const request = createRuntimeApprovalRequestControlRequestFromWorkflowNode(
+    node,
+    {
+      runtime: { threadId: "thread with space", turnId: "turn/with/slash" },
+      approval: {
+        id: "approval configured",
+        reason: "manual continuation gate",
+        scope: "turn",
+        pressure: 0.88,
+        pressureStatus: "high",
+        alertId: "alert-configured",
+        sourceEventId: "usage-delta-configured",
+      },
+    },
+  );
+
+  assert.equal(request.threadId, "thread with space");
+  assert.equal(request.turnId, "turn/with/slash");
+  assert.equal(request.endpoint, "/runtime/thread%20with%20space/approval");
+  assert.equal(request.body.approvalId, "approval configured");
+  assert.equal(request.body.reason, "manual continuation gate");
+  assert.equal(request.body.scope, "turn");
+  assert.equal(request.body.pressure, 0.88);
+  assert.equal(request.body.pressureStatus, "high");
+  assert.equal(request.body.alertId, "alert-configured");
+  assert.equal(request.body.sourceEventId, "usage-delta-configured");
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.source, "react_flow");
 });

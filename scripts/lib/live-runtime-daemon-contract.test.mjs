@@ -9196,6 +9196,134 @@ test("agent TUI approval slash commands emit receipt-backed React Flow rows", as
   }
 });
 
+test("React Flow approval request control creates a daemon-owned approval gate", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeApprovalRequestControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-approval-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-approval-state-"));
+  const workflowGraphId = "workflow.react-flow.approval-request-proof";
+  const workflowNodeId = "runtime.approval.context-pressure";
+  const approvalId = "approval-context-pressure-live";
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Prove React Flow approval request controls create approval gates.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a React Flow approval-request validation.",
+      }),
+    });
+    const workflowNode = {
+      id: "react-flow-approval-request-control",
+      type: "runtime_approval_request",
+      config: {
+        logic: {
+          runtimeApprovalRequestEndpoint: "/v1/threads/{threadId}/approvals",
+          runtimeApprovalRequestThreadIdField: "threadId",
+          runtimeApprovalRequestTurnIdField: "turnId",
+          runtimeApprovalRequestApprovalIdField: "approvalId",
+          runtimeApprovalRequestReasonField: "reason",
+          runtimeApprovalRequestScopeField: "scope",
+          runtimeApprovalRequestPressureField: "pressure",
+          runtimeApprovalRequestPressureStatusField: "pressureStatus",
+          runtimeApprovalRequestAlertIdField: "alertId",
+          runtimeApprovalRequestSourceEventIdField: "sourceEventId",
+          runtimeApprovalRequestWorkflowNodeId: workflowNodeId,
+          runtimeApprovalRequestActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.approval.request"] },
+      },
+    };
+    const control = createRuntimeApprovalRequestControlRequestFromWorkflowNode(
+      workflowNode,
+      {
+        threadId: thread.thread_id,
+        turnId: turn.turn_id,
+        approvalId,
+        reason: "request approval to continue at high context pressure",
+        scope: "subagent_aggregate",
+        pressure: 0.91,
+        pressureStatus: "high",
+        alertId: "event-context-pressure-alert-live",
+        sourceEventId: "event-context-pressure-live",
+        receiptRefs: ["receipt_context_pressure_alert_live"],
+        policyDecisionRefs: ["policy_context_pressure_alert_compact_live"],
+      },
+      { workflowGraphId },
+    );
+    assert.equal(control.nodeType, "runtime_approval_request");
+    assert.equal(control.body.source, "react_flow");
+    assert.equal(control.body.workflowGraphId, workflowGraphId);
+    assert.equal(control.body.workflowNodeId, workflowNodeId);
+    assert.equal(control.body.componentKind, "approval_gate");
+
+    const requested = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(control.body),
+    });
+    assert.equal(requested.turn_id, turn.turn_id);
+    assert.equal(requested.status, "waiting_for_approval");
+    assert.equal(requested.approval_id, approvalId);
+    assert.equal(requested.approval_required, true);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const approvalEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorApproval.Request" && event.source === "react_flow",
+    );
+    assert.ok(approvalEvent);
+    assert.equal(approvalEvent.event_kind, "approval.required");
+    assert.equal(approvalEvent.status, "waiting_for_approval");
+    assert.equal(approvalEvent.actor, "user");
+    assert.equal(approvalEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(approvalEvent.workflow_node_id, workflowNodeId);
+    assert.equal(approvalEvent.component_kind, "approval_gate");
+    assert.equal(approvalEvent.payload_schema_version, "ioi.runtime.approval-request.v1");
+    assert.equal(approvalEvent.approval_id, approvalId);
+    assert.ok(approvalEvent.payload.approval_required === true || approvalEvent.payload.approval_required === "true");
+    assert.equal(approvalEvent.payload.scope, "subagent_aggregate");
+    assert.equal(Number(approvalEvent.payload.pressure), 0.91);
+    assert.equal(approvalEvent.payload.pressure_status, "high");
+    assert.ok(approvalEvent.receipt_refs.includes("receipt_context_pressure_alert_live"));
+    assert.ok(approvalEvent.policy_decision_refs.includes("policy_context_pressure_alert_compact_live"));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkApprovalEvent = sdkEvents.find((event) => event.id === approvalEvent.event_id);
+    assert.ok(sdkApprovalEvent);
+    assert.equal(sdkApprovalEvent.type, "approval_required");
+    assert.equal(sdkApprovalEvent.sourceEventKind, "OperatorApproval.Request");
+    assert.equal(sdkApprovalEvent.approvalId, approvalId);
+    assert.equal(sdkApprovalEvent.workflowGraphId, workflowGraphId);
+    assert.equal(sdkApprovalEvent.workflowNodeId, workflowNodeId);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const approvalNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(approvalEvent.event_id),
+    );
+    assert.ok(approvalNode);
+    assert.equal(approvalNode.nodeKind, "human_gate");
+    assert.equal(approvalNode.componentKind, "approval_gate");
+    assert.equal(approvalNode.workflowNodeId, workflowNodeId);
+    assert.ok(reactFlowProjection.workflowGraphIds.includes(workflowGraphId));
+  } finally {
+    if (daemon) await daemon.close();
+  }
+});
+
 test("React Flow and line-mode TUI interrupt controls share the operator-control event contract", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -10487,18 +10615,23 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /setRuntimeThreadEvents/);
   assert.match(workflowComposerController, /createRuntimeDiagnosticsRepairControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeDiagnosticsRepair/);
+  assert.match(workflowComposerController, /createRuntimeApprovalRequestControlRequest/);
   assert.match(workflowComposerController, /createRuntimeContextCompactControlRequest/);
   assert.match(workflowComposerController, /createRuntimeOperatorInterruptControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeContextPressureAction/);
-  assert.match(workflowComposerController, /action\.action !== "compact" && action\.action !== "stop"/);
+  assert.match(workflowComposerController, /"request_approval"/);
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
   assert.match(workflowComposerView, /onExecuteRuntimeContextPressureAction/);
   assert.match(runtimeDaemon, /context_pressure_alert/);
   assert.match(runtimeDaemon, /context\.pressure_alert/);
+  assert.match(runtimeDaemon, /requestThreadApproval/);
+  assert.match(runtimeDaemon, /OperatorApproval\.Request/);
+  assert.match(runtimeDaemon, /approval\.required/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
+  assert.match(graphRuntimeTypes, /RuntimeApprovalRequestControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeContextCompactControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeOperatorInterruptControlRequest/);
   assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);

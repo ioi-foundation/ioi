@@ -170,6 +170,46 @@ the practical workstream when the source heading is broad.
 | 169 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | live React Flow telemetry hydration | /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json | node --check packages/agent-ide/src/runtime/workflow-runtime-live-telemetry.ts<br>node --import tsx --test --test-name-pattern "live telemetry" packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>rustfmt --check apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/test_harness_and_runs.rs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_run_project_reuses_prebound_thread_for_live_telemetry_hydration -- --nocapture<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry |
 | 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions |
 | 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action |
+| 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "runtime_approval_request&#124;context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --import tsx --test --test-name-pattern "React Flow approval request control creates a daemon-owned approval gate" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/generate-runtime-action-contracts.mjs --check<br>cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>git diff --check<br>npm run validate:autopilot-gui-harness |
+
+## Slice 172. 2026-05-13 - Context-pressure approval request execution
+
+Guide section: P1-D. Usage, Cost, Context Telemetry
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/WorkflowComposer/controller.tsx
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- apps/autopilot/src-tauri/src/runtime_projection.rs
+- apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon syntax check passed.
+- `node --import tsx --test --test-name-pattern "runtime_approval_request|context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - approval request builder and context-pressure action projection tests passed.
+- `node --import tsx --test --test-name-pattern "React Flow approval request control creates a daemon-owned approval gate" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon approval request, SDK event, and React Flow projection proof passed.
+- `node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source-contract guard passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript, Vite, and declaration build passed.
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+  - generated runtime action contracts were current after adding
+    `runtime_approval_request`.
+- `cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+  - Rust action-kind classification tests passed.
+- `git diff --check`
+  - whitespace check passed.
+- `npm run validate:autopilot-gui-harness`
+  - live GUI/workflow preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json`.
 
 ## Slice 171. 2026-05-13 - Context-pressure stop action execution
 

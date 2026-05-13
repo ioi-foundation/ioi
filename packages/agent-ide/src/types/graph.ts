@@ -705,6 +705,35 @@ export interface NodeLogic {
   runtimeContextCompactWorkflowNodeId?: string;
   runtimeContextCompactSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeContextCompactActor?: string;
+  runtimeApprovalRequestEndpoint?: string;
+  runtimeApprovalRequest?: unknown;
+  runtimeApprovalRequestField?: string;
+  runtimeApprovalRequestEventField?: string;
+  runtimeApprovalRequestStatusField?: string;
+  runtimeApprovalRequestReceiptField?: string;
+  runtimeApprovalRequestPolicyField?: string;
+  runtimeApprovalRequestThreadId?: string;
+  runtimeApprovalRequestThreadIdField?: string;
+  runtimeApprovalRequestTurnId?: string;
+  runtimeApprovalRequestTurnIdField?: string;
+  runtimeApprovalRequestApprovalId?: string;
+  runtimeApprovalRequestApprovalIdField?: string;
+  runtimeApprovalRequestReason?: string;
+  runtimeApprovalRequestReasonField?: string;
+  runtimeApprovalRequestScope?: string;
+  runtimeApprovalRequestScopeField?: string;
+  runtimeApprovalRequestPressureStatus?: string;
+  runtimeApprovalRequestPressureField?: string;
+  runtimeApprovalRequestPressureStatusField?: string;
+  runtimeApprovalRequestAlertId?: string;
+  runtimeApprovalRequestAlertIdField?: string;
+  runtimeApprovalRequestSourceEventId?: string;
+  runtimeApprovalRequestSourceEventIdField?: string;
+  runtimeApprovalRequestReceiptRefsField?: string;
+  runtimeApprovalRequestPolicyDecisionRefsField?: string;
+  runtimeApprovalRequestWorkflowNodeId?: string;
+  runtimeApprovalRequestSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeApprovalRequestActor?: string;
   runtimeRollbackSnapshotEndpoint?: string;
   runtimeRollbackSnapshot?: unknown;
   runtimeRollbackSnapshotField?: string;
@@ -980,6 +1009,9 @@ export interface NodeLogic {
     runtimeOperatorSteerStatusField?: string;
     runtimeContextCompactField?: string;
     runtimeContextCompactStatusField?: string;
+    consumesRuntimeApprovalRequest?: boolean;
+    runtimeApprovalRequestField?: string;
+    runtimeApprovalRequestStatusField?: string;
     runtimeUsageMeterField?: string;
     runtimeUsageMeterStatusField?: string;
     runtimeContextBudgetField?: string;
@@ -1514,6 +1546,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_operator_interrupt">
   | WorkflowNodeConfigBase<"runtime_operator_steer">
   | WorkflowNodeConfigBase<"runtime_context_compact">
+  | WorkflowNodeConfigBase<"runtime_approval_request">
   | WorkflowNodeConfigBase<"runtime_usage_meter">
   | WorkflowNodeConfigBase<"runtime_context_budget">
   | WorkflowNodeConfigBase<"runtime_compaction_policy">
@@ -4215,6 +4248,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_context_compact"
+  | "runtime_approval_request"
   | "runtime_usage_meter"
   | "runtime_context_budget"
   | "runtime_compaction_policy"
@@ -4779,6 +4813,7 @@ export type WorkflowNodeKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_context_compact"
+  | "runtime_approval_request"
   | "runtime_usage_meter"
   | "runtime_context_budget"
   | "runtime_compaction_policy"

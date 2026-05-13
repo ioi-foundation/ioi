@@ -70,6 +70,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "runtime_operator_steer";
     case "runtime_context_compact":
       return "runtime_context_compact";
+    case "runtime_approval_request":
+      return "runtime_approval_request";
     case "runtime_usage_meter":
       return "runtime_usage_meter";
     case "runtime_context_budget":
