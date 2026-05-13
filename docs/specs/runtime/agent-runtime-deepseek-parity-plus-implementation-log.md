@@ -127,6 +127,7 @@ workstream was narrower.
 | 125 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | automatic post-edit diagnostics injection loop | /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json |
 | 126 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | blocking post-edit diagnostics repair gate | /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json |
 | 127 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | project-aware diagnostics backend ladder | /tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json |
+| 128 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | workspace snapshot records for mutating coding tools | /tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -813,6 +814,41 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-project-aware-diagnostics`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json`.
+
+### Slice 128. 2026-05-13 - Workspace snapshot records for mutating coding tools
+
+Implementation slice completed 2026-05-13, workspace snapshot records for
+mutating coding tools:
+
+- Added metadata-only workspace snapshot records for applied `file.apply_patch`
+  calls, including pre/post touched-file hashes, existence, size, and mtime
+  metadata.
+- Attached snapshot artifact refs, receipt refs, and rollback refs to the patch
+  result and emitted a separate `workspace.snapshot.created` runtime event.
+- Extended SDK result types and the SDK mock so patch invocations surface
+  `workspace_snapshot`, camelCase aliases, and `rollback_refs`.
+- Projected snapshot events into React Flow as workflow-addressable
+  `quality_ledger` rows with `workspace_snapshot` component kind.
+- Updated the live daemon contract to prove daemon, SDK, CLI/TUI source guards,
+  React Flow projection, and autopilot GUI/workflow preflight all preserve the
+  snapshot receipts and rollback refs.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --import tsx --test --test-name-pattern "projects coding tool|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "agent CLI exposes model|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-snapshots`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

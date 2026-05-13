@@ -47,6 +47,8 @@ const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
 const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
+const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
+const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
 const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
@@ -2556,6 +2558,8 @@ export class AgentgresRuntimeStateStore {
     let status = "completed";
     let result = null;
     let error = null;
+    let workspaceSnapshot = null;
+    let workspaceSnapshotEvent = null;
     try {
       result = executeCodingTool(normalizedToolId, agent.cwd, input, {
         threadId,
@@ -2575,6 +2579,28 @@ export class AgentgresRuntimeStateStore {
       result = codingToolResultWithoutDrafts(result, materializedArtifacts);
       artifactRefs.push(...normalizeArray(result.artifactRefs));
       receiptRefs.push(...normalizeArray(result.receiptRefs));
+      if (normalizedToolId === "file.apply_patch") {
+        workspaceSnapshot = this.prepareWorkspaceSnapshotForPatch({
+          threadId,
+          turnId,
+          workspaceRoot: agent.cwd,
+          toolCallId,
+          workflowGraphId,
+          workflowNodeId,
+          result,
+        });
+        if (workspaceSnapshot) {
+          result = {
+            ...result,
+            workspaceSnapshot: workspaceSnapshot.record,
+            workspace_snapshot: workspaceSnapshot.record,
+            workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
+            workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
+          };
+          artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
+          receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
+        }
+      }
     } catch (caught) {
       status = "failed";
       error = {
@@ -2632,9 +2658,20 @@ export class AgentgresRuntimeStateStore {
       tool_call_id: toolCallId,
       artifact_refs: artifactRefs,
       receipt_refs: uniqueStrings(receiptRefs),
+      rollback_refs: workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : [],
       payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       payload_summary: payloadSummary,
     });
+    if (workspaceSnapshot) {
+      workspaceSnapshotEvent = this.appendWorkspaceSnapshotEvent({
+        threadId,
+        turnId,
+        workspaceRoot: agent.cwd,
+        workflowGraphId,
+        snapshot: workspaceSnapshot.record,
+        sourceToolEvent: event,
+      });
+    }
     const autoDiagnostics =
       status === "completed" && normalizedToolId === "file.apply_patch"
         ? this.maybeRunPostEditDiagnostics({
@@ -2662,12 +2699,186 @@ export class AgentgresRuntimeStateStore {
       shell_fallback_used: false,
       receipt_refs: event.receipt_refs,
       artifact_refs: event.artifact_refs,
+      rollback_refs: event.rollback_refs,
       event,
+      workspace_snapshot: workspaceSnapshot?.record ?? null,
+      workspaceSnapshot: workspaceSnapshot?.record ?? null,
+      workspace_snapshot_event: workspaceSnapshotEvent,
+      workspaceSnapshotEvent,
       auto_diagnostics: autoDiagnostics,
       autoDiagnostics,
       result,
       error,
     };
+  }
+
+  prepareWorkspaceSnapshotForPatch({
+    threadId,
+    turnId,
+    workspaceRoot,
+    toolCallId,
+    workflowGraphId,
+    workflowNodeId,
+    result = {},
+  } = {}) {
+    if (!result?.applied) return null;
+    const files = normalizeArray(result.changedFiles)
+      .filter((entry) => optionalString(entry?.path))
+      .map((entry) => workspaceSnapshotFileForPatch(entry));
+    if (!files.length) return null;
+    const core = {
+      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      object: "ioi.runtime_workspace_snapshot",
+      threadId,
+      turnId: turnId || null,
+      workspaceRoot,
+      snapshotKind: "pre_post_touched_files",
+      trigger: {
+        toolName: "file.apply_patch",
+        toolCallId,
+        workflowGraphId,
+        workflowNodeId,
+      },
+      fileCount: files.length,
+      changedFileCount: files.filter((file) => file.changed).length,
+      createdFileCount: files.filter((file) => file.created).length,
+      deletedFileCount: files.filter((file) => file.deleted).length,
+      files,
+      restore: {
+        status: "metadata_only",
+        previewSupported: false,
+        applySupported: false,
+        reason: "snapshot_content_capture_pending",
+      },
+      redaction: {
+        profile: "workspace_snapshot_metadata_only",
+        contentIncluded: false,
+        pathsIncluded: true,
+      },
+      evidenceRefs: ["workspace_snapshot_metadata", "file.apply_patch", toolCallId].filter(Boolean),
+    };
+    const snapshotHash = doctorHash(JSON.stringify(core));
+    const snapshotId = `workspace_snapshot_${safeId(toolCallId)}_${snapshotHash.slice(0, 12)}`;
+    const receiptId = `receipt_${snapshotId}`;
+    const artifactId = `artifact_${safeId(snapshotId)}_metadata`;
+    const record = {
+      ...core,
+      snapshotId,
+      snapshot_id: snapshotId,
+      snapshotHash,
+      snapshot_hash: snapshotHash,
+      receiptRefs: [receiptId],
+      receipt_refs: [receiptId],
+      artifactRefs: [artifactId],
+      artifact_refs: [artifactId],
+      summary: `Workspace snapshot recorded ${files.length} changed file(s) for ${toolCallId}.`,
+    };
+    const artifactRecord = this.materializeWorkspaceSnapshotArtifact({
+      threadId,
+      toolCallId,
+      workspaceRoot,
+      snapshot: record,
+      artifactId,
+      receiptId,
+    });
+    return {
+      record,
+      artifactRecord,
+    };
+  }
+
+  materializeWorkspaceSnapshotArtifact({ threadId, toolCallId, workspaceRoot, snapshot, artifactId, receiptId } = {}) {
+    const createdAt = new Date().toISOString();
+    const content = JSON.stringify(snapshot, null, 2);
+    const artifactRecord = {
+      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      id: artifactId,
+      thread_id: threadId,
+      threadId,
+      tool_name: "file.apply_patch",
+      toolName: "file.apply_patch",
+      tool_call_id: toolCallId,
+      toolCallId,
+      workspace_root: workspaceRoot,
+      workspaceRoot,
+      name: "workspace-snapshot.json",
+      channel: "workspace-snapshot",
+      media_type: "application/json",
+      mediaType: "application/json",
+      redaction: "metadata_only",
+      receipt_id: receiptId,
+      receiptId,
+      content,
+      content_bytes: Buffer.byteLength(content, "utf8"),
+      contentBytes: Buffer.byteLength(content, "utf8"),
+      content_hash: doctorHash(content),
+      contentHash: doctorHash(content),
+      created_at: createdAt,
+      createdAt,
+    };
+    this.codingArtifacts.set(artifactRecord.id, artifactRecord);
+    writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+    return artifactRecord;
+  }
+
+  appendWorkspaceSnapshotEvent({
+    threadId,
+    turnId,
+    workspaceRoot,
+    workflowGraphId,
+    snapshot,
+    sourceToolEvent,
+  } = {}) {
+    if (!snapshot?.snapshotId) return null;
+    const payloadSummary = {
+      schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      event_kind: "WorkspaceSnapshotCreated",
+      snapshot_id: snapshot.snapshotId,
+      snapshot_hash: snapshot.snapshotHash,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: workspaceRoot,
+      snapshot_kind: snapshot.snapshotKind,
+      file_count: snapshot.fileCount,
+      changed_file_count: snapshot.changedFileCount,
+      created_file_count: snapshot.createdFileCount,
+      deleted_file_count: snapshot.deletedFileCount,
+      restore_status: snapshot.restore?.status ?? "metadata_only",
+      restore_preview_supported: Boolean(snapshot.restore?.previewSupported),
+      restore_apply_supported: Boolean(snapshot.restore?.applySupported),
+      source_tool_name: "file.apply_patch",
+      source_tool_call_id: sourceToolEvent?.tool_call_id ?? snapshot.trigger?.toolCallId ?? null,
+      source_tool_event_id: sourceToolEvent?.event_id ?? null,
+      source_workflow_node_id: snapshot.trigger?.workflowNodeId ?? null,
+      files: snapshot.files,
+      receipt_refs: snapshot.receiptRefs,
+      artifact_refs: snapshot.artifactRefs,
+      summary: snapshot.summary,
+      snapshot,
+    };
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:workspace-snapshot:${safeId(snapshot.snapshotId)}`,
+      idempotency_key: `thread:${threadId}:workspace-snapshot:${snapshot.snapshotId}`,
+      source: "runtime_auto",
+      source_event_kind: "WorkspaceSnapshot.Created",
+      event_kind: "workspace.snapshot.created",
+      status: "completed",
+      actor: "runtime",
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId ?? snapshot.trigger?.workflowGraphId ?? null,
+      workflow_node_id: WORKSPACE_SNAPSHOT_NODE_ID,
+      component_kind: "workspace_snapshot",
+      tool_call_id: sourceToolEvent?.tool_call_id ?? snapshot.trigger?.toolCallId ?? null,
+      artifact_refs: snapshot.artifactRefs,
+      receipt_refs: snapshot.receiptRefs,
+      rollback_refs: [snapshot.snapshotId],
+      payload_schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
   }
 
   maybeRunPostEditDiagnostics({
@@ -8931,6 +9142,46 @@ function postEditDiagnosticsConfig(request = {}, input = {}) {
       request.diagnostic_max_output_bytes ??
       4096,
   };
+}
+
+function workspaceSnapshotFileForPatch(entry = {}) {
+  const pathValue = optionalString(entry.path) ?? "unknown";
+  const beforeHash = optionalString(entry.beforeHash ?? entry.before_hash);
+  const afterHash = optionalString(entry.afterHash ?? entry.after_hash);
+  const beforeExists = Boolean(entry.beforeExists ?? entry.before_exists);
+  const afterExists = Object.hasOwn(entry, "afterExists") || Object.hasOwn(entry, "after_exists")
+    ? Boolean(entry.afterExists ?? entry.after_exists)
+    : true;
+  const beforeSizeBytes = Number(entry.beforeSizeBytes ?? entry.before_size_bytes ?? 0) || 0;
+  const afterSizeBytes = Number(entry.afterSizeBytes ?? entry.after_size_bytes ?? 0) || 0;
+  const beforeMtimeMs = nullableNumber(entry.beforeMtimeMs ?? entry.before_mtime_ms);
+  const afterMtimeMs = nullableNumber(entry.afterMtimeMs ?? entry.after_mtime_ms);
+  return {
+    path: pathValue,
+    created: Boolean(entry.created),
+    deleted: beforeExists && !afterExists,
+    changed: beforeHash !== afterHash,
+    before: {
+      exists: beforeExists,
+      contentHash: beforeHash,
+      sizeBytes: beforeExists ? beforeSizeBytes : 0,
+      mtimeMs: beforeMtimeMs,
+    },
+    after: {
+      exists: afterExists,
+      contentHash: afterHash,
+      sizeBytes: afterExists ? afterSizeBytes : 0,
+      mtimeMs: afterMtimeMs,
+    },
+    receiptRefs: [],
+    artifactRefs: [],
+  };
+}
+
+function nullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function normalizeDiagnosticsMode(value) {

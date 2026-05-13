@@ -565,6 +565,7 @@ export function workflowNodeIdForRuntimeThreadEvent(
 export function workflowNodeKindForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): WorkflowNodeKind {
+  if (event.componentKind === "workspace_snapshot") return "quality_ledger";
   switch (event.type) {
     case "thread_started":
     case "turn_started":
@@ -755,6 +756,7 @@ function componentKindForRuntimeThreadEvent(
 
 function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): string {
   if (event.componentKind === "coding_tool" && event.toolName) return `Coding tool: ${event.toolName}`;
+  if (event.componentKind === "workspace_snapshot") return "Workspace snapshot";
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
   if (event.componentKind === "lsp_diagnostics_gate") return "Diagnostics blocking gate";
   if (event.toolName) return `Tool: ${event.toolName}`;

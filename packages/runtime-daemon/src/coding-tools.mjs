@@ -173,7 +173,12 @@ export function codingToolContracts() {
           "shellFallbackUsed",
         ],
       },
-      evidenceRequirements: ["file_apply_patch_receipt", "workspace_mutation_receipt", "coding_tool_receipt"],
+      evidenceRequirements: [
+        "file_apply_patch_receipt",
+        "workspace_mutation_receipt",
+        "workspace_snapshot_receipt",
+        "coding_tool_receipt",
+      ],
       workflowNodeType: "FilesystemPatchNode",
       workflowConfigFields: [
         "toolPack.coding.filesystemEnabled",
@@ -454,6 +459,8 @@ export function codingToolResultSummary(toolId, result = {}) {
       applied: Boolean(result?.applied),
       changed: Boolean(result?.changed),
       editCount: Number(result?.editCount ?? 0),
+      changedFileCount: normalizeArray(result?.changedFiles).length,
+      workspaceSnapshotId: result?.workspaceSnapshotId ?? result?.workspace_snapshot_id ?? null,
     };
   }
   if (toolId === "test.run") {
@@ -719,6 +726,7 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
   const dryRun = Boolean(input.dryRun ?? input.dry_run);
   const create = Boolean(input.create);
   const exists = fs.existsSync(target.absolutePath);
+  const beforeStat = exists ? fs.statSync(target.absolutePath) : null;
   if (!exists && !create) {
     throw codingToolError(404, "not_found", `File not found: ${target.relativePath}`, {
       workspaceRoot,
@@ -726,18 +734,17 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
     });
   }
   if (exists) {
-    const stat = fs.statSync(target.absolutePath);
-    if (!stat.isFile()) {
+    if (!beforeStat.isFile()) {
       throw codingToolError(400, "file_apply_patch_not_file", "file.apply_patch can only edit regular files.", {
         workspaceRoot,
         path: target.relativePath,
       });
     }
-    if (stat.size > CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES) {
+    if (beforeStat.size > CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES) {
       throw codingToolError(413, "file_apply_patch_file_too_large", "file.apply_patch refused a file over the edit size limit.", {
         workspaceRoot,
         path: target.relativePath,
-        sizeBytes: stat.size,
+        sizeBytes: beforeStat.size,
         maxBytes: CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES,
       });
     }
@@ -772,6 +779,9 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
   if (!dryRun && changed) {
     fs.writeFileSync(target.absolutePath, after, "utf8");
   }
+  const afterStat = !dryRun && fs.existsSync(target.absolutePath) ? fs.statSync(target.absolutePath) : null;
+  const beforeBytes = Buffer.byteLength(before, "utf8");
+  const afterBytes = Buffer.byteLength(after, "utf8");
   return {
     schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
     workspaceRoot,
@@ -794,6 +804,12 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
             path: target.relativePath,
             beforeHash,
             afterHash,
+            beforeExists: exists,
+            afterExists: !dryRun ? true : exists,
+            beforeSizeBytes: exists ? beforeBytes : 0,
+            afterSizeBytes: afterBytes,
+            beforeMtimeMs: exists ? Math.round(beforeStat.mtimeMs) : null,
+            afterMtimeMs: afterStat ? Math.round(afterStat.mtimeMs) : null,
             created: !exists,
             diagnosticsRecommended: !dryRun,
           },
