@@ -2008,7 +2008,9 @@ function contextPressureActionsForEvents(
       summaryForContextPressureAction(action, pressure, scope);
     const executable =
       booleanField(record, "executable") ??
-      (action === "compact" || (action === "stop" && Boolean(alertEvent.turnId)));
+      (action === "compact" ||
+        action === "request_approval" ||
+        (action === "stop" && Boolean(alertEvent.turnId)));
     const status = stringField(record, "status") ?? (executable ? "available" : "advisory");
     const decisionId =
       stringField(record, "decisionId", "decision_id") ??

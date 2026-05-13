@@ -119,6 +119,7 @@ import {
   validateWorkflowConnection,
 } from "../runtime/runtime-projection-adapter";
 import {
+  createRuntimeApprovalRequestControlRequest,
   createRuntimeContextCompactControlRequest,
   createRuntimeDiagnosticsRepairControlRequest,
   createRuntimeOperatorInterruptControlRequest,
@@ -9510,7 +9511,7 @@ export function useWorkflowComposerController({
         setStatusMessage(`Context pressure action ${action.label} is advisory`);
         return;
       }
-      if (action.action !== "compact" && action.action !== "stop") {
+      if (!["compact", "stop", "request_approval"].includes(action.action)) {
         setStatusMessage(
           `Context pressure action ${action.label} is not executable yet`,
         );
@@ -9543,15 +9544,33 @@ export function useWorkflowComposerController({
               workflowNodeId: action.workflowNodeId,
               actor: "operator",
             })
-          : createRuntimeOperatorInterruptControlRequest({
-              nodeId: action.id,
-              threadId: action.threadId,
-              turnId: action.turnId,
-              reason,
-              workflowGraphId,
-              workflowNodeId: action.workflowNodeId,
-              actor: "operator",
-            });
+          : action.action === "request_approval"
+            ? createRuntimeApprovalRequestControlRequest({
+                nodeId: action.id,
+                threadId: action.threadId,
+                turnId: action.turnId,
+                approvalId: action.id,
+                reason,
+                scope: action.scope,
+                pressure: action.pressure,
+                pressureStatus: action.pressureStatus,
+                alertId: action.eventId,
+                sourceEventId: action.sourceEventId ?? action.eventId,
+                receiptRefs: action.receiptRefs,
+                policyDecisionRefs: action.policyDecisionRefs,
+                workflowGraphId,
+                workflowNodeId: action.workflowNodeId,
+                actor: "operator",
+              })
+            : createRuntimeOperatorInterruptControlRequest({
+                nodeId: action.id,
+                threadId: action.threadId,
+                turnId: action.turnId,
+                reason,
+                workflowGraphId,
+                workflowNodeId: action.workflowNodeId,
+                actor: "operator",
+              });
       try {
         await runtime.executeWorkflowRuntimeControlRequest(request);
         setRuntimeThreadEvents(await loadRuntimeThreadEvents(action.threadId));

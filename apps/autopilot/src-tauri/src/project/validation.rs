@@ -311,6 +311,27 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeApprovalRequest {
+            if workflow_json_string(&logic, "runtimeApprovalRequestEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_approval_request_endpoint".to_string(),
+                    message: "Runtime approval request nodes need an approval endpoint template."
+                        .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeApprovalRequestThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeApprovalRequestThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_approval_request_thread".to_string(),
+                    message:
+                        "Runtime approval request nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::RuntimeRollbackSnapshot {
             if workflow_json_string(&logic, "runtimeRollbackSnapshotEndpoint").is_none() {
                 missing_config.push(WorkflowValidationIssue {

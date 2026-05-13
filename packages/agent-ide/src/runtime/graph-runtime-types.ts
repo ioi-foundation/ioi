@@ -40,12 +40,14 @@ import type {
 } from "../types/graph";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 import type {
+  RuntimeApprovalRequestControlRequest,
   RuntimeContextCompactControlRequest,
   RuntimeDiagnosticsRepairControlRequest,
   RuntimeOperatorInterruptControlRequest,
 } from "./workflow-runtime-control-nodes";
 
 export type WorkflowRuntimeControlRequest =
+  | RuntimeApprovalRequestControlRequest
   | RuntimeContextCompactControlRequest
   | RuntimeDiagnosticsRepairControlRequest
   | RuntimeOperatorInterruptControlRequest;

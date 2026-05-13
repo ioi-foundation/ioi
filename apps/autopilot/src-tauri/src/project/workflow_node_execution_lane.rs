@@ -361,6 +361,10 @@ fn workflow_runtime_control_input_bool(input: &Value, path: &str) -> Option<bool
     workflow_runtime_control_value_at_path(input, path).and_then(Value::as_bool)
 }
 
+fn workflow_runtime_control_input_number(input: &Value, path: &str) -> Option<f64> {
+    workflow_runtime_control_value_at_path(input, path).and_then(Value::as_f64)
+}
+
 struct WorkflowRuntimeControlEnvelopeConfig<'a> {
     thread_id_logic_key: &'a str,
     thread_id_field_key: &'a str,
@@ -825,6 +829,133 @@ fn workflow_runtime_context_compact_output(
     )
 }
 
+fn workflow_runtime_approval_request_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeApprovalRequestThreadId",
+            thread_id_field_key: "runtimeApprovalRequestThreadIdField",
+            turn_id_logic_key: Some("runtimeApprovalRequestTurnId"),
+            turn_id_field_key: Some("runtimeApprovalRequestTurnIdField"),
+            workflow_node_id_logic_key: "runtimeApprovalRequestWorkflowNodeId",
+            actor_logic_key: "runtimeApprovalRequestActor",
+            endpoint_logic_key: "runtimeApprovalRequestEndpoint",
+            default_workflow_node_id: "runtime.approval.context-pressure",
+            default_endpoint: "/v1/threads/{threadId}/approvals",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-approval-request-control.v1",
+        source: "react_flow",
+        component_kind: "approval_gate",
+        event_kind: "OperatorApproval.Request",
+        payload_schema_version: "ioi.runtime.approval-request.v1",
+        nested_key: "runtimeApprovalRequest",
+    };
+    let approval_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeApprovalRequestApprovalIdField",
+        "approvalId",
+        "runtimeApprovalRequestApprovalId",
+        &format!(
+            "approval-{}-{}",
+            envelope.thread_id,
+            envelope.turn_id.as_deref().unwrap_or("thread")
+        ),
+    );
+    let reason = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeApprovalRequestReasonField",
+        "reason",
+        "runtimeApprovalRequestReason",
+        "Request operator approval from React Flow workflow control.",
+    );
+    let scope = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeApprovalRequestScopeField",
+        "scope",
+        "runtimeApprovalRequestScope",
+        "thread",
+    );
+    let pressure_field =
+        workflow_runtime_control_logic_string(logic, "runtimeApprovalRequestPressureField")
+            .unwrap_or_else(|| "pressure".to_string());
+    let pressure = workflow_runtime_control_input_number(input, &pressure_field)
+        .map(Value::from)
+        .unwrap_or(Value::Null);
+    let pressure_status = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeApprovalRequestPressureStatusField",
+        "pressureStatus",
+        "runtimeApprovalRequestPressureStatus",
+        "",
+    );
+    let alert_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeApprovalRequestAlertIdField",
+        "alertId",
+        "runtimeApprovalRequestAlertId",
+        "",
+    );
+    let source_event_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeApprovalRequestSourceEventIdField",
+        "sourceEventId",
+        "runtimeApprovalRequestSourceEventId",
+        "",
+    );
+    let turn_id_value = envelope
+        .turn_id
+        .clone()
+        .map(Value::String)
+        .unwrap_or(Value::Null);
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![
+            ("approvalId", json!(approval_id.clone())),
+            ("approval_id", json!(approval_id.clone())),
+            ("reason", json!(reason)),
+            ("scope", json!(scope)),
+            ("turnId", turn_id_value.clone()),
+            ("turn_id", turn_id_value.clone()),
+            ("pressure", pressure),
+            ("pressureStatus", json!(pressure_status.clone())),
+            ("pressure_status", json!(pressure_status)),
+            ("alertId", json!(alert_id.clone())),
+            ("alert_id", json!(alert_id)),
+            ("sourceEventId", json!(source_event_id.clone())),
+            ("source_event_id", json!(source_event_id)),
+        ],
+    );
+    let mut output = workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        Some(turn_id_value),
+        request,
+    );
+    output["approvalId"] = json!(approval_id);
+    output
+}
+
 fn workflow_runtime_rollback_snapshot_output(
     workflow: Option<&WorkflowProject>,
     node_id: &str,
@@ -1263,6 +1394,13 @@ pub(super) fn execute_workflow_node(
             evidence_kind,
         ),
         ActionKind::RuntimeContextCompact => workflow_runtime_context_compact_output(
+            workflow,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        ),
+        ActionKind::RuntimeApprovalRequest => workflow_runtime_approval_request_output(
             workflow,
             &node_id,
             &logic,

@@ -541,6 +541,7 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
         ),
         ("runtime_operator_steer", "Runtime", "Operator Steer"),
         ("runtime_context_compact", "Runtime", "Context Compact"),
+        ("runtime_approval_request", "Runtime", "Approval Request"),
         ("runtime_rollback_snapshot", "Runtime", "Rollback Snapshot"),
         ("runtime_restore_gate", "Runtime", "Restore Gate"),
         ("repository_context", "Context", "Repository Context"),
@@ -744,6 +745,34 @@ pub(super) fn workflow_runtime_context_compact_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeContextCompact": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_approval_request_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "threadId": { "type": "string" },
+            "turnId": { "type": ["string", "null"] },
+            "approvalId": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeApprovalRequest": { "type": "object" }
         }
     })
 }
@@ -1268,6 +1297,49 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
             })),
         ),
         workflow_scaffold(
+            "workflow.runtime.approval_request",
+            "runtime_approval_request",
+            "Runtime",
+            "Approval request control",
+            "Request runtime operator approval from a React Flow workflow control.",
+            "Approval",
+            "gate",
+            json!({
+                "runtimeApprovalRequestEndpoint": "/v1/threads/{threadId}/approvals",
+                "runtimeApprovalRequestField": "runtimeApprovalRequest",
+                "runtimeApprovalRequestEventField": "runtimeApprovalRequest.event",
+                "runtimeApprovalRequestStatusField": "runtimeApprovalRequest.status",
+                "runtimeApprovalRequestReceiptField": "runtimeApprovalRequest.receiptRefs",
+                "runtimeApprovalRequestPolicyField": "runtimeApprovalRequest.policyDecisionRefs",
+                "runtimeApprovalRequestThreadIdField": "threadId",
+                "runtimeApprovalRequestTurnIdField": "turnId",
+                "runtimeApprovalRequestApprovalIdField": "approvalId",
+                "runtimeApprovalRequestReasonField": "reason",
+                "runtimeApprovalRequestReason": "Request operator approval from React Flow workflow control.",
+                "runtimeApprovalRequestScopeField": "scope",
+                "runtimeApprovalRequestScope": "thread",
+                "runtimeApprovalRequestPressureField": "pressure",
+                "runtimeApprovalRequestPressureStatusField": "pressureStatus",
+                "runtimeApprovalRequestAlertIdField": "alertId",
+                "runtimeApprovalRequestSourceEventIdField": "sourceEventId",
+                "runtimeApprovalRequestWorkflowNodeId": "runtime.approval.context-pressure",
+                "runtimeApprovalRequestSource": "react_flow",
+                "runtimeApprovalRequestActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_approval_request_safe",
+                "outputSchema": workflow_runtime_approval_request_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.approval.request"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "requiresApproval": true,
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control", "approval"]
+            })),
+        ),
+        workflow_scaffold(
             "workflow.runtime.rollback_snapshot",
             "runtime_rollback_snapshot",
             "Runtime",
@@ -1354,6 +1426,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "runtime_operator_interrupt"
                 | "runtime_operator_steer"
                 | "runtime_context_compact"
+                | "runtime_approval_request"
                 | "runtime_rollback_snapshot"
                 | "runtime_restore_gate"
                 | "workflow_package_export"
@@ -1398,6 +1471,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         | "runtime_operator_interrupt"
         | "runtime_operator_steer"
         | "runtime_context_compact"
+        | "runtime_approval_request"
         | "runtime_restore_gate"
         | "workflow_package_export"
         | "workflow_package_import" => "write",
@@ -1409,6 +1483,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "proposal"
             | "workflow_package_import"
             | "github_pr_create"
+            | "runtime_approval_request"
             | "runtime_restore_gate"
     );
     let sandboxed = node_type == "function";
@@ -1424,6 +1499,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
             | "runtime_context_compact"
+            | "runtime_approval_request"
             | "runtime_rollback_snapshot"
             | "runtime_restore_gate"
             | "workflow_package_export"
@@ -1452,6 +1528,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
             | "runtime_context_compact"
+            | "runtime_approval_request"
             | "runtime_rollback_snapshot"
             | "runtime_restore_gate"
             | "workflow_package_export"
@@ -1475,6 +1552,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "runtime_operator_interrupt" => vec!["state", "data", "control"],
         "runtime_operator_steer" => vec!["state", "data", "control"],
         "runtime_context_compact" => vec!["state", "data", "control"],
+        "runtime_approval_request" => vec!["state", "data", "control", "approval"],
         "runtime_rollback_snapshot" => vec!["state", "data", "control"],
         "runtime_restore_gate" => vec!["state", "data", "control", "approval"],
         "workflow_package_export" => vec!["data", "output_bundle"],

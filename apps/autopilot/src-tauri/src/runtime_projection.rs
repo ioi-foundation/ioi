@@ -35,6 +35,7 @@ pub enum ActionKind {
     RuntimeOperatorInterrupt,
     RuntimeOperatorSteer,
     RuntimeContextCompact,
+    RuntimeApprovalRequest,
     RuntimeRollbackSnapshot,
     RuntimeRestoreGate,
     RuntimeDiagnosticsRepair,
@@ -88,6 +89,7 @@ impl ActionKind {
             "runtime_operator_interrupt" => Self::RuntimeOperatorInterrupt,
             "runtime_operator_steer" => Self::RuntimeOperatorSteer,
             "runtime_context_compact" => Self::RuntimeContextCompact,
+            "runtime_approval_request" => Self::RuntimeApprovalRequest,
             "runtime_rollback_snapshot" => Self::RuntimeRollbackSnapshot,
             "runtime_restore_gate" => Self::RuntimeRestoreGate,
             "runtime_diagnostics_repair" => Self::RuntimeDiagnosticsRepair,
@@ -141,6 +143,7 @@ impl ActionKind {
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
             Self::RuntimeContextCompact => "runtime_context_compact",
+            Self::RuntimeApprovalRequest => "runtime_approval_request",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
             Self::RuntimeRestoreGate => "runtime_restore_gate",
             Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
@@ -194,6 +197,7 @@ impl ActionKind {
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
             Self::RuntimeContextCompact => "runtime_context_compact",
+            Self::RuntimeApprovalRequest => "runtime_approval_request",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
             Self::RuntimeRestoreGate => "runtime_restore_gate",
             Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
@@ -495,6 +499,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_context_compact"),
             ActionKind::RuntimeContextCompact
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_approval_request"),
+            ActionKind::RuntimeApprovalRequest
         );
         assert_eq!(
             ActionKind::from_node_type("runtime_rollback_snapshot"),
