@@ -1073,6 +1073,46 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json`.
 
+### Slice 135. 2026-05-13 - Executable diagnostics repair restore-preview
+
+Implementation slice completed 2026-05-13, executable diagnostics repair
+restore-preview:
+
+- Added a daemon endpoint for
+  `/v1/threads/{thread_id}/diagnostics/repair-decisions/{decision}/execute`
+  and implemented `restore_preview` repair-decision execution against the
+  latest matching diagnostics blocking gate.
+- Reused the canonical workspace restore-preview contract so repair previews
+  keep the same drift/conflict checks, snapshot rollback refs, receipts,
+  artifacts, and restore-gate event projection as TUI and workflow restore
+  commands.
+- Added SDK support through `executeThreadDiagnosticsRepairDecision`, including
+  daemon and mock runtime clients, so workflow-authored repair controls can
+  execute through the same substrate client boundary.
+- Emitted a receipt-backed `diagnostics.repair_decision.executed` runtime event
+  with graph/node identity, gate/policy refs, restore-preview event refs, and
+  rollback refs, then projected it into React Flow as a
+  `lsp_diagnostics_repair` policy node.
+- Extended source contracts and the live daemon proof so SDK-triggered
+  `restore_preview` repair execution, daemon SSE replay, SDK event projection,
+  and React Flow node projection all agree on the same event ids and
+  workflow-authored node ids.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "diagnostics repair decisions|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-preview`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-preview/2026-05-13T07-37-14-986Z/result.json`.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:

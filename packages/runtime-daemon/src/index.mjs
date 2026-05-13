@@ -66,9 +66,11 @@ const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-in
 const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
 const DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION = "ioi.runtime.diagnostics-rollback-repair-context.v1";
 const DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION = "ioi.runtime.diagnostics-rollback-repair-policy.v1";
+const DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION = "ioi.runtime.diagnostics-repair-decision-execution.v1";
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
 const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
+const LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID = "runtime.lsp-diagnostics.repair.restore-preview";
 const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
 const LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS = 240;
 const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
@@ -2988,6 +2990,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
     const workflowNodeId =
       optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
+    const idempotencyKey = optionalString(request.idempotency_key ?? request.idempotencyKey);
     const snapshotPackage = this.workspaceSnapshotContentPackage(threadId, normalizedSnapshotId);
     const operations = normalizeArray(snapshotPackage.files).map((file) =>
       workspaceRestorePreviewOperation({
@@ -3052,6 +3055,8 @@ export class AgentgresRuntimeStateStore {
       artifact_refs: [artifactId],
       rollbackRefs: [normalizedSnapshotId],
       rollback_refs: [normalizedSnapshotId],
+      idempotencyKey,
+      idempotency_key: idempotencyKey,
       summary:
         previewStatus === "ready"
           ? `Restore preview ready for ${operations.length} file(s) from ${normalizedSnapshotId}.`
@@ -3263,6 +3268,248 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  executeDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
+    this.agentForThread(threadId);
+    const target = optionalString(decisionRef ?? request.decision_id ?? request.decisionId ?? request.action);
+    if (!target) {
+      throw runtimeError({
+        status: 400,
+        code: "diagnostics_repair_decision_required",
+        message: "Diagnostics repair decision execution requires a decision id or action.",
+        details: { threadId },
+      });
+    }
+    const resolution = this.resolveDiagnosticsRepairDecision(threadId, target, request);
+    const { gateEvent, decision, repairPolicy } = resolution;
+    const action = optionalString(decision.action)?.toLowerCase();
+    if (!action) {
+      throw runtimeError({
+        status: 409,
+        code: "diagnostics_repair_decision_invalid",
+        message: "Diagnostics repair decision is missing an action.",
+        details: { threadId, decisionRef: target },
+      });
+    }
+    if (action !== "restore_preview") {
+      throw runtimeError({
+        status: 409,
+        code: "diagnostics_repair_decision_action_unimplemented",
+        message: `Diagnostics repair decision action is not executable yet: ${action}.`,
+        details: {
+          threadId,
+          decisionRef: target,
+          action,
+          supportedActions: ["restore_preview"],
+        },
+      });
+    }
+    if (decision.status && !["available", "requires_approval"].includes(decision.status)) {
+      throw runtimeError({
+        status: 409,
+        code: "diagnostics_repair_decision_unavailable",
+        message: `Diagnostics repair decision is not available: ${decision.status}.`,
+        details: { threadId, decisionRef: target, action, status: decision.status },
+      });
+    }
+    const snapshotId =
+      optionalString(request.snapshot_id ?? request.snapshotId) ??
+      uniqueStrings([
+        ...normalizeArray(decision.workspaceSnapshotRefs ?? decision.workspace_snapshot_refs),
+        ...normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
+        ...normalizeArray(gateEvent.payload_summary?.workspace_snapshot_refs),
+      ])[0];
+    if (!snapshotId) {
+      throw runtimeError({
+        status: 409,
+        code: "diagnostics_repair_snapshot_required",
+        message: "Restore-preview repair decision requires a workspace snapshot ref.",
+        details: { threadId, decisionRef: target, action },
+      });
+    }
+    const workflowGraphId = optionalString(
+      request.workflow_graph_id ?? request.workflowGraphId ?? gateEvent.workflow_graph_id,
+    );
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID;
+    const decisionId = decision.decision_id ?? decision.decisionId ?? target;
+    const restorePreview = this.previewWorkspaceSnapshotRestore(threadId, snapshotId, {
+      source: request.source ?? "runtime_auto",
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      idempotency_key:
+        optionalString(request.restore_preview_idempotency_key ?? request.restorePreviewIdempotencyKey) ??
+        `thread:${threadId}:diagnostics-repair-preview:${decisionId}:${snapshotId}:${action}`,
+      actor: request.actor ?? "operator",
+      diagnostics_repair_decision_id: decisionId,
+      diagnostics_repair_action: action,
+      diagnostics_blocking_gate_event_id: gateEvent.event_id,
+    });
+    const event = this.appendDiagnosticsRepairDecisionExecutedEvent({
+      threadId,
+      request,
+      gateEvent,
+      decision,
+      repairPolicy,
+      action,
+      snapshotId,
+      workflowGraphId,
+      workflowNodeId,
+      executionResult: restorePreview,
+    });
+    return {
+      schemaVersion: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      object: "ioi.runtime_diagnostics_repair_decision_execution",
+      threadId,
+      thread_id: threadId,
+      decisionId: decision.decisionId ?? decision.decision_id ?? target,
+      decision_id: decisionId,
+      action,
+      status: "completed",
+      gateEventId: gateEvent.event_id,
+      gate_event_id: gateEvent.event_id,
+      policyId: repairPolicy.policyId ?? repairPolicy.policy_id ?? null,
+      policy_id: repairPolicy.policy_id ?? repairPolicy.policyId ?? null,
+      snapshotId,
+      snapshot_id: snapshotId,
+      workflowGraphId,
+      workflow_graph_id: workflowGraphId,
+      workflowNodeId,
+      workflow_node_id: workflowNodeId,
+      decision,
+      repairPolicy,
+      repair_policy: repairPolicy,
+      restorePreview,
+      restore_preview: restorePreview,
+      restorePreviewEvent: restorePreview.event ?? null,
+      restore_preview_event: restorePreview.event ?? null,
+      event,
+      receiptRefs: event.receipt_refs,
+      receipt_refs: event.receipt_refs,
+      artifactRefs: event.artifact_refs,
+      artifact_refs: event.artifact_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      policy_decision_refs: event.policy_decision_refs,
+      rollbackRefs: event.rollback_refs,
+      rollback_refs: event.rollback_refs,
+      summary: `Executed diagnostics repair decision ${action} for ${snapshotId}.`,
+    };
+  }
+
+  resolveDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
+    this.projectThreadEvents(this.agentForThread(threadId));
+    const gateId = optionalString(request.gate_id ?? request.gateId);
+    const target = optionalString(decisionRef)?.toLowerCase();
+    const action = optionalString(request.action ?? request.decision_action ?? request.decisionAction)?.toLowerCase();
+    const gateEvents = this.runtimeEventsForStream(eventStreamIdForThread(threadId), { sinceSeq: 0 })
+      .filter((event) => event.event_kind === "policy.blocked" && event.component_kind === "lsp_diagnostics_gate")
+      .filter((event) => {
+        if (!gateId) return true;
+        return (
+          event.payload_summary?.gate_id === gateId ||
+          event.payload_summary?.gateId === gateId ||
+          event.payload?.gate_id === gateId ||
+          event.payload?.gateId === gateId
+        );
+      })
+      .sort((left, right) => right.seq - left.seq);
+    for (const gateEvent of gateEvents) {
+      const repairPolicy = gateEvent.payload_summary?.repair_policy ?? gateEvent.payload_summary?.repairPolicy ?? {};
+      const decisions = normalizeArray(
+        repairPolicy.decisions ??
+          gateEvent.payload_summary?.repair_decisions ??
+          gateEvent.payload_summary?.repairDecisions,
+      );
+      const decision = decisions.find((candidate) => {
+        const candidateId = optionalString(candidate.decision_id ?? candidate.decisionId)?.toLowerCase();
+        const candidateAction = optionalString(candidate.action)?.toLowerCase();
+        return candidateId === target || candidateAction === target || (action && candidateAction === action);
+      });
+      if (decision) return { gateEvent, decision, repairPolicy };
+    }
+    throw notFound(`Diagnostics repair decision not found: ${decisionRef}`, {
+      threadId,
+      decisionRef,
+      gateId,
+    });
+  }
+
+  appendDiagnosticsRepairDecisionExecutedEvent({
+    threadId,
+    request = {},
+    gateEvent,
+    decision,
+    repairPolicy,
+    action,
+    snapshotId,
+    workflowGraphId,
+    workflowNodeId,
+    executionResult,
+  } = {}) {
+    const decisionId = decision?.decision_id ?? decision?.decisionId ?? action;
+    const receiptId = `receipt_lsp_diagnostics_repair_${safeId(action)}_${doctorHash(
+      `${threadId}:${decisionId}:${snapshotId}:${executionResult?.event?.event_id ?? ""}`,
+    ).slice(0, 12)}`;
+    const policyDecisionRefs = uniqueStrings([
+      decisionId,
+      repairPolicy?.policy_id ?? repairPolicy?.policyId,
+      ...normalizeArray(gateEvent?.policy_decision_refs),
+      ...normalizeArray(executionResult?.policy_decision_refs ?? executionResult?.policyDecisionRefs),
+    ]);
+    const artifactRefs = uniqueStrings(normalizeArray(executionResult?.artifact_refs ?? executionResult?.artifactRefs));
+    const rollbackRefs = uniqueStrings([
+      snapshotId,
+      ...normalizeArray(executionResult?.rollback_refs ?? executionResult?.rollbackRefs),
+    ]);
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: gateEvent?.turn_id ?? "",
+      item_id: `${gateEvent?.turn_id || threadId}:item:diagnostics-repair:${safeId(String(decisionId))}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:diagnostics-repair:${decisionId}:${snapshotId}:${action}`,
+      source: operatorControlSource(request.source),
+      source_event_kind: "LspDiagnostics.RepairDecisionExecuted",
+      event_kind: "diagnostics.repair_decision.executed",
+      status: executionResult?.preview_status === "blocked" ? "blocked" : "completed",
+      actor: optionalString(request.actor) ?? "operator",
+      workspace_root: gateEvent?.workspace_root ?? "",
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: `${workflowNodeId}.decision`,
+      component_kind: "lsp_diagnostics_repair",
+      tool_call_id: snapshotId,
+      receipt_refs: [receiptId],
+      artifact_refs: artifactRefs,
+      policy_decision_refs: policyDecisionRefs,
+      rollback_refs: rollbackRefs,
+      payload_schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      payload_summary: {
+        schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+        event_kind: "LspDiagnosticsRepairDecisionExecuted",
+        thread_id: threadId,
+        decision_id: decisionId,
+        action,
+        status: executionResult?.preview_status === "blocked" ? "blocked" : "completed",
+        gate_event_id: gateEvent?.event_id ?? null,
+        gate_id: gateEvent?.payload_summary?.gate_id ?? null,
+        policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
+        snapshot_id: snapshotId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        restore_preview_event_id: executionResult?.event?.event_id ?? null,
+        restore_preview_status: executionResult?.preview_status ?? executionResult?.previewStatus ?? null,
+        rollback_refs: rollbackRefs,
+        receipt_refs: [receiptId],
+        artifact_refs: artifactRefs,
+        policy_decision_refs: policyDecisionRefs,
+        decision,
+        summary: `Diagnostics repair decision ${action} executed for ${snapshotId}.`,
+      },
+    });
+  }
+
   workspaceSnapshotContentPackage(threadId, snapshotId) {
     const matches = [...this.codingArtifacts.values()]
       .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.channel === "workspace-snapshot")
@@ -3397,9 +3644,11 @@ export class AgentgresRuntimeStateStore {
       thread_id: threadId,
       turn_id: turnId || "",
       item_id: `${turnId || threadId}:item:workspace-restore-preview:${safeId(preview.snapshotId)}`,
-      idempotency_key: `thread:${threadId}:workspace-restore-preview:${preview.snapshotId}:${doctorHash(
-        JSON.stringify(preview.operations),
-      ).slice(0, 12)}`,
+      idempotency_key:
+        optionalString(preview.idempotency_key ?? preview.idempotencyKey) ??
+        `thread:${threadId}:workspace-restore-preview:${preview.snapshotId}:${doctorHash(
+          JSON.stringify(preview.operations),
+        ).slice(0, 12)}`,
       source: "runtime_auto",
       source_event_kind: "WorkspaceRestore.Previewed",
       event_kind: "workspace.restore.previewed",
@@ -5846,6 +6095,20 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "tools" && segments[4] && segments[5] === "invoke" && !segments[6]) {
     writeJsonResponse(response, store.invokeThreadTool(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    action === "diagnostics" &&
+    segments[4] === "repair-decisions" &&
+    segments[5] &&
+    segments[6] === "execute" &&
+    !segments[7]
+  ) {
+    writeJsonResponse(
+      response,
+      store.executeDiagnosticsRepairDecision(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+    );
     return;
   }
   if (request.method === "GET" && action === "snapshots" && !segments[4]) {
