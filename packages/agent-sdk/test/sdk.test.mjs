@@ -831,6 +831,90 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
   }
 });
 
+test("Thread subagent wrappers cover the full manager surface on the explicit mock substrate", async () => {
+  const { cwd, client } = tempClient();
+  const thread = await Thread.create({
+    local: { cwd },
+    model: { id: "local:auto" },
+    substrateClient: client,
+  });
+
+  const spawned = await thread.spawnSubagent({
+    role: "explore",
+    prompt: "Inspect SDK subagent wrapper coverage.",
+    toolPack: "coding",
+    modelRouteId: "route.local-first",
+    cancellationInheritance: "propagate",
+    workflowGraphId: "workflow.sdk.subagents",
+    workflowNodeId: "runtime.subagent.spawn.explore",
+  });
+  const subagentId = spawned.subagent_id ?? spawned.subagentId;
+  assert.ok(subagentId);
+  assert.equal(spawned.object, "ioi.runtime_subagent");
+  assert.equal(spawned.role, "explore");
+  assert.equal(spawned.lifecycle_status, "completed");
+
+  const listed = await thread.listSubagents({ role: "explore" });
+  assert.equal(listed.object, "ioi.runtime_subagent_list");
+  assert.equal(listed.count, 1);
+  assert.equal(listed.subagents[0].subagent_id, subagentId);
+
+  const waited = await thread.waitSubagent(subagentId, {
+    workflowNodeId: "runtime.subagent.join.explore",
+  });
+  assert.equal(waited.object, "ioi.runtime_subagent_result");
+  assert.equal(waited.status, "completed");
+  assert.equal(waited.subagent.subagent_id, subagentId);
+  assert.equal(waited.event.source_event_kind, "Subagent.wait");
+
+  const input = await thread.sendSubagentInput(subagentId, {
+    message: "Add SDK input route evidence.",
+    workflowNodeId: "runtime.subagent.input.explore",
+  });
+  assert.equal(input.input_count, 1);
+  assert.equal(input.last_input, "Add SDK input route evidence.");
+  assert.equal(input.event.source_event_kind, "Subagent.send_input");
+
+  const canceled = await thread.cancelSubagent(subagentId, {
+    reason: "sdk_mock_cancel",
+    workflowNodeId: "runtime.subagent.cancel.explore",
+  });
+  assert.equal(canceled.status, "canceled");
+  assert.equal(canceled.subagent.cancellation_reason, "sdk_mock_cancel");
+  assert.equal(canceled.event.source_event_kind, "Subagent.cancel");
+
+  const resumed = await thread.resumeSubagent(subagentId, {
+    message: "Resume SDK subagent wrapper proof.",
+    workflowNodeId: "runtime.subagent.resume.explore",
+  });
+  assert.equal(resumed.status, "completed");
+  assert.equal(resumed.subagent.restart_count, 1);
+  assert.equal(resumed.event.source_event_kind, "Subagent.resume");
+
+  const assigned = await thread.assignSubagent(subagentId, {
+    role: "implement",
+    toolPack: "coding-plus",
+    mergePolicy: "manual_review",
+    workflowNodeId: "runtime.subagent.assign.implement",
+  });
+  assert.equal(assigned.role, "implement");
+  assert.equal(assigned.assignment_count, 1);
+  assert.equal(assigned.event.source_event_kind, "Subagent.assign");
+
+  const isolated = await thread.spawnSubagent({
+    role: "verify",
+    prompt: "Stay isolated from parent cancellation.",
+    cancellationInheritance: "isolate",
+  });
+  const propagation = await thread.propagateSubagentCancellation({ reason: "parent_stop" });
+  assert.equal(propagation.object, "ioi.runtime_subagent_cancellation_propagation");
+  assert.equal(propagation.candidate_count, 2);
+  assert.equal(propagation.canceled_count, 1);
+  assert.equal(propagation.skipped_count, 1);
+  assert.equal(propagation.canceled_subagents[0].subagent_id, subagentId);
+  assert.equal(propagation.skipped_subagents[0].subagent_id, isolated.subagent_id);
+});
+
 function event(id, type, summary, createdAt) {
   return {
     id,

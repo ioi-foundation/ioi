@@ -5004,6 +5004,138 @@ test("local daemon propagates parent subagent cancellation with fan-out policy e
   }
 });
 
+test("SDK client and Thread wrappers drive daemon SubagentManager routes with workflow identity", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-sdk-subagent-manager-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-sdk-subagent-manager-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const thread = await Thread.create({
+      local: { cwd },
+      model: { id: "auto", routeId: "route.native-local" },
+      substrateClient: sdkClient,
+    });
+
+    const spawned = await sdkClient.spawnSubagent(thread.id, {
+      source: "react_flow",
+      actor: "workflow-author",
+      role: "sdk-explore",
+      prompt: "Prove the SDK SubagentManager wrapper reaches the daemon route surface.",
+      toolPack: "coding",
+      modelRouteId: "route.native-local",
+      cancellationInheritance: "propagate",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.spawn.sdk-explore",
+    });
+    assert.equal(spawned.object, "ioi.runtime_subagent");
+    assert.equal(spawned.parent_thread_id, thread.id);
+    assert.equal(spawned.role, "sdk-explore");
+    assert.equal(spawned.event.workflow_graph_id, "workflow.sdk.subagent.manager");
+    assert.equal(spawned.event.workflow_node_id, "runtime.subagent.spawn.sdk-explore");
+
+    const listed = await thread.listSubagents({ role: "sdk-explore" });
+    assert.equal(listed.count, 1);
+    assert.equal(listed.subagents[0].subagent_id, spawned.subagent_id);
+
+    const waited = await thread.waitSubagent(spawned.subagent_id, {
+      source: "react_flow",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.join.sdk-explore",
+    });
+    assert.equal(waited.object, "ioi.runtime_subagent_result");
+    assert.equal(waited.lifecycle_status, "completed");
+    assert.equal(waited.event.workflow_node_id, "runtime.subagent.join.sdk-explore");
+
+    const result = await sdkClient.getSubagentResult(thread.id, spawned.subagent_id);
+    assert.equal(result.subagent.subagent_id, spawned.subagent_id);
+    assert.equal(result.output_contract_status, "passed");
+
+    const input = await thread.sendSubagentInput(spawned.subagent_id, {
+      source: "react_flow",
+      message: "Add SDK wrapper send-input evidence.",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.input.sdk-explore",
+    });
+    assert.equal(input.input_count, 1);
+    assert.equal(input.event.workflow_node_id, "runtime.subagent.input.sdk-explore");
+
+    const canceled = await sdkClient.cancelSubagent(thread.id, spawned.subagent_id, {
+      source: "react_flow",
+      reason: "sdk_wrapper_cancel",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.cancel.sdk-explore",
+    });
+    assert.equal(canceled.lifecycle_status, "canceled");
+    assert.equal(canceled.subagent.cancellation_reason, "sdk_wrapper_cancel");
+
+    const resumed = await thread.resumeSubagent(spawned.subagent_id, {
+      source: "react_flow",
+      message: "Resume the SDK wrapper subagent.",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.resume.sdk-explore",
+    });
+    assert.equal(resumed.lifecycle_status, "completed");
+    assert.equal(resumed.subagent.restart_count, 1);
+
+    const assigned = await sdkClient.assignSubagent(thread.id, spawned.subagent_id, {
+      source: "react_flow",
+      role: "sdk-implement",
+      toolPack: "coding-plus",
+      mergePolicy: "manual_review",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.assign.sdk-implement",
+    });
+    assert.equal(assigned.role, "sdk-implement");
+    assert.equal(assigned.assignment_count, 1);
+
+    const isolated = await thread.spawnSubagent({
+      source: "react_flow",
+      role: "sdk-verify",
+      prompt: "Remain isolated from parent cancellation propagation.",
+      cancellationInheritance: "isolate",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.spawn.sdk-verify",
+    });
+    const propagation = await sdkClient.propagateSubagentCancellation(thread.id, {
+      source: "react_flow",
+      reason: "sdk_parent_cancel",
+      workflowGraphId: "workflow.sdk.subagent.manager",
+      workflowNodeId: "runtime.subagent.cancel.parent-sdk",
+    });
+    assert.equal(propagation.object, "ioi.runtime_subagent_cancellation_propagation");
+    assert.equal(propagation.candidate_count, 2);
+    assert.equal(propagation.canceled_count, 1);
+    assert.equal(propagation.skipped_count, 1);
+    assert.equal(propagation.canceled_subagents[0].subagent_id, spawned.subagent_id);
+    assert.equal(propagation.skipped_subagents[0].subagent_id, isolated.subagent_id);
+
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.id}/events?since_seq=0`);
+    const sdkSpawnEvent = events.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.SubagentSpawn" &&
+        event.payload_summary.subagent_id === spawned.subagent_id,
+    );
+    const sdkAssignEvent = events.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.SubagentAssign" &&
+        event.payload_summary.subagent_id === spawned.subagent_id,
+    );
+    const sdkPropagatedCancelEvent = events.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.SubagentCancel" &&
+        event.payload_summary.subagent_id === spawned.subagent_id &&
+        event.payload_summary.cancellation_inherited === true,
+    );
+    assert.equal(sdkSpawnEvent.workflow_graph_id, "workflow.sdk.subagent.manager");
+    assert.equal(sdkSpawnEvent.workflow_node_id, "runtime.subagent.spawn.sdk-explore");
+    assert.equal(sdkAssignEvent.workflow_node_id, "runtime.subagent.assign.sdk-implement");
+    assert.equal(sdkPropagatedCancelEvent.workflow_node_id, "runtime.subagent.cancel.parent-sdk");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",

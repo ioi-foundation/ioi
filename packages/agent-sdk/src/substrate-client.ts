@@ -172,6 +172,229 @@ export interface RuntimeJobListOptions {
   status?: string;
 }
 
+export type RuntimeSubagentLifecycleStatus =
+  | "queued"
+  | "running"
+  | "waiting_for_input"
+  | "interrupted"
+  | "completed"
+  | "failed"
+  | "canceled"
+  | string;
+
+export interface RuntimeSubagentOutputContractStatus {
+  schema_version?: string;
+  schemaVersion?: string;
+  status?: string | null;
+  required_sections?: string[];
+  requiredSections?: string[];
+  present_sections?: string[];
+  presentSections?: string[];
+  missing_sections?: string[];
+  missingSections?: string[];
+  validated_at?: string;
+  validatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentControlInput {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  actor?: string;
+  prompt?: string;
+  message?: string;
+  input?: string;
+  text?: string;
+  role?: string;
+  subagentRole?: string;
+  subagent_role?: string;
+  toolPack?: string;
+  tool_pack?: string;
+  subagentToolPack?: string;
+  modelRouteId?: string;
+  model_route_id?: string;
+  subagentModelRoute?: string;
+  maxConcurrency?: number;
+  max_concurrency?: number;
+  subagentMaxConcurrency?: number;
+  budget?: Record<string, unknown>;
+  subagentBudget?: Record<string, unknown>;
+  outputContract?: string[] | Record<string, unknown>;
+  output_contract?: string[] | Record<string, unknown>;
+  subagentOutputContract?: string[] | Record<string, unknown>;
+  mergePolicy?: string;
+  merge_policy?: string;
+  cancellationInheritance?: "propagate" | "isolated" | string;
+  cancellation_inheritance?: "propagate" | "isolated" | string;
+  cancellationReason?: string;
+  cancellation_reason?: string;
+  reason?: string;
+  inherited?: boolean;
+  cancellationInherited?: boolean;
+  cancellation_inherited?: boolean;
+  propagatedFromThreadId?: string;
+  propagated_from_thread_id?: string;
+  forkContext?: boolean;
+  fork_context?: boolean;
+  parentTurnId?: string;
+  parent_turn_id?: string;
+  turnId?: string;
+  turn_id?: string;
+  targetAgentId?: string;
+  target_agent_id?: string;
+  memory?: Record<string, unknown>;
+  options?: Record<string, unknown>;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  idempotencyKey?: string;
+  idempotency_key?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentListInput {
+  role?: string;
+  subagentRole?: string;
+  subagent_role?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentRecord {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_subagent" | string;
+  subagent_id?: string;
+  subagentId?: string;
+  agent_id?: string;
+  agentId?: string;
+  child_thread_id?: string;
+  childThreadId?: string;
+  run_id?: string;
+  runId?: string;
+  parent_thread_id?: string;
+  parentThreadId?: string;
+  parent_agent_id?: string;
+  parentAgentId?: string;
+  parent_turn_id?: string | null;
+  parentTurnId?: string | null;
+  role?: string;
+  tool_pack?: string | null;
+  toolPack?: string | null;
+  model_route_id?: string | null;
+  modelRouteId?: string | null;
+  workflow_graph_id?: string | null;
+  workflowGraphId?: string | null;
+  workflow_node_id?: string | null;
+  workflowNodeId?: string | null;
+  lifecycle_status?: RuntimeSubagentLifecycleStatus;
+  lifecycleStatus?: RuntimeSubagentLifecycleStatus;
+  status?: RuntimeSubagentLifecycleStatus;
+  restart_status?: string | null;
+  restartStatus?: string | null;
+  restart_count?: number;
+  restartCount?: number;
+  input_count?: number;
+  inputCount?: number;
+  assignment_count?: number;
+  assignmentCount?: number;
+  cancellation_inheritance?: string | null;
+  cancellationInheritance?: string | null;
+  cancellation_reason?: string | null;
+  cancellationReason?: string | null;
+  cancellation_inherited?: boolean | null;
+  cancellationInherited?: boolean | null;
+  propagated_from_thread_id?: string | null;
+  propagatedFromThreadId?: string | null;
+  output_contract_status?: string | null;
+  outputContractStatus?: RuntimeSubagentOutputContractStatus | string | null;
+  result?: RuntimeSubagentResult | null;
+  event?: RuntimeEventEnvelope | null;
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  evidence_refs?: string[];
+  evidenceRefs?: string[];
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentListResult {
+  schema_version?: string;
+  schemaVersion?: string;
+  object: "ioi.runtime_subagent_list" | string;
+  thread_id?: string;
+  threadId?: string;
+  parent_agent_id?: string;
+  parentAgentId?: string;
+  status?: string;
+  count: number;
+  active_count?: number;
+  activeCount?: number;
+  subagents: RuntimeSubagentRecord[];
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentResult {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_subagent_result" | string;
+  subagent_id?: string | null;
+  subagentId?: string | null;
+  agent_id?: string | null;
+  agentId?: string | null;
+  run_id?: string | null;
+  runId?: string | null;
+  lifecycle_status?: RuntimeSubagentLifecycleStatus | null;
+  lifecycleStatus?: RuntimeSubagentLifecycleStatus | null;
+  status?: RuntimeSubagentLifecycleStatus | null;
+  result?: string | null;
+  output?: Record<string, unknown> | null;
+  output_contract_status?: string | null;
+  outputContractStatus?: RuntimeSubagentOutputContractStatus | string | null;
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  subagent?: RuntimeSubagentRecord;
+  event?: RuntimeEventEnvelope | null;
+  cancellation?: Record<string, unknown> | null;
+  input?: Record<string, unknown> | null;
+  resume?: Record<string, unknown> | null;
+  assignment?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentCancellationPropagationResult {
+  schema_version?: string;
+  schemaVersion?: string;
+  object: "ioi.runtime_subagent_cancellation_propagation" | string;
+  thread_id?: string;
+  threadId?: string;
+  parent_agent_id?: string;
+  parentAgentId?: string;
+  status: string;
+  source?: string;
+  reason?: string;
+  propagation_policy?: string;
+  propagationPolicy?: string;
+  candidate_count?: number;
+  candidateCount?: number;
+  canceled_count?: number;
+  canceledCount?: number;
+  skipped_count?: number;
+  skippedCount?: number;
+  canceled_subagents?: RuntimeSubagentRecord[];
+  canceledSubagents?: RuntimeSubagentRecord[];
+  skipped_subagents?: RuntimeSubagentRecord[];
+  skippedSubagents?: RuntimeSubagentRecord[];
+  event_refs?: string[];
+  eventRefs?: string[];
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  [key: string]: unknown;
+}
+
 export interface AgentMemoryProjection {
   schemaVersion: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_projection";
@@ -842,6 +1065,38 @@ export interface RuntimeSubstrateClient {
   interruptTurn(threadId: string, turnId: string, input?: RuntimeTurnInterruptInput): Promise<RuntimeTurnRecord>;
   steerTurn(threadId: string, turnId: string, input?: RuntimeTurnSteerInput): Promise<RuntimeTurnRecord>;
   streamThreadEvents(threadId: string, options?: RuntimeEventStreamOptions): AsyncIterable<RuntimeThreadEvent>;
+  listSubagents(threadId: string, input?: RuntimeSubagentListInput): Promise<RuntimeSubagentListResult>;
+  spawnSubagent(threadId: string, input: RuntimeSubagentControlInput): Promise<RuntimeSubagentRecord>;
+  waitSubagent(
+    threadId: string,
+    subagentId: string,
+    input?: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentResult>;
+  getSubagentResult(threadId: string, subagentId: string): Promise<RuntimeSubagentResult>;
+  sendSubagentInput(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord>;
+  cancelSubagent(
+    threadId: string,
+    subagentId: string,
+    input?: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentResult>;
+  resumeSubagent(
+    threadId: string,
+    subagentId: string,
+    input?: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentResult>;
+  assignSubagent(
+    threadId: string,
+    subagentId: string,
+    input?: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord>;
+  propagateSubagentCancellation(
+    threadId: string,
+    input?: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentCancellationPropagationResult>;
   createAgent(options: AgentOptions): Promise<RuntimeAgentRecord>;
   resumeAgent(agentId: string): Promise<RuntimeAgentRecord>;
   closeAgent(agentId: string): Promise<void>;
@@ -1155,6 +1410,135 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       options.signal?.throwIfAborted();
       yield runtimeThreadEventFromEnvelope(event);
     }
+  }
+
+  async listSubagents(
+    threadId: string,
+    input: RuntimeSubagentListInput = {},
+  ): Promise<RuntimeSubagentListResult> {
+    return this.request(
+      "listSubagents",
+      "GET",
+      `/v1/threads/${encodePath(threadId)}/subagents${subagentListQuery(input)}`,
+    );
+  }
+
+  async spawnSubagent(
+    threadId: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord> {
+    return this.request(
+      "spawnSubagent",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async waitSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    return this.request(
+      "waitSubagent",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents/${encodePath(subagentId)}/wait`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async getSubagentResult(threadId: string, subagentId: string): Promise<RuntimeSubagentResult> {
+    return this.request(
+      "getSubagentResult",
+      "GET",
+      `/v1/threads/${encodePath(threadId)}/subagents/${encodePath(subagentId)}/result`,
+    );
+  }
+
+  async sendSubagentInput(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord> {
+    return this.request(
+      "sendSubagentInput",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents/${encodePath(subagentId)}/input`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async cancelSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    return this.request(
+      "cancelSubagent",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents/${encodePath(subagentId)}/cancel`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async resumeSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    return this.request(
+      "resumeSubagent",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents/${encodePath(subagentId)}/resume`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async assignSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentRecord> {
+    return this.request(
+      "assignSubagent",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents/${encodePath(subagentId)}/assign`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async propagateSubagentCancellation(
+    threadId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentCancellationPropagationResult> {
+    return this.request(
+      "propagateSubagentCancellation",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/subagents/cancel`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
   }
 
   async createAgent(options: AgentOptions): Promise<RuntimeAgentRecord> {
@@ -2013,6 +2397,38 @@ function runtimeJobRecordForSdkRun(run: RuntimeRunRecord): RuntimeJobRecord {
   };
 }
 
+function runtimeSubagentStatusForRun(
+  status: RuntimeRunRecord["status"] | RuntimeSubagentLifecycleStatus | undefined,
+): RuntimeSubagentLifecycleStatus {
+  switch (status) {
+    case "queued":
+      return "queued";
+    case "running":
+      return "running";
+    case "canceled":
+      return "canceled";
+    case "failed":
+      return "failed";
+    case "blocked":
+      return "waiting_for_input";
+    case "completed":
+    default:
+      return status ?? "completed";
+  }
+}
+
+function runtimeSubagentIsActive(record: RuntimeSubagentRecord): boolean {
+  return ["queued", "running", "waiting_for_input", "interrupted"].includes(
+    String(record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? ""),
+  );
+}
+
+function runtimeSubagentText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text ? text : undefined;
+}
+
 function memoryListQuery(options: MemoryListOptions = {}): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(options)) {
@@ -2031,6 +2447,16 @@ function toolListQuery(options: RuntimeToolListOptions = {}): string {
 }
 
 function mcpListQuery(options: RuntimeMcpListOptions = {}): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(options)) {
+    if (value === undefined || value === null || value === "") continue;
+    params.set(key, String(value));
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+function subagentListQuery(options: RuntimeSubagentListInput = {}): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(options)) {
     if (value === undefined || value === null || value === "") continue;
@@ -2486,6 +2912,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   private readonly runs = new Map<string, RuntimeRunRecord>();
   private readonly memories = new Map<string, AgentMemoryRecord>();
   private readonly memoryPolicies = new Map<string, AgentMemoryPolicy>();
+  private readonly subagents = new Map<string, RuntimeSubagentRecord>();
 
   constructor(options: RuntimeSubstrateClientOptions = {}) {
     this.cwd = path.resolve(options.cwd ?? process.cwd());
@@ -2825,6 +3252,551 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       options.signal?.throwIfAborted();
       yield runtimeThreadEventFromEnvelope(event);
     }
+  }
+
+  async listSubagents(
+    threadId: string,
+    input: RuntimeSubagentListInput = {},
+  ): Promise<RuntimeSubagentListResult> {
+    const parentAgent = await this.agentForThread(threadId);
+    const role = runtimeSubagentText(input.role ?? input.subagentRole ?? input.subagent_role)?.toLowerCase();
+    const subagents = [...this.subagents.values()]
+      .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
+      .filter((record) => !role || record.role === role)
+      .sort((left, right) =>
+        String(left.created_at ?? left.createdAt ?? "").localeCompare(
+          String(right.created_at ?? right.createdAt ?? ""),
+        ),
+      );
+    return {
+      schema_version: "ioi.runtime.subagent-manager.v1",
+      schemaVersion: "ioi.runtime.subagent-manager.v1",
+      object: "ioi.runtime_subagent_list",
+      thread_id: threadId,
+      threadId,
+      parent_agent_id: parentAgent.id,
+      parentAgentId: parentAgent.id,
+      status: "ready",
+      count: subagents.length,
+      active_count: subagents.filter(runtimeSubagentIsActive).length,
+      activeCount: subagents.filter(runtimeSubagentIsActive).length,
+      subagents,
+    };
+  }
+
+  async spawnSubagent(
+    threadId: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord> {
+    const parentAgent = await this.agentForThread(threadId);
+    const prompt = runtimeSubagentText(
+      input.prompt ?? input.message ?? input.input ?? input.subagentPrompt ?? input.subagent_prompt,
+    );
+    if (!prompt) {
+      throw new IoiAgentError({
+        code: "runtime",
+        message: "Subagent spawn requires a prompt.",
+        details: { threadId },
+      });
+    }
+    const role = runtimeSubagentText(input.role ?? input.subagentRole ?? input.subagent_role)?.toLowerCase() ?? "general";
+    const maxConcurrency = Number(input.maxConcurrency ?? input.max_concurrency ?? input.subagentMaxConcurrency ?? 0);
+    if (Number.isFinite(maxConcurrency) && maxConcurrency > 0) {
+      const activeForRole = (await this.listSubagents(threadId, { role })).subagents.filter(runtimeSubagentIsActive).length;
+      if (activeForRole >= maxConcurrency) {
+        throw new IoiAgentError({
+          code: "policy",
+          message: "Subagent role concurrency limit reached.",
+          details: { threadId, role, activeForRole, maxConcurrency },
+        });
+      }
+    }
+    const childAgent = await this.createAgent({
+      local: { cwd: parentAgent.cwd },
+      model: {
+        id: parentAgent.requestedModelId ?? parentAgent.modelId ?? "local:auto",
+        routeId: parentAgent.modelRouteId ?? "route.local-first",
+      },
+    });
+    const run = await this.createRun(childAgent.id, prompt, "send", {
+      metadata: { receiver: role, subagent: true },
+    });
+    const now = new Date().toISOString();
+    const subagentId = childAgent.id;
+    const outputContractStatus: RuntimeSubagentOutputContractStatus = {
+      schema_version: "ioi.runtime.subagent-output-contract-status.v1",
+      schemaVersion: "ioi.runtime.subagent-output-contract-status.v1",
+      status: "passed",
+      required_sections: ["SUMMARY"],
+      requiredSections: ["SUMMARY"],
+      present_sections: ["SUMMARY"],
+      presentSections: ["SUMMARY"],
+      missing_sections: [],
+      missingSections: [],
+      validated_at: now,
+      validatedAt: now,
+    };
+    const record: RuntimeSubagentRecord = {
+      schema_version: "ioi.runtime.subagent-manager.v1",
+      schemaVersion: "ioi.runtime.subagent-manager.v1",
+      object: "ioi.runtime_subagent",
+      subagent_id: subagentId,
+      subagentId,
+      agent_id: childAgent.id,
+      agentId: childAgent.id,
+      child_thread_id: threadIdForAgent(childAgent.id),
+      childThreadId: threadIdForAgent(childAgent.id),
+      run_id: run.id,
+      runId: run.id,
+      parent_thread_id: threadId,
+      parentThreadId: threadId,
+      parent_agent_id: parentAgent.id,
+      parentAgentId: parentAgent.id,
+      role,
+      tool_pack: runtimeSubagentText(input.toolPack ?? input.tool_pack ?? input.subagentToolPack) ?? null,
+      toolPack: runtimeSubagentText(input.toolPack ?? input.tool_pack ?? input.subagentToolPack) ?? null,
+      model_route_id:
+        runtimeSubagentText(input.modelRouteId ?? input.model_route_id ?? input.subagentModelRoute) ??
+        parentAgent.modelRouteId ??
+        null,
+      modelRouteId:
+        runtimeSubagentText(input.modelRouteId ?? input.model_route_id ?? input.subagentModelRoute) ??
+        parentAgent.modelRouteId ??
+        null,
+      workflow_graph_id: runtimeSubagentText(input.workflowGraphId ?? input.workflow_graph_id) ?? null,
+      workflowGraphId: runtimeSubagentText(input.workflowGraphId ?? input.workflow_graph_id) ?? null,
+      workflow_node_id:
+        runtimeSubagentText(input.workflowNodeId ?? input.workflow_node_id) ??
+        `runtime.subagent.spawn.${role}`,
+      workflowNodeId:
+        runtimeSubagentText(input.workflowNodeId ?? input.workflow_node_id) ??
+        `runtime.subagent.spawn.${role}`,
+      lifecycle_status: runtimeSubagentStatusForRun(run.status),
+      lifecycleStatus: runtimeSubagentStatusForRun(run.status),
+      status: runtimeSubagentStatusForRun(run.status),
+      restart_status: "not_restarted",
+      restartStatus: "not_restarted",
+      restart_count: 0,
+      restartCount: 0,
+      input_count: 0,
+      inputCount: 0,
+      assignment_count: 0,
+      assignmentCount: 0,
+      merge_policy: runtimeSubagentText(input.mergePolicy ?? input.merge_policy) ?? "manual",
+      mergePolicy: runtimeSubagentText(input.mergePolicy ?? input.merge_policy) ?? "manual",
+      cancellation_inheritance:
+        runtimeSubagentText(input.cancellationInheritance ?? input.cancellation_inheritance) ?? "propagate",
+      cancellationInheritance:
+        runtimeSubagentText(input.cancellationInheritance ?? input.cancellation_inheritance) ?? "propagate",
+      output_contract_status: outputContractStatus.status ?? null,
+      outputContractStatus,
+      created_at: now,
+      createdAt: now,
+      updated_at: now,
+      updatedAt: now,
+      receipt_refs: run.receipts.map((receipt) => receipt.id),
+      receiptRefs: run.receipts.map((receipt) => receipt.id),
+      evidence_refs: ["runtime.subagent_manager", "runtime.subagent.spawn", run.id],
+      evidenceRefs: ["runtime.subagent_manager", "runtime.subagent.spawn", run.id],
+    };
+    record.result = await this.mockSubagentResultForRecord(record);
+    this.subagents.set(subagentId, record);
+    return record;
+  }
+
+  async waitSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    const record = await this.mockSubagentForThread(threadId, subagentId);
+    const result = await this.mockSubagentResultForRecord(record);
+    return {
+      ...result,
+      event: await this.mockSubagentControlEvent(threadId, record, "wait", input),
+    };
+  }
+
+  async getSubagentResult(threadId: string, subagentId: string): Promise<RuntimeSubagentResult> {
+    return this.mockSubagentResultForRecord(await this.mockSubagentForThread(threadId, subagentId));
+  }
+
+  async sendSubagentInput(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord> {
+    const record = await this.mockSubagentForThread(threadId, subagentId);
+    const message = runtimeSubagentText(input.input ?? input.message ?? input.prompt ?? input.text);
+    if (!message) {
+      throw new IoiAgentError({
+        code: "runtime",
+        message: "Subagent input requires a message.",
+        details: { threadId, subagentId },
+      });
+    }
+    const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
+    const previousRunId = record.run_id ?? record.runId ?? null;
+    const run = await this.createRun(childAgentId, message, "send", {
+      metadata: { receiver: record.role ?? "general", subagentInput: true },
+    });
+    const inputCount = Number(record.input_count ?? record.inputCount ?? 0) + 1;
+    const now = new Date().toISOString();
+    const inputId = `subagent_input_${crypto.randomUUID()}`;
+    const updated: RuntimeSubagentRecord = {
+      ...record,
+      run_id: run.id,
+      runId: run.id,
+      previous_run_id: previousRunId,
+      previousRunId: previousRunId,
+      lifecycle_status: runtimeSubagentStatusForRun(run.status),
+      lifecycleStatus: runtimeSubagentStatusForRun(run.status),
+      status: runtimeSubagentStatusForRun(run.status),
+      input_id: inputId,
+      inputId,
+      input_count: inputCount,
+      inputCount,
+      last_input: message,
+      lastInput: message,
+      last_input_at: now,
+      lastInputAt: now,
+      updated_at: now,
+      updatedAt: now,
+      event: await this.mockSubagentControlEvent(threadId, record, "send_input", input),
+      receipt_refs: [...new Set([...(record.receipt_refs ?? []), ...run.receipts.map((receipt) => receipt.id)])],
+      receiptRefs: [...new Set([...(record.receiptRefs ?? []), ...run.receipts.map((receipt) => receipt.id)])],
+    };
+    updated.result = await this.mockSubagentResultForRecord(updated);
+    this.subagents.set(subagentId, updated);
+    return updated;
+  }
+
+  async cancelSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    const record = await this.mockSubagentForThread(threadId, subagentId);
+    const runId = record.run_id ?? record.runId;
+    if (runId) {
+      await this.cancelRun(runId);
+    }
+    const now = new Date().toISOString();
+    const reason = runtimeSubagentText(input.reason ?? input.cancellationReason ?? input.cancellation_reason) ?? "operator_cancel";
+    const cancellation = {
+      reason,
+      requestedBy: runtimeSubagentText(input.actor) ?? "operator",
+      inherited: Boolean(input.inherited ?? input.cancellationInherited ?? input.cancellation_inherited),
+      propagatedFromThreadId:
+        runtimeSubagentText(input.propagatedFromThreadId ?? input.propagated_from_thread_id) ?? null,
+      source: runtimeSubagentText(input.source) ?? "sdk_client",
+    };
+    const updated: RuntimeSubagentRecord = {
+      ...record,
+      lifecycle_status: "canceled",
+      lifecycleStatus: "canceled",
+      status: "canceled",
+      canceled_at: now,
+      canceledAt: now,
+      cancellation_reason: reason,
+      cancellationReason: reason,
+      cancellation_inherited: cancellation.inherited,
+      cancellationInherited: cancellation.inherited,
+      propagated_from_thread_id: cancellation.propagatedFromThreadId,
+      propagatedFromThreadId: cancellation.propagatedFromThreadId,
+      cancellation,
+      updated_at: now,
+      updatedAt: now,
+    };
+    updated.result = await this.mockSubagentResultForRecord(updated);
+    this.subagents.set(subagentId, updated);
+    return {
+      ...updated.result,
+      subagent: updated,
+      cancellation,
+      event: await this.mockSubagentControlEvent(threadId, updated, "cancel", input),
+    };
+  }
+
+  async resumeSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    const record = await this.mockSubagentForThread(threadId, subagentId);
+    const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
+    const role = runtimeSubagentText(input.role ?? input.subagentRole ?? input.subagent_role) ?? record.role ?? "general";
+    const prompt = runtimeSubagentText(input.prompt ?? input.message ?? input.input) ?? `Resume subagent ${role}.`;
+    const run = await this.createRun(childAgentId, prompt, "send", {
+      metadata: { receiver: role, subagentResume: true },
+    });
+    const now = new Date().toISOString();
+    const restartCount = Number(record.restart_count ?? record.restartCount ?? 0) + 1;
+    const resumeId = `subagent_resume_${crypto.randomUUID()}`;
+    const resume = {
+      schema_version: "ioi.runtime.subagent-resume.v1",
+      schemaVersion: "ioi.runtime.subagent-resume.v1",
+      resume_id: resumeId,
+      resumeId,
+      run_id: run.id,
+      runId: run.id,
+      prompt,
+      role,
+      restart_count: restartCount,
+      restartCount,
+      created_at: now,
+      createdAt: now,
+    };
+    const updated: RuntimeSubagentRecord = {
+      ...record,
+      role,
+      run_id: run.id,
+      runId: run.id,
+      lifecycle_status: runtimeSubagentStatusForRun(run.status),
+      lifecycleStatus: runtimeSubagentStatusForRun(run.status),
+      status: runtimeSubagentStatusForRun(run.status),
+      restart_status: "restarted",
+      restartStatus: "restarted",
+      restart_count: restartCount,
+      restartCount,
+      resume,
+      cancellation: null,
+      cancellation_reason: null,
+      cancellationReason: null,
+      updated_at: now,
+      updatedAt: now,
+      receipt_refs: [...new Set([...(record.receipt_refs ?? []), ...run.receipts.map((receipt) => receipt.id)])],
+      receiptRefs: [...new Set([...(record.receiptRefs ?? []), ...run.receipts.map((receipt) => receipt.id)])],
+    };
+    updated.result = await this.mockSubagentResultForRecord(updated);
+    this.subagents.set(subagentId, updated);
+    return {
+      ...updated.result,
+      subagent: updated,
+      resume,
+      event: await this.mockSubagentControlEvent(threadId, updated, "resume", input),
+    };
+  }
+
+  async assignSubagent(
+    threadId: string,
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentRecord> {
+    const record = await this.mockSubagentForThread(threadId, subagentId);
+    const now = new Date().toISOString();
+    const assignmentCount = Number(record.assignment_count ?? record.assignmentCount ?? 0) + 1;
+    const assignmentId = `subagent_assignment_${crypto.randomUUID()}`;
+    const assignment = {
+      schema_version: "ioi.runtime.subagent-assignment.v1",
+      schemaVersion: "ioi.runtime.subagent-assignment.v1",
+      assignment_id: assignmentId,
+      assignmentId,
+      previous_role: record.role ?? "general",
+      previousRole: record.role ?? "general",
+      role: runtimeSubagentText(input.role ?? input.subagentRole ?? input.subagent_role) ?? record.role ?? "general",
+      target_agent_id: runtimeSubagentText(input.targetAgentId ?? input.target_agent_id) ?? record.agent_id ?? record.agentId,
+      targetAgentId: runtimeSubagentText(input.targetAgentId ?? input.target_agent_id) ?? record.agentId ?? record.agent_id,
+      created_at: now,
+      createdAt: now,
+    };
+    const updated: RuntimeSubagentRecord = {
+      ...record,
+      role: String(assignment.role),
+      target_agent_id: assignment.target_agent_id,
+      targetAgentId: assignment.targetAgentId,
+      tool_pack: runtimeSubagentText(input.toolPack ?? input.tool_pack ?? input.subagentToolPack) ?? record.tool_pack ?? null,
+      toolPack: runtimeSubagentText(input.toolPack ?? input.tool_pack ?? input.subagentToolPack) ?? record.toolPack ?? null,
+      model_route_id:
+        runtimeSubagentText(input.modelRouteId ?? input.model_route_id ?? input.subagentModelRoute) ??
+        record.model_route_id ??
+        null,
+      modelRouteId:
+        runtimeSubagentText(input.modelRouteId ?? input.model_route_id ?? input.subagentModelRoute) ??
+        record.modelRouteId ??
+        null,
+      merge_policy: runtimeSubagentText(input.mergePolicy ?? input.merge_policy) ?? record.merge_policy ?? "manual",
+      mergePolicy: runtimeSubagentText(input.mergePolicy ?? input.merge_policy) ?? record.mergePolicy ?? "manual",
+      cancellation_inheritance:
+        runtimeSubagentText(input.cancellationInheritance ?? input.cancellation_inheritance) ??
+        record.cancellation_inheritance ??
+        "propagate",
+      cancellationInheritance:
+        runtimeSubagentText(input.cancellationInheritance ?? input.cancellation_inheritance) ??
+        record.cancellationInheritance ??
+        "propagate",
+      assignment,
+      assignment_count: assignmentCount,
+      assignmentCount,
+      updated_at: now,
+      updatedAt: now,
+      event: await this.mockSubagentControlEvent(threadId, record, "assign", input),
+    };
+    updated.result = await this.mockSubagentResultForRecord(updated);
+    this.subagents.set(subagentId, updated);
+    return updated;
+  }
+
+  async propagateSubagentCancellation(
+    threadId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentCancellationPropagationResult> {
+    const parentAgent = await this.agentForThread(threadId);
+    const candidates = (await this.listSubagents(threadId)).subagents;
+    const canceled: RuntimeSubagentRecord[] = [];
+    const skipped: RuntimeSubagentRecord[] = [];
+    for (const record of candidates) {
+      const inheritance = record.cancellation_inheritance ?? record.cancellationInheritance ?? "propagate";
+      const status = record.lifecycle_status ?? record.lifecycleStatus ?? record.status;
+      const targetId = record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId;
+      if (inheritance !== "propagate" || status === "canceled" || !targetId) {
+        skipped.push({
+          ...record,
+          skip_reason: inheritance !== "propagate" ? "cancellation_inheritance_not_propagate" : "already_canceled",
+          skipReason: inheritance !== "propagate" ? "cancellation_inheritance_not_propagate" : "already_canceled",
+        });
+        continue;
+      }
+      const result = await this.cancelSubagent(threadId, targetId, {
+        ...input,
+        inherited: true,
+        cancellationInherited: true,
+        propagatedFromThreadId: threadId,
+      });
+      if (result.subagent) canceled.push(result.subagent);
+    }
+    return {
+      schema_version: "ioi.runtime.subagent-manager.v1",
+      schemaVersion: "ioi.runtime.subagent-manager.v1",
+      object: "ioi.runtime_subagent_cancellation_propagation",
+      thread_id: threadId,
+      threadId,
+      parent_agent_id: parentAgent.id,
+      parentAgentId: parentAgent.id,
+      status: "completed",
+      source: runtimeSubagentText(input.source) ?? "sdk_client",
+      reason: runtimeSubagentText(input.reason ?? input.cancellationReason ?? input.cancellation_reason) ?? "parent_cancel",
+      propagation_policy: "cancellationInheritance=propagate",
+      propagationPolicy: "cancellationInheritance=propagate",
+      candidate_count: candidates.length,
+      candidateCount: candidates.length,
+      canceled_count: canceled.length,
+      canceledCount: canceled.length,
+      skipped_count: skipped.length,
+      skippedCount: skipped.length,
+      canceled_subagents: canceled,
+      canceledSubagents: canceled,
+      skipped_subagents: skipped,
+      skippedSubagents: skipped,
+      event_refs: [],
+      eventRefs: [],
+      receipt_refs: [...new Set(canceled.flatMap((record) => record.receipt_refs ?? []))],
+      receiptRefs: [...new Set(canceled.flatMap((record) => record.receiptRefs ?? []))],
+    };
+  }
+
+  private async mockSubagentForThread(
+    threadId: string,
+    subagentId: string,
+  ): Promise<RuntimeSubagentRecord> {
+    await this.agentForThread(threadId);
+    const record = this.subagents.get(subagentId);
+    if (!record || (record.parent_thread_id ?? record.parentThreadId) !== threadId) {
+      throw new IoiAgentError({
+        code: "not_found",
+        message: `Subagent not found: ${subagentId}`,
+        details: { threadId, subagentId },
+      });
+    }
+    return record;
+  }
+
+  private async mockSubagentResultForRecord(record: RuntimeSubagentRecord): Promise<RuntimeSubagentResult> {
+    const runId = record.run_id ?? record.runId ?? null;
+    const run = runId ? await this.getRun(runId) : null;
+    const status = record.status ?? runtimeSubagentStatusForRun(run?.status);
+    const text = run?.result ?? "";
+    const receiptRefs = [
+      ...new Set([
+        ...(record.receipt_refs ?? []),
+        ...(record.receiptRefs ?? []),
+        ...(run?.receipts.map((receipt) => receipt.id) ?? []),
+      ]),
+    ];
+    const outputContractStatus =
+      record.outputContractStatus && typeof record.outputContractStatus === "object"
+        ? record.outputContractStatus
+        : {
+            schema_version: "ioi.runtime.subagent-output-contract-status.v1",
+            schemaVersion: "ioi.runtime.subagent-output-contract-status.v1",
+            status: record.output_contract_status ?? "passed",
+          };
+    return {
+      schema_version: "ioi.runtime.subagent-result.v1",
+      schemaVersion: "ioi.runtime.subagent-result.v1",
+      object: "ioi.runtime_subagent_result",
+      subagent_id: record.subagent_id ?? record.subagentId ?? null,
+      subagentId: record.subagentId ?? record.subagent_id ?? null,
+      agent_id: record.agent_id ?? record.agentId ?? null,
+      agentId: record.agentId ?? record.agent_id ?? null,
+      run_id: runId,
+      runId,
+      lifecycle_status: status,
+      lifecycleStatus: status,
+      status,
+      result: text,
+      output: {
+        schema_version: "ioi.runtime.subagent-result.v1",
+        schemaVersion: "ioi.runtime.subagent-result.v1",
+        object: "ioi.runtime_subagent_output_contract",
+        text,
+        sections: { SUMMARY: text },
+      },
+      output_contract_status: outputContractStatus.status ?? null,
+      outputContractStatus: outputContractStatus,
+      receipt_refs: receiptRefs,
+      receiptRefs,
+      subagent: {
+        ...record,
+        lifecycle_status: status,
+        lifecycleStatus: status,
+        status,
+      },
+    };
+  }
+
+  private async mockSubagentControlEvent(
+    threadId: string,
+    record: RuntimeSubagentRecord,
+    operation: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeEventEnvelope> {
+    const parentAgent = await this.agentForThread(threadId);
+    const createdAt = new Date().toISOString();
+    return mockRuntimeEventEnvelope({
+      agent: parentAgent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: `subagent.${operation}`,
+      sourceEventKind: `Subagent.${operation}`,
+      itemId: `${threadId}:subagent:${record.subagent_id ?? record.subagentId ?? "unknown"}:${operation}`,
+      payload: {
+        operation,
+        source: runtimeSubagentText(input.source) ?? "sdk_client",
+        subagent_id: record.subagent_id ?? record.subagentId ?? null,
+        subagentId: record.subagentId ?? record.subagent_id ?? null,
+      },
+      createdAt,
+      payloadSchemaVersion: "ioi.runtime.subagent-manager.v1",
+      componentKind: "subagent_manager",
+      workflowNodeId:
+        runtimeSubagentText(input.workflowNodeId ?? input.workflow_node_id) ??
+        record.workflow_node_id ??
+        record.workflowNodeId ??
+        `runtime.subagent.${operation}`,
+      receiptRefs: [`receipt_subagent_${operation}_${record.subagent_id ?? record.subagentId ?? "unknown"}`],
+    });
   }
 
   async createAgent(options: AgentOptions): Promise<RuntimeAgentRecord> {
