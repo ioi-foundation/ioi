@@ -64,6 +64,8 @@ const WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION = "ioi.runtime.workspace-restore-ap
 const WORKSPACE_RESTORE_PREVIEW_NODE_ID = "runtime.restore-gate";
 const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
+const DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION = "ioi.runtime.diagnostics-rollback-repair-context.v1";
+const DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION = "ioi.runtime.diagnostics-rollback-repair-policy.v1";
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
 const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
@@ -2566,6 +2568,8 @@ export class AgentgresRuntimeStateStore {
     const receiptId = `receipt_coding_tool_${safeId(normalizedToolId)}_${doctorHash(
       `${threadId}:${normalizedToolId}:${toolCallId}`,
     ).slice(0, 12)}`;
+    const requestRollbackRefs = uniqueStrings(normalizeArray(request.rollbackRefs ?? request.rollback_refs));
+    const diagnosticsRepairContext = diagnosticsRepairContextForRequest(request);
     const artifactRefs = [];
     const receiptRefs = [receiptId];
     let status = "completed";
@@ -2629,6 +2633,10 @@ export class AgentgresRuntimeStateStore {
       };
     }
     const summary = codingToolSummary(normalizedToolId, result, status);
+    const rollbackRefs = uniqueStrings([
+      ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : []),
+      ...requestRollbackRefs,
+    ]);
     const payloadSummary = {
       schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       event_kind: "CodingToolResult",
@@ -2647,6 +2655,9 @@ export class AgentgresRuntimeStateStore {
       result_summary: codingToolResultSummary(normalizedToolId, result),
       result,
       error,
+      rollback_refs: rollbackRefs,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
       receipt_id: receiptId,
       receipt_count: receiptRefs.length,
       artifact_count: artifactRefs.length,
@@ -2671,7 +2682,7 @@ export class AgentgresRuntimeStateStore {
       tool_call_id: toolCallId,
       artifact_refs: artifactRefs,
       receipt_refs: uniqueStrings(receiptRefs),
-      rollback_refs: workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : [],
+      rollback_refs: rollbackRefs,
       payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       payload_summary: payloadSummary,
     });
@@ -3462,12 +3473,50 @@ export class AgentgresRuntimeStateStore {
       .map((entry) => optionalString(entry?.path))
       .filter(Boolean);
     if (!paths.length) return null;
+    const workspaceSnapshot =
+      patchResult?.workspaceSnapshot ??
+      patchResult?.workspace_snapshot ??
+      null;
+    const workspaceSnapshotId =
+      optionalString(patchResult?.workspaceSnapshotId ?? patchResult?.workspace_snapshot_id) ??
+      optionalString(workspaceSnapshot?.snapshotId ?? workspaceSnapshot?.snapshot_id);
+    const rollbackRefs = uniqueStrings([
+      workspaceSnapshotId,
+      ...normalizeArray(patchResult?.rollbackRefs ?? patchResult?.rollback_refs),
+    ]);
     return this.invokeThreadTool(threadId, "lsp.diagnostics", {
       source: "runtime_auto",
       turn_id: turnId || null,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: LSP_DIAGNOSTICS_AUTO_NODE_ID,
       tool_call_id: `coding_tool_lsp_diagnostics_auto_${doctorHash(`${patchToolCallId}:${paths.join(",")}`).slice(0, 16)}`,
+      rollback_refs: rollbackRefs,
+      diagnostics_repair_context: {
+        schemaVersion: DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
+        object: "ioi.runtime_diagnostics_rollback_repair_context",
+        sourceToolName: "file.apply_patch",
+        source_tool_name: "file.apply_patch",
+        sourceToolCallId: patchToolCallId,
+        source_tool_call_id: patchToolCallId,
+        sourceWorkflowGraphId: workflowGraphId,
+        source_workflow_graph_id: workflowGraphId,
+        sourceWorkflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        source_workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        workspaceSnapshotId: workspaceSnapshotId ?? null,
+        workspace_snapshot_id: workspaceSnapshotId ?? null,
+        rollbackRefs,
+        rollback_refs: rollbackRefs,
+        restore: workspaceSnapshot?.restore ?? null,
+        changedFiles: normalizeArray(patchResult?.changedFiles).map((entry) => ({
+          path: optionalString(entry?.path) ?? null,
+          beforeHash: optionalString(entry?.beforeHash ?? entry?.before_hash) ?? null,
+          before_hash: optionalString(entry?.beforeHash ?? entry?.before_hash) ?? null,
+          afterHash: optionalString(entry?.afterHash ?? entry?.after_hash) ?? null,
+          after_hash: optionalString(entry?.afterHash ?? entry?.after_hash) ?? null,
+          diagnosticsRecommended: entry?.diagnosticsRecommended !== false,
+          diagnostics_recommended: entry?.diagnosticsRecommended !== false,
+        })),
+      },
       input: {
         commandId: config.commandId,
         paths,
@@ -6131,6 +6180,8 @@ function buildRun({
       diagnosticsFeedback?.injectionId,
       diagnosticsBlockingGate?.gateId,
       diagnosticsBlockingGate?.policyDecisionId,
+      ...(diagnosticsBlockingGate?.policyDecisionRefs ?? []),
+      ...(diagnosticsBlockingGate?.rollbackRefs ?? []),
       diagnosticsBlockingGate?.receiptId,
       activeSkillHookManifest.activeSkillSetHash,
       activeSkillHookManifest.activeHookSetHash,
@@ -6652,6 +6703,8 @@ function buildRun({
         evidenceRefs: [
           diagnosticsBlockingGate.gateId,
           diagnosticsBlockingGate.policyDecisionId,
+          ...normalizeArray(diagnosticsBlockingGate.policyDecisionRefs),
+          ...normalizeArray(diagnosticsBlockingGate.rollbackRefs),
           diagnosticsBlockingGate.injectionId,
           diagnosticsBlockingGate.diagnosticsReceiptId,
           ...diagnosticsBlockingGate.diagnosticEventIds,
@@ -9828,11 +9881,21 @@ function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
   const statuses = [];
   const diagnosticEventIds = [];
   const receiptRefs = [];
+  const rollbackRefs = [];
+  const diagnosticsRepairContexts = [];
   for (const event of diagnosticEvents) {
     const payload = event.payload_summary ?? event.payload ?? {};
     const result = payload.result ?? {};
+    const repairContext = diagnosticsRepairContextForPayload(payload);
     diagnosticEventIds.push(event.event_id);
     receiptRefs.push(...normalizeArray(event.receipt_refs));
+    rollbackRefs.push(...normalizeArray(event.rollback_refs));
+    if (repairContext) {
+      diagnosticsRepairContexts.push(repairContext);
+      rollbackRefs.push(...normalizeArray(repairContext.rollbackRefs ?? repairContext.rollback_refs));
+      const contextSnapshotId = optionalString(repairContext.workspaceSnapshotId ?? repairContext.workspace_snapshot_id);
+      if (contextSnapshotId) rollbackRefs.push(contextSnapshotId);
+    }
     statuses.push(result.diagnosticStatus ?? payload.result_summary?.diagnosticStatus ?? "clean");
     for (const diagnostic of normalizeArray(result.diagnostics)) {
       findings.push(compactDiagnosticFinding(diagnostic, event));
@@ -9853,6 +9916,28 @@ function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
     `${threadId}:${diagnosticEventIds.join(",")}:${mode}`,
   ).slice(0, 16)}`;
   const receiptId = `receipt_${injectionId}`;
+  const uniqueRollbackRefs = uniqueStrings(rollbackRefs);
+  const workspaceSnapshotRefs = uniqueStrings([
+    ...uniqueRollbackRefs,
+    ...diagnosticsRepairContexts.map((context) =>
+      optionalString(context.workspaceSnapshotId ?? context.workspace_snapshot_id),
+    ),
+  ]);
+  const sourceToolCallIds = uniqueStrings(
+    diagnosticsRepairContexts.map((context) =>
+      optionalString(context.sourceToolCallId ?? context.source_tool_call_id),
+    ),
+  );
+  const repairPolicy = diagnosticsRollbackRepairPolicy({
+    threadId,
+    injectionId,
+    mode,
+    diagnosticStatus,
+    diagnosticCount: findings.length,
+    workspaceSnapshotRefs,
+    rollbackRefs: uniqueRollbackRefs,
+    sourceToolCallIds,
+  });
   return {
     schemaVersion: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
     object: "ioi.runtime_lsp_diagnostics_injection",
@@ -9866,6 +9951,16 @@ function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
     omittedFindingCount: omittedCount,
     findings: visibleFindings,
     diagnosticEventIds,
+    rollbackRefs: uniqueRollbackRefs,
+    rollback_refs: uniqueRollbackRefs,
+    workspaceSnapshotRefs,
+    workspace_snapshot_refs: workspaceSnapshotRefs,
+    sourceToolCallIds,
+    source_tool_call_ids: sourceToolCallIds,
+    diagnosticsRepairContexts,
+    diagnostics_repair_contexts: diagnosticsRepairContexts,
+    repairPolicy,
+    repair_policy: repairPolicy,
     receiptRefs: uniqueStrings(receiptRefs),
     receiptId,
     summary,
@@ -9919,18 +10014,188 @@ function diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback) {
   );
 }
 
+function diagnosticsRepairContextForRequest(request = {}) {
+  return diagnosticsRepairContextRecord(
+    request.diagnosticsRepairContext ??
+      request.diagnostics_repair_context ??
+      request.repairContext ??
+      request.repair_context,
+  );
+}
+
+function diagnosticsRepairContextForPayload(payload = {}) {
+  return diagnosticsRepairContextRecord(
+    payload.diagnosticsRepairContext ??
+      payload.diagnostics_repair_context ??
+      payload.result?.diagnosticsRepairContext ??
+      payload.result?.diagnostics_repair_context,
+  );
+}
+
+function diagnosticsRepairContextRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const rollbackRefs = uniqueStrings([
+    ...normalizeArray(value.rollbackRefs ?? value.rollback_refs),
+    optionalString(value.workspaceSnapshotId ?? value.workspace_snapshot_id),
+  ]);
+  return {
+    ...value,
+    schemaVersion:
+      optionalString(value.schemaVersion ?? value.schema_version) ??
+      DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
+    schema_version:
+      optionalString(value.schema_version ?? value.schemaVersion) ??
+      DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
+    object: optionalString(value.object) ?? "ioi.runtime_diagnostics_rollback_repair_context",
+    sourceToolName: optionalString(value.sourceToolName ?? value.source_tool_name) ?? null,
+    source_tool_name: optionalString(value.source_tool_name ?? value.sourceToolName) ?? null,
+    sourceToolCallId: optionalString(value.sourceToolCallId ?? value.source_tool_call_id) ?? null,
+    source_tool_call_id: optionalString(value.source_tool_call_id ?? value.sourceToolCallId) ?? null,
+    sourceWorkflowGraphId: optionalString(value.sourceWorkflowGraphId ?? value.source_workflow_graph_id) ?? null,
+    source_workflow_graph_id: optionalString(value.source_workflow_graph_id ?? value.sourceWorkflowGraphId) ?? null,
+    sourceWorkflowNodeId: optionalString(value.sourceWorkflowNodeId ?? value.source_workflow_node_id) ?? null,
+    source_workflow_node_id: optionalString(value.source_workflow_node_id ?? value.sourceWorkflowNodeId) ?? null,
+    workspaceSnapshotId: optionalString(value.workspaceSnapshotId ?? value.workspace_snapshot_id) ?? null,
+    workspace_snapshot_id: optionalString(value.workspace_snapshot_id ?? value.workspaceSnapshotId) ?? null,
+    rollbackRefs,
+    rollback_refs: rollbackRefs,
+  };
+}
+
+function diagnosticsRollbackRepairPolicy({
+  threadId,
+  injectionId,
+  mode,
+  diagnosticStatus,
+  diagnosticCount,
+  workspaceSnapshotRefs,
+  rollbackRefs,
+  sourceToolCallIds,
+} = {}) {
+  const policyId = `policy_lsp_diagnostics_rollback_repair_${doctorHash(
+    `${threadId}:${injectionId}:${workspaceSnapshotRefs.join(",")}`,
+  ).slice(0, 16)}`;
+  const hasSnapshot = workspaceSnapshotRefs.length > 0;
+  const decisionBase = `${policyId}_decision`;
+  const decisions = [
+    {
+      decisionId: `${decisionBase}_repair_retry`,
+      decision_id: `${decisionBase}_repair_retry`,
+      action: "repair_retry",
+      status: "available",
+      requiresApproval: false,
+      requires_approval: false,
+      summary: "Retry with diagnostics context and repair the reported findings.",
+    },
+    {
+      decisionId: `${decisionBase}_restore_preview`,
+      decision_id: `${decisionBase}_restore_preview`,
+      action: "restore_preview",
+      status: hasSnapshot ? "available" : "unavailable",
+      requiresApproval: false,
+      requires_approval: false,
+      rollbackRefs,
+      rollback_refs: rollbackRefs,
+      workspaceSnapshotRefs,
+      workspace_snapshot_refs: workspaceSnapshotRefs,
+      summary: hasSnapshot
+        ? "Preview restoring the snapshot captured before the patch."
+        : "No content-backed workspace snapshot is available for restore preview.",
+    },
+    {
+      decisionId: `${decisionBase}_restore_apply`,
+      decision_id: `${decisionBase}_restore_apply`,
+      action: "restore_apply",
+      status: hasSnapshot ? "requires_approval" : "unavailable",
+      requiresApproval: true,
+      requires_approval: true,
+      rollbackRefs,
+      rollback_refs: rollbackRefs,
+      workspaceSnapshotRefs,
+      workspace_snapshot_refs: workspaceSnapshotRefs,
+      summary: hasSnapshot
+        ? "Apply snapshot restore after explicit operator approval."
+        : "No content-backed workspace snapshot is available for restore apply.",
+    },
+    {
+      decisionId: `${decisionBase}_operator_override`,
+      decision_id: `${decisionBase}_operator_override`,
+      action: "operator_override",
+      status: "requires_approval",
+      requiresApproval: true,
+      requires_approval: true,
+      summary: "Continue despite blocking diagnostics after explicit operator override.",
+    },
+  ];
+  return {
+    schemaVersion: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
+    schema_version: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
+    object: "ioi.runtime_diagnostics_rollback_repair_policy",
+    policyId,
+    policy_id: policyId,
+    threadId,
+    thread_id: threadId,
+    injectionId,
+    injection_id: injectionId,
+    mode,
+    diagnosticStatus,
+    diagnostic_status: diagnosticStatus,
+    diagnosticCount,
+    diagnostic_count: diagnosticCount,
+    workspaceSnapshotRefs,
+    workspace_snapshot_refs: workspaceSnapshotRefs,
+    rollbackRefs,
+    rollback_refs: rollbackRefs,
+    sourceToolCallIds,
+    source_tool_call_ids: sourceToolCallIds,
+    defaultDecision: "repair_retry",
+    default_decision: "repair_retry",
+    decisions,
+    decisionRefs: decisions.map((decision) => decision.decisionId),
+    decision_refs: decisions.map((decision) => decision.decision_id),
+  };
+}
+
 function diagnosticsBlockingGateForFeedback(diagnosticsFeedback) {
   if (!diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) return null;
   const injectionId = diagnosticsFeedback.injectionId ?? `diagnostics_${doctorHash(JSON.stringify(diagnosticsFeedback)).slice(0, 16)}`;
   const gateId = `lsp_diagnostics_gate_${doctorHash(injectionId).slice(0, 16)}`;
   const diagnosticCount = Number(diagnosticsFeedback.diagnosticCount ?? 0) || 0;
   const injectedFindingCount = Number(diagnosticsFeedback.injectedFindingCount ?? diagnosticCount) || 0;
+  const repairPolicy =
+    diagnosticsFeedback.repairPolicy ??
+    diagnosticsFeedback.repair_policy ??
+    diagnosticsRollbackRepairPolicy({
+      threadId: diagnosticsFeedback.threadId ?? null,
+      injectionId,
+      mode: diagnosticsFeedback.mode ?? "blocking",
+      diagnosticStatus: diagnosticsFeedback.diagnosticStatus,
+      diagnosticCount,
+      workspaceSnapshotRefs: uniqueStrings(
+        normalizeArray(diagnosticsFeedback.workspaceSnapshotRefs ?? diagnosticsFeedback.workspace_snapshot_refs),
+      ),
+      rollbackRefs: uniqueStrings(normalizeArray(diagnosticsFeedback.rollbackRefs ?? diagnosticsFeedback.rollback_refs)),
+      sourceToolCallIds: uniqueStrings(
+        normalizeArray(diagnosticsFeedback.sourceToolCallIds ?? diagnosticsFeedback.source_tool_call_ids),
+      ),
+    });
+  const policyDecisionRefs = uniqueStrings([
+    `policy_${gateId}`,
+    repairPolicy.policyId ?? repairPolicy.policy_id,
+    ...normalizeArray(repairPolicy.decisionRefs ?? repairPolicy.decision_refs),
+  ]);
+  const rollbackRefs = uniqueStrings(normalizeArray(repairPolicy.rollbackRefs ?? repairPolicy.rollback_refs));
+  const workspaceSnapshotRefs = uniqueStrings(
+    normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
+  );
   const summary = `Blocking diagnostics gate paused model continuation after ${diagnosticCount} finding(s).`;
   return {
     schemaVersion: LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION,
     object: "ioi.runtime_lsp_diagnostics_blocking_gate",
     gateId,
     policyDecisionId: `policy_${gateId}`,
+    policyDecisionRefs,
+    policy_decision_refs: policyDecisionRefs,
     receiptId: `receipt_${gateId}`,
     status: "blocked",
     decision: "block_model_continuation",
@@ -9945,15 +10210,29 @@ function diagnosticsBlockingGateForFeedback(diagnosticsFeedback) {
     injectionId,
     diagnosticsReceiptId: diagnosticsFeedback.receiptId ?? null,
     diagnosticEventIds: uniqueStrings(normalizeArray(diagnosticsFeedback.diagnosticEventIds)),
+    rollbackRefs,
+    rollback_refs: rollbackRefs,
+    workspaceSnapshotRefs,
+    workspace_snapshot_refs: workspaceSnapshotRefs,
+    sourceToolCallIds: uniqueStrings(
+      normalizeArray(diagnosticsFeedback.sourceToolCallIds ?? diagnosticsFeedback.source_tool_call_ids),
+    ),
+    source_tool_call_ids: uniqueStrings(
+      normalizeArray(diagnosticsFeedback.sourceToolCallIds ?? diagnosticsFeedback.source_tool_call_ids),
+    ),
     findings: normalizeArray(diagnosticsFeedback.findings).slice(0, LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS),
+    repairPolicy,
+    repair_policy: repairPolicy,
+    repairDecisions: normalizeArray(repairPolicy.decisions),
+    repair_decisions: normalizeArray(repairPolicy.decisions),
     summary,
     message:
       `Blocking diagnostics mode found ${diagnosticCount} post-edit diagnostic finding(s). ` +
-      "Model continuation is paused until the findings are repaired, diagnosticsMode is changed to advisory, or diagnostics are explicitly skipped.",
+      "Model continuation is paused until the findings are repaired, a snapshot restore is previewed/applied with approval, or an operator override is granted.",
     recommendedNextActions: [
-      "repair_findings",
-      "resubmit_with_diagnosticsMode_advisory",
-      "resubmit_with_diagnosticsMode_skip",
+      "repair_retry",
+      ...(workspaceSnapshotRefs.length ? ["restore_preview", "restore_apply_with_approval"] : []),
+      "operator_override",
     ],
     workflowNodeId: LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
     componentKind: "lsp_diagnostics_gate",
@@ -10453,12 +10732,14 @@ function runtimeEventStatusForRunEvent(event) {
 }
 
 function policyDecisionRefsForRunEvent(event) {
-  return [
+  return uniqueStrings([
     event.data?.policyDecisionId,
     event.data?.policy_decision_id,
     event.data?.policyDecisionRef,
     event.data?.policy_decision_ref,
-  ].filter(Boolean);
+    ...normalizeArray(event.data?.policyDecisionRefs),
+    ...normalizeArray(event.data?.policy_decision_refs),
+  ]);
 }
 
 function stringRecord(value) {
@@ -10508,6 +10789,10 @@ function payloadSummaryForRunEvent(event) {
       mode: event.data?.mode ?? "advisory",
       blocking: Boolean(event.data?.blocking),
       prompt_text: event.data?.promptText ?? null,
+      rollback_refs: normalizeArray(event.data?.rollbackRefs ?? event.data?.rollback_refs),
+      workspace_snapshot_refs: normalizeArray(event.data?.workspaceSnapshotRefs ?? event.data?.workspace_snapshot_refs),
+      source_tool_call_ids: normalizeArray(event.data?.sourceToolCallIds ?? event.data?.source_tool_call_ids),
+      repair_policy: event.data?.repairPolicy ?? event.data?.repair_policy ?? null,
       findings: normalizeArray(event.data?.findings),
       workflow_node_id: event.data?.workflowNodeId ?? LSP_DIAGNOSTICS_INJECTION_NODE_ID,
       redaction: "lsp_diagnostics_safe",
@@ -10519,6 +10804,10 @@ function payloadSummaryForRunEvent(event) {
       event_kind: event.data?.eventKind ?? "PolicyBlocked",
       gate_id: event.data?.gateId ?? null,
       policy_decision_id: event.data?.policyDecisionId ?? null,
+      policy_decision_refs: uniqueStrings([
+        event.data?.policyDecisionId,
+        ...normalizeArray(event.data?.policyDecisionRefs ?? event.data?.policy_decision_refs),
+      ]),
       receipt_id: event.data?.receiptId ?? null,
       decision: event.data?.decision ?? "blocked",
       reason: event.data?.reason ?? null,
@@ -10533,6 +10822,11 @@ function payloadSummaryForRunEvent(event) {
       injection_id: event.data?.injectionId ?? null,
       diagnostics_receipt_id: event.data?.diagnosticsReceiptId ?? null,
       diagnostic_event_ids: normalizeArray(event.data?.diagnosticEventIds),
+      rollback_refs: normalizeArray(event.data?.rollbackRefs ?? event.data?.rollback_refs),
+      workspace_snapshot_refs: normalizeArray(event.data?.workspaceSnapshotRefs ?? event.data?.workspace_snapshot_refs),
+      source_tool_call_ids: normalizeArray(event.data?.sourceToolCallIds ?? event.data?.source_tool_call_ids),
+      repair_policy: event.data?.repairPolicy ?? event.data?.repair_policy ?? null,
+      repair_decisions: normalizeArray(event.data?.repairDecisions ?? event.data?.repair_decisions),
       recommended_next_actions: normalizeArray(event.data?.recommendedNextActions),
       findings: normalizeArray(event.data?.findings),
       workflow_node_id: event.data?.workflowNodeId ?? null,
