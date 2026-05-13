@@ -746,9 +746,13 @@ Current implementation note, 2026-05-13:
 - The authoring fields cover role, model route, tool pack, fresh/forked
   context, max concurrency, budget JSON, output contract JSON, merge policy,
   wait timeout, and cancellation inheritance.
-- Remaining P1-A gap: implement daemon-owned `SubagentManager` execution,
-  lifecycle persistence, SDK/TUI wrappers, output-contract validation, and live
-  fan-out evidence behind this React Flow contract.
+- The daemon now exposes the first `SubagentManager` execution slice behind
+  those routes for spawn, list, wait, and result. It persists subagent lifecycle
+  records, stamps parent/child agent and thread metadata, emits parent-thread
+  subagent lifecycle events, and returns output-contract validation status.
+- Remaining P1-A gap: implement daemon send-input, cancel, resume, assign,
+  cancellation propagation, SDK/TUI wrappers, and live parallel fan-out evidence
+  behind this React Flow contract.
 
 Acceptance evidence:
 
@@ -1864,6 +1868,7 @@ adding more infrastructure by default.
 
 Recent focused validation, 2026-05-13:
 
+- `node --test --test-name-pattern "local daemon exposes SubagentManager spawn, list, wait, and result contracts" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
 - `node --check packages/runtime-daemon/src/index.mjs`
@@ -1878,9 +1883,8 @@ Recent focused validation, 2026-05-13:
 
 Next runtime implementation sequence:
 
-1. Implement daemon-owned `SubagentManager` routes for spawn, list, wait,
-   result, send input, cancel, resume, and assign using the React Flow request
-   contract already landed.
+1. Extend daemon-owned `SubagentManager` routes for send input, cancel, resume,
+   and assign, including cancellation propagation and restart status.
 2. Add SDK and TUI wrappers over the same routes, including output-contract
    status and restart/cancellation visibility.
 3. Keep MCP, diagnostics repair, and memory controls regression-green while

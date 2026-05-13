@@ -92,6 +92,16 @@ const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
   "file.inspect",
 ];
 const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
+const RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION = "ioi.runtime.subagent-manager.v1";
+const RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION = "ioi.runtime.subagent-result.v1";
+const RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT = [
+  "SUMMARY",
+  "CHANGES",
+  "EVIDENCE",
+  "RISKS",
+  "BLOCKERS",
+  "RECEIPTS",
+];
 const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
 const MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT = 200;
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
@@ -222,6 +232,7 @@ export class AgentgresRuntimeStateStore {
     this.homeDir = path.resolve(options.homeDir ?? process.env.HOME ?? os.homedir());
     this.agents = new Map();
     this.runs = new Map();
+    this.subagents = new Map();
     this.runtimeEventStreams = new Map();
     this.codingArtifacts = new Map();
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
@@ -1393,6 +1404,357 @@ export class AgentgresRuntimeStateStore {
       source_thread_id: sourceThread.thread_id,
       forked_from_seq: sourceLatestSeq,
     };
+  }
+
+  listSubagents(threadId, options = {}) {
+    const parentAgent = this.agentForThread(threadId);
+    const role = optionalString(options.role ?? options.subagent_role ?? options.subagentRole);
+    const subagents = [...this.subagents.values()]
+      .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
+      .filter((record) => !role || record.role === role)
+      .sort((left, right) =>
+        String(left.created_at ?? left.createdAt ?? "").localeCompare(
+          String(right.created_at ?? right.createdAt ?? ""),
+        ),
+      )
+      .map((record) => this.subagentProjection(record));
+    return {
+      schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      object: "ioi.runtime_subagent_list",
+      thread_id: threadId,
+      threadId,
+      parent_agent_id: parentAgent.id,
+      parentAgentId: parentAgent.id,
+      status: "ready",
+      count: subagents.length,
+      active_count: subagents.filter((record) => subagentIsActive(record)).length,
+      activeCount: subagents.filter((record) => subagentIsActive(record)).length,
+      subagents,
+    };
+  }
+
+  spawnSubagent(threadId, request = {}) {
+    const parentAgent = this.agentForThread(threadId);
+    const parentThread = this.threadForAgent(parentAgent);
+    const prompt = optionalString(
+      request.prompt ?? request.message ?? request.input ?? request.subagentPrompt ?? request.subagent_prompt,
+    );
+    if (!prompt) {
+      throw runtimeError({
+        status: 400,
+        code: "subagent_prompt_required",
+        message: "Subagent spawn requires a prompt.",
+        details: { threadId },
+      });
+    }
+    const role = normalizeSubagentRole(request.role ?? request.subagentRole ?? request.subagent_role);
+    const maxConcurrency = optionalPositiveInteger(
+      request.max_concurrency ?? request.maxConcurrency ?? request.subagentMaxConcurrency,
+    );
+    if (maxConcurrency) {
+      const activeForRole = this.listSubagents(threadId, { role }).subagents.filter(subagentIsActive).length;
+      if (activeForRole >= maxConcurrency) {
+        throw policyError("Subagent role concurrency limit reached.", {
+          threadId,
+          role,
+          activeForRole,
+          maxConcurrency,
+        });
+      }
+    }
+
+    const modelRouteId =
+      optionalString(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
+      parentAgent.modelRouteId ??
+      "route.local-first";
+    const childAgent = this.createAgent({
+      local: { cwd: parentAgent.cwd },
+      model: {
+        id: parentAgent.requestedModelId ?? parentAgent.modelId ?? "auto",
+        routeId: parentAgent.modelRouteId ?? "route.local-first",
+      },
+    });
+    const run = this.createRun(childAgent.id, {
+      mode: "send",
+      prompt,
+      options: {
+        receiver: role,
+        memory: request.memory ?? request.options?.memory ?? {},
+      },
+    });
+    const now = new Date().toISOString();
+    const subagentId = childAgent.id;
+    const outputContract = normalizeSubagentOutputContract(
+      request.output_contract ?? request.outputContract ?? request.subagentOutputContract,
+    );
+    const output = subagentContractOutputForRun(run, outputContract);
+    const outputContractStatus = validateSubagentOutputContract(output, outputContract);
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      `runtime.subagent.spawn.${safeId(role)}`;
+    const parentTurnId =
+      optionalString(request.parent_turn_id ?? request.parentTurnId ?? request.turn_id ?? request.turnId) ??
+      parentThread.latest_turn_id ??
+      null;
+    const record = {
+      schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      object: "ioi.runtime_subagent",
+      subagent_id: subagentId,
+      subagentId,
+      agent_id: childAgent.id,
+      agentId: childAgent.id,
+      child_thread_id: threadIdForAgent(childAgent.id),
+      childThreadId: threadIdForAgent(childAgent.id),
+      run_id: run.id,
+      runId: run.id,
+      parent_thread_id: threadId,
+      parentThreadId: threadId,
+      parent_agent_id: parentAgent.id,
+      parentAgentId: parentAgent.id,
+      parent_turn_id: parentTurnId,
+      parentTurnId,
+      role,
+      tool_pack: optionalString(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ?? null,
+      toolPack: optionalString(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ?? null,
+      model_route_id: modelRouteId,
+      modelRouteId,
+      workflow_graph_id: workflowGraphId,
+      workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflowNodeId,
+      session_boot_id: runtimeSessionIdForAgent(childAgent),
+      sessionBootId: runtimeSessionIdForAgent(childAgent),
+      lifecycle_status: lifecycleStatusForRun(run.status),
+      lifecycleStatus: lifecycleStatusForRun(run.status),
+      status: lifecycleStatusForRun(run.status),
+      restart_status: "not_restarted",
+      restartStatus: "not_restarted",
+      fork_context: request.fork_context === true || request.forkContext === true,
+      forkContext: request.fork_context === true || request.forkContext === true,
+      context_mode: request.fork_context === true || request.forkContext === true ? "forked" : "fresh",
+      contextMode: request.fork_context === true || request.forkContext === true ? "forked" : "fresh",
+      max_concurrency: maxConcurrency,
+      maxConcurrency,
+      budget: subagentBudgetForRequest(request),
+      output_contract: outputContract,
+      outputContract,
+      output_contract_status: outputContractStatus.status,
+      outputContractStatus,
+      output_contract_validation: outputContractStatus,
+      outputContractValidation: outputContractStatus,
+      merge_policy: optionalString(request.merge_policy ?? request.mergePolicy) ?? "manual",
+      mergePolicy: optionalString(request.merge_policy ?? request.mergePolicy) ?? "manual",
+      cancellation_inheritance:
+        optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
+      cancellationInheritance:
+        optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
+      created_at: now,
+      createdAt: now,
+      updated_at: now,
+      updatedAt: now,
+      result: subagentResultForRun({ record: null, run, output, outputContractStatus }),
+      receipt_refs: run.receipts.map((receipt) => receipt.id),
+      receiptRefs: run.receipts.map((receipt) => receipt.id),
+      evidence_refs: [
+        "runtime.subagent_manager",
+        "runtime.subagent.spawn",
+        run.id,
+        ...run.receipts.map((receipt) => receipt.id),
+      ],
+      evidenceRefs: [
+        "runtime.subagent_manager",
+        "runtime.subagent.spawn",
+        run.id,
+        ...run.receipts.map((receipt) => receipt.id),
+      ],
+    };
+    record.result = subagentResultForRun({ record, run, output, outputContractStatus });
+    const event = this.appendThreadSubagentControlEvent({
+      threadId,
+      parentAgent,
+      record,
+      request,
+      operation: "spawn",
+      status: "completed",
+    });
+    const saved = {
+      ...record,
+      event_id: event.event_id,
+      eventId: event.event_id,
+      receipt_refs: uniqueStrings([...record.receipt_refs, ...event.receipt_refs]),
+      receiptRefs: uniqueStrings([...record.receiptRefs, ...event.receipt_refs]),
+      updated_at: event.created_at,
+      updatedAt: event.created_at,
+    };
+    saved.result = subagentResultForRun({
+      record: saved,
+      run,
+      output,
+      outputContractStatus,
+    });
+    this.writeSubagent(saved, "subagent.spawn");
+    return {
+      ...this.subagentProjection(saved),
+      event,
+    };
+  }
+
+  waitSubagent(threadId, subagentId, request = {}) {
+    const record = this.getSubagent(threadId, subagentId);
+    const run = this.getRun(record.run_id ?? record.runId);
+    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
+    const outputContractStatus = validateSubagentOutputContract(
+      output,
+      record.output_contract ?? record.outputContract,
+    );
+    const updated = {
+      ...record,
+      lifecycle_status: lifecycleStatusForRun(run.status),
+      lifecycleStatus: lifecycleStatusForRun(run.status),
+      status: lifecycleStatusForRun(run.status),
+      output_contract_status: outputContractStatus.status,
+      outputContractStatus,
+      output_contract_validation: outputContractStatus,
+      outputContractValidation: outputContractStatus,
+      waited_at: new Date().toISOString(),
+      waitedAt: new Date().toISOString(),
+    };
+    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
+    const event = this.appendThreadSubagentControlEvent({
+      threadId,
+      parentAgent: this.agentForThread(threadId),
+      record: updated,
+      request,
+      operation: "wait",
+      status: updated.status,
+    });
+    const saved = {
+      ...updated,
+      wait_event_id: event.event_id,
+      waitEventId: event.event_id,
+      receipt_refs: uniqueStrings([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
+      receiptRefs: uniqueStrings([...normalizeArray(updated.receiptRefs), ...event.receipt_refs]),
+      updated_at: event.created_at,
+      updatedAt: event.created_at,
+    };
+    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
+    this.writeSubagent(saved, "subagent.wait");
+    return {
+      ...saved.result,
+      subagent: this.subagentProjection(saved),
+      event,
+      receipt_refs: event.receipt_refs,
+      receiptRefs: event.receipt_refs,
+    };
+  }
+
+  getSubagentResult(threadId, subagentId) {
+    const record = this.getSubagent(threadId, subagentId);
+    const run = this.getRun(record.run_id ?? record.runId);
+    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
+    const outputContractStatus = validateSubagentOutputContract(
+      output,
+      record.output_contract ?? record.outputContract,
+    );
+    return {
+      ...subagentResultForRun({ record, run, output, outputContractStatus }),
+      subagent: this.subagentProjection({
+        ...record,
+        output_contract_status: outputContractStatus.status,
+        outputContractStatus,
+      }),
+    };
+  }
+
+  getSubagent(threadId, subagentId) {
+    const record = this.subagents.get(subagentId);
+    if (!record || (record.parent_thread_id ?? record.parentThreadId) !== threadId) {
+      throw notFound(`Subagent not found: ${subagentId}`, { threadId, subagentId });
+    }
+    return record;
+  }
+
+  subagentProjection(record = {}) {
+    return {
+      ...record,
+      schema_version: record.schema_version ?? RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      schemaVersion: record.schemaVersion ?? RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      object: record.object ?? "ioi.runtime_subagent",
+      subagent_id: record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId,
+      subagentId: record.subagentId ?? record.subagent_id ?? record.agentId ?? record.agent_id,
+      agent_id: record.agent_id ?? record.agentId,
+      agentId: record.agentId ?? record.agent_id,
+      parent_thread_id: record.parent_thread_id ?? record.parentThreadId,
+      parentThreadId: record.parentThreadId ?? record.parent_thread_id,
+      lifecycle_status: record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
+      lifecycleStatus: record.lifecycleStatus ?? record.lifecycle_status ?? record.status,
+      output_contract_status:
+        record.output_contract_status ??
+        record.outputContractStatus?.status ??
+        record.output_contract_validation?.status ??
+        null,
+      outputContractStatus:
+        record.outputContractStatus ??
+        record.output_contract_validation ??
+        record.output_contract_status ??
+        null,
+    };
+  }
+
+  appendThreadSubagentControlEvent({
+    threadId,
+    parentAgent,
+    record,
+    request,
+    operation,
+    status,
+  }) {
+    const thread = this.threadForAgent(parentAgent);
+    const source = operatorControlSource(request.source);
+    const eventHash = doctorHash(
+      `${threadId}:${operation}:${record.subagent_id ?? record.subagentId}:${Date.now()}`,
+    ).slice(0, 12);
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
+      record.workflow_graph_id ??
+      record.workflowGraphId ??
+      null;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      record.workflow_node_id ??
+      record.workflowNodeId ??
+      `runtime.subagent.${operation}`;
+    const payload = subagentManagerEventPayload({ record, operation, status });
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: record.parent_turn_id ?? record.parentTurnId ?? thread.latest_turn_id ?? "",
+      item_id: `${record.parent_turn_id ?? record.parentTurnId ?? threadId}:item:subagent:${safeId(operation)}:${safeId(record.subagent_id ?? record.subagentId)}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:subagent.${operation}:${record.subagent_id ?? record.subagentId}:${eventHash}`,
+      source,
+      source_event_kind: subagentOperatorControlKind(operation),
+      event_kind: subagentRuntimeEventKind(operation),
+      status,
+      actor: "operator",
+      workspace_root: parentAgent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "subagent_lifecycle",
+      payload_schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+      payload,
+      receipt_refs: [`receipt_subagent_${safeId(operation)}_${eventHash}`],
+      policy_decision_refs: [`policy_subagent_${safeId(operation)}_allow_${eventHash}`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(parentAgent),
+    });
   }
 
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
@@ -6218,6 +6580,7 @@ export class AgentgresRuntimeStateStore {
       "mcp-servers",
       "memory-records",
       "memory-policies",
+      "subagents",
       "events",
     ]) {
       fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
@@ -6236,6 +6599,7 @@ export class AgentgresRuntimeStateStore {
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
         memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
+        subagents: ["subagentId", "parentThreadId", "agentId", "role", "status", "runId", "updatedAt"],
         runtimeEvents: [
           "event_stream_id",
           "seq",
@@ -6263,6 +6627,11 @@ export class AgentgresRuntimeStateStore {
     for (const file of listJson(this.pathFor("runs"))) {
       const run = readJson(file);
       this.runs.set(run.id, run);
+    }
+    for (const file of listJson(this.pathFor("subagents"))) {
+      const subagent = readJson(file);
+      const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
+      if (subagentId) this.subagents.set(String(subagentId), subagent);
     }
     for (const file of listJson(this.pathFor("artifacts"))) {
       const artifactRecord = readJson(file);
@@ -6344,6 +6713,28 @@ export class AgentgresRuntimeStateStore {
       eventCount: run.events.length,
       terminalEventCount: terminalCount(run.events),
       traceBundleId: run.trace.traceBundleId,
+    });
+  }
+
+  writeSubagent(subagent, operationKind) {
+    const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
+    if (!subagentId) {
+      throw runtimeError({
+        status: 500,
+        code: "subagent_id_required",
+        message: "Subagent records require a stable id before persistence.",
+        details: { operationKind },
+      });
+    }
+    this.subagents.set(String(subagentId), subagent);
+    writeJson(this.pathFor("subagents", `${subagentId}.json`), subagent);
+    this.appendOperation(operationKind, {
+      objectId: subagentId,
+      subagentId,
+      parentThreadId: subagent.parent_thread_id ?? subagent.parentThreadId ?? null,
+      agentId: subagent.agent_id ?? subagent.agentId ?? null,
+      status: subagent.status ?? subagent.lifecycle_status ?? null,
+      role: subagent.role ?? null,
     });
   }
 
@@ -8513,6 +8904,22 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "thinking" && !segments[4]) {
     writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "subagents" && !segments[4]) {
+    writeJsonResponse(response, store.listSubagents(threadId, Object.fromEntries(url.searchParams.entries())));
+    return;
+  }
+  if (request.method === "POST" && action === "subagents" && !segments[4]) {
+    writeJsonResponse(response, store.spawnSubagent(threadId, await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "wait" && !segments[6]) {
+    writeJsonResponse(response, store.waitSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "subagents" && segments[4] && segments[5] === "result" && !segments[6]) {
+    writeJsonResponse(response, store.getSubagentResult(threadId, decodeURIComponent(segments[4])));
     return;
   }
   if (request.method === "POST" && action === "mcp" && segments[4] === "import" && !segments[5]) {
@@ -13342,6 +13749,199 @@ function subagentReceiverForRequest(request = {}) {
       request.subagentName ??
       request.options?.subagentName,
   ) ?? null;
+}
+
+function normalizeSubagentRole(value) {
+  const role = optionalString(value)?.toLowerCase();
+  return role ?? "general";
+}
+
+function optionalPositiveInteger(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : null;
+}
+
+function subagentIsActive(record = {}) {
+  return ["queued", "running", "waiting_for_input", "interrupted"].includes(
+    record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
+  );
+}
+
+function subagentBudgetForRequest(request = {}) {
+  const budget = request.budget ?? request.subagentBudget ?? request.options?.budget ?? null;
+  return budget && typeof budget === "object" && !Array.isArray(budget) ? budget : null;
+}
+
+function normalizeSubagentOutputContract(value) {
+  const raw = value?.sections ?? value?.requiredSections ?? value ?? RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT;
+  const sections = normalizeArray(raw)
+    .map((section) => optionalString(section))
+    .filter(Boolean);
+  return sections.length ? sections : [...RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT];
+}
+
+function subagentContractOutputForRun(run = {}, outputContract = RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT) {
+  const evidenceRefs = uniqueStrings([
+    ...normalizeArray(run.trace?.taskState?.evidenceRefs),
+    ...normalizeArray(run.trace?.qualityLedger?.failureOntologyLabels),
+    ...normalizeArray(run.receipts).map((receipt) => receipt.id),
+  ]);
+  const sections = {
+    SUMMARY: run.result ?? "",
+    CHANGES: normalizeArray(run.trace?.taskState?.changedObjects),
+    EVIDENCE: evidenceRefs,
+    RISKS: normalizeArray(run.trace?.taskState?.uncertainFacts),
+    BLOCKERS: normalizeArray(run.trace?.taskState?.blockers),
+    RECEIPTS: normalizeArray(run.receipts).map((receipt) => receipt.id),
+  };
+  return {
+    schema_version: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
+    object: "ioi.runtime_subagent_output_contract",
+    required_sections: normalizeSubagentOutputContract(outputContract),
+    requiredSections: normalizeSubagentOutputContract(outputContract),
+    sections,
+    text: run.result ?? "",
+  };
+}
+
+function validateSubagentOutputContract(output = {}, outputContract = RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT) {
+  const requiredSections = normalizeSubagentOutputContract(outputContract);
+  const sectionMap = output.sections && typeof output.sections === "object" ? output.sections : {};
+  const presentSections = requiredSections.filter((section) => Object.hasOwn(sectionMap, section));
+  const missingSections = requiredSections.filter((section) => !Object.hasOwn(sectionMap, section));
+  return {
+    schema_version: "ioi.runtime.subagent-output-contract-status.v1",
+    schemaVersion: "ioi.runtime.subagent-output-contract-status.v1",
+    status: missingSections.length ? "failed" : "passed",
+    required_sections: requiredSections,
+    requiredSections,
+    present_sections: presentSections,
+    presentSections,
+    missing_sections: missingSections,
+    missingSections,
+    validated_at: new Date().toISOString(),
+    validatedAt: new Date().toISOString(),
+  };
+}
+
+function subagentResultForRun({ record, run = {}, output, outputContractStatus } = {}) {
+  const subagentId = record?.subagent_id ?? record?.subagentId ?? record?.agent_id ?? record?.agentId ?? null;
+  return {
+    schema_version: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
+    object: "ioi.runtime_subagent_result",
+    subagent_id: subagentId,
+    subagentId,
+    agent_id: record?.agent_id ?? record?.agentId ?? run.agentId ?? null,
+    agentId: record?.agentId ?? record?.agent_id ?? run.agentId ?? null,
+    run_id: run.id ?? record?.run_id ?? record?.runId ?? null,
+    runId: run.id ?? record?.runId ?? record?.run_id ?? null,
+    status: lifecycleStatusForRun(run.status ?? record?.status),
+    lifecycle_status: lifecycleStatusForRun(run.status ?? record?.status),
+    lifecycleStatus: lifecycleStatusForRun(run.status ?? record?.status),
+    result: run.result ?? "",
+    output,
+    output_contract_status: outputContractStatus?.status ?? null,
+    outputContractStatus: outputContractStatus ?? null,
+    receipt_refs: uniqueStrings([
+      ...normalizeArray(record?.receipt_refs ?? record?.receiptRefs),
+      ...normalizeArray(run.receipts).map((receipt) => receipt.id),
+    ]),
+    receiptRefs: uniqueStrings([
+      ...normalizeArray(record?.receiptRefs ?? record?.receipt_refs),
+      ...normalizeArray(run.receipts).map((receipt) => receipt.id),
+    ]),
+  };
+}
+
+function subagentManagerEventPayload({ record = {}, operation, status }) {
+  return {
+    schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+    object: "ioi.runtime_subagent_manager_event",
+    event_kind: subagentOperatorControlKind(operation),
+    eventKind: subagentOperatorControlKind(operation),
+    operation,
+    thread_id: record.parent_thread_id ?? record.parentThreadId ?? null,
+    threadId: record.parentThreadId ?? record.parent_thread_id ?? null,
+    parent_thread_id: record.parent_thread_id ?? record.parentThreadId ?? null,
+    parentThreadId: record.parentThreadId ?? record.parent_thread_id ?? null,
+    parent_turn_id: record.parent_turn_id ?? record.parentTurnId ?? null,
+    parentTurnId: record.parentTurnId ?? record.parent_turn_id ?? null,
+    subagent_id: record.subagent_id ?? record.subagentId ?? null,
+    subagentId: record.subagentId ?? record.subagent_id ?? null,
+    agent_id: record.agent_id ?? record.agentId ?? null,
+    agentId: record.agentId ?? record.agent_id ?? null,
+    run_id: record.run_id ?? record.runId ?? null,
+    runId: record.runId ?? record.run_id ?? null,
+    role: record.role ?? "general",
+    tool_pack: record.tool_pack ?? record.toolPack ?? null,
+    toolPack: record.toolPack ?? record.tool_pack ?? null,
+    model_route_id: record.model_route_id ?? record.modelRouteId ?? null,
+    modelRouteId: record.modelRouteId ?? record.model_route_id ?? null,
+    lifecycle_status: status ?? record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
+    lifecycleStatus: status ?? record.lifecycleStatus ?? record.lifecycle_status ?? record.status,
+    output_contract_status:
+      record.output_contract_status ??
+      record.outputContractStatus?.status ??
+      record.output_contract_validation?.status ??
+      null,
+    outputContractStatus:
+      record.outputContractStatus ??
+      record.output_contract_validation ??
+      record.output_contract_status ??
+      null,
+    max_concurrency: record.max_concurrency ?? record.maxConcurrency ?? null,
+    maxConcurrency: record.maxConcurrency ?? record.max_concurrency ?? null,
+    merge_policy: record.merge_policy ?? record.mergePolicy ?? null,
+    mergePolicy: record.mergePolicy ?? record.merge_policy ?? null,
+    cancellation_inheritance: record.cancellation_inheritance ?? record.cancellationInheritance ?? null,
+    cancellationInheritance: record.cancellationInheritance ?? record.cancellation_inheritance ?? null,
+  };
+}
+
+function subagentOperatorControlKind(operation) {
+  switch (operation) {
+    case "spawn":
+      return "OperatorControl.SubagentSpawn";
+    case "wait":
+      return "OperatorControl.SubagentWait";
+    case "result":
+      return "OperatorControl.SubagentResult";
+    case "send_input":
+      return "OperatorControl.SubagentSendInput";
+    case "cancel":
+      return "OperatorControl.SubagentCancel";
+    case "resume":
+      return "OperatorControl.SubagentResume";
+    case "assign":
+      return "OperatorControl.SubagentAssign";
+    default:
+      return "OperatorControl.SubagentList";
+  }
+}
+
+function subagentRuntimeEventKind(operation) {
+  switch (operation) {
+    case "spawn":
+      return "subagent.spawned";
+    case "wait":
+      return "subagent.wait_completed";
+    case "result":
+      return "subagent.result_read";
+    case "send_input":
+      return "subagent.input_sent";
+    case "cancel":
+      return "subagent.canceled";
+    case "resume":
+      return "subagent.resumed";
+    case "assign":
+      return "subagent.assigned";
+    default:
+      return "subagent.listed";
+  }
 }
 
 function normalizeSubagentInheritanceMode(value) {

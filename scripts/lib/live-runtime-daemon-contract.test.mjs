@@ -4648,6 +4648,123 @@ test("local daemon projects subagent memory inheritance modes with receipts", as
   }
 });
 
+test("local daemon exposes SubagentManager spawn, list, wait, and result contracts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-manager-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-manager-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const spawn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        actor: "workflow-author",
+        role: "explore",
+        prompt: "Inspect the daemon SubagentManager slice and return contract evidence.",
+        toolPack: "coding",
+        modelRouteId: "route.native-local",
+        forkContext: false,
+        maxConcurrency: 2,
+        budget: { maxTokens: 12000 },
+        outputContract: ["SUMMARY", "CHANGES", "EVIDENCE", "RISKS", "BLOCKERS", "RECEIPTS"],
+        mergePolicy: "evidence_only",
+        cancellationInheritance: "propagate",
+        workflowGraphId: "workflow.subagent.manager",
+        workflowNodeId: "runtime.subagent.spawn.explore",
+      }),
+    });
+    assert.equal(spawn.schema_version, "ioi.runtime.subagent-manager.v1");
+    assert.equal(spawn.object, "ioi.runtime_subagent");
+    assert.equal(spawn.parent_thread_id, thread.thread_id);
+    assert.equal(spawn.role, "explore");
+    assert.equal(spawn.tool_pack, "coding");
+    assert.equal(spawn.model_route_id, "route.native-local");
+    assert.equal(spawn.context_mode, "fresh");
+    assert.equal(spawn.lifecycle_status, "completed");
+    assert.equal(spawn.output_contract_status, "passed");
+    assert.equal(spawn.outputContractStatus.status, "passed");
+    assert.equal(spawn.event.source_event_kind, "OperatorControl.SubagentSpawn");
+    assert.equal(spawn.event.component_kind, "subagent_lifecycle");
+    assert.equal(spawn.event.workflow_graph_id, "workflow.subagent.manager");
+    assert.equal(spawn.event.workflow_node_id, "runtime.subagent.spawn.explore");
+    assert.ok(spawn.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_spawn_")));
+
+    const listed = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`);
+    assert.equal(listed.schema_version, "ioi.runtime.subagent-manager.v1");
+    assert.equal(listed.count, 1);
+    assert.equal(listed.subagents[0].subagent_id, spawn.subagent_id);
+    assert.equal(listed.subagents[0].output_contract_status, "passed");
+
+    const waited = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/wait`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId: "workflow.subagent.manager",
+          workflowNodeId: "runtime.subagent.join.explore",
+        }),
+      },
+    );
+    assert.equal(waited.schema_version, "ioi.runtime.subagent-result.v1");
+    assert.equal(waited.lifecycle_status, "completed");
+    assert.equal(waited.output_contract_status, "passed");
+    assert.deepEqual(waited.output.required_sections, [
+      "SUMMARY",
+      "CHANGES",
+      "EVIDENCE",
+      "RISKS",
+      "BLOCKERS",
+      "RECEIPTS",
+    ]);
+    assert.match(waited.output.sections.SUMMARY, /IOI daemon run completed/);
+    assert.ok(waited.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_wait_")));
+    assert.equal(waited.event.source_event_kind, "OperatorControl.SubagentWait");
+    assert.equal(waited.event.payload_summary.output_contract_status, "passed");
+
+    const result = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/result`,
+    );
+    assert.equal(result.schema_version, "ioi.runtime.subagent-result.v1");
+    assert.equal(result.output_contract_status, "passed");
+    assert.equal(result.subagent.subagent_id, spawn.subagent_id);
+    assert.ok(result.output.sections.RECEIPTS.length > 0);
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const spawnEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentSpawn");
+    const waitEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentWait");
+    assert.equal(spawnEvent.component_kind, "subagent_lifecycle");
+    assert.equal(spawnEvent.payload_summary.role, "explore");
+    assert.equal(spawnEvent.payload_summary.subagent_id, spawn.subagent_id);
+    assert.equal(spawnEvent.payload_summary.output_contract_status, "passed");
+    assert.equal(waitEvent.payload_summary.lifecycle_status, "completed");
+
+    await daemon.close();
+    const reloaded = await startRuntimeDaemonService({ cwd, stateDir });
+    try {
+      const reloadedList = await fetchJson(`${reloaded.endpoint}/v1/threads/${thread.thread_id}/subagents`);
+      assert.equal(reloadedList.count, 1);
+      assert.equal(reloadedList.subagents[0].subagent_id, spawn.subagent_id);
+    } finally {
+      await reloaded.close();
+    }
+  } finally {
+    try {
+      await daemon.close();
+    } catch {
+      // The reload branch closes the first daemon before re-opening the same state.
+    }
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
