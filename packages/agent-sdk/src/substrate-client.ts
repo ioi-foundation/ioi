@@ -284,6 +284,62 @@ export interface RuntimeWorkspaceRestorePreviewResult {
   summary?: string;
 }
 
+export interface RuntimeWorkspaceRestoreApplyInput extends RuntimeWorkspaceRestorePreviewInput {
+  approvalGranted?: boolean;
+  approval_granted?: boolean;
+  confirm?: boolean;
+  confirmed?: boolean;
+  allowConflicts?: boolean;
+  allow_conflicts?: boolean;
+  overrideConflicts?: boolean;
+  override_conflicts?: boolean;
+  conflictPolicy?: string;
+  conflict_policy?: string;
+}
+
+export interface RuntimeWorkspaceRestoreApplyResult {
+  schemaVersion: string;
+  schema_version?: string;
+  object: "ioi.runtime_workspace_restore_apply" | string;
+  threadId: string;
+  thread_id?: string;
+  snapshotId: string;
+  snapshot_id?: string;
+  previewStatus: string;
+  preview_status?: string;
+  applyStatus: string;
+  apply_status?: string;
+  applySupported: boolean;
+  apply_supported?: boolean;
+  approvalRequired: boolean;
+  approval_required?: boolean;
+  approvalSatisfied: boolean;
+  approval_satisfied?: boolean;
+  fileCount: number;
+  file_count?: number;
+  appliedCount: number;
+  applied_count?: number;
+  applyNoopCount: number;
+  apply_noop_count?: number;
+  applyBlockedCount: number;
+  apply_blocked_count?: number;
+  failedCount: number;
+  failed_count?: number;
+  operations: Array<Record<string, unknown>>;
+  policyDecisionRefs: string[];
+  policy_decision_refs?: string[];
+  receiptRefs: string[];
+  receipt_refs?: string[];
+  artifactRefs: string[];
+  artifact_refs?: string[];
+  rollbackRefs: string[];
+  rollback_refs?: string[];
+  event?: RuntimeEventEnvelope | null;
+  restore_apply_event?: RuntimeEventEnvelope | null;
+  restoreApplyEvent?: RuntimeEventEnvelope | null;
+  summary?: string;
+}
+
 export interface AgentMemoryPathProjection {
   schemaVersion: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_path_projection";
@@ -415,6 +471,11 @@ export interface RuntimeSubstrateClient {
     snapshotId: string,
     input?: RuntimeWorkspaceRestorePreviewInput,
   ): Promise<RuntimeWorkspaceRestorePreviewResult>;
+  applyThreadWorkspaceRestore(
+    threadId: string,
+    snapshotId: string,
+    input?: RuntimeWorkspaceRestoreApplyInput,
+  ): Promise<RuntimeWorkspaceRestoreApplyResult>;
   rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
   listMemory(agentId: string, options?: MemoryListOptions): Promise<AgentMemoryProjection>;
   updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
@@ -727,6 +788,22 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "previewThreadWorkspaceRestore",
       "POST",
       `/v1/threads/${encodePath(threadId)}/snapshots/${encodePath(snapshotId)}/restore-preview`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async applyThreadWorkspaceRestore(
+    threadId: string,
+    snapshotId: string,
+    input: RuntimeWorkspaceRestoreApplyInput = {},
+  ): Promise<RuntimeWorkspaceRestoreApplyResult> {
+    return this.request(
+      "applyThreadWorkspaceRestore",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/snapshots/${encodePath(snapshotId)}/restore-apply`,
       {
         source: "sdk_client",
         ...input,
@@ -2019,7 +2096,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
             snapshotKind: "pre_post_touched_files",
             fileCount: 1,
             changedFileCount: 1,
-            restore: { status: "content_captured", previewSupported: true, applySupported: false },
+            restore: { status: "content_captured", previewSupported: true, applySupported: true },
             receiptRefs: [`receipt_workspace_snapshot_${toolCallId}`],
             artifactRefs: [`artifact_workspace_snapshot_${toolCallId}`],
           }
@@ -2098,7 +2175,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
           schemaVersion: "ioi.runtime.workspace-snapshot.v1",
           snapshotId: `workspace_snapshot_mock_${threadId}`,
           snapshotKind: "pre_post_touched_files",
-          restore: { status: "content_captured", previewSupported: true, applySupported: false },
+          restore: { status: "content_captured", previewSupported: true, applySupported: true },
           receiptRefs: [`receipt_workspace_snapshot_mock_${threadId}`],
           artifactRefs: [`artifact_workspace_snapshot_mock_${threadId}`],
         },
@@ -2148,8 +2225,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       preview_status: "ready",
       previewSupported: true,
       preview_supported: true,
-      applySupported: false,
-      apply_supported: false,
+      applySupported: true,
+      apply_supported: true,
       fileCount: 1,
       file_count: 1,
       readyCount: 1,
@@ -2171,6 +2248,93 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       restore_preview_event: previewEvent,
       restorePreviewEvent: previewEvent,
       summary: `Restore preview ready for 1 file(s) from ${snapshotId}.`,
+    };
+  }
+
+  async applyThreadWorkspaceRestore(
+    threadId: string,
+    snapshotId: string,
+    input: RuntimeWorkspaceRestoreApplyInput = {},
+  ): Promise<RuntimeWorkspaceRestoreApplyResult> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const approved = Boolean(input.approvalGranted ?? input.approval_granted ?? input.confirm ?? input.confirmed);
+    const applyStatus = approved ? "applied" : "blocked";
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "workspace.restore.applied",
+      sourceEventKind: "WorkspaceRestore.Applied",
+      itemId: `${threadId}:item:workspace-restore-apply:${snapshotId}`,
+      payload: {
+        event_kind: "WorkspaceRestoreApply",
+        snapshot_id: snapshotId,
+        apply_status: applyStatus,
+        summary: approved
+          ? `Restore apply restored 1 file(s) from ${snapshotId}.`
+          : `Restore apply blocked for ${snapshotId}: operator approval is required.`,
+      },
+      createdAt: new Date().toISOString(),
+      componentKind: "restore_gate",
+      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? "runtime.restore-gate"),
+      receiptRefs: [`receipt_workspace_restore_apply_${snapshotId}`],
+    });
+    const applyEvent = {
+      ...event,
+      rollback_refs: [snapshotId],
+      artifact_refs: [`artifact_workspace_restore_apply_${snapshotId}`],
+      policy_decision_refs: [`policy_workspace_restore_apply_${snapshotId}_${approved ? "approval_satisfied" : "approval_required"}`],
+    };
+    return {
+      schemaVersion: "ioi.runtime.workspace-restore-apply.v1",
+      schema_version: "ioi.runtime.workspace-restore-apply.v1",
+      object: "ioi.runtime_workspace_restore_apply",
+      threadId,
+      thread_id: threadId,
+      snapshotId,
+      snapshot_id: snapshotId,
+      previewStatus: "ready",
+      preview_status: "ready",
+      applyStatus,
+      apply_status: applyStatus,
+      applySupported: approved,
+      apply_supported: approved,
+      approvalRequired: true,
+      approval_required: true,
+      approvalSatisfied: approved,
+      approval_satisfied: approved,
+      fileCount: 1,
+      file_count: 1,
+      appliedCount: approved ? 1 : 0,
+      applied_count: approved ? 1 : 0,
+      applyNoopCount: 0,
+      apply_noop_count: 0,
+      applyBlockedCount: approved ? 0 : 1,
+      apply_blocked_count: approved ? 0 : 1,
+      failedCount: 0,
+      failed_count: 0,
+      operations: [
+        {
+          path: "mock-file.js",
+          operation: "replace",
+          status: "ready",
+          applyStatus,
+          apply_status: applyStatus,
+        },
+      ],
+      policyDecisionRefs: applyEvent.policy_decision_refs,
+      policy_decision_refs: applyEvent.policy_decision_refs,
+      receiptRefs: event.receipt_refs,
+      receipt_refs: event.receipt_refs,
+      artifactRefs: applyEvent.artifact_refs,
+      artifact_refs: applyEvent.artifact_refs,
+      rollbackRefs: [snapshotId],
+      rollback_refs: [snapshotId],
+      event: applyEvent,
+      restore_apply_event: applyEvent,
+      restoreApplyEvent: applyEvent,
+      summary: String(applyEvent.payload?.summary ?? ""),
     };
   }
 

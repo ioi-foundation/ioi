@@ -129,6 +129,7 @@ workstream was narrower.
 | 127 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | project-aware diagnostics backend ladder | /tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json |
 | 128 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | workspace snapshot records for mutating coding tools | /tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json |
 | 129 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | content-backed workspace restore preview | /tmp/ioi-autopilot-gui-harness-workspace-restore-preview/2026-05-13T05-42-32-697Z/result.json |
+| 130 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | policy-gated workspace restore apply | /tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -887,6 +888,43 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-restore-preview`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-workspace-restore-preview/2026-05-13T05-42-32-697Z/result.json`.
+
+### Slice 130. 2026-05-13 - Policy-gated workspace restore apply
+
+Implementation slice completed 2026-05-13, policy-gated workspace restore
+apply:
+
+- Extracted reusable workspace snapshot and restore helpers into
+  `workspace-restore.mjs` so preview/apply mechanics stay outside the daemon
+  route layer.
+- Added daemon
+  `/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-apply` with an
+  explicit approval gate, conflict override policy, clean preflight, apply/noop
+  status rows, receipts, artifacts, rollback refs, and policy decision refs.
+- Materialized restore-apply artifacts and emitted
+  `workspace.restore.applied` events that project as React Flow `restore_gate`
+  rows with a distinct Restore apply label.
+- Added SDK and mock-client restore apply helpers so workflow development can
+  configure and validate approval and conflict policy without a live daemon.
+- Extended the live contract to prove blocked-without-approval, applied with
+  approval, noop-after-apply, SDK event projection, and React Flow restore-gate
+  projection.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/workspace-restore.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "projects coding tool|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "agent CLI exposes model|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-restore-apply`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
