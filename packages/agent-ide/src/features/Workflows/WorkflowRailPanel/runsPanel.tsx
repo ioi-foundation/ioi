@@ -512,6 +512,16 @@ export function WorkflowRunsPanel({
               }
               data-mcp-row-count={tuiControlStateProjection.mcpRowCount}
               data-memory-row-count={tuiControlStateProjection.memoryRowCount}
+              data-subagent-row-count={tuiControlStateProjection.subagentRowCount}
+              data-subagent-child-subflow-count={
+                tuiControlStateProjection.subagentChildSubflowCount
+              }
+              data-subagent-child-subflow-node-count={
+                tuiControlStateProjection.subagentChildSubflowReactFlowNodes.length
+              }
+              data-subagent-child-subflow-edge-count={
+                tuiControlStateProjection.subagentChildSubflowReactFlowEdges.length
+              }
             >
               <h4>TUI control state</h4>
               <div
@@ -529,6 +539,11 @@ export function WorkflowRunsPanel({
                 </span>
                 <span>{tuiControlStateProjection.mcpRowCount} MCP</span>
                 <span>{tuiControlStateProjection.memoryRowCount} memory</span>
+                <span>{tuiControlStateProjection.subagentRowCount} subagents</span>
+                <span>
+                  {tuiControlStateProjection.subagentChildSubflowCount} child
+                  subflows
+                </span>
                 <span>
                   {tuiControlStateProjection.currentTurnId ?? "no active turn"}
                 </span>
@@ -558,10 +573,29 @@ export function WorkflowRunsPanel({
                     data-memory-scope={row.memoryScope ?? ""}
                     data-memory-key={row.memoryKey ?? ""}
                     data-memory-operation={row.memoryOperation ?? ""}
+                    data-subagent-id={row.subagentId ?? ""}
+                    data-subagent-role={row.subagentRole ?? ""}
+                    data-subagent-operation={row.subagentOperation ?? ""}
+                    data-subagent-lifecycle-status={
+                      row.subagentLifecycleStatus ?? ""
+                    }
+                    data-subagent-output-contract-status={
+                      row.subagentOutputContractStatus ?? ""
+                    }
+                    data-subagent-cancellation-inheritance={
+                      row.subagentCancellationInheritance ?? ""
+                    }
+                    data-subagent-merge-policy={row.subagentMergePolicy ?? ""}
+                    data-subagent-tool-pack={row.subagentToolPack ?? ""}
+                    data-subagent-run-id={row.subagentRunId ?? ""}
+                    data-subagent-child-thread-id={
+                      row.subagentChildThreadId ?? ""
+                    }
                     data-route-id={row.routeId ?? ""}
                     data-reasoning-effort={row.reasoningEffort ?? ""}
                     data-thread-id={row.threadId ?? ""}
                     data-turn-id={row.turnId ?? ""}
+                    data-workflow-graph-id={row.workflowGraphId ?? ""}
                     data-cursor={row.cursor ?? ""}
                     data-event-id={row.eventId ?? ""}
                     data-receipt-refs={row.receiptRefs.join("|")}
@@ -586,6 +620,84 @@ export function WorkflowRunsPanel({
                   </li>
                 ))}
               </ol>
+              {tuiControlStateProjection.subagentChildSubflowCount > 0 ? (
+                <ol
+                  className="workflow-run-subagent-subflows"
+                  data-testid="workflow-run-subagent-subflows"
+                >
+                  {tuiControlStateProjection.subagentChildSubflows.map(
+                    (subflow) => (
+                      <li
+                        key={subflow.id}
+                        className={`workflow-run-subagent-subflow is-${subflow.subagentLifecycleStatus ?? "unknown"}`}
+                        data-testid={`workflow-run-subagent-subflow-${subflow.id}`}
+                        data-subflow-id={subflow.id}
+                        data-parent-react-flow-node-id={
+                          subflow.parentReactFlowNodeId
+                        }
+                        data-child-react-flow-node-id={
+                          subflow.childReactFlowNodeId
+                        }
+                        data-child-run-react-flow-node-id={
+                          subflow.childRunReactFlowNodeId ?? ""
+                        }
+                        data-workflow-graph-id={subflow.workflowGraphId ?? ""}
+                        data-subagent-id={subflow.subagentId ?? ""}
+                        data-subagent-role={subflow.subagentRole ?? ""}
+                        data-subagent-operation={
+                          subflow.subagentOperation ?? ""
+                        }
+                        data-child-thread-id={subflow.childThreadId}
+                        data-child-run-id={subflow.childRunId ?? ""}
+                        data-react-flow-edge-count={
+                          subflow.reactFlowEdges.length
+                        }
+                      >
+                        <details>
+                          <summary>
+                            <strong>{subflow.label}</strong>
+                            <span>{subflow.childThreadId}</span>
+                            <small>
+                              {subflow.childRunId ?? "child run pending"}
+                            </small>
+                          </summary>
+                          <dl>
+                            <div>
+                              <dt>Parent node</dt>
+                              <dd>{subflow.parentReactFlowNodeId}</dd>
+                            </div>
+                            <div>
+                              <dt>Graph</dt>
+                              <dd>{subflow.workflowGraphId ?? "unscoped"}</dd>
+                            </div>
+                            <div>
+                              <dt>Lifecycle</dt>
+                              <dd>
+                                {subflow.subagentLifecycleStatus ?? "unknown"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Merge</dt>
+                              <dd>{subflow.subagentMergePolicy ?? "default"}</dd>
+                            </div>
+                            <div>
+                              <dt>Cancellation</dt>
+                              <dd>
+                                {subflow.subagentCancellationInheritance ??
+                                  "default"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Edges</dt>
+                              <dd>{subflow.reactFlowEdges.length}</dd>
+                            </div>
+                          </dl>
+                        </details>
+                      </li>
+                    ),
+                  )}
+                </ol>
+              ) : null}
             </section>
           ) : null}
           {harnessAttempts.length > 0 ? (

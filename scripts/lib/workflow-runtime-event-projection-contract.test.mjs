@@ -90,6 +90,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /reactFlowEdges/);
   assert.match(projection, /runtimeEventProjection/);
   assert.match(projection, /runtimeEventTransition/);
+  assert.match(projection, /WorkflowRuntimeSubagentChildSubflowDescriptor/);
+  assert.match(projection, /subagentChildSubflowReactFlowNodes/);
+  assert.match(projection, /runtimeSubagentSubflow/);
+  assert.match(projection, /runtimeSubagentRun/);
   assert.match(projection, /runtime_thread_fork/);
   assert.match(projection, /runtime_operator_interrupt/);
   assert.match(projection, /runtime_operator_steer/);
@@ -157,4 +161,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /data-artifact-refs/);
   assert.match(runsPanel, /data-policy-decision-refs/);
   assert.match(runsPanel, /data-rollback-refs/);
+  assert.match(runsPanel, /workflow-run-subagent-subflows/);
+  assert.match(runsPanel, /data-subagent-child-subflow-count/);
+  assert.match(runsPanel, /data-child-thread-id/);
 });

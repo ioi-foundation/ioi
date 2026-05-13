@@ -226,6 +226,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   surface?: string;
   threadId?: string | null;
   thread_id?: string | null;
+  workflowGraphId?: string | null;
+  workflow_graph_id?: string | null;
   currentTurnId?: string | null;
   current_turn_id?: string | null;
   lastCursor?: string | null;
@@ -293,6 +295,7 @@ export interface WorkflowRuntimeTuiControlStateRow {
   reasoningEffort: string | null;
   threadId: string | null;
   turnId: string | null;
+  workflowGraphId?: string | null;
   cursor: string | null;
   eventId: string | null;
   sequence: number | null;
@@ -301,11 +304,103 @@ export interface WorkflowRuntimeTuiControlStateRow {
   reactFlowNodeId: string;
 }
 
+export interface WorkflowRuntimeSubagentChildSubflowNodeData {
+  schemaVersion: typeof WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION;
+  nodeKind: "subagent_child_subflow" | "subagent_child_run";
+  label: string;
+  collapsed: boolean;
+  status: WorkflowRuntimeTuiControlRowStatus;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  parentReactFlowNodeId: string;
+  parentThreadId: string | null;
+  parentTurnId: string | null;
+  rowId: string;
+  rowReactFlowNodeId: string;
+  subagentId: string | null;
+  subagentRole: string | null;
+  subagentOperation: string | null;
+  subagentLifecycleStatus: string | null;
+  subagentOutputContractStatus: string | null;
+  subagentCancellationInheritance: string | null;
+  subagentMergePolicy: string | null;
+  subagentToolPack: string | null;
+  childThreadId: string;
+  childRunId: string | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
+}
+
+export interface WorkflowRuntimeSubagentChildSubflowReactFlowNode {
+  id: string;
+  type: "runtimeSubagentSubflow" | "runtimeSubagentRun";
+  parentId?: string;
+  parentNode?: string;
+  extent?: "parent";
+  position: WorkflowRuntimeReactFlowPosition;
+  data: WorkflowRuntimeSubagentChildSubflowNodeData;
+}
+
+export interface WorkflowRuntimeSubagentChildSubflowEdgeData {
+  schemaVersion: typeof WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION;
+  edgeKind: "subagent_parent_to_subflow" | "subagent_subflow_to_run";
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  parentReactFlowNodeId: string;
+  rowId: string;
+  subagentId: string | null;
+  childThreadId: string;
+  childRunId: string | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
+}
+
+export interface WorkflowRuntimeSubagentChildSubflowReactFlowEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: "runtimeSubagentSubflowEdge";
+  data: WorkflowRuntimeSubagentChildSubflowEdgeData;
+}
+
+export interface WorkflowRuntimeSubagentChildSubflowDescriptor {
+  schemaVersion: typeof WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION;
+  id: string;
+  kind: "subagent_child_subflow";
+  collapsed: boolean;
+  label: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  parentReactFlowNodeId: string;
+  parentThreadId: string | null;
+  parentTurnId: string | null;
+  rowId: string;
+  rowReactFlowNodeId: string;
+  subagentId: string | null;
+  subagentRole: string | null;
+  subagentOperation: string | null;
+  subagentLifecycleStatus: string | null;
+  subagentOutputContractStatus: string | null;
+  subagentCancellationInheritance: string | null;
+  subagentMergePolicy: string | null;
+  subagentToolPack: string | null;
+  childThreadId: string;
+  childRunId: string | null;
+  childReactFlowNodeId: string;
+  childRunReactFlowNodeId: string | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
+  reactFlowGroupNode: WorkflowRuntimeSubagentChildSubflowReactFlowNode;
+  reactFlowRunNode: WorkflowRuntimeSubagentChildSubflowReactFlowNode | null;
+  reactFlowEdges: WorkflowRuntimeSubagentChildSubflowReactFlowEdge[];
+}
+
 export interface WorkflowRuntimeTuiControlStateProjection {
   schemaVersion: typeof WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION;
   sourceSchemaVersion: string | null;
   surface: string;
   threadId: string | null;
+  workflowGraphId: string | null;
   currentTurnId: string | null;
   lastCursor: string | null;
   lastEventId: string | null;
@@ -318,8 +413,12 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   mcpRowCount: number;
   memoryRowCount: number;
   subagentRowCount: number;
+  subagentChildSubflowCount: number;
   rowCount: number;
   rows: WorkflowRuntimeTuiControlStateRow[];
+  subagentChildSubflows: WorkflowRuntimeSubagentChildSubflowDescriptor[];
+  subagentChildSubflowReactFlowNodes: WorkflowRuntimeSubagentChildSubflowReactFlowNode[];
+  subagentChildSubflowReactFlowEdges: WorkflowRuntimeSubagentChildSubflowReactFlowEdge[];
 }
 
 interface MutableProjectedNode {
@@ -388,6 +487,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
   state: WorkflowRuntimeTuiControlStateInput | null | undefined,
 ): WorkflowRuntimeTuiControlStateProjection {
   const threadId = stringField(state, "threadId", "thread_id");
+  const workflowGraphId = stringField(state, "workflowGraphId", "workflow_graph_id");
   const currentTurnId = stringField(state, "currentTurnId", "current_turn_id");
   const lastCursor = stringField(state, "lastCursor", "last_cursor");
   const lastEventId = stringField(state, "lastEventId", "last_event_id");
@@ -735,6 +835,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     const status = tuiControlRowStatus(lifecycleStatus);
     const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
     const fallbackNodeId = `runtime.subagent.${slug(operation)}.${slug(role ?? subagentId ?? String(sequence))}`;
+    const rowWorkflowGraphId =
+      stringField(entry, "workflowGraphId", "workflow_graph_id") ??
+      workflowGraphId;
     rows.push({
       id:
         stringField(entry, "id") ??
@@ -794,6 +897,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       turnId:
         stringField(entry, "turnId", "turn_id", "parentTurnId", "parent_turn_id") ??
         currentTurnId,
+      workflowGraphId: rowWorkflowGraphId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
       eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
       sequence,
@@ -1026,11 +1130,23 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     });
   });
 
+  const subagentChildSubflows = subagentChildSubflowsForRows(rows);
+  const subagentChildSubflowReactFlowNodes = subagentChildSubflows.flatMap(
+    (subflow) =>
+      subflow.reactFlowRunNode
+        ? [subflow.reactFlowGroupNode, subflow.reactFlowRunNode]
+        : [subflow.reactFlowGroupNode],
+  );
+  const subagentChildSubflowReactFlowEdges = subagentChildSubflows.flatMap(
+    (subflow) => subflow.reactFlowEdges,
+  );
+
   return {
     schemaVersion: WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
     sourceSchemaVersion: stringField(state, "schemaVersion", "schema_version"),
     surface: stringField(state, "surface") ?? "tui",
     threadId,
+    workflowGraphId,
     currentTurnId,
     lastCursor,
     lastEventId,
@@ -1043,9 +1159,172 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
     subagentRowCount: subagentRows.length,
+    subagentChildSubflowCount: subagentChildSubflows.length,
     rowCount: rows.length,
     rows,
+    subagentChildSubflows,
+    subagentChildSubflowReactFlowNodes,
+    subagentChildSubflowReactFlowEdges,
   };
+}
+
+function subagentChildSubflowsForRows(
+  rows: readonly WorkflowRuntimeTuiControlStateRow[],
+): WorkflowRuntimeSubagentChildSubflowDescriptor[] {
+  const rowsBySubflowKey = new Map<string, WorkflowRuntimeTuiControlStateRow>();
+  for (const row of rows) {
+    if (row.rowKind !== "subagent" || !row.subagentChildThreadId) continue;
+    const subflowKey = [
+      row.subagentId ?? "detached",
+      row.subagentChildThreadId,
+      row.subagentRunId ?? "runless",
+    ].join(":");
+    rowsBySubflowKey.set(subflowKey, row);
+  }
+
+  return Array.from(rowsBySubflowKey.values()).map((row, index) => {
+    const childThreadId = row.subagentChildThreadId as string;
+    const subagentKey = slug(row.subagentId ?? childThreadId ?? row.id);
+    const runKey = row.subagentRunId ? slug(row.subagentRunId) : null;
+    const groupNodeId = `runtime.subagent-subflow.${subagentKey}`;
+    const runNodeId = runKey ? `${groupNodeId}.run.${runKey}` : null;
+    const parentReactFlowNodeId = row.reactFlowNodeId;
+    const workflowGraphId = row.workflowGraphId ?? null;
+    const label = `Subagent ${row.subagentRole ?? row.subagentId ?? childThreadId}`;
+    const baseData: Omit<
+      WorkflowRuntimeSubagentChildSubflowNodeData,
+      "nodeKind" | "label"
+    > = {
+      schemaVersion: WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+      collapsed: true,
+      status: row.status,
+      workflowGraphId,
+      workflowNodeId: parentReactFlowNodeId,
+      parentReactFlowNodeId,
+      parentThreadId: row.threadId,
+      parentTurnId: row.turnId,
+      rowId: row.id,
+      rowReactFlowNodeId: row.reactFlowNodeId,
+      subagentId: row.subagentId ?? null,
+      subagentRole: row.subagentRole ?? null,
+      subagentOperation: row.subagentOperation ?? null,
+      subagentLifecycleStatus: row.subagentLifecycleStatus ?? null,
+      subagentOutputContractStatus: row.subagentOutputContractStatus ?? null,
+      subagentCancellationInheritance: row.subagentCancellationInheritance ?? null,
+      subagentMergePolicy: row.subagentMergePolicy ?? null,
+      subagentToolPack: row.subagentToolPack ?? null,
+      childThreadId,
+      childRunId: row.subagentRunId ?? null,
+      receiptRefs: row.receiptRefs,
+      policyDecisionRefs: row.policyDecisionRefs,
+    };
+    const reactFlowGroupNode: WorkflowRuntimeSubagentChildSubflowReactFlowNode = {
+      id: groupNodeId,
+      type: "runtimeSubagentSubflow",
+      parentId: parentReactFlowNodeId,
+      parentNode: parentReactFlowNodeId,
+      extent: "parent",
+      position: {
+        x: 28,
+        y: 96 + index * 120,
+      },
+      data: {
+        ...baseData,
+        nodeKind: "subagent_child_subflow",
+        label,
+      },
+    };
+    const reactFlowRunNode: WorkflowRuntimeSubagentChildSubflowReactFlowNode | null =
+      runNodeId
+        ? {
+            id: runNodeId,
+            type: "runtimeSubagentRun",
+            parentId: groupNodeId,
+            parentNode: groupNodeId,
+            extent: "parent",
+            position: {
+              x: 24,
+              y: 52,
+            },
+            data: {
+              ...baseData,
+              nodeKind: "subagent_child_run",
+              label: `Run ${row.subagentRunId}`,
+            },
+          }
+        : null;
+    const edgeData: Omit<
+      WorkflowRuntimeSubagentChildSubflowEdgeData,
+      "edgeKind"
+    > = {
+      schemaVersion: WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+      workflowGraphId,
+      workflowNodeId: parentReactFlowNodeId,
+      parentReactFlowNodeId,
+      rowId: row.id,
+      subagentId: row.subagentId ?? null,
+      childThreadId,
+      childRunId: row.subagentRunId ?? null,
+      receiptRefs: row.receiptRefs,
+      policyDecisionRefs: row.policyDecisionRefs,
+    };
+    const reactFlowEdges: WorkflowRuntimeSubagentChildSubflowReactFlowEdge[] = [
+      {
+        id: `runtime-subagent-subflow:${slug(`${parentReactFlowNodeId}->${groupNodeId}`)}`,
+        source: parentReactFlowNodeId,
+        target: groupNodeId,
+        type: "runtimeSubagentSubflowEdge",
+        data: {
+          ...edgeData,
+          edgeKind: "subagent_parent_to_subflow",
+        },
+      },
+    ];
+    if (runNodeId) {
+      reactFlowEdges.push({
+        id: `runtime-subagent-subflow:${slug(`${groupNodeId}->${runNodeId}`)}`,
+        source: groupNodeId,
+        target: runNodeId,
+        type: "runtimeSubagentSubflowEdge",
+        data: {
+          ...edgeData,
+          edgeKind: "subagent_subflow_to_run",
+        },
+      });
+    }
+
+    return {
+      schemaVersion: WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+      id: groupNodeId,
+      kind: "subagent_child_subflow",
+      collapsed: true,
+      label,
+      workflowGraphId,
+      workflowNodeId: parentReactFlowNodeId,
+      parentReactFlowNodeId,
+      parentThreadId: row.threadId,
+      parentTurnId: row.turnId,
+      rowId: row.id,
+      rowReactFlowNodeId: row.reactFlowNodeId,
+      subagentId: row.subagentId ?? null,
+      subagentRole: row.subagentRole ?? null,
+      subagentOperation: row.subagentOperation ?? null,
+      subagentLifecycleStatus: row.subagentLifecycleStatus ?? null,
+      subagentOutputContractStatus: row.subagentOutputContractStatus ?? null,
+      subagentCancellationInheritance: row.subagentCancellationInheritance ?? null,
+      subagentMergePolicy: row.subagentMergePolicy ?? null,
+      subagentToolPack: row.subagentToolPack ?? null,
+      childThreadId,
+      childRunId: row.subagentRunId ?? null,
+      childReactFlowNodeId: groupNodeId,
+      childRunReactFlowNodeId: runNodeId,
+      receiptRefs: row.receiptRefs,
+      policyDecisionRefs: row.policyDecisionRefs,
+      reactFlowGroupNode,
+      reactFlowRunNode,
+      reactFlowEdges,
+    };
+  });
 }
 
 export function workflowNodeIdForRuntimeThreadEvent(
