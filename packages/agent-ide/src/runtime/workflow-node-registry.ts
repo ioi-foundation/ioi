@@ -847,6 +847,118 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.turn.interrupt"] },
   },
   {
+    type: "runtime_operator_steer",
+    label: "Runtime Operator Steer",
+    group: "Flow",
+    family: "flow_control",
+    token: "ST",
+    familyLabel: "Runtime",
+    metricLabel: "Steer",
+    metricValue: "control",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["turn"],
+    outputs: ["steer", "event", "status"],
+    portDefinitions: [
+      port("turn", "Turn state", "input", "state", "state", false, "state"),
+      port("steer", "Steer request", "output", "state", "output", false, "state"),
+      port("event", "Steer event", "output", "state", "output", false, "state"),
+      port("status", "Steer status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("turn", "Turn state", "input", "state", "state", false, "state"),
+      port("steer", "Steer request", "output", "state", "output", false, "state"),
+      port("event", "Steer event", "output", "state", "output", false, "state"),
+      port("status", "Steer status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeOperatorSteerEndpoint",
+        "runtimeOperatorSteerThreadIdField",
+        "runtimeOperatorSteerTurnIdField",
+        "runtimeOperatorSteerWorkflowNodeId",
+      ],
+      properties: {
+        runtimeOperatorSteerEndpoint: { type: "string" },
+        runtimeOperatorSteerField: { type: "string" },
+        runtimeOperatorSteerEventField: { type: "string" },
+        runtimeOperatorSteerStatusField: { type: "string" },
+        runtimeOperatorSteerReceiptField: { type: "string" },
+        runtimeOperatorSteerPolicyField: { type: "string" },
+        runtimeOperatorSteerThreadId: { type: "string" },
+        runtimeOperatorSteerThreadIdField: { type: "string" },
+        runtimeOperatorSteerTurnId: { type: "string" },
+        runtimeOperatorSteerTurnIdField: { type: "string" },
+        runtimeOperatorSteerGuidance: { type: "string" },
+        runtimeOperatorSteerGuidanceField: { type: "string" },
+        runtimeOperatorSteerWorkflowNodeId: { type: "string" },
+        runtimeOperatorSteerSource: { type: "string" },
+        runtimeOperatorSteerActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_operator_steer"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_operator_steer",
+      "runtimeOperatorSteer.status",
+    ),
+    policyProfile: policyProfile("write"),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_operator_steer",
+      executorId: "workflow.runtime_operator_steer",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_operator_steer",
+        "runtimeOperatorSteer.status",
+      ),
+      runtimeOperatorSteerEndpoint:
+        "/v1/threads/{threadId}/turns/{turnId}/steer",
+      runtimeOperatorSteerField: "runtimeOperatorSteer",
+      runtimeOperatorSteerEventField: "runtimeOperatorSteer.event",
+      runtimeOperatorSteerStatusField: "runtimeOperatorSteer.status",
+      runtimeOperatorSteerReceiptField: "runtimeOperatorSteer.receiptRefs",
+      runtimeOperatorSteerPolicyField: "runtimeOperatorSteer.policyDecisionRefs",
+      runtimeOperatorSteerThreadIdField: "threadId",
+      runtimeOperatorSteerTurnIdField: "turnId",
+      runtimeOperatorSteerGuidanceField: "guidance",
+      runtimeOperatorSteerGuidance: "Steer turn from React Flow workflow control.",
+      runtimeOperatorSteerWorkflowNodeId: "runtime.operator-steer",
+      runtimeOperatorSteerSource: "react_flow",
+      runtimeOperatorSteerActor: "operator",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_operator_steer_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeOperatorSteer: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeOperatorSteer: true,
+        runtimeOperatorSteerField: "runtimeOperatorSteer",
+        runtimeOperatorSteerStatusField: "runtimeOperatorSteer.status",
+      },
+      nodeTypeLabel: "RuntimeOperatorSteerNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.turn.steer"] },
+  },
+  {
     type: "workflow_package_export",
     label: "Workflow Package Export",
     group: "Tools",
@@ -3608,6 +3720,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_checklist", "decision", "verifier", "output"];
     case "runtime_operator_interrupt":
       return ["runtime_thread_fork", "human_gate", "decision", "output"];
+    case "runtime_operator_steer":
+      return ["runtime_operator_interrupt", "decision", "verifier", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -3710,6 +3824,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "workflow_package_import" ||
     type === "runtime_thread_fork" ||
     type === "runtime_operator_interrupt" ||
+    type === "runtime_operator_steer" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

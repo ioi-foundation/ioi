@@ -539,6 +539,7 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
             "Runtime",
             "Operator Interrupt",
         ),
+        ("runtime_operator_steer", "Runtime", "Operator Steer"),
         ("repository_context", "Context", "Repository Context"),
         ("branch_policy", "Policy", "Branch Policy"),
         ("github_context", "Context", "GitHub Context"),
@@ -686,6 +687,33 @@ pub(super) fn workflow_runtime_operator_interrupt_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeOperatorInterrupt": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_operator_steer_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "threadId": { "type": "string" },
+            "turnId": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeOperatorSteer": { "type": "object" }
         }
     })
 }
@@ -1079,6 +1107,41 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 "connectionClasses": ["state", "data", "control"]
             })),
         ),
+        workflow_scaffold(
+            "workflow.runtime.operator_steer",
+            "runtime_operator_steer",
+            "Runtime",
+            "Operator steer control",
+            "Steer the active runtime turn from a React Flow workflow control.",
+            "Steer",
+            "control",
+            json!({
+                "runtimeOperatorSteerEndpoint": "/v1/threads/{threadId}/turns/{turnId}/steer",
+                "runtimeOperatorSteerField": "runtimeOperatorSteer",
+                "runtimeOperatorSteerEventField": "runtimeOperatorSteer.event",
+                "runtimeOperatorSteerStatusField": "runtimeOperatorSteer.status",
+                "runtimeOperatorSteerReceiptField": "runtimeOperatorSteer.receiptRefs",
+                "runtimeOperatorSteerPolicyField": "runtimeOperatorSteer.policyDecisionRefs",
+                "runtimeOperatorSteerThreadIdField": "threadId",
+                "runtimeOperatorSteerTurnIdField": "turnId",
+                "runtimeOperatorSteerGuidanceField": "guidance",
+                "runtimeOperatorSteerGuidance": "Steer turn from React Flow workflow control.",
+                "runtimeOperatorSteerWorkflowNodeId": "runtime.operator-steer",
+                "runtimeOperatorSteerSource": "react_flow",
+                "runtimeOperatorSteerActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_operator_steer_safe",
+                "outputSchema": workflow_runtime_operator_steer_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.turn.steer"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control"]
+            })),
+        ),
     ];
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
@@ -1090,6 +1153,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "skill_context"
                 | "runtime_thread_fork"
                 | "runtime_operator_interrupt"
+                | "runtime_operator_steer"
                 | "workflow_package_export"
                 | "workflow_package_import"
                 | "output"
@@ -1130,6 +1194,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         | "proposal"
         | "runtime_thread_fork"
         | "runtime_operator_interrupt"
+        | "runtime_operator_steer"
         | "workflow_package_export"
         | "workflow_package_import" => "write",
         _ => "none",
@@ -1149,6 +1214,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "github_pr_create"
             | "runtime_thread_fork"
             | "runtime_operator_interrupt"
+            | "runtime_operator_steer"
             | "workflow_package_export"
             | "workflow_package_import"
     );
@@ -1173,6 +1239,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "github_pr_create"
             | "runtime_thread_fork"
             | "runtime_operator_interrupt"
+            | "runtime_operator_steer"
             | "workflow_package_export"
             | "workflow_package_import"
             | "subgraph"
@@ -1192,6 +1259,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "github_pr_create" => vec!["state", "approval", "data"],
         "runtime_thread_fork" => vec!["state", "data", "control"],
         "runtime_operator_interrupt" => vec!["state", "data", "control"],
+        "runtime_operator_steer" => vec!["state", "data", "control"],
         "workflow_package_export" => vec!["data", "output_bundle"],
         "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],

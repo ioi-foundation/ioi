@@ -259,6 +259,37 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeOperatorSteer {
+            if workflow_json_string(&logic, "runtimeOperatorSteerEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_operator_steer_endpoint".to_string(),
+                    message: "Runtime operator steer nodes need a steer endpoint template."
+                        .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeOperatorSteerThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeOperatorSteerThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_operator_steer_thread".to_string(),
+                    message:
+                        "Runtime operator steer nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeOperatorSteerTurnIdField").is_none()
+                && workflow_json_string(&logic, "runtimeOperatorSteerTurnId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_operator_steer_turn".to_string(),
+                    message: "Runtime operator steer nodes need a turn id field or fixed turn id."
+                        .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::Subgraph
             && logic
                 .get("subgraphRef")

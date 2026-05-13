@@ -12,6 +12,7 @@
     "workflow_package_import",
     "runtime_thread_fork",
     "runtime_operator_interrupt",
+    "runtime_operator_steer",
     "function",
     "model_binding",
     "model_call",
@@ -63,6 +64,7 @@
     "workflow_package_export",
     "workflow_package_import",
     "runtime_thread_fork",
-    "runtime_operator_interrupt"
+    "runtime_operator_interrupt",
+    "runtime_operator_steer"
   ]
 }

@@ -180,7 +180,7 @@ test("projects operator steer events into the runtime control node", () => {
   const nodes = projectRuntimeThreadEventsToWorkflowNodes([steer]);
 
   assert.equal(workflowNodeIdForRuntimeThreadEvent(steer), "runtime.operator-steer");
-  assert.equal(nodes[0]?.nodeKind, "state");
+  assert.equal(nodes[0]?.nodeKind, "runtime_operator_steer");
   assert.equal(nodes[0]?.componentKind, "operator_control");
   assert.equal(nodes[0]?.label, "Turn steered");
   assert.equal(nodes[0]?.status, "completed");

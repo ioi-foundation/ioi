@@ -18,6 +18,16 @@ export const RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND =
   "OperatorControl.Interrupt" as const;
 export const RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.operator-control.v1" as const;
+export const WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-operator-steer-control.v1" as const;
+export const RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID =
+  "runtime.operator-steer" as const;
+export const RUNTIME_OPERATOR_STEER_COMPONENT_KIND = "operator_control" as const;
+export const RUNTIME_OPERATOR_STEER_SOURCE = "react_flow" as const;
+export const RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND =
+  "OperatorControl.Steer" as const;
+export const RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.operator-control.v1" as const;
 
 export interface RuntimeThreadForkControlRequestBody {
   reason: string;
@@ -94,6 +104,47 @@ export interface RuntimeOperatorInterruptControlRequestInput {
 }
 
 export interface RuntimeOperatorInterruptWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeOperatorSteerControlRequestBody {
+  guidance: string;
+  source: typeof RUNTIME_OPERATOR_STEER_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_OPERATOR_STEER_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeOperatorSteerControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_operator_steer";
+  nodeId: string | null;
+  threadId: string;
+  turnId: string;
+  endpoint: string;
+  body: RuntimeOperatorSteerControlRequestBody;
+}
+
+export interface RuntimeOperatorSteerControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  turnId?: string | null;
+  turnIdField?: string | null;
+  input?: unknown;
+  guidance?: string | null;
+  guidanceField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeOperatorSteerWorkflowNodeOptions {
   workflowGraphId?: string | null;
   actor?: string | null;
 }
@@ -190,6 +241,56 @@ export function createRuntimeOperatorInterruptControlRequest(
   };
 }
 
+export function createRuntimeOperatorSteerControlRequest(
+  params: RuntimeOperatorSteerControlRequestInput,
+): RuntimeOperatorSteerControlRequest {
+  const threadId =
+    cleanString(params.threadId) ??
+    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
+    stringAtPath(params.input, "thread_id");
+  if (!threadId) {
+    throw new Error("runtime_operator_steer nodes need a threadId input before dispatch.");
+  }
+
+  const turnId =
+    cleanString(params.turnId) ??
+    stringAtPath(params.input, params.turnIdField ?? "turnId") ??
+    stringAtPath(params.input, "turn_id");
+  if (!turnId) {
+    throw new Error("runtime_operator_steer nodes need a turnId input before dispatch.");
+  }
+
+  const guidance =
+    stringAtPath(params.input, params.guidanceField ?? "") ??
+    cleanString(params.guidance) ??
+    "Steer turn from React Flow workflow control.";
+  const workflowNodeId =
+    cleanString(params.workflowNodeId) ?? RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID;
+  const workflowGraphId = cleanString(params.workflowGraphId);
+  const endpointTemplate =
+    cleanString(params.endpoint) ?? "/v1/threads/{threadId}/turns/{turnId}/steer";
+  const endpoint = endpointFromTemplate(endpointTemplate, { threadId, turnId });
+
+  return {
+    schemaVersion: WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
+    nodeType: "runtime_operator_steer",
+    nodeId: cleanString(params.nodeId),
+    threadId,
+    turnId,
+    endpoint,
+    body: {
+      guidance,
+      source: RUNTIME_OPERATOR_STEER_SOURCE,
+      actor: cleanString(params.actor) ?? "operator",
+      workflowGraphId,
+      workflowNodeId,
+      eventKind: RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_OPERATOR_STEER_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION,
+    },
+  };
+}
+
 export function createRuntimeThreadForkControlRequestFromWorkflowNode(
   node: Pick<Node, "id" | "type" | "config">,
   input: unknown = {},
@@ -245,6 +346,36 @@ export function createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
     actor:
       cleanString(options.actor) ??
       cleanString(logic.runtimeOperatorInterruptActor) ??
+      "operator",
+  });
+}
+
+export function createRuntimeOperatorSteerControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeOperatorSteerWorkflowNodeOptions = {},
+): RuntimeOperatorSteerControlRequest {
+  if (node.type !== "runtime_operator_steer") {
+    throw new Error(`Expected runtime_operator_steer node, received ${node.type}.`);
+  }
+  const logic: NodeLogic = node.config?.logic ?? {};
+  return createRuntimeOperatorSteerControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeOperatorSteerThreadId),
+    threadIdField: cleanString(logic.runtimeOperatorSteerThreadIdField) ?? "threadId",
+    turnId: cleanString(logic.runtimeOperatorSteerTurnId),
+    turnIdField: cleanString(logic.runtimeOperatorSteerTurnIdField) ?? "turnId",
+    guidance: cleanString(logic.runtimeOperatorSteerGuidance),
+    guidanceField: cleanString(logic.runtimeOperatorSteerGuidanceField),
+    endpoint: cleanString(logic.runtimeOperatorSteerEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeOperatorSteerWorkflowNodeId) ??
+      RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID,
+    actor:
+      cleanString(options.actor) ??
+      cleanString(logic.runtimeOperatorSteerActor) ??
       "operator",
   });
 }

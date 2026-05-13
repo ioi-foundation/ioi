@@ -185,6 +185,38 @@ fn workflow_scaffolds_include_action_metadata() {
         .expect("operator interrupt connection classes")
         .iter()
         .any(|class| class.as_str() == Some("control")));
+    let operator_steer = scaffolds
+        .iter()
+        .find(|item| {
+            item.get("scaffoldId").and_then(Value::as_str)
+                == Some("workflow.runtime.operator_steer")
+        })
+        .expect("runtime operator steer scaffold should exist");
+    let operator_steer_action = operator_steer
+        .get("action")
+        .expect("runtime operator steer action metadata should exist");
+    assert_eq!(
+        operator_steer.get("nodeType").and_then(Value::as_str),
+        Some("runtime_operator_steer")
+    );
+    assert_eq!(
+        operator_steer_action
+            .get("sideEffectClass")
+            .and_then(Value::as_str),
+        Some("write")
+    );
+    assert_eq!(
+        operator_steer_action
+            .get("supportsDryRun")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(operator_steer_action
+        .get("connectionClasses")
+        .and_then(Value::as_array)
+        .expect("operator steer connection classes")
+        .iter()
+        .any(|class| class.as_str() == Some("control")));
 }
 
 #[test]

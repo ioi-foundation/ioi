@@ -139,11 +139,17 @@ Completed workstream snapshot as of 2026-05-12:
   from React Flow node config, preserves `source=react_flow` plus graph/node
   identity through daemon SSE, SDK `Thread.events()`, and the read-only React
   Flow projection, and shares request-building primitives with thread fork.
+  React Flow now also exposes `runtime_operator_steer`, which builds the live
+  steer daemon request from node config, preserves `source=react_flow` plus
+  graph/node identity through daemon SSE, SDK `Thread.events()`, and the
+  read-only React Flow projection, and emits a non-terminal `turn.steered`
+  guidance event without mutating the turn terminal state.
 
 Most recent guide slice:
 
-- 2026-05-13: React Flow runtime operator interrupt control node
+- 2026-05-13: React Flow runtime operator steer control node
 - Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
+  scripts/generate-runtime-action-contracts.mjs,
   packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts,
   packages/agent-ide/src/runtime/workflow-node-registry.ts,
   packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts,
@@ -152,20 +158,21 @@ Most recent guide slice:
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
 - Validation: targeted React Flow control-node tests, runtime action contract
   generation check, Rust workflow-node execution/scaffold/action-kind tests,
-  live daemon React Flow-originated interrupt proof, prior CLI interrupt proof,
+  live daemon React Flow-originated steer proof, prior CLI steer proof,
   workflow-addressability contract, and GUI harness preflight; see the
   validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-13: React Flow operator interrupt control GUI preflight
+- 2026-05-13: React Flow operator steer control GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json
+  /tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control/2026-05-13T00-24-15-404Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-13 | P0 live runtime bridge | React Flow runtime operator steer control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-13 | P0 live runtime bridge | React Flow runtime operator interrupt control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | React Flow runtime thread fork control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live thread fork control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -198,15 +205,15 @@ Recent completed slice index:
 Immediate tactical queue:
 
 1. Wire the remaining live control contracts into the React Flow
-   workflow-authoring surface as configurable runtime control nodes: operator
-   interrupt, operator steer, and context compact.
+   workflow-authoring surface as a configurable runtime context compact control
+   node.
 2. Prove each React Flow-originated control request preserves
    `workflow_graph_id`, `workflow_node_id`, `source=react_flow`, receipt refs,
    and policy refs when it round-trips through daemon SSE, `Thread.events()`,
    and the React Flow projection.
-3. Extract shared runtime-control request/node helpers when the second control
-   node lands, so fork/interrupt/steer/compact stay modular instead of growing
-   copy-pasted config builders.
+3. Extract shared runtime-control request/node helpers as compact lands, so
+   fork/interrupt/steer/compact stay modular instead of growing copy-pasted
+   config builders.
 4. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
@@ -1743,12 +1750,12 @@ The bridge/event projection loop is closed for the current mapped KernelEvent
 foundation, and the first live control paths, operator interrupt, operator
 steer, context compact, and thread fork, are implemented as canonical
 `turn.interrupted`, `turn.steered`, `context.compacted`, and `thread.forked`
-events. Fork and interrupt are now configurable from the React Flow
-workflow-authoring surface as `runtime_thread_fork` and
-`runtime_operator_interrupt`, with live React Flow-originated graph identity
-proofs. The next runtime slices should add the same authoring/runtime-control
-contract for steer and compact, continuing to extract shared runtime-control
-request primitives as those nodes converge.
+events. Fork, interrupt, and steer are now configurable from the React Flow
+workflow-authoring surface as `runtime_thread_fork`,
+`runtime_operator_interrupt`, and `runtime_operator_steer`, with live React
+Flow-originated graph identity proofs. The next runtime slice should add the
+same authoring/runtime-control contract for context compact, continuing to
+extract shared runtime-control request primitives as those nodes converge.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
 straightforward once live threads, events, and tool contracts are real. Keep

@@ -756,6 +756,135 @@ fn runtime_operator_interrupt_node_builds_react_flow_control_request() {
 }
 
 #[test]
+fn runtime_operator_steer_node_builds_react_flow_control_request() {
+    let root = temp_root("runtime-operator-steer");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Runtime Operator Steer".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut steer = workflow_node(
+        "steer-control",
+        "runtime_operator_steer",
+        "Steer control",
+        120,
+        180,
+        "Steer",
+        "control",
+    );
+    logic_mut(&mut steer).insert(
+        "runtimeOperatorSteerEndpoint".to_string(),
+        json!("/v1/threads/{threadId}/turns/{turnId}/steer"),
+    );
+    logic_mut(&mut steer).insert(
+        "runtimeOperatorSteerThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut steer).insert(
+        "runtimeOperatorSteerTurnIdField".to_string(),
+        json!("turnId"),
+    );
+    logic_mut(&mut steer).insert(
+        "runtimeOperatorSteerGuidanceField".to_string(),
+        json!("guidance"),
+    );
+    logic_mut(&mut steer).insert(
+        "runtimeOperatorSteerWorkflowNodeId".to_string(),
+        json!("runtime.operator-steer"),
+    );
+    logic_mut(&mut steer).insert("runtimeOperatorSteerActor".to_string(), json!("operator"));
+    logic_mut(&mut steer).insert(
+        "outputSchema".to_string(),
+        workflow_runtime_operator_steer_output_schema(),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    let workflow_graph_id = workflow.metadata.id.clone();
+    workflow.nodes = vec![steer];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_node(
+        bundle.workflow_path,
+        "steer-control".to_string(),
+        Some(json!({
+            "threadId": "thread_react_flow",
+            "turnId": "turn_react_flow",
+            "guidance": "focus from React Flow runtime control"
+        })),
+        None,
+    )
+    .expect("runtime operator steer node should run");
+    assert_eq!(run.summary.status, "passed");
+    let node_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "steer-control")
+        .expect("steer node should run");
+    let output = node_run.output.as_ref().expect("steer output should exist");
+    assert_eq!(
+        output.get("kind").and_then(Value::as_str),
+        Some("runtime_operator_steer")
+    );
+    assert_eq!(
+        output.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        output.get("componentKind").and_then(Value::as_str),
+        Some("operator_control")
+    );
+    assert_eq!(
+        output.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        output.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.operator-steer")
+    );
+    assert_eq!(
+        output.get("threadId").and_then(Value::as_str),
+        Some("thread_react_flow")
+    );
+    assert_eq!(
+        output.get("turnId").and_then(Value::as_str),
+        Some("turn_react_flow")
+    );
+    assert_eq!(
+        output.get("endpoint").and_then(Value::as_str),
+        Some("/v1/threads/thread_react_flow/turns/turn_react_flow/steer")
+    );
+    let request = output.get("request").expect("steer request should exist");
+    assert_eq!(
+        request.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        request.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        request.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.operator-steer")
+    );
+    assert_eq!(
+        request.get("eventKind").and_then(Value::as_str),
+        Some("OperatorControl.Steer")
+    );
+    assert_eq!(
+        request.get("guidance").and_then(Value::as_str),
+        Some("focus from React Flow runtime control")
+    );
+}
+
+#[test]
 fn github_pr_create_dry_run_node_executes_through_runtime() {
     let root = temp_root("github-pr-create-runtime");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

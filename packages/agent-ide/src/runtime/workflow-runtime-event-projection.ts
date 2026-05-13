@@ -273,6 +273,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "turn_interrupted":
       return "runtime_operator_interrupt";
     case "turn_steered":
+      return "runtime_operator_steer";
     case "context_compacted":
       return "state";
     case "reasoning_delta":
