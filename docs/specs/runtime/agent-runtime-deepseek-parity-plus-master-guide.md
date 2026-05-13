@@ -148,35 +148,36 @@ Completed workstream snapshot as of 2026-05-12:
   thread compaction daemon request from node config, preserves
   `source=react_flow` plus graph/node identity through daemon SSE, SDK
   `Thread.events()`, and the read-only React Flow projection, and keeps
-  compaction thread-scoped while anchoring to the active/latest turn.
+  compaction thread-scoped while anchoring to the active/latest turn. The four
+  React Flow runtime-control nodes now share request-envelope and workflow-node
+  helper code for thread/turn resolution, endpoint expansion, actor/source
+  metadata, graph identity, and Rust local descriptor output.
 
 Most recent guide slice:
 
-- 2026-05-13: React Flow runtime context compact control node
+- 2026-05-13: Shared React Flow runtime-control helper extraction
 - Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
-  scripts/generate-runtime-action-contracts.mjs,
   packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts,
-  packages/agent-ide/src/runtime/workflow-node-registry.ts,
-  packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts,
   apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs,
-  apps/autopilot/src-tauri/src/project/templates.rs,
+  packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts,
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
-- Validation: targeted React Flow control-node tests, runtime action contract
-  generation check, Rust workflow-node execution/scaffold/action-kind tests,
-  live daemon React Flow-originated compact proof, prior CLI compact proof,
-  workflow-addressability contract, and GUI harness preflight; see the
+- Validation: targeted React Flow control-node/projection tests, source
+  contract, runtime action contract generation check, agent-ide build, Rust
+  runtime-control workflow-node tests, scaffold/action-kind tests, live daemon
+  React Flow-originated compact proof, and GUI harness preflight; see the
   validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-13: React Flow context compact control GUI preflight
+- 2026-05-13: Runtime-control helper refactor GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json
+  /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-13 | P0 live runtime bridge | Shared React Flow runtime-control helper extraction | packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts |
 | 2026-05-13 | P0 live runtime bridge | React Flow runtime context compact control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-13 | P0 live runtime bridge | React Flow runtime operator steer control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-13 | P0 live runtime bridge | React Flow runtime operator interrupt control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -210,16 +211,12 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Extract shared runtime-control request/node helpers now that fork,
-   interrupt, steer, and compact all exist as configurable React Flow control
-   nodes with live graph-identity proofs.
-2. Add one compact source-contract test around the shared helper shape so
-   future runtime control nodes inherit the same graph identity, source,
-   receipt, and policy metadata guarantees.
-3. Continue React Flow settings-harness modularization by splitting remaining
+1. Continue React Flow settings-harness modularization by splitting remaining
    oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
    currently the largest settings harness panel.
-4. Keep the master guide clean by updating the companion ledgers instead of
+2. Add the next runtime-control primitive only through the shared
+   request-envelope/descriptor helpers, with one live graph-identity proof.
+3. Keep the master guide clean by updating the companion ledgers instead of
    appending full validation runs inline.
 
 ## Reference Capability Inventory

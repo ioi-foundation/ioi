@@ -86,6 +86,85 @@ test("runtime_thread_fork helper supports configurable fields from node logic", 
   assert.equal(request.body.source, "react_flow");
 });
 
+test("runtime control workflow helpers share graph identity envelope metadata", () => {
+  const graphId = "workflow.react-flow.shared-control-envelope";
+  const actor = "workflow-operator";
+  const requests = [
+    createRuntimeThreadForkControlRequestFromWorkflowNode(
+      makeWorkflowNode("fork-shared", "runtime_thread_fork", "Fork", 0, 0),
+      { threadId: "thread-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
+    createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
+      makeWorkflowNode(
+        "interrupt-shared",
+        "runtime_operator_interrupt",
+        "Interrupt",
+        0,
+        0,
+      ),
+      { threadId: "thread-shared", turnId: "turn-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
+    createRuntimeOperatorSteerControlRequestFromWorkflowNode(
+      makeWorkflowNode("steer-shared", "runtime_operator_steer", "Steer", 0, 0),
+      { threadId: "thread-shared", turnId: "turn-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
+    createRuntimeContextCompactControlRequestFromWorkflowNode(
+      makeWorkflowNode(
+        "compact-shared",
+        "runtime_context_compact",
+        "Compact",
+        0,
+        0,
+      ),
+      { threadId: "thread-shared", turnId: "turn-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
+  ];
+
+  assert.deepEqual(
+    requests.map((request) => ({
+      source: request.body.source,
+      actor: request.body.actor,
+      graphId: request.body.workflowGraphId,
+      nodeId: request.body.workflowNodeId,
+      threadId: request.threadId,
+    })),
+    [
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+    ],
+  );
+});
+
 test("runtime_context_compact workflow node builds a React Flow daemon request", () => {
   const node = makeWorkflowNode(
     "compact-control",
