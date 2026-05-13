@@ -473,6 +473,55 @@ export interface RuntimeMcpValidationResult {
   event?: RuntimeEventEnvelope;
 }
 
+export interface RuntimeMcpInvocationRecord {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_mcp_tool_invocation" | string;
+  tool_call_id: string;
+  toolCallId?: string;
+  thread_id?: string;
+  threadId?: string;
+  agent_id?: string;
+  agentId?: string;
+  server_id: string;
+  serverId?: string;
+  tool_name: string;
+  toolName?: string;
+  status: string;
+  input_hash?: string;
+  inputHash?: string;
+  output_hash?: string;
+  outputHash?: string;
+  side_effect_class?: string;
+  sideEffectClass?: string;
+  requires_approval?: boolean;
+  requiresApproval?: boolean;
+  approval_mode?: string;
+  approvalMode?: string;
+  approved?: boolean;
+  blockers?: string[];
+  containment?: Record<string, unknown>;
+  result?: Record<string, unknown> | null;
+  evidence_refs?: string[];
+  evidenceRefs?: string[];
+}
+
+export interface RuntimeMcpInvocationResult extends RuntimeMcpInvocationRecord {
+  event_kind?: string;
+  control_kind?: string;
+  server?: RuntimeMcpServerEntry;
+  servers?: RuntimeMcpServerEntry[];
+  tool?: RuntimeMcpToolEntry;
+  tools?: RuntimeMcpToolEntry[];
+  invocation?: RuntimeMcpInvocationRecord;
+  summary?: string;
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  policy_decision_refs?: string[];
+  policyDecisionRefs?: string[];
+  event?: RuntimeEventEnvelope;
+}
+
 export interface RuntimeMcpStatus {
   schema_version?: string;
   schemaVersion?: string;

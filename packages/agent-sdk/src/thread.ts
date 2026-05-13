@@ -8,6 +8,7 @@ import {
   type RuntimeThreadForkInput,
   type RuntimeThreadMemoryInput,
   type RuntimeThreadMcpInput,
+  type RuntimeMcpToolInvokeInput,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
   type RuntimeThreadThinkingInput,
@@ -19,6 +20,7 @@ import type {
   RuntimeMemoryStatus,
   RuntimeMemoryValidationResult,
   RuntimeMcpStatus,
+  RuntimeMcpInvocationResult,
   RuntimeMcpValidationResult,
   RuntimeThreadEvent,
   RuntimeThreadRecord,
@@ -127,6 +129,24 @@ export class Thread {
 
   async validateMcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
     return this.client.validateThreadMcp(this.id, input);
+  }
+
+  async enableMcpServer(
+    serverId: string,
+    input: RuntimeThreadMcpInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.client.enableThreadMcpServer(this.id, serverId, input);
+  }
+
+  async disableMcpServer(
+    serverId: string,
+    input: RuntimeThreadMcpInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.client.disableThreadMcpServer(this.id, serverId, input);
+  }
+
+  async invokeMcpTool(input: RuntimeMcpToolInvokeInput = {}): Promise<RuntimeMcpInvocationResult> {
+    return this.client.invokeThreadMcpTool(this.id, input);
   }
 
   async memory(input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryStatus> {

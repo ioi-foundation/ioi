@@ -44,6 +44,7 @@ import {
   workspaceSnapshotFileForPatch,
 } from "./workspace-restore.mjs";
 import {
+  RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   mcpRegistryForWorkspace,
@@ -2495,6 +2496,9 @@ export class AgentgresRuntimeStateStore {
         servers: "/v1/mcp/servers",
         tools: "/v1/mcp/tools",
         validate: "/v1/mcp/validate",
+        enableServer: "/v1/mcp/servers/{server_id}/enable",
+        disableServer: "/v1/mcp/servers/{server_id}/disable",
+        invokeTool: "/v1/mcp/tools/{tool_id}/invoke",
       },
     };
   }
@@ -2522,6 +2526,255 @@ export class AgentgresRuntimeStateStore {
       servers,
       tools: mcpToolsForServers(servers),
     };
+  }
+
+  setMcpServerEnabled(serverId, enabled, request = {}) {
+    const threadId = optionalString(request.thread_id ?? request.threadId);
+    if (!threadId) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_thread_required",
+        message: "MCP server enable/disable controls require a thread_id so the daemon can update the active runtime registry.",
+        details: { serverId, enabled },
+      });
+    }
+    return this.setThreadMcpServerEnabled(threadId, serverId, enabled, request);
+  }
+
+  setThreadMcpServerEnabled(threadId, serverId, enabled, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd);
+    const server = resolveMcpServerRecord(registry.servers, serverId);
+    if (!server) throw notFound(`MCP server not found: ${serverId}`, { threadId, serverId });
+    const nextStatus = enabled
+      ? (server.status === "disabled" ? "configured" : server.status ?? "configured")
+      : "disabled";
+    const updatedServer = {
+      ...server,
+      enabled,
+      status: nextStatus,
+      health: {
+        ...(server.health ?? {}),
+        status: enabled ? server.health?.status ?? "not_connected" : "disabled",
+        live_probe: false,
+        reason: enabled ? "operator_enabled" : "operator_disabled",
+      },
+      evidence_refs: uniqueStrings([
+        ...(server.evidence_refs ?? server.evidenceRefs ?? []),
+        enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
+      ]),
+      evidenceRefs: uniqueStrings([
+        ...(server.evidence_refs ?? server.evidenceRefs ?? []),
+        enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
+      ]),
+    };
+    const servers = normalizeArray(registry.servers).map((candidate) =>
+      candidate.id === server.id ? updatedServer : candidate,
+    );
+    const tools = mcpToolsForServers(servers);
+    const updatedRegistry = {
+      ...registry,
+      server_count: servers.length,
+      serverCount: servers.length,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      servers,
+      tools,
+    };
+    const updatedAgent = {
+      ...agent,
+      mcpRegistry: updatedRegistry,
+      updatedAt: new Date().toISOString(),
+    };
+    this.agents.set(agent.id, updatedAgent);
+    const status = this.mcpStatus({ thread_id: threadId });
+    const controlKind = enabled ? "mcp_enable" : "mcp_disable";
+    return this.appendThreadMcpControlEvent({
+      threadId,
+      agent: updatedAgent,
+      request,
+      controlKind,
+      sourceEventKind: enabled ? "OperatorControl.McpEnable" : "OperatorControl.McpDisable",
+      eventKind: enabled ? "mcp.server_enabled" : "mcp.server_disabled",
+      componentKind: "mcp_provider",
+      workflowNodeId:
+        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+        `runtime.mcp-server.${safeId(updatedServer.id)}`,
+      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+      status: "completed",
+      payload: {
+        ...status,
+        event_kind: enabled ? "McpServerEnabled" : "McpServerDisabled",
+        control_kind: controlKind,
+        thread_id: threadId,
+        agent_id: updatedAgent.id,
+        server_id: updatedServer.id,
+        serverId: updatedServer.id,
+        enabled,
+        server: updatedServer,
+        servers: [updatedServer],
+        tools: mcpToolsForServers([updatedServer]),
+        summary: `MCP server ${updatedServer.id} ${enabled ? "enabled" : "disabled"}.`,
+      },
+    });
+  }
+
+  invokeMcpTool(request = {}) {
+    const threadId = optionalString(request.thread_id ?? request.threadId);
+    if (!threadId) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_thread_required",
+        message: "MCP tool invocation requires a thread_id so the daemon can apply the active MCP registry and approval policy.",
+        details: { toolId: request.tool_id ?? request.toolId ?? null },
+      });
+    }
+    return this.invokeThreadMcpTool(threadId, request.tool_id ?? request.toolId, request);
+  }
+
+  invokeThreadMcpTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const servers = this.listMcpServers({ thread_id: threadId });
+    const target = resolveMcpToolRecord(servers, toolId, request);
+    if (!target.server) {
+      throw notFound("MCP server not found for invocation.", {
+        threadId,
+        toolId,
+        serverId: request.server_id ?? request.serverId ?? null,
+      });
+    }
+    if (!target.toolName) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_tool_required",
+        message: "MCP invocation requires a tool name.",
+        details: { threadId, serverId: target.server.id, toolId: toolId ?? null },
+      });
+    }
+    const server = target.server;
+    const toolName = target.toolName;
+    const tools = mcpToolsForServers([server]);
+    const toolEntry =
+      tools.find((candidate) => candidate.toolName === toolName || candidate.tool_name === toolName) ??
+      null;
+    if (!toolEntry) {
+      throw notFound(`MCP tool not found: ${toolName}`, {
+        threadId,
+        serverId: server.id,
+        toolName,
+      });
+    }
+    const input = request.input ?? request.arguments ?? request.args ?? {};
+    const sideEffectClass =
+      optionalString(request.side_effect_class ?? request.sideEffectClass) ??
+      optionalString(toolEntry.sideEffectClass) ??
+      "read";
+    const requiresApproval =
+      request.requires_approval === true ||
+      request.requiresApproval === true ||
+      (sideEffectClass !== "none" && sideEffectClass !== "read");
+    const approvalMode =
+      optionalString(agent.runtimeControls?.approval_mode ?? agent.runtimeControls?.approvalMode) ??
+      "agent";
+    const approved =
+      request.approved === true ||
+      request.approval_granted === true ||
+      request.approvalGranted === true ||
+      approvalMode === "yolo";
+    const validation = validateMcpServerRecords([server]);
+    const blockers = [
+      ...(server.enabled === false ? ["server_disabled"] : []),
+      ...(!validation.ok ? validation.issues.map((issue) => issue.code) : []),
+      ...(requiresApproval && !approved ? ["approval_required"] : []),
+    ];
+    const status = blockers.length > 0 ? "blocked" : "completed";
+    const inputHash = doctorHash(JSON.stringify(input));
+    const output = status === "completed"
+      ? { ok: true, fixture: true, serverId: server.id, toolName }
+      : null;
+    const outputHash = doctorHash(JSON.stringify(output ?? { blocked: blockers }));
+    const callHash = doctorHash(
+      `${threadId}:${server.id}:${toolName}:${inputHash}:${Date.now()}`,
+    ).slice(0, 16);
+    const toolCallId = `mcp_call_${safeId(server.id)}_${safeId(toolName)}_${callHash}`;
+    const invocation = {
+      schema_version: RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
+      object: "ioi.runtime_mcp_tool_invocation",
+      tool_call_id: toolCallId,
+      toolCallId,
+      thread_id: threadId,
+      threadId,
+      agent_id: agent.id,
+      agentId: agent.id,
+      server_id: server.id,
+      serverId: server.id,
+      tool_name: toolName,
+      toolName,
+      status,
+      input_hash: inputHash,
+      inputHash,
+      output_hash: outputHash,
+      outputHash,
+      side_effect_class: sideEffectClass,
+      sideEffectClass,
+      requires_approval: requiresApproval,
+      requiresApproval,
+      approval_mode: approvalMode,
+      approvalMode,
+      approved,
+      blockers,
+      containment: {
+        ...(server.containment ?? {}),
+        receiptRequired: true,
+        executionMode: "simulated_manager_receipt",
+      },
+      result: output,
+      evidence_refs: [
+        "mcp.manager.tool.invoke",
+        "mcp_containment_receipt",
+        server.id,
+        `tool:${toolName}`,
+      ],
+      evidenceRefs: [
+        "mcp.manager.tool.invoke",
+        "mcp_containment_receipt",
+        server.id,
+        `tool:${toolName}`,
+      ],
+    };
+    return this.appendThreadMcpControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "mcp_invoke",
+      sourceEventKind: "OperatorControl.McpInvoke",
+      eventKind: "mcp.tool_invocation",
+      componentKind: "mcp_tool_call",
+      workflowNodeId:
+        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+        toolEntry.workflowNodeId ??
+        toolEntry.workflow_node_id ??
+        `runtime.mcp-tool.${safeId(server.id)}.${safeId(toolName)}`,
+      payloadSchemaVersion: RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
+      status,
+      payload: {
+        ...invocation,
+        event_kind: "McpToolInvocation",
+        control_kind: "mcp_invoke",
+        server,
+        servers: [server],
+        tool: { ...toolEntry, status },
+        tools: [{ ...toolEntry, status }],
+        invocation,
+        summary:
+          status === "completed"
+            ? `MCP tool ${server.id}.${toolName} invoked with containment receipt.`
+            : `MCP tool ${server.id}.${toolName} blocked: ${blockers.join(", ")}.`,
+        policy_decision: status === "completed" ? "invoke_allowed" : "invoke_blocked",
+        result: output,
+      },
+    });
   }
 
   recordThreadMcpStatus(threadId, request = {}) {
@@ -2605,7 +2858,14 @@ export class AgentgresRuntimeStateStore {
       workflowNodeId;
     const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
     const receiptId = `receipt_mcp_${safeId(controlKind)}_${eventHash}`;
-    const policyId = `policy_mcp_${safeId(controlKind)}_read_${eventHash}`;
+    const policyKind =
+      optionalString(payload.policy_decision ?? payload.policyDecision) ??
+      (status === "blocked"
+        ? "blocked"
+        : controlKind === "mcp_invoke"
+          ? "invoke_allowed"
+          : "read");
+    const policyId = `policy_mcp_${safeId(controlKind)}_${safeId(policyKind)}_${eventHash}`;
     const event = this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
@@ -5411,6 +5671,45 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.validateMcp(await readBody(request)));
       return;
     }
+    if (
+      request.method === "POST" &&
+      segments[0] === "v1" &&
+      segments[1] === "mcp" &&
+      segments[2] === "servers" &&
+      segments[3] &&
+      (segments[4] === "enable" || segments[4] === "disable") &&
+      !segments[5]
+    ) {
+      const body = await readBody(request);
+      writeJsonResponse(
+        response,
+        store.setMcpServerEnabled(decodeURIComponent(segments[3]), segments[4] === "enable", {
+          ...Object.fromEntries(url.searchParams.entries()),
+          ...body,
+        }),
+      );
+      return;
+    }
+    if (
+      request.method === "POST" &&
+      segments[0] === "v1" &&
+      segments[1] === "mcp" &&
+      segments[2] === "tools" &&
+      segments[3] &&
+      segments[4] === "invoke" &&
+      !segments[5]
+    ) {
+      const body = await readBody(request);
+      writeJsonResponse(
+        response,
+        store.invokeMcpTool({
+          ...Object.fromEntries(url.searchParams.entries()),
+          ...body,
+          tool_id: decodeURIComponent(segments[3]),
+        }),
+      );
+      return;
+    }
     throw notFound("Public daemon route not found.", {
       method: request.method,
       path: url.pathname,
@@ -7259,6 +7558,43 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "thinking" && !segments[4]) {
     writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    action === "mcp" &&
+    segments[4] === "servers" &&
+    segments[5] &&
+    (segments[6] === "enable" || segments[6] === "disable") &&
+    !segments[7]
+  ) {
+    writeJsonResponse(
+      response,
+      store.setThreadMcpServerEnabled(
+        threadId,
+        decodeURIComponent(segments[5]),
+        segments[6] === "enable",
+        await readBody(request),
+      ),
+    );
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    action === "mcp" &&
+    segments[4] === "tools" &&
+    segments[5] &&
+    segments[6] === "invoke" &&
+    !segments[7]
+  ) {
+    writeJsonResponse(
+      response,
+      store.invokeThreadMcpTool(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+    );
+    return;
+  }
+  if (request.method === "POST" && action === "mcp" && segments[4] === "invoke" && !segments[5]) {
+    writeJsonResponse(response, store.invokeThreadMcpTool(threadId, null, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
@@ -10970,6 +11306,66 @@ function normalizeArray(value) {
 
 function uniqueStrings(values) {
   return [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))];
+}
+
+function resolveMcpServerRecord(servers = [], requestedId) {
+  const target = optionalString(requestedId);
+  if (!target) return null;
+  const normalizedTarget = target.toLowerCase();
+  return normalizeArray(servers).find((server) => {
+    const candidates = [
+      server.id,
+      server.label,
+      server.name,
+      server.server_id,
+      server.serverId,
+    ]
+      .map((value) => optionalString(value)?.toLowerCase())
+      .filter(Boolean);
+    return candidates.includes(normalizedTarget);
+  }) ?? null;
+}
+
+function resolveMcpToolRecord(servers = [], toolId, request = {}) {
+  const requestedToolId = optionalString(toolId ?? request.tool_id ?? request.toolId);
+  const requestedServerId = optionalString(
+    request.server_id ?? request.serverId ?? request.server ?? request.server_label ?? request.serverLabel,
+  );
+  let requestedToolName = optionalString(
+    request.tool_name ?? request.toolName ?? request.tool ?? request.name,
+  );
+  let server = requestedServerId ? resolveMcpServerRecord(servers, requestedServerId) : null;
+  if (!server && requestedToolId) {
+    const toolsByServer = normalizeArray(servers).flatMap((candidate) =>
+      mcpToolsForServers([candidate]).map((tool) => ({ server: candidate, tool })),
+    );
+    const normalizedToolId = requestedToolId.toLowerCase();
+    const match = toolsByServer.find(({ tool }) => {
+      const candidates = [
+        tool.stableToolId,
+        tool.stable_tool_id,
+        tool.workflowNodeId,
+        tool.workflow_node_id,
+        `${tool.serverId}.${tool.toolName}`,
+        `${tool.server_id}.${tool.tool_name}`,
+      ]
+        .map((value) => optionalString(value)?.toLowerCase())
+        .filter(Boolean);
+      return candidates.includes(normalizedToolId);
+    });
+    if (match) {
+      server = match.server;
+      requestedToolName ??= match.tool.toolName ?? match.tool.tool_name;
+    }
+  }
+  if (!server && requestedToolId) {
+    const segments = requestedToolId.split(".");
+    if (segments.length >= 3 && segments[0] === "mcp") {
+      server = resolveMcpServerRecord(servers, segments.slice(0, -1).join("."));
+      requestedToolName ??= segments.at(-1);
+    }
+  }
+  return { server, toolName: requestedToolName };
 }
 
 function loadCursorCompatibilityConfig(cwd) {

@@ -256,6 +256,8 @@ export interface WorkflowRuntimeTuiControlStateRow {
   modelId: string | null;
   mcpServerId?: string | null;
   mcpToolName?: string | null;
+  mcpToolCallId?: string | null;
+  mcpOperation?: string | null;
   memoryRecordId?: string | null;
   memoryScope?: string | null;
   memoryKey?: string | null;
@@ -505,6 +507,10 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       declaredKind === "mcp_tool" ? "mcp_tool" : "mcp_server";
     const serverId = stringField(entry, "mcpServerId", "mcp_server_id");
     const toolName = stringField(entry, "mcpToolName", "mcp_tool_name");
+    const toolCallId = stringField(entry, "mcpToolCallId", "mcp_tool_call_id");
+    const mcpOperation =
+      stringField(entry, "mcpOperation", "mcp_operation") ??
+      (toolCallId ? "invoke" : rowKind === "mcp_tool" ? "catalog" : "status");
     const status = tuiControlRowStatus(stringField(entry, "status"));
     const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
     const fallbackNodeId = rowKind === "mcp_tool" && serverId && toolName
@@ -532,6 +538,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       modelId: null,
       mcpServerId: serverId,
       mcpToolName: toolName,
+      mcpToolCallId: toolCallId,
+      mcpOperation,
       routeId: null,
       reasoningEffort: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,

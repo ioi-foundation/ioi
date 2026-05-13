@@ -503,6 +503,8 @@ export function WorkflowRunsPanel({
                     data-model-id={row.modelId ?? ""}
                     data-mcp-server-id={row.mcpServerId ?? ""}
                     data-mcp-tool-name={row.mcpToolName ?? ""}
+                    data-mcp-tool-call-id={row.mcpToolCallId ?? ""}
+                    data-mcp-operation={row.mcpOperation ?? ""}
                     data-memory-record-id={row.memoryRecordId ?? ""}
                     data-memory-scope={row.memoryScope ?? ""}
                     data-memory-key={row.memoryKey ?? ""}

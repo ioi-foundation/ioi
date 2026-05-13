@@ -141,6 +141,7 @@ workstream was narrower.
 | 139 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI jobs and run lifecycle parity view | /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json |
 | 140 | 2026-05-13 | P1. MCP Manager Parity | daemon-owned MCP discovery/status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 141 | 2026-05-13 | P1. Memory UX Parity | daemon-owned memory manager status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
+| 142 | 2026-05-13 | P1. MCP Manager Parity | MCP enable/disable/invocation controls | /tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6761,3 +6762,41 @@ Validation evidence:
 - `npm run build --workspace=@ioi/agent-sdk`
 - `npm run build --workspace=@ioi/agent-ide`
 - `node --test --test-name-pattern "memory writes|agent CLI exposes model|agent TUI thin shell|agent TUI line-mode" scripts/lib/live-runtime-daemon-contract.test.mjs`
+
+### Slice 142. 2026-05-13 - MCP enable/disable/invocation controls
+
+Implementation slice completed 2026-05-13, governed MCP manager controls:
+
+- Added daemon-owned MCP server enable/disable controls and governed tool
+  invocation endpoints, including public thread-addressed routes and
+  thread-scoped routes that emit `OperatorControl.McpEnable`,
+  `OperatorControl.McpDisable`, and `OperatorControl.McpInvoke` events.
+- Extended MCP manager payloads with invocation schema metadata, stable tool
+  call ids, side-effect policy gates, redacted inputs, simulated containment
+  receipts, workflow node identity, and updated server/tool availability.
+- Exposed MCP enable/disable/invoke through SDK client helpers and
+  `Thread.enableMcpServer`, `Thread.disableMcpServer`, and
+  `Thread.invokeMcpTool`.
+- Added TUI `/mcp enable`, `/mcp disable`, and `/mcp invoke` line-mode
+  controls, plus projected MCP invocation rows carrying operation and tool-call
+  identity for React Flow run-inspector consumption.
+- Added React Flow MCP status/enable/disable state-node operations and projected
+  MCP invocation row metadata through the workflow runtime event projection and
+  runs panel.
+- Extended the live runtime contract to prove daemon, SDK, TUI, and React Flow
+  parity for MCP server toggles and governed invocation receipts.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI thin shell|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-controls`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json`.
