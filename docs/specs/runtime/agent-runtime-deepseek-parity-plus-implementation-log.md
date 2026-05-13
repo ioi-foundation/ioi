@@ -151,6 +151,7 @@ workstream was narrower.
 | 149 | 2026-05-13 | P1. MCP Manager Parity | remote MCP auth/vault header hardening | /tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json |
 | 150 | 2026-05-13 | P1. MCP Manager Parity | large MCP catalog deferred search/fetch | /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json |
 | 151 | 2026-05-13 | P1. MCP Manager Parity | global IOI MCP config discovery | /tmp/ioi-autopilot-gui-harness-mcp-global-config/2026-05-13T16-20-04-651Z/result.json |
+| 152 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1. MCP Manager Parity | TUI MCP search/fetch source-mode UX | /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch/2026-05-13T16-35-16-836Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -271,6 +272,40 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 152. 2026-05-13 - TUI MCP search/fetch source-mode UX
+
+Implementation slice completed 2026-05-13, keyboard-first MCP catalog parity:
+
+- Added line-mode TUI `/mcp search <query>` backed by the daemon
+  `/v1/threads/{thread_id}/mcp/tools/search` route, with `--source-mode`,
+  `--server`, and `--limit` filters.
+- Added line-mode TUI `/mcp fetch <tool_id>` backed by the daemon
+  `/v1/threads/{thread_id}/mcp/tools/{tool_id}` route, including
+  `server/tool` shorthand normalization for keyboard use.
+- Corrected thread-scoped daemon search/fetch so request-time
+  `mcp_config_source_mode` filters are applied before catalog search/fetch.
+- Extended TUI MCP row projection so search and fetch rows keep distinct
+  `mcp_operation` and raw-input metadata for React Flow run-inspector parity.
+- Updated source-contract and live line-mode tests to prove `/mcp search`,
+  `/mcp fetch`, source-mode flags, and search/fetch row output stay wired to
+  daemon-owned MCP catalog routes.
+- Updated the master guide so the next tactical focus returns to executable
+  diagnostics repair UX rather than adding another MCP infrastructure layer.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `node --test --test-name-pattern "agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch/2026-05-13T16-35-16-836Z/result.json`.
 - `git diff --check`
 
 ### Slice 151. 2026-05-13 - Global IOI MCP config discovery
