@@ -24,11 +24,17 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const usageControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
   );
+  const contextBudgetControlNodes = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+  );
   const controlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
   );
   const usageControlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts",
+  );
+  const contextBudgetControlNodesTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
   );
   const runHistoryModel = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
@@ -110,6 +116,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /runtime_operator_interrupt/);
   assert.match(projection, /runtime_operator_steer/);
   assert.match(projection, /runtime_context_compact/);
+  assert.match(projection, /runtime_context_budget/);
   assert.match(controlNodes, /createRuntimeThreadForkControlRequestFromWorkflowNode/);
   assert.match(controlNodes, /createRuntimeOperatorInterruptControlRequestFromWorkflowNode/);
   assert.match(controlNodes, /createRuntimeOperatorSteerControlRequestFromWorkflowNode/);
@@ -141,9 +148,15 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(usageControlNodes, /\/v1\/threads\/\{threadId\}\/usage/);
   assert.match(usageControlNodes, /RuntimeUsageTelemetry\.Read/);
   assert.match(usageControlNodes, /usage_meter_scope/);
+  assert.match(contextBudgetControlNodes, /createRuntimeContextBudgetControlRequestFromWorkflowNode/);
+  assert.match(contextBudgetControlNodes, /runtime_context_budget/);
+  assert.match(contextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
+  assert.match(contextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
   assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "usage\.meter"/);
+  assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "context\.budget"/);
   assert.match(controlNodesTest, /React Flow daemon request/);
   assert.match(usageControlNodesTest, /workflow\.react-flow\.usage-meter-proof/);
+  assert.match(contextBudgetControlNodesTest, /workflow\.react-flow\.context-budget-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.thread-fork-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-interrupt-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-steer-proof/);
@@ -153,6 +166,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(exports, /workflow-runtime-event-projection/);
   assert.match(exports, /workflow-runtime-control-nodes/);
   assert.match(exports, /workflow-runtime-usage-control-nodes/);
+  assert.match(exports, /workflow-runtime-context-budget-control-nodes/);
   assert.match(typeTest, /projects Thread\.events runtime events/);
   assert.match(typeTest, /runtime_thread_fork/);
   assert.match(typeTest, /runtime_operator_interrupt/);

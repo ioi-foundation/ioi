@@ -163,6 +163,7 @@ the practical workstream when the source heading is broad.
 | 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json | node --check packages/runtime-daemon/src/subagent-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run typecheck --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli agent_tui -- --nocapture<br>node --test --test-name-pattern "React Flow subagent budget and cost caps&#124;React Flow subagent fan-out workflow compiles nodes into live daemon controls&#124;local daemon exposes SubagentManager" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-budget-cost |
 | 163 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | RuntimeUsageTelemetry aggregation and projection | /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json | node --check packages/runtime-daemon/src/usage-telemetry.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows --quiet<br>node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-telemetry<br>git diff --check |
 | 164 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow UsageMeterNode request compiler and live telemetry read | /tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node scripts/generate-runtime-action-contracts.mjs --check<br>node --check packages/runtime-daemon/src/index.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow usage meter" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-meter-node<br>git diff --check |
+| 165 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow ContextBudgetNode daemon policy evaluator | /tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node scripts/generate-runtime-action-contracts.mjs --check<br>node --check packages/runtime-daemon/src/index.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow context budget" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>rustfmt --check apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-budget-node<br>git diff --check |
 
 ## Slice 163. 2026-05-13 - RuntimeUsageTelemetry aggregation and projection
 
@@ -260,6 +261,60 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-meter-node`
   - GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
+
+## Slice 165. 2026-05-13 - React Flow ContextBudgetNode daemon policy evaluator
+
+Guide section: P1-D. Usage, Cost, Context Telemetry
+
+Evidence bundles:
+
+- docs/implementation/runtime-action-schema.json
+- packages/agent-ide/src/runtime/generated/action-schema.ts
+- apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs
+- packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/runtime/workflow-runtime-ui-strings.ts
+- packages/agent-ide/src/runtime/workflow-schema.ts
+- packages/agent-ide/src/runtime/runtime-projection-adapter.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/index.ts
+- packages/runtime-daemon/src/index.mjs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- /tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts`
+  - 3 request-builder tests passed for thread, run, and workflow
+    context-budget daemon requests.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts`
+  - usage-meter request-builder regression stayed green.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source-contract guard passed with `ContextBudgetNode`,
+    `runtime_context_budget`, and context-budget metadata assertions.
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+  - generated TypeScript and Rust runtime action contracts were up to date.
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon context-budget endpoint and event wiring syntax passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed with the new policy node.
+- `node --test --test-name-pattern "React Flow context budget" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon proof passed for React Flow-authored threshold policy,
+    blocked decision output, receipt refs, and thread-scoped policy event.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - workflow-addressable regression guard remained green.
+- `rustfmt --check apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+  - generated Rust runtime action schema formatting passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-budget-node`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
 

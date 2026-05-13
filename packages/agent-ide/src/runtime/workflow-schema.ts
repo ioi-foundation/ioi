@@ -79,6 +79,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_operator_steer" ||
       node.type === "runtime_context_compact" ||
       node.type === "runtime_usage_meter" ||
+      node.type === "runtime_context_budget" ||
       node.type === "runtime_rollback_snapshot" ||
       node.type === "runtime_restore_gate" ||
       node.type === "runtime_diagnostics_repair" ||
@@ -212,6 +213,29 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
         endpoint: { type: "string" },
         request: { type: "object" },
         runtimeUsageMeter: { type: "object" },
+      },
+    };
+  }
+  if (node.type === "runtime_context_budget") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: ["string", "null"] },
+        runId: { type: ["string", "null"] },
+        scope: { type: "string" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeContextBudget: { type: "object" },
+        policyDecision: { type: "object" },
+        receiptRefs: { type: "array", items: { type: "string" } },
+        policyDecisionRefs: { type: "array", items: { type: "string" } },
       },
     };
   }
@@ -351,6 +375,22 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         threadId: { type: "string" },
         runId: { type: "string" },
         usageScope: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_context_budget") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        runId: { type: "string" },
+        usageScope: { type: "string" },
+        contextBudgetMode: { type: "string" },
+        runtimeUsageMeter: { type: "object" },
+        maxTotalTokens: { type: "number" },
+        maxCostUsd: { type: "number" },
+        maxContextPressure: { type: "number" },
         workflowGraphId: { type: "string" },
       },
     };

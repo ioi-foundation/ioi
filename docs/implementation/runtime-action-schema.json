@@ -15,6 +15,7 @@
     "runtime_operator_steer",
     "runtime_context_compact",
     "runtime_usage_meter",
+    "runtime_context_budget",
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
     "runtime_diagnostics_repair",
@@ -73,6 +74,7 @@
     "runtime_operator_steer",
     "runtime_context_compact",
     "runtime_usage_meter",
+    "runtime_context_budget",
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
     "runtime_diagnostics_repair"

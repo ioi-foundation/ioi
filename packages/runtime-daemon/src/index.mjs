@@ -115,6 +115,7 @@ const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
   "file.inspect",
 ];
 const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
+const RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION = "ioi.runtime.context-budget-policy.v1";
 const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
 const MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT = 200;
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
@@ -4951,6 +4952,81 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  evaluateContextBudget({ threadId = null, runId = null, request = {} } = {}) {
+    const requestedRunId = optionalString(request.run_id ?? request.runId) ?? runId;
+    const run = requestedRunId ? this.getRun(requestedRunId) : null;
+    const requestedThreadId =
+      optionalString(request.thread_id ?? request.threadId) ??
+      threadId ??
+      (run ? threadIdForAgent(run.agentId) : null);
+    const scope =
+      optionalString(request.scope) ??
+      (requestedRunId ? "run" : requestedThreadId ? "thread" : "workflow");
+    const usageTelemetry =
+      contextBudgetUsageTelemetryFromRequest(request) ??
+      (requestedRunId
+        ? this.usageForRun(requestedRunId)
+        : requestedThreadId
+          ? this.usageForThread(requestedThreadId)
+          : this.listUsage({ group_by: "thread" }));
+    const result = evaluateContextBudgetPolicy({
+      usageTelemetry,
+      request: {
+        ...request,
+        scope,
+        threadId: requestedThreadId,
+        thread_id: requestedThreadId,
+        runId: requestedRunId,
+        run_id: requestedRunId,
+      },
+    });
+
+    if (!requestedThreadId) return result;
+
+    const agent = this.agentForThread(requestedThreadId);
+    const latestRun = run ?? this.listRuns(agent.id).at(-1) ?? null;
+    const now = new Date().toISOString();
+    const eventKind =
+      result.status === "blocked" ? "policy.blocked" : "context_budget.evaluated";
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(requestedThreadId),
+      thread_id: requestedThreadId,
+      turn_id: latestRun ? turnIdForRun(latestRun.id) : "",
+      item_id: `${latestRun ? turnIdForRun(latestRun.id) : requestedThreadId}:item:context-budget:${safeId(result.policy_decision_id)}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${requestedThreadId}:context-budget:${safeId(result.policy_decision_id)}`,
+      source: operatorControlSource(request.source),
+      source_event_kind:
+        optionalString(request.eventKind ?? request.event_kind) ??
+        "RuntimeContextBudget.Evaluate",
+      event_kind: eventKind,
+      status: result.status === "blocked" ? "blocked" : "completed",
+      actor: optionalString(request.actor) ?? "operator",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id:
+        request.workflow_node_id ?? request.workflowNodeId ?? "runtime.context-budget",
+      component_kind: "context_budget",
+      payload_schema_version: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
+      payload_summary: result,
+      receipt_refs: result.receipt_refs,
+      policy_decision_refs: result.policy_decision_refs,
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    return {
+      ...result,
+      event,
+      event_id: event.event_id,
+      eventId: event.event_id,
+      seq: event.seq,
+    };
+  }
+
   cancelRun(runId) {
     const run = this.getRun(runId);
     const status = run.status === "canceled" ? "canceled" : "canceled";
@@ -7620,6 +7696,13 @@ async function handleRequest({ request, response, store }) {
       );
       return;
     }
+    if (request.method === "POST" && url.pathname === "/v1/context-budget") {
+      writeJsonResponse(
+        response,
+        store.evaluateContextBudget({ request: await readBody(request) }),
+      );
+      return;
+    }
     if (segments[0] === "v1" && segments[1] === "threads" && segments[2]) {
       await handleThreadRoute({ request, response, store, url, segments });
       return;
@@ -9658,6 +9741,13 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     );
     return;
   }
+  if (request.method === "POST" && action === "context-budget" && !segments[4]) {
+    writeJsonResponse(
+      response,
+      store.evaluateContextBudget({ threadId, request: await readBody(request) }),
+    );
+    return;
+  }
   if (request.method === "POST" && action === "resume") {
     writeJsonResponse(response, store.resumeThread(threadId));
     return;
@@ -9998,6 +10088,282 @@ function usageTelemetryWithRequestMetadata(record, metadata) {
   return { ...record, ...metadata };
 }
 
+function contextBudgetUsageTelemetryFromRequest(request = {}) {
+  return contextBudgetFirstObject(
+    request.usageTelemetry,
+    request.usage_telemetry,
+    request.runtimeUsageMeter,
+    request.runtime_usage_meter,
+    request.usage,
+  );
+}
+
+function evaluateContextBudgetPolicy({ usageTelemetry, request = {} } = {}) {
+  const usageSummary = contextBudgetUsageSummary(usageTelemetry);
+  const thresholds = contextBudgetThresholds(request);
+  const mode = contextBudgetMode(request.mode);
+  const warnAtRatio = contextBudgetNumber(
+    thresholds.warnAtRatio,
+    thresholds.warn_at_ratio,
+  ) ?? 0.8;
+  const checks = [
+    contextBudgetCheck({
+      id: "total_tokens",
+      label: "total tokens",
+      actual: usageSummary.total_tokens,
+      limit: thresholds.max_total_tokens,
+      warnAtRatio,
+    }),
+    contextBudgetCheck({
+      id: "estimated_cost_usd",
+      label: "estimated cost USD",
+      actual: usageSummary.estimated_cost_usd,
+      limit: thresholds.max_cost_usd,
+      warnAtRatio,
+    }),
+    contextBudgetCheck({
+      id: "context_pressure",
+      label: "context pressure",
+      actual: usageSummary.context_pressure,
+      limit: thresholds.max_context_pressure,
+      warnAtRatio,
+    }),
+  ].filter(Boolean);
+  const violations = checks.filter((check) => check.severity === "violation");
+  const warnings = checks.filter((check) => check.severity === "warning");
+  const wouldBlock = violations.length > 0;
+  const status =
+    wouldBlock && mode === "block"
+      ? "blocked"
+      : wouldBlock || warnings.length > 0
+        ? "warn"
+        : "ok";
+  const scope = optionalString(request.scope) ?? usageSummary.scope ?? "thread";
+  const workflowNodeId =
+    optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+    "runtime.context-budget";
+  const workflowGraphId =
+    optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+  const threadId =
+    optionalString(request.thread_id ?? request.threadId) ??
+    usageSummary.thread_id ??
+    null;
+  const runId =
+    optionalString(request.run_id ?? request.runId) ?? usageSummary.run_id ?? null;
+  const decisionHash = doctorHash(
+    JSON.stringify({
+      scope,
+      threadId,
+      runId,
+      workflowGraphId,
+      workflowNodeId,
+      status,
+      mode,
+      checks,
+    }),
+  ).slice(0, 16);
+  const policyDecisionId = `policy_context_budget_${safeId(scope)}_${decisionHash}_${status}`;
+  const receiptId = `receipt_context_budget_${safeId(scope)}_${decisionHash}`;
+  const summary =
+    status === "blocked"
+      ? `Context budget blocked: ${violations.map((check) => check.label).join(", ")} exceeded.`
+      : status === "warn"
+        ? `Context budget warning: ${[...violations, ...warnings].map((check) => check.label).join(", ")} near or over limit.`
+        : "Context budget is within policy.";
+  const generatedAt = new Date().toISOString();
+  const policyDecision = {
+    policy_decision_id: policyDecisionId,
+    policyDecisionId,
+    status,
+    mode,
+    would_block: wouldBlock,
+    wouldBlock,
+    summary,
+    checks,
+    violations,
+    warnings,
+  };
+  return {
+    schema_version: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
+    object: "ioi.runtime_context_budget_policy",
+    status,
+    mode,
+    scope,
+    thread_id: threadId,
+    threadId,
+    run_id: runId,
+    runId,
+    source: optionalString(request.source) ?? "react_flow",
+    actor: optionalString(request.actor) ?? "operator",
+    event_kind:
+      optionalString(request.event_kind ?? request.eventKind) ??
+      "RuntimeContextBudget.Evaluate",
+    eventKind:
+      optionalString(request.eventKind ?? request.event_kind) ??
+      "RuntimeContextBudget.Evaluate",
+    component_kind: "context_budget",
+    componentKind: "context_budget",
+    payload_schema_version: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
+    payloadSchemaVersion: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
+    workflow_graph_id: workflowGraphId,
+    workflowGraphId,
+    workflow_node_id: workflowNodeId,
+    workflowNodeId,
+    thresholds,
+    usage_telemetry: usageTelemetry,
+    usageTelemetry,
+    usage_summary: usageSummary,
+    usageSummary,
+    policy_decision_id: policyDecisionId,
+    policyDecisionId,
+    policy_decision: policyDecision,
+    policyDecision,
+    receipt_refs: [receiptId],
+    receiptRefs: [receiptId],
+    policy_decision_refs: [policyDecisionId],
+    policyDecisionRefs: [policyDecisionId],
+    warnings,
+    violations,
+    would_block: wouldBlock,
+    wouldBlock,
+    simulation_mode: request.simulation_mode ?? request.simulationMode ?? mode === "simulate",
+    simulationMode: request.simulationMode ?? request.simulation_mode ?? mode === "simulate",
+    summary,
+    generated_at: generatedAt,
+    generatedAt,
+  };
+}
+
+function contextBudgetUsageSummary(usageTelemetry = {}) {
+  if (Array.isArray(usageTelemetry?.usage)) {
+    const usage = usageTelemetry.usage;
+    const totalTokens = usage.reduce(
+      (total, entry) => total + (contextBudgetNumber(entry.total_tokens, entry.totalTokens) ?? 0),
+      0,
+    );
+    const costUsd = usage.reduce(
+      (total, entry) =>
+        total + (contextBudgetNumber(entry.estimated_cost_usd, entry.estimatedCostUsd) ?? 0),
+      0,
+    );
+    const pressure = usage.reduce(
+      (max, entry) =>
+        Math.max(max, contextBudgetNumber(entry.context_pressure, entry.contextPressure) ?? 0),
+      0,
+    );
+    return {
+      ...runtimeUsageTelemetrySummary({
+        total_tokens: totalTokens,
+        estimated_cost_usd: costUsd,
+        context_pressure: pressure,
+        source_counts: { runs: usage.length, subagents: 0 },
+      }),
+      scope: usageTelemetry.scope ?? "workflow",
+      thread_id: usageTelemetry.thread_id ?? usageTelemetry.threadId ?? null,
+      run_id: usageTelemetry.run_id ?? usageTelemetry.runId ?? null,
+    };
+  }
+  const summary = runtimeUsageTelemetrySummary(usageTelemetry ?? {});
+  return {
+    ...summary,
+    scope: usageTelemetry?.scope ?? "thread",
+    thread_id: usageTelemetry?.thread_id ?? usageTelemetry?.threadId ?? null,
+    run_id: usageTelemetry?.run_id ?? usageTelemetry?.runId ?? null,
+  };
+}
+
+function contextBudgetThresholds(request = {}) {
+  const thresholds = contextBudgetFirstObject(request.thresholds, request.contextBudget, request.context_budget) ?? {};
+  return {
+    max_total_tokens: contextBudgetNumber(
+      thresholds.max_total_tokens,
+      thresholds.maxTotalTokens,
+      request.max_total_tokens,
+      request.maxTotalTokens,
+    ),
+    maxTotalTokens: contextBudgetNumber(
+      thresholds.maxTotalTokens,
+      thresholds.max_total_tokens,
+      request.maxTotalTokens,
+      request.max_total_tokens,
+    ),
+    max_cost_usd: contextBudgetNumber(
+      thresholds.max_cost_usd,
+      thresholds.maxCostUsd,
+      request.max_cost_usd,
+      request.maxCostUsd,
+    ),
+    maxCostUsd: contextBudgetNumber(
+      thresholds.maxCostUsd,
+      thresholds.max_cost_usd,
+      request.maxCostUsd,
+      request.max_cost_usd,
+    ),
+    max_context_pressure: contextBudgetNumber(
+      thresholds.max_context_pressure,
+      thresholds.maxContextPressure,
+      request.max_context_pressure,
+      request.maxContextPressure,
+    ),
+    maxContextPressure: contextBudgetNumber(
+      thresholds.maxContextPressure,
+      thresholds.max_context_pressure,
+      request.maxContextPressure,
+      request.max_context_pressure,
+    ),
+    warn_at_ratio: contextBudgetNumber(
+      thresholds.warn_at_ratio,
+      thresholds.warnAtRatio,
+      request.warn_at_ratio,
+      request.warnAtRatio,
+    ) ?? 0.8,
+    warnAtRatio: contextBudgetNumber(
+      thresholds.warnAtRatio,
+      thresholds.warn_at_ratio,
+      request.warnAtRatio,
+      request.warn_at_ratio,
+    ) ?? 0.8,
+  };
+}
+
+function contextBudgetCheck({ id, label, actual, limit, warnAtRatio }) {
+  const resolvedActual = contextBudgetNumber(actual);
+  const resolvedLimit = contextBudgetNumber(limit);
+  if (resolvedActual === null || resolvedLimit === null || resolvedLimit <= 0) {
+    return null;
+  }
+  const ratio = Math.round((resolvedActual / resolvedLimit) * 10000) / 10000;
+  if (resolvedActual > resolvedLimit) {
+    return { id, label, actual: resolvedActual, limit: resolvedLimit, ratio, severity: "violation" };
+  }
+  if (resolvedActual >= resolvedLimit * warnAtRatio) {
+    return { id, label, actual: resolvedActual, limit: resolvedLimit, ratio, severity: "warning" };
+  }
+  return { id, label, actual: resolvedActual, limit: resolvedLimit, ratio, severity: "ok" };
+}
+
+function contextBudgetNumber(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const number = Number(value);
+    if (Number.isFinite(number) && number >= 0) return number;
+  }
+  return null;
+}
+
+function contextBudgetMode(value) {
+  const mode = optionalString(value)?.toLowerCase();
+  if (mode === "warn" || mode === "block") return mode;
+  return "simulate";
+}
+
+function contextBudgetFirstObject(...values) {
+  return values.find(
+    (value) => value && typeof value === "object" && !Array.isArray(value),
+  ) ?? null;
+}
+
 function stringFromSearchParams(params, key) {
   const value = params.get(key);
   if (typeof value !== "string") return null;
@@ -10025,6 +10391,13 @@ async function handleRunRoute({ request, response, store, url, segments }) {
         store.usageForRun(runId),
         usageRequestMetadataFromUrl(url, { defaultScope: "run" }),
       ),
+    );
+    return;
+  }
+  if (request.method === "POST" && action === "context-budget" && !segments[4]) {
+    writeJsonResponse(
+      response,
+      store.evaluateContextBudget({ runId, request: await readBody(request) }),
     );
     return;
   }

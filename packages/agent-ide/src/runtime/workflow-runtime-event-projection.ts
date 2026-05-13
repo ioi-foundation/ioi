@@ -23,6 +23,7 @@ export type WorkflowRuntimeThreadEventType =
   | "turn_interrupted"
   | "turn_steered"
   | "context_compacted"
+  | "context_budget_evaluated"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -1551,6 +1552,8 @@ export function workflowNodeIdForRuntimeThreadEvent(
       return "runtime.operator-steer";
     case "context_compacted":
       return "runtime.context-compact";
+    case "context_budget_evaluated":
+      return "runtime.context-budget";
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -1576,6 +1579,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
 ): WorkflowNodeKind {
   if (event.componentKind === "workspace_snapshot") return "quality_ledger";
   if (event.componentKind === "restore_gate") return "hook_policy";
+  if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
   if (event.componentKind === "lsp_diagnostics_repair_retry") return "hook_policy";
   if (event.componentKind === "lsp_diagnostics_operator_override") return "hook_policy";
@@ -1595,6 +1599,8 @@ export function workflowNodeKindForRuntimeThreadEvent(
       return "runtime_operator_steer";
     case "context_compacted":
       return "runtime_context_compact";
+    case "context_budget_evaluated":
+      return "runtime_context_budget";
     case "reasoning_delta":
       return "task_state";
     case "tool_completed":
@@ -1751,6 +1757,8 @@ function componentKindForRuntimeThreadEvent(
       return "operator_control";
     case "context_compacted":
       return "context_compaction";
+    case "context_budget_evaluated":
+      return "context_budget";
     case "reasoning_delta":
       return "reasoning_delta";
     case "tool_completed":
@@ -1779,6 +1787,7 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       ? "Restore apply"
       : "Restore preview";
   }
+  if (event.componentKind === "context_budget") return "Context budget";
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
   if (event.componentKind === "lsp_diagnostics_gate") return "Diagnostics blocking gate";
   if (event.componentKind === "lsp_diagnostics_repair") return "Diagnostics repair decision";
@@ -1804,6 +1813,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Turn steered";
     case "context_compacted":
       return "Context compacted";
+    case "context_budget_evaluated":
+      return "Context budget";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":

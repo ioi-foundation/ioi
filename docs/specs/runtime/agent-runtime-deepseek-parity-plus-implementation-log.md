@@ -164,6 +164,7 @@ workstream was narrower.
 | 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json |
 | 163 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | RuntimeUsageTelemetry aggregation and projection | /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json |
 | 164 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow UsageMeterNode request compiler and live telemetry read | /tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json |
+| 165 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow ContextBudgetNode daemon policy evaluator | /tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -237,6 +238,43 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-meter-node`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json`.
+- `git diff --check`
+
+### Slice 165. 2026-05-13 - React Flow ContextBudgetNode daemon policy evaluator
+
+Implementation slice completed 2026-05-13, P1-D workflow-facing context budget
+policy:
+
+- Added first-class `runtime_context_budget` node kind, creator, registry
+  entry, graph typing, localized label, declared workflow schemas, and runtime
+  action contract generation entry.
+- Added `workflow-runtime-context-budget-control-nodes` helpers that compile
+  thread/run/workflow context-budget policy evaluations into daemon-owned POST
+  requests with usage telemetry, thresholds, `simulate`/`warn`/`block` mode,
+  graph/node identity, event kind, component kind, source, and actor metadata.
+- Added daemon context-budget evaluation endpoints that normalize token, cost,
+  and context-pressure thresholds, return receipt-backed `ok`/`warn`/`blocked`
+  policy decisions, and append thread-scoped `context_budget` or
+  `policy.blocked` events.
+- Extended projection and live daemon proof so React Flow-authored context
+  budget nodes preserve `runtime.context-budget` identity and policy evidence.
+- Updated the master guide to move the immediate P1-D queue from
+  `ContextBudgetNode` to `CompactionPolicyNode`.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow context budget" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `rustfmt --check apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-budget-node`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json`.
 - `git diff --check`
 
 ### Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
