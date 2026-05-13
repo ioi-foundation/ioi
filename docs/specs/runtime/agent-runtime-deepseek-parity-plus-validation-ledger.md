@@ -115,6 +115,7 @@ the practical workstream when the source heading is broad.
 | 114 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Thin daemon-backed `ioi agent tui` shell | /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json | cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands<br>cargo test -p ioi-cli --bin cli agent_tui<br>cargo check -p ioi-cli --bin cli<br>node --test --test-name-pattern "agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell<br>git diff --check |
 | 115 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI runtime-event deep-link contract | /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json | cargo test -p ioi-cli --bin cli<br>cargo check -p ioi-cli --bin cli<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model&#124;React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks |
 | 116 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Daemon-backed line-mode `ioi agent tui` loop | /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json | cargo test -p ioi-cli --bin cli agent_tui<br>cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands<br>cargo test -p ioi-cli --bin cli<br>cargo check -p ioi-cli --bin cli<br>node --test --test-name-pattern "agent TUI line-mode slash commands&#124;agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode |
+| 117 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI operator-control equivalence proof | /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json | node --test --test-name-pattern "React Flow and line-mode TUI .* controls share" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow and line-mode TUI .* controls share&#124;agent TUI line-mode slash commands&#124;React Flow operator interrupt control preserves graph identity&#124;React Flow operator steer control preserves graph identity&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4124,3 +4125,30 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode`
   - live GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json`.
+
+## Slice 117. 2026-05-13 - React Flow/TUI operator-control equivalence proof
+
+Guide section: P0. Terminal Coding-Agent TUI
+
+Evidence bundles:
+
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json
+
+Validation evidence:
+
+- `node --test --test-name-pattern "React Flow and line-mode TUI .* controls share" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live interrupt and steer equivalence proofs passed.
+- `node --test --test-name-pattern "React Flow and line-mode TUI .* controls share|agent TUI line-mode slash commands|React Flow operator interrupt control preserves graph identity|React Flow operator steer control preserves graph identity|agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broader source/live contract passed with the existing React Flow control
+    proofs, TUI line-mode proof, and the new equivalence proofs together.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live runtime daemon contract syntax check passed.
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - GUI harness validation core syntax check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json`.
