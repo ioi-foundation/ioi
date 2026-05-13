@@ -1855,6 +1855,7 @@ mod tests {
             "0",
             "--endpoint",
             "http://127.0.0.1:8765",
+            "--interactive",
             "--json",
         ])
         .expect("tui command should parse");
@@ -1871,6 +1872,7 @@ mod tests {
                 assert_eq!(args.cwd.as_deref(), Some("/tmp/ioi-workspace"));
                 assert!(args.interrupt);
                 assert_eq!(args.since_seq, Some(0));
+                assert!(args.interactive);
                 assert!(args.json);
             }
             other => panic!("expected tui command, got {other:?}"),

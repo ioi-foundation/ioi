@@ -92,8 +92,9 @@ Strategic snapshot as of 2026-05-13:
   daemon event-store replay, Rust `RuntimeAgentService` bridge execution,
   KernelEvent mapping, SDK `Thread`/`Turn` wrappers, CLI `agent stream`, React
   Flow read-only event projection, a thin daemon-backed `ioi agent tui` shell,
-  TUI/workflow deep-link descriptors, and the first live controls
-  (`interrupt`, `steer`, `compact`, `fork`) all have cross-surface proofs.
+  TUI/workflow deep-link descriptors, a daemon-backed line-mode TUI loop, and
+  the first live controls (`interrupt`, `steer`, `compact`, `fork`) all have
+  cross-surface proofs.
 - React Flow workflow-authoring can now create those same runtime-control
   requests with preserved graph/node identity through daemon SSE, SDK events,
   CLI stream output, and the read-only React Flow projection.
@@ -106,9 +107,9 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: React Flow/TUI runtime-event deep-link contract
+- 2026-05-13: Daemon-backed line-mode `ioi agent tui` loop
 - Evidence:
-  `/tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json`
+  `/tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json`
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -121,7 +122,7 @@ Completed-slice history belongs in the companion ledgers.
 
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
-| P0-A | Terminal coding-agent TUI | A thin `ioi agent tui` shell can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, round-trip interrupt/steer without a private runtime loop, and expose event-row deep links that match React Flow run-inspector reopen descriptors. | Turn the thin shell into an interactive keyboard-first TUI with durable slash commands, approvals, jobs, restore, cost/context, MCP, memory, and subagent panels. | Line-mode TUI commands must remain daemon-backed and workflow-addressable through runtime-control/event-stream nodes. |
+| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, and run an opt-in line-mode loop for `/resume`, `/events`, `/interrupt`, `/steer`, and `/quit` without a private runtime loop. | Prove workflow-authored interrupt/steer nodes and TUI slash commands are equivalent, then expand toward approvals, jobs, restore, cost/context, MCP, memory, and subagent panels. | Line-mode TUI commands must remain daemon-backed and workflow-addressable through runtime-control/event-stream nodes. |
 | P0-B | Coding tool pack | Broad runtime tools exist, but a DeepSeek-style structured coding pack is not yet complete as one governed catalog. | Inspect, patch, git diff/status, test, artifact spillover, and retrieve output without shell-only fallbacks. | Tool-pack nodes can enable/disable git/test/shell/artifact capabilities independently. |
 | P0-C | Post-edit LSP diagnostics | Diagnostics are specified, but post-edit injection is not yet a live runtime feedback loop. | File edit emits LSP diagnostic events, injects compact findings before the next model call, and degrades cleanly when the LSP is missing. | `LspDiagnosticsNode` config changes runtime warning/error injection behavior. |
 | P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
@@ -132,12 +133,12 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Add the next interactive TUI affordance without changing runtime ownership:
-   a line-mode slash-command loop for `/resume`, `/interrupt`, `/steer`,
-   `/events`, and `/quit` over the same daemon endpoints.
-2. Prove the line-mode loop against React Flow workflow creation by ensuring
+1. Prove the line-mode loop against React Flow workflow creation by ensuring
    a workflow-authored interrupt/steer node and a TUI slash command emit the
    same daemon event identity, cursor, and reopen descriptor.
+2. Add the next TUI control panel slice over the same loop: visible command
+   history, last event cursor, current turn id, and slash-command validation
+   messages that can be mirrored in React Flow run-inspector rows.
 3. If TUI work reveals a missing structured tool contract, pause and land the
    smallest P0-B coding tool-pack contract needed for that TUI path.
 4. Continue settings harness cleanup only as maintenance, gated by a concrete
@@ -1674,11 +1675,11 @@ adding more infrastructure by default.
 
 Next runtime implementation sequence:
 
-1. Extend `ioi agent tui` from one-shot thin shell to line-mode interactive
-   shell while preserving the daemon-backed contract and cursor replay model.
-2. Prove line-mode `/interrupt` and `/steer` are equivalent to React Flow
+1. Prove line-mode `/interrupt` and `/steer` are equivalent to React Flow
    runtime-control nodes by matching event id, cursor, workflow node id, and
    TUI reopen descriptor across daemon SSE, SDK, CLI/TUI, and React Flow.
+2. Add the first durable TUI control-state projection: command history, current
+   turn, last cursor, and validation/error rows addressable from React Flow.
 3. Close any blocking P0-B coding tool-pack contract gaps discovered by the TUI
    path. Prefer one structured tool contract at a time over broad shell
    fallback behavior.

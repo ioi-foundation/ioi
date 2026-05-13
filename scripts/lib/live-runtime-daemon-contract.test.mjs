@@ -12,6 +12,21 @@ import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/ind
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const execFileAsync = promisify(execFile);
 
+async function execFileWithInput(file, args, input, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(file, args, options, (error, stdout, stderr) => {
+      if (error) {
+        error.stdout = stdout;
+        error.stderr = stderr;
+        reject(error);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+    child.stdin.end(input);
+  });
+}
+
 async function importSdk() {
   return import("../../packages/agent-sdk/dist/index.js");
 }
@@ -3345,6 +3360,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
     "crates/cli/src/commands/agent.rs",
     "crates/cli/src/commands/agent_event_stream.rs",
     "crates/cli/src/commands/agent_tui.rs",
+    "crates/cli/src/commands/agent_tui_loop.rs",
   ].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
   assert.match(source, /AgentCommands::Model/);
   assert.match(source, /AgentCommands::Thinking/);
@@ -3394,6 +3410,11 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /ioi\.workflow\.runtime-tui-deeplink\.v1/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen/);
+  assert.match(source, /run_tui_interactive_loop/);
+  assert.match(source, /parse_tui_line_command/);
+  for (const slashCommand of ["/resume", "/events", "/interrupt", "/steer", "/quit"]) {
+    assert.match(source, new RegExp(slashCommand));
+  }
   assert.match(source, /event_kind/);
   assert.match(source, /component_kind/);
   assert.match(source, /workflow_node_id/);
@@ -3406,7 +3427,10 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
 });
 
 test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", () => {
-  const source = fs.readFileSync(path.join(root, "crates/cli/src/commands/agent_tui.rs"), "utf8");
+  const source = [
+    "crates/cli/src/commands/agent_tui.rs",
+    "crates/cli/src/commands/agent_tui_loop.rs",
+  ].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
   assert.match(source, /TUI_PRIVATE_RUNTIME_LOOP: bool = false/);
   assert.match(source, /TUI_THREAD_CREATE_ROUTE/);
   assert.match(source, /TUI_EVENT_STREAM_ROUTE_TEMPLATE/);
@@ -3417,6 +3441,8 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /workflow_node_ids/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen_args/);
+  assert.match(source, /line_mode_command=interrupt/);
+  assert.match(source, /line_mode_command=events/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
   assert.doesNotMatch(source, /submit_runtime_call/);
   assert.doesNotMatch(source, /StartAgentParams/);
@@ -3561,6 +3587,114 @@ test("agent TUI thin shell starts a live thread, replays by cursor, and controls
     assert.equal(replayPayload.thread.thread_id, payload.thread.thread_id);
     assert.equal(replayPayload.last_event_id, interruptEvent.event_id);
     assert.equal(replayPayload.event_count, 0);
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
+test("agent TUI line-mode slash commands control daemon turns and keep React Flow identity", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-line-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-line-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-line-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-tui-line";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const result = await execFileWithInput(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--goal",
+        "Prove the line-mode terminal UI uses daemon controls.",
+        "--message",
+        "Render canonical events before line-mode slash commands.",
+        "--runtime-profile",
+        "runtime_service",
+        "--model",
+        "auto",
+        "--route-id",
+        "route.native-local",
+        "--cwd",
+        cwd,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--interactive",
+      ],
+      "/interrupt line-mode validation interrupt\n/events 0\n/quit\n",
+      { cwd: root, timeout: 30000 },
+    );
+    assert.match(result.stdout, /Line-mode commands: \/resume \/events \[since_seq\] \/interrupt \[reason\] \/steer <guidance> \/quit/);
+    assert.match(result.stdout, /line_mode_command=interrupt/);
+    assert.match(result.stdout, /line_mode_command=events/);
+    assert.match(result.stdout, /line_mode_command=quit/);
+    assert.match(result.stdout, /OperatorControl\.Interrupt/);
+    assert.match(result.stdout, /node=runtime\.operator-interrupt/);
+    const threadId = result.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
+    assert.ok(threadId);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`,
+    );
+    const interruptEvent = daemonEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.Interrupt" &&
+        event.payload?.reason === "line-mode validation interrupt",
+    );
+    assert.ok(interruptEvent);
+    assert.equal(interruptEvent.source, "cli_tui");
+    assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(threadId, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkInterrupt = sdkEvents.find((event) => event.id === interruptEvent.event_id);
+    assert.ok(sdkInterrupt);
+    const canonicalCursor = `${interruptEvent.event_stream_id}:${interruptEvent.seq}`;
+    assert.equal(sdkInterrupt.cursor, canonicalCursor);
+    assert.equal(sdkInterrupt.workflowNodeId, interruptEvent.workflow_node_id);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(interruptEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.equal(
+      reactFlowNode.tuiDeepLink.schemaVersion,
+      WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    );
+    assert.equal(reactFlowNode.tuiDeepLink.threadId, threadId);
+    assert.equal(reactFlowNode.tuiDeepLink.workflowNodeId, "runtime.operator-interrupt");
+    assert.equal(reactFlowNode.tuiDeepLink.eventId, interruptEvent.event_id);
+    assert.equal(reactFlowNode.tuiDeepLink.cursor, canonicalCursor);
+    assert.deepEqual(reactFlowNode.tuiDeepLink.args, [
+      "agent",
+      "tui",
+      "--thread-id",
+      threadId,
+      "--since-seq",
+      String(interruptEvent.seq),
+    ]);
   } finally {
     if (daemon) await daemon.close();
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
