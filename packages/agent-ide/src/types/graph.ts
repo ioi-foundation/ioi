@@ -449,6 +449,8 @@ export interface NodeLogic {
   mcpServerHeadersJson?: string;
   mcpServerConfigJson?: string;
   mcpImportJson?: string;
+  mcpServeEndpoint?: string;
+  mcpServeAllowedToolsJson?: string;
   mcpToolName?: string;
   arguments?: Record<string, unknown>;
   toolBinding?: WorkflowToolBinding;
@@ -521,6 +523,7 @@ export interface NodeLogic {
     | "mcp_status"
     | "mcp_import"
     | "mcp_add"
+    | "mcp_serve"
     | "mcp_remove"
     | "mcp_enable"
     | "mcp_disable"

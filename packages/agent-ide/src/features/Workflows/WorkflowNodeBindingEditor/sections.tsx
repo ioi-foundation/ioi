@@ -1221,6 +1221,7 @@ export function WorkflowNodeBindingSections({
                     | "mcp_status"
                     | "mcp_import"
                     | "mcp_add"
+                    | "mcp_serve"
                     | "mcp_remove"
                     | "mcp_enable"
                     | "mcp_disable"
@@ -1247,6 +1248,7 @@ export function WorkflowNodeBindingSections({
               <option value="mcp_status">MCP status</option>
               <option value="mcp_import">MCP import</option>
               <option value="mcp_add">MCP add</option>
+              <option value="mcp_serve">MCP serve</option>
               <option value="mcp_remove">MCP remove</option>
               <option value="mcp_enable">MCP enable</option>
               <option value="mcp_disable">MCP disable</option>
@@ -1262,20 +1264,59 @@ export function WorkflowNodeBindingSections({
           {logic.stateOperation === "mcp_status" ||
           logic.stateOperation === "mcp_import" ||
           logic.stateOperation === "mcp_add" ||
+          logic.stateOperation === "mcp_serve" ||
           logic.stateOperation === "mcp_remove" ||
           logic.stateOperation === "mcp_enable" ||
           logic.stateOperation === "mcp_disable" ? (
             <>
-              <label>
-                MCP server
-                <input
-                  data-testid="workflow-state-mcp-server-id"
-                  value={String(logic.mcpServerId ?? "")}
-                  onChange={(event) =>
-                    updateLogic({ ...logic, mcpServerId: event.target.value })
-                  }
-                />
-              </label>
+              {logic.stateOperation !== "mcp_serve" ? (
+                <label>
+                  MCP server
+                  <input
+                    data-testid="workflow-state-mcp-server-id"
+                    value={String(logic.mcpServerId ?? "")}
+                    onChange={(event) =>
+                      updateLogic({ ...logic, mcpServerId: event.target.value })
+                    }
+                  />
+                </label>
+              ) : null}
+              {logic.stateOperation === "mcp_serve" ? (
+                <>
+                  <label>
+                    MCP serve endpoint
+                    <input
+                      data-testid="workflow-state-mcp-serve-endpoint"
+                      value={String(
+                        logic.mcpServeEndpoint ??
+                          "/v1/threads/{thread_id}/mcp/serve",
+                      )}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServeEndpoint: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP serve allowed tools JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-serve-allowed-tools"
+                      value={String(
+                        logic.mcpServeAllowedToolsJson ??
+                          "[\"workspace.status\",\"git.diff\",\"file.inspect\"]",
+                      )}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServeAllowedToolsJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              ) : null}
               {logic.stateOperation === "mcp_add" ? (
                 <>
                   <label>

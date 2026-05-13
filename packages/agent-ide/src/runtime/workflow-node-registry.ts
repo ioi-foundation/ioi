@@ -2894,6 +2894,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
             "mcp_status",
             "mcp_import",
             "mcp_add",
+            "mcp_serve",
             "mcp_remove",
             "mcp_enable",
             "mcp_disable",
@@ -2913,6 +2914,8 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         mcpServerHeadersJson: { type: "string" },
         mcpServerConfigJson: { type: "string" },
         mcpImportJson: { type: "string" },
+        mcpServeEndpoint: { type: "string" },
+        mcpServeAllowedToolsJson: { type: "string" },
         memoryRecordId: { type: "string" },
         memoryText: { type: "string" },
         memoryKey: { type: "string" },
@@ -4202,6 +4205,20 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         "{\"transport\":\"sse\",\"url\":\"\",\"allowedTools\":[]}",
     },
   });
+  const mcpServe = creatorDefinition("state", {
+    creatorId: "mcp.serve",
+    label: "Serve MCP tools",
+    description: "Expose selected governed IOI runtime tools through a thread-scoped MCP endpoint.",
+    metricValue: "serve",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_serve",
+      reducer: "replace",
+      mcpServeEndpoint: "/v1/threads/{thread_id}/mcp/serve",
+      mcpServeAllowedToolsJson:
+        "[\"workspace.status\",\"git.diff\",\"file.inspect\"]",
+    },
+  });
   const mcpServerRemove = creatorDefinition("state", {
     creatorId: "mcp.server.remove",
     label: "Remove MCP server",
@@ -4412,6 +4429,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     mcpServerAdd,
     mcpHttpServerAdd,
     mcpSseServerAdd,
+    mcpServe,
     mcpServerRemove,
     mcpServerEnable,
     mcpServerDisable,

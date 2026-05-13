@@ -146,6 +146,7 @@ the practical workstream when the source heading is broad.
 | 145 | 2026-05-13 | P1. MCP Manager Parity | MCP resources/prompts discovery | /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json | node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/fixtures/mcp-stdio-echo-server.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts |
 | 146 | 2026-05-13 | P1. MCP Manager Parity | MCP import/add/remove registry writes | /tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-config-writes |
 | 147 | 2026-05-13 | P1. MCP Manager Parity | live MCP HTTP/SSE transport | /tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json | node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-http-sse |
+| 148 | 2026-05-13 | P1. MCP Manager Parity | self-hosted MCP serve mode | /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>git diff --check<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-serve |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4664,6 +4665,53 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-http-sse`
   - GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json`.
+
+## Slice 148. 2026-05-13 - Self-hosted MCP serve mode
+
+Guide section: P1. MCP Manager Parity
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/src/thread.ts
+- packages/agent-sdk/src/index.ts
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon MCP serve route/control syntax check passed.
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+  - daemon MCP manager syntax check remained green.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract syntax check passed with MCP serve-mode coverage.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed with MCP serve RPC helpers.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed with MCP serve state-node
+    configuration fields.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow runtime event projection tests remained green.
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused live daemon/SDK/TUI/React Flow proof passed with MCP serve
+    initialize, tools/list, tools/call, receipt, and workflow projection
+    coverage.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+  - Rust TUI parser/control tests remained green.
+- `git diff --check`
+  - whitespace check passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-serve`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json`.
 
 ## Slice 137. 2026-05-13 - Executable diagnostics repair retry
 
