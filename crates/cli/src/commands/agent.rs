@@ -372,7 +372,7 @@ pub enum ToolCommands {
     },
     /// Invoke a daemon-backed coding tool for a runtime thread.
     Run {
-        /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, or test.run.
+        /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, test.run, artifact.read, or tool.retrieve_result.
         tool: String,
         /// Runtime thread id that owns the tool event stream.
         #[clap(long = "thread-id")]
@@ -395,6 +395,18 @@ pub enum ToolCommands {
         /// Maximum stdout/stderr preview bytes for test.run.
         #[clap(long = "max-output-bytes")]
         max_output_bytes: Option<u64>,
+        /// Artifact id/ref for artifact.read or tool.retrieve_result.
+        #[clap(long = "artifact-id")]
+        artifact_id: Option<String>,
+        /// Tool call id for tool.retrieve_result.
+        #[clap(long = "tool-call-id")]
+        tool_call_id: Option<String>,
+        /// Byte offset for artifact.read or tool.retrieve_result.
+        #[clap(long = "offset-bytes")]
+        offset_bytes: Option<u64>,
+        /// Byte length for artifact.read or tool.retrieve_result.
+        #[clap(long = "length-bytes")]
+        length_bytes: Option<u64>,
         /// Exact text to replace for file.apply_patch.
         #[clap(long = "old-text")]
         old_text: Option<String>,
@@ -1221,6 +1233,10 @@ async fn run_tool_command(
             test_args,
             timeout_ms,
             max_output_bytes,
+            artifact_id,
+            tool_call_id,
+            offset_bytes,
+            length_bytes,
             old_text,
             new_text,
             append_text,
@@ -1243,6 +1259,10 @@ async fn run_tool_command(
                 test_args,
                 timeout_ms,
                 max_output_bytes,
+                artifact_id,
+                tool_call_id,
+                offset_bytes,
+                length_bytes,
                 old_text,
                 new_text,
                 append_text,
@@ -1317,6 +1337,10 @@ async fn invoke_coding_tool(
     test_args: Vec<String>,
     timeout_ms: Option<u64>,
     max_output_bytes: Option<u64>,
+    artifact_id: Option<String>,
+    tool_call_id: Option<String>,
+    offset_bytes: Option<u64>,
+    length_bytes: Option<u64>,
     old_text: Option<String>,
     new_text: Option<String>,
     append_text: Option<String>,
@@ -1392,6 +1416,51 @@ async fn invoke_coding_tool(
                 "maxOutputBytes".to_string(),
                 serde_json::Value::Number(max_output_bytes.into()),
             );
+        }
+    }
+    if tool == "artifact.read" || tool == "tool.retrieve_result" {
+        if let Some(artifact_id) = artifact_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            input.insert(
+                "artifactId".to_string(),
+                serde_json::Value::String(artifact_id.to_string()),
+            );
+        }
+        if let Some(tool_call_id) = tool_call_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            input.insert(
+                "toolCallId".to_string(),
+                serde_json::Value::String(tool_call_id.to_string()),
+            );
+        }
+        if let Some(offset_bytes) = offset_bytes {
+            input.insert(
+                "offsetBytes".to_string(),
+                serde_json::Value::Number(offset_bytes.into()),
+            );
+        }
+        if let Some(length_bytes) = length_bytes.or(max_output_bytes) {
+            input.insert(
+                "lengthBytes".to_string(),
+                serde_json::Value::Number(length_bytes.into()),
+            );
+        }
+        if tool == "artifact.read" && !input.contains_key("artifactId") {
+            return Err(anyhow!(
+                "agent tools run artifact.read requires --artifact-id <artifact-ref>"
+            ));
+        }
+        if tool == "tool.retrieve_result"
+            && !input.contains_key("artifactId")
+            && !input.contains_key("toolCallId")
+        {
+            return Err(anyhow!(
+                "agent tools run tool.retrieve_result requires --artifact-id or --tool-call-id"
+            ));
         }
     }
     if let Some(old_text) = old_text
@@ -2485,6 +2554,35 @@ mod tests {
                 command: Some(ToolCommands::Run {
                     command_id: Some(_),
                     timeout_ms: Some(30000),
+                    json: true,
+                    ..
+                }),
+                ..
+            })
+        ));
+        let coding_artifact_read = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "run",
+            "artifact.read",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--artifact-id",
+            "artifact_coding_tool_test_output",
+            "--offset-bytes",
+            "8",
+            "--length-bytes",
+            "128",
+            "--json",
+        ])
+        .expect("coding artifact read command should parse");
+        assert!(matches!(
+            coding_artifact_read.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Run {
+                    artifact_id: Some(_),
+                    offset_bytes: Some(8),
+                    length_bytes: Some(128),
                     json: true,
                     ..
                 }),

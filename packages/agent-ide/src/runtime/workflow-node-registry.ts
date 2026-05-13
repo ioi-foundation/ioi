@@ -3494,7 +3494,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
   const codingToolPack = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.coding_pack",
     label: "Coding tool pack",
-    description: "Invoke daemon-owned workspace status, git diff, file inspection, governed patch, and test tools.",
+    description: "Invoke daemon-owned workspace status, git diff, file inspection, governed patch, test, and artifact retrieval tools.",
     metricValue: "coding",
     defaultLogic: {
       toolBinding: {
@@ -3502,7 +3502,15 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         bindingKind: "coding_tool_pack",
         mockBinding: false,
         credentialReady: true,
-        capabilityScope: ["workspace.status", "git.diff", "file.inspect", "file.apply_patch", "test.run"],
+        capabilityScope: [
+          "workspace.status",
+          "git.diff",
+          "file.inspect",
+          "file.apply_patch",
+          "test.run",
+          "artifact.read",
+          "tool.retrieve_result",
+        ],
         sideEffectClass: "write",
         requiresApproval: true,
         arguments: {},
@@ -3513,6 +3521,8 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           filesystemEnabled: true,
           writeEnabled: true,
           testEnabled: true,
+          artifactEnabled: true,
+          resultRetrievalEnabled: true,
           allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
           timeoutMs: 60000,
           dryRun: false,
@@ -3613,6 +3623,52 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
           timeoutMs: 60000,
           allowedPaths: [],
+        },
+      },
+    },
+  });
+  const artifactReadTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.artifact_read",
+    label: "Artifact read",
+    description: "Read a bounded byte range from a daemon coding-tool artifact.",
+    metricValue: "artifact",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "artifact.read",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["artifact.read"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: {},
+        toolPack: {
+          pack: "coding",
+          artifactEnabled: true,
+          resultRetrievalEnabled: true,
+        },
+      },
+    },
+  });
+  const toolRetrieveResultTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.tool_retrieve_result",
+    label: "Retrieve tool result",
+    description: "Retrieve full or ranged output for a prior daemon coding-tool call.",
+    metricValue: "retrieve",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "tool.retrieve_result",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["tool.retrieve_result", "artifact.read"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: {},
+        toolPack: {
+          pack: "coding",
+          artifactEnabled: true,
+          resultRetrievalEnabled: true,
         },
       },
     },
@@ -3878,6 +3934,8 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     fileInspectTool,
     fileApplyPatchTool,
     testRunTool,
+    artifactReadTool,
+    toolRetrieveResultTool,
     outputInline,
     outputFile,
     outputMedia,

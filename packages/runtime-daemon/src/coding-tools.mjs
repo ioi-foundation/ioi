@@ -13,6 +13,8 @@ export const CODING_TOOL_IDS = new Set([
   "file.inspect",
   "file.apply_patch",
   "test.run",
+  "artifact.read",
+  "tool.retrieve_result",
 ]);
 
 const CODING_TOOL_DEFAULT_PREVIEW_BYTES = 16 * 1024;
@@ -25,6 +27,8 @@ const CODING_TOOL_TEST_MAX_OUTPUT_BYTES = 64 * 1024;
 const CODING_TOOL_TEST_MAX_TIMEOUT_MS = 5 * 60 * 1000;
 const CODING_TOOL_TEST_DEFAULT_TIMEOUT_MS = 60 * 1000;
 const CODING_TOOL_TEST_COMMAND_IDS = ["node.test", "npm.test", "cargo.test", "cargo.check"];
+const CODING_TOOL_ARTIFACT_MAX_READ_BYTES = 256 * 1024;
+const CODING_TOOL_ARTIFACT_DEFAULT_READ_BYTES = 64 * 1024;
 
 export function codingToolContracts() {
   return [
@@ -213,6 +217,71 @@ export function codingToolContracts() {
         "toolPack.coding.timeoutMs",
       ],
     },
+    {
+      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stableToolId: "artifact.read",
+      displayName: "Read artifact",
+      pack: CODING_TOOL_PACK_ID,
+      primitiveCapabilities: ["prim:artifact.read"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "artifact",
+      inputSchema: {
+        type: "object",
+        required: ["artifactId"],
+        additionalProperties: false,
+        properties: {
+          artifactId: { type: "string" },
+          artifactRef: { type: "string" },
+          offsetBytes: { type: "integer", minimum: 0 },
+          lengthBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+          maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+        },
+      },
+      outputSchema: {
+        type: "object",
+        required: ["artifactId", "offsetBytes", "lengthBytes", "content", "contentHash", "shellFallbackUsed"],
+      },
+      evidenceRequirements: ["artifact_read_receipt", "coding_tool_receipt"],
+      workflowNodeType: "ArtifactReadNode",
+      workflowConfigFields: [
+        "toolPack.coding.artifactEnabled",
+        "toolPack.coding.resultRetrievalEnabled",
+      ],
+    },
+    {
+      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stableToolId: "tool.retrieve_result",
+      displayName: "Retrieve tool result",
+      pack: CODING_TOOL_PACK_ID,
+      primitiveCapabilities: ["prim:tool.retrieve_result", "prim:artifact.read"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "artifact",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          toolCallId: { type: "string" },
+          artifactId: { type: "string" },
+          artifactRef: { type: "string" },
+          channel: { type: "string" },
+          offsetBytes: { type: "integer", minimum: 0 },
+          lengthBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+          maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+        },
+      },
+      outputSchema: {
+        type: "object",
+        required: ["toolCallId", "artifactId", "content", "contentHash", "shellFallbackUsed"],
+      },
+      evidenceRequirements: ["tool_result_retrieval_receipt", "artifact_read_receipt", "coding_tool_receipt"],
+      workflowNodeType: "ToolResultRetrievalNode",
+      workflowConfigFields: [
+        "toolPack.coding.resultRetrievalEnabled",
+        "toolPack.coding.artifactEnabled",
+      ],
+    },
   ];
 }
 
@@ -223,7 +292,7 @@ export function codingToolInputForRequest(request = {}) {
   return input;
 }
 
-export function executeCodingTool(toolId, workspaceRoot, input = {}) {
+export function executeCodingTool(toolId, workspaceRoot, input = {}, context = {}) {
   switch (toolId) {
     case "workspace.status":
       return workspaceStatusTool(workspaceRoot, input);
@@ -235,6 +304,10 @@ export function executeCodingTool(toolId, workspaceRoot, input = {}) {
       return fileApplyPatchTool(workspaceRoot, input);
     case "test.run":
       return testRunTool(workspaceRoot, input);
+    case "artifact.read":
+      return artifactReadTool(input, context);
+    case "tool.retrieve_result":
+      return toolRetrieveResultTool(input, context);
     default:
       throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
         toolId,
@@ -258,6 +331,20 @@ export function codingToolInputSummary(toolId, input = {}) {
       paths: codingToolRawPathSummary(input),
       cwd: optionalString(input.cwd) ?? ".",
       timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
+    };
+  }
+  if (toolId === "artifact.read") {
+    return {
+      artifactId: optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref) ?? null,
+      offsetBytes: Number(input.offsetBytes ?? input.offset_bytes ?? 0),
+      lengthBytes: input.lengthBytes ?? input.length_bytes ?? input.maxBytes ?? input.max_bytes ?? null,
+    };
+  }
+  if (toolId === "tool.retrieve_result") {
+    return {
+      toolCallId: optionalString(input.toolCallId ?? input.tool_call_id) ?? null,
+      artifactId: optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref) ?? null,
+      channel: optionalString(input.channel) ?? null,
     };
   }
   if (toolId === "git.diff") return { paths: codingToolRawPathSummary(input) };
@@ -309,6 +396,23 @@ export function codingToolResultSummary(toolId, result = {}) {
       spilloverRecommended: Boolean(result?.spilloverRecommended),
     };
   }
+  if (toolId === "artifact.read") {
+    return {
+      artifactId: result?.artifactId ?? null,
+      offsetBytes: Number(result?.offsetBytes ?? 0),
+      lengthBytes: Number(result?.lengthBytes ?? 0),
+      truncated: Boolean(result?.truncated),
+    };
+  }
+  if (toolId === "tool.retrieve_result") {
+    return {
+      toolCallId: result?.toolCallId ?? null,
+      artifactId: result?.artifactId ?? null,
+      offsetBytes: Number(result?.offsetBytes ?? 0),
+      lengthBytes: Number(result?.lengthBytes ?? 0),
+      truncated: Boolean(result?.truncated),
+    };
+  }
   return {};
 }
 
@@ -331,6 +435,12 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
   }
   if (toolId === "test.run") {
     return `Test run ${result?.testStatus ?? "completed"} with exit code ${Number(result?.exitCode ?? 0)}.`;
+  }
+  if (toolId === "artifact.read") {
+    return `Read artifact ${result?.artifactId ?? "artifact"}.`;
+  }
+  if (toolId === "tool.retrieve_result") {
+    return `Retrieved tool result ${result?.toolCallId ?? result?.artifactId ?? "artifact"}.`;
   }
   return `${toolId} completed.`;
 }
@@ -630,6 +740,28 @@ function testRunTool(workspaceRoot, input = {}) {
   const outputHash = hashText(`${run.stdout}\n${run.stderr}`);
   const truncated = stdoutPreview.truncated || stderrPreview.truncated;
   const testStatus = run.timedOut ? "timed_out" : run.exitCode === 0 ? "passed" : "failed";
+  const artifactDrafts = truncated
+    ? [
+        {
+          name: "test-run-output.txt",
+          channel: "output",
+          mediaType: "text/plain",
+          content: `${run.stdout}\n${run.stderr}`,
+        },
+        {
+          name: "test-run-stdout.txt",
+          channel: "stdout",
+          mediaType: "text/plain",
+          content: run.stdout,
+        },
+        {
+          name: "test-run-stderr.txt",
+          channel: "stderr",
+          mediaType: "text/plain",
+          content: run.stderr,
+        },
+      ]
+    : [];
   return {
     schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
     workspaceRoot,
@@ -652,9 +784,61 @@ function testRunTool(workspaceRoot, input = {}) {
     outputHash,
     truncated,
     spilloverRecommended: truncated,
+    artifactDrafts,
     allowedCommandIds: CODING_TOOL_TEST_COMMAND_IDS,
     receiptRefs: [`receipt_test_run_${safeReceiptPath(commandId)}_${outputHash.slice(0, 12)}`],
     shellFallbackUsed: false,
+  };
+}
+
+function artifactReadTool(input = {}, context = {}) {
+  if (typeof context.readArtifact !== "function") {
+    throw codingToolError(501, "artifact_read_unavailable", "artifact.read requires a daemon artifact store.", {
+      toolId: "artifact.read",
+    });
+  }
+  const artifactId = optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref);
+  if (!artifactId) {
+    throw codingToolError(400, "artifact_read_id_required", "artifact.read requires artifactId or artifactRef.", {
+      toolId: "artifact.read",
+    });
+  }
+  return context.readArtifact(artifactId, artifactReadRange(input));
+}
+
+function toolRetrieveResultTool(input = {}, context = {}) {
+  if (typeof context.retrieveToolResult !== "function") {
+    throw codingToolError(501, "tool_retrieve_result_unavailable", "tool.retrieve_result requires a daemon artifact store.", {
+      toolId: "tool.retrieve_result",
+    });
+  }
+  const toolCallId = optionalString(input.toolCallId ?? input.tool_call_id);
+  const artifactId = optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref);
+  if (!toolCallId && !artifactId) {
+    throw codingToolError(
+      400,
+      "tool_retrieve_result_target_required",
+      "tool.retrieve_result requires toolCallId or artifactId.",
+      { toolId: "tool.retrieve_result" },
+    );
+  }
+  return context.retrieveToolResult({
+    toolCallId,
+    artifactId,
+    channel: optionalString(input.channel),
+    range: artifactReadRange(input),
+  });
+}
+
+function artifactReadRange(input = {}) {
+  return {
+    offsetBytes: boundedInteger(input.offsetBytes ?? input.offset_bytes, 0, 0, Number.MAX_SAFE_INTEGER),
+    lengthBytes: boundedInteger(
+      input.lengthBytes ?? input.length_bytes ?? input.maxBytes ?? input.max_bytes,
+      CODING_TOOL_ARTIFACT_DEFAULT_READ_BYTES,
+      1,
+      CODING_TOOL_ARTIFACT_MAX_READ_BYTES,
+    ),
   };
 }
 

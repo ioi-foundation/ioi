@@ -956,6 +956,36 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
         "toolPack.coding.timeoutMs",
       ],
     },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "artifact.read",
+      displayName: "Read artifact",
+      pack: "coding",
+      primitiveCapabilities: ["prim:artifact.read"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "artifact",
+      inputSchema: { type: "object", required: ["artifactId"] },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["artifact_read_receipt", "coding_tool_receipt"],
+      workflowNodeType: "ArtifactReadNode",
+      workflowConfigFields: ["toolPack.coding.artifactEnabled", "toolPack.coding.resultRetrievalEnabled"],
+    },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "tool.retrieve_result",
+      displayName: "Retrieve tool result",
+      pack: "coding",
+      primitiveCapabilities: ["prim:tool.retrieve_result", "prim:artifact.read"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "artifact",
+      inputSchema: { type: "object" },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["tool_result_retrieval_receipt", "artifact_read_receipt", "coding_tool_receipt"],
+      workflowNodeType: "ToolResultRetrievalNode",
+      workflowConfigFields: ["toolPack.coding.resultRetrievalEnabled", "toolPack.coding.artifactEnabled"],
+    },
   ];
 }
 
@@ -1861,6 +1891,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? `runtime.coding-tool.${toolId}`),
       receiptRefs: [`receipt_mock_${toolId.replaceAll(".", "_")}`],
     });
+    const artifactRefs =
+      toolId === "artifact.read" || toolId === "tool.retrieve_result"
+        ? [`artifact_mock_${toolId.replaceAll(".", "_")}`]
+        : [];
     return {
       schema_version: "ioi.runtime.coding-tool-result.v1",
       object: "ioi.runtime_coding_tool_result",
@@ -1875,9 +1909,14 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       workflow_node_id: event.workflow_node_id,
       shell_fallback_used: false,
       receipt_refs: event.receipt_refs,
-      artifact_refs: [],
+      artifact_refs: artifactRefs,
       event,
-      result: { input: input.input ?? input },
+      result: {
+        input: input.input ?? input,
+        ...(artifactRefs.length
+          ? { artifactRefs, content: "mock coding artifact content" }
+          : {}),
+      },
       error: null,
     };
   }

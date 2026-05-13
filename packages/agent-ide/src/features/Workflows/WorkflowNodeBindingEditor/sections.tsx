@@ -48,6 +48,8 @@ export function WorkflowNodeBindingSections({
     filesystemEnabled: true,
     writeEnabled: true,
     testEnabled: true,
+    artifactEnabled: true,
+    resultRetrievalEnabled: true,
     allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
     timeoutMs: 60000,
     dryRun: false,
@@ -64,6 +66,8 @@ export function WorkflowNodeBindingSections({
       nextPack.filesystemEnabled ? "file.inspect" : null,
       nextPack.writeEnabled ? "file.apply_patch" : null,
       nextPack.testEnabled ? "test.run" : null,
+      nextPack.artifactEnabled ? "artifact.read" : null,
+      nextPack.resultRetrievalEnabled ? "tool.retrieve_result" : null,
     ].filter(Boolean) as string[];
     updateLogic({
       ...logic,
@@ -2116,6 +2120,8 @@ export function WorkflowNodeBindingSections({
                             filesystemEnabled: true,
                             writeEnabled: true,
                             testEnabled: true,
+                            artifactEnabled: true,
+                            resultRetrievalEnabled: true,
                             allowedTestCommandIds: [
                               "node.test",
                               "npm.test",
@@ -2405,6 +2411,8 @@ export function WorkflowNodeBindingSections({
                   ["filesystemEnabled", "File inspect"],
                   ["writeEnabled", "File patch"],
                   ["testEnabled", "Test run"],
+                  ["artifactEnabled", "Artifact read"],
+                  ["resultRetrievalEnabled", "Retrieve result"],
                   ["dryRun", "Dry run"],
                 ].map(([key, label]) => (
                   <label

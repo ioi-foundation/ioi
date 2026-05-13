@@ -134,10 +134,27 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
       toolName: "test.run",
       payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
       receiptRefs: ["receipt-coding-test"],
+      artifactRefs: ["artifact-coding-test-output"],
       payload: {
         tool_pack: "coding",
         shell_fallback_used: false,
         summary: "Test run passed with exit code 0.",
+      },
+    }),
+    event("event-coding-retrieve", 4, {
+      type: "tool_completed",
+      eventKind: "tool.completed",
+      sourceEventKind: "CodingTool.ToolRetrieveResult",
+      workflowNodeId: "runtime.coding-tool.tool.retrieve-result",
+      componentKind: "coding_tool",
+      toolName: "tool.retrieve_result",
+      payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
+      receiptRefs: ["receipt-coding-retrieve"],
+      artifactRefs: ["artifact-coding-test-output"],
+      payload: {
+        tool_pack: "coding",
+        shell_fallback_used: false,
+        summary: "Retrieved tool result coding_tool_123.",
       },
     }),
   ]);
@@ -162,7 +179,12 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
   assert.equal(testNode?.label, "Coding tool: test.run");
   assert.equal(testNode?.toolName, "test.run");
   assert.deepEqual(testNode?.receiptRefs, ["receipt-coding-test"]);
+  assert.deepEqual(testNode?.artifactRefs, ["artifact-coding-test-output"]);
   assert.equal(testNode?.summary, "Test run passed with exit code 0.");
+  const retrieveNode = projection.nodes[3];
+  assert.equal(retrieveNode?.workflowNodeId, "runtime.coding-tool.tool.retrieve-result");
+  assert.equal(retrieveNode?.label, "Coding tool: tool.retrieve_result");
+  assert.deepEqual(retrieveNode?.artifactRefs, ["artifact-coding-test-output"]);
 });
 
 test("projects approval and policy events without workflow node ids", () => {

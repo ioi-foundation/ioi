@@ -876,6 +876,8 @@ export interface WorkflowToolBinding {
     filesystemEnabled?: boolean;
     writeEnabled?: boolean;
     testEnabled?: boolean;
+    artifactEnabled?: boolean;
+    resultRetrievalEnabled?: boolean;
     allowedTestCommandIds?: string[];
     timeoutMs?: number;
     dryRun?: boolean;
