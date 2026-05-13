@@ -3586,8 +3586,9 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `RUNTIME_ARTIFACT_SPILLOVER_START ${'x'.repeat(4096)} RUNTIME_ARTIFACT_SPILLOVER_END`;\n\ntest('runtime coding test proof', () => {\n  console.log(marker);\n  assert.equal(2 + 2, 4);\n});\n",
   );
   fs.writeFileSync(path.join(cwd, "diagnostic-target.mjs"), "export const value = 1;\n");
+  fs.writeFileSync(path.join(cwd, "blocking-target.mjs"), "export const blocked = 1;\n");
   fs.writeFileSync(path.join(cwd, "skip-diagnostics.mjs"), "export const skip = 1;\n");
-  git(cwd, ["add", "README.md", "sample.test.mjs", "diagnostic-target.mjs", "skip-diagnostics.mjs"]);
+  git(cwd, ["add", "README.md", "sample.test.mjs", "diagnostic-target.mjs", "blocking-target.mjs", "skip-diagnostics.mjs"]);
   git(cwd, ["commit", "-m", "seed workspace"]);
   fs.appendFileSync(path.join(cwd, "README.md"), "\nChanged line for diff proof.\n");
 
@@ -3768,6 +3769,51 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(injectedTrace.diagnosticsFeedback?.diagnosticStatus, "findings");
     assert.equal(injectedTrace.diagnosticsFeedback?.mode, "advisory");
     assert.equal(injectedTrace.diagnosticsFeedback?.diagnosticCount, 1);
+    const blockingDiagnosticPatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch.diagnostics-blocking",
+          input: {
+            path: "blocking-target.mjs",
+            oldText: "export const blocked = 1;",
+            newText: "export const blocked = ;",
+          },
+        }),
+      },
+    );
+    assert.equal(blockingDiagnosticPatchResult.status, "completed");
+    assert.equal(blockingDiagnosticPatchResult.auto_diagnostics?.result.diagnosticStatus, "findings");
+    const blockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: "Continue after blocking diagnostics.",
+        diagnosticsMode: "blocking",
+      }),
+    });
+    assert.equal(blockedTurn.status, "waiting_for_input");
+    assert.equal(blockedTurn.completed_at, null);
+    assert.equal(blockedTurn.stop_reason, "blocked_by_post_edit_diagnostics");
+    const blockedRun = await fetchJson(`${daemon.endpoint}/v1/runs/${blockedTurn.request_id}`);
+    assert.equal(blockedRun.status, "blocked");
+    assert.equal(blockedRun.result.includes("Model continuation is paused"), true);
+    assert.equal(blockedRun.events.some((event) => event.type === "delta"), false);
+    assert.equal(blockedRun.events.some((event) => event.type === "completed"), false);
+    assert.equal(blockedRun.events.some((event) => event.type === "policy_blocked"), true);
+    const blockedConversation = await fetchJson(`${daemon.endpoint}/v1/runs/${blockedTurn.request_id}/conversation`);
+    assert.equal(blockedConversation[1]?.role, "system");
+    assert.match(blockedConversation[0]?.content ?? "", /Post-edit diagnostics \(blocking, findings\)/);
+    assert.match(blockedConversation[0]?.content ?? "", /blocking-target\.mjs/);
+    const blockedTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${blockedTurn.request_id}/trace`);
+    assert.equal(blockedTrace.diagnosticsFeedback?.mode, "blocking");
+    assert.equal(blockedTrace.diagnosticsBlockingGate?.status, "blocked");
+    assert.equal(blockedTrace.diagnosticsBlockingGate?.workflowNodeId, "runtime.lsp-diagnostics.blocking-gate");
+    assert.equal(blockedTrace.runtimeTask?.status, "blocked");
+    assert.equal(blockedTrace.runtimeJob?.status, "blocked");
+    assert.equal(blockedTrace.runtimeChecklist?.blockedItemCount, 1);
     const skippedDiagnosticPatchResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
       {
@@ -4124,6 +4170,34 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsInjection.payload.diagnostic_status, "findings");
     assert.equal(diagnosticsInjection.payload.mode, "advisory");
     assert.match(diagnosticsInjection.payload.prompt_text, /diagnostic-target\.mjs/);
+    const blockingDiagnosticsInjection = daemonEvents.find(
+      (event) =>
+        event.event_kind === "lsp.diagnostics.injected" &&
+        event.component_kind === "lsp_diagnostics" &&
+        event.status === "blocked" &&
+        event.payload.mode === "blocking",
+    );
+    assert.ok(blockingDiagnosticsInjection);
+    assert.equal(blockingDiagnosticsInjection.source, "runtime_auto");
+    assert.equal(blockingDiagnosticsInjection.workflow_node_id, "runtime.lsp-diagnostics.injected");
+    assert.match(blockingDiagnosticsInjection.payload.prompt_text, /blocking-target\.mjs/);
+    const diagnosticsBlockingGate = daemonEvents.find(
+      (event) =>
+        event.event_kind === "policy.blocked" &&
+        event.component_kind === "lsp_diagnostics_gate" &&
+        event.workflow_node_id === "runtime.lsp-diagnostics.blocking-gate",
+    );
+    assert.ok(diagnosticsBlockingGate);
+    assert.equal(diagnosticsBlockingGate.source, "runtime_auto");
+    assert.equal(diagnosticsBlockingGate.source_event_kind, "LspDiagnostics.BlockingGate");
+    assert.equal(diagnosticsBlockingGate.status, "blocked");
+    assert.equal(diagnosticsBlockingGate.payload_schema_version, "ioi.runtime.lsp-diagnostics-blocking-gate.v1");
+    assert.equal(diagnosticsBlockingGate.payload.reason, "post_edit_diagnostics_findings");
+    assert.equal(diagnosticsBlockingGate.payload.diagnostic_status, "findings");
+    assert.equal(diagnosticsBlockingGate.payload.requires_input, "true");
+    assert.ok(diagnosticsBlockingGate.policy_decision_refs.length >= 1);
+    assert.ok(diagnosticsBlockingGate.receipt_refs.length >= 1);
+    assert.ok(diagnosticsBlockingGate.artifact_refs.includes("diagnostics-blocking-gate.json"));
 
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
     const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
@@ -4156,6 +4230,14 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkDiagnosticsInjectionEvent.componentKind, "lsp_diagnostics");
     assert.equal(sdkDiagnosticsInjectionEvent.sourceEventKind, "LspDiagnostics.Injected");
     assert.deepEqual(sdkDiagnosticsInjectionEvent.receiptRefs, diagnosticsInjection.receipt_refs);
+    const sdkDiagnosticsGateEvent = sdkEvents.find((event) => event.id === diagnosticsBlockingGate.event_id);
+    assert.ok(sdkDiagnosticsGateEvent);
+    assert.equal(sdkDiagnosticsGateEvent.type, "policy_blocked");
+    assert.equal(sdkDiagnosticsGateEvent.componentKind, "lsp_diagnostics_gate");
+    assert.equal(sdkDiagnosticsGateEvent.source, "runtime_auto");
+    assert.equal(sdkDiagnosticsGateEvent.sourceEventKind, "LspDiagnostics.BlockingGate");
+    assert.equal(sdkDiagnosticsGateEvent.payloadSchemaVersion, "ioi.runtime.lsp-diagnostics-blocking-gate.v1");
+    assert.deepEqual(sdkDiagnosticsGateEvent.policyDecisionRefs, diagnosticsBlockingGate.policy_decision_refs);
     const sdkArtifactReadEvent = sdkEvents.find((event) => event.id === reactFlowArtifactRead.event_id);
     assert.ok(sdkArtifactReadEvent);
     assert.equal(sdkArtifactReadEvent.toolName, "artifact.read");
@@ -4209,7 +4291,20 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsInjectionNode.workflowNodeId, "runtime.lsp-diagnostics.injected");
     assert.equal(diagnosticsInjectionNode.componentKind, "lsp_diagnostics");
     assert.equal(diagnosticsInjectionNode.label, "Diagnostics injected");
-    assert.deepEqual(diagnosticsInjectionNode.receiptRefs, diagnosticsInjection.receipt_refs);
+    for (const receiptRef of diagnosticsInjection.receipt_refs) {
+      assert.ok(diagnosticsInjectionNode.receiptRefs.includes(receiptRef));
+    }
+    const diagnosticsGateNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsBlockingGate.event_id),
+    );
+    assert.ok(diagnosticsGateNode);
+    assert.equal(diagnosticsGateNode.workflowNodeId, "runtime.lsp-diagnostics.blocking-gate");
+    assert.equal(diagnosticsGateNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsGateNode.componentKind, "lsp_diagnostics_gate");
+    assert.equal(diagnosticsGateNode.label, "Diagnostics blocking gate");
+    assert.equal(diagnosticsGateNode.status, "blocked");
+    assert.deepEqual(diagnosticsGateNode.receiptRefs, diagnosticsBlockingGate.receipt_refs);
+    assert.deepEqual(diagnosticsGateNode.policyDecisionRefs, diagnosticsBlockingGate.policy_decision_refs);
     const retrieveNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(reactFlowRetrieve.event_id),
     );

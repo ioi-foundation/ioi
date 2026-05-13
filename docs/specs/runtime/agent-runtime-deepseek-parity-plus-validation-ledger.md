@@ -124,6 +124,7 @@ the practical workstream when the source heading is broad.
 | 123 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack artifact spillover and retrieval | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval/2026-05-13T03-53-05-208Z/result.json | node --check packages/runtime-daemon/src/coding-tools.mjs && node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo fmt -p ioi-cli<br>cargo check -p ioi-cli<br>cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture<br>cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture<br>node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval |
 | 124 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | coding tool-pack post-edit diagnostics MVP | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json | node --check packages/runtime-daemon/src/coding-tools.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo fmt -p ioi-cli<br>cargo check -p ioi-cli<br>cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture<br>cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture<br>node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics |
 | 125 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | automatic post-edit diagnostics injection loop | /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json | node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check packages/runtime-daemon/src/coding-tools.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>rustfmt --check crates/types/src/app/runtime/thread_turn_item.rs<br>cargo check -p ioi-types<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection |
+| 126 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | blocking post-edit diagnostics repair gate | /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json | node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check packages/runtime-daemon/src/coding-tools.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test --test-name-pattern "projects coding tool&#124;approval and policy&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4314,6 +4315,40 @@ Known validation note:
 - Broad `cargo fmt --all -- --check` remains blocked by unrelated formatting
   drift in `apps/autopilot/src-tauri/src/orchestrator/store/*.rs`; this slice's
   touched Rust file passed direct `rustfmt --check`.
+
+## Slice 126. 2026-05-13 - Blocking post-edit diagnostics repair gate
+
+Guide section: P0-C. Post-edit LSP Diagnostics
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check packages/runtime-daemon/src/coding-tools.mjs`
+  - runtime daemon, live contract, and coding-tools syntax checks passed.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `node --import tsx --test --test-name-pattern "projects coding tool|approval and policy|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow projection passed for coding-tool rows, generic policy gates,
+    and diagnostics blocking-gate nodes.
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon/SDK/CLI/TUI/React Flow coding tool-pack proof passed for
+    advisory diagnostics injection, blocking diagnostics repair gate,
+    `policy.blocked` TTI projection, SDK normalization, and React Flow gate
+    rows.
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+  - Rust/TypeScript live bridge TTI schema literal guard passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json`.
 
 ## Slice 121. 2026-05-13 - Coding tool-pack governed apply-patch contract
 

@@ -125,6 +125,7 @@ workstream was narrower.
 | 123 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack artifact spillover and retrieval | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval/2026-05-13T03-53-05-208Z/result.json |
 | 124 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | coding tool-pack post-edit diagnostics MVP | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json |
 | 125 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | automatic post-edit diagnostics injection loop | /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json |
+| 126 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | blocking post-edit diagnostics repair gate | /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -734,6 +735,41 @@ Known validation note:
 - Broad `cargo fmt --all -- --check` remains blocked by unrelated formatting
   drift in `apps/autopilot/src-tauri/src/orchestrator/store/*.rs`; this slice's
   touched Rust file passed direct `rustfmt --check`.
+
+### Slice 126. 2026-05-13 - Blocking post-edit diagnostics repair gate
+
+Implementation slice completed 2026-05-13, blocking post-edit diagnostics
+repair gate:
+
+- Turned `diagnosticsMode: "blocking"` into a hard runtime gate when pending
+  post-edit diagnostics contain findings, before local or runtime-bridge model
+  continuation.
+- Added blocked run/turn state for the diagnostics gate: no assistant delta,
+  no completed event, `waiting_for_input` turn status, blocked runtime task/job
+  records, and a stopped `blocked_by_post_edit_diagnostics` stop condition.
+- Added a receipt-backed `policy.blocked` TTI event with
+  `runtime_auto` source, `LspDiagnostics.BlockingGate` source kind,
+  `ioi.runtime.lsp-diagnostics-blocking-gate.v1` payload schema,
+  policy-decision refs, and `diagnostics-blocking-gate.json` artifact refs.
+- Exposed the gate through SDK event normalization and React Flow projection as
+  the workflow-addressable `runtime.lsp-diagnostics.blocking-gate` node with
+  `lsp_diagnostics_gate` component kind and "Diagnostics blocking gate" label.
+- Extended the live coding-tool contract to prove advisory injection still
+  continues, blocking injection pauses continuation, SDK/React Flow see the
+  policy gate, and the runtime trace preserves diagnostics gate receipts and
+  blocked checklist state.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test --test-name-pattern "projects coding tool|approval and policy|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

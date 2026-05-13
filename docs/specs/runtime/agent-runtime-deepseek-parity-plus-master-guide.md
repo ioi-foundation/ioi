@@ -109,9 +109,9 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: P0-C automatic post-edit diagnostics injection loop
+- 2026-05-13: P0-C blocking post-edit diagnostics repair gate
 - Evidence:
-  `/tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json`
+  `/tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json`
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -126,7 +126,7 @@ Completed-slice history belongs in the companion ledgers.
 | --- | --- | --- | --- | --- |
 | P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, `/status`, `/diff`, `/inspect`, `/patch`, `/patch-dry-run`, `/test`, `/diagnostics`, `/artifact`, `/retrieve`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/approval/coding-tool rows that React Flow can inspect. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
 | P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`, and `tool.retrieve_result` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve`, receipt-backed `tool.completed` events, range-aware test-output spillover artifacts, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, diagnostics mode/default command, artifact retrieval, allowed paths, command ids, and timeouts. | Broaden diagnostics beyond the `node.check` fallback and connect diagnostics findings to rollback/repair policy. | Tool-pack nodes can enable/disable git/test/diagnostics/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests. |
-| P0-C | Post-edit LSP diagnostics | Mutating `file.apply_patch` now auto-runs configured diagnostics for changed files, records `runtime_auto` diagnostic events, injects compact findings into the next local or runtime-bridge turn, emits a receipt-backed `lsp.diagnostics.injected` event, and projects the injection through SDK and React Flow. React Flow coding-pack controls expose `advisory`, `blocking`, and `skip` modes plus default diagnostic command; nested `toolPack.coding.*` config is honored by daemon invocation. | Make `blocking` mode a hard repair/approval gate before model continuation, then graduate from fallback checks to true project/LSP diagnostics. | `LspDiagnosticsNode` and coding-pack diagnostics controls change runtime warning/error injection behavior and surface injected findings as workflow-addressable rows. |
+| P0-C | Post-edit LSP diagnostics | Mutating `file.apply_patch` now auto-runs configured diagnostics for changed files, records `runtime_auto` diagnostic events, injects compact findings into the next local or runtime-bridge turn, emits a receipt-backed `lsp.diagnostics.injected` event, and projects the injection through SDK and React Flow. React Flow coding-pack controls expose `advisory`, `blocking`, and `skip` modes plus default diagnostic command; nested `toolPack.coding.*` config is honored by daemon invocation. `blocking` mode now stops model continuation before a local or runtime-bridge turn, creates a blocked turn/run with no assistant delta, emits a receipt-backed `policy.blocked` diagnostics gate, and projects the repair gate through SDK and React Flow. | Graduate from fallback checks to true project/LSP diagnostics, then bind diagnostics findings to rollback/repair policy. | `LspDiagnosticsNode` and coding-pack diagnostics controls change runtime warning/error injection behavior and surface injected findings and blocking gates as workflow-addressable rows. |
 | P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
 | P1-A | Subagent runtime parity | Delegation patterns exist, but the full role-aware lifecycle and output contract are not productized. | Spawn, wait, send input, cancel, resume, and validate output contract for parallel child agents. | Subagent pool/role/join nodes enforce concurrency, budget, and merge policy. |
 | P1-B | MCP manager parity | MCP containment exists, but manager UX and self-hosted MCP modes remain incomplete. | Import, validate, enable/disable, invoke, and serve MCP under IOI containment. | MCP server/tool/resource nodes compile into governed runtime config. |
@@ -135,18 +135,15 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Continue P0-C by turning `blocking` diagnostics mode into an enforced
-   repair/approval gate before model continuation, using the existing
-   `lsp.diagnostics.injected` event and receipt as the policy anchor.
-2. Broaden `lsp.diagnostics` from safe fallback checks toward project-aware
+1. Broaden `lsp.diagnostics` from safe fallback checks toward project-aware
    TypeScript/LSP backends while preserving degraded-mode events.
-3. Start P0-D rollback snapshots once blocking diagnostics can identify the
+2. Start P0-D rollback snapshots once blocking diagnostics can identify the
    changed files and failing findings that require restore/repair.
-4. If a keyboard-first TUI gap appears while wiring diagnostics, keep it
+3. If a keyboard-first TUI gap appears while wiring diagnostics, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
-5. Continue settings harness cleanup only as maintenance, gated by a concrete
+4. Continue settings harness cleanup only as maintenance, gated by a concrete
    parity slice dependency or a source-contract bloat guard failure.
-6. Keep this guide strategic. Put completed slice narratives in the
+5. Keep this guide strategic. Put completed slice narratives in the
    implementation log and proof commands/evidence paths in the validation
    ledger.
 
@@ -1691,13 +1688,11 @@ adding more infrastructure by default.
 
 Next runtime implementation sequence:
 
-1. Enforce blocking post-edit diagnostics as a repair/approval gate before the
-   next model continuation.
-2. Broaden diagnostics beyond `node.check`/local `typescript.check` fallback
+1. Broaden diagnostics beyond `node.check`/local `typescript.check` fallback
    toward project-aware LSP/TypeScript checks with degraded-mode receipts.
-3. Add rollback snapshots once diagnostics can identify changed files and
+2. Add rollback snapshots once diagnostics can identify changed files and
    blocking findings.
-4. Move from the thin TUI shell toward the full terminal coding-agent surface:
+3. Move from the thin TUI shell toward the full terminal coding-agent surface:
    jobs, restore, MCP, memory, cost/context, subagents, and workflow graph
    affordances.
 

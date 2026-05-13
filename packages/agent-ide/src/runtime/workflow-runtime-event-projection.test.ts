@@ -249,6 +249,34 @@ test("projects approval and policy events without workflow node ids", () => {
   assert.deepEqual(nodes[1]?.policyDecisionRefs, ["policy-deny"]);
 });
 
+test("projects diagnostics blocking gates as workflow-addressable policy nodes", () => {
+  const gate = event("event-diagnostics-gate", 6, {
+    type: "policy_blocked",
+    eventKind: "policy.blocked",
+    sourceEventKind: "LspDiagnostics.BlockingGate",
+    status: "blocked",
+    workflowNodeId: "runtime.lsp-diagnostics.blocking-gate",
+    componentKind: "lsp_diagnostics_gate",
+    payloadSchemaVersion: "ioi.runtime.lsp-diagnostics-blocking-gate.v1",
+    receiptRefs: ["receipt-lsp-diagnostics-gate"],
+    policyDecisionRefs: ["policy-lsp-diagnostics-gate"],
+    payload: {
+      summary: "Blocking diagnostics gate paused model continuation after 1 finding(s).",
+      reason: "post_edit_diagnostics_findings",
+    },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([gate]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(gate), "runtime.lsp-diagnostics.blocking-gate");
+  assert.equal(nodes[0]?.nodeKind, "hook_policy");
+  assert.equal(nodes[0]?.componentKind, "lsp_diagnostics_gate");
+  assert.equal(nodes[0]?.label, "Diagnostics blocking gate");
+  assert.equal(nodes[0]?.status, "blocked");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-lsp-diagnostics-gate"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-lsp-diagnostics-gate"]);
+  assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.lsp-diagnostics-blocking-gate.v1");
+});
+
 test("projects operator interrupt events into the runtime control node", () => {
   const interrupt = event("event-interrupt", 4, {
     type: "turn_interrupted",

@@ -756,6 +756,7 @@ function componentKindForRuntimeThreadEvent(
 function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): string {
   if (event.componentKind === "coding_tool" && event.toolName) return `Coding tool: ${event.toolName}`;
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
+  if (event.componentKind === "lsp_diagnostics_gate") return "Diagnostics blocking gate";
   if (event.toolName) return `Tool: ${event.toolName}`;
   switch (event.type) {
     case "thread_started":
