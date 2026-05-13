@@ -63,6 +63,8 @@ const TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-preview";
 const TUI_RESTORE_APPLY_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-apply";
+const TUI_THREAD_DIAGNOSTICS_REPAIR_DECISION_EXECUTE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/diagnostics/repair-decisions/{decision_id}/execute";
 const TUI_JOB_LIST_ROUTE: &str = "/v1/jobs";
 const TUI_JOB_ROUTE_TEMPLATE: &str = "/v1/jobs/{job_id}";
 const TUI_JOB_CANCEL_ROUTE_TEMPLATE: &str = "/v1/jobs/{job_id}/cancel";
@@ -285,6 +287,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "snapshot_list": TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE,
         "restore_preview": TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE,
         "restore_apply": TUI_RESTORE_APPLY_ROUTE_TEMPLATE,
+        "diagnostics_repair_decision_execute": TUI_THREAD_DIAGNOSTICS_REPAIR_DECISION_EXECUTE_ROUTE_TEMPLATE,
         "job_list": TUI_JOB_LIST_ROUTE,
         "job": TUI_JOB_ROUTE_TEMPLATE,
         "job_cancel": TUI_JOB_CANCEL_ROUTE_TEMPLATE,
@@ -1321,6 +1324,74 @@ pub(crate) async fn apply_tui_workspace_restore(
             "override_conflicts": allow_conflicts,
             "overrideConflicts": allow_conflicts,
         })),
+    )
+    .await
+}
+
+pub(crate) async fn execute_tui_diagnostics_repair_decision(
+    thread_id: &str,
+    decision_id: &str,
+    action: &str,
+    message: Option<&str>,
+    approved: bool,
+    allow_conflicts: bool,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut body = serde_json::Map::new();
+    body.insert("source".to_string(), Value::String("cli_tui".to_string()));
+    body.insert("actor".to_string(), Value::String("operator".to_string()));
+    body.insert(
+        "component_kind".to_string(),
+        Value::String("lsp_diagnostics_repair".to_string()),
+    );
+    body.insert(
+        "workflow_node_id".to_string(),
+        Value::String(format!(
+            "runtime.lsp-diagnostics.repair.{}",
+            safe_id(action)
+        )),
+    );
+    body.insert("action".to_string(), Value::String(action.to_string()));
+    body.insert(
+        "decision_id".to_string(),
+        Value::String(decision_id.to_string()),
+    );
+    body.insert("approval_granted".to_string(), Value::Bool(approved));
+    body.insert("approvalGranted".to_string(), Value::Bool(approved));
+    body.insert("approved".to_string(), Value::Bool(approved));
+    body.insert("confirm".to_string(), Value::Bool(approved));
+    body.insert(
+        "operatorOverrideApproved".to_string(),
+        Value::Bool(approved),
+    );
+    body.insert(
+        "operator_override_approved".to_string(),
+        Value::Bool(approved),
+    );
+    body.insert("allow_conflicts".to_string(), Value::Bool(allow_conflicts));
+    body.insert("allowConflicts".to_string(), Value::Bool(allow_conflicts));
+    body.insert(
+        "override_conflicts".to_string(),
+        Value::Bool(allow_conflicts),
+    );
+    body.insert(
+        "overrideConflicts".to_string(),
+        Value::Bool(allow_conflicts),
+    );
+    if let Some(message) = message.filter(|value| !value.trim().is_empty()) {
+        body.insert("message".to_string(), Value::String(message.to_string()));
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_diagnostics_repair_decision(
+            TUI_THREAD_DIAGNOSTICS_REPAIR_DECISION_EXECUTE_ROUTE_TEMPLATE,
+            thread_id,
+            decision_id,
+        ),
+        Some(Value::Object(body)),
     )
     .await
 }
@@ -2465,6 +2536,14 @@ fn route_with_thread_and_snapshot(template: &str, thread_id: &str, snapshot_id: 
     route_with_thread(template, thread_id).replace("{snapshot_id}", snapshot_id)
 }
 
+fn route_with_thread_and_diagnostics_repair_decision(
+    template: &str,
+    thread_id: &str,
+    decision_id: &str,
+) -> String {
+    route_with_thread(template, thread_id).replace("{decision_id}", decision_id)
+}
+
 fn route_with_job(template: &str, job_id: &str) -> String {
     template.replace("{job_id}", job_id)
 }
@@ -2515,6 +2594,14 @@ mod tests {
                 "workspace_snapshot_live"
             ),
             "/v1/threads/thread_live/snapshots/workspace_snapshot_live/restore-preview"
+        );
+        assert_eq!(
+            route_with_thread_and_diagnostics_repair_decision(
+                TUI_THREAD_DIAGNOSTICS_REPAIR_DECISION_EXECUTE_ROUTE_TEMPLATE,
+                "thread_live",
+                "restore_apply"
+            ),
+            "/v1/threads/thread_live/diagnostics/repair-decisions/restore_apply/execute"
         );
         assert_eq!(
             route_with_thread(TUI_THREAD_MODE_ROUTE_TEMPLATE, "thread_live"),

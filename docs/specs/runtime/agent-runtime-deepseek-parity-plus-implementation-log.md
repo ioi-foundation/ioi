@@ -152,6 +152,7 @@ workstream was narrower.
 | 150 | 2026-05-13 | P1. MCP Manager Parity | large MCP catalog deferred search/fetch | /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json |
 | 151 | 2026-05-13 | P1. MCP Manager Parity | global IOI MCP config discovery | /tmp/ioi-autopilot-gui-harness-mcp-global-config/2026-05-13T16-20-04-651Z/result.json |
 | 152 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1. MCP Manager Parity | TUI MCP search/fetch source-mode UX | /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch/2026-05-13T16-35-16-836Z/result.json |
+| 153 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | TUI diagnostics repair decision controls | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui/2026-05-13T16-45-07-095Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -272,6 +273,46 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 153. 2026-05-13 - TUI diagnostics repair decision controls
+
+Implementation slice completed 2026-05-13, diagnostics recovery TUI parity:
+
+- Added line-mode TUI `/diagnostics repair` controls for `retry`,
+  `preview-restore`, `apply-restore`, and `override`, all routed through the
+  daemon-owned
+  `/v1/threads/{thread_id}/diagnostics/repair-decisions/{decision_id}/execute`
+  endpoint.
+- Reused the existing diagnostics repair and workspace restore contracts so TUI
+  retry turns, restore previews, restore applies, and operator overrides emit
+  the same receipts, rollback refs, policy refs, and
+  `diagnostics.repair_decision.executed` events as SDK and React Flow authored
+  repair executions.
+- Added approval/conflict flags and optional messages to the TUI command parser,
+  with restore apply requiring explicit `--approve`.
+- Added concise line-mode output for repair action, decision id, status,
+  snapshot, receipt/policy counts, execution event id, and action-specific
+  retry/restore/override status.
+- Extended source-contract guards and parser tests so the new TUI command stays
+  daemon-backed and visible in the workflow control surface.
+- Updated the master guide so the next tactical focus is React Flow recovery
+  action controls, not another terminal-only affordance.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui/2026-05-13T16-45-07-095Z/result.json`.
 - `git diff --check`
 
 ### Slice 152. 2026-05-13 - TUI MCP search/fetch source-mode UX

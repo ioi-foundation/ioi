@@ -4562,11 +4562,16 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/approvals\/\{approval_id\}\/decision/);
   assert.match(source, /\/v1\/tools\?pack=coding/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/tools\/\{tool_id\}\/invoke/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/diagnostics\/repair-decisions\/\{decision_id\}\/execute/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/compact/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/fork/);
   assert.match(source, /workspace\.status/);
   assert.match(source, /git\.diff/);
   assert.match(source, /file\.inspect/);
+  assert.match(source, /execute_tui_diagnostics_repair_decision/);
+  assert.match(source, /DiagnosticsRepair/);
+  assert.match(source, /\/diagnostics repair/);
+  assert.match(source, /line_mode_command=diagnostics action=repair/);
   assert.match(source, /OperatorControl\.Mcp/);
   assert.match(source, /OperatorControl\.McpValidate/);
   assert.match(source, /OperatorControl\.McpImport/);
@@ -4627,7 +4632,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/memory", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/memory", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/diagnostics", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -4671,6 +4676,8 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_THREAD_DIAGNOSTICS_REPAIR_DECISION_EXECUTE_ROUTE_TEMPLATE/);
+  assert.match(source, /execute_tui_diagnostics_repair_decision/);
   assert.match(source, /workflow_node_ids/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_control_state/);
@@ -4680,6 +4687,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /line_mode_command=mcp/);
   assert.match(source, /line_mode_command=memory/);
   assert.match(source, /line_mode_command=restore/);
+  assert.match(source, /line_mode_command=diagnostics action=repair/);
   assert.match(source, /line_mode_error/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
   assert.doesNotMatch(source, /submit_runtime_call/);
