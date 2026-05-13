@@ -84,6 +84,13 @@ const RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION = "ioi.runtime.thread-controls.v1";
 const RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION = "ioi.runtime.thread-mode-control.v1";
 const RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.runtime.model-route-control.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
+const RUNTIME_MCP_SERVE_SCHEMA_VERSION = "ioi.runtime.mcp-serve.v1";
+const RUNTIME_MCP_SERVE_PROTOCOL_VERSION = "2024-11-05";
+const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
+  "workspace.status",
+  "git.diff",
+  "file.inspect",
+];
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
 const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
 const WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION = "ioi.runtime.workspace-restore-preview.v1";
@@ -2628,6 +2635,8 @@ export class AgentgresRuntimeStateStore {
         enableServer: "/v1/mcp/servers/{server_id}/enable",
         disableServer: "/v1/mcp/servers/{server_id}/disable",
         invokeTool: "/v1/mcp/tools/{tool_id}/invoke",
+        serve: "/v1/mcp/serve",
+        serveForThread: "/v1/threads/{thread_id}/mcp/serve",
       },
     };
   }
@@ -3274,6 +3283,142 @@ export class AgentgresRuntimeStateStore {
         result: output,
       },
     });
+  }
+
+  mcpServeStatus(options = {}) {
+    const allowedToolIds = mcpServeAllowedToolIds(options);
+    const tools = this.mcpServeToolCatalog(options);
+    return {
+      schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+      object: "ioi.runtime_mcp_serve_status",
+      status: "ready",
+      transport: "http_jsonrpc",
+      protocol_version: RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
+      protocolVersion: RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
+      thread_id: optionalString(options.thread_id ?? options.threadId) ?? null,
+      allowed_tool_ids: allowedToolIds,
+      allowedToolIds,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      tools,
+      routes: {
+        serve: "/v1/mcp/serve",
+        serveForThread: "/v1/threads/{thread_id}/mcp/serve",
+      },
+      evidence_refs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],
+      evidenceRefs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],
+    };
+  }
+
+  mcpServeToolCatalog(options = {}) {
+    const allowedToolIds = new Set(mcpServeAllowedToolIds(options));
+    return codingToolContracts()
+      .filter((tool) => allowedToolIds.has(tool.stableToolId))
+      .map((tool) => mcpServeToolDescriptor(tool));
+  }
+
+  async handleMcpServeJsonRpc(threadId, message, request = {}) {
+    this.agentForThread(threadId);
+    const context = {
+      ...request,
+      thread_id: threadId,
+      threadId,
+    };
+    if (Array.isArray(message)) {
+      const responses = await Promise.all(
+        message.map((entry) => this.handleSingleMcpServeJsonRpc(threadId, entry, context)),
+      );
+      return responses.filter(Boolean);
+    }
+    return this.handleSingleMcpServeJsonRpc(threadId, message, context);
+  }
+
+  async handleSingleMcpServeJsonRpc(threadId, message, request = {}) {
+    const id = message?.id;
+    const method = optionalString(message?.method);
+    if (!message || typeof message !== "object" || Array.isArray(message) || !method) {
+      return mcpJsonRpcError(id ?? null, -32600, "Invalid MCP JSON-RPC request.", {
+        schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+      });
+    }
+    try {
+      if (method === "initialize") {
+        const status = this.mcpServeStatus(request);
+        return mcpJsonRpcResult(id, {
+          protocolVersion: RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
+          capabilities: {
+            tools: { listChanged: false },
+            resources: { subscribe: false, listChanged: false },
+            prompts: { listChanged: false },
+          },
+          serverInfo: {
+            name: "ioi-runtime",
+            version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+          },
+          instructions:
+            "IOI runtime MCP serve mode exposes governed, receipt-backed runtime tools for the selected thread.",
+          _meta: status,
+        });
+      }
+      if (method === "notifications/initialized") {
+        return id === undefined || id === null ? null : mcpJsonRpcResult(id, {});
+      }
+      if (method === "ping") {
+        return mcpJsonRpcResult(id, {});
+      }
+      if (method === "tools/list") {
+        return mcpJsonRpcResult(id, { tools: this.mcpServeToolCatalog(request) });
+      }
+      if (method === "resources/list") {
+        return mcpJsonRpcResult(id, { resources: [] });
+      }
+      if (method === "prompts/list") {
+        return mcpJsonRpcResult(id, { prompts: [] });
+      }
+      if (method === "tools/call") {
+        const params = message.params && typeof message.params === "object" ? message.params : {};
+        const toolName = optionalString(params.name ?? params.tool_name ?? params.toolName);
+        const toolId = mcpServeToolIdForName(toolName, request);
+        if (!toolId) {
+          return mcpJsonRpcError(id, -32602, `MCP serve tool is not allowed: ${toolName ?? "missing"}.`, {
+            allowedTools: mcpServeAllowedToolIds(request),
+          });
+        }
+        const input = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
+          ? params.arguments
+          : params.args && typeof params.args === "object" && !Array.isArray(params.args)
+            ? params.args
+            : {};
+        const invocation = this.invokeThreadTool(threadId, toolId, {
+          source: "mcp_serve",
+          workflow_graph_id:
+            optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
+            "runtime.mcp-serve",
+          workflow_node_id:
+            optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+            `runtime.mcp-serve.${safeId(toolId)}`,
+          input,
+        });
+        return mcpJsonRpcResult(id, mcpServeToolCallResult(invocation));
+      }
+      return mcpJsonRpcError(id, -32601, `MCP method not found: ${method}.`, {
+        supportedMethods: [
+          "initialize",
+          "notifications/initialized",
+          "ping",
+          "tools/list",
+          "tools/call",
+          "resources/list",
+          "prompts/list",
+        ],
+      });
+    } catch (error) {
+      return mcpJsonRpcError(id, mcpJsonRpcErrorCodeFor(error), String(error?.message ?? error), {
+        code: optionalString(error?.code) ?? "mcp_serve_error",
+        details: error?.details ?? null,
+      });
+    }
   }
 
   async recordThreadMcpStatus(threadId, request = {}) {
@@ -6161,6 +6306,27 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.mcpStatus(Object.fromEntries(url.searchParams.entries())));
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/mcp/serve") {
+      writeJsonResponse(response, store.mcpServeStatus(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/mcp/serve") {
+      const query = Object.fromEntries(url.searchParams.entries());
+      const threadId = optionalString(query.thread_id ?? query.threadId);
+      if (!threadId) {
+        throw runtimeError({
+          status: 400,
+          code: "mcp_thread_required",
+          message: "MCP serve JSON-RPC requires a thread_id so served tool calls can emit governed runtime receipts.",
+          details: { route: "/v1/mcp/serve" },
+        });
+      }
+      writeMcpJsonRpcResponse(
+        response,
+        await store.handleMcpServeJsonRpc(threadId, await readBody(request), query),
+      );
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/v1/mcp/servers") {
       writeJsonResponse(response, store.listMcpServers(Object.fromEntries(url.searchParams.entries())));
       return;
@@ -8154,6 +8320,23 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "mcp" && segments[4] === "invoke" && !segments[5]) {
     writeJsonResponse(response, await store.invokeThreadMcpTool(threadId, null, await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "mcp" && segments[4] === "serve" && !segments[5]) {
+    writeJsonResponse(response, store.mcpServeStatus({
+      ...Object.fromEntries(url.searchParams.entries()),
+      thread_id: threadId,
+    }));
+    return;
+  }
+  if (request.method === "POST" && action === "mcp" && segments[4] === "serve" && !segments[5]) {
+    writeMcpJsonRpcResponse(
+      response,
+      await store.handleMcpServeJsonRpc(threadId, await readBody(request), {
+        ...Object.fromEntries(url.searchParams.entries()),
+        thread_id: threadId,
+      }),
+    );
     return;
   }
   if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
@@ -11927,6 +12110,104 @@ function resolveMcpToolRecord(servers = [], toolId, request = {}) {
   return { server, toolName: requestedToolName };
 }
 
+function mcpServeAllowedToolIds(options = {}) {
+  const requested = normalizeStringList(
+    options.allowed_tools ?? options.allowedTools ?? options.tools ?? options.tool_ids ?? options.toolIds,
+  );
+  const candidates = requested.length ? requested : RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS;
+  return uniqueStrings(candidates).filter((toolId) =>
+    RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS.includes(toolId) && CODING_TOOL_IDS.has(toolId),
+  );
+}
+
+function mcpServeToolDescriptor(tool = {}) {
+  const toolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
+  return {
+    name: toolId,
+    title: tool.displayName ?? tool.display_name ?? toolId,
+    description:
+      tool.description ??
+      `${tool.displayName ?? toolId} through IOI's governed runtime with receipts and policy evidence.`,
+    inputSchema: tool.inputSchema ?? { type: "object" },
+    _meta: {
+      schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+      stableToolId: toolId,
+      pack: tool.pack ?? CODING_TOOL_PACK_ID,
+      effectClass: tool.effectClass ?? "local_read",
+      riskDomain: tool.riskDomain ?? "workspace",
+      primitiveCapabilities: normalizeArray(tool.primitiveCapabilities),
+      authorityScopeRequirements: normalizeArray(tool.authorityScopeRequirements),
+      evidenceRequirements: normalizeArray(tool.evidenceRequirements),
+      workflowNodeType: tool.workflowNodeType ?? null,
+      workflowConfigFields: normalizeArray(tool.workflowConfigFields),
+    },
+    annotations: {
+      readOnlyHint: tool.effectClass !== "local_write" && tool.effectClass !== "local_command",
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  };
+}
+
+function mcpServeToolIdForName(name, options = {}) {
+  const requested = optionalString(name);
+  if (!requested) return null;
+  const allowedToolIds = mcpServeAllowedToolIds(options);
+  return allowedToolIds.find((toolId) => toolId === requested || safeId(toolId) === requested) ?? null;
+}
+
+function mcpServeToolCallResult(invocation = {}) {
+  const payload = invocation.event?.payload_summary ?? {};
+  const status = invocation.status ?? payload.status ?? "completed";
+  const summary =
+    optionalString(payload.summary) ??
+    `IOI runtime tool ${invocation.tool_name ?? "unknown"} ${status}.`;
+  return {
+    content: [{ type: "text", text: summary }],
+    structuredContent: {
+      schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+      object: "ioi.runtime_mcp_serve_tool_result",
+      status,
+      tool_name: invocation.tool_name ?? null,
+      tool_call_id: invocation.tool_call_id ?? null,
+      thread_id: invocation.thread_id ?? null,
+      workflow_graph_id: invocation.workflow_graph_id ?? null,
+      workflow_node_id: invocation.workflow_node_id ?? null,
+      receipt_refs: normalizeArray(invocation.receipt_refs),
+      policy_decision_refs: normalizeArray(invocation.policy_decision_refs),
+      artifact_refs: normalizeArray(invocation.artifact_refs),
+      event_id: invocation.event?.event_id ?? invocation.event?.id ?? null,
+      result: invocation.result ?? null,
+      error: invocation.error ?? null,
+    },
+    isError: status !== "completed",
+  };
+}
+
+function mcpJsonRpcResult(id, result = {}) {
+  return { jsonrpc: "2.0", id: id ?? null, result };
+}
+
+function mcpJsonRpcError(id, code, message, data = {}) {
+  return {
+    jsonrpc: "2.0",
+    id: id ?? null,
+    error: {
+      code,
+      message,
+      data,
+    },
+  };
+}
+
+function mcpJsonRpcErrorCodeFor(error) {
+  const status = Number(error?.status ?? 500);
+  if (status === 404) return -32601;
+  if (status >= 400 && status < 500) return -32602;
+  return -32603;
+}
+
 function mcpLiveExecutionModeForServer(server, request = {}) {
   const executionMode = optionalString(request.execution_mode ?? request.executionMode);
   if (
@@ -13624,7 +13905,7 @@ function optionalString(value) {
 
 function operatorControlSource(value) {
   const source = optionalString(value);
-  return ["cli_tui", "react_flow", "sdk_client", "runtime_auto"].includes(source) ? source : "sdk_client";
+  return ["cli_tui", "react_flow", "sdk_client", "runtime_auto", "mcp_serve"].includes(source) ? source : "sdk_client";
 }
 
 function approvalDecisionForRequest(value) {
@@ -14827,6 +15108,14 @@ function writeJsonResponse(response, value, status = 200) {
   response.statusCode = status;
   response.setHeader("content-type", "application/json");
   response.end(status === 204 ? "" : JSON.stringify(value));
+}
+
+function writeMcpJsonRpcResponse(response, value) {
+  if (value === null || (Array.isArray(value) && value.length === 0)) {
+    writeJsonResponse(response, null, 204);
+    return;
+  }
+  writeJsonResponse(response, value);
 }
 
 function writeError(response, error) {

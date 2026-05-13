@@ -147,6 +147,7 @@ workstream was narrower.
 | 145 | 2026-05-13 | P1. MCP Manager Parity | MCP resources/prompts discovery | /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json |
 | 146 | 2026-05-13 | P1. MCP Manager Parity | MCP import/add/remove registry writes | /tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json |
 | 147 | 2026-05-13 | P1. MCP Manager Parity | live MCP HTTP/SSE transport | /tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json |
+| 148 | 2026-05-13 | P1. MCP Manager Parity | self-hosted MCP serve mode | /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6986,3 +6987,37 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-http-sse`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json`.
+
+### Slice 148. 2026-05-13 - Self-hosted MCP serve mode
+
+Implementation slice completed 2026-05-13, IOI-as-MCP-server parity:
+
+- Added public and thread-scoped MCP serve routes at `/v1/mcp/serve` and
+  `/v1/threads/{thread_id}/mcp/serve` for HTTP JSON-RPC `initialize`,
+  `tools/list`, `tools/call`, `resources/list`, and `prompts/list`.
+- Exposed a default governed serve allowlist of `workspace.status`, `git.diff`,
+  and `file.inspect`, with served `tools/call` requests mapped into the
+  existing daemon coding-tool invocation path so receipts, policy refs, events,
+  and React Flow rows stay identical to native coding-tool calls.
+- Added SDK JSON-RPC helpers through `serveMcpRpc` and `Thread.mcpServeRpc`.
+- Added React Flow `mcp_serve` state-node metadata plus endpoint and
+  allowed-tool JSON controls so workflow-authored serve mode remains
+  daemon-owned and configurable.
+- Updated the master guide so the next MCP parity slice is remote auth/vault
+  header hardening and deferred large-server tool exposure.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `git diff --check`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-serve`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json`.

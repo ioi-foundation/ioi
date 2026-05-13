@@ -11,6 +11,8 @@ import {
   type RuntimeThreadMemoryInput,
   type RuntimeThreadMemoryWriteInput,
   type RuntimeThreadMcpInput,
+  type RuntimeMcpJsonRpcRequest,
+  type RuntimeMcpJsonRpcResponse,
   type RuntimeMcpServerMutationInput,
   type RuntimeMcpToolInvokeInput,
   type RuntimeThreadModeInput,
@@ -167,6 +169,13 @@ export class Thread {
 
   async invokeMcpTool(input: RuntimeMcpToolInvokeInput = {}): Promise<RuntimeMcpInvocationResult> {
     return this.client.invokeThreadMcpTool(this.id, input);
+  }
+
+  async mcpServeRpc(
+    message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
+    options: RuntimeThreadMcpInput = {},
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
+    return this.client.threadMcpServeRpc(this.id, message, options);
   }
 
   async memory(input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryStatus> {

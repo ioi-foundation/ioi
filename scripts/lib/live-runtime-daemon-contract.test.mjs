@@ -1945,7 +1945,62 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     });
     assert.equal(publicEnabled.event.source_event_kind, "OperatorControl.McpEnable");
 
+    const serveStatus = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/serve`);
+    assert.equal(serveStatus.transport, "http_jsonrpc");
+    assert.deepEqual(
+      serveStatus.allowed_tool_ids,
+      ["workspace.status", "git.diff", "file.inspect"],
+    );
+
+    const serveInitialize = await fetchJson(`${daemon.endpoint}/v1/mcp/serve?thread_id=${thread.thread_id}`, {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: "init", method: "initialize", params: {} }),
+    });
+    assert.equal(serveInitialize.result.serverInfo.name, "ioi-runtime");
+    assert.equal(serveInitialize.result.capabilities.tools.listChanged, false);
+
+    const serveTools = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/serve`, {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: "tools", method: "tools/list" }),
+    });
+    assert.deepEqual(
+      serveTools.result.tools.map((tool) => tool.name).sort(),
+      ["file.inspect", "git.diff", "workspace.status"],
+    );
+    assert.ok(serveTools.result.tools.every((tool) => tool._meta.schema_version === "ioi.runtime.mcp-serve.v1"));
+
+    const serveCall = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/serve`, {
+      method: "POST",
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "call",
+        method: "tools/call",
+        params: { name: "workspace.status", arguments: {} },
+      }),
+    });
+    assert.equal(serveCall.result.structuredContent.status, "completed");
+    assert.equal(serveCall.result.structuredContent.tool_name, "workspace.status");
+    assert.equal(serveCall.result.structuredContent.workflow_node_id, "runtime.mcp-serve.workspace.status");
+    assert.ok(serveCall.result.structuredContent.receipt_refs[0].startsWith("receipt_coding_tool_workspace.status"));
+
+    const sdkServeTools = await sdkThread.mcpServeRpc({
+      jsonrpc: "2.0",
+      id: "sdk-tools",
+      method: "tools/list",
+    });
+    assert.ok(
+      sdkServeTools.result.tools.some((tool) => tool.name === "workspace.status"),
+    );
+
     const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    assert.ok(
+      sdkEvents.some(
+        (event) =>
+          event.source === "mcp_serve" &&
+          event.componentKind === "coding_tool" &&
+          event.workflowNodeId === "runtime.mcp-serve.workspace.status",
+      ),
+    );
     const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
     assert.ok(
       reactFlowProjection.nodes.some((node) => node.workflowNodeId === "runtime.mcp-manager"),
@@ -1956,6 +2011,11 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.ok(
       reactFlowProjection.nodes.some(
         (node) => node.workflowNodeId === "runtime.mcp-tool.search.query",
+      ),
+    );
+    assert.ok(
+      reactFlowProjection.nodes.some(
+        (node) => node.workflowNodeId === "runtime.mcp-serve.workspace.status",
       ),
     );
 
@@ -4245,6 +4305,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/mcp\/prompts/);
   assert.match(source, /\/v1\/mcp\/validate/);
   assert.match(source, /\/v1\/mcp\/import/);
+  assert.match(source, /\/v1\/mcp\/serve/);
   assert.match(source, /\/v1\/mcp\/servers/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/status/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/import/);
@@ -4252,6 +4313,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/servers\/\{server_id\}\/enable/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/servers\/\{server_id\}\/disable/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/tools\/\{tool_id\}\/invoke/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/serve/);
   assert.match(source, /\/v1\/memory/);
   assert.match(source, /\/v1\/memory\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/status/);
@@ -4281,6 +4343,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /invokeMcpStdioTool/);
   assert.match(source, /discoverMcpHttpCatalog/);
   assert.match(source, /invokeMcpHttpTool/);
+  assert.match(source, /handleMcpServeJsonRpc/);
+  assert.match(source, /mcp_serve/);
   assert.match(source, /live_stdio/);
   assert.match(source, /live_http/);
   assert.match(source, /live_sse/);
@@ -7795,6 +7859,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add\.http"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add\.sse"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.serve"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.remove"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.enable"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.disable"/);
@@ -7805,7 +7870,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /mcp_status/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
+  assert.match(graphTypes, /mcp_serve/);
   assert.match(graphTypes, /mcp_remove/);
+  assert.match(graphTypes, /mcpServeAllowedToolsJson/);
   assert.match(graphTypes, /mcpTransport/);
   assert.match(graphTypes, /mcpServerUrl/);
   assert.match(graphTypes, /mcpServerHeadersJson/);
@@ -7819,6 +7886,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-url/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-headers/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-config/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-endpoint/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-allowed-tools/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-import-json/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-validate-before-invoke/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-record-id/);

@@ -365,6 +365,33 @@ export interface RuntimeThreadMcpInput extends RuntimeMcpServerControlInput {
   idempotency_key?: string;
 }
 
+export interface RuntimeMcpJsonRpcRequest {
+  jsonrpc?: "2.0" | string;
+  id?: string | number | null;
+  method: string;
+  params?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface RuntimeMcpJsonRpcResponse {
+  jsonrpc: "2.0" | string;
+  id?: string | number | null;
+  result?: Record<string, unknown>;
+  error?: {
+    code: number;
+    message: string;
+    data?: Record<string, unknown>;
+  };
+  [key: string]: unknown;
+}
+
+export interface RuntimeMcpServeRpcInput extends RuntimeMcpListOptions {
+  message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[];
+  allowedTools?: string[];
+  allowed_tools?: string[];
+  source?: "sdk_client" | "cli_tui" | "react_flow" | "mcp_serve" | string;
+}
+
 export interface RuntimeMemoryStatusOptions extends MemoryListOptions {
   threadId?: string;
   thread_id?: string;
@@ -844,6 +871,9 @@ export interface RuntimeSubstrateClient {
   enableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   disableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   invokeMcpTool(input?: RuntimeMcpToolInvokeInput): Promise<RuntimeMcpInvocationResult>;
+  serveMcpRpc(
+    input: RuntimeMcpServeRpcInput,
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null>;
   threadMcpStatus(threadId: string, input?: RuntimeThreadMcpInput): Promise<RuntimeMcpStatus>;
   importThreadMcp(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
   addThreadMcpServer(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
@@ -870,6 +900,11 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input?: RuntimeMcpToolInvokeInput,
   ): Promise<RuntimeMcpInvocationResult>;
+  threadMcpServeRpc(
+    threadId: string,
+    message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
+    options?: RuntimeMcpListOptions,
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null>;
   getMemoryStatus(options?: RuntimeMemoryStatusOptions): Promise<RuntimeMemoryStatus>;
   validateMemory(input?: RuntimeMemoryValidationInput): Promise<RuntimeMemoryValidationResult>;
   threadMemoryStatus(threadId: string, input?: RuntimeThreadMemoryInput): Promise<RuntimeMemoryStatus>;
@@ -1349,6 +1384,13 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     );
   }
 
+  async serveMcpRpc(
+    input: RuntimeMcpServeRpcInput,
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
+    const { message, ...options } = input;
+    return this.request("serveMcpRpc", "POST", `/v1/mcp/serve${mcpListQuery(options)}`, message);
+  }
+
   async threadMcpStatus(
     threadId: string,
     input: RuntimeThreadMcpInput = {},
@@ -1470,6 +1512,19 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
         source: "sdk_client",
         ...input,
       },
+    );
+  }
+
+  async threadMcpServeRpc(
+    threadId: string,
+    message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
+    options: RuntimeMcpListOptions = {},
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
+    return this.request(
+      "threadMcpServeRpc",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/serve${mcpListQuery(options)}`,
+      message,
     );
   }
 
@@ -3220,6 +3275,13 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.invokeThreadMcpTool(threadId, input);
   }
 
+  async serveMcpRpc(
+    input: RuntimeMcpServeRpcInput,
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
+    const threadId = input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id);
+    return this.threadMcpServeRpc(threadId, input.message, input);
+  }
+
   async threadMcpStatus(threadId: string, input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpStatus> {
     return {
       ...(await this.getMcpStatus({ threadId })),
@@ -3388,6 +3450,79 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         workflowNodeId: `runtime.mcp-tool.${serverId}.${toolName}`,
       }),
     };
+  }
+
+  async threadMcpServeRpc(
+    threadId: string,
+    message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
+    options: RuntimeMcpListOptions = {},
+  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
+    const handle = async (entry: RuntimeMcpJsonRpcRequest): Promise<RuntimeMcpJsonRpcResponse | null> => {
+      const id = entry.id ?? null;
+      if (entry.method === "notifications/initialized") return null;
+      if (entry.method === "initialize") {
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            protocolVersion: "2024-11-05",
+            capabilities: { tools: { listChanged: false } },
+            serverInfo: { name: "ioi-runtime-mock", version: "ioi.runtime.mcp-serve.v1" },
+          },
+        };
+      }
+      if (entry.method === "tools/list") {
+        const requested = [
+          ...((Array.isArray(options.allowedTools) ? options.allowedTools : []) as string[]),
+          ...((Array.isArray(options.allowed_tools) ? options.allowed_tools : []) as string[]),
+        ];
+        const allowed = requested.length ? requested : ["workspace.status", "git.diff", "file.inspect"];
+        const tools = (await this.listTools({ pack: "coding" }))
+          .filter((tool) => allowed.includes(tool.stableToolId))
+          .map((tool) => ({
+            name: tool.stableToolId,
+            title: tool.displayName,
+            description: `${tool.displayName} through IOI's governed runtime.`,
+            inputSchema: tool.inputSchema,
+          }));
+        return { jsonrpc: "2.0", id, result: { tools } };
+      }
+      if (entry.method === "tools/call") {
+        const params = (entry.params ?? {}) as { name?: string; arguments?: Record<string, unknown> };
+        const toolName = params.name ?? "workspace.status";
+        const invocation = await this.invokeThreadTool(threadId, toolName, {
+          source: "mcp_serve",
+          workflow_node_id: `runtime.mcp-serve.${toolName}`,
+          input: params.arguments ?? {},
+        });
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            content: [{ type: "text", text: `IOI runtime tool ${toolName} completed.` }],
+            structuredContent: {
+              schema_version: "ioi.runtime.mcp-serve.v1",
+              status: invocation.status,
+              tool_name: invocation.tool_name,
+              tool_call_id: invocation.tool_call_id,
+              receipt_refs: invocation.receipt_refs,
+              result: invocation.result ?? null,
+            },
+            isError: invocation.status !== "completed",
+          },
+        };
+      }
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32601, message: `MCP method not found: ${entry.method}.` },
+      };
+    };
+    if (Array.isArray(message)) {
+      const responses = await Promise.all(message.map((entry) => handle(entry)));
+      return responses.filter((entry): entry is RuntimeMcpJsonRpcResponse => Boolean(entry));
+    }
+    return handle(message);
   }
 
   async validateThreadMcp(threadId: string, input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
