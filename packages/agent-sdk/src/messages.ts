@@ -422,6 +422,12 @@ export interface RuntimeMcpServerEntry {
   allowedTools?: string[];
   tool_count?: number;
   toolCount?: number;
+  resources?: RuntimeMcpResourceEntry[];
+  resource_count?: number;
+  resourceCount?: number;
+  prompts?: RuntimeMcpPromptEntry[];
+  prompt_count?: number;
+  promptCount?: number;
   containment?: Record<string, unknown>;
   secret_refs?: Record<string, unknown>;
   secretRefs?: Record<string, unknown>;
@@ -439,6 +445,54 @@ export interface RuntimeMcpToolEntry extends RuntimeToolCatalogEntry {
   toolName?: string;
   status?: string;
   transport?: string;
+  workflow_node_id?: string;
+  workflowNodeId?: string;
+}
+
+export interface RuntimeMcpResourceEntry {
+  schema_version?: string;
+  schemaVersion?: string;
+  stableResourceId?: string;
+  stable_resource_id?: string;
+  displayName?: string;
+  display_name?: string;
+  pack?: string;
+  server_id?: string;
+  serverId?: string;
+  server_label?: string;
+  serverLabel?: string;
+  uri: string;
+  name?: string;
+  description?: string | null;
+  mimeType?: string | null;
+  mime_type?: string | null;
+  status?: string;
+  transport?: string;
+  workflowNodeType?: string;
+  workflow_node_id?: string;
+  workflowNodeId?: string;
+}
+
+export interface RuntimeMcpPromptEntry {
+  schema_version?: string;
+  schemaVersion?: string;
+  stablePromptId?: string;
+  stable_prompt_id?: string;
+  displayName?: string;
+  display_name?: string;
+  pack?: string;
+  server_id?: string;
+  serverId?: string;
+  server_label?: string;
+  serverLabel?: string;
+  name: string;
+  description?: string | null;
+  arguments?: unknown[];
+  prompt_arguments?: unknown[];
+  promptArguments?: unknown[];
+  status?: string;
+  transport?: string;
+  workflowNodeType?: string;
   workflow_node_id?: string;
   workflowNodeId?: string;
 }
@@ -462,6 +516,10 @@ export interface RuntimeMcpValidationResult {
   serverCount?: number;
   tool_count?: number;
   toolCount?: number;
+  resource_count?: number;
+  resourceCount?: number;
+  prompt_count?: number;
+  promptCount?: number;
   issue_count?: number;
   issueCount?: number;
   warning_count?: number;
@@ -470,6 +528,8 @@ export interface RuntimeMcpValidationResult {
   warnings: RuntimeMcpValidationIssue[];
   servers?: RuntimeMcpServerEntry[];
   tools?: RuntimeMcpToolEntry[];
+  resources?: RuntimeMcpResourceEntry[];
+  prompts?: RuntimeMcpPromptEntry[];
   event?: RuntimeEventEnvelope;
 }
 
@@ -534,10 +594,16 @@ export interface RuntimeMcpStatus {
   serverCount?: number;
   tool_count: number;
   toolCount?: number;
+  resource_count?: number;
+  resourceCount?: number;
+  prompt_count?: number;
+  promptCount?: number;
   enabled_server_count?: number;
   enabledServerCount?: number;
   servers: RuntimeMcpServerEntry[];
   tools: RuntimeMcpToolEntry[];
+  resources?: RuntimeMcpResourceEntry[];
+  prompts?: RuntimeMcpPromptEntry[];
   validation?: RuntimeMcpValidationResult;
   routes?: Record<string, string>;
   event?: RuntimeEventEnvelope;

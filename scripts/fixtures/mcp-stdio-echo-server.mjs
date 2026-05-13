@@ -18,6 +18,21 @@ const tools = [
     },
   },
 ];
+const resources = [
+  {
+    uri: "ioi://fixture/search-context",
+    name: "search-context",
+    description: "Deterministic read-only search context exposed by the MCP stdio fixture.",
+    mimeType: "application/json",
+  },
+];
+const prompts = [
+  {
+    name: "search-brief",
+    description: "Build a concise search brief for the deterministic MCP stdio fixture.",
+    arguments: [{ name: "topic", description: "Search topic", required: true }],
+  },
+];
 
 let buffer = "";
 process.stdin.setEncoding("utf8");
@@ -38,13 +53,21 @@ function handleLine(line) {
   if (request.method === "initialize") {
     respond(request.id, {
       protocolVersion: "2024-11-05",
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, resources: {}, prompts: {} },
       serverInfo: { name: "ioi-fixture-mcp-stdio", version: "0.1.0" },
     });
     return;
   }
   if (request.method === "tools/list") {
     respond(request.id, { tools });
+    return;
+  }
+  if (request.method === "resources/list") {
+    respond(request.id, { resources });
+    return;
+  }
+  if (request.method === "prompts/list") {
+    respond(request.id, { prompts });
     return;
   }
   if (request.method === "tools/call") {

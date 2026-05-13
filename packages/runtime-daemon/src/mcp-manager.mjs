@@ -48,6 +48,12 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
     server_count: normalizedServers.length,
     servers: normalizedServers,
     tools: mcpToolsForServers(normalizedServers),
+    resources: mcpResourcesForServers(normalizedServers),
+    resourceCount: mcpResourcesForServers(normalizedServers).length,
+    resource_count: mcpResourcesForServers(normalizedServers).length,
+    prompts: mcpPromptsForServers(normalizedServers),
+    promptCount: mcpPromptsForServers(normalizedServers).length,
+    prompt_count: mcpPromptsForServers(normalizedServers).length,
   };
 }
 
@@ -91,6 +97,14 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     ...normalizeArray(config.allowedTools ?? config.allowed_tools),
     ...Object.keys(config.tools ?? {}),
   ]);
+  const declaredResources = normalizeMcpResourceDeclarations(
+    config.resources ?? config.allowedResources ?? config.allowed_resources,
+    { id, label: name, name, transport, enabled: config.enabled !== false && config.disabled !== true },
+  );
+  const declaredPrompts = normalizeMcpPromptDeclarations(
+    config.prompts ?? config.allowedPrompts ?? config.allowed_prompts,
+    { id, label: name, name, transport, enabled: config.enabled !== false && config.disabled !== true },
+  );
   const env =
     config.env && typeof config.env === "object" && !Array.isArray(config.env)
       ? config.env
@@ -131,6 +145,12 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     allowedTools: declaredTools,
     tool_count: declaredTools.length,
     toolCount: declaredTools.length,
+    resources: declaredResources,
+    resource_count: declaredResources.length,
+    resourceCount: declaredResources.length,
+    prompts: declaredPrompts,
+    prompt_count: declaredPrompts.length,
+    promptCount: declaredPrompts.length,
     containment: {
       mode:
         optionalString(config.containmentMode ?? config.containment_mode ?? config.containment?.mode) ??
@@ -173,36 +193,27 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
 
 export function mcpToolsForServers(servers = []) {
   return servers.flatMap((server) =>
-    normalizeArray(server.allowedTools ?? server.allowed_tools).map((toolName) => ({
-      schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      stableToolId: `mcp.${safeId(server.label ?? server.id)}.${safeId(toolName)}`,
-      stable_tool_id: `mcp.${safeId(server.label ?? server.id)}.${safeId(toolName)}`,
-      displayName: `${server.label ?? server.id}.${toolName}`,
-      display_name: `${server.label ?? server.id}.${toolName}`,
-      pack: "mcp",
-      server_id: server.id,
-      serverId: server.id,
-      server_label: server.label ?? server.name ?? server.id,
-      serverLabel: server.label ?? server.name ?? server.id,
-      tool_name: toolName,
-      toolName,
-      status: server.enabled === false ? "disabled" : server.status ?? "configured",
-      transport: server.transport ?? "stdio",
-      primitiveCapabilities: ["prim:connector.invoke"],
-      authorityScopeRequirements: ["scope:mcp.invoke"],
-      effectClass: "connector_call",
-      riskDomain: "connector",
-      inputSchema: { type: "object" },
-      outputSchema: { type: "object" },
-      evidenceRequirements: ["mcp_containment_receipt"],
-      workflowNodeType: "McpToolNode",
-      workflowConfigFields: ["server_id", "tool_name", "allowed_tools", "containment"],
-      workflow_node_id: `runtime.mcp-tool.${safeId(server.label ?? server.id)}.${safeId(toolName)}`,
-      workflowNodeId: `runtime.mcp-tool.${safeId(server.label ?? server.id)}.${safeId(toolName)}`,
-      receipt_refs: [],
-      receiptRefs: [],
-    })),
+    normalizeArray(server.allowedTools ?? server.allowed_tools).map((tool) =>
+      normalizeMcpToolEntry(tool, server),
+    ),
+  );
+}
+
+export function mcpResourcesForServers(servers = []) {
+  return servers.flatMap((server) =>
+    normalizeMcpResourceDeclarations(
+      server.resources ?? server.allowedResources ?? server.allowed_resources,
+      server,
+    ),
+  );
+}
+
+export function mcpPromptsForServers(servers = []) {
+  return servers.flatMap((server) =>
+    normalizeMcpPromptDeclarations(
+      server.prompts ?? server.allowedPrompts ?? server.allowed_prompts,
+      server,
+    ),
   );
 }
 
@@ -251,7 +262,102 @@ export function validateMcpServerRecords(servers = []) {
   };
 }
 
+export async function discoverMcpStdioCatalog(server, options = {}) {
+  return withMcpStdioSession(server, options, async (session) => {
+    const listed = await session.sendRequest("tools/list", {});
+    const resourceList = await optionalMcpCatalogRequest(session, "resources/list");
+    const promptList = await optionalMcpCatalogRequest(session, "prompts/list");
+    const tools = normalizeArray(listed?.tools).map((tool) => normalizeMcpToolEntry(tool, server));
+    const resources = normalizeMcpResourceDeclarations(resourceList?.resources, server);
+    const prompts = normalizeMcpPromptDeclarations(promptList?.prompts, server);
+    return {
+      ok: true,
+      status: "completed",
+      transport: "stdio",
+      execution_mode: "live_stdio",
+      executionMode: "live_stdio",
+      command: session.command,
+      args: session.args,
+      cwd: session.cwd,
+      timeout_ms: session.timeoutMs,
+      protocol_version:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      protocolVersion:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      server_info: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      serverInfo: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      listed_tools: tools,
+      listedTools: tools,
+      tools,
+      resource_count: resources.length,
+      resourceCount: resources.length,
+      listed_resources: resources,
+      listedResources: resources,
+      resources,
+      prompt_count: prompts.length,
+      promptCount: prompts.length,
+      listed_prompts: prompts,
+      listedPrompts: prompts,
+      prompts,
+      notifications: session.notifications,
+      stderr: session.stderr(),
+    };
+  });
+}
+
 export async function invokeMcpStdioTool(server, toolName, input = {}, options = {}) {
+  return withMcpStdioSession(server, options, async (session) => {
+    const listed = await session.sendRequest("tools/list", {});
+    const resourceList = await optionalMcpCatalogRequest(session, "resources/list");
+    const promptList = await optionalMcpCatalogRequest(session, "prompts/list");
+    const listedTools = normalizeArray(listed?.tools).map((tool) =>
+      normalizeMcpToolEntry(tool, server),
+    );
+    const listedResources = normalizeMcpResourceDeclarations(resourceList?.resources, server);
+    const listedPrompts = normalizeMcpPromptDeclarations(promptList?.prompts, server);
+    const call = await session.sendRequest("tools/call", {
+      name: toolName,
+      arguments:
+        input && typeof input === "object" && !Array.isArray(input) ? input : { value: input },
+    });
+    return {
+      ok: true,
+      status: "completed",
+      transport: "stdio",
+      execution_mode: "live_stdio",
+      executionMode: "live_stdio",
+      command: session.command,
+      args: session.args,
+      cwd: session.cwd,
+      timeout_ms: session.timeoutMs,
+      protocol_version:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      protocolVersion:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      server_info: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      serverInfo: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      tool_count: listedTools.length,
+      toolCount: listedTools.length,
+      listed_tools: listedTools,
+      listedTools,
+      resource_count: listedResources.length,
+      resourceCount: listedResources.length,
+      listed_resources: listedResources,
+      listedResources,
+      prompt_count: listedPrompts.length,
+      promptCount: listedPrompts.length,
+      listed_prompts: listedPrompts,
+      listedPrompts,
+      notifications: session.notifications,
+      stderr: session.stderr(),
+      result: call ?? {},
+    };
+  });
+}
+
+async function withMcpStdioSession(server, options, callback) {
   const command = optionalString(server?.command);
   if (!command) {
     throw mcpStdioError("mcp_stdio_command_missing", "MCP stdio invocation requires a server command.");
@@ -396,47 +502,25 @@ export async function invokeMcpStdioTool(server, toolName, input = {}, options =
       }
     });
 
+  let initialize = null;
   try {
-    const initialize = await sendRequest("initialize", {
+    initialize = await sendRequest("initialize", {
       protocolVersion: "2024-11-05",
       capabilities: { roots: { listChanged: true } },
       clientInfo: { name: "ioi-runtime-daemon", version: "0.1.0" },
     });
     writeMessage({ jsonrpc: "2.0", method: "notifications/initialized" });
-    const listed = await sendRequest("tools/list", {});
-    const listedTools = normalizeArray(listed?.tools).map((tool) => ({
-      name: optionalString(tool?.name) ?? "tool",
-      description: optionalString(tool?.description) ?? null,
-      inputSchema: tool?.inputSchema ?? tool?.input_schema ?? null,
-    }));
-    const call = await sendRequest("tools/call", {
-      name: toolName,
-      arguments: input && typeof input === "object" && !Array.isArray(input)
-        ? input
-        : { value: input },
-    });
-    return {
-      ok: true,
-      status: "completed",
-      transport: "stdio",
-      execution_mode: "live_stdio",
-      executionMode: "live_stdio",
+    return await callback({
       command,
       args,
       cwd,
-      timeout_ms: timeoutMs,
-      protocol_version: initialize?.protocolVersion ?? initialize?.protocol_version ?? null,
-      protocolVersion: initialize?.protocolVersion ?? initialize?.protocol_version ?? null,
-      server_info: initialize?.serverInfo ?? initialize?.server_info ?? null,
-      serverInfo: initialize?.serverInfo ?? initialize?.server_info ?? null,
-      tool_count: listedTools.length,
-      toolCount: listedTools.length,
-      listed_tools: listedTools,
-      listedTools,
+      timeoutMs,
+      initialize,
       notifications,
-      stderr: stderrText.trim() || null,
-      result: call ?? {},
-    };
+      sendRequest,
+      writeMessage,
+      stderr: () => stderrText.trim() || null,
+    });
   } finally {
     rejectPending(mcpStdioError("mcp_stdio_closed", "MCP stdio invocation closed."));
     if (child.stdin && !child.stdin.destroyed) child.stdin.end();
@@ -445,6 +529,20 @@ export async function invokeMcpStdioTool(server, toolName, input = {}, options =
       closePromise,
       new Promise((resolve) => setTimeout(() => resolve({ code: null, signal: "timeout" }), 500)),
     ]);
+  }
+}
+
+async function optionalMcpCatalogRequest(session, method) {
+  try {
+    return await session.sendRequest(method, {});
+  } catch (error) {
+    session.notifications.push({
+      method,
+      status: "unavailable",
+      error_code: optionalString(error?.code) ?? "mcp_catalog_unavailable",
+      message: String(error?.message ?? error),
+    });
+    return null;
   }
 }
 
@@ -471,6 +569,140 @@ function loadMcpConfigSources(workspaceRoot) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function normalizeMcpToolEntry(tool, server = {}) {
+  const toolName = optionalString(tool?.name ?? tool?.toolName ?? tool?.tool_name ?? tool) ?? "tool";
+  const serverLabel = server.label ?? server.name ?? server.id ?? "mcp";
+  return {
+    schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    stableToolId: `mcp.${safeId(serverLabel)}.${safeId(toolName)}`,
+    stable_tool_id: `mcp.${safeId(serverLabel)}.${safeId(toolName)}`,
+    displayName: `${serverLabel}.${toolName}`,
+    display_name: `${serverLabel}.${toolName}`,
+    pack: "mcp",
+    server_id: server.id,
+    serverId: server.id,
+    server_label: serverLabel,
+    serverLabel,
+    tool_name: toolName,
+    toolName,
+    description: optionalString(tool?.description) ?? null,
+    status: server.enabled === false ? "disabled" : server.status ?? "configured",
+    transport: server.transport ?? "stdio",
+    primitiveCapabilities: ["prim:connector.invoke"],
+    authorityScopeRequirements: ["scope:mcp.invoke"],
+    effectClass: "connector_call",
+    riskDomain: "connector",
+    inputSchema: tool?.inputSchema ?? tool?.input_schema ?? { type: "object" },
+    outputSchema: tool?.outputSchema ?? tool?.output_schema ?? { type: "object" },
+    evidenceRequirements: ["mcp_containment_receipt"],
+    workflowNodeType: "McpToolNode",
+    workflowConfigFields: ["server_id", "tool_name", "allowed_tools", "containment"],
+    workflow_node_id: `runtime.mcp-tool.${safeId(serverLabel)}.${safeId(toolName)}`,
+    workflowNodeId: `runtime.mcp-tool.${safeId(serverLabel)}.${safeId(toolName)}`,
+    receipt_refs: [],
+    receiptRefs: [],
+  };
+}
+
+function normalizeMcpResourceDeclarations(value, server = {}) {
+  return normalizeCatalogItems(value).map((resource) => normalizeMcpResourceEntry(resource, server));
+}
+
+function normalizeMcpPromptDeclarations(value, server = {}) {
+  return normalizeCatalogItems(value).map((prompt) => normalizeMcpPromptEntry(prompt, server));
+}
+
+function normalizeMcpResourceEntry(resource, server = {}) {
+  const serverLabel = server.label ?? server.name ?? server.id ?? "mcp";
+  const uri =
+    optionalString(resource?.uri ?? resource?.url ?? resource?.resource_uri ?? resource) ??
+    `resource://${safeId(serverLabel)}/unknown`;
+  const name = optionalString(resource?.name ?? resource?.title) ?? uri;
+  const stableId = `mcp.${safeId(serverLabel)}.resource.${safeId(uri)}`;
+  return {
+    schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    stableResourceId: stableId,
+    stable_resource_id: stableId,
+    displayName: `${serverLabel}.${name}`,
+    display_name: `${serverLabel}.${name}`,
+    pack: "mcp",
+    server_id: server.id,
+    serverId: server.id,
+    server_label: serverLabel,
+    serverLabel,
+    uri,
+    name,
+    description: optionalString(resource?.description) ?? null,
+    mimeType: optionalString(resource?.mimeType ?? resource?.mime_type) ?? null,
+    mime_type: optionalString(resource?.mimeType ?? resource?.mime_type) ?? null,
+    status: server.enabled === false ? "disabled" : server.status ?? "configured",
+    transport: server.transport ?? "stdio",
+    primitiveCapabilities: ["prim:connector.resource.read"],
+    authorityScopeRequirements: ["scope:mcp.resource.read"],
+    effectClass: "read_only_catalog",
+    riskDomain: "connector",
+    evidenceRequirements: ["mcp_resource_catalog_receipt"],
+    workflowNodeType: "McpResourceNode",
+    workflowConfigFields: ["server_id", "uri", "containment"],
+    workflow_node_id: `runtime.mcp-resource.${safeId(serverLabel)}.${safeId(uri)}`,
+    workflowNodeId: `runtime.mcp-resource.${safeId(serverLabel)}.${safeId(uri)}`,
+    receipt_refs: [],
+    receiptRefs: [],
+  };
+}
+
+function normalizeMcpPromptEntry(prompt, server = {}) {
+  const serverLabel = server.label ?? server.name ?? server.id ?? "mcp";
+  const name = optionalString(prompt?.name ?? prompt?.title ?? prompt) ?? "prompt";
+  const stableId = `mcp.${safeId(serverLabel)}.prompt.${safeId(name)}`;
+  return {
+    schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    stablePromptId: stableId,
+    stable_prompt_id: stableId,
+    displayName: `${serverLabel}.${name}`,
+    display_name: `${serverLabel}.${name}`,
+    pack: "mcp",
+    server_id: server.id,
+    serverId: server.id,
+    server_label: serverLabel,
+    serverLabel,
+    name,
+    description: optionalString(prompt?.description) ?? null,
+    arguments: Array.isArray(prompt?.arguments) ? prompt.arguments : [],
+    prompt_arguments: Array.isArray(prompt?.arguments) ? prompt.arguments : [],
+    promptArguments: Array.isArray(prompt?.arguments) ? prompt.arguments : [],
+    status: server.enabled === false ? "disabled" : server.status ?? "configured",
+    transport: server.transport ?? "stdio",
+    primitiveCapabilities: ["prim:connector.prompt.read"],
+    authorityScopeRequirements: ["scope:mcp.prompt.read"],
+    effectClass: "read_only_catalog",
+    riskDomain: "connector",
+    evidenceRequirements: ["mcp_prompt_catalog_receipt"],
+    workflowNodeType: "McpPromptNode",
+    workflowConfigFields: ["server_id", "prompt_name", "containment"],
+    workflow_node_id: `runtime.mcp-prompt.${safeId(serverLabel)}.${safeId(name)}`,
+    workflowNodeId: `runtime.mcp-prompt.${safeId(serverLabel)}.${safeId(name)}`,
+    receipt_refs: [],
+    receiptRefs: [],
+  };
+}
+
+function normalizeCatalogItems(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "object") {
+    return Object.entries(value).map(([name, entry]) =>
+      entry && typeof entry === "object" && !Array.isArray(entry)
+        ? { name, ...entry }
+        : { name, uri: String(entry ?? name) },
+    );
+  }
+  return [value].filter(Boolean);
 }
 
 function optionalString(value) {
