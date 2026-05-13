@@ -63,23 +63,54 @@ async function execFileWithInput(file, args, input, options = {}) {
   });
 }
 
-async function startMcpRemoteFixtureServer() {
+async function startMcpRemoteFixtureServer(options = {}) {
+  const requiredHeaders = options.requiredHeaders ?? {};
+  const observedHeaders = [];
   const sseClients = new Map();
+  const recordHeaders = (request, pathLabel) => {
+    observedHeaders.push({
+      path: pathLabel,
+      headers: Object.fromEntries(
+        Object.entries(request.headers).map(([key, value]) => [
+          key,
+          Array.isArray(value) ? value.join(",") : String(value ?? ""),
+        ]),
+      ),
+    });
+  };
+  const enforceRequiredHeaders = (request, response, pathLabel) => {
+    recordHeaders(request, pathLabel);
+    for (const [key, expectedValue] of Object.entries(requiredHeaders)) {
+      if (String(request.headers[key.toLowerCase()] ?? "") !== String(expectedValue)) {
+        response.writeHead(401, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "missing_required_header", header: key }));
+        return false;
+      }
+    }
+    return true;
+  };
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    if (request.method === "GET" && url.pathname === "/sse") {
+    if (request.method === "GET" && ["/sse", "/secure-sse"].includes(url.pathname)) {
+      if (url.pathname === "/secure-sse" && !enforceRequiredHeaders(request, response, url.pathname)) {
+        return;
+      }
       const sessionId = `session_${cryptoRandomSuffix()}`;
       response.writeHead(200, {
         "content-type": "text/event-stream",
         "cache-control": "no-cache",
         connection: "keep-alive",
       });
-      response.write(`event: endpoint\ndata: /messages?sessionId=${sessionId}\n\n`);
+      const messagesPath = url.pathname === "/secure-sse" ? "/secure-messages" : "/messages";
+      response.write(`event: endpoint\ndata: ${messagesPath}?sessionId=${sessionId}\n\n`);
       sseClients.set(sessionId, response);
       request.on("close", () => sseClients.delete(sessionId));
       return;
     }
-    if (request.method === "POST" && url.pathname === "/messages") {
+    if (request.method === "POST" && ["/messages", "/secure-messages"].includes(url.pathname)) {
+      if (url.pathname === "/secure-messages" && !enforceRequiredHeaders(request, response, url.pathname)) {
+        return;
+      }
       const sessionId = url.searchParams.get("sessionId") ?? "";
       const client = sseClients.get(sessionId);
       const message = JSON.parse(await readRequestBody(request));
@@ -90,7 +121,10 @@ async function startMcpRemoteFixtureServer() {
       }
       return;
     }
-    if (request.method === "POST" && url.pathname === "/mcp") {
+    if (request.method === "POST" && ["/mcp", "/secure-mcp"].includes(url.pathname)) {
+      if (url.pathname === "/secure-mcp" && !enforceRequiredHeaders(request, response, url.pathname)) {
+        return;
+      }
       const message = JSON.parse(await readRequestBody(request));
       const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-http");
       if (!rpc) {
@@ -114,6 +148,7 @@ async function startMcpRemoteFixtureServer() {
   const address = server.address();
   return {
     url: `http://${address.address}:${address.port}`,
+    observedHeaders: () => observedHeaders.map((entry) => ({ ...entry, headers: { ...entry.headers } })),
     close: () =>
       new Promise((resolve, reject) => {
         for (const client of sseClients.values()) client.end();
@@ -1688,7 +1723,12 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
   } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-state-"));
-  const remoteFixture = await startMcpRemoteFixtureServer();
+  const remoteAuthVaultRef = "vault://mcp/remote/header-token";
+  const remoteAuthMaterial = `mcp-fixture-${cryptoRandomSuffix()}`;
+  const remoteAuthHeaderName = "x-fixture-token";
+  const remoteFixture = await startMcpRemoteFixtureServer({
+    requiredHeaders: { [remoteAuthHeaderName]: remoteAuthMaterial },
+  });
   fs.mkdirSync(path.join(cwd, ".cursor"), { recursive: true });
   fs.writeFileSync(
     path.join(cwd, ".cursor", "mcp.json"),
@@ -1710,7 +1750,11 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
       2,
     ),
   );
-  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  const daemon = await startRuntimeDaemonService({
+    cwd,
+    stateDir,
+    vaultSecrets: { [remoteAuthVaultRef]: remoteAuthMaterial },
+  });
   try {
     const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
       method: "POST",
@@ -1884,33 +1928,60 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
       label: "remote-http",
       server: {
         transport: "http",
-        url: `${remoteFixture.url}/mcp`,
+        url: `${remoteFixture.url}/secure-mcp`,
+        headers: { [remoteAuthHeaderName]: remoteAuthVaultRef },
         allowedTools: ["query"],
       },
     });
     assert.equal(remoteHttpAdded.added[0].transport, "http");
-    assert.equal(remoteHttpAdded.added[0].serverUrl, `${remoteFixture.url}/mcp`);
+    assert.equal(remoteHttpAdded.added[0].serverUrl, `${remoteFixture.url}/secure-mcp`);
+    assert.equal(remoteHttpAdded.added[0].headerSecretRefs[remoteAuthHeaderName].redacted, true);
+    assert.equal(JSON.stringify(remoteHttpAdded).includes(remoteAuthVaultRef), false);
+    assert.equal(JSON.stringify(remoteHttpAdded).includes(remoteAuthMaterial), false);
 
     const remoteSseAdded = await sdkThread.addMcpServer({
       label: "remote-sse",
       server: {
         transport: "sse",
-        url: `${remoteFixture.url}/sse`,
+        url: `${remoteFixture.url}/secure-sse`,
+        headers: { [remoteAuthHeaderName]: remoteAuthVaultRef },
         allowedTools: ["query"],
       },
     });
     assert.equal(remoteSseAdded.added[0].transport, "sse");
+    assert.equal(remoteSseAdded.added[0].headerSecretRefs[remoteAuthHeaderName].redacted, true);
+    assert.equal(JSON.stringify(remoteSseAdded).includes(remoteAuthVaultRef), false);
+    assert.equal(JSON.stringify(remoteSseAdded).includes(remoteAuthMaterial), false);
+
+    const rawAuthValidation = await sdkThread.validateMcp({
+      mcpServers: {
+        "raw-auth": {
+          transport: "http",
+          url: `${remoteFixture.url}/secure-mcp`,
+          headers: { [remoteAuthHeaderName]: remoteAuthMaterial },
+          allowedTools: ["query"],
+        },
+      },
+    });
+    assert.equal(rawAuthValidation.ok, false);
+    assert.ok(rawAuthValidation.issues.some((issue) => issue.code === "mcp_secret_not_vault_ref"));
+    assert.equal(JSON.stringify(rawAuthValidation).includes(remoteAuthMaterial), false);
 
     const remoteStatus = await sdkThread.mcp({ live_discovery: true });
     const remoteDiscoveries = remoteStatus.live_discovery.servers.filter((entry) =>
       ["mcp.remote-http", "mcp.remote-sse"].includes(entry.server_id),
     );
     assert.equal(remoteDiscoveries.length, 2);
+    assert.ok(remoteDiscoveries.every((entry) => entry.status === "completed"));
     assert.ok(remoteDiscoveries.some((entry) => entry.executionMode === "live_http"));
     assert.ok(remoteDiscoveries.some((entry) => entry.executionMode === "live_sse"));
+    assert.ok(remoteDiscoveries.every((entry) => entry.authBoundary.secretValuesIncluded === false));
+    assert.ok(remoteDiscoveries.every((entry) => entry.authBoundary.vaultResolvedHeaderCount === 1));
     assert.ok(remoteStatus.tools.some((tool) => tool.serverId === "mcp.remote-http" && tool.toolName === "query"));
     assert.ok(remoteStatus.resources.some((resource) => resource.uri === "ioi://fixture/remote-context"));
     assert.ok(remoteStatus.prompts.some((prompt) => prompt.name === "remote-brief"));
+    assert.equal(JSON.stringify(remoteStatus).includes(remoteAuthVaultRef), false);
+    assert.equal(JSON.stringify(remoteStatus).includes(remoteAuthMaterial), false);
 
     const httpInvoked = await sdkThread.invokeMcpTool({
       serverId: "mcp.remote-http",
@@ -1923,6 +1994,10 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(httpInvoked.result.structuredContent.server, "ioi-fixture-mcp-http");
     assert.equal(httpInvoked.result.structuredContent.arguments.q, "http-parity");
     assert.ok(httpInvoked.evidence_refs.includes("mcp.transport.http.live"));
+    assert.equal(httpInvoked.transport_execution.authBoundary.secretValuesIncluded, false);
+    assert.equal(httpInvoked.transport_execution.authBoundary.vaultResolvedHeaderCount, 1);
+    assert.equal(JSON.stringify(httpInvoked).includes(remoteAuthVaultRef), false);
+    assert.equal(JSON.stringify(httpInvoked).includes(remoteAuthMaterial), false);
 
     const sseInvoked = await sdkThread.invokeMcpTool({
       serverId: "mcp.remote-sse",
@@ -1935,6 +2010,26 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(sseInvoked.result.structuredContent.server, "ioi-fixture-mcp-sse");
     assert.equal(sseInvoked.result.structuredContent.arguments.q, "sse-parity");
     assert.ok(sseInvoked.evidence_refs.includes("mcp.transport.sse.live"));
+    assert.equal(sseInvoked.transport_execution.authBoundary.secretValuesIncluded, false);
+    assert.equal(sseInvoked.transport_execution.authBoundary.vaultResolvedHeaderCount, 1);
+    assert.equal(JSON.stringify(sseInvoked).includes(remoteAuthVaultRef), false);
+    assert.equal(JSON.stringify(sseInvoked).includes(remoteAuthMaterial), false);
+    const observedRemoteHeaders = remoteFixture.observedHeaders();
+    assert.ok(
+      observedRemoteHeaders.some(
+        (entry) => entry.path === "/secure-mcp" && entry.headers[remoteAuthHeaderName] === remoteAuthMaterial,
+      ),
+    );
+    assert.ok(
+      observedRemoteHeaders.some(
+        (entry) => entry.path === "/secure-sse" && entry.headers[remoteAuthHeaderName] === remoteAuthMaterial,
+      ),
+    );
+    assert.ok(
+      observedRemoteHeaders.some(
+        (entry) => entry.path === "/secure-messages" && entry.headers[remoteAuthHeaderName] === remoteAuthMaterial,
+      ),
+    );
 
     const publicDisabled = await sdkClient.disableMcpServer("mcp.search", {
       threadId: thread.thread_id,
@@ -4343,6 +4438,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /invokeMcpStdioTool/);
   assert.match(source, /discoverMcpHttpCatalog/);
   assert.match(source, /invokeMcpHttpTool/);
+  assert.match(source, /mcp_remote_header_vault_unbound/);
+  assert.match(source, /mcp_remote_header_requires_vault_ref/);
+  assert.match(source, /VaultPort\.resolveVaultRef/);
   assert.match(source, /handleMcpServeJsonRpc/);
   assert.match(source, /mcp_serve/);
   assert.match(source, /live_stdio/);

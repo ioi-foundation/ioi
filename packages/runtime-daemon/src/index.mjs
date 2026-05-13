@@ -2911,6 +2911,7 @@ export class AgentgresRuntimeStateStore {
             : await discoverMcpHttpCatalog(server, {
                 cwd: agent.cwd,
                 timeoutMs: request.timeout_ms ?? request.timeoutMs,
+                vault: this.modelMounting.vault,
               });
         for (const tool of catalog.tools ?? catalog.listed_tools ?? []) {
           toolMap.set(mcpToolKey(tool), tool);
@@ -2928,6 +2929,8 @@ export class AgentgresRuntimeStateStore {
           transport: catalog.transport ?? server.transport ?? "stdio",
           execution_mode: catalog.execution_mode ?? catalog.executionMode ?? liveMode,
           executionMode: catalog.executionMode ?? catalog.execution_mode ?? liveMode,
+          auth_boundary: catalog.auth_boundary ?? catalog.authBoundary ?? null,
+          authBoundary: catalog.authBoundary ?? catalog.auth_boundary ?? null,
           tool_count: catalog.tool_count ?? 0,
           resource_count: catalog.resource_count ?? 0,
           prompt_count: catalog.prompt_count ?? 0,
@@ -3163,6 +3166,7 @@ export class AgentgresRuntimeStateStore {
             cwd: agent.cwd,
             timeoutMs: request.timeout_ms ?? request.timeoutMs,
             headers: request.headers,
+            vault: this.modelMounting.vault,
           });
           output = transportExecution.result ?? {};
         } catch (error) {

@@ -446,6 +446,7 @@ export interface NodeLogic {
   mcpServerLabel?: string;
   mcpTransport?: "stdio" | "http" | "sse" | string;
   mcpServerUrl?: string;
+  // HTTP/SSE auth headers should use vault:// refs; runtime status exposes hashes only.
   mcpServerHeadersJson?: string;
   mcpServerConfigJson?: string;
   mcpImportJson?: string;

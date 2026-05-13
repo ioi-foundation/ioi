@@ -1363,7 +1363,7 @@ export function WorkflowNodeBindingSections({
                         />
                       </label>
                       <label>
-                        MCP headers JSON
+                        MCP vault header refs JSON
                         <textarea
                           data-testid="workflow-state-mcp-server-headers"
                           value={String(logic.mcpServerHeadersJson ?? "{}")}
