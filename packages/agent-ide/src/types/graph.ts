@@ -606,6 +606,38 @@ export interface NodeLogic {
   runtimeContextCompactWorkflowNodeId?: string;
   runtimeContextCompactSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeContextCompactActor?: string;
+  runtimeRollbackSnapshotEndpoint?: string;
+  runtimeRollbackSnapshot?: unknown;
+  runtimeRollbackSnapshotField?: string;
+  runtimeRollbackSnapshotEventField?: string;
+  runtimeRollbackSnapshotStatusField?: string;
+  runtimeRollbackSnapshotReceiptField?: string;
+  runtimeRollbackSnapshotPolicyField?: string;
+  runtimeRollbackSnapshotThreadId?: string;
+  runtimeRollbackSnapshotThreadIdField?: string;
+  runtimeRollbackSnapshotWorkflowNodeId?: string;
+  runtimeRollbackSnapshotSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeRollbackSnapshotActor?: string;
+  runtimeRestoreGateEndpoint?: string;
+  runtimeRestoreGate?: unknown;
+  runtimeRestoreGateField?: string;
+  runtimeRestoreGateEventField?: string;
+  runtimeRestoreGateStatusField?: string;
+  runtimeRestoreGateReceiptField?: string;
+  runtimeRestoreGatePolicyField?: string;
+  runtimeRestoreGateThreadId?: string;
+  runtimeRestoreGateThreadIdField?: string;
+  runtimeRestoreGateSnapshotId?: string;
+  runtimeRestoreGateSnapshotIdField?: string;
+  runtimeRestoreGateMode?: "preview" | "apply" | string;
+  runtimeRestoreGateModeField?: string;
+  runtimeRestoreGateConflictPolicy?: "block" | "allow_override" | string;
+  runtimeRestoreGateConflictPolicyField?: string;
+  runtimeRestoreGateApprovalGranted?: boolean;
+  runtimeRestoreGateApprovalGrantedField?: string;
+  runtimeRestoreGateWorkflowNodeId?: string;
+  runtimeRestoreGateSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeRestoreGateActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -697,6 +729,8 @@ export interface NodeLogic {
     consumesRuntimeOperatorInterrupt?: boolean;
     consumesRuntimeOperatorSteer?: boolean;
     consumesRuntimeContextCompact?: boolean;
+    consumesRuntimeRollbackSnapshot?: boolean;
+    consumesRuntimeRestoreGate?: boolean;
     consumesWorkflowPackageExport?: boolean;
     consumesWorkflowPackageImportReview?: boolean;
     consumesRepositoryContext?: boolean;
@@ -723,6 +757,10 @@ export interface NodeLogic {
     runtimeOperatorSteerStatusField?: string;
     runtimeContextCompactField?: string;
     runtimeContextCompactStatusField?: string;
+    runtimeRollbackSnapshotField?: string;
+    runtimeRollbackSnapshotStatusField?: string;
+    runtimeRestoreGateField?: string;
+    runtimeRestoreGateStatusField?: string;
     workflowPackageExportField?: string;
     workflowPackageReadinessStatusField?: string;
     workflowPackagePortableField?: string;
@@ -1234,6 +1272,8 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_operator_interrupt">
   | WorkflowNodeConfigBase<"runtime_operator_steer">
   | WorkflowNodeConfigBase<"runtime_context_compact">
+  | WorkflowNodeConfigBase<"runtime_rollback_snapshot">
+  | WorkflowNodeConfigBase<"runtime_restore_gate">
   | WorkflowNodeConfigBase<"workflow_package_export">
   | WorkflowNodeConfigBase<"workflow_package_import">
   | WorkflowNodeConfigBase<"repository_context">
@@ -3929,6 +3969,8 @@ export type WorkflowHarnessComponentKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_context_compact"
+  | "runtime_rollback_snapshot"
+  | "runtime_restore_gate"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"
@@ -4487,6 +4529,8 @@ export type WorkflowNodeKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_context_compact"
+  | "runtime_rollback_snapshot"
+  | "runtime_restore_gate"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"

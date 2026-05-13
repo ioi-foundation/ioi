@@ -132,6 +132,7 @@ workstream was narrower.
 | 130 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | policy-gated workspace restore apply | /tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json |
 | 131 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | diagnostics rollback/repair policy | /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json |
 | 132 | 2026-05-13 | P0-B/P0-C/P0-D. Workflow Restore/Repair Controls | workflow restore and diagnostics repair binding controls | /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json |
+| 133 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | restore workflow nodes and request builders | /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -995,6 +996,46 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json`.
+
+### Slice 133. 2026-05-13 - Restore workflow nodes and request builders
+
+Implementation slice completed 2026-05-13, restore workflow nodes and request
+builders:
+
+- Added typed React Flow request builders for `runtime_rollback_snapshot` and
+  `runtime_restore_gate`, including graph/node identity, thread id,
+  snapshot id, preview/apply mode, conflict policy, approval flags, and daemon
+  endpoint compilation.
+- Added first-class workflow registry entries, input/output schemas, node
+  chrome labels, canvas tokens, activation-gate fields, and runtime projection
+  action kinds for the rollback snapshot and restore gate nodes.
+- Mirrored the node kinds through the Tauri project template catalog,
+  generated action schemas, validation rules, and local workflow execution lane
+  so workflow-authored restore requests remain available outside the browser
+  bundle.
+- Extended source-contract and request-builder tests so future slices cannot
+  drop the restore node family from the workflow editor, runtime action schema,
+  Tauri execution lane, or React Flow control envelope.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_projection --lib`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_thread_fork_node_builds_react_flow_control_request --lib`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata --lib`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json`.
+
+Known validation note:
+
+- Full `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml --check`
+  still reports unrelated formatting drift in existing orchestrator store files;
+  the Rust files touched by this slice were formatted directly with `rustfmt`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

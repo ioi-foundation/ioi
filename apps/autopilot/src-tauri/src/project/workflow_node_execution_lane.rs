@@ -355,6 +355,10 @@ fn workflow_runtime_control_input_string(input: &Value, path: &str) -> Option<St
         .and_then(workflow_runtime_control_clean_string)
 }
 
+fn workflow_runtime_control_input_bool(input: &Value, path: &str) -> Option<bool> {
+    workflow_runtime_control_value_at_path(input, path).and_then(Value::as_bool)
+}
+
 struct WorkflowRuntimeControlEnvelopeConfig<'a> {
     thread_id_logic_key: &'a str,
     thread_id_field_key: &'a str,
@@ -399,6 +403,37 @@ fn workflow_runtime_control_input_field_or_logic(
     workflow_runtime_control_input_string(input, &field)
         .or_else(|| workflow_runtime_control_logic_string(logic, logic_key))
         .unwrap_or_else(|| default_value.to_string())
+}
+
+fn workflow_runtime_control_bool_field_or_logic(
+    logic: &Value,
+    input: &Value,
+    field_key: &str,
+    default_field: &str,
+    logic_key: &str,
+    default_value: bool,
+) -> bool {
+    let field = workflow_runtime_control_logic_string(logic, field_key)
+        .unwrap_or_else(|| default_field.to_string());
+    workflow_runtime_control_input_bool(input, &field)
+        .or_else(|| logic.get(logic_key).and_then(Value::as_bool))
+        .unwrap_or(default_value)
+}
+
+fn workflow_runtime_restore_gate_mode(value: String) -> String {
+    if value == "apply" {
+        "apply".to_string()
+    } else {
+        "preview".to_string()
+    }
+}
+
+fn workflow_runtime_restore_conflict_policy(value: String) -> String {
+    if value == "allow_override" {
+        "allow_override".to_string()
+    } else {
+        "block".to_string()
+    }
 }
 
 fn workflow_runtime_control_envelope(
@@ -779,6 +814,158 @@ fn workflow_runtime_context_compact_output(
     )
 }
 
+fn workflow_runtime_rollback_snapshot_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeRollbackSnapshotThreadId",
+            thread_id_field_key: "runtimeRollbackSnapshotThreadIdField",
+            turn_id_logic_key: None,
+            turn_id_field_key: None,
+            workflow_node_id_logic_key: "runtimeRollbackSnapshotWorkflowNodeId",
+            actor_logic_key: "runtimeRollbackSnapshotActor",
+            endpoint_logic_key: "runtimeRollbackSnapshotEndpoint",
+            default_workflow_node_id: "runtime.rollback-snapshot",
+            default_endpoint: "/v1/threads/{threadId}/snapshots",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-rollback-snapshot-control.v1",
+        source: "react_flow",
+        component_kind: "workspace_snapshot",
+        event_kind: "WorkspaceSnapshot.List",
+        payload_schema_version: "ioi.runtime.workspace-snapshot.v1",
+        nested_key: "runtimeRollbackSnapshot",
+    };
+    let request = workflow_runtime_control_request(&output_config, &envelope, vec![]);
+    workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        None,
+        request,
+    )
+}
+
+fn workflow_runtime_restore_gate_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let mut envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeRestoreGateThreadId",
+            thread_id_field_key: "runtimeRestoreGateThreadIdField",
+            turn_id_logic_key: None,
+            turn_id_field_key: None,
+            workflow_node_id_logic_key: "runtimeRestoreGateWorkflowNodeId",
+            actor_logic_key: "runtimeRestoreGateActor",
+            endpoint_logic_key: "runtimeRestoreGateEndpoint",
+            default_workflow_node_id: "runtime.restore-gate",
+            default_endpoint: "/v1/threads/{threadId}/snapshots/{snapshotId}/restore-{mode}",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-restore-gate-control.v1",
+        source: "react_flow",
+        component_kind: "restore_gate",
+        event_kind: "WorkspaceRestore.Gate",
+        payload_schema_version: "ioi.runtime.workspace-restore-gate.v1",
+        nested_key: "runtimeRestoreGate",
+    };
+    let snapshot_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeRestoreGateSnapshotIdField",
+        "snapshotId",
+        "runtimeRestoreGateSnapshotId",
+        "{{runtime.snapshot_id}}",
+    );
+    let mode = workflow_runtime_restore_gate_mode(workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeRestoreGateModeField",
+        "mode",
+        "runtimeRestoreGateMode",
+        "preview",
+    ));
+    let conflict_policy =
+        workflow_runtime_restore_conflict_policy(workflow_runtime_control_input_field_or_logic(
+            logic,
+            input,
+            "runtimeRestoreGateConflictPolicyField",
+            "conflictPolicy",
+            "runtimeRestoreGateConflictPolicy",
+            "block",
+        ));
+    let approval_granted = workflow_runtime_control_bool_field_or_logic(
+        logic,
+        input,
+        "runtimeRestoreGateApprovalGrantedField",
+        "approvalGranted",
+        "runtimeRestoreGateApprovalGranted",
+        false,
+    );
+    let allow_conflicts = conflict_policy == "allow_override";
+    envelope.endpoint = envelope
+        .endpoint
+        .replace("{snapshotId}", &snapshot_id)
+        .replace("{mode}", &mode);
+    let mutation_executed = mode == "apply" && approval_granted;
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![
+            ("snapshotId", json!(snapshot_id.clone())),
+            ("snapshot_id", json!(snapshot_id.clone())),
+            ("mode", json!(mode.clone())),
+            ("conflictPolicy", json!(conflict_policy.clone())),
+            ("conflict_policy", json!(conflict_policy.clone())),
+            ("approvalGranted", json!(approval_granted)),
+            ("approval_granted", json!(approval_granted)),
+            ("allowConflicts", json!(allow_conflicts)),
+            ("allow_conflicts", json!(allow_conflicts)),
+        ],
+    );
+    let mut output = workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        None,
+        request,
+    );
+    output["snapshotId"] = json!(snapshot_id.clone());
+    output["mode"] = json!(mode.clone());
+    output["conflictPolicy"] = json!(conflict_policy.clone());
+    output["approvalGranted"] = json!(approval_granted);
+    output["mutationExecuted"] = json!(mutation_executed);
+    output["runtimeRestoreGate"]["snapshotId"] = json!(snapshot_id);
+    output["runtimeRestoreGate"]["mode"] = json!(mode);
+    output["runtimeRestoreGate"]["conflictPolicy"] = json!(conflict_policy);
+    output["runtimeRestoreGate"]["approvalGranted"] = json!(approval_granted);
+    output["runtimeRestoreGate"]["mutationExecuted"] = json!(mutation_executed);
+    output
+}
+
 pub(super) fn execute_workflow_node(
     workflow_path: &Path,
     workflow: Option<&WorkflowProject>,
@@ -950,6 +1137,16 @@ pub(super) fn execute_workflow_node(
             &input,
             evidence_kind,
         ),
+        ActionKind::RuntimeRollbackSnapshot => workflow_runtime_rollback_snapshot_output(
+            workflow,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        ),
+        ActionKind::RuntimeRestoreGate => {
+            workflow_runtime_restore_gate_output(workflow, &node_id, &logic, &input, evidence_kind)
+        }
         ActionKind::DryRun => {
             json!({
                 "nodeId": node_id,

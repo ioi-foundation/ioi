@@ -311,6 +311,59 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeRollbackSnapshot {
+            if workflow_json_string(&logic, "runtimeRollbackSnapshotEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_rollback_snapshot_endpoint".to_string(),
+                    message: "Runtime rollback snapshot nodes need a snapshot endpoint template."
+                        .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeRollbackSnapshotThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeRollbackSnapshotThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_rollback_snapshot_thread".to_string(),
+                    message:
+                        "Runtime rollback snapshot nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+        }
+        if action_kind == ActionKind::RuntimeRestoreGate {
+            if workflow_json_string(&logic, "runtimeRestoreGateEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_restore_gate_endpoint".to_string(),
+                    message: "Runtime restore gate nodes need a restore endpoint template."
+                        .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeRestoreGateThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeRestoreGateThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_restore_gate_thread".to_string(),
+                    message:
+                        "Runtime restore gate nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeRestoreGateSnapshotIdField").is_none()
+                && workflow_json_string(&logic, "runtimeRestoreGateSnapshotId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_restore_gate_snapshot".to_string(),
+                    message:
+                        "Runtime restore gate nodes need a snapshot id field or fixed snapshot id."
+                            .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::Subgraph
             && logic
                 .get("subgraphRef")
