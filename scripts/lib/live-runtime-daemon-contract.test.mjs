@@ -4648,7 +4648,7 @@ test("local daemon projects subagent memory inheritance modes with receipts", as
   }
 });
 
-test("local daemon exposes SubagentManager spawn, list, input, cancel, wait, and result contracts", async () => {
+test("local daemon exposes SubagentManager spawn, list, input, cancel, resume, assign, wait, and result contracts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-manager-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-manager-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
@@ -4791,6 +4791,68 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, wait, and
     assert.equal(canceledResult.subagent.cancellation_reason, "workflow_cancel");
     assert.match(canceledResult.result, /Run canceled/);
 
+    const resumed = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/resume`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          actor: "workflow-author",
+          message: "Resume the subagent after workflow cancellation and refresh the contract evidence.",
+          workflowGraphId: "workflow.subagent.manager",
+          workflowNodeId: "runtime.subagent.resume.explore",
+        }),
+      },
+    );
+    assert.equal(resumed.schema_version, "ioi.runtime.subagent-result.v1");
+    assert.equal(resumed.lifecycle_status, "completed");
+    assert.equal(resumed.subagent.lifecycle_status, "completed");
+    assert.equal(resumed.subagent.restart_status, "restarted");
+    assert.equal(resumed.subagent.restart_count, 1);
+    assert.equal(resumed.subagent.cancellation_reason, null);
+    assert.equal(resumed.resume.previous_run_id, input.run_id);
+    assert.notEqual(resumed.run_id, input.run_id);
+    assert.equal(resumed.event.source_event_kind, "OperatorControl.SubagentResume");
+    assert.equal(resumed.event.payload_summary.restart_count, 1);
+    assert.ok(resumed.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_resume_")));
+
+    const assigned = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/assign`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          actor: "workflow-author",
+          role: "implement",
+          toolPack: "coding-plus",
+          modelRouteId: "route.native-local",
+          mergePolicy: "manual_review",
+          cancellationInheritance: "propagate",
+          workflowGraphId: "workflow.subagent.manager",
+          workflowNodeId: "runtime.subagent.assign.implement",
+        }),
+      },
+    );
+    assert.equal(assigned.schema_version, "ioi.runtime.subagent-manager.v1");
+    assert.equal(assigned.lifecycle_status, "completed");
+    assert.equal(assigned.role, "implement");
+    assert.equal(assigned.tool_pack, "coding-plus");
+    assert.equal(assigned.model_route_id, "route.native-local");
+    assert.equal(assigned.merge_policy, "manual_review");
+    assert.equal(assigned.assignment_count, 1);
+    assert.equal(assigned.assignment.previous_role, "explore");
+    assert.equal(assigned.event.source_event_kind, "OperatorControl.SubagentAssign");
+    assert.equal(assigned.event.payload_summary.assignment_count, 1);
+
+    const assignedResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/result`,
+    );
+    assert.equal(assignedResult.lifecycle_status, "completed");
+    assert.equal(assignedResult.subagent.role, "implement");
+    assert.equal(assignedResult.subagent.restart_count, 1);
+    assert.equal(assignedResult.subagent.assignment_count, 1);
+    assert.equal(assignedResult.output_contract_status, "passed");
+
     const events = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
     );
@@ -4798,6 +4860,8 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, wait, and
     const waitEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentWait");
     const inputEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentSendInput");
     const cancelEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentCancel");
+    const resumeEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentResume");
+    const assignEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentAssign");
     assert.equal(spawnEvent.component_kind, "subagent_lifecycle");
     assert.equal(spawnEvent.payload_summary.role, "explore");
     assert.equal(spawnEvent.payload_summary.subagent_id, spawn.subagent_id);
@@ -4806,6 +4870,10 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, wait, and
     assert.equal(inputEvent.payload_summary.input_count, 1);
     assert.equal(cancelEvent.payload_summary.lifecycle_status, "canceled");
     assert.equal(cancelEvent.payload_summary.cancellation_reason, "workflow_cancel");
+    assert.equal(resumeEvent.payload_summary.lifecycle_status, "completed");
+    assert.equal(resumeEvent.payload_summary.restart_count, 1);
+    assert.equal(assignEvent.payload_summary.role, "implement");
+    assert.equal(assignEvent.payload_summary.assignment_count, 1);
 
     await daemon.close();
     const reloaded = await startRuntimeDaemonService({ cwd, stateDir });
@@ -4813,9 +4881,12 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, wait, and
       const reloadedList = await fetchJson(`${reloaded.endpoint}/v1/threads/${thread.thread_id}/subagents`);
       assert.equal(reloadedList.count, 1);
       assert.equal(reloadedList.subagents[0].subagent_id, spawn.subagent_id);
-      assert.equal(reloadedList.subagents[0].lifecycle_status, "canceled");
+      assert.equal(reloadedList.subagents[0].lifecycle_status, "completed");
       assert.equal(reloadedList.subagents[0].input_count, 1);
-      assert.equal(reloadedList.subagents[0].cancellation_reason, "workflow_cancel");
+      assert.equal(reloadedList.subagents[0].cancellation_reason, null);
+      assert.equal(reloadedList.subagents[0].restart_count, 1);
+      assert.equal(reloadedList.subagents[0].assignment_count, 1);
+      assert.equal(reloadedList.subagents[0].role, "implement");
     } finally {
       await reloaded.close();
     }

@@ -746,18 +746,18 @@ Current implementation note, 2026-05-13:
 - The authoring fields cover role, model route, tool pack, fresh/forked
   context, max concurrency, budget JSON, output contract JSON, merge policy,
   wait timeout, and cancellation inheritance.
-- The daemon now exposes the first `SubagentManager` execution slices behind
-  those routes for spawn, list, wait, result, send input, and cancel. It
-  persists subagent lifecycle records, stamps parent/child agent and thread
-  metadata, emits parent-thread subagent lifecycle events, returns
-  output-contract validation status, records input history, and persists
-  cancellation state.
+- The daemon now exposes the first full `SubagentManager` route surface behind
+  those React Flow targets for spawn, list, wait, result, send input, cancel,
+  resume, and assign. It persists subagent lifecycle records, stamps
+  parent/child agent and thread metadata, emits parent-thread subagent lifecycle
+  events, returns output-contract validation status, records input and
+  assignment history, persists cancellation state, and tracks resume/restart
+  status.
 - The pure subagent lifecycle contract helpers now live in
   `packages/runtime-daemon/src/subagent-manager.mjs`, keeping the daemon route
   and store wiring thin enough for the next lifecycle operations.
-- Remaining P1-A gap: implement daemon resume and assign, cancellation
-  propagation, SDK/TUI wrappers, and live parallel fan-out evidence behind this
-  React Flow contract.
+- Remaining P1-A gap: implement cancellation propagation, SDK/TUI wrappers, and
+  live parallel fan-out evidence behind this React Flow contract.
 
 Acceptance evidence:
 
@@ -1874,7 +1874,7 @@ adding more infrastructure by default.
 Recent focused validation, 2026-05-13:
 
 - `node --check packages/runtime-daemon/src/subagent-manager.mjs`
-- `node --test --test-name-pattern "local daemon exposes SubagentManager spawn, list, input, cancel, wait, and result contracts" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "local daemon exposes SubagentManager spawn, list, input, cancel, resume, assign, wait, and result contracts" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
 - `node --check packages/runtime-daemon/src/index.mjs`
@@ -1882,6 +1882,9 @@ Recent focused validation, 2026-05-13:
 - `npm run build --workspace=@ioi/agent-ide`
 - `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --test --test-name-pattern "daemon owns MCP discovery|React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-resume-assign`
+  passed and wrote
+  `/tmp/ioi-autopilot-gui-harness-subagent-resume-assign/2026-05-13T18-39-52-293Z/result.json`.
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-input-cancel`
   passed and wrote
   `/tmp/ioi-autopilot-gui-harness-subagent-input-cancel/2026-05-13T18-34-46-336Z/result.json`.
@@ -1895,8 +1898,8 @@ Recent focused validation, 2026-05-13:
 
 Next runtime implementation sequence:
 
-1. Extend daemon-owned `SubagentManager` routes for resume and assign,
-   including cancellation propagation and restart status.
+1. Add cancellation propagation and live parallel fan-out evidence for daemon
+   `SubagentManager` descendants.
 2. Add SDK and TUI wrappers over the same routes, including output-contract
    status and restart/cancellation visibility.
 3. Keep MCP, diagnostics repair, and memory controls regression-green while
