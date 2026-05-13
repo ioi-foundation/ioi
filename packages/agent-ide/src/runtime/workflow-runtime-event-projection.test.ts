@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
   projectRuntimeThreadEventsToWorkflowNodes,
   projectRuntimeThreadEventsToWorkflowProjection,
   workflowNodeIdForRuntimeThreadEvent,
@@ -138,6 +139,34 @@ test("projects operator interrupt events into the runtime control node", () => {
   assert.equal(nodes[0]?.status, "interrupted");
   assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-interrupt"]);
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-interrupt-allow"]);
+  assert.deepEqual(nodes[0]?.tuiDeepLink, {
+    schemaVersion: WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    command: "ioi agent tui",
+    args: [
+      "agent",
+      "tui",
+      "--thread-id",
+      "thread-test",
+      "--since-seq",
+      "4",
+    ],
+    reopenCommand: "ioi agent tui --thread-id thread-test --since-seq 4",
+    threadId: "thread-test",
+    turnId: "turn-test",
+    workflowGraphId: "workflow-test",
+    workflowNodeId: "runtime.operator-interrupt",
+    eventId: "event-interrupt",
+    eventKind: "turn.interrupted",
+    componentKind: "operator_control",
+    seq: 4,
+    cursor: "events_thread:test:4",
+    sinceSeq: 4,
+    lastEventId: "event-interrupt",
+  });
+  assert.equal(
+    nodes[0]?.reactFlowNode.data.tuiDeepLink.eventId,
+    "event-interrupt",
+  );
 });
 
 test("projects thread fork events into the runtime fork node", () => {

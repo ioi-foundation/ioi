@@ -12,6 +12,7 @@ use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 
 const TUI_SCHEMA_VERSION: &str = "ioi.agent-cli.tui.v1";
+const TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION: &str = "ioi.workflow.runtime-tui-deeplink.v1";
 const TUI_PRIVATE_RUNTIME_LOOP: bool = false;
 const TUI_THREAD_CREATE_ROUTE: &str = "/v1/threads";
 const TUI_THREAD_LIST_ROUTE: &str = "/v1/threads";
@@ -172,6 +173,8 @@ struct TuiRender {
 
 fn print_tui_json(render: TuiRender) -> Result<()> {
     let workflow_node_ids = workflow_node_ids(&render.events);
+    let thread_id = json_path_string(&render.thread, "/thread_id");
+    let event_rows = tui_event_rows(&render.events, thread_id.as_deref());
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -188,10 +191,13 @@ fn print_tui_json(render: TuiRender) -> Result<()> {
             "follow": render.follow,
             "event_count": render.events.len(),
             "workflow_node_ids": workflow_node_ids,
+            "event_rows": event_rows,
             "events": render.events,
             "deep_links": {
+                "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
                 "workflow_node_ids": workflow_node_ids,
-                "thread_id": json_path_string(&render.thread, "/thread_id"),
+                "thread_id": thread_id,
+                "event_row_count": event_rows.len(),
             },
             "routes": {
                 "thread_create": TUI_THREAD_CREATE_ROUTE,
@@ -488,6 +494,76 @@ fn workflow_node_ids(events: &[Value]) -> Vec<String> {
     ids.into_iter().collect()
 }
 
+fn tui_event_rows(events: &[Value], fallback_thread_id: Option<&str>) -> Vec<Value> {
+    events
+        .iter()
+        .map(|event| tui_event_row(event, fallback_thread_id))
+        .collect()
+}
+
+fn tui_event_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
+    let thread_id =
+        json_path_string(event, "/thread_id").or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let turn_id = json_path_string(event, "/turn_id");
+    let workflow_graph_id = json_path_string(event, "/workflow_graph_id");
+    let workflow_node_id = json_path_string(event, "/workflow_node_id");
+    let event_id = json_path_string(event, "/event_id");
+    let event_kind = json_path_string(event, "/event_kind");
+    let source_event_kind = json_path_string(event, "/source_event_kind");
+    let component_kind = json_path_string(event, "/component_kind");
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    let cursor = tui_event_cursor(event, seq);
+    let args = tui_reopen_args(thread_id.as_deref(), seq);
+    serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "surface": "tui",
+        "thread_id": thread_id,
+        "turn_id": turn_id,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "event_id": event_id,
+        "event_kind": event_kind,
+        "source_event_kind": source_event_kind,
+        "component_kind": component_kind,
+        "seq": seq,
+        "cursor": cursor,
+        "tui_reopen": {
+            "command": "ioi agent tui",
+            "args": args,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "since_seq": seq,
+            "last_event_id": event_id,
+        },
+        "react_flow": {
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "event_id": event_id,
+            "cursor": cursor,
+        }
+    })
+}
+
+fn tui_event_cursor(event: &Value, seq: Option<u64>) -> Option<String> {
+    json_path_string(event, "/cursor").or_else(|| {
+        let stream = json_path_string(event, "/event_stream_id")?;
+        Some(format!("{stream}:{}", seq?))
+    })
+}
+
+fn tui_reopen_args(thread_id: Option<&str>, seq: Option<u64>) -> Vec<String> {
+    let mut args = vec!["agent".to_string(), "tui".to_string()];
+    if let Some(thread_id) = thread_id.filter(|value| !value.trim().is_empty()) {
+        args.push("--thread-id".to_string());
+        args.push(thread_id.to_string());
+    }
+    if let Some(seq) = seq {
+        args.push("--since-seq".to_string());
+        args.push(seq.to_string());
+    }
+    args
+}
+
 fn thread_event_route(thread_id: &str, follow: bool, since_seq: Option<u64>) -> String {
     let template = if follow {
         "/v1/threads/{thread_id}/events/stream"
@@ -587,5 +663,49 @@ mod tests {
         assert_eq!(options["local"]["cwd"], "/tmp/workspace");
         assert_eq!(options["model"]["id"], "auto");
         assert_eq!(options["model"]["routeId"], "route.native-local");
+    }
+
+    #[test]
+    fn tui_event_rows_preserve_workflow_and_reopen_identity() {
+        let rows = tui_event_rows(
+            &[serde_json::json!({
+                "event_id": "event_live",
+                "event_stream_id": "events_thread_live",
+                "seq": 7,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "turn.interrupted",
+                "source_event_kind": "OperatorControl.Interrupt",
+                "component_kind": "operator_control",
+                "workflow_graph_id": "graph_live",
+                "workflow_node_id": "runtime.operator-interrupt",
+            })],
+            None,
+        );
+        assert_eq!(
+            rows[0]["schema_version"],
+            TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION
+        );
+        assert_eq!(rows[0]["thread_id"], "thread_live");
+        assert_eq!(rows[0]["turn_id"], "turn_live");
+        assert_eq!(rows[0]["workflow_graph_id"], "graph_live");
+        assert_eq!(rows[0]["workflow_node_id"], "runtime.operator-interrupt");
+        assert_eq!(rows[0]["event_id"], "event_live");
+        assert_eq!(rows[0]["cursor"], "events_thread_live:7");
+        assert_eq!(
+            rows[0]["tui_reopen"]["args"],
+            serde_json::json!([
+                "agent",
+                "tui",
+                "--thread-id",
+                "thread_live",
+                "--since-seq",
+                "7"
+            ])
+        );
+        assert_eq!(
+            rows[0]["react_flow"]["workflow_node_id"],
+            "runtime.operator-interrupt"
+        );
     }
 }

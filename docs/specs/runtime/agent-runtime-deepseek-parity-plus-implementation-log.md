@@ -272,8 +272,43 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json`.
 - `git diff --check`
-- live GUI/workflow harness:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-17-06-563Z/result.json`
+
+### Slice 115. 2026-05-13 - React Flow/TUI runtime-event deep-link contract
+
+Implementation slice completed 2026-05-13, React Flow/TUI runtime-event
+deep-link contract:
+
+- Added explicit `event_rows` to the `ioi agent tui --json` payload under the
+  shared `ioi.workflow.runtime-tui-deeplink.v1` schema, preserving
+  `thread_id`, `turn_id`, `workflow_graph_id`, `workflow_node_id`, `event_id`,
+  `seq`, and canonical cursor for every rendered daemon event.
+- Each TUI event row now carries a reopen descriptor:
+  `ioi agent tui --thread-id <thread_id> --since-seq <seq>`, plus the
+  corresponding React Flow graph/node/event locator.
+- Added `WorkflowRuntimeTuiDeepLinkDescriptor` to the React Flow runtime-event
+  projection so workflow run-inspector nodes expose the same reopen identity as
+  terminal event rows.
+- Updated the workflow run inspector to expose TUI reopen metadata through DOM
+  data attributes and the event detail panel without taking runtime ownership
+  away from the daemon event stream.
+- Extended the live runtime daemon contract to prove one operator-interrupt
+  event keeps the same id, cursor, workflow node id, and reopen args across
+  daemon SSE, SDK `Thread.events()`, `ioi agent tui --json`, and React Flow
+  projection.
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli`
+- `cargo check -p ioi-cli --bin cli`
+- `cargo fmt -p ioi-cli -- --check`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "agent TUI thin shell starts a live thread|agent TUI thin shell is daemon-backed|agent CLI exposes model|React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
