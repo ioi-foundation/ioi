@@ -197,6 +197,9 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "memory_policy"
   | "memory_record"
   | "usage_status"
+  | "cost_status"
+  | "context_budget"
+  | "compaction_policy"
   | "subagent"
   | "approval"
   | "approval_decision"
@@ -247,6 +250,10 @@ export interface WorkflowRuntimeTuiControlStateInput {
   job_rows?: unknown[];
   runLifecycleRows?: unknown[];
   run_lifecycle_rows?: unknown[];
+  costRows?: unknown[];
+  cost_rows?: unknown[];
+  contextRows?: unknown[];
+  context_rows?: unknown[];
   mcpRows?: unknown[];
   mcp_rows?: unknown[];
   memoryRows?: unknown[];
@@ -292,6 +299,13 @@ export interface WorkflowRuntimeTuiControlStateRow {
   usageContextPressureStatus?: string | null;
   usageRunCount?: number | null;
   usageSubagentCount?: number | null;
+  contextBudgetStatus?: string | null;
+  contextBudgetMode?: string | null;
+  contextBudgetDecisionId?: string | null;
+  compactionPolicyStatus?: string | null;
+  compactionPolicyAction?: string | null;
+  compactionPolicyDecisionId?: string | null;
+  compactionExecuted?: boolean | null;
   subagentId?: string | null;
   subagentRole?: string | null;
   subagentOperation?: string | null;
@@ -433,6 +447,8 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   approvalDecisionCount: number;
   jobCount: number;
   runLifecycleCount: number;
+  costRowCount: number;
+  contextRowCount: number;
   mcpRowCount: number;
   memoryRowCount: number;
   usageRowCount: number;
@@ -534,6 +550,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     "runLifecycleRows",
     "run_lifecycle_rows",
   );
+  const costRows = arrayField(state, "costRows", "cost_rows");
+  const contextRows = arrayField(state, "contextRows", "context_rows");
   const mcpRows = arrayField(state, "mcpRows", "mcp_rows");
   const memoryRows = arrayField(state, "memoryRows", "memory_rows");
   const usageStatus = recordField(state, "usageStatus", "usage_status");
@@ -1149,6 +1167,126 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     );
   }
 
+  costRows.forEach((entry, index) => {
+    rows.push(
+      tuiCostStatusRow({
+        usageStatus: entry,
+        threadId,
+        currentTurnId,
+        lastCursor,
+        lastEventId,
+        index,
+      }),
+    );
+  });
+
+  contextRows.forEach((entry, index) => {
+    const declaredKind = stringField(entry, "rowKind", "row_kind");
+    const rowKind: "context_budget" | "compaction_policy" =
+      declaredKind === "compaction_policy" ? "compaction_policy" : "context_budget";
+    const status = tuiControlRowStatus(
+      stringField(entry, "status") ??
+      stringField(entry, "contextBudgetStatus", "context_budget_status") ??
+      stringField(entry, "compactionPolicyStatus", "compaction_policy_status"),
+    );
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    const contextBudgetStatus = stringField(
+      entry,
+      "contextBudgetStatus",
+      "context_budget_status",
+    );
+    const compactionPolicyStatus = stringField(
+      entry,
+      "compactionPolicyStatus",
+      "compaction_policy_status",
+    );
+    const compactionPolicyAction = stringField(
+      entry,
+      "compactionPolicyAction",
+      "compaction_policy_action",
+    );
+    const nodeId =
+      stringField(entry, "workflowNodeId", "workflow_node_id") ??
+      (rowKind === "context_budget"
+        ? "runtime.context-budget"
+        : "runtime.compaction-policy");
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-${rowKind}:${slug([threadId, nodeId, sequence].filter(Boolean).join(":"))}`,
+      rowKind,
+      status,
+      label: rowKind === "context_budget" ? "Context budget" : "Compaction policy",
+      command: stringField(entry, "command") ?? "context",
+      rawInput: stringField(entry, "rawInput", "raw_input") ?? "/context",
+      message:
+        stringField(entry, "message", "summary") ??
+        ([
+          contextBudgetStatus,
+          compactionPolicyAction,
+          compactionPolicyStatus,
+        ].filter(Boolean).join(" · ") || null),
+      approvalId: null,
+      jobId: null,
+      runId: null,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
+      usageScope: stringField(entry, "scope", "usageScope", "usage_scope") ?? "thread",
+      usageTotalTokens: numberField(
+        entry,
+        "usageTotalTokens",
+        "usage_total_tokens",
+      ),
+      usageCostEstimateUsd: numberField(
+        entry,
+        "usageCostEstimateUsd",
+        "usage_cost_estimate_usd",
+      ),
+      usageContextPressure: numberField(
+        entry,
+        "usageContextPressure",
+        "usage_context_pressure",
+      ),
+      usageContextPressureStatus: stringField(
+        entry,
+        "usageContextPressureStatus",
+        "usage_context_pressure_status",
+      ),
+      contextBudgetStatus,
+      contextBudgetMode: stringField(entry, "contextBudgetMode", "context_budget_mode"),
+      contextBudgetDecisionId: stringField(
+        entry,
+        "contextBudgetDecisionId",
+        "context_budget_decision_id",
+      ),
+      compactionPolicyStatus,
+      compactionPolicyAction,
+      compactionPolicyDecisionId: stringField(
+        entry,
+        "compactionPolicyDecisionId",
+        "compaction_policy_decision_id",
+      ),
+      compactionExecuted: booleanField(
+        entry,
+        "compactionExecuted",
+        "compaction_executed",
+      ),
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId: nodeId,
+    });
+  });
+
   commandHistory.forEach((entry, index) => {
     const command = stringField(entry, "command");
     const rawInput = stringField(entry, "rawInput", "raw_input") ?? command;
@@ -1238,6 +1376,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     approvalDecisionCount: approvalDecisions.length,
     jobCount: jobRows.length,
     runLifecycleCount: runLifecycleRows.length,
+    costRowCount: costRows.length,
+    contextRowCount: contextRows.length,
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
     usageRowCount: usageStatus ? 1 : 0,
@@ -1362,6 +1502,44 @@ function tuiUsageStatusRow({
       "policy_decision_refs",
     ),
     reactFlowNodeId: usageNodeId,
+  };
+}
+
+function tuiCostStatusRow({
+  usageStatus,
+  threadId,
+  currentTurnId,
+  lastCursor,
+  lastEventId,
+  index,
+}: {
+  usageStatus: unknown;
+  threadId: string | null;
+  currentTurnId: string | null;
+  lastCursor: string | null;
+  lastEventId: string | null;
+  index: number;
+}): WorkflowRuntimeTuiControlStateRow {
+  const usageRecord = objectField(usageStatus) ?? {};
+  const row = tuiUsageStatusRow({
+    usageStatus: usageRecord,
+    threadId,
+    currentTurnId,
+    lastCursor,
+    lastEventId,
+  });
+  return {
+    ...row,
+    id:
+      stringField(usageRecord, "id") ??
+      `tui-cost-status:${slug(threadId ?? String(index + 1))}`,
+    rowKind: "cost_status",
+    label: "Cost telemetry",
+    command: "cost",
+    rawInput: stringField(usageRecord, "rawInput", "raw_input") ?? "/cost",
+    reactFlowNodeId:
+      stringField(usageRecord, "workflowNodeId", "workflow_node_id") ??
+      row.reactFlowNodeId,
   };
 }
 
@@ -1988,6 +2166,23 @@ function numberField(
   return null;
 }
 
+function booleanField(
+  value: unknown,
+  ...keys: string[]
+): boolean | null {
+  const objectValue = objectField(value);
+  if (!objectValue) return null;
+  const candidate = keys.find((key) => objectValue[key] !== undefined);
+  const valueForKey = candidate ? objectValue[candidate] : undefined;
+  if (typeof valueForKey === "boolean") return valueForKey;
+  if (typeof valueForKey === "string" && valueForKey.trim()) {
+    const normalized = valueForKey.toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
 function arrayField(
   value: unknown,
   ...keys: string[]
@@ -2025,6 +2220,11 @@ function tuiControlRowStatus(
   const normalizedStatus = status?.toLowerCase() ?? null;
   if (normalizedStatus === "approve") return "approved";
   if (normalizedStatus === "reject") return "rejected";
+  if (normalizedStatus === "ok" || normalizedStatus === "nominal") return "current";
+  if (normalizedStatus === "warn" || normalizedStatus === "elevated") return "current";
+  if (normalizedStatus === "high") return "blocked";
+  if (normalizedStatus === "compact_pending") return "pending";
+  if (normalizedStatus === "compacted") return "completed";
   if (normalizedStatus === "ready" || normalizedStatus === "configured") {
     return "completed";
   }

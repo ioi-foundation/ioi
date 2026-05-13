@@ -23,6 +23,10 @@ const TUI_THREAD_RESUME_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/resume";
 const TUI_THREAD_MODE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mode";
 const TUI_THREAD_MODEL_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/model";
 const TUI_THREAD_THINKING_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/thinking";
+const TUI_THREAD_USAGE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/usage";
+const TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/context-budget";
+const TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/compaction-policy";
 const TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/status";
 const TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/validate";
 const TUI_THREAD_MCP_IMPORT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/import";
@@ -359,6 +363,18 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
             "thread_subagent_cancel_propagate".to_string(),
             Value::String(TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE.to_string()),
         );
+        routes_object.insert(
+            "thread_usage".to_string(),
+            Value::String(TUI_THREAD_USAGE_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_context_budget".to_string(),
+            Value::String(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_compaction_policy".to_string(),
+            Value::String(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE.to_string()),
+        );
     }
     println!(
         "{}",
@@ -434,7 +450,7 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             .unwrap_or_else(|| "local_private".to_string())
     );
     println!(
-        "  controls=/mode /model /thinking /mcp /memory /interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
+        "  controls=/mode /model /thinking /cost /context /mcp /memory /interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
     );
     println!(
         "  model={} route={} thinking={}",
@@ -453,8 +469,11 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             .unwrap_or_else(|| "0".to_string()),
         json_path_string(&control_state, "/usage_status/usage_context_pressure")
             .unwrap_or_else(|| "0".to_string()),
-        json_path_string(&control_state, "/usage_status/usage_context_pressure_status")
-            .unwrap_or_else(|| "nominal".to_string())
+        json_path_string(
+            &control_state,
+            "/usage_status/usage_context_pressure_status"
+        )
+        .unwrap_or_else(|| "nominal".to_string())
     );
     let job_rows = tui_job_rows(&render.jobs, Some(&thread_id));
     if !job_rows.is_empty() {
@@ -805,6 +824,120 @@ pub(crate) async fn update_tui_thread_thinking(
             "event_kind": "OperatorControl.Thinking",
             "component_kind": "model_router",
             "workflow_node_id": "runtime.model-router",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn fetch_tui_thread_usage(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_thread(TUI_THREAD_USAGE_ROUTE_TEMPLATE, thread_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn evaluate_tui_context_budget(
+    thread_id: &str,
+    usage: &Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "eventKind": "RuntimeContextBudget.Evaluate",
+            "event_kind": "RuntimeContextBudget.Evaluate",
+            "componentKind": "context_budget",
+            "component_kind": "context_budget",
+            "workflowNodeId": "runtime.context-budget",
+            "workflow_node_id": "runtime.context-budget",
+            "scope": "thread",
+            "threadId": thread_id,
+            "thread_id": thread_id,
+            "mode": "simulate",
+            "simulationMode": true,
+            "simulation_mode": true,
+            "thresholds": {
+                "maxTotalTokens": 4096,
+                "max_total_tokens": 4096,
+                "maxCostUsd": 0.25,
+                "max_cost_usd": 0.25,
+                "maxContextPressure": 0.85,
+                "max_context_pressure": 0.85,
+                "warnAtRatio": 0.8,
+                "warn_at_ratio": 0.8,
+            },
+            "usageTelemetry": usage,
+            "usage_telemetry": usage,
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn evaluate_tui_compaction_policy(
+    thread_id: &str,
+    turn_id: Option<&str>,
+    context_budget: &Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "eventKind": "RuntimeCompactionPolicy.Evaluate",
+            "event_kind": "RuntimeCompactionPolicy.Evaluate",
+            "componentKind": "compaction_policy",
+            "component_kind": "compaction_policy",
+            "workflowNodeId": "runtime.compaction-policy",
+            "workflow_node_id": "runtime.compaction-policy",
+            "threadId": thread_id,
+            "thread_id": thread_id,
+            "turnId": turn_id,
+            "turn_id": turn_id,
+            "contextBudget": context_budget,
+            "context_budget": context_budget,
+            "contextBudgetStatus": json_path_string(context_budget, "/status")
+                .unwrap_or_else(|| "ok".to_string()),
+            "context_budget_status": json_path_string(context_budget, "/status")
+                .unwrap_or_else(|| "ok".to_string()),
+            "policy": {
+                "okAction": "noop",
+                "ok_action": "noop",
+                "warnAction": "warn",
+                "warn_action": "warn",
+                "blockedAction": "compact",
+                "blocked_action": "compact",
+                "approvalRequired": false,
+                "approval_required": false,
+                "approvalGranted": false,
+                "approval_granted": false,
+                "executeCompaction": false,
+                "execute_compaction": false,
+                "compactReason": "Inspect context from TUI /context.",
+                "compact_reason": "Inspect context from TUI /context.",
+                "compactScope": "thread",
+                "compact_scope": "thread",
+                "compactWorkflowNodeId": "runtime.context-compact",
+                "compact_workflow_node_id": "runtime.context-compact",
+            },
         })),
     )
     .await
@@ -2026,6 +2159,199 @@ pub(crate) fn tui_usage_status(thread: &Value, fallback_thread_id: Option<&str>)
     })
 }
 
+pub(crate) fn tui_cost_rows(status: &Value, fallback_thread_id: Option<&str>) -> Vec<Value> {
+    let usage = tui_usage_status(status, fallback_thread_id);
+    let thread_id = json_path_string(&usage, "/thread_id")
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let workflow_node_id = "runtime.usage-telemetry";
+    vec![serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "surface": "tui",
+        "id": format!(
+            "tui-cost-{}",
+            thread_id.clone().unwrap_or_else(|| "detached".to_string())
+        ),
+        "row_kind": "cost_status",
+        "status": "current",
+        "command": "cost",
+        "raw_input": "/cost",
+        "thread_id": thread_id,
+        "scope": json_path_string(&usage, "/scope").unwrap_or_else(|| "thread".to_string()),
+        "usage_total_tokens": json_path_string(&usage, "/usage_total_tokens")
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_input_tokens": json_path_string(&usage, "/usage_input_tokens")
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_output_tokens": json_path_string(&usage, "/usage_output_tokens")
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_cost_estimate_usd": json_path_string(&usage, "/usage_cost_estimate_usd")
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_context_pressure": json_path_string(&usage, "/usage_context_pressure")
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_context_pressure_status": json_path_string(&usage, "/usage_context_pressure_status")
+            .unwrap_or_else(|| "nominal".to_string()),
+        "usage_run_count": json_path_string(&usage, "/usage_run_count")
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_subagent_count": json_path_string(&usage, "/usage_subagent_count")
+            .unwrap_or_else(|| "0".to_string()),
+        "workflow_node_id": workflow_node_id,
+        "message": json_path_string(&usage, "/message"),
+        "routes": {
+            "usage": fallback_thread_id
+                .map(|thread_id| route_with_thread(TUI_THREAD_USAGE_ROUTE_TEMPLATE, thread_id)),
+            "context_budget": fallback_thread_id
+                .map(|thread_id| route_with_thread(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE, thread_id)),
+            "compaction_policy": fallback_thread_id
+                .map(|thread_id| route_with_thread(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE, thread_id)),
+        },
+        "tui_reopen": {
+            "command": "ioi agent tui",
+            "args": tui_reopen_args(fallback_thread_id, None),
+            "thread_id": fallback_thread_id,
+        },
+        "react_flow": {
+            "workflow_node_id": workflow_node_id,
+            "thread_id": fallback_thread_id,
+        }
+    })]
+}
+
+pub(crate) fn tui_context_rows(
+    usage: &Value,
+    context_budget: &Value,
+    compaction_policy: &Value,
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    let usage_status = tui_usage_status(usage, fallback_thread_id);
+    let thread_id = json_path_string(&usage_status, "/thread_id")
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let context_pressure = json_path_string(&usage_status, "/usage_context_pressure")
+        .unwrap_or_else(|| "0".to_string());
+    let context_pressure_status = json_path_string(&usage_status, "/usage_context_pressure_status")
+        .unwrap_or_else(|| "nominal".to_string());
+    let budget_status =
+        json_path_string(context_budget, "/status").unwrap_or_else(|| "ok".to_string());
+    let budget_node_id = json_path_string(context_budget, "/workflow_node_id")
+        .or_else(|| json_path_string(context_budget, "/workflowNodeId"))
+        .unwrap_or_else(|| "runtime.context-budget".to_string());
+    let compaction_status =
+        json_path_string(compaction_policy, "/status").unwrap_or_else(|| "ok".to_string());
+    let compaction_action =
+        json_path_string(compaction_policy, "/action").unwrap_or_else(|| "noop".to_string());
+    let compaction_node_id = json_path_string(compaction_policy, "/workflow_node_id")
+        .or_else(|| json_path_string(compaction_policy, "/workflowNodeId"))
+        .unwrap_or_else(|| "runtime.compaction-policy".to_string());
+    vec![
+        serde_json::json!({
+            "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+            "surface": "tui",
+            "id": format!(
+                "tui-context-budget-{}",
+                thread_id.clone().unwrap_or_else(|| "detached".to_string())
+            ),
+            "row_kind": "context_budget",
+            "status": budget_status,
+            "command": "context",
+            "raw_input": "/context",
+            "thread_id": thread_id,
+            "scope": json_path_string(context_budget, "/scope").unwrap_or_else(|| "thread".to_string()),
+            "usage_total_tokens": json_path_string(&usage_status, "/usage_total_tokens")
+                .unwrap_or_else(|| "0".to_string()),
+            "usage_cost_estimate_usd": json_path_string(&usage_status, "/usage_cost_estimate_usd")
+                .unwrap_or_else(|| "0".to_string()),
+            "usage_context_pressure": context_pressure,
+            "usage_context_pressure_status": context_pressure_status,
+            "context_budget_status": json_path_string(context_budget, "/status"),
+            "context_budget_mode": json_path_string(context_budget, "/mode"),
+            "context_budget_decision_id": json_path_string(context_budget, "/policy_decision_id")
+                .or_else(|| json_path_string(context_budget, "/policyDecisionId")),
+            "summary": json_path_string(context_budget, "/summary"),
+            "workflow_node_id": budget_node_id,
+            "receipt_refs": context_budget
+                .pointer("/receipt_refs")
+                .or_else(|| context_budget.pointer("/receiptRefs"))
+                .cloned()
+                .unwrap_or_else(|| Value::Array(Vec::new())),
+            "policy_decision_refs": context_budget
+                .pointer("/policy_decision_refs")
+                .or_else(|| context_budget.pointer("/policyDecisionRefs"))
+                .cloned()
+                .unwrap_or_else(|| Value::Array(Vec::new())),
+            "event_id": json_path_string(context_budget, "/event_id")
+                .or_else(|| json_path_string(context_budget, "/eventId")),
+            "seq": context_budget.pointer("/seq").and_then(Value::as_u64),
+            "routes": {
+                "usage": fallback_thread_id
+                    .map(|thread_id| route_with_thread(TUI_THREAD_USAGE_ROUTE_TEMPLATE, thread_id)),
+                "context_budget": fallback_thread_id
+                    .map(|thread_id| route_with_thread(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE, thread_id)),
+                "compaction_policy": fallback_thread_id
+                    .map(|thread_id| route_with_thread(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE, thread_id)),
+            },
+            "react_flow": {
+                "workflow_node_id": json_path_string(context_budget, "/workflow_node_id")
+                    .or_else(|| json_path_string(context_budget, "/workflowNodeId"))
+                    .unwrap_or_else(|| "runtime.context-budget".to_string()),
+                "thread_id": fallback_thread_id,
+            }
+        }),
+        serde_json::json!({
+            "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+            "surface": "tui",
+            "id": format!(
+                "tui-compaction-policy-{}",
+                fallback_thread_id.unwrap_or("detached")
+            ),
+            "row_kind": "compaction_policy",
+            "status": compaction_status,
+            "command": "context",
+            "raw_input": "/context",
+            "thread_id": fallback_thread_id,
+            "turn_id": json_path_string(compaction_policy, "/turn_id")
+                .or_else(|| json_path_string(compaction_policy, "/turnId")),
+            "usage_context_pressure": json_path_string(&usage_status, "/usage_context_pressure")
+                .unwrap_or_else(|| "0".to_string()),
+            "usage_context_pressure_status": json_path_string(&usage_status, "/usage_context_pressure_status")
+                .unwrap_or_else(|| "nominal".to_string()),
+            "context_budget_status": json_path_string(compaction_policy, "/budget_status")
+                .or_else(|| json_path_string(compaction_policy, "/budgetStatus")),
+            "compaction_policy_status": json_path_string(compaction_policy, "/status"),
+            "compaction_policy_action": compaction_action,
+            "compaction_policy_decision_id": json_path_string(compaction_policy, "/policy_decision_id")
+                .or_else(|| json_path_string(compaction_policy, "/policyDecisionId")),
+            "compaction_executed": json_path_string(compaction_policy, "/compaction_executed")
+                .or_else(|| json_path_string(compaction_policy, "/compactionExecuted"))
+                .unwrap_or_else(|| "false".to_string()),
+            "summary": json_path_string(compaction_policy, "/summary"),
+            "workflow_node_id": compaction_node_id,
+            "receipt_refs": compaction_policy
+                .pointer("/receipt_refs")
+                .or_else(|| compaction_policy.pointer("/receiptRefs"))
+                .cloned()
+                .unwrap_or_else(|| Value::Array(Vec::new())),
+            "policy_decision_refs": compaction_policy
+                .pointer("/policy_decision_refs")
+                .or_else(|| compaction_policy.pointer("/policyDecisionRefs"))
+                .cloned()
+                .unwrap_or_else(|| Value::Array(Vec::new())),
+            "event_id": json_path_string(compaction_policy, "/event_id")
+                .or_else(|| json_path_string(compaction_policy, "/eventId")),
+            "seq": compaction_policy.pointer("/seq").and_then(Value::as_u64),
+            "routes": {
+                "context_budget": fallback_thread_id
+                    .map(|thread_id| route_with_thread(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE, thread_id)),
+                "compaction_policy": fallback_thread_id
+                    .map(|thread_id| route_with_thread(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE, thread_id)),
+            },
+            "react_flow": {
+                "workflow_node_id": json_path_string(compaction_policy, "/workflow_node_id")
+                    .or_else(|| json_path_string(compaction_policy, "/workflowNodeId"))
+                    .unwrap_or_else(|| "runtime.compaction-policy".to_string()),
+                "thread_id": fallback_thread_id,
+            }
+        }),
+    ]
+}
+
 pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> Vec<Value> {
     let thread_id = json_path_string(status, "/thread_id")
         .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
@@ -3200,6 +3526,18 @@ mod tests {
         assert_eq!(
             route_with_thread(TUI_THREAD_THINKING_ROUTE_TEMPLATE, "thread_live"),
             "/v1/threads/thread_live/thinking"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_USAGE_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/usage"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/context-budget"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/compaction-policy"
         );
         assert_eq!(
             route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, "job_run_live"),

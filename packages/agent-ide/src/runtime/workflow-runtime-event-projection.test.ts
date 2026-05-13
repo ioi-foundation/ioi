@@ -1084,3 +1084,89 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[17]?.runId, "run-test");
   assert.equal(projection.rows[21]?.message, "/steer requires guidance text");
 });
+
+test("projects TUI cost and context controls to usage, budget, and compaction nodes", () => {
+  const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+    schema_version: "ioi.agent-cli.tui-control-state.v1",
+    surface: "tui",
+    thread_id: "thread-cost-context",
+    current_turn_id: "turn-cost-context",
+    cost_rows: [
+      {
+        id: "cost-row",
+        row_kind: "cost_status",
+        scope: "thread",
+        usage_total_tokens: "1234",
+        usage_input_tokens: "1000",
+        usage_output_tokens: "234",
+        usage_cost_estimate_usd: "0.01234",
+        usage_context_pressure: "0.42",
+        usage_context_pressure_status: "elevated",
+        usage_run_count: "1",
+        usage_subagent_count: "0",
+        workflow_node_id: "runtime.usage-telemetry",
+      },
+    ],
+    context_rows: [
+      {
+        id: "context-budget-row",
+        row_kind: "context_budget",
+        status: "warn",
+        context_budget_status: "warn",
+        context_budget_mode: "simulate",
+        context_budget_decision_id: "policy_context_budget_thread_warn",
+        usage_total_tokens: "1234",
+        usage_cost_estimate_usd: "0.01234",
+        usage_context_pressure: "0.42",
+        usage_context_pressure_status: "elevated",
+        workflow_node_id: "runtime.context-budget",
+        receipt_refs: ["receipt_context_budget_thread"],
+        policy_decision_refs: ["policy_context_budget_thread_warn"],
+      },
+      {
+        id: "compaction-policy-row",
+        row_kind: "compaction_policy",
+        status: "warn",
+        context_budget_status: "warn",
+        compaction_policy_status: "warn",
+        compaction_policy_action: "warn",
+        compaction_policy_decision_id: "policy_compaction_thread_warn",
+        compaction_executed: "false",
+        workflow_node_id: "runtime.compaction-policy",
+        receipt_refs: ["receipt_compaction_policy_thread"],
+        policy_decision_refs: ["policy_compaction_thread_warn"],
+      },
+    ],
+  });
+
+  assert.equal(projection.costRowCount, 1);
+  assert.equal(projection.contextRowCount, 2);
+  assert.ok(
+    projection.rows.some(
+      (row) =>
+        row.rowKind === "cost_status" &&
+        row.command === "cost" &&
+        row.usageTotalTokens === 1234 &&
+        row.reactFlowNodeId === "runtime.usage-telemetry",
+    ),
+  );
+  assert.ok(
+    projection.rows.some(
+      (row) =>
+        row.rowKind === "context_budget" &&
+        row.contextBudgetStatus === "warn" &&
+        row.contextBudgetDecisionId === "policy_context_budget_thread_warn" &&
+        row.reactFlowNodeId === "runtime.context-budget",
+    ),
+  );
+  assert.ok(
+    projection.rows.some(
+      (row) =>
+        row.rowKind === "compaction_policy" &&
+        row.compactionPolicyAction === "warn" &&
+        row.compactionPolicyDecisionId === "policy_compaction_thread_warn" &&
+        row.compactionExecuted === false &&
+        row.reactFlowNodeId === "runtime.compaction-policy",
+    ),
+  );
+});
