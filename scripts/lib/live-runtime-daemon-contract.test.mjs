@@ -6118,6 +6118,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mode/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/model/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/thinking/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/usage/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/context-budget/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/compaction-policy/);
   assert.match(source, /\/v1\/mcp\/servers/);
   assert.match(source, /\/v1\/mcp\/tools/);
   assert.match(source, /\/v1\/mcp\/tools\/search/);
@@ -6233,6 +6236,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /mode_status/);
   assert.match(source, /mcp_rows/);
   assert.match(source, /memory_rows/);
+  assert.match(source, /cost_rows/);
+  assert.match(source, /context_rows/);
   assert.match(source, /subagent_rows/);
   assert.match(source, /approval_rows/);
   assert.match(source, /approval_decisions/);
@@ -6240,7 +6245,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/memory", "/subagents", "/subagent", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/diagnostics", "/restore", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/cost", "/context", "/mcp", "/memory", "/subagents", "/subagent", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/diagnostics", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -8681,13 +8686,15 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      `/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp search query --server mcp.search --source-mode workspace --limit 2\n/mcp fetch mcp.search/query --source-mode workspace\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/mcp servers --source-mode workspace\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/subagent spawn explore Inspect line-mode subagent route evidence --tool-pack coding --route route.native-local --output-contract SUMMARY,EVIDENCE,RECEIPTS --merge-policy evidence_only --cancel-inheritance propagate\n/subagents\n/subagent wait\n/subagent result\n/subagent input Add line-mode subagent input evidence.\n/subagent cancel line_mode_subagent_cancel\n/subagent resume Resume line-mode subagent evidence.\n/subagent assign implement --tool-pack coding-plus --merge-policy manual_review\n/subagent spawn verify Remain isolated from parent cancellation --cancel-inheritance isolate\n/subagent propagate line_mode_parent_cancel\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
+      `/mode yolo\n/model auto route.native-local\n/thinking high\n/cost\n/context\n/mcp tools\n/mcp search query --server mcp.search --source-mode workspace --limit 2\n/mcp fetch mcp.search/query --source-mode workspace\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/mcp servers --source-mode workspace\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/subagent spawn explore Inspect line-mode subagent route evidence --tool-pack coding --route route.native-local --output-contract SUMMARY,EVIDENCE,RECEIPTS --merge-policy evidence_only --cancel-inheritance propagate\n/subagents\n/subagent wait\n/subagent result\n/subagent input Add line-mode subagent input evidence.\n/subagent cancel line_mode_subagent_cancel\n/subagent resume Resume line-mode subagent evidence.\n/subagent assign implement --tool-pack coding-plus --merge-policy manual_review\n/subagent spawn verify Remain isolated from parent cancellation --cancel-inheritance isolate\n/subagent propagate line_mode_parent_cancel\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
       { cwd: root, timeout: 60000 },
     );
-    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/subagents .*\/subagent .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/cost .*\/context .*\/mcp .*\/memory .*\/subagents .*\/subagent .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
     assert.match(result.stdout, /line_mode_command=mode/);
     assert.match(result.stdout, /line_mode_command=model/);
     assert.match(result.stdout, /line_mode_command=thinking/);
+    assert.match(result.stdout, /line_mode_command=cost/);
+    assert.match(result.stdout, /line_mode_command=context/);
     assert.match(result.stdout, /line_mode_command=mcp action=tools/);
     assert.match(result.stdout, /line_mode_command=mcp action=search source_mode=workspace/);
     assert.match(result.stdout, /line_mode_command=mcp action=fetch source_mode=workspace/);
@@ -8737,6 +8744,9 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query operation=fetch/);
     assert.match(result.stdout, /mcp_row kind=mcp_resource server=mcp\.search/);
     assert.match(result.stdout, /mcp_row kind=mcp_prompt server=mcp\.search/);
+    assert.match(result.stdout, /cost_row kind=cost_status scope=thread/);
+    assert.match(result.stdout, /context_row kind=context_budget status=/);
+    assert.match(result.stdout, /context_row kind=compaction_policy status=/);
     assert.match(result.stdout, /memory_row kind=memory_status/);
     assert.match(result.stdout, /memory_row kind=memory_record/);
     assert.match(result.stdout, /subagent_row subagent=agent_[^\s]+ role=explore status=completed operation=spawn/);
@@ -8814,6 +8824,16 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     );
     assert.ok(
       finalControlState.command_history.some(
+        (entry) => entry.command === "cost" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
+        (entry) => entry.command === "context" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
         (entry) => entry.command === "mcp" && entry.status === "applied",
       ),
     );
@@ -8844,6 +8864,21 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(finalControlState.mcp_rows.some((row) => row.row_kind === "mcp_resource"));
     assert.ok(finalControlState.mcp_rows.some((row) => row.row_kind === "mcp_prompt"));
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_operation === "invoke"));
+    assert.ok(finalControlState.cost_rows.some((row) => row.row_kind === "cost_status"));
+    assert.ok(
+      finalControlState.context_rows.some(
+        (row) =>
+          row.row_kind === "context_budget" &&
+          row.workflow_node_id === "runtime.context-budget",
+      ),
+    );
+    assert.ok(
+      finalControlState.context_rows.some(
+        (row) =>
+          row.row_kind === "compaction_policy" &&
+          row.workflow_node_id === "runtime.compaction-policy",
+      ),
+    );
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_status"));
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_policy"));
     assert.ok(finalControlState.memory_rows.some((row) => row.memory_operation === "write"));
@@ -8873,6 +8908,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
     assert.ok(lineModeControlProjection.mcpRowCount >= 2);
     assert.ok(lineModeControlProjection.memoryRowCount >= 2);
+    assert.equal(lineModeControlProjection.costRowCount, 1);
+    assert.equal(lineModeControlProjection.contextRowCount, 2);
     assert.ok(lineModeControlProjection.subagentRowCount >= 2);
     assert.ok(
       lineModeControlProjection.rows.some(
@@ -8887,6 +8924,27 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "mcp_tool" && row.mcpToolName === "query",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) =>
+          row.rowKind === "cost_status" &&
+          row.reactFlowNodeId === "runtime.usage-telemetry",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) =>
+          row.rowKind === "context_budget" &&
+          row.reactFlowNodeId === "runtime.context-budget",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) =>
+          row.rowKind === "compaction_policy" &&
+          row.reactFlowNodeId === "runtime.compaction-policy",
       ),
     );
     assert.ok(

@@ -4,19 +4,21 @@ use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     add_tui_mcp_server, apply_tui_workspace_restore, assign_tui_subagent, cancel_tui_job,
     cancel_tui_run, cancel_tui_subagent, decide_tui_approval, delete_tui_memory, edit_tui_memory,
+    evaluate_tui_compaction_policy, evaluate_tui_context_budget,
     execute_tui_diagnostics_repair_decision, fetch_tui_event_batch, fetch_tui_job,
     fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace, fetch_tui_subagent_result,
-    fetch_tui_thread, import_tui_mcp, inspect_tui_mcp_status, inspect_tui_memory_path,
-    inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn,
-    invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread,
-    list_tui_memory_records, list_tui_subagents, list_tui_workspace_snapshots,
-    preview_tui_workspace_restore, propagate_tui_subagent_cancellation, remember_tui_memory,
-    remove_tui_mcp_server, replay_tui_run_events, resume_tui_subagent, resume_tui_thread,
-    search_tui_mcp_tools, selected_run_id_from_thread, selected_turn_id_from_values,
-    send_tui_subagent_input, set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn,
-    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows,
-    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows,
-    update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
+    fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp, inspect_tui_mcp_status,
+    inspect_tui_memory_path, inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run,
+    interrupt_tui_turn, invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq,
+    list_tui_jobs_for_thread, list_tui_memory_records, list_tui_subagents,
+    list_tui_workspace_snapshots, preview_tui_workspace_restore,
+    propagate_tui_subagent_cancellation, remember_tui_memory, remove_tui_mcp_server,
+    replay_tui_run_events, resume_tui_subagent, resume_tui_thread, search_tui_mcp_tools,
+    selected_run_id_from_thread, selected_turn_id_from_values, send_tui_subagent_input,
+    set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn, thread_id_from_value,
+    tui_approval_decisions, tui_approval_rows, tui_context_rows, tui_cost_rows, tui_job_rows,
+    tui_mcp_rows, tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows,
+    tui_usage_status, update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
     update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory, wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
@@ -67,6 +69,8 @@ pub(crate) enum TuiLineCommand {
     Thinking {
         reasoning_effort: Option<String>,
     },
+    Cost,
+    Context,
     Mcp {
         action: Option<String>,
     },
@@ -303,6 +307,45 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("thinking effort inspected or updated"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Cost) => {
+                let usage = handle_cost_command(&mut session).await?;
+                control_state
+                    .set_usage_status(tui_usage_status(&usage, control_state.thread_id.as_deref()));
+                control_state
+                    .merge_cost_rows(tui_cost_rows(&usage, control_state.thread_id.as_deref()));
+                control_state.record_command(
+                    "cost",
+                    line.trim(),
+                    "applied",
+                    Some("usage cost inspected"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Context) => {
+                let (events, usage, context_budget, compaction_policy) =
+                    handle_context_command(&mut session).await?;
+                control_state
+                    .set_usage_status(tui_usage_status(&usage, control_state.thread_id.as_deref()));
+                control_state
+                    .merge_cost_rows(tui_cost_rows(&usage, control_state.thread_id.as_deref()));
+                control_state.merge_context_rows(tui_context_rows(
+                    &usage,
+                    &context_budget,
+                    &compaction_policy,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "context",
+                    line.trim(),
+                    "applied",
+                    Some("context budget and compaction policy inspected"),
                     &session,
                     &events,
                 );
@@ -765,6 +808,18 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
         "thinking" => Ok(TuiLineCommand::Thinking {
             reasoning_effort: non_empty_string(rest),
         }),
+        "cost" | "usage" => {
+            if !rest.is_empty() {
+                return Err(anyhow!("/{command} does not accept extra arguments"));
+            }
+            Ok(TuiLineCommand::Cost)
+        }
+        "context" => {
+            if !rest.is_empty() {
+                return Err(anyhow!("/context does not accept extra arguments"));
+            }
+            Ok(TuiLineCommand::Context)
+        }
         "mcp" => Ok(TuiLineCommand::Mcp {
             action: non_empty_string(rest),
         }),
@@ -1091,6 +1146,104 @@ async fn handle_thinking_command(
         json_path_string(&status, "/reasoning_effort").unwrap_or_else(|| "default".to_string())
     );
     Ok(Vec::new())
+}
+
+async fn handle_cost_command(session: &mut TuiInteractiveSession) -> Result<Value> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let usage =
+        fetch_tui_thread_usage(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    attach_tui_thread_usage(&mut session.thread, &usage);
+    let rows = tui_cost_rows(&usage, Some(&thread_id));
+    println!(
+        "line_mode_command=cost thread={thread_id} count={}",
+        rows.len()
+    );
+    for row in &rows {
+        println!(
+            "cost_row kind={} scope={} tokens={} input={} output={} cost_usd={} context={} status={} node={}",
+            json_path_string(row, "/row_kind").unwrap_or_else(|| "cost_status".to_string()),
+            json_path_string(row, "/scope").unwrap_or_else(|| "thread".to_string()),
+            json_path_string(row, "/usage_total_tokens").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/usage_input_tokens").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/usage_output_tokens").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/usage_cost_estimate_usd").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/usage_context_pressure").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/usage_context_pressure_status")
+                .unwrap_or_else(|| "nominal".to_string()),
+            json_path_string(row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.usage-telemetry".to_string())
+        );
+    }
+    Ok(usage)
+}
+
+async fn handle_context_command(
+    session: &mut TuiInteractiveSession,
+) -> Result<(Vec<Value>, Value, Value, Value)> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let usage =
+        fetch_tui_thread_usage(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    let context_budget = evaluate_tui_context_budget(
+        &thread_id,
+        &usage,
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    let turn_id = selected_turn_id_from_values(None, None, &session.thread).ok();
+    let compaction_policy = evaluate_tui_compaction_policy(
+        &thread_id,
+        turn_id.as_deref(),
+        &context_budget,
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    attach_tui_thread_usage(&mut session.thread, &usage);
+    let rows = tui_context_rows(
+        &usage,
+        &context_budget,
+        &compaction_policy,
+        Some(&thread_id),
+    );
+    println!(
+        "line_mode_command=context thread={thread_id} budget_status={} compaction_status={} rows={}",
+        json_path_string(&context_budget, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&compaction_policy, "/status").unwrap_or_else(|| "unknown".to_string()),
+        rows.len()
+    );
+    for row in &rows {
+        println!(
+            "context_row kind={} status={} pressure={} pressure_status={} budget_status={} action={} node={} receipts={} policies={}",
+            json_path_string(row, "/row_kind").unwrap_or_else(|| "context".to_string()),
+            json_path_string(row, "/status").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/usage_context_pressure").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/usage_context_pressure_status")
+                .unwrap_or_else(|| "nominal".to_string()),
+            json_path_string(row, "/context_budget_status").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/compaction_policy_action")
+                .unwrap_or_else(|| "n/a".to_string()),
+            json_path_string(row, "/workflow_node_id").unwrap_or_else(|| "unknown".to_string()),
+            row.pointer("/receipt_refs")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0),
+            row.pointer("/policy_decision_refs")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0)
+        );
+    }
+    let events = handle_events_command(session, None).await?;
+    Ok((events, usage, context_budget, compaction_policy))
+}
+
+fn attach_tui_thread_usage(thread: &mut Value, usage: &Value) {
+    if let Some(object) = thread.as_object_mut() {
+        object.insert("usage_telemetry".to_string(), usage.clone());
+    }
 }
 
 async fn handle_mcp_command(
@@ -2632,7 +2785,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -2995,10 +3148,13 @@ struct TuiControlState {
     last_cursor: Option<String>,
     last_event_id: Option<String>,
     mode_status: Value,
+    usage_status: Value,
     approval_rows: Vec<Value>,
     approval_decisions: Vec<Value>,
     job_rows: Vec<Value>,
     run_lifecycle_rows: Vec<Value>,
+    cost_rows: Vec<Value>,
+    context_rows: Vec<Value>,
     mcp_rows: Vec<Value>,
     memory_rows: Vec<Value>,
     subagent_rows: Vec<Value>,
@@ -3016,10 +3172,16 @@ impl TuiControlState {
             last_cursor: None,
             last_event_id: None,
             mode_status: tui_mode_status(&session.thread, current_turn_id.as_deref()),
+            usage_status: tui_usage_status(
+                &session.thread,
+                thread_id_from_value(&session.thread).ok().as_deref(),
+            ),
             approval_rows: Vec::new(),
             approval_decisions: Vec::new(),
             job_rows: Vec::new(),
             run_lifecycle_rows: Vec::new(),
+            cost_rows: Vec::new(),
+            context_rows: Vec::new(),
             mcp_rows: Vec::new(),
             memory_rows: Vec::new(),
             subagent_rows: Vec::new(),
@@ -3081,6 +3243,11 @@ impl TuiControlState {
         self.thread_id = thread_id_from_value(&session.thread).ok();
         self.current_turn_id = selected_turn_id_from_values(None, None, &session.thread).ok();
         self.mode_status = tui_mode_status(&session.thread, self.current_turn_id.as_deref());
+        self.usage_status = tui_usage_status(&session.thread, self.thread_id.as_deref());
+    }
+
+    fn set_usage_status(&mut self, usage_status: Value) {
+        self.usage_status = usage_status;
     }
 
     fn update_from_events(&mut self, events: &[Value]) {
@@ -3179,6 +3346,50 @@ impl TuiControlState {
                 *existing = row;
             } else {
                 self.run_lifecycle_rows.push(row);
+            }
+        }
+    }
+
+    fn merge_cost_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/id")
+                .or_else(|| json_path_string(&row, "/thread_id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.cost_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.cost_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/id")
+                    .or_else(|| json_path_string(existing, "/thread_id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.cost_rows.push(row);
+            }
+        }
+    }
+
+    fn merge_context_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/id")
+                .or_else(|| json_path_string(&row, "/workflow_node_id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.context_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.context_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/id")
+                    .or_else(|| json_path_string(existing, "/workflow_node_id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.context_rows.push(row);
             }
         }
     }
@@ -3298,10 +3509,13 @@ impl TuiControlState {
             "last_cursor": self.last_cursor.clone(),
             "last_event_id": self.last_event_id.clone(),
             "mode_status": self.mode_status.clone(),
+            "usage_status": self.usage_status.clone(),
             "approval_rows": self.approval_rows.clone(),
             "approval_decisions": self.approval_decisions.clone(),
             "job_rows": self.job_rows.clone(),
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
+            "cost_rows": self.cost_rows.clone(),
+            "context_rows": self.context_rows.clone(),
             "mcp_rows": self.mcp_rows.clone(),
             "memory_rows": self.memory_rows.clone(),
             "subagent_rows": self.subagent_rows.clone(),
@@ -3395,6 +3609,18 @@ mod tests {
             TuiLineCommand::Thinking {
                 reasoning_effort: Some("high".to_string())
             }
+        );
+        assert_eq!(
+            parse_tui_line_command("/cost").unwrap(),
+            TuiLineCommand::Cost
+        );
+        assert_eq!(
+            parse_tui_line_command("/usage").unwrap(),
+            TuiLineCommand::Cost
+        );
+        assert_eq!(
+            parse_tui_line_command("/context").unwrap(),
+            TuiLineCommand::Context
         );
         assert_eq!(
             parse_tui_line_command("/mcp tools").unwrap(),
@@ -3658,6 +3884,8 @@ mod tests {
         assert!(parse_tui_line_command("/diagnostics repair unknown").is_err());
         assert!(parse_tui_line_command("/diagnostics repair apply-restore").is_err());
         assert!(parse_tui_line_command("/jobs extra").is_err());
+        assert!(parse_tui_line_command("/cost extra").is_err());
+        assert!(parse_tui_line_command("/context extra").is_err());
         assert!(parse_tui_line_command("/job cancel").is_err());
         assert!(parse_tui_line_command("/job cancel job extra").is_err());
         assert!(parse_tui_line_command("/run cancel").is_err());

@@ -166,8 +166,40 @@ workstream was narrower.
 | 164 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow UsageMeterNode request compiler and live telemetry read | /tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json |
 | 165 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow ContextBudgetNode daemon policy evaluator | /tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json |
 | 166 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow CompactionPolicyNode daemon actuator | /tmp/ioi-autopilot-gui-harness-compaction-policy-node/2026-05-13T21-26-21-995Z/result.json |
+| 167 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | TUI cost/context telemetry controls | /tmp/ioi-autopilot-gui-harness-tui-cost-context/2026-05-13T21-42-24-199Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 167. 2026-05-13 - TUI cost/context telemetry controls
+
+Implementation slice completed 2026-05-13, TUI cost/context telemetry:
+
+- Added daemon-backed TUI `/cost` and `/context` line-mode commands. `/cost`
+  reads `/v1/threads/{thread_id}/usage`; `/context` evaluates the same
+  `/context-budget` and `/compaction-policy` daemon endpoints used by React
+  Flow workflow nodes.
+- Added `cost_rows` and `context_rows` to TUI control-state output so React
+  Flow can project usage telemetry, context budget decisions, and compaction
+  policy actions without canvas-local counters.
+- Projected `cost_status`, `context_budget`, and `compaction_policy` TUI rows
+  to stable React Flow node ids: `runtime.usage-telemetry`,
+  `runtime.context-budget`, and `runtime.compaction-policy`.
+- Extended the live TUI line-mode proof to execute `/cost` and `/context`,
+  assert printed rows, assert control-state rows, and assert React Flow
+  projection identity.
+
+Validation evidence:
+
+- `cargo fmt --check`
+- `cargo build -p ioi-cli --bin cli`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands`
+- `node --import tsx --test --test-name-pattern "projects TUI cost" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts|agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-tui-cost-context`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-cost-context/2026-05-13T21-42-24-199Z/result.json`.
 
 ### Slice 163. 2026-05-13 - RuntimeUsageTelemetry aggregation and projection
 
