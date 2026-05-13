@@ -56,6 +56,9 @@ const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_ca
 const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
 const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
+const RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION = "ioi.runtime.thread-controls.v1";
+const RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION = "ioi.runtime.thread-mode-control.v1";
+const RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.runtime.model-route-control.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
 const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
@@ -230,6 +233,7 @@ export class AgentgresRuntimeStateStore {
       modelRouteProviderId: modelRoute.providerId,
       modelRouteReceiptId: modelRoute.receiptId,
       modelRouteDecision: modelRoute.decision,
+      runtimeControls: initialThreadRuntimeControls(options, modelRoute, now),
       createdAt: now,
       updatedAt: now,
       options: summarizeAgentOptions(cwd, options),
@@ -279,6 +283,12 @@ export class AgentgresRuntimeStateStore {
     const agent = this.getAgent(agentId);
     ensureProviderAvailable(agent.runtime, agent.options);
     const mode = request.mode ?? "send";
+    const threadMode = request.threadMode ?? threadModeForRunMode(mode, agent.runtimeControls?.mode);
+    const approvalMode =
+      request.approvalMode ??
+      request.approval_mode ??
+      agent.runtimeControls?.approvalMode ??
+      approvalModeForThreadMode(threadMode);
     const prompt =
       request.prompt ??
       (mode === "learn"
@@ -298,9 +308,14 @@ export class AgentgresRuntimeStateStore {
       skillHookCatalog,
       diagnosticsFeedback: request.diagnosticsFeedback ?? request.diagnostics_feedback ?? null,
     });
-    this.runs.set(run.id, run);
-    this.writeRun(run, "run.create");
-    return run;
+    const runtimeRun = {
+      ...run,
+      threadMode,
+      approvalMode,
+    };
+    this.runs.set(runtimeRun.id, runtimeRun);
+    this.writeRun(runtimeRun, "run.create");
+    return runtimeRun;
   }
 
   resolveModelRoute(options = {}, context = {}) {
@@ -794,6 +809,224 @@ export class AgentgresRuntimeStateStore {
     return this.threadForAgent(updated);
   }
 
+  updateThreadMode(threadId, request = {}) {
+    return this.updateThreadRuntimeControls(threadId, { ...request, control: "mode" });
+  }
+
+  updateThreadModel(threadId, request = {}) {
+    return this.updateThreadRuntimeControls(threadId, { ...request, control: "model" });
+  }
+
+  updateThreadThinking(threadId, request = {}) {
+    return this.updateThreadRuntimeControls(threadId, { ...request, control: "thinking" });
+  }
+
+  updateThreadRuntimeControls(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const now = new Date().toISOString();
+    const controlKind = threadRuntimeControlKind(request);
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const workflowGraphId = request.workflow_graph_id ?? request.workflowGraphId ?? null;
+    const existingControls = normalizedAgentRuntimeControls(agent);
+    const nextControls = {
+      ...existingControls,
+      model: { ...(existingControls.model ?? {}) },
+      updatedAt: now,
+    };
+    let modelRoute = null;
+    let updatedAgent = agent;
+
+    if (controlKind === "mode") {
+      const mode = normalizeThreadInteractionMode(
+        request.mode ?? request.interaction_mode ?? request.interactionMode ?? request.value,
+      );
+      const approvalMode = normalizeThreadApprovalMode(
+        request.approval_mode ?? request.approvalMode,
+        approvalModeForThreadMode(mode),
+      );
+      nextControls.mode = mode;
+      nextControls.approvalMode = approvalMode;
+    } else {
+      const modelInput = threadRuntimeControlModelInput(request, existingControls, agent);
+      modelRoute = this.resolveModelRoute(
+        {
+          model: modelInput.model,
+          workflowGraphId,
+          workflowNodeId: modelInput.workflowNodeId,
+          workflowNodeType: "Model Router",
+        },
+        {
+          evidenceRefs: [`runtime_thread_${controlKind}_control`],
+          workflowGraphId,
+          workflowNodeId: modelInput.workflowNodeId,
+          workflowNodeType: "Model Router",
+        },
+      );
+      nextControls.model = {
+        id: modelRoute.requestedModelId,
+        routeId: modelRoute.routeId,
+        selectedModel: modelRoute.selectedModel,
+        endpointId: modelRoute.endpointId,
+        providerId: modelRoute.providerId,
+        receiptId: modelRoute.receiptId,
+        reasoningEffort:
+          modelRoute.decision?.reasoningEffort ??
+          modelInput.model.reasoningEffort ??
+          null,
+        privacy: modelInput.model.privacy ?? null,
+        maxCostUsd: modelInput.model.maxCostUsd ?? null,
+        allowHostedFallback: modelInput.model.allowHostedFallback ?? null,
+        workflowGraphId,
+        workflowNodeId: modelRoute.decision?.workflowNodeId ?? modelInput.workflowNodeId,
+        updatedAt: now,
+      };
+      updatedAgent = {
+        ...updatedAgent,
+        modelId: modelRoute.selectedModel,
+        requestedModelId: modelRoute.requestedModelId,
+        modelRouteId: modelRoute.routeId,
+        modelRouteEndpointId: modelRoute.endpointId,
+        modelRouteProviderId: modelRoute.providerId,
+        modelRouteReceiptId: modelRoute.receiptId,
+        modelRouteDecision: modelRoute.decision,
+      };
+    }
+
+    const event = this.appendThreadRuntimeControlEvent({
+      agent: updatedAgent,
+      threadId,
+      controlKind,
+      controls: nextControls,
+      request,
+      source,
+      requestedBy,
+      workflowGraphId,
+      modelRoute,
+      now,
+    });
+    updatedAgent = {
+      ...updatedAgent,
+      runtimeControls: nextControls,
+      updatedAt: event.created_at,
+    };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, `thread.${controlKind}`);
+    const thread = this.threadForAgent(updatedAgent);
+    return {
+      ...thread,
+      control: {
+        schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+        schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+        control_kind: controlKind,
+        controlKind,
+        mode: nextControls.mode,
+        approval_mode: nextControls.approvalMode,
+        model: nextControls.model,
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      },
+      event,
+    };
+  }
+
+  appendThreadRuntimeControlEvent({
+    agent,
+    threadId,
+    controlKind,
+    controls,
+    request,
+    source,
+    requestedBy,
+    workflowGraphId,
+    modelRoute,
+    now,
+  }) {
+    const streamId = eventStreamIdForThread(threadId);
+    const workflowNodeId =
+      request.workflow_node_id ??
+      request.workflowNodeId ??
+      modelRoute?.decision?.workflowNodeId ??
+      controls.model?.workflowNodeId ??
+      (controlKind === "mode" ? "runtime.thread-mode" : "runtime.model-router");
+    const payload =
+      controlKind === "mode"
+        ? {
+            event_kind: "OperatorControl.Mode",
+            control_kind: controlKind,
+            mode: controls.mode,
+            approval_mode: controls.approvalMode,
+            requested_by: requestedBy,
+            control_surface: source,
+            agent_id: agent.id,
+            thread_id: threadId,
+            session_id: runtimeSessionIdForAgent(agent),
+          }
+        : {
+            ...(modelRoute?.decision ?? {}),
+            event_kind: "ModelRouteDecision",
+            control_kind: controlKind,
+            requested_by: requestedBy,
+            control_surface: source,
+            agent_id: agent.id,
+            thread_id: threadId,
+            session_id: runtimeSessionIdForAgent(agent),
+            model_control: controls.model,
+          };
+    const controlHash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify({
+        controlKind,
+        mode: controls.mode,
+        approvalMode: controls.approvalMode,
+        model: controls.model,
+        workflowNodeId,
+      }))
+      .digest("hex")
+      .slice(0, 16);
+    return this.appendRuntimeEvent({
+      event_stream_id: streamId,
+      thread_id: threadId,
+      turn_id: "",
+      item_id: `${threadId}:item:${controlKind}-control:${controlHash}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:control.${controlKind}:${controlHash}`,
+      source,
+      source_event_kind:
+        controlKind === "mode"
+          ? "OperatorControl.Mode"
+          : controlKind === "thinking"
+            ? "OperatorControl.Thinking"
+            : "OperatorControl.Model",
+      event_kind: controlKind === "mode" ? "thread.mode_updated" : "model.route_decision",
+      status: "completed",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: controlKind === "mode" ? "runtime_mode" : "model_router",
+      payload_schema_version:
+        controlKind === "mode"
+          ? RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION
+          : RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION,
+      payload,
+      receipt_refs:
+        controlKind === "mode"
+          ? [`receipt_${agent.id}_mode_${safeId(controls.mode)}_${controlHash}`]
+          : [modelRoute?.receiptId].filter(Boolean),
+      policy_decision_refs: [`policy_${agent.id}_${controlKind}_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+  }
+
   forkThread(threadId, request = {}) {
     const sourceThread = this.getThread(threadId);
     const sourceAgent = this.agentForThread(threadId);
@@ -1236,15 +1469,18 @@ export class AgentgresRuntimeStateStore {
 
   async createTurn(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
-    const diagnosticsFeedback = this.pendingDiagnosticsFeedbackForNextTurn(threadId, request);
+    const controlledRequest = requestWithThreadRuntimeControls(agent, request);
+    const diagnosticsFeedback = this.pendingDiagnosticsFeedbackForNextTurn(threadId, controlledRequest);
     if (diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) {
-      const prompt = request.prompt ?? request.message ?? request.input ?? "";
+      const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
       const run = this.createRun(agent.id, {
-        mode: request.mode ?? "send",
+        mode: controlledRequest.mode ?? "send",
+        threadMode: controlledRequest.threadMode,
+        approvalMode: controlledRequest.approvalMode,
         prompt,
-        options: request.options ?? {},
-        memory: request.memory,
-        remember: request.remember,
+        options: controlledRequest.options ?? {},
+        memory: controlledRequest.memory,
+        remember: controlledRequest.remember,
         diagnosticsFeedback,
       });
       return this.turnForRun(run);
@@ -1253,17 +1489,19 @@ export class AgentgresRuntimeStateStore {
       return this.createRuntimeBridgeTurn({
         agent,
         threadId,
-        request: requestWithDiagnosticsFeedback(request, diagnosticsFeedback),
+        request: requestWithDiagnosticsFeedback(controlledRequest, diagnosticsFeedback),
         diagnosticsFeedback,
       });
     }
-    const prompt = request.prompt ?? request.message ?? request.input ?? "";
+    const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
     const run = this.createRun(agent.id, {
-      mode: request.mode ?? "send",
+      mode: controlledRequest.mode ?? "send",
+      threadMode: controlledRequest.threadMode,
+      approvalMode: controlledRequest.approvalMode,
       prompt,
-      options: request.options ?? {},
-      memory: request.memory,
-      remember: request.remember,
+      options: controlledRequest.options ?? {},
+      memory: controlledRequest.memory,
+      remember: controlledRequest.remember,
       diagnosticsFeedback,
     });
     return this.turnForRun(run);
@@ -1520,6 +1758,7 @@ export class AgentgresRuntimeStateStore {
     const latestRun = runs.at(-1);
     this.projectThreadEvents(agent);
     const threadId = threadIdForAgent(agent.id);
+    const runtimeControls = normalizedAgentRuntimeControls(agent);
     const latestSeq = this.latestRuntimeEventSeq(eventStreamIdForThread(threadId));
     const updatedAt = Math.max(
       Date.parse(agent.updatedAt) || 0,
@@ -1532,8 +1771,8 @@ export class AgentgresRuntimeStateStore {
       agent_id: agent.id,
       workspace_root: agent.cwd,
       title: latestRun?.objective ?? agent.cwd,
-      mode: "agent",
-      approval_mode: "suggest",
+      mode: runtimeControls.mode,
+      approval_mode: runtimeControls.approvalMode,
       trust_profile: "local_private",
       model_route: agent.modelId,
       status: latestRun?.turnStatus === "interrupted" ? "interrupted" : threadStatusForAgent(agent.status),
@@ -1554,6 +1793,12 @@ export class AgentgresRuntimeStateStore {
       model_route_id: agent.modelRouteId ?? null,
       model_route_receipt_id: agent.modelRouteReceiptId ?? null,
       model_route_decision: agent.modelRouteDecision ?? null,
+      selected_model: agent.modelId,
+      reasoning_effort:
+        agent.modelRouteDecision?.reasoningEffort ??
+        runtimeControls.model?.reasoningEffort ??
+        null,
+      runtime_controls: runtimeControls,
       memory_count: this.memory.list({
         agent,
         threadId,
@@ -1593,8 +1838,8 @@ export class AgentgresRuntimeStateStore {
       seq_end: seqEnd,
       started_at: run.createdAt,
       completed_at: completedAt,
-      mode: "agent",
-      approval_mode: "suggest",
+      mode: run.threadMode ?? threadModeForRunMode(run.mode, agent.runtimeControls?.mode),
+      approval_mode: run.approvalMode ?? agent.runtimeControls?.approvalMode ?? "suggest",
       model_route_decision_id: run.modelRouteDecision?.decisionId ?? run.trace?.modelRouteDecision?.decisionId ?? null,
       usage: null,
       stop_reason: run.trace?.stopCondition?.reason ?? null,
@@ -6581,6 +6826,18 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     writeJsonResponse(response, store.compactThread(threadId, await readBody(request)));
     return;
   }
+  if (request.method === "POST" && action === "mode" && !segments[4]) {
+    writeJsonResponse(response, store.updateThreadMode(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "model" && !segments[4]) {
+    writeJsonResponse(response, store.updateThreadModel(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "thinking" && !segments[4]) {
+    writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
+    return;
+  }
   if (request.method === "POST" && action === "turns" && !segments[4]) {
     writeJsonResponse(response, await store.createTurn(threadId, await readBody(request)));
     return;
@@ -9926,6 +10183,198 @@ function summarizeAgentOptions(cwd, options = {}) {
   };
 }
 
+function initialThreadRuntimeControls(options = {}, modelRoute = {}, now = new Date().toISOString()) {
+  const mode = normalizeThreadInteractionMode(
+    options.mode ?? options.threadMode ?? options.interactionMode ?? "agent",
+  );
+  const approvalMode = normalizeThreadApprovalMode(
+    options.approvalMode ?? options.approval_mode,
+    approvalModeForThreadMode(mode),
+  );
+  return {
+    schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+    schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+    mode,
+    approvalMode,
+    approval_mode: approvalMode,
+    model: {
+      id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "local:auto",
+      routeId: modelRoute.routeId ?? options.model?.routeId ?? options.routeId ?? "route.local-first",
+      selectedModel: modelRoute.selectedModel ?? null,
+      endpointId: modelRoute.endpointId ?? null,
+      providerId: modelRoute.providerId ?? null,
+      receiptId: modelRoute.receiptId ?? null,
+      reasoningEffort: modelRoute.decision?.reasoningEffort ?? options.model?.reasoningEffort ?? options.model?.thinking ?? null,
+      privacy: options.model?.privacy ?? null,
+      maxCostUsd: options.model?.maxCostUsd ?? options.model?.max_cost_usd ?? null,
+      allowHostedFallback: options.model?.allowHostedFallback ?? options.model?.allow_hosted_fallback ?? null,
+      workflowGraphId: modelRoute.decision?.workflowGraphId ?? options.model?.workflowGraphId ?? null,
+      workflowNodeId: modelRoute.decision?.workflowNodeId ?? options.model?.workflowNodeId ?? "runtime.model-router",
+      updatedAt: now,
+    },
+    updatedAt: now,
+  };
+}
+
+function normalizedAgentRuntimeControls(agent = {}) {
+  const source = agent.runtimeControls ?? {};
+  const mode = normalizeThreadInteractionMode(source.mode ?? agent.mode ?? "agent");
+  const approvalMode = normalizeThreadApprovalMode(
+    source.approvalMode ?? source.approval_mode ?? agent.approvalMode ?? agent.approval_mode,
+    approvalModeForThreadMode(mode),
+  );
+  const model = source.model ?? {};
+  return {
+    schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+    schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+    mode,
+    approvalMode,
+    approval_mode: approvalMode,
+    model: {
+      id: model.id ?? agent.requestedModelId ?? agent.modelId ?? "local:auto",
+      routeId: model.routeId ?? model.route_id ?? agent.modelRouteId ?? "route.local-first",
+      selectedModel: model.selectedModel ?? model.selected_model ?? agent.modelId ?? null,
+      endpointId: model.endpointId ?? model.endpoint_id ?? agent.modelRouteEndpointId ?? null,
+      providerId: model.providerId ?? model.provider_id ?? agent.modelRouteProviderId ?? null,
+      receiptId: model.receiptId ?? model.receipt_id ?? agent.modelRouteReceiptId ?? null,
+      reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? agent.modelRouteDecision?.reasoningEffort ?? null,
+      privacy: model.privacy ?? null,
+      maxCostUsd: model.maxCostUsd ?? model.max_cost_usd ?? null,
+      allowHostedFallback: model.allowHostedFallback ?? model.allow_hosted_fallback ?? null,
+      workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? agent.modelRouteDecision?.workflowGraphId ?? null,
+      workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflowNodeId ?? "runtime.model-router",
+      updatedAt: model.updatedAt ?? model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
+    },
+    updatedAt: source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
+  };
+}
+
+function requestWithThreadRuntimeControls(agent, request = {}) {
+  const controls = normalizedAgentRuntimeControls(agent);
+  const explicitOptions = request.options ?? {};
+  const controlledOptions = {
+    ...explicitOptions,
+  };
+  if (isRuntimeBackedAgent(agent) && !explicitOptions.model && controls.model) {
+    controlledOptions.model = threadRuntimeControlModelForOptions(controls.model);
+  }
+  const mode = request.mode ?? runModeForThreadMode(controls.mode);
+  return {
+    ...request,
+    mode,
+    threadMode: request.threadMode ?? request.thread_mode ?? controls.mode,
+    approvalMode:
+      request.approvalMode ??
+      request.approval_mode ??
+      controls.approvalMode ??
+      approvalModeForThreadMode(controls.mode),
+    options: controlledOptions,
+  };
+}
+
+function threadRuntimeControlModelForOptions(model = {}) {
+  return {
+    id: model.id ?? "local:auto",
+    routeId: model.routeId ?? model.route_id ?? "route.local-first",
+    reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? undefined,
+    privacy: model.privacy ?? undefined,
+    maxCostUsd: model.maxCostUsd ?? model.max_cost_usd ?? undefined,
+    allowHostedFallback: model.allowHostedFallback ?? model.allow_hosted_fallback ?? undefined,
+    workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? undefined,
+    workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? "runtime.model-router",
+    workflowNodeType: "Model Router",
+  };
+}
+
+function threadRuntimeControlKind(request = {}) {
+  const value = optionalString(request.control ?? request.control_kind ?? request.kind ?? request.command)?.toLowerCase();
+  if (value === "mode" || value === "model" || value === "thinking") return value;
+  if (
+    request.reasoningEffort !== undefined ||
+    request.reasoning_effort !== undefined ||
+    request.thinking !== undefined ||
+    request.effort !== undefined
+  ) {
+    return "thinking";
+  }
+  if (request.model !== undefined || request.modelId !== undefined || request.model_id !== undefined || request.routeId !== undefined || request.route_id !== undefined) {
+    return "model";
+  }
+  if (request.mode !== undefined || request.interactionMode !== undefined || request.interaction_mode !== undefined) {
+    return "mode";
+  }
+  throw runtimeError({
+    status: 400,
+    code: "thread_control_kind_required",
+    message: "Thread runtime controls require mode, model, or thinking.",
+    details: { requestKeys: Object.keys(request ?? {}) },
+  });
+}
+
+function threadRuntimeControlModelInput(request = {}, controls = {}, agent = {}) {
+  const bodyModel =
+    request.model && typeof request.model === "object" && !Array.isArray(request.model)
+      ? request.model
+      : {};
+  const existingModel = controls.model ?? {};
+  const modelId =
+    optionalString(bodyModel.id ?? bodyModel.modelId ?? bodyModel.model_id) ??
+    (typeof request.model === "string" ? optionalString(request.model) : undefined) ??
+    optionalString(request.modelId ?? request.model_id ?? request.id) ??
+    existingModel.id ??
+    agent.requestedModelId ??
+    agent.modelId ??
+    "local:auto";
+  const routeId =
+    optionalString(bodyModel.routeId ?? bodyModel.route_id ?? bodyModel.route) ??
+    optionalString(request.routeId ?? request.route_id ?? request.route) ??
+    existingModel.routeId ??
+    existingModel.route_id ??
+    agent.modelRouteId ??
+    "route.local-first";
+  const reasoningEffort = normalizeReasoningEffort(
+    bodyModel.reasoningEffort ??
+      bodyModel.reasoning_effort ??
+      bodyModel.thinking ??
+      request.reasoningEffort ??
+      request.reasoning_effort ??
+      request.thinking ??
+      request.effort ??
+      existingModel.reasoningEffort ??
+      existingModel.reasoning_effort ??
+      agent.modelRouteDecision?.reasoningEffort ??
+      null,
+    true,
+  );
+  const workflowNodeId =
+    optionalString(
+      bodyModel.workflowNodeId ??
+        bodyModel.workflow_node_id ??
+        request.workflowNodeId ??
+        request.workflow_node_id,
+    ) ??
+    existingModel.workflowNodeId ??
+    existingModel.workflow_node_id ??
+    "runtime.model-router";
+  const model = {
+    id: modelId,
+    routeId,
+    workflowNodeId,
+    workflowNodeType: "Model Router",
+  };
+  if (reasoningEffort) model.reasoningEffort = reasoningEffort;
+  for (const [key, snakeKey, outputKey] of [
+    ["privacy", "privacy", "privacy"],
+    ["maxCostUsd", "max_cost_usd", "maxCostUsd"],
+    ["allowHostedFallback", "allow_hosted_fallback", "allowHostedFallback"],
+    ["workflowGraphId", "workflow_graph_id", "workflowGraphId"],
+  ]) {
+    const value = bodyModel[key] ?? bodyModel[snakeKey] ?? request[key] ?? request[snakeKey] ?? existingModel[key] ?? existingModel[snakeKey];
+    if (value !== undefined && value !== null) model[outputKey] = value;
+  }
+  return { model, workflowNodeId };
+}
+
 function modelPolicyForOptions(options = {}) {
   const model = options.model ?? {};
   const policy = {
@@ -9999,6 +10448,81 @@ function modelRouteBindingFromReceipt(receipt, requestedModelId) {
     receiptId: receipt.id,
     decision,
   };
+}
+
+function normalizeThreadInteractionMode(value) {
+  const mode = optionalString(value)?.toLowerCase().replace(/-/g, "_") ?? "agent";
+  if (["agent", "send", "chat", "run", "tui"].includes(mode)) return "agent";
+  if (["plan", "planning", "read_only", "readonly"].includes(mode)) return "plan";
+  if (["yolo", "auto", "auto_local", "never_prompt"].includes(mode)) return "yolo";
+  if (["custom", "dry_run", "handoff", "learn"].includes(mode)) return "custom";
+  throw runtimeError({
+    status: 400,
+    code: "thread_mode_invalid",
+    message: "Thread mode must be plan, agent, yolo, or custom.",
+    details: { mode: value ?? null },
+  });
+}
+
+function normalizeThreadApprovalMode(value, fallback = "suggest") {
+  const mode = optionalString(value)?.toLowerCase().replace(/-/g, "_");
+  if (!mode) return fallback;
+  if (["suggest", "auto_local", "never_prompt", "human_required", "policy_required"].includes(mode)) {
+    return mode;
+  }
+  throw runtimeError({
+    status: 400,
+    code: "approval_mode_invalid",
+    message: "Approval mode must be suggest, auto_local, never_prompt, human_required, or policy_required.",
+    details: { approvalMode: value ?? null },
+  });
+}
+
+function approvalModeForThreadMode(mode) {
+  switch (normalizeThreadInteractionMode(mode)) {
+    case "plan":
+      return "human_required";
+    case "yolo":
+      return "never_prompt";
+    case "agent":
+    case "custom":
+    default:
+      return "suggest";
+  }
+}
+
+function runModeForThreadMode(mode) {
+  switch (normalizeThreadInteractionMode(mode)) {
+    case "plan":
+      return "plan";
+    case "agent":
+    case "yolo":
+    case "custom":
+    default:
+      return "send";
+  }
+}
+
+function threadModeForRunMode(runMode, fallback = "agent") {
+  const mode = optionalString(runMode)?.toLowerCase().replace(/-/g, "_");
+  if (mode === "plan") return "plan";
+  if (mode === "send" || mode === "agent" || mode === "tui") return normalizeThreadInteractionMode(fallback);
+  return normalizeThreadInteractionMode(fallback);
+}
+
+function normalizeReasoningEffort(value, allowNull = false) {
+  const effort = optionalString(value)?.toLowerCase();
+  if (!effort) return allowNull ? null : "medium";
+  if (["provider_default", "default", "auto"].includes(effort)) {
+    return allowNull ? null : "medium";
+  }
+  if (["low", "medium", "high", "xhigh"].includes(effort)) return effort;
+  throw runtimeError({
+    status: 400,
+    code: "reasoning_effort_invalid",
+    message: "Thinking controls accept low, medium, high, or xhigh.",
+    details: { reasoningEffort: value ?? null },
+  });
 }
 
 function normalizeArray(value) {

@@ -1402,6 +1402,127 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
   }
 });
 
+test("daemon owns thread mode, model, and thinking controls for TUI and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-controls-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-controls-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "cli_tui",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const mode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "yolo",
+        source: "react_flow",
+        workflowGraphId: "runtime-control-graph",
+        workflowNodeId: "runtime.thread-mode",
+      }),
+    });
+    assert.equal(mode.mode, "yolo");
+    assert.equal(mode.approval_mode, "never_prompt");
+    assert.equal(mode.control.control_kind, "mode");
+    assert.equal(mode.event.source_event_kind, "OperatorControl.Mode");
+    assert.equal(mode.event.workflow_graph_id, "runtime-control-graph");
+
+    const model = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/model`, {
+      method: "POST",
+      body: JSON.stringify({
+        model: {
+          id: "auto",
+          routeId: "route.native-local",
+          reasoningEffort: "medium",
+          workflowGraphId: "runtime-control-graph",
+          workflowNodeId: "runtime.model-router",
+        },
+        source: "cli_tui",
+      }),
+    });
+    assert.equal(model.requested_model, "auto");
+    assert.equal(model.model_route_id, "route.native-local");
+    assert.equal(model.control.control_kind, "model");
+    assert.equal(model.event.event_kind, "model.route_decision");
+    assert.equal(model.event.component_kind, "model_router");
+
+    const thinking = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/thinking`, {
+      method: "POST",
+      body: JSON.stringify({
+        reasoningEffort: "high",
+        source: "cli_tui",
+        workflowNodeId: "runtime.model-router",
+      }),
+    });
+    assert.equal(thinking.reasoning_effort, "high");
+    assert.equal(thinking.runtime_controls.model.reasoningEffort, "high");
+    assert.equal(thinking.control.control_kind, "thinking");
+    assert.equal(thinking.event.source_event_kind, "OperatorControl.Thinking");
+
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: "Use daemon-owned controls for this turn." }),
+    });
+    assert.equal(turn.mode, "yolo");
+    assert.equal(turn.approval_mode, "never_prompt");
+    assert.equal(turn.model_route_decision.reasoningEffort, "high");
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    assert.ok(events.some((event) => event.source_event_kind === "OperatorControl.Mode"));
+    assert.ok(events.some((event) => event.source_event_kind === "OperatorControl.Model"));
+    assert.ok(events.some((event) => event.source_event_kind === "OperatorControl.Thinking"));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    assert.equal(sdkThread.record.mode, "yolo");
+    assert.equal(sdkThread.record.reasoning_effort, "high");
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    assert.ok(
+      reactFlowProjection.nodes.some((node) => node.workflowNodeId === "runtime.model-router"),
+    );
+    const controlProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: thread.thread_id,
+      current_turn_id: turn.turn_id,
+      last_cursor: `${thinking.event.event_stream_id}:${thinking.event.seq}`,
+      mode_status: {
+        mode: thinking.mode,
+        approval_mode: thinking.approval_mode,
+        requested_model: thinking.requested_model,
+        selected_model: thinking.selected_model,
+        model_route_id: thinking.model_route_id,
+        reasoning_effort: thinking.reasoning_effort,
+        workflow_node_id: "runtime.model-router",
+      },
+      command_history: [
+        { command: "mode", raw_input: "/mode yolo", status: "applied" },
+        { command: "model", raw_input: "/model auto route.native-local", status: "applied" },
+        { command: "thinking", raw_input: "/thinking high", status: "applied" },
+      ],
+    });
+    assert.ok(controlProjection.rows.some((row) => row.rowKind === "model_route"));
+    assert.ok(controlProjection.rows.some((row) => row.rowKind === "thinking"));
+    assert.ok(
+      controlProjection.rows.some(
+        (row) => row.rowKind === "thinking" && row.reactFlowNodeId === "runtime.model-router.thinking",
+      ),
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime_service thread creation requires RuntimeApiBridge and preserves bridge events", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-state-"));
@@ -3501,6 +3622,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{id\}\/events\/stream/);
   assert.match(source, /\/v1\/runs\/\{id\}\/events/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/mode/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/model/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/thinking/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
@@ -3540,7 +3664,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3566,6 +3690,9 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /daemon_request/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
+  assert.match(source, /OperatorControl\.Mode/);
+  assert.match(source, /OperatorControl\.Model/);
+  assert.match(source, /OperatorControl\.Thinking/);
   assert.match(source, /TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
@@ -5694,10 +5821,13 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
+      "/mode yolo\n/model auto route.native-local\n/thinking high\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
-    assert.match(result.stdout, /Line-mode commands: .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /line_mode_command=mode/);
+    assert.match(result.stdout, /line_mode_command=model/);
+    assert.match(result.stdout, /line_mode_command=thinking/);
     assert.match(result.stdout, /line_mode_command=jobs count=\d+/);
     assert.match(result.stdout, /line_mode_command=job action=inspect/);
     assert.match(result.stdout, /line_mode_command=run action=replay/);
@@ -5706,6 +5836,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /line_mode_error=\/steer requires guidance text/);
     assert.match(result.stdout, /line_mode_command=quit/);
     assert.match(result.stdout, /OperatorControl\.Interrupt/);
+    assert.match(result.stdout, /OperatorControl\.Thinking/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
     const threadId = result.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
     assert.ok(threadId);
@@ -5768,6 +5899,16 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(finalControlState.last_cursor);
     assert.ok(
       finalControlState.command_history.some(
+        (entry) => entry.command === "mode" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
+        (entry) => entry.command === "thinking" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
         (entry) => entry.command === "interrupt" && entry.status === "applied",
       ),
     );
@@ -5794,6 +5935,16 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.equal(lineModeControlProjection.threadId, threadId);
     assert.ok(lineModeControlProjection.jobCount >= 1);
     assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) => row.rowKind === "model_route" && row.reactFlowNodeId === "runtime.model-router",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) => row.rowKind === "thinking" && row.reasoningEffort === "high",
+      ),
+    );
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) =>

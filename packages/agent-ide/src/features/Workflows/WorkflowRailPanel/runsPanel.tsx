@@ -496,6 +496,9 @@ export function WorkflowRunsPanel({
                     data-approval-id={row.approvalId ?? ""}
                     data-job-id={row.jobId ?? ""}
                     data-run-id={row.runId ?? ""}
+                    data-model-id={row.modelId ?? ""}
+                    data-route-id={row.routeId ?? ""}
+                    data-reasoning-effort={row.reasoningEffort ?? ""}
                     data-thread-id={row.threadId ?? ""}
                     data-turn-id={row.turnId ?? ""}
                     data-cursor={row.cursor ?? ""}

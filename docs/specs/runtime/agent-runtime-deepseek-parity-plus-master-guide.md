@@ -126,20 +126,20 @@ Completed-slice history belongs in the companion ledgers.
 
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
-| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, `/status`, `/diff`, `/inspect`, `/patch`, `/patch-dry-run`, `/test`, `/diagnostics`, `/artifact`, `/retrieve`, `/restore`, `/jobs`, `/job`, `/run`, and `/quit`, prove React Flow-authored interrupt/steer/restore nodes share the same event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/approval/coding-tool/restore/job/run-lifecycle rows that React Flow can inspect. SDK job handles now list, fetch, and cancel daemon job records through the same `/v1/jobs` contract. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract; recommended next is mode/model/thinking controls because they affect every coding turn. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
+| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/mode`, `/model`, `/thinking`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, `/status`, `/diff`, `/inspect`, `/patch`, `/patch-dry-run`, `/test`, `/diagnostics`, `/artifact`, `/retrieve`, `/restore`, `/jobs`, `/job`, `/run`, and `/quit`, prove React Flow-authored interrupt/steer/restore nodes share the same event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/model-route/thinking/approval/coding-tool/restore/job/run-lifecycle rows that React Flow can inspect. SDK job handles now list, fetch, and cancel daemon job records through the same `/v1/jobs` contract; SDK threads can also update mode, model route, and thinking controls through daemon-owned endpoints. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract; recommended next is MCP/memory control and status because those change the agent action and context surface. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
 | P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`, and `tool.retrieve_result` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve`, receipt-backed `tool.completed` events, range-aware test-output spillover artifacts, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, diagnostics mode/default command, restore policy, restore conflict policy, diagnostics repair default, operator-override approval, artifact retrieval, allowed paths, command ids, and timeouts. `file.apply_patch` now reports changed-file existence/size/mtime metadata and emits workspace snapshot ids, artifacts, receipts, and rollback refs for applied mutations. `lsp.diagnostics` defaults to `auto`, resolves TypeScript files with a nearest-`tsconfig.json` project check when local `tsc` is available, and emits degraded/fallback receipts when it must fall back. | Keep coding-pack regression proof green while using these tools inside the next full TUI/workflow recovery surfaces. | Tool-pack nodes can enable/disable git/test/diagnostics/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests; applied patch rows now link to workspace snapshot evidence and workflow-authored restore/repair policy. |
 | P0-C | Post-edit LSP diagnostics | Mutating `file.apply_patch` now auto-runs configured diagnostics for changed files, records `runtime_auto` diagnostic events, injects compact findings into the next local or runtime-bridge turn, emits a receipt-backed `lsp.diagnostics.injected` event, and projects the injection through SDK and React Flow. React Flow coding-pack controls expose `advisory`, `blocking`, and `skip` modes plus default diagnostic command; nested `toolPack.coding.*` config is honored by daemon invocation. `blocking` mode now stops model continuation before a local or runtime-bridge turn, creates a blocked turn/run with no assistant delta, emits a receipt-backed `policy.blocked` diagnostics gate, and binds candidate workspace snapshot refs into a workflow-configurable rollback/repair policy with `repair_retry`, `restore_preview`, `restore_apply`, and `operator_override` decision refs visible to SDK and React Flow. Default `auto` diagnostics now carry requested/resolved command ids, backend, backend status/reason, project context, TypeScript project findings, degraded fallback receipts, rollback repair context, restore policy, conflict policy, preferred repair default, and override approval requirement. The `repair_retry`, `restore_preview`, `restore_apply`, and `operator_override` repair decisions are now executable through the daemon endpoint and SDK method, emit workflow-addressable repair/override events plus `diagnostics.repair_decision.executed`, preserve React Flow graph/node identity, enforce override approval when configured, and either create a diagnostics-injected retry turn, delegate to restore contracts, or mark the blocked turn continuation-allowed. | Thread these executable repair decisions into richer terminal TUI and workflow recovery UX. | `LspDiagnosticsNode` and coding-pack diagnostics controls change runtime warning/error injection behavior and surface injected findings, backend metadata, degraded receipts, blocking gates, rollback refs, repair retries, restore previews, restore applies, operator overrides, and repair decision executions as workflow-addressable rows. |
 | P0-D | Workspace rollback snapshots | Applied `file.apply_patch` calls now create first-class, receipt-backed, content-backed `workspace.snapshot.created` records for size-limited UTF-8 touched files, store before/after content in a redacted snapshot artifact, expose snapshot listing and SDK helpers, support daemon-owned `restore-preview` with drift/conflict checks, and support policy-gated `restore-apply` with explicit approval, conflict override policy, receipts, artifacts, rollback refs, SDK results, React Flow `restore_gate` rows, and diagnostics rollback/repair gate integration without touching user `.git`. React Flow coding-pack controls can configure restore authority, conflict behavior, and repair policy defaults, first-class `RuntimeRollbackSnapshotNode`/`RuntimeRestoreGateNode` definitions compile restore requests across the editor registry, local workflow execution lane, project templates, generated action schemas, and source contracts, and TUI `/restore` lists snapshots, previews restore operations, applies snapshots only with `--approve`, and replays restore events for React Flow projection. Diagnostics repair `restore_preview` and `restore_apply` now reuse the same restore endpoints and projection contracts. | Keep restore repair execution aligned as broader recovery UX grows. | Snapshot, restore-preview, and restore-apply rows are configurable rollback/restore workflow inputs; `RollbackSnapshotNode`, `RestoreGateNode`, TUI restore commands, and diagnostics repair decisions must remain projections of the same daemon restore endpoints. |
 | P1-A | Subagent runtime parity | Delegation patterns exist, but the full role-aware lifecycle and output contract are not productized. | Spawn, wait, send input, cancel, resume, and validate output contract for parallel child agents. | Subagent pool/role/join nodes enforce concurrency, budget, and merge policy. |
 | P1-B | MCP manager parity | MCP containment exists, but manager UX and self-hosted MCP modes remain incomplete. | Import, validate, enable/disable, invoke, and serve MCP under IOI containment. | MCP server/tool/resource nodes compile into governed runtime config. |
-| P1-C | Modes, trust, approvals | Rich policy internals exist, but product-level Plan/Agent/YOLO/review modes need one stable contract. | Mode changes are evented and enforced by runtime policy even when UI config is permissive. | Graph-level mode selector and node approval overrides compile into one approval manifest. |
+| P1-C | Modes, trust, approvals | Thread-level `plan`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Richer workspace trust and review-mode policy still need one approval manifest. | Prove plan/review block mutating tools at runtime even if UI config is permissive, and prove graph-level approval overrides compile into the same manifest. | Graph-level mode selector and node approval overrides compile into one approval manifest. |
 | P1-D | Usage, cost, context telemetry | Usage fragments exist, but product-grade per-turn/session cost and context pressure are not unified. | Live usage/context events aggregate through API, SDK, CLI/TUI, and workflow budget nodes. | Usage and budget nodes can simulate and enforce workflow caps. |
 
 ### Immediate Tactical Queue
 
-1. Add daemon-owned TUI mode/model/thinking controls and React Flow bindings so
-   Plan/Agent/YOLO-style turn policy changes are visible, evented, and
-   replayable across SDK, CLI/TUI, and workflow runs.
+1. Add daemon-owned MCP and memory control/status surfaces so action-space and
+   context changes are visible, evented, and replayable across SDK, CLI/TUI,
+   and workflow runs.
 2. When adding the next recovery or diagnostics affordance, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
 3. Continue settings harness cleanup only as maintenance, gated by a concrete
@@ -858,6 +858,14 @@ Acceptance evidence:
 - mode changes are evented, persisted, and replayable;
 - React Flow graph export includes mode and approval profile.
 
+Implementation status, 2026-05-13:
+
+- `/v1/threads/{thread_id}/mode`, SDK `Thread.mode`, TUI `/mode`, and React
+  Flow mode-status projection are in place for `plan`, `agent`, and `yolo`.
+- Remaining work is hard policy enforcement across every mutating tool,
+  review-mode semantics, workspace trust warnings, and the graph approval
+  manifest.
+
 ### P1. Cost, Usage, Context, And Capacity Telemetry
 
 Problem:
@@ -967,6 +975,14 @@ Acceptance evidence:
 - failed router call falls back deterministically;
 - route decision has receipt/evidence;
 - workflow config can pin model or choose auto.
+
+Implementation status, 2026-05-13:
+
+- `/v1/threads/{thread_id}/model` and `/thinking`, SDK `Thread.model` and
+  `Thread.thinking`, TUI `/model` and `/thinking`, and React Flow
+  model-route/thinking rows plus model-binding config are in place.
+- Remaining work is richer router policy: provider priority, privacy tier,
+  fallback, cost estimates, and deterministic remote/local failover.
 
 ### P1. Memory UX
 
@@ -1608,7 +1624,7 @@ Validation:
 | --- | --- | --- | --- | --- | --- |
 | Threads/turns/items | `AgentState` projection plus TTI records | `/v1/threads/*` | `Thread`, `Turn`, `Run` | `/threads`, `/events` | thread/turn/event nodes |
 | Live events | event writer | SSE by `seq` | async iterators | stream/replay | replay animation |
-| Modes | runtime mode/profile | thread/turn mode fields | options | Plan/Agent/YOLO | graph mode selector |
+| Modes | runtime mode/profile and approval mapping | `/v1/threads/{thread_id}/mode`, thread/turn mode fields, `OperatorControl.Mode` events | `Thread.mode` | TUI `/mode` for Plan/Agent/YOLO | graph mode selector plus mode-status rows |
 | Coding tools | coding tool pack | `/v1/tools?pack=coding`, `/v1/threads/{thread_id}/tools/{tool_id}/invoke` | `listTools({ pack })`, `invokeThreadTool` | `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve` | `coding_tool_pack` binding and projected coding-tool/artifact rows |
 | Jobs | job manager | `/v1/jobs`, `/v1/jobs/{id}`, `/v1/jobs/{id}/cancel`, `/v1/runs/{id}/{events,replay,trace,inspect,cancel}` | `listJobs`, `getJob`, `cancelJob`, run trace/replay/inspect/cancel handles | TUI `/jobs`, `/job`, `/run` | job and run-lifecycle rows in TUI control-state projection plus job nodes |
 | LSP | LSP runtime | diagnostic events | diagnostic items | diagnostics panel | LSP node/overlay |
@@ -1619,7 +1635,7 @@ Validation:
 | Skills/hooks | prompt/hook components | config/introspection | skill/hook options | `/skills`, `/hooks` | skill/hook nodes |
 | Usage/cost | usage normalizer | `/v1/usage` | usage methods | `/cost` | usage/budget nodes |
 | Doctor | runtime health | `/v1/doctor` | doctor method | `doctor --json` | readiness panel |
-| Model routing | route decision component | route events | route metadata | `/model`, `/thinking` | model-router node |
+| Model routing | route decision component | `/v1/threads/{thread_id}/model`, `/thinking`, route events | `Thread.model`, `Thread.thinking`, route metadata | TUI `/model`, `/thinking` | model-router node, model binding config, model-route/thinking rows |
 | Repository/PR | repo services | repo/PR endpoints | repo helpers | repo commands | repo/PR nodes |
 
 ## Prompt And System Instruction Updates
@@ -1693,12 +1709,25 @@ and React Flow workflow-originated requests. The next slices should therefore
 exercise the bridge through user-visible DeepSeek parity surfaces instead of
 adding more infrastructure by default.
 
+Recent focused validation, 2026-05-13:
+
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "local daemon projects Agentgres runs|daemon owns thread mode|agent TUI line-mode slash commands|agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --preflight` passed; the live
+  GUI run passed retained chat scenarios and workflow coding-route/promotion
+  proof files, but the broad harness still exits nonzero on older package and
+  rollback evidence-artifact requirements outside this slice.
+
 Next runtime implementation sequence:
 
-1. Move from the thin TUI shell toward the full terminal coding-agent surface:
-   jobs, MCP, memory, cost/context, subagents, and workflow graph
-   affordances.
-2. Fold executable diagnostics repair decisions into that TUI/workflow recovery
+1. Add daemon-owned MCP manager controls: discover/import, enable/disable,
+   validate, invoke, and project MCP tool/resource status into TUI and React
+   Flow.
+2. Add memory UX on the same pattern: remember/list/edit/disable/path controls
+   backed by runtime events and workflow memory nodes.
+3. Fold executable diagnostics repair decisions into that TUI/workflow recovery
    surface rather than adding another standalone repair endpoint.
 
 React Flow cleanup remains allowed, but it is now a support track. A cleanup

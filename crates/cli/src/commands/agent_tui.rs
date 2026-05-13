@@ -20,6 +20,9 @@ const TUI_THREAD_CREATE_ROUTE: &str = "/v1/threads";
 const TUI_THREAD_LIST_ROUTE: &str = "/v1/threads";
 const TUI_THREAD_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}";
 const TUI_THREAD_RESUME_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/resume";
+const TUI_THREAD_MODE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mode";
+const TUI_THREAD_MODEL_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/model";
+const TUI_THREAD_THINKING_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/thinking";
 const TUI_TURN_CREATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns";
 const TUI_EVENT_STREAM_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/events";
 const TUI_INTERRUPT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_id}/interrupt";
@@ -229,6 +232,9 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "thread_list": TUI_THREAD_LIST_ROUTE,
         "thread": TUI_THREAD_ROUTE_TEMPLATE,
         "thread_resume": TUI_THREAD_RESUME_ROUTE_TEMPLATE,
+        "thread_mode": TUI_THREAD_MODE_ROUTE_TEMPLATE,
+        "thread_model": TUI_THREAD_MODEL_ROUTE_TEMPLATE,
+        "thread_thinking": TUI_THREAD_THINKING_ROUTE_TEMPLATE,
         "turn_create": TUI_TURN_CREATE_ROUTE_TEMPLATE,
         "event_stream": TUI_EVENT_STREAM_ROUTE_TEMPLATE,
         "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
@@ -322,7 +328,16 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             .unwrap_or_else(|| "local_private".to_string())
     );
     println!(
-        "  controls=/interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
+        "  controls=/mode /model /thinking /interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
+    );
+    println!(
+        "  model={} route={} thinking={}",
+        json_path_string(&control_state, "/mode_status/requested_model")
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&control_state, "/mode_status/model_route_id")
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&control_state, "/mode_status/reasoning_effort")
+            .unwrap_or_else(|| "default".to_string())
     );
     let job_rows = tui_job_rows(&render.jobs, Some(&thread_id));
     if !job_rows.is_empty() {
@@ -523,7 +538,6 @@ async fn submit_tui_turn(
         Some(serde_json::json!({
             "prompt": message,
             "source": "cli_tui",
-            "mode": "tui",
         })),
     )
     .await
@@ -599,6 +613,81 @@ pub(crate) async fn steer_tui_turn(
             "event_kind": "OperatorControl.Steer",
             "component_kind": "operator_control",
             "workflow_node_id": "runtime.operator-steer",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn update_tui_thread_mode(
+    thread_id: &str,
+    mode: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MODE_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "mode": mode,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Mode",
+            "component_kind": "runtime_mode",
+            "workflow_node_id": "runtime.thread-mode",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn update_tui_thread_model(
+    thread_id: &str,
+    model_id: &str,
+    route_id: Option<&str>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut model = Map::new();
+    model.insert("id".to_string(), Value::String(model_id.to_string()));
+    if let Some(route_id) = route_id.filter(|value| !value.trim().is_empty()) {
+        model.insert("routeId".to_string(), Value::String(route_id.to_string()));
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MODEL_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "model": Value::Object(model),
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Model",
+            "component_kind": "model_router",
+            "workflow_node_id": "runtime.model-router",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn update_tui_thread_thinking(
+    thread_id: &str,
+    reasoning_effort: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_THINKING_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "reasoningEffort": reasoning_effort,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Thinking",
+            "component_kind": "model_router",
+            "workflow_node_id": "runtime.model-router",
         })),
     )
     .await
@@ -1014,11 +1103,17 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
 
 pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> Value {
     let turn = selected_turn_value(thread, current_turn_id);
+    let runtime_controls = thread.pointer("/runtime_controls");
+    let model_controls = runtime_controls.and_then(|value| value.pointer("/model"));
+    let model_route_decision = thread.pointer("/model_route_decision");
     serde_json::json!({
         "mode": json_path_string(turn.unwrap_or(thread), "/mode")
+            .or_else(|| json_path_string(thread, "/runtime_controls/mode"))
             .or_else(|| json_path_string(thread, "/mode"))
             .unwrap_or_else(|| "agent".to_string()),
         "approval_mode": json_path_string(turn.unwrap_or(thread), "/approval_mode")
+            .or_else(|| json_path_string(thread, "/runtime_controls/approvalMode"))
+            .or_else(|| json_path_string(thread, "/runtime_controls/approval_mode"))
             .or_else(|| json_path_string(thread, "/approval_mode"))
             .unwrap_or_else(|| "suggest".to_string()),
         "trust_profile": json_path_string(thread, "/trust_profile")
@@ -1026,6 +1121,25 @@ pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> 
         "thread_status": json_path_string(thread, "/status"),
         "current_turn_status": turn.and_then(|value| json_path_string(value, "/status")),
         "current_turn_id": current_turn_id,
+        "requested_model": json_path_string(thread, "/requested_model")
+            .or_else(|| model_controls.and_then(|value| json_path_string(value, "/id"))),
+        "selected_model": json_path_string(thread, "/selected_model")
+            .or_else(|| json_path_string(thread, "/model_route"))
+            .or_else(|| model_controls.and_then(|value| json_path_string(value, "/selectedModel"))),
+        "model_route_id": json_path_string(thread, "/model_route_id")
+            .or_else(|| model_controls.and_then(|value| json_path_string(value, "/routeId"))),
+        "model_route_receipt_id": json_path_string(thread, "/model_route_receipt_id")
+            .or_else(|| model_controls.and_then(|value| json_path_string(value, "/receiptId"))),
+        "model_route_decision_id": model_route_decision
+            .and_then(|value| json_path_string(value, "/decisionId")),
+        "reasoning_effort": json_path_string(thread, "/reasoning_effort")
+            .or_else(|| model_route_decision.and_then(|value| json_path_string(value, "/reasoningEffort")))
+            .or_else(|| model_controls.and_then(|value| json_path_string(value, "/reasoningEffort"))),
+        "workflow_graph_id": json_path_string(thread, "/workflow_graph_id")
+            .or_else(|| model_controls.and_then(|value| json_path_string(value, "/workflowGraphId"))),
+        "workflow_node_id": model_controls
+            .and_then(|value| json_path_string(value, "/workflowNodeId"))
+            .unwrap_or_else(|| "runtime.model-router".to_string()),
         "source": "daemon_thread",
     })
 }
@@ -1487,6 +1601,18 @@ mod tests {
                 "workspace_snapshot_live"
             ),
             "/v1/threads/thread_live/snapshots/workspace_snapshot_live/restore-preview"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_MODE_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/mode"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_MODEL_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/model"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_THINKING_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/thinking"
         );
         assert_eq!(
             route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, "job_run_live"),

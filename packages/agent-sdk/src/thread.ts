@@ -6,6 +6,9 @@ import {
   type RuntimeThreadCompactInput,
   type RuntimeThreadCreateInput,
   type RuntimeThreadForkInput,
+  type RuntimeThreadModeInput,
+  type RuntimeThreadModelInput,
+  type RuntimeThreadThinkingInput,
   type RuntimeTurnCreateInput,
   type RuntimeTurnInterruptInput,
   type RuntimeTurnSteerInput,
@@ -94,6 +97,18 @@ export class Thread {
 
   async compact(input: RuntimeThreadCompactInput = {}): Promise<Thread> {
     return new Thread(this.client, await this.client.compactThread(this.id, input));
+  }
+
+  async mode(input: RuntimeThreadModeInput): Promise<Thread> {
+    return new Thread(this.client, await this.client.updateThreadMode(this.id, input));
+  }
+
+  async model(input: RuntimeThreadModelInput): Promise<Thread> {
+    return new Thread(this.client, await this.client.updateThreadModel(this.id, input));
+  }
+
+  async thinking(input: RuntimeThreadThinkingInput): Promise<Thread> {
+    return new Thread(this.client, await this.client.updateThreadThinking(this.id, input));
   }
 
   async submit(input: RuntimeTurnCreateInput): Promise<Turn> {

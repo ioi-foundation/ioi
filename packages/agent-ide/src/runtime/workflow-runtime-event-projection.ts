@@ -178,6 +178,8 @@ export interface WorkflowRuntimeEventProjection {
 export type WorkflowRuntimeTuiControlRowKind =
   | "summary"
   | "mode_status"
+  | "model_route"
+  | "thinking"
   | "approval"
   | "approval_decision"
   | "job"
@@ -242,6 +244,9 @@ export interface WorkflowRuntimeTuiControlStateRow {
   approvalId: string | null;
   jobId: string | null;
   runId: string | null;
+  modelId: string | null;
+  routeId: string | null;
+  reasoningEffort: string | null;
   threadId: string | null;
   turnId: string | null;
   cursor: string | null;
@@ -372,6 +377,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: null,
       jobId: null,
       runId: null,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
       threadId,
       turnId: currentTurnId,
       cursor: lastCursor,
@@ -401,6 +409,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: null,
       jobId: null,
       runId: null,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
       threadId,
       turnId: currentTurnId,
       cursor: lastCursor,
@@ -410,6 +421,63 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       policyDecisionRefs: [],
       reactFlowNodeId: "runtime.tui-control-state.mode-status",
     });
+    const modelId = stringField(modeStatus, "requestedModel", "requested_model");
+    const selectedModel = stringField(modeStatus, "selectedModel", "selected_model");
+    const routeId = stringField(modeStatus, "modelRouteId", "model_route_id");
+    const reasoningEffort = stringField(modeStatus, "reasoningEffort", "reasoning_effort");
+    const modelNodeId =
+      stringField(modeStatus, "workflowNodeId", "workflow_node_id") ??
+      "runtime.model-router";
+    if (modelId || selectedModel || routeId) {
+      rows.push({
+        id: `tui-model-route:${slug(threadId ?? "detached")}`,
+        rowKind: "model_route",
+        status: "current",
+        label: "Model route",
+        command: "model",
+        rawInput: "/model",
+        message: [modelId, selectedModel, routeId].filter(Boolean).join(" · ") || null,
+        approvalId: null,
+        jobId: null,
+        runId: null,
+        modelId: modelId ?? selectedModel ?? null,
+        routeId,
+        reasoningEffort,
+        threadId,
+        turnId: currentTurnId,
+        cursor: lastCursor,
+        eventId: lastEventId,
+        sequence: null,
+        receiptRefs: stringArrayField(modeStatus, "receiptRefs", "receipt_refs"),
+        policyDecisionRefs: [],
+        reactFlowNodeId: modelNodeId,
+      });
+    }
+    if (reasoningEffort) {
+      rows.push({
+        id: `tui-thinking:${slug(threadId ?? "detached")}`,
+        rowKind: "thinking",
+        status: "current",
+        label: "Thinking",
+        command: "thinking",
+        rawInput: "/thinking",
+        message: reasoningEffort,
+        approvalId: null,
+        jobId: null,
+        runId: null,
+        modelId: modelId ?? selectedModel ?? null,
+        routeId,
+        reasoningEffort,
+        threadId,
+        turnId: currentTurnId,
+        cursor: lastCursor,
+        eventId: lastEventId,
+        sequence: null,
+        receiptRefs: stringArrayField(modeStatus, "receiptRefs", "receipt_refs"),
+        policyDecisionRefs: [],
+        reactFlowNodeId: `${modelNodeId}.thinking`,
+      });
+    }
   }
 
   approvalRows.forEach((entry, index) => {
@@ -427,6 +495,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId,
       jobId: null,
       runId: null,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -462,6 +533,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId,
       jobId: null,
       runId: null,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -501,6 +575,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: null,
       jobId,
       runId,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -537,6 +614,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: null,
       jobId,
       runId,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -570,6 +650,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: stringField(entry, "approvalId", "approval_id"),
       jobId: stringField(entry, "jobId", "job_id"),
       runId: stringField(entry, "runId", "run_id"),
+      modelId: stringField(entry, "modelId", "model_id"),
+      routeId: stringField(entry, "routeId", "route_id"),
+      reasoningEffort: stringField(entry, "reasoningEffort", "reasoning_effort"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -600,6 +683,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: stringField(entry, "approvalId", "approval_id"),
       jobId: stringField(entry, "jobId", "job_id"),
       runId: stringField(entry, "runId", "run_id"),
+      modelId: stringField(entry, "modelId", "model_id"),
+      routeId: stringField(entry, "routeId", "route_id"),
+      reasoningEffort: stringField(entry, "reasoningEffort", "reasoning_effort"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,

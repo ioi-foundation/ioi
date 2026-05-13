@@ -630,6 +630,11 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       trust_profile: "local_private",
       thread_status: "active",
       current_turn_status: "waiting_for_approval",
+      requested_model: "auto",
+      selected_model: "local:auto",
+      model_route_id: "route.local-first",
+      reasoning_effort: "high",
+      workflow_node_id: "runtime.model-router",
     },
     approval_rows: [
       {
@@ -725,12 +730,14 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.approvalDecisionCount, 1);
   assert.equal(projection.jobCount, 1);
   assert.equal(projection.runLifecycleCount, 1);
-  assert.equal(projection.rowCount, 9);
+  assert.equal(projection.rowCount, 11);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
       ["summary", null, "current"],
       ["mode_status", null, "current"],
+      ["model_route", "model", "current"],
+      ["thinking", "thinking", "current"],
       ["approval", null, "pending"],
       ["approval_decision", "approve", "approved"],
       ["job", "jobs", "completed"],
@@ -741,14 +748,16 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     ],
   );
   assert.equal(
-    projection.rows[3]?.receiptRefs[0],
+    projection.rows[5]?.receiptRefs[0],
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[7]?.reactFlowNodeId,
+    projection.rows[9]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
-  assert.equal(projection.rows[4]?.jobId, "job-run-test");
-  assert.equal(projection.rows[5]?.runId, "run-test");
-  assert.equal(projection.rows[8]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[2]?.modelId, "auto");
+  assert.equal(projection.rows[3]?.reasoningEffort, "high");
+  assert.equal(projection.rows[6]?.jobId, "job-run-test");
+  assert.equal(projection.rows[7]?.runId, "run-test");
+  assert.equal(projection.rows[10]?.message, "/steer requires guidance text");
 });
