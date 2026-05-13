@@ -113,6 +113,8 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
@@ -241,7 +243,17 @@ test("workflow rail modules own extracted implementation", () => {
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
     /workflow-harness-active-runtime-binding/,
-    800,
+    220,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx",
+    /workflow-harness-active-runtime-binding-rollup/,
+    300,
+  );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx",
+    /workflow-harness-active-runtime-binding-selector-link/,
+    260,
   );
   assertOwnsImplementation(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
@@ -294,6 +306,12 @@ test("workflow rail modules own extracted implementation", () => {
     );
     const settingsHarnessActiveRuntimeBindingPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
+    );
+    const settingsHarnessActiveRuntimeBindingSummary = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx",
+    );
+    const settingsHarnessActiveRuntimeBindingDeepLinks = read(
+      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx",
     );
     const settingsHarnessRollbackRestoreProofPanel = read(
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
@@ -526,7 +544,27 @@ test("workflow rail modules own extracted implementation", () => {
     assert.match(
       settingsHarnessActiveRuntimeBindingPanel,
       /workflow-harness-active-runtime-binding-deep-links/,
-      "settings harness active runtime binding panel should own active binding deep links",
+      "settings harness active runtime binding panel should preserve active binding deep link test ids",
+    );
+    assert.match(
+      settingsHarnessActiveRuntimeBindingPanel,
+      /WorkflowSettingsHarnessActiveRuntimeBindingSummary/,
+      "settings harness active runtime binding panel should delegate summary UI to its extracted component",
+    );
+    assert.match(
+      settingsHarnessActiveRuntimeBindingPanel,
+      /WorkflowSettingsHarnessActiveRuntimeBindingDeepLinks/,
+      "settings harness active runtime binding panel should delegate deep link UI to its extracted component",
+    );
+    assert.match(
+      settingsHarnessActiveRuntimeBindingSummary,
+      /WorkflowSettingsHarnessActiveRuntimeBindingSummaryProps/,
+      "settings harness active runtime binding summary should expose a typed prop boundary",
+    );
+    assert.match(
+      settingsHarnessActiveRuntimeBindingDeepLinks,
+      /WorkflowSettingsHarnessActiveRuntimeBindingDeepLinksProps/,
+      "settings harness active runtime binding deep links should expose a typed prop boundary",
     );
     assert.doesNotMatch(
       settingsHarnessActiveRuntimeRollbackPanel,
@@ -639,6 +677,8 @@ test("workflow rail modules own extracted implementation", () => {
       [settingsHarnessWorkerBindingPanel, "worker binding"],
       [settingsHarnessActiveRuntimeRollbackPanel, "active runtime rollback"],
       [settingsHarnessActiveRuntimeBindingPanel, "active runtime binding"],
+      [settingsHarnessActiveRuntimeBindingSummary, "active runtime binding summary"],
+      [settingsHarnessActiveRuntimeBindingDeepLinks, "active runtime binding deep links"],
       [settingsHarnessRollbackRestoreProofPanel, "rollback restore proof"],
       [settingsHarnessPromotionPanel, "promotion"],
       [settingsHarnessPromotionReadinessPanel, "promotion readiness"],
@@ -668,6 +708,16 @@ test("workflow rail modules own extracted implementation", () => {
       settingsHarnessActiveRuntimeBindingPanel,
       /\bany\b/,
       "settings harness active runtime binding panel should keep its prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessActiveRuntimeBindingSummary,
+      /\bany\b/,
+      "settings harness active runtime binding summary should keep its prop boundary typed",
+    );
+    assert.doesNotMatch(
+      settingsHarnessActiveRuntimeBindingDeepLinks,
+      /\bany\b/,
+      "settings harness active runtime binding deep links should keep its prop boundary typed",
     );
     assert.doesNotMatch(
       settingsHarnessRollbackRestoreProofPanel,
@@ -759,7 +809,7 @@ test("core files do not grow past the refactor checkpoint without updating the g
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
       5_830,
     ],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_775],
+    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_782],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,
