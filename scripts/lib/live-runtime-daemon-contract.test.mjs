@@ -1741,6 +1741,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     projectRuntimeThreadEventsToWorkflowProjection,
   } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-workspace-"));
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-home-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-state-"));
   const remoteAuthVaultRef = "vault://mcp/remote/header-token";
   const remoteAuthMaterial = `mcp-fixture-${cryptoRandomSuffix()}`;
@@ -1772,8 +1773,29 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
       2,
     ),
   );
+  fs.mkdirSync(path.join(homeDir, ".ioi"), { recursive: true });
+  fs.writeFileSync(
+    path.join(homeDir, ".ioi", "mcp.json"),
+    JSON.stringify(
+      {
+        mcpServers: {
+          global: {
+            command: "node",
+            args: [mcpStdioFixture],
+            allowedTools: ["global_lookup"],
+            enabled: false,
+            env: { GLOBAL_TOKEN: "vault://mcp/global/token" },
+            containment: { mode: "sandboxed", allowChildProcesses: true },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
   const daemon = await startRuntimeDaemonService({
     cwd,
+    homeDir,
     stateDir,
     vaultSecrets: { [remoteAuthVaultRef]: remoteAuthMaterial },
   });
@@ -1789,28 +1811,58 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     const servers = await fetchJson(
       `${daemon.endpoint}/v1/mcp/servers?thread_id=${thread.thread_id}`,
     );
-    assert.equal(servers.length, 1);
-    assert.equal(servers[0].id, "mcp.search");
-    assert.equal(servers[0].source, ".cursor/mcp.json");
-    assert.equal(servers[0].secretRefs.SEARCH_TOKEN.redacted, true);
+    assert.equal(servers.length, 2);
+    const searchServer = servers.find((server) => server.id === "mcp.search");
+    const globalServer = servers.find((server) => server.id === "mcp.global");
+    assert.equal(searchServer.source, ".cursor/mcp.json");
+    assert.equal(searchServer.sourceScope, "workspace");
+    assert.equal(searchServer.configCompatibility, "cursor");
+    assert.equal(searchServer.secretRefs.SEARCH_TOKEN.redacted, true);
+    assert.equal(globalServer.source, "global.ioi/mcp.json");
+    assert.equal(globalServer.sourceScope, "global");
+    assert.equal(globalServer.configCompatibility, "ioi");
+    assert.equal(globalServer.enabled, false);
+    assert.equal(globalServer.secretRefs.GLOBAL_TOKEN.redacted, true);
+    assert.equal(JSON.stringify(servers).includes("vault://mcp/global/token"), false);
+
+    const workspaceOnlyServers = await fetchJson(
+      `${daemon.endpoint}/v1/mcp/servers?thread_id=${thread.thread_id}&mcp_config_source_mode=workspace`,
+    );
+    assert.deepEqual(workspaceOnlyServers.map((server) => server.id), ["mcp.search"]);
+    const globalOnlyServers = await fetchJson(
+      `${daemon.endpoint}/v1/mcp/servers?thread_id=${thread.thread_id}&mcp_config_source_mode=global`,
+    );
+    assert.deepEqual(globalOnlyServers.map((server) => server.id), ["mcp.global"]);
 
     const tools = await fetchJson(
       `${daemon.endpoint}/v1/mcp/tools?thread_id=${thread.thread_id}`,
     );
     assert.deepEqual(
-      tools.map((tool) => tool.toolName).sort(),
+      tools.filter((tool) => tool.serverId === "mcp.search").map((tool) => tool.toolName).sort(),
       ["fetch", "query"],
     );
-    assert.ok(tools.every((tool) => tool.workflowNodeId.startsWith("runtime.mcp-tool.search.")));
+    assert.ok(tools.some((tool) => tool.serverId === "mcp.global" && tool.toolName === "global_lookup"));
+    const searchQueryTool = tools.find((tool) => tool.serverId === "mcp.search" && tool.toolName === "query");
+    assert.ok(
+      tools
+        .filter((tool) => tool.serverId === "mcp.search")
+        .every((tool) => tool.workflowNodeId.startsWith("runtime.mcp-tool.search.")),
+    );
+    assert.ok(
+      tools
+        .filter((tool) => tool.serverId === "mcp.global")
+        .every((tool) => tool.workflowNodeId.startsWith("runtime.mcp-tool.global.")),
+    );
 
     const status = await fetchJson(
       `${daemon.endpoint}/v1/mcp?thread_id=${thread.thread_id}`,
     );
     assert.equal(status.status, "ready");
-    assert.equal(status.server_count, 1);
-    assert.equal(status.tool_count, 2);
+    assert.equal(status.server_count, 2);
+    assert.equal(status.tool_count, 3);
     assert.equal(status.resource_count, 1);
     assert.equal(status.prompt_count, 1);
+    assert.equal(status.validation.servers.find((server) => server.id === "mcp.global").sourceScope, "global");
 
     const resources = await fetchJson(
       `${daemon.endpoint}/v1/mcp/resources?thread_id=${thread.thread_id}`,
@@ -1826,7 +1878,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
 
     const validation = await fetchJson(`${daemon.endpoint}/v1/mcp/validate`, {
       method: "POST",
-      body: JSON.stringify({ mcpServers: { search: servers[0] } }),
+      body: JSON.stringify({ mcpServers: { search: searchServer } }),
     });
     assert.equal(validation.ok, true);
     assert.equal(validation.status, "pass");
@@ -1858,12 +1910,12 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(threadValidation.ok, true);
 
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
-    assert.equal((await sdkClient.getMcpStatus({ thread_id: thread.thread_id })).server_count, 1);
-    assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 2);
+    assert.equal((await sdkClient.getMcpStatus({ thread_id: thread.thread_id })).server_count, 2);
+    assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 3);
     assert.equal((await sdkClient.listMcpResources({ thread_id: thread.thread_id })).length, 1);
     assert.equal((await sdkClient.listMcpPrompts({ thread_id: thread.thread_id })).length, 1);
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
-    assert.equal((await sdkThread.mcp()).tool_count, 2);
+    assert.equal((await sdkThread.mcp()).tool_count, 3);
     assert.equal((await sdkThread.validateMcp()).ok, true);
 
     const added = await sdkThread.addMcpServer({
@@ -1878,7 +1930,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     });
     assert.equal(added.event.source_event_kind, "OperatorControl.McpAdd");
     assert.equal(added.added[0].id, "mcp.scratch");
-    assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 3);
+    assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 4);
 
     const imported = await sdkClient.importMcp({
       threadId: thread.thread_id,
@@ -1894,7 +1946,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     });
     assert.equal(imported.event.source_event_kind, "OperatorControl.McpImport");
     assert.equal(imported.imported[0].id, "mcp.imported");
-    assert.equal(imported.server_count, 3);
+    assert.equal(imported.server_count, 4);
 
     const removedScratch = await sdkThread.removeMcpServer("mcp.scratch");
     assert.equal(removedScratch.event.source_event_kind, "OperatorControl.McpRemove");
@@ -1903,15 +1955,15 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
       threadId: thread.thread_id,
     });
     assert.equal(removedImported.event.source_event_kind, "OperatorControl.McpRemove");
-    assert.equal(removedImported.server_count, 1);
+    assert.equal(removedImported.server_count, 2);
 
     const disabled = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/servers/mcp.search/disable`, {
       method: "POST",
       body: JSON.stringify({ source: "cli_tui" }),
     });
     assert.equal(disabled.event.source_event_kind, "OperatorControl.McpDisable");
-    assert.equal(disabled.servers[0].enabled, false);
-    assert.equal(disabled.tools[0].status, "disabled");
+    assert.equal(disabled.servers.find((server) => server.id === "mcp.search").enabled, false);
+    assert.equal(disabled.tools.find((tool) => tool.serverId === "mcp.search").status, "disabled");
     assert.equal(disabled.receipt_refs.length, 1);
 
     const blockedInvoke = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/tools/mcp.search.query/invoke`, {
@@ -1930,7 +1982,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
 
     const enabled = await sdkThread.enableMcpServer("mcp.search");
     assert.equal(enabled.event.source_event_kind, "OperatorControl.McpEnable");
-    assert.equal(enabled.servers[0].enabled, true);
+    assert.equal(enabled.servers.find((server) => server.id === "mcp.search").enabled, true);
 
     const invoked = await sdkThread.invokeMcpTool({
       serverId: "mcp.search",
@@ -2202,7 +2254,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
           status: "configured",
           command: "mcp",
           raw_input: "/mcp status",
-          mcp_server_id: servers[0].id,
+          mcp_server_id: searchServer.id,
           workflow_node_id: "runtime.mcp-manager",
           receipt_refs: threadStatus.receipt_refs,
           policy_decision_refs: threadStatus.policy_decision_refs,
@@ -2212,9 +2264,9 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
           status: "configured",
           command: "mcp",
           raw_input: "/mcp tools",
-          mcp_server_id: tools[0].serverId,
-          mcp_tool_name: tools[0].toolName,
-          workflow_node_id: tools[0].workflowNodeId,
+          mcp_server_id: searchQueryTool.serverId,
+          mcp_tool_name: searchQueryTool.toolName,
+          workflow_node_id: searchQueryTool.workflowNodeId,
           receipt_refs: threadStatus.receipt_refs,
         },
         {
@@ -4474,6 +4526,10 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/thinking/);
   assert.match(source, /\/v1\/mcp\/servers/);
   assert.match(source, /\/v1\/mcp\/tools/);
+  assert.match(source, /\/v1\/mcp\/tools\/search/);
+  assert.match(source, /global\.ioi\/mcp\.json/);
+  assert.match(source, /sourceScope/);
+  assert.match(source, /configCompatibility/);
   assert.match(source, /\/v1\/mcp\/resources/);
   assert.match(source, /\/v1\/mcp\/prompts/);
   assert.match(source, /\/v1\/mcp\/validate/);
@@ -8031,6 +8087,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.tool\.search"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.tool\.fetch"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.import"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add\.http"/);
@@ -8044,6 +8102,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "memory\.delete"/);
   assert.match(nodeRegistry, /creatorId: "plugin_tool\.mcp"/);
   assert.match(graphTypes, /mcp_status/);
+  assert.match(graphTypes, /mcp_tool_search/);
+  assert.match(graphTypes, /mcp_tool_fetch/);
+  assert.match(graphTypes, /mcpConfigSourceMode/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
@@ -8062,6 +8123,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-url/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-headers/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-config/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-config-source-mode/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-mcp-config-source-mode/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-endpoint/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-allowed-tools/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-import-json/);

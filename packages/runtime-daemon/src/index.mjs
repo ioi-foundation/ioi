@@ -268,7 +268,10 @@ export class AgentgresRuntimeStateStore {
       modelRouteReceiptId: modelRoute.receiptId,
       modelRouteDecision: modelRoute.decision,
       runtimeControls: initialThreadRuntimeControls(options, modelRoute, now),
-      mcpRegistry: mcpRegistryForWorkspace(cwd, options),
+      mcpRegistry: mcpRegistryForWorkspace(cwd, {
+        ...options,
+        homeDir: this.homeDir,
+      }),
       createdAt: now,
       updatedAt: now,
       options: summarizeAgentOptions(cwd, options),
@@ -2645,7 +2648,21 @@ export class AgentgresRuntimeStateStore {
       tools,
       resources,
       prompts,
-      validation,
+      validation: {
+        ...validation,
+        server_count: servers.length,
+        serverCount: servers.length,
+        tool_count: tools.length,
+        toolCount: tools.length,
+        resource_count: resources.length,
+        resourceCount: resources.length,
+        prompt_count: prompts.length,
+        promptCount: prompts.length,
+        servers,
+        tools,
+        resources,
+        prompts,
+      },
       routes: {
         servers: "/v1/mcp/servers",
         tools: "/v1/mcp/tools",
@@ -2768,7 +2785,7 @@ export class AgentgresRuntimeStateStore {
 
   removeThreadMcpServer(threadId, serverId, request = {}) {
     const agent = this.agentForThread(threadId);
-    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd);
+    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd, { homeDir: this.homeDir });
     const server = resolveMcpServerRecord(registry.servers, serverId ?? request.server_id ?? request.serverId);
     if (!server) throw notFound(`MCP server not found: ${serverId}`, { threadId, serverId });
     const remainingServers = normalizeArray(registry.servers).filter((candidate) => candidate.id !== server.id);
@@ -2821,7 +2838,7 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     serversToUpsert,
   }) {
-    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd);
+    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd, { homeDir: this.homeDir });
     const proposedServers = normalizeArray(serversToUpsert);
     if (proposedServers.length === 0) {
       throw runtimeError({
@@ -3195,7 +3212,7 @@ export class AgentgresRuntimeStateStore {
 
   setThreadMcpServerEnabled(threadId, serverId, enabled, request = {}) {
     const agent = this.agentForThread(threadId);
-    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd);
+    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd, { homeDir: this.homeDir });
     const server = resolveMcpServerRecord(registry.servers, serverId);
     if (!server) throw notFound(`MCP server not found: ${serverId}`, { threadId, serverId });
     const nextStatus = enabled
@@ -3761,12 +3778,19 @@ export class AgentgresRuntimeStateStore {
     const agentId =
       optionalString(options.agent_id ?? options.agentId) ??
       (threadId ? agentIdForThread(threadId) : undefined);
+    const sourceMode = mcpConfigSourceModeForRequest(options);
     const servers = [];
     if (agentId && this.agents.has(agentId)) {
       const agent = this.getAgent(agentId);
       servers.push(...normalizeArray(agent.mcpRegistry?.servers));
     } else {
-      servers.push(...mcpRegistryForWorkspace(this.defaultCwd).servers);
+      servers.push(
+        ...mcpRegistryForWorkspace(this.defaultCwd, {
+          ...options,
+          homeDir: this.homeDir,
+          mcpConfigSourceMode: sourceMode,
+        }).servers,
+      );
       for (const agent of this.agents.values()) {
         servers.push(...normalizeArray(agent.mcpRegistry?.servers));
       }
@@ -3776,6 +3800,8 @@ export class AgentgresRuntimeStateStore {
         normalizeMcpServerRecord(server.label ?? server.id, server, {
           workspaceRoot: this.defaultCwd,
           source: server.source ?? "model_mounting",
+          sourceScope: "model_mounting",
+          configCompatibility: "ioi_model_mounting",
           status: server.status ?? "registered",
         }),
       ),
@@ -3784,7 +3810,9 @@ export class AgentgresRuntimeStateStore {
     for (const server of servers) {
       byId.set(server.id, server);
     }
-    return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return [...byId.values()]
+      .filter((server) => mcpServerMatchesConfigSourceMode(server, sourceMode))
+      .sort((left, right) => left.id.localeCompare(right.id));
   }
 
   agentForThread(threadId) {
@@ -12539,7 +12567,7 @@ function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallback
       normalizeMcpServerRecord(
         server.label ?? server.name ?? server.id ?? `server_${index + 1}`,
         server,
-        { workspaceRoot, source, status: server.status ?? "configured" },
+        { workspaceRoot, source, sourceScope: "thread", status: server.status ?? "configured" },
       ),
     );
   }
@@ -12547,6 +12575,7 @@ function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallback
     normalizeMcpServerRecord(label, config, {
       workspaceRoot,
       source,
+      sourceScope: "thread",
       status: config?.status ?? "configured",
     }),
   );
@@ -12571,6 +12600,7 @@ function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
   return normalizeMcpServerRecord(label, config, {
     workspaceRoot,
     source,
+    sourceScope: "thread",
     status: config.status ?? "configured",
   });
 }
@@ -12639,6 +12669,30 @@ function mcpCatalogPreviewLimit(request = {}) {
 
 function mcpToolSearchLimit(request = {}) {
   return boundedPositiveInteger(request.limit ?? request.max_results ?? request.maxResults, 25, 100);
+}
+
+function mcpConfigSourceModeForRequest(request = {}) {
+  const text = optionalString(
+    request.mcp_config_source_mode ??
+      request.mcpConfigSourceMode ??
+      request.config_source_mode ??
+      request.configSourceMode,
+  )?.toLowerCase().replace(/[-\s]+/g, "_");
+  if (["workspace", "workspace_only", "local", "local_only"].includes(text)) {
+    return "workspace";
+  }
+  if (["global", "global_only", "global_ioi", "ioi_global"].includes(text)) {
+    return "global";
+  }
+  return "workspace_and_global";
+}
+
+function mcpServerMatchesConfigSourceMode(server = {}, sourceMode = "workspace_and_global") {
+  if (sourceMode === "workspace_and_global") return true;
+  const sourceScope = optionalString(server.sourceScope ?? server.source_scope) ?? "workspace";
+  if (sourceMode === "global") return sourceScope === "global";
+  if (sourceMode === "workspace") return sourceScope !== "global";
+  return true;
 }
 
 function boundedPositiveInteger(value, fallback, max) {

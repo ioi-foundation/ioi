@@ -73,6 +73,7 @@ export function WorkflowNodeBindingSections({
     catalogRef: "mcp.tool.catalog.read",
     catalogMode: "deferred",
     catalogSearchQuery: "",
+    configSourceMode: "workspace_and_global",
     validateBeforeInvoke: true,
     containmentMode: "read_only" as const,
     ...(logic.toolBinding?.mcp ?? {}),
@@ -1293,6 +1294,23 @@ export function WorkflowNodeBindingSections({
               logic.stateOperation === "mcp_tool_search" ||
               logic.stateOperation === "mcp_tool_fetch" ? (
                 <>
+                  <label>
+                    MCP config sources
+                    <select
+                      data-testid="workflow-state-mcp-config-source-mode"
+                      value={String(logic.mcpConfigSourceMode ?? "workspace_and_global")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpConfigSourceMode: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="workspace_and_global">Workspace + global IOI</option>
+                      <option value="workspace">Workspace/thread only</option>
+                      <option value="global">Global IOI only</option>
+                    </select>
+                  </label>
                   <label>
                     MCP catalog mode
                     <select
@@ -2705,6 +2723,43 @@ export function WorkflowNodeBindingSections({
                       })
                     }
                   />
+                </label>
+                <label>
+                  Config sources
+                  <select
+                    data-testid="workflow-mcp-config-source-mode"
+                    value={String(mcpBinding.configSourceMode ?? "workspace_and_global")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        toolBinding: {
+                          toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
+                          bindingKind: "mcp_tool",
+                          mockBinding: logic.toolBinding?.mockBinding ?? true,
+                          credentialReady:
+                            logic.toolBinding?.credentialReady ?? false,
+                          capabilityScope:
+                            logic.toolBinding?.capabilityScope ?? [
+                              "mcp.provider.read",
+                              "mcp.tool.catalog.read",
+                            ],
+                          sideEffectClass:
+                            logic.toolBinding?.sideEffectClass ?? "read",
+                          requiresApproval:
+                            logic.toolBinding?.requiresApproval ?? false,
+                          arguments: logic.toolBinding?.arguments ?? {},
+                          mcp: {
+                            ...mcpBinding,
+                            configSourceMode: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <option value="workspace_and_global">Workspace + global IOI</option>
+                    <option value="workspace">Workspace/thread only</option>
+                    <option value="global">Global IOI only</option>
+                  </select>
                 </label>
                 <label>
                   Containment
