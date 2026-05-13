@@ -111,6 +111,7 @@ workstream was narrower.
 | 109 | 2026-05-13 | P0. Live Runtime API Bridge | Shared React Flow runtime-control helper extraction | /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json |
 | 110 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness active runtime binding panel split | /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json |
 | 111 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness promotion readiness panel split | /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json |
+| 112 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness activation panel split | /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5598,3 +5599,41 @@ Known validation note:
   child components intentionally receive parent-routed test ids. The guard now
   checks each child module's owned implementation surface while the parent
   continues to preserve the source-contract literals.
+
+### Slice 112. 2026-05-13 - React Flow settings harness activation panel split
+
+Implementation slice completed 2026-05-13, React Flow settings harness
+activation panel split:
+
+- Split the former 736-line activation panel into a small typed parent plus
+  `settingsHarnessActivationWizardDetails.tsx` and
+  `settingsHarnessActivationActions.tsx`.
+- Preserved the parent `WorkflowSettingsHarnessActivationPanelProps` boundary,
+  activation wizard test-id marker, activation step/candidate gate source
+  markers, and direct `WorkflowSettingsHarnessActivationGatePanel` delegation
+  expected by the workflow-addressability contracts.
+- Moved activation wizard summary, minted/blocked proof, dry-run candidate
+  cards, rollback restore canary evidence, candidate gate rows, and wizard
+  step rows into `WorkflowSettingsHarnessActivationWizardDetails`.
+- Moved activation blockers, dry run, readiness check, review proposal, and
+  first-blocker controls into `WorkflowSettingsHarnessActivationActions`.
+- Updated the harness refactor shape test to assert the new modules exist, own
+  implementation, expose typed prop boundaries, import shared settings harness
+  contracts, and remain free of `any`.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-activation-panel-refactor`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json`.
+
+Known validation note:
+
+- The parent keeps activation step and candidate-gate source marker templates
+  and passes them to the wizard detail component so source-contract probes can
+  still bind to the existing React Flow workflow hooks after extraction.
