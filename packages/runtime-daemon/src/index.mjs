@@ -54,6 +54,7 @@ import {
   validateMcpServerRecords,
 } from "./mcp-manager.mjs";
 import {
+  RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION,
   RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
   memoryRowsForStatus,
@@ -594,13 +595,14 @@ export class AgentgresRuntimeStateStore {
     if (blocked) {
       throw policyError("Memory write blocked by policy.", { threadId, reason: blocked, policy });
     }
-    return this.rememberForAgent(agent, {
+    const mutation = this.rememberForAgent(agent, {
       text: body.text ?? body.fact ?? body.memory,
       threadId,
       scope: body.scope ?? "thread",
       source: body.source ?? "thread_memory_api",
       workflow: body.workflow ?? body,
     });
+    return this.recordThreadMemoryMutation(threadId, mutation, body, "write");
   }
 
   listMemoryForThread(threadId, options = {}) {
@@ -615,7 +617,7 @@ export class AgentgresRuntimeStateStore {
 
   setMemoryPolicyForThread(threadId, body = {}) {
     const agent = this.agentForThread(threadId);
-    return this.memory.setPolicy({
+    const mutation = this.memory.setPolicy({
       targetType: "thread",
       targetId: threadId,
       agent,
@@ -624,6 +626,7 @@ export class AgentgresRuntimeStateStore {
       source: body.source ?? "thread_memory_policy_api",
       updates: memoryPolicyOverrides(body.policy ?? body),
     });
+    return this.recordThreadMemoryMutation(threadId, mutation, body, "policy_update");
   }
 
   memoryPathForThread(threadId) {
@@ -643,7 +646,8 @@ export class AgentgresRuntimeStateStore {
     if (blocked) {
       throw policyError("Memory edit blocked by policy.", { threadId, memoryId, reason: blocked, policy });
     }
-    return this.updateMemoryRecord(memoryId, body);
+    const mutation = this.updateMemoryRecord(memoryId, body);
+    return this.recordThreadMemoryMutation(threadId, mutation, body, "edit");
   }
 
   deleteMemoryForThread(threadId, memoryId, body = {}) {
@@ -658,7 +662,8 @@ export class AgentgresRuntimeStateStore {
     if (blocked) {
       throw policyError("Memory delete blocked by policy.", { threadId, memoryId, reason: blocked, policy });
     }
-    return this.deleteMemoryRecord(memoryId, body);
+    const mutation = this.deleteMemoryRecord(memoryId, body);
+    return this.recordThreadMemoryMutation(threadId, mutation, body, "delete");
   }
 
   rememberForAgentId(agentId, body = {}) {
@@ -856,6 +861,88 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  recordThreadMemoryMutation(threadId, mutation = {}, request = {}, operation = "write") {
+    const agent = this.agentForThread(threadId);
+    const status = this.memoryStatus({ ...request, thread_id: threadId });
+    const record = mutation.record ?? null;
+    const policy = mutation.policy ?? status.policy ?? null;
+    const receipt = mutation.receipt ?? null;
+    const receiptRefs = receipt?.id ? [receipt.id] : [];
+    const memoryRecordId = record?.id ?? null;
+    const memoryPolicyId = policy?.id ?? null;
+    const controlKind = memoryControlKind(operation);
+    const payloadRecordList = record ? [record] : status.records;
+    const mutationRows = memoryRowsForStatus({
+      ...status,
+      records: payloadRecordList,
+      receipt_refs: receiptRefs,
+      receiptRefs,
+    }).map((row) =>
+      row.row_kind === "memory_record" && (!memoryRecordId || row.memory_record_id === memoryRecordId)
+        ? {
+            ...row,
+            label: memoryMutationRowLabel(operation),
+            raw_input: memoryMutationRawInput(operation),
+            memory_operation: operation,
+            workflow_node_id: record?.workflowNodeId ?? memoryWorkflowNodeId(operation),
+          }
+        : row,
+    );
+    const payload = {
+      ...status,
+      schema_version: RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION,
+      object: "ioi.runtime_memory_manager_mutation",
+      event_kind: memoryEventKind(operation),
+      control_kind: controlKind,
+      memory_operation: operation,
+      memoryOperation: operation,
+      mutation_status: "completed",
+      mutationStatus: "completed",
+      thread_id: threadId,
+      threadId,
+      agent_id: agent.id,
+      agentId: agent.id,
+      record,
+      records: payloadRecordList,
+      policy,
+      receipt,
+      memory_record_id: memoryRecordId,
+      memoryRecordId,
+      memory_policy_id: memoryPolicyId,
+      memoryPolicyId,
+      receipt_refs: receiptRefs,
+      receiptRefs,
+      rows: mutationRows,
+      memory_rows: mutationRows,
+      memoryRows: mutationRows,
+      summary: memoryMutationSummary(operation, { record, policy }),
+    };
+    const result = this.appendThreadMemoryControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind,
+      sourceEventKind: memoryOperatorControlKind(operation),
+      eventKind: memoryRuntimeEventKind(operation),
+      componentKind: operation === "policy_update" ? "memory_policy" : "memory_write",
+      workflowNodeId: memoryWorkflowNodeId(operation),
+      payloadSchemaVersion: RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION,
+      status: "completed",
+      payload,
+      receiptRefs,
+      policyDecisionKind: operation,
+    });
+    return {
+      ...mutation,
+      ...result,
+      record,
+      policy,
+      receipt,
+      operation,
+    };
+  }
+
   appendThreadMemoryControlEvent({
     threadId,
     agent,
@@ -868,6 +955,9 @@ export class AgentgresRuntimeStateStore {
     payloadSchemaVersion,
     status,
     payload,
+    receiptRefs,
+    policyDecisionRefs,
+    policyDecisionKind = "read",
   }) {
     const thread = this.threadForAgent(agent);
     const turnId =
@@ -880,8 +970,12 @@ export class AgentgresRuntimeStateStore {
       optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
       workflowNodeId;
     const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
-    const receiptId = `receipt_memory_${safeId(controlKind)}_${eventHash}`;
-    const policyId = `policy_memory_${safeId(controlKind)}_read_${eventHash}`;
+    const resolvedReceiptRefs = normalizeArray(receiptRefs).length
+      ? normalizeArray(receiptRefs)
+      : [`receipt_memory_${safeId(controlKind)}_${eventHash}`];
+    const resolvedPolicyDecisionRefs = normalizeArray(policyDecisionRefs).length
+      ? normalizeArray(policyDecisionRefs)
+      : [`policy_memory_${safeId(controlKind)}_${safeId(policyDecisionKind)}_${eventHash}`];
     const event = this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
@@ -901,8 +995,8 @@ export class AgentgresRuntimeStateStore {
       component_kind: componentKind,
       payload_schema_version: payloadSchemaVersion,
       payload_summary: payload,
-      receipt_refs: [receiptId],
-      policy_decision_refs: [policyId],
+      receipt_refs: resolvedReceiptRefs,
+      policy_decision_refs: resolvedPolicyDecisionRefs,
       artifact_refs: [],
       rollback_refs: [],
       redaction_profile: "internal",
@@ -13039,6 +13133,104 @@ function memoryEventKind(operation = "write") {
     case "write":
     default:
       return "MemoryWrite";
+  }
+}
+
+function memoryControlKind(operation = "write") {
+  switch (operation) {
+    case "policy_update":
+      return "memory_policy";
+    case "edit":
+      return "memory_edit";
+    case "delete":
+      return "memory_delete";
+    case "write":
+    default:
+      return "memory_write";
+  }
+}
+
+function memoryOperatorControlKind(operation = "write") {
+  switch (operation) {
+    case "policy_update":
+      return "OperatorControl.MemoryPolicy";
+    case "edit":
+      return "OperatorControl.MemoryEdit";
+    case "delete":
+      return "OperatorControl.MemoryDelete";
+    case "write":
+    default:
+      return "OperatorControl.MemoryWrite";
+  }
+}
+
+function memoryRuntimeEventKind(operation = "write") {
+  switch (operation) {
+    case "policy_update":
+      return "memory.policy";
+    case "edit":
+      return "memory.edit";
+    case "delete":
+      return "memory.delete";
+    case "write":
+    default:
+      return "memory.write";
+  }
+}
+
+function memoryWorkflowNodeId(operation = "write") {
+  switch (operation) {
+    case "policy_update":
+      return "runtime.memory-manager.policy";
+    case "edit":
+      return "runtime.memory.edit";
+    case "delete":
+      return "runtime.memory.delete";
+    case "write":
+    default:
+      return "runtime.memory.write";
+  }
+}
+
+function memoryMutationRowLabel(operation = "write") {
+  switch (operation) {
+    case "edit":
+      return "Memory edit";
+    case "delete":
+      return "Memory delete";
+    case "policy_update":
+      return "Memory policy";
+    case "write":
+    default:
+      return "Memory write";
+  }
+}
+
+function memoryMutationRawInput(operation = "write") {
+  switch (operation) {
+    case "edit":
+      return "/memory edit";
+    case "delete":
+      return "/memory delete";
+    case "policy_update":
+      return "/memory policy";
+    case "write":
+    default:
+      return "/memory remember";
+  }
+}
+
+function memoryMutationSummary(operation = "write", { record, policy } = {}) {
+  switch (operation) {
+    case "policy_update":
+      return `Memory policy ${policy?.id ?? "thread"} updated.`;
+    case "edit":
+      return `Memory record ${record?.id ?? "unknown"} edited.`;
+    case "delete":
+      return `Memory record ${record?.id ?? "unknown"} deleted.`;
+    case "write":
+    default:
+      return `Memory record ${record?.id ?? "unknown"} remembered.`;
   }
 }
 

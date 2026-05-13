@@ -518,9 +518,14 @@ export interface NodeLogic {
     | "memory_status"
     | "memory_policy"
     | "memory_search"
-    | "memory_list";
+    | "memory_list"
+    | "memory_remember"
+    | "memory_edit"
+    | "memory_delete";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
+  memoryRecordId?: string;
+  memoryText?: string;
   doctorEndpoint?: string;
   blockOnRequiredFailures?: boolean;
   allowOptionalDegraded?: boolean;

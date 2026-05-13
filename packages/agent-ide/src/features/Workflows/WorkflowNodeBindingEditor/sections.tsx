@@ -1175,7 +1175,10 @@ export function WorkflowNodeBindingSections({
                     | "memory_status"
                     | "memory_policy"
                     | "memory_search"
-                    | "memory_list",
+                    | "memory_list"
+                    | "memory_remember"
+                    | "memory_edit"
+                    | "memory_delete",
                   reducer:
                     event.target.value === "append"
                       ? "append"
@@ -1196,6 +1199,9 @@ export function WorkflowNodeBindingSections({
               <option value="memory_policy">Memory policy</option>
               <option value="memory_search">Memory search</option>
               <option value="memory_list">Memory list</option>
+              <option value="memory_remember">Memory remember</option>
+              <option value="memory_edit">Memory edit</option>
+              <option value="memory_delete">Memory delete</option>
             </select>
           </label>
           {logic.stateOperation === "mcp_status" ||
@@ -1217,7 +1223,10 @@ export function WorkflowNodeBindingSections({
           {logic.stateOperation === "memory_status" ||
           logic.stateOperation === "memory_policy" ||
           logic.stateOperation === "memory_search" ||
-          logic.stateOperation === "memory_list" ? (
+          logic.stateOperation === "memory_list" ||
+          logic.stateOperation === "memory_remember" ||
+          logic.stateOperation === "memory_edit" ||
+          logic.stateOperation === "memory_delete" ? (
             <>
               <label>
                 Memory scope
@@ -1290,6 +1299,35 @@ export function WorkflowNodeBindingSections({
                   <option value="redacted">Redacted</option>
                 </select>
               </label>
+              {logic.stateOperation === "memory_edit" ||
+              logic.stateOperation === "memory_delete" ? (
+                <label>
+                  Memory record
+                  <input
+                    data-testid="workflow-state-memory-record-id"
+                    value={String(logic.memoryRecordId ?? "")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        memoryRecordId: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+              ) : null}
+              {logic.stateOperation === "memory_remember" ||
+              logic.stateOperation === "memory_edit" ? (
+                <label>
+                  Memory text
+                  <input
+                    data-testid="workflow-state-memory-text"
+                    value={String(logic.memoryText ?? "")}
+                    onChange={(event) =>
+                      updateLogic({ ...logic, memoryText: event.target.value })
+                    }
+                  />
+                </label>
+              ) : null}
             </>
           ) : null}
           <label>

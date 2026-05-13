@@ -2898,8 +2898,13 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
             "memory_policy",
             "memory_search",
             "memory_list",
+            "memory_remember",
+            "memory_edit",
+            "memory_delete",
           ],
         },
+        memoryRecordId: { type: "string" },
+        memoryText: { type: "string" },
         memoryKey: { type: "string" },
         memoryScope: {
           type: "string",
@@ -4206,6 +4211,49 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       memoryRedaction: "none",
     },
   });
+  const memoryRemember = creatorDefinition("state", {
+    creatorId: "memory.remember",
+    label: "Memory remember",
+    description: "Write a governed memory record with receipt-backed policy.",
+    metricValue: "remember",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_remember",
+      reducer: "append",
+      memoryScope: "thread",
+      memoryKey: "conversation",
+      memoryText: "",
+      memoryWriteRequiresApproval: true,
+      memoryRedaction: "none",
+    },
+  });
+  const memoryEdit = creatorDefinition("state", {
+    creatorId: "memory.edit",
+    label: "Memory edit",
+    description: "Edit a governed memory record by id.",
+    metricValue: "edit",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_edit",
+      reducer: "replace",
+      memoryRecordId: "",
+      memoryText: "",
+      memoryWriteRequiresApproval: true,
+    },
+  });
+  const memoryDelete = creatorDefinition("state", {
+    creatorId: "memory.delete",
+    label: "Memory delete",
+    description: "Delete a governed memory record by id.",
+    metricValue: "delete",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_delete",
+      reducer: "replace",
+      memoryRecordId: "",
+      memoryWriteRequiresApproval: true,
+    },
+  });
   const stateWrite = creatorDefinition("state", {
     creatorId: "state.write",
     label: "State write",
@@ -4279,6 +4327,9 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     memoryPolicy,
     memorySearch,
     memoryList,
+    memoryRemember,
+    memoryEdit,
+    memoryDelete,
     stateWrite,
     stateAppend,
     stateReducer,
