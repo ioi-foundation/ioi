@@ -355,6 +355,187 @@ fn workflow_runtime_control_input_string(input: &Value, path: &str) -> Option<St
         .and_then(workflow_runtime_control_clean_string)
 }
 
+struct WorkflowRuntimeControlEnvelopeConfig<'a> {
+    thread_id_logic_key: &'a str,
+    thread_id_field_key: &'a str,
+    turn_id_logic_key: Option<&'a str>,
+    turn_id_field_key: Option<&'a str>,
+    workflow_node_id_logic_key: &'a str,
+    actor_logic_key: &'a str,
+    endpoint_logic_key: &'a str,
+    default_workflow_node_id: &'a str,
+    default_endpoint: &'a str,
+    missing_turn_id: Option<&'a str>,
+}
+
+struct WorkflowRuntimeControlEnvelope {
+    workflow_graph_id: Value,
+    workflow_node_id: String,
+    actor: String,
+    thread_id: String,
+    turn_id: Option<String>,
+    endpoint: String,
+}
+
+struct WorkflowRuntimeControlOutputConfig<'a> {
+    schema_version: &'a str,
+    source: &'a str,
+    component_kind: &'a str,
+    event_kind: &'a str,
+    payload_schema_version: &'a str,
+    nested_key: &'a str,
+}
+
+fn workflow_runtime_control_input_field_or_logic(
+    logic: &Value,
+    input: &Value,
+    field_key: &str,
+    default_field: &str,
+    logic_key: &str,
+    default_value: &str,
+) -> String {
+    let field = workflow_runtime_control_logic_string(logic, field_key)
+        .unwrap_or_else(|| default_field.to_string());
+    workflow_runtime_control_input_string(input, &field)
+        .or_else(|| workflow_runtime_control_logic_string(logic, logic_key))
+        .unwrap_or_else(|| default_value.to_string())
+}
+
+fn workflow_runtime_control_envelope(
+    workflow: Option<&WorkflowProject>,
+    logic: &Value,
+    input: &Value,
+    config: &WorkflowRuntimeControlEnvelopeConfig,
+) -> WorkflowRuntimeControlEnvelope {
+    let thread_id_field = workflow_runtime_control_logic_string(logic, config.thread_id_field_key)
+        .unwrap_or_else(|| "threadId".to_string());
+    let thread_id = workflow_runtime_control_logic_string(logic, config.thread_id_logic_key)
+        .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
+        .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
+        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
+    let turn_id = config.turn_id_logic_key.and_then(|turn_id_logic_key| {
+        let turn_id_field = config
+            .turn_id_field_key
+            .and_then(|key| workflow_runtime_control_logic_string(logic, key))
+            .unwrap_or_else(|| "turnId".to_string());
+        workflow_runtime_control_logic_string(logic, turn_id_logic_key)
+            .or_else(|| workflow_runtime_control_input_string(input, &turn_id_field))
+            .or_else(|| workflow_runtime_control_input_string(input, "turn_id"))
+            .or_else(|| config.missing_turn_id.map(str::to_string))
+    });
+    let workflow_graph_id = workflow
+        .map(|project| project.metadata.id.clone())
+        .filter(|value| !value.trim().is_empty())
+        .map(Value::String)
+        .unwrap_or(Value::Null);
+    let workflow_node_id =
+        workflow_runtime_control_logic_string(logic, config.workflow_node_id_logic_key)
+            .unwrap_or_else(|| config.default_workflow_node_id.to_string());
+    let actor = workflow_runtime_control_logic_string(logic, config.actor_logic_key)
+        .unwrap_or_else(|| "operator".to_string());
+    let endpoint_template = workflow_runtime_control_logic_string(logic, config.endpoint_logic_key)
+        .unwrap_or_else(|| config.default_endpoint.to_string());
+    let endpoint = workflow_runtime_control_endpoint(
+        &endpoint_template,
+        &thread_id,
+        turn_id.as_deref(),
+        config.turn_id_logic_key.is_some(),
+    );
+    WorkflowRuntimeControlEnvelope {
+        workflow_graph_id,
+        workflow_node_id,
+        actor,
+        thread_id,
+        turn_id,
+        endpoint,
+    }
+}
+
+fn workflow_runtime_control_endpoint(
+    template: &str,
+    thread_id: &str,
+    turn_id: Option<&str>,
+    replace_turn_id: bool,
+) -> String {
+    let endpoint = template.replace("{threadId}", thread_id);
+    if replace_turn_id {
+        endpoint.replace("{turnId}", turn_id.unwrap_or(""))
+    } else {
+        endpoint
+    }
+}
+
+fn workflow_runtime_control_request(
+    config: &WorkflowRuntimeControlOutputConfig,
+    envelope: &WorkflowRuntimeControlEnvelope,
+    extra_fields: Vec<(&str, Value)>,
+) -> Value {
+    let mut request = json!({
+        "source": config.source,
+        "actor": envelope.actor.clone(),
+        "workflowGraphId": envelope.workflow_graph_id.clone(),
+        "workflowNodeId": envelope.workflow_node_id.clone(),
+        "eventKind": config.event_kind,
+        "componentKind": config.component_kind,
+        "payloadSchemaVersion": config.payload_schema_version
+    });
+    if let Value::Object(object) = &mut request {
+        for (key, value) in extra_fields {
+            object.insert(key.to_string(), value);
+        }
+    }
+    request
+}
+
+fn workflow_runtime_control_output(
+    node_id: &str,
+    evidence_kind: &str,
+    input: &Value,
+    config: &WorkflowRuntimeControlOutputConfig,
+    envelope: WorkflowRuntimeControlEnvelope,
+    turn_id_value: Option<Value>,
+    request: Value,
+) -> Value {
+    let mut runtime_control = json!({
+        "schemaVersion": config.schema_version,
+        "status": "ready",
+        "source": config.source,
+        "componentKind": config.component_kind,
+        "workflowGraphId": envelope.workflow_graph_id,
+        "workflowNodeId": envelope.workflow_node_id,
+        "threadId": envelope.thread_id,
+        "endpoint": envelope.endpoint,
+        "request": request,
+        "mutationExecuted": false
+    });
+    if let Some(turn_id_value) = turn_id_value.clone() {
+        runtime_control["turnId"] = turn_id_value;
+    }
+
+    let mut output = json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "schemaVersion": config.schema_version,
+        "status": "ready",
+        "source": config.source,
+        "componentKind": config.component_kind,
+        "workflowGraphId": runtime_control.get("workflowGraphId").cloned().unwrap_or(Value::Null),
+        "workflowNodeId": runtime_control.get("workflowNodeId").cloned().unwrap_or(Value::Null),
+        "threadId": runtime_control.get("threadId").cloned().unwrap_or(Value::Null),
+        "endpoint": runtime_control.get("endpoint").cloned().unwrap_or(Value::Null),
+        "request": runtime_control.get("request").cloned().unwrap_or(Value::Null),
+        "mutationExecuted": false,
+        "input": input
+    });
+    if let Some(turn_id_value) = turn_id_value {
+        output["turnId"] = turn_id_value;
+    }
+    if let Value::Object(object) = &mut output {
+        object.insert(config.nested_key.to_string(), runtime_control);
+    }
+    output
+}
+
 fn workflow_runtime_thread_fork_output(
     workflow: Option<&WorkflowProject>,
     node_id: &str,
@@ -362,69 +543,53 @@ fn workflow_runtime_thread_fork_output(
     input: &Value,
     evidence_kind: &str,
 ) -> Value {
-    let thread_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeThreadForkThreadIdField")
-            .unwrap_or_else(|| "threadId".to_string());
-    let reason_field = workflow_runtime_control_logic_string(logic, "runtimeThreadForkReasonField")
-        .unwrap_or_else(|| "reason".to_string());
-    let thread_id = workflow_runtime_control_logic_string(logic, "runtimeThreadForkThreadId")
-        .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
-        .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
-        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
-    let reason = workflow_runtime_control_input_string(input, &reason_field)
-        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeThreadForkReason"))
-        .unwrap_or_else(|| "Fork thread from React Flow workflow control.".to_string());
-    let workflow_graph_id = workflow
-        .map(|project| project.metadata.id.clone())
-        .filter(|value| !value.trim().is_empty());
-    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
-    let workflow_node_id =
-        workflow_runtime_control_logic_string(logic, "runtimeThreadForkWorkflowNodeId")
-            .unwrap_or_else(|| "runtime.thread-fork".to_string());
-    let actor = workflow_runtime_control_logic_string(logic, "runtimeThreadForkActor")
-        .unwrap_or_else(|| "operator".to_string());
-    let endpoint_template =
-        workflow_runtime_control_logic_string(logic, "runtimeThreadForkEndpoint")
-            .unwrap_or_else(|| "/v1/threads/{threadId}/fork".to_string());
-    let endpoint = endpoint_template.replace("{threadId}", &thread_id);
-    let request = json!({
-        "reason": reason,
-        "source": "react_flow",
-        "actor": actor,
-        "workflowGraphId": workflow_graph_id_value.clone(),
-        "workflowNodeId": workflow_node_id.clone(),
-        "eventKind": "OperatorControl.Fork",
-        "componentKind": "thread_fork",
-        "payloadSchemaVersion": "ioi.runtime.thread-fork.v1"
-    });
-    let runtime_thread_fork = json!({
-        "schemaVersion": "ioi.workflow.runtime-thread-fork-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "thread_fork",
-        "workflowGraphId": workflow_graph_id_value,
-        "workflowNodeId": workflow_node_id,
-        "threadId": thread_id,
-        "endpoint": endpoint,
-        "request": request,
-        "mutationExecuted": false
-    });
-    json!({
-        "nodeId": node_id,
-        "kind": evidence_kind,
-        "schemaVersion": "ioi.workflow.runtime-thread-fork-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "thread_fork",
-        "workflowGraphId": runtime_thread_fork.get("workflowGraphId").cloned().unwrap_or(Value::Null),
-        "workflowNodeId": runtime_thread_fork.get("workflowNodeId").cloned().unwrap_or(Value::Null),
-        "threadId": runtime_thread_fork.get("threadId").cloned().unwrap_or(Value::Null),
-        "endpoint": runtime_thread_fork.get("endpoint").cloned().unwrap_or(Value::Null),
-        "request": runtime_thread_fork.get("request").cloned().unwrap_or(Value::Null),
-        "runtimeThreadFork": runtime_thread_fork,
-        "mutationExecuted": false,
-        "input": input
-    })
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeThreadForkThreadId",
+            thread_id_field_key: "runtimeThreadForkThreadIdField",
+            turn_id_logic_key: None,
+            turn_id_field_key: None,
+            workflow_node_id_logic_key: "runtimeThreadForkWorkflowNodeId",
+            actor_logic_key: "runtimeThreadForkActor",
+            endpoint_logic_key: "runtimeThreadForkEndpoint",
+            default_workflow_node_id: "runtime.thread-fork",
+            default_endpoint: "/v1/threads/{threadId}/fork",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-thread-fork-control.v1",
+        source: "react_flow",
+        component_kind: "thread_fork",
+        event_kind: "OperatorControl.Fork",
+        payload_schema_version: "ioi.runtime.thread-fork.v1",
+        nested_key: "runtimeThreadFork",
+    };
+    let reason = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeThreadForkReasonField",
+        "reason",
+        "runtimeThreadForkReason",
+        "Fork thread from React Flow workflow control.",
+    );
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![("reason", json!(reason))],
+    );
+    workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        None,
+        request,
+    )
 }
 
 fn workflow_runtime_operator_interrupt_output(
@@ -434,82 +599,54 @@ fn workflow_runtime_operator_interrupt_output(
     input: &Value,
     evidence_kind: &str,
 ) -> Value {
-    let thread_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptThreadIdField")
-            .unwrap_or_else(|| "threadId".to_string());
-    let turn_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptTurnIdField")
-            .unwrap_or_else(|| "turnId".to_string());
-    let reason_field =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptReasonField")
-            .unwrap_or_else(|| "reason".to_string());
-    let thread_id =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptThreadId")
-            .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
-            .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
-            .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
-    let turn_id = workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptTurnId")
-        .or_else(|| workflow_runtime_control_input_string(input, &turn_id_field))
-        .or_else(|| workflow_runtime_control_input_string(input, "turn_id"))
-        .unwrap_or_else(|| "{{runtime.turn_id}}".to_string());
-    let reason = workflow_runtime_control_input_string(input, &reason_field)
-        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptReason"))
-        .unwrap_or_else(|| "Interrupt turn from React Flow workflow control.".to_string());
-    let workflow_graph_id = workflow
-        .map(|project| project.metadata.id.clone())
-        .filter(|value| !value.trim().is_empty());
-    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
-    let workflow_node_id =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptWorkflowNodeId")
-            .unwrap_or_else(|| "runtime.operator-interrupt".to_string());
-    let actor = workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptActor")
-        .unwrap_or_else(|| "operator".to_string());
-    let endpoint_template =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorInterruptEndpoint")
-            .unwrap_or_else(|| "/v1/threads/{threadId}/turns/{turnId}/interrupt".to_string());
-    let endpoint = endpoint_template
-        .replace("{threadId}", &thread_id)
-        .replace("{turnId}", &turn_id);
-    let request = json!({
-        "reason": reason,
-        "source": "react_flow",
-        "actor": actor,
-        "workflowGraphId": workflow_graph_id_value.clone(),
-        "workflowNodeId": workflow_node_id.clone(),
-        "eventKind": "OperatorControl.Interrupt",
-        "componentKind": "operator_control",
-        "payloadSchemaVersion": "ioi.runtime.operator-control.v1"
-    });
-    let runtime_operator_interrupt = json!({
-        "schemaVersion": "ioi.workflow.runtime-operator-interrupt-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "operator_control",
-        "workflowGraphId": workflow_graph_id_value,
-        "workflowNodeId": workflow_node_id,
-        "threadId": thread_id,
-        "turnId": turn_id,
-        "endpoint": endpoint,
-        "request": request,
-        "mutationExecuted": false
-    });
-    json!({
-        "nodeId": node_id,
-        "kind": evidence_kind,
-        "schemaVersion": "ioi.workflow.runtime-operator-interrupt-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "operator_control",
-        "workflowGraphId": runtime_operator_interrupt.get("workflowGraphId").cloned().unwrap_or(Value::Null),
-        "workflowNodeId": runtime_operator_interrupt.get("workflowNodeId").cloned().unwrap_or(Value::Null),
-        "threadId": runtime_operator_interrupt.get("threadId").cloned().unwrap_or(Value::Null),
-        "turnId": runtime_operator_interrupt.get("turnId").cloned().unwrap_or(Value::Null),
-        "endpoint": runtime_operator_interrupt.get("endpoint").cloned().unwrap_or(Value::Null),
-        "request": runtime_operator_interrupt.get("request").cloned().unwrap_or(Value::Null),
-        "runtimeOperatorInterrupt": runtime_operator_interrupt,
-        "mutationExecuted": false,
-        "input": input
-    })
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeOperatorInterruptThreadId",
+            thread_id_field_key: "runtimeOperatorInterruptThreadIdField",
+            turn_id_logic_key: Some("runtimeOperatorInterruptTurnId"),
+            turn_id_field_key: Some("runtimeOperatorInterruptTurnIdField"),
+            workflow_node_id_logic_key: "runtimeOperatorInterruptWorkflowNodeId",
+            actor_logic_key: "runtimeOperatorInterruptActor",
+            endpoint_logic_key: "runtimeOperatorInterruptEndpoint",
+            default_workflow_node_id: "runtime.operator-interrupt",
+            default_endpoint: "/v1/threads/{threadId}/turns/{turnId}/interrupt",
+            missing_turn_id: Some("{{runtime.turn_id}}"),
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-operator-interrupt-control.v1",
+        source: "react_flow",
+        component_kind: "operator_control",
+        event_kind: "OperatorControl.Interrupt",
+        payload_schema_version: "ioi.runtime.operator-control.v1",
+        nested_key: "runtimeOperatorInterrupt",
+    };
+    let reason = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeOperatorInterruptReasonField",
+        "reason",
+        "runtimeOperatorInterruptReason",
+        "Interrupt turn from React Flow workflow control.",
+    );
+    let turn_id_value = envelope.turn_id.clone().map(Value::String);
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![("reason", json!(reason))],
+    );
+    workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        turn_id_value,
+        request,
+    )
 }
 
 fn workflow_runtime_operator_steer_output(
@@ -519,81 +656,54 @@ fn workflow_runtime_operator_steer_output(
     input: &Value,
     evidence_kind: &str,
 ) -> Value {
-    let thread_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerThreadIdField")
-            .unwrap_or_else(|| "threadId".to_string());
-    let turn_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerTurnIdField")
-            .unwrap_or_else(|| "turnId".to_string());
-    let guidance_field =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerGuidanceField")
-            .unwrap_or_else(|| "guidance".to_string());
-    let thread_id = workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerThreadId")
-        .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
-        .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
-        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
-    let turn_id = workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerTurnId")
-        .or_else(|| workflow_runtime_control_input_string(input, &turn_id_field))
-        .or_else(|| workflow_runtime_control_input_string(input, "turn_id"))
-        .unwrap_or_else(|| "{{runtime.turn_id}}".to_string());
-    let guidance = workflow_runtime_control_input_string(input, &guidance_field)
-        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerGuidance"))
-        .unwrap_or_else(|| "Steer turn from React Flow workflow control.".to_string());
-    let workflow_graph_id = workflow
-        .map(|project| project.metadata.id.clone())
-        .filter(|value| !value.trim().is_empty());
-    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
-    let workflow_node_id =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerWorkflowNodeId")
-            .unwrap_or_else(|| "runtime.operator-steer".to_string());
-    let actor = workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerActor")
-        .unwrap_or_else(|| "operator".to_string());
-    let endpoint_template =
-        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerEndpoint")
-            .unwrap_or_else(|| "/v1/threads/{threadId}/turns/{turnId}/steer".to_string());
-    let endpoint = endpoint_template
-        .replace("{threadId}", &thread_id)
-        .replace("{turnId}", &turn_id);
-    let request = json!({
-        "guidance": guidance,
-        "source": "react_flow",
-        "actor": actor,
-        "workflowGraphId": workflow_graph_id_value.clone(),
-        "workflowNodeId": workflow_node_id.clone(),
-        "eventKind": "OperatorControl.Steer",
-        "componentKind": "operator_control",
-        "payloadSchemaVersion": "ioi.runtime.operator-control.v1"
-    });
-    let runtime_operator_steer = json!({
-        "schemaVersion": "ioi.workflow.runtime-operator-steer-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "operator_control",
-        "workflowGraphId": workflow_graph_id_value,
-        "workflowNodeId": workflow_node_id,
-        "threadId": thread_id,
-        "turnId": turn_id,
-        "endpoint": endpoint,
-        "request": request,
-        "mutationExecuted": false
-    });
-    json!({
-        "nodeId": node_id,
-        "kind": evidence_kind,
-        "schemaVersion": "ioi.workflow.runtime-operator-steer-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "operator_control",
-        "workflowGraphId": runtime_operator_steer.get("workflowGraphId").cloned().unwrap_or(Value::Null),
-        "workflowNodeId": runtime_operator_steer.get("workflowNodeId").cloned().unwrap_or(Value::Null),
-        "threadId": runtime_operator_steer.get("threadId").cloned().unwrap_or(Value::Null),
-        "turnId": runtime_operator_steer.get("turnId").cloned().unwrap_or(Value::Null),
-        "endpoint": runtime_operator_steer.get("endpoint").cloned().unwrap_or(Value::Null),
-        "request": runtime_operator_steer.get("request").cloned().unwrap_or(Value::Null),
-        "runtimeOperatorSteer": runtime_operator_steer,
-        "mutationExecuted": false,
-        "input": input
-    })
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeOperatorSteerThreadId",
+            thread_id_field_key: "runtimeOperatorSteerThreadIdField",
+            turn_id_logic_key: Some("runtimeOperatorSteerTurnId"),
+            turn_id_field_key: Some("runtimeOperatorSteerTurnIdField"),
+            workflow_node_id_logic_key: "runtimeOperatorSteerWorkflowNodeId",
+            actor_logic_key: "runtimeOperatorSteerActor",
+            endpoint_logic_key: "runtimeOperatorSteerEndpoint",
+            default_workflow_node_id: "runtime.operator-steer",
+            default_endpoint: "/v1/threads/{threadId}/turns/{turnId}/steer",
+            missing_turn_id: Some("{{runtime.turn_id}}"),
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-operator-steer-control.v1",
+        source: "react_flow",
+        component_kind: "operator_control",
+        event_kind: "OperatorControl.Steer",
+        payload_schema_version: "ioi.runtime.operator-control.v1",
+        nested_key: "runtimeOperatorSteer",
+    };
+    let guidance = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeOperatorSteerGuidanceField",
+        "guidance",
+        "runtimeOperatorSteerGuidance",
+        "Steer turn from React Flow workflow control.",
+    );
+    let turn_id_value = envelope.turn_id.clone().map(Value::String);
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![("guidance", json!(guidance))],
+    );
+    workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        turn_id_value,
+        request,
+    )
 }
 
 fn workflow_runtime_context_compact_output(
@@ -603,89 +713,70 @@ fn workflow_runtime_context_compact_output(
     input: &Value,
     evidence_kind: &str,
 ) -> Value {
-    let thread_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeContextCompactThreadIdField")
-            .unwrap_or_else(|| "threadId".to_string());
-    let turn_id_field =
-        workflow_runtime_control_logic_string(logic, "runtimeContextCompactTurnIdField")
-            .unwrap_or_else(|| "turnId".to_string());
-    let reason_field =
-        workflow_runtime_control_logic_string(logic, "runtimeContextCompactReasonField")
-            .unwrap_or_else(|| "reason".to_string());
-    let scope_field =
-        workflow_runtime_control_logic_string(logic, "runtimeContextCompactScopeField")
-            .unwrap_or_else(|| "scope".to_string());
-    let thread_id = workflow_runtime_control_logic_string(logic, "runtimeContextCompactThreadId")
-        .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
-        .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
-        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
-    let turn_id = workflow_runtime_control_logic_string(logic, "runtimeContextCompactTurnId")
-        .or_else(|| workflow_runtime_control_input_string(input, &turn_id_field))
-        .or_else(|| workflow_runtime_control_input_string(input, "turn_id"));
-    let reason = workflow_runtime_control_input_string(input, &reason_field)
-        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeContextCompactReason"))
-        .unwrap_or_else(|| "Compact thread context from React Flow workflow control.".to_string());
-    let scope = workflow_runtime_control_input_string(input, &scope_field)
-        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeContextCompactScope"))
-        .unwrap_or_else(|| "thread".to_string());
-    let workflow_graph_id = workflow
-        .map(|project| project.metadata.id.clone())
-        .filter(|value| !value.trim().is_empty());
-    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
-    let workflow_node_id =
-        workflow_runtime_control_logic_string(logic, "runtimeContextCompactWorkflowNodeId")
-            .unwrap_or_else(|| "runtime.context-compact".to_string());
-    let actor = workflow_runtime_control_logic_string(logic, "runtimeContextCompactActor")
-        .unwrap_or_else(|| "operator".to_string());
-    let endpoint_template =
-        workflow_runtime_control_logic_string(logic, "runtimeContextCompactEndpoint")
-            .unwrap_or_else(|| "/v1/threads/{threadId}/compact".to_string());
-    let endpoint = endpoint_template
-        .replace("{threadId}", &thread_id)
-        .replace("{turnId}", turn_id.as_deref().unwrap_or(""));
-    let turn_id_value = turn_id.map(Value::String).unwrap_or(Value::Null);
-    let request = json!({
-        "reason": reason,
-        "scope": scope,
-        "turnId": turn_id_value.clone(),
-        "source": "react_flow",
-        "actor": actor,
-        "workflowGraphId": workflow_graph_id_value.clone(),
-        "workflowNodeId": workflow_node_id.clone(),
-        "eventKind": "OperatorControl.Compact",
-        "componentKind": "context_compaction",
-        "payloadSchemaVersion": "ioi.runtime.context-compaction.v1"
-    });
-    let runtime_context_compact = json!({
-        "schemaVersion": "ioi.workflow.runtime-context-compact-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "context_compaction",
-        "workflowGraphId": workflow_graph_id_value,
-        "workflowNodeId": workflow_node_id,
-        "threadId": thread_id,
-        "turnId": turn_id_value,
-        "endpoint": endpoint,
-        "request": request,
-        "mutationExecuted": false
-    });
-    json!({
-        "nodeId": node_id,
-        "kind": evidence_kind,
-        "schemaVersion": "ioi.workflow.runtime-context-compact-control.v1",
-        "status": "ready",
-        "source": "react_flow",
-        "componentKind": "context_compaction",
-        "workflowGraphId": runtime_context_compact.get("workflowGraphId").cloned().unwrap_or(Value::Null),
-        "workflowNodeId": runtime_context_compact.get("workflowNodeId").cloned().unwrap_or(Value::Null),
-        "threadId": runtime_context_compact.get("threadId").cloned().unwrap_or(Value::Null),
-        "turnId": runtime_context_compact.get("turnId").cloned().unwrap_or(Value::Null),
-        "endpoint": runtime_context_compact.get("endpoint").cloned().unwrap_or(Value::Null),
-        "request": runtime_context_compact.get("request").cloned().unwrap_or(Value::Null),
-        "runtimeContextCompact": runtime_context_compact,
-        "mutationExecuted": false,
-        "input": input
-    })
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeContextCompactThreadId",
+            thread_id_field_key: "runtimeContextCompactThreadIdField",
+            turn_id_logic_key: Some("runtimeContextCompactTurnId"),
+            turn_id_field_key: Some("runtimeContextCompactTurnIdField"),
+            workflow_node_id_logic_key: "runtimeContextCompactWorkflowNodeId",
+            actor_logic_key: "runtimeContextCompactActor",
+            endpoint_logic_key: "runtimeContextCompactEndpoint",
+            default_workflow_node_id: "runtime.context-compact",
+            default_endpoint: "/v1/threads/{threadId}/compact",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-context-compact-control.v1",
+        source: "react_flow",
+        component_kind: "context_compaction",
+        event_kind: "OperatorControl.Compact",
+        payload_schema_version: "ioi.runtime.context-compaction.v1",
+        nested_key: "runtimeContextCompact",
+    };
+    let reason = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeContextCompactReasonField",
+        "reason",
+        "runtimeContextCompactReason",
+        "Compact thread context from React Flow workflow control.",
+    );
+    let scope = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeContextCompactScopeField",
+        "scope",
+        "runtimeContextCompactScope",
+        "thread",
+    );
+    let turn_id_value = envelope
+        .turn_id
+        .clone()
+        .map(Value::String)
+        .unwrap_or(Value::Null);
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![
+            ("reason", json!(reason)),
+            ("scope", json!(scope)),
+            ("turnId", turn_id_value.clone()),
+        ],
+    );
+    workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        Some(turn_id_value),
+        request,
+    )
 }
 
 pub(super) fn execute_workflow_node(

@@ -108,6 +108,7 @@ workstream was narrower.
 | 106 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator interrupt control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json |
 | 107 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator steer control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control/2026-05-13T00-24-15-404Z/result.json |
 | 108 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime context compact control node | /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json |
+| 109 | 2026-05-13 | P0. Live Runtime API Bridge | Shared React Flow runtime-control helper extraction | /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5460,3 +5461,48 @@ Known validation note:
   still reports pre-existing formatting diffs in unrelated orchestrator store
   modules. The scoped `rustfmt --check` over this slice's touched Rust files
   passed.
+
+### Slice 109. 2026-05-13 - Shared React Flow runtime-control helper extraction
+
+Implementation slice completed 2026-05-13, shared React Flow runtime-control
+helper extraction:
+
+- Extracted a shared TypeScript runtime-control request envelope inside
+  `workflow-runtime-control-nodes.ts`. Fork, interrupt, steer, and compact now
+  share thread/turn lookup, endpoint expansion, actor defaulting, source,
+  graph id, workflow node id, event kind, component kind, and payload schema
+  metadata.
+- Added a shared workflow-node adapter helper so all four React Flow control
+  node builders use the same node-type guard and actor override path.
+- Added a compact envelope test that builds all four React Flow control
+  requests and asserts the shared `source=react_flow`, actor, workflow graph
+  id, workflow node id, and thread id metadata shape.
+- Extracted Rust workflow execution helpers for the local non-mutating control
+  descriptors. The Tauri workflow lane now shares graph id, node id, actor,
+  endpoint, request metadata, nested descriptor, and top-level descriptor
+  output construction across fork, interrupt, steer, and compact.
+- Kept all existing runtime-control behavior unchanged: generated action
+  contracts stayed current, local workflow control-node tests passed, and the
+  live React Flow compact graph-identity proof stayed green.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run generate:runtime-action-contracts -- --check`
+- `npm run build --workspace=@ioi/agent-ide`
+- `rustfmt --check apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_ -- --nocapture`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds`
+- `node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json`.
+
+Known validation note:
+
+- The broad `cargo test ... runtime_` filter intentionally ran more runtime
+  tests than the four control-node tests. It passed 51 active tests, ignored one
+  Chromium-only probe, and included all four React Flow runtime-control
+  workflow-node output tests.

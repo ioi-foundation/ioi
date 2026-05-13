@@ -107,6 +107,7 @@ the practical workstream when the source heading is broad.
 | 106 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator interrupt control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_operator_interrupt_node_builds_react_flow_control_request<br>node --test --test-name-pattern "React Flow operator interrupt control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 107 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator steer control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control/2026-05-13T00-24-15-404Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_operator_steer_node_builds_react_flow_control_request<br>node --test --test-name-pattern "React Flow operator steer control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 108 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime context compact control node | /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_context_compact_node_builds_react_flow_control_request<br>node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs |
+| 109 | 2026-05-13 | P0. Live Runtime API Bridge | Shared React Flow runtime-control helper extraction | /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_ -- --nocapture<br>node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -3813,3 +3814,51 @@ Known validation note:
   still reports pre-existing formatting diffs in unrelated orchestrator store
   modules. The scoped `rustfmt --check` over this slice's touched Rust files
   passed.
+
+## Slice 109. 2026-05-13 - Shared React Flow runtime-control helper extraction
+
+Guide section: P0. Live Runtime API Bridge
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts
+- apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - 15 React Flow runtime-control/projection subtests passed, including the
+    shared envelope metadata test across fork, interrupt, steer, and compact.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source contract stayed green after the helper extraction.
+- `npm run generate:runtime-action-contracts -- --check`
+  - generated TS/Rust action schema files are current.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide declarations and bundles rebuilt with the shared TS helper.
+- `rustfmt --check apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs`
+  - refactored Rust workflow execution lane passed formatting.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_ -- --nocapture`
+  - broad runtime filter passed 51 active tests, ignored one Chromium-only
+    probe, and included all four React Flow runtime-control workflow-node
+    output tests.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata`
+  - scaffold action metadata stayed green after the descriptor helper
+    extraction.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds`
+  - Rust `ActionKind` classification stayed green.
+- `node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live Rust runtime-service proof stayed green through daemon SSE, SDK
+    `Thread.events()`, and React Flow projection.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json`.
+
+Known validation note:
+
+- This was a behavior-preserving refactor slice; no runtime action schema
+  change was expected, and `generate:runtime-action-contracts -- --check`
+  confirmed no generated contract drift.

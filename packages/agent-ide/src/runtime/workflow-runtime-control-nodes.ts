@@ -204,43 +204,96 @@ export interface RuntimeContextCompactWorkflowNodeOptions {
   actor?: string | null;
 }
 
+type RuntimeControlTurnIdMode = "none" | "required" | "optional";
+
+interface RuntimeControlRequestEnvelope<
+  SchemaVersion extends string,
+  NodeType extends string,
+  Source extends string,
+  EventKind extends string,
+  ComponentKind extends string,
+  PayloadSchemaVersion extends string,
+> {
+  schemaVersion: SchemaVersion;
+  nodeType: NodeType;
+  nodeId: string | null;
+  threadId: string;
+  turnId: string | null;
+  endpoint: string;
+  metadata: {
+    source: Source;
+    actor: string;
+    workflowGraphId: string | null;
+    workflowNodeId: string;
+    eventKind: EventKind;
+    componentKind: ComponentKind;
+    payloadSchemaVersion: PayloadSchemaVersion;
+  };
+}
+
+interface RuntimeControlRequestEnvelopeConfig<
+  SchemaVersion extends string,
+  NodeType extends string,
+  Source extends string,
+  EventKind extends string,
+  ComponentKind extends string,
+  PayloadSchemaVersion extends string,
+> {
+  schemaVersion: SchemaVersion;
+  nodeType: NodeType;
+  source: Source;
+  eventKind: EventKind;
+  componentKind: ComponentKind;
+  payloadSchemaVersion: PayloadSchemaVersion;
+  defaultWorkflowNodeId: string;
+  defaultEndpoint: string;
+  turnIdMode: RuntimeControlTurnIdMode;
+}
+
+interface RuntimeControlRequestEnvelopeInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  turnId?: string | null;
+  turnIdField?: string | null;
+  input?: unknown;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
 export function createRuntimeThreadForkControlRequest(
   params: RuntimeThreadForkControlRequestInput,
 ): RuntimeThreadForkControlRequest {
-  const threadId =
-    cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
-    stringAtPath(params.input, "thread_id");
-  if (!threadId) {
-    throw new Error("runtime_thread_fork nodes need a threadId input before dispatch.");
-  }
-
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_thread_fork",
+      source: RUNTIME_THREAD_FORK_SOURCE,
+      eventKind: RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_THREAD_FORK_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_THREAD_FORK_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/fork",
+      turnIdMode: "none",
+    },
+    params,
+  );
   const reason =
     stringAtPath(params.input, params.reasonField ?? "") ??
     cleanString(params.reason) ??
     "Fork thread from React Flow workflow control.";
-  const workflowNodeId =
-    cleanString(params.workflowNodeId) ?? RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID;
-  const workflowGraphId = cleanString(params.workflowGraphId);
-  const endpointTemplate =
-    cleanString(params.endpoint) ?? "/v1/threads/{threadId}/fork";
-  const endpoint = endpointFromTemplate(endpointTemplate, { threadId });
 
   return {
-    schemaVersion: WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
-    nodeType: "runtime_thread_fork",
-    nodeId: cleanString(params.nodeId),
-    threadId,
-    endpoint,
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    endpoint: envelope.endpoint,
     body: {
       reason,
-      source: RUNTIME_THREAD_FORK_SOURCE,
-      actor: cleanString(params.actor) ?? "operator",
-      workflowGraphId,
-      workflowNodeId,
-      eventKind: RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
-      componentKind: RUNTIME_THREAD_FORK_COMPONENT_KIND,
-      payloadSchemaVersion: RUNTIME_THREAD_FORK_PAYLOAD_SCHEMA_VERSION,
+      ...envelope.metadata,
     },
   };
 }
@@ -248,50 +301,35 @@ export function createRuntimeThreadForkControlRequest(
 export function createRuntimeOperatorInterruptControlRequest(
   params: RuntimeOperatorInterruptControlRequestInput,
 ): RuntimeOperatorInterruptControlRequest {
-  const threadId =
-    cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
-    stringAtPath(params.input, "thread_id");
-  if (!threadId) {
-    throw new Error("runtime_operator_interrupt nodes need a threadId input before dispatch.");
-  }
-
-  const turnId =
-    cleanString(params.turnId) ??
-    stringAtPath(params.input, params.turnIdField ?? "turnId") ??
-    stringAtPath(params.input, "turn_id");
-  if (!turnId) {
-    throw new Error("runtime_operator_interrupt nodes need a turnId input before dispatch.");
-  }
-
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_operator_interrupt",
+      source: RUNTIME_OPERATOR_INTERRUPT_SOURCE,
+      eventKind: RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/turns/{turnId}/interrupt",
+      turnIdMode: "required",
+    },
+    params,
+  );
   const reason =
     stringAtPath(params.input, params.reasonField ?? "") ??
     cleanString(params.reason) ??
     "Interrupt turn from React Flow workflow control.";
-  const workflowNodeId =
-    cleanString(params.workflowNodeId) ?? RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID;
-  const workflowGraphId = cleanString(params.workflowGraphId);
-  const endpointTemplate =
-    cleanString(params.endpoint) ??
-    "/v1/threads/{threadId}/turns/{turnId}/interrupt";
-  const endpoint = endpointFromTemplate(endpointTemplate, { threadId, turnId });
 
   return {
-    schemaVersion: WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
-    nodeType: "runtime_operator_interrupt",
-    nodeId: cleanString(params.nodeId),
-    threadId,
-    turnId,
-    endpoint,
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    turnId: requiredTurnId(envelope),
+    endpoint: envelope.endpoint,
     body: {
       reason,
-      source: RUNTIME_OPERATOR_INTERRUPT_SOURCE,
-      actor: cleanString(params.actor) ?? "operator",
-      workflowGraphId,
-      workflowNodeId,
-      eventKind: RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND,
-      componentKind: RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
-      payloadSchemaVersion: RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION,
+      ...envelope.metadata,
     },
   };
 }
@@ -299,49 +337,35 @@ export function createRuntimeOperatorInterruptControlRequest(
 export function createRuntimeOperatorSteerControlRequest(
   params: RuntimeOperatorSteerControlRequestInput,
 ): RuntimeOperatorSteerControlRequest {
-  const threadId =
-    cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
-    stringAtPath(params.input, "thread_id");
-  if (!threadId) {
-    throw new Error("runtime_operator_steer nodes need a threadId input before dispatch.");
-  }
-
-  const turnId =
-    cleanString(params.turnId) ??
-    stringAtPath(params.input, params.turnIdField ?? "turnId") ??
-    stringAtPath(params.input, "turn_id");
-  if (!turnId) {
-    throw new Error("runtime_operator_steer nodes need a turnId input before dispatch.");
-  }
-
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_operator_steer",
+      source: RUNTIME_OPERATOR_STEER_SOURCE,
+      eventKind: RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_OPERATOR_STEER_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/turns/{turnId}/steer",
+      turnIdMode: "required",
+    },
+    params,
+  );
   const guidance =
     stringAtPath(params.input, params.guidanceField ?? "") ??
     cleanString(params.guidance) ??
     "Steer turn from React Flow workflow control.";
-  const workflowNodeId =
-    cleanString(params.workflowNodeId) ?? RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID;
-  const workflowGraphId = cleanString(params.workflowGraphId);
-  const endpointTemplate =
-    cleanString(params.endpoint) ?? "/v1/threads/{threadId}/turns/{turnId}/steer";
-  const endpoint = endpointFromTemplate(endpointTemplate, { threadId, turnId });
 
   return {
-    schemaVersion: WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
-    nodeType: "runtime_operator_steer",
-    nodeId: cleanString(params.nodeId),
-    threadId,
-    turnId,
-    endpoint,
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    turnId: requiredTurnId(envelope),
+    endpoint: envelope.endpoint,
     body: {
       guidance,
-      source: RUNTIME_OPERATOR_STEER_SOURCE,
-      actor: cleanString(params.actor) ?? "operator",
-      workflowGraphId,
-      workflowNodeId,
-      eventKind: RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND,
-      componentKind: RUNTIME_OPERATOR_STEER_COMPONENT_KIND,
-      payloadSchemaVersion: RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION,
+      ...envelope.metadata,
     },
   };
 }
@@ -349,18 +373,20 @@ export function createRuntimeOperatorSteerControlRequest(
 export function createRuntimeContextCompactControlRequest(
   params: RuntimeContextCompactControlRequestInput,
 ): RuntimeContextCompactControlRequest {
-  const threadId =
-    cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
-    stringAtPath(params.input, "thread_id");
-  if (!threadId) {
-    throw new Error("runtime_context_compact nodes need a threadId input before dispatch.");
-  }
-
-  const turnId =
-    cleanString(params.turnId) ??
-    stringAtPath(params.input, params.turnIdField ?? "turnId") ??
-    stringAtPath(params.input, "turn_id");
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_context_compact",
+      source: RUNTIME_CONTEXT_COMPACT_SOURCE,
+      eventKind: RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/compact",
+      turnIdMode: "optional",
+    },
+    params,
+  );
   const reason =
     stringAtPath(params.input, params.reasonField ?? "") ??
     cleanString(params.reason) ??
@@ -369,34 +395,19 @@ export function createRuntimeContextCompactControlRequest(
     stringAtPath(params.input, params.scopeField ?? "") ??
     cleanString(params.scope) ??
     "thread";
-  const workflowNodeId =
-    cleanString(params.workflowNodeId) ?? RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID;
-  const workflowGraphId = cleanString(params.workflowGraphId);
-  const endpointTemplate =
-    cleanString(params.endpoint) ?? "/v1/threads/{threadId}/compact";
-  const endpoint = endpointFromTemplate(endpointTemplate, {
-    threadId,
-    turnId: turnId ?? "",
-  });
 
   return {
-    schemaVersion: WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
-    nodeType: "runtime_context_compact",
-    nodeId: cleanString(params.nodeId),
-    threadId,
-    turnId: turnId ?? null,
-    endpoint,
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    turnId: envelope.turnId,
+    endpoint: envelope.endpoint,
     body: {
       reason,
       scope,
-      turnId: turnId ?? null,
-      source: RUNTIME_CONTEXT_COMPACT_SOURCE,
-      actor: cleanString(params.actor) ?? "operator",
-      workflowGraphId,
-      workflowNodeId,
-      eventKind: RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
-      componentKind: RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
-      payloadSchemaVersion: RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
+      turnId: envelope.turnId,
+      ...envelope.metadata,
     },
   };
 }
@@ -406,10 +417,7 @@ export function createRuntimeThreadForkControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeThreadForkWorkflowNodeOptions = {},
 ): RuntimeThreadForkControlRequest {
-  if (node.type !== "runtime_thread_fork") {
-    throw new Error(`Expected runtime_thread_fork node, received ${node.type}.`);
-  }
-  const logic: NodeLogic = node.config?.logic ?? {};
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_thread_fork");
   return createRuntimeThreadForkControlRequest({
     nodeId: node.id,
     input,
@@ -422,10 +430,7 @@ export function createRuntimeThreadForkControlRequestFromWorkflowNode(
     workflowNodeId:
       cleanString(logic.runtimeThreadForkWorkflowNodeId) ??
       RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
-    actor:
-      cleanString(options.actor) ??
-      cleanString(logic.runtimeThreadForkActor) ??
-      "operator",
+    actor: runtimeControlWorkflowActor(options, logic, "runtimeThreadForkActor"),
   });
 }
 
@@ -434,10 +439,7 @@ export function createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeOperatorInterruptWorkflowNodeOptions = {},
 ): RuntimeOperatorInterruptControlRequest {
-  if (node.type !== "runtime_operator_interrupt") {
-    throw new Error(`Expected runtime_operator_interrupt node, received ${node.type}.`);
-  }
-  const logic: NodeLogic = node.config?.logic ?? {};
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_operator_interrupt");
   return createRuntimeOperatorInterruptControlRequest({
     nodeId: node.id,
     input,
@@ -453,10 +455,11 @@ export function createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
     workflowNodeId:
       cleanString(logic.runtimeOperatorInterruptWorkflowNodeId) ??
       RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
-    actor:
-      cleanString(options.actor) ??
-      cleanString(logic.runtimeOperatorInterruptActor) ??
-      "operator",
+    actor: runtimeControlWorkflowActor(
+      options,
+      logic,
+      "runtimeOperatorInterruptActor",
+    ),
   });
 }
 
@@ -465,10 +468,7 @@ export function createRuntimeOperatorSteerControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeOperatorSteerWorkflowNodeOptions = {},
 ): RuntimeOperatorSteerControlRequest {
-  if (node.type !== "runtime_operator_steer") {
-    throw new Error(`Expected runtime_operator_steer node, received ${node.type}.`);
-  }
-  const logic: NodeLogic = node.config?.logic ?? {};
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_operator_steer");
   return createRuntimeOperatorSteerControlRequest({
     nodeId: node.id,
     input,
@@ -483,10 +483,7 @@ export function createRuntimeOperatorSteerControlRequestFromWorkflowNode(
     workflowNodeId:
       cleanString(logic.runtimeOperatorSteerWorkflowNodeId) ??
       RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID,
-    actor:
-      cleanString(options.actor) ??
-      cleanString(logic.runtimeOperatorSteerActor) ??
-      "operator",
+    actor: runtimeControlWorkflowActor(options, logic, "runtimeOperatorSteerActor"),
   });
 }
 
@@ -495,10 +492,7 @@ export function createRuntimeContextCompactControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeContextCompactWorkflowNodeOptions = {},
 ): RuntimeContextCompactControlRequest {
-  if (node.type !== "runtime_context_compact") {
-    throw new Error(`Expected runtime_context_compact node, received ${node.type}.`);
-  }
-  const logic: NodeLogic = node.config?.logic ?? {};
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_context_compact");
   return createRuntimeContextCompactControlRequest({
     nodeId: node.id,
     input,
@@ -515,11 +509,115 @@ export function createRuntimeContextCompactControlRequestFromWorkflowNode(
     workflowNodeId:
       cleanString(logic.runtimeContextCompactWorkflowNodeId) ??
       RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
-    actor:
-      cleanString(options.actor) ??
-      cleanString(logic.runtimeContextCompactActor) ??
-      "operator",
+    actor: runtimeControlWorkflowActor(
+      options,
+      logic,
+      "runtimeContextCompactActor",
+    ),
   });
+}
+
+function runtimeControlWorkflowNodeLogic(
+  node: Pick<Node, "type" | "config">,
+  expectedType: string,
+): NodeLogic {
+  if (node.type !== expectedType) {
+    throw new Error(`Expected ${expectedType} node, received ${node.type}.`);
+  }
+  return node.config?.logic ?? {};
+}
+
+function runtimeControlWorkflowActor(
+  options: { actor?: string | null },
+  logic: NodeLogic,
+  actorKey: keyof NodeLogic,
+): string {
+  return cleanString(options.actor) ?? cleanString(logic[actorKey]) ?? "operator";
+}
+
+function createRuntimeControlRequestEnvelope<
+  SchemaVersion extends string,
+  NodeType extends string,
+  Source extends string,
+  EventKind extends string,
+  ComponentKind extends string,
+  PayloadSchemaVersion extends string,
+>(
+  config: RuntimeControlRequestEnvelopeConfig<
+    SchemaVersion,
+    NodeType,
+    Source,
+    EventKind,
+    ComponentKind,
+    PayloadSchemaVersion
+  >,
+  params: RuntimeControlRequestEnvelopeInput,
+): RuntimeControlRequestEnvelope<
+  SchemaVersion,
+  NodeType,
+  Source,
+  EventKind,
+  ComponentKind,
+  PayloadSchemaVersion
+> {
+  const threadId =
+    cleanString(params.threadId) ??
+    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
+    stringAtPath(params.input, "thread_id");
+  if (!threadId) {
+    throw new Error(`${config.nodeType} nodes need a threadId input before dispatch.`);
+  }
+
+  const turnId =
+    config.turnIdMode === "none"
+      ? null
+      : cleanString(params.turnId) ??
+        stringAtPath(params.input, params.turnIdField ?? "turnId") ??
+        stringAtPath(params.input, "turn_id");
+  if (config.turnIdMode === "required" && !turnId) {
+    throw new Error(`${config.nodeType} nodes need a turnId input before dispatch.`);
+  }
+
+  const endpointTemplate = cleanString(params.endpoint) ?? config.defaultEndpoint;
+  const endpointValues: Record<string, string> = { threadId };
+  if (config.turnIdMode !== "none") {
+    endpointValues.turnId = turnId ?? "";
+  }
+
+  return {
+    schemaVersion: config.schemaVersion,
+    nodeType: config.nodeType,
+    nodeId: cleanString(params.nodeId),
+    threadId,
+    turnId,
+    endpoint: endpointFromTemplate(endpointTemplate, endpointValues),
+    metadata: {
+      source: config.source,
+      actor: cleanString(params.actor) ?? "operator",
+      workflowGraphId: cleanString(params.workflowGraphId),
+      workflowNodeId:
+        cleanString(params.workflowNodeId) ?? config.defaultWorkflowNodeId,
+      eventKind: config.eventKind,
+      componentKind: config.componentKind,
+      payloadSchemaVersion: config.payloadSchemaVersion,
+    },
+  };
+}
+
+function requiredTurnId(
+  envelope: RuntimeControlRequestEnvelope<
+    string,
+    string,
+    string,
+    string,
+    string,
+    string
+  >,
+): string {
+  if (!envelope.turnId) {
+    throw new Error(`${envelope.nodeType} nodes need a turnId input before dispatch.`);
+  }
+  return envelope.turnId;
 }
 
 function cleanString(value: unknown): string | null {
