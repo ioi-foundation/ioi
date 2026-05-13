@@ -42,12 +42,20 @@ export {
   workflowNodeKindForRuntimeThreadEvent,
 } from "./runtime/workflow-runtime-event-projection";
 export {
+  RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
+  RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_OPERATOR_INTERRUPT_SOURCE,
+  RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND,
+  RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
   RUNTIME_THREAD_FORK_COMPONENT_KIND,
   RUNTIME_THREAD_FORK_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_THREAD_FORK_SOURCE,
   RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
   RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+  createRuntimeOperatorInterruptControlRequest,
+  createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
   createRuntimeThreadForkControlRequest,
   createRuntimeThreadForkControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-control-nodes";
@@ -308,6 +316,10 @@ export type {
   WorkflowRuntimeThreadEventType,
 } from "./runtime/workflow-runtime-event-projection";
 export type {
+  RuntimeOperatorInterruptControlRequest,
+  RuntimeOperatorInterruptControlRequestBody,
+  RuntimeOperatorInterruptControlRequestInput,
+  RuntimeOperatorInterruptWorkflowNodeOptions,
   RuntimeThreadForkControlRequest,
   RuntimeThreadForkControlRequestBody,
   RuntimeThreadForkControlRequestInput,

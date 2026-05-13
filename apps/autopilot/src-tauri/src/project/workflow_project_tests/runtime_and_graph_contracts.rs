@@ -623,6 +623,139 @@ fn runtime_thread_fork_node_builds_react_flow_control_request() {
 }
 
 #[test]
+fn runtime_operator_interrupt_node_builds_react_flow_control_request() {
+    let root = temp_root("runtime-operator-interrupt");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Runtime Operator Interrupt".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut interrupt = workflow_node(
+        "interrupt-control",
+        "runtime_operator_interrupt",
+        "Interrupt control",
+        120,
+        180,
+        "Interrupt",
+        "control",
+    );
+    logic_mut(&mut interrupt).insert(
+        "runtimeOperatorInterruptEndpoint".to_string(),
+        json!("/v1/threads/{threadId}/turns/{turnId}/interrupt"),
+    );
+    logic_mut(&mut interrupt).insert(
+        "runtimeOperatorInterruptThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut interrupt).insert(
+        "runtimeOperatorInterruptTurnIdField".to_string(),
+        json!("turnId"),
+    );
+    logic_mut(&mut interrupt).insert(
+        "runtimeOperatorInterruptReasonField".to_string(),
+        json!("reason"),
+    );
+    logic_mut(&mut interrupt).insert(
+        "runtimeOperatorInterruptWorkflowNodeId".to_string(),
+        json!("runtime.operator-interrupt"),
+    );
+    logic_mut(&mut interrupt).insert(
+        "runtimeOperatorInterruptActor".to_string(),
+        json!("operator"),
+    );
+    logic_mut(&mut interrupt).insert(
+        "outputSchema".to_string(),
+        workflow_runtime_operator_interrupt_output_schema(),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    let workflow_graph_id = workflow.metadata.id.clone();
+    workflow.nodes = vec![interrupt];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_node(
+        bundle.workflow_path,
+        "interrupt-control".to_string(),
+        Some(json!({
+            "threadId": "thread_react_flow",
+            "turnId": "turn_react_flow",
+            "reason": "pause from React Flow runtime control"
+        })),
+        None,
+    )
+    .expect("runtime operator interrupt node should run");
+    assert_eq!(run.summary.status, "passed");
+    let node_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "interrupt-control")
+        .expect("interrupt node should run");
+    let output = node_run
+        .output
+        .as_ref()
+        .expect("interrupt output should exist");
+    assert_eq!(
+        output.get("kind").and_then(Value::as_str),
+        Some("runtime_operator_interrupt")
+    );
+    assert_eq!(
+        output.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        output.get("componentKind").and_then(Value::as_str),
+        Some("operator_control")
+    );
+    assert_eq!(
+        output.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        output.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.operator-interrupt")
+    );
+    assert_eq!(
+        output.get("threadId").and_then(Value::as_str),
+        Some("thread_react_flow")
+    );
+    assert_eq!(
+        output.get("turnId").and_then(Value::as_str),
+        Some("turn_react_flow")
+    );
+    assert_eq!(
+        output.get("endpoint").and_then(Value::as_str),
+        Some("/v1/threads/thread_react_flow/turns/turn_react_flow/interrupt")
+    );
+    let request = output
+        .get("request")
+        .expect("interrupt request should exist");
+    assert_eq!(
+        request.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        request.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        request.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.operator-interrupt")
+    );
+    assert_eq!(
+        request.get("eventKind").and_then(Value::as_str),
+        Some("OperatorControl.Interrupt")
+    );
+}
+
+#[test]
 fn github_pr_create_dry_run_node_executes_through_runtime() {
     let root = temp_root("github-pr-create-runtime");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

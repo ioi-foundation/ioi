@@ -269,8 +269,9 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "turn_completed":
     case "turn_failed":
     case "turn_canceled":
-    case "turn_interrupted":
       return "output";
+    case "turn_interrupted":
+      return "runtime_operator_interrupt";
     case "turn_steered":
     case "context_compacted":
       return "state";
@@ -419,8 +420,8 @@ function componentKindForRuntimeThreadEvent(
     case "turn_completed":
     case "turn_failed":
     case "turn_canceled":
-    case "turn_interrupted":
       return "runtime_turn";
+    case "turn_interrupted":
     case "turn_steered":
       return "operator_control";
     case "context_compacted":

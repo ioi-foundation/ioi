@@ -733,6 +733,120 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.thread.fork"] },
   },
   {
+    type: "runtime_operator_interrupt",
+    label: "Runtime Operator Interrupt",
+    group: "Flow",
+    family: "flow_control",
+    token: "INT",
+    familyLabel: "Runtime",
+    metricLabel: "Interrupt",
+    metricValue: "control",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["turn"],
+    outputs: ["interrupt", "event", "status"],
+    portDefinitions: [
+      port("turn", "Turn state", "input", "state", "state", false, "state"),
+      port("interrupt", "Interrupt request", "output", "state", "output", false, "state"),
+      port("event", "Interrupt event", "output", "state", "output", false, "state"),
+      port("status", "Interrupt status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("turn", "Turn state", "input", "state", "state", false, "state"),
+      port("interrupt", "Interrupt request", "output", "state", "output", false, "state"),
+      port("event", "Interrupt event", "output", "state", "output", false, "state"),
+      port("status", "Interrupt status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeOperatorInterruptEndpoint",
+        "runtimeOperatorInterruptThreadIdField",
+        "runtimeOperatorInterruptTurnIdField",
+        "runtimeOperatorInterruptWorkflowNodeId",
+      ],
+      properties: {
+        runtimeOperatorInterruptEndpoint: { type: "string" },
+        runtimeOperatorInterruptField: { type: "string" },
+        runtimeOperatorInterruptEventField: { type: "string" },
+        runtimeOperatorInterruptStatusField: { type: "string" },
+        runtimeOperatorInterruptReceiptField: { type: "string" },
+        runtimeOperatorInterruptPolicyField: { type: "string" },
+        runtimeOperatorInterruptThreadId: { type: "string" },
+        runtimeOperatorInterruptThreadIdField: { type: "string" },
+        runtimeOperatorInterruptTurnId: { type: "string" },
+        runtimeOperatorInterruptTurnIdField: { type: "string" },
+        runtimeOperatorInterruptReason: { type: "string" },
+        runtimeOperatorInterruptReasonField: { type: "string" },
+        runtimeOperatorInterruptWorkflowNodeId: { type: "string" },
+        runtimeOperatorInterruptSource: { type: "string" },
+        runtimeOperatorInterruptActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_operator_interrupt"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_operator_interrupt",
+      "runtimeOperatorInterrupt.status",
+    ),
+    policyProfile: policyProfile("write"),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_operator_interrupt",
+      executorId: "workflow.runtime_operator_interrupt",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_operator_interrupt",
+        "runtimeOperatorInterrupt.status",
+      ),
+      runtimeOperatorInterruptEndpoint:
+        "/v1/threads/{threadId}/turns/{turnId}/interrupt",
+      runtimeOperatorInterruptField: "runtimeOperatorInterrupt",
+      runtimeOperatorInterruptEventField: "runtimeOperatorInterrupt.event",
+      runtimeOperatorInterruptStatusField: "runtimeOperatorInterrupt.status",
+      runtimeOperatorInterruptReceiptField: "runtimeOperatorInterrupt.receiptRefs",
+      runtimeOperatorInterruptPolicyField:
+        "runtimeOperatorInterrupt.policyDecisionRefs",
+      runtimeOperatorInterruptThreadIdField: "threadId",
+      runtimeOperatorInterruptTurnIdField: "turnId",
+      runtimeOperatorInterruptReasonField: "reason",
+      runtimeOperatorInterruptReason:
+        "Interrupt turn from React Flow workflow control.",
+      runtimeOperatorInterruptWorkflowNodeId: "runtime.operator-interrupt",
+      runtimeOperatorInterruptSource: "react_flow",
+      runtimeOperatorInterruptActor: "operator",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_operator_interrupt_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeOperatorInterrupt: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeOperatorInterrupt: true,
+        runtimeOperatorInterruptField: "runtimeOperatorInterrupt",
+        runtimeOperatorInterruptStatusField: "runtimeOperatorInterrupt.status",
+      },
+      nodeTypeLabel: "RuntimeOperatorInterruptNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.turn.interrupt"] },
+  },
+  {
     type: "workflow_package_export",
     label: "Workflow Package Export",
     group: "Tools",
@@ -3492,6 +3606,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["decision", "verifier", "output"];
     case "runtime_thread_fork":
       return ["runtime_checklist", "decision", "verifier", "output"];
+    case "runtime_operator_interrupt":
+      return ["runtime_thread_fork", "human_gate", "decision", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -3593,6 +3709,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "workflow_package_export" ||
     type === "workflow_package_import" ||
     type === "runtime_thread_fork" ||
+    type === "runtime_operator_interrupt" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

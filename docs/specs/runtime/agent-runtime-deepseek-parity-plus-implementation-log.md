@@ -105,6 +105,7 @@ workstream was narrower.
 | 86 | 2026-05-12 | P2. Localization And Accessibility | React Flow settings harness package import/rows extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json |
 | 87 | 2026-05-12 | P0. Live Runtime API Bridge | live bridge TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md |
 | 105 | 2026-05-12 | P0. Live Runtime API Bridge | React Flow runtime thread fork control node | /tmp/ioi-autopilot-gui-harness-react-flow-thread-fork-control/2026-05-12T23-57-36-129Z/result.json |
+| 106 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator interrupt control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5287,6 +5288,61 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-react-flow-thread-fork-control`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-react-flow-thread-fork-control/2026-05-12T23-57-36-129Z/result.json`.
+
+Known validation note:
+
+- Repo-wide `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml --check`
+  still reports pre-existing formatting diffs in unrelated orchestrator store
+  modules. The scoped `rustfmt --check` over this slice's touched Rust files
+  passed.
+
+### Slice 106. 2026-05-13 - React Flow runtime operator interrupt control node
+
+Implementation slice completed 2026-05-13, React Flow runtime operator
+interrupt control node:
+
+- Added `runtime_operator_interrupt` to the React Flow workflow-authoring node
+  registry with configurable interrupt endpoint, thread id field, turn id
+  field, reason field, graph/node metadata, receipt/policy output fields,
+  runtime chrome strings, schema metadata, and a `runtime.turn.interrupt`
+  privileged action declaration.
+- Extended `workflow-runtime-control-nodes.ts` from a fork-only builder into a
+  shared control-node request helper with a second exported builder for
+  `runtime_operator_interrupt`. It now produces the daemon interrupt request
+  body with `source=react_flow`, `workflowGraphId`,
+  `workflowNodeId=runtime.operator-interrupt`,
+  `componentKind=operator_control`, and
+  `payloadSchemaVersion=ioi.runtime.operator-control.v1`.
+- Promoted `runtime_operator_interrupt` into the shared runtime action schema,
+  Rust `ActionKind`, Tauri scaffold catalog, action metadata, validation
+  checks, and local workflow-node execution lane. Local execution produces a
+  non-mutating React Flow interrupt control request descriptor instead of
+  calling the daemon directly.
+- Updated React Flow runtime event projection so `turn_interrupted` events
+  project as `runtime_operator_interrupt` nodes rather than generic output
+  nodes.
+- Added a live runtime-service proof where the request is built from a React
+  Flow workflow node, sent to
+  `/v1/threads/{thread_id}/turns/{turn_id}/interrupt`, and then verified across
+  daemon SSE, SDK `Thread.events()`, and the React Flow projection with graph
+  id, node id, source, receipt refs, and policy refs intact.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run generate:runtime-action-contracts -- --check`
+- `npm run build --workspace=@ioi/agent-ide`
+- `rustfmt --check apps/autopilot/src-tauri/src/runtime_projection.rs apps/autopilot/src-tauri/src/project/templates.rs apps/autopilot/src-tauri/src/project/validation.rs apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/scaffolds_and_bindings.rs apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_operator_interrupt_node_builds_react_flow_control_request`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds`
+- `node --test --test-name-pattern "React Flow operator interrupt control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "operator interrupt keeps one canonical control event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json`.
 
 Known validation note:
 

@@ -9,6 +9,7 @@ export const AGENT_ACTION_KINDS = [
   "workflow_package_export",
   "workflow_package_import",
   "runtime_thread_fork",
+  "runtime_operator_interrupt",
   "function",
   "model_binding",
   "model_call",
@@ -66,4 +67,5 @@ export const AGENT_ACTION_COMPLETION_VERIFICATION_KINDS = [
   "workflow_package_export",
   "workflow_package_import",
   "runtime_thread_fork",
+  "runtime_operator_interrupt",
 ] as const;

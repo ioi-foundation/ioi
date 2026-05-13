@@ -11,6 +11,7 @@
     "workflow_package_export",
     "workflow_package_import",
     "runtime_thread_fork",
+    "runtime_operator_interrupt",
     "function",
     "model_binding",
     "model_call",
@@ -61,6 +62,7 @@
     "gui_harness_validation",
     "workflow_package_export",
     "workflow_package_import",
-    "runtime_thread_fork"
+    "runtime_thread_fork",
+    "runtime_operator_interrupt"
   ]
 }

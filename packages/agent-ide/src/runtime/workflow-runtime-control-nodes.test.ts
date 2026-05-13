@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { makeWorkflowNode } from "./workflow-node-registry";
 import {
+  RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
+  RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND,
+  RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
   RUNTIME_THREAD_FORK_COMPONENT_KIND,
   RUNTIME_THREAD_FORK_SOURCE,
   RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
   RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+  createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
   createRuntimeThreadForkControlRequestFromWorkflowNode,
 } from "./workflow-runtime-control-nodes";
 
@@ -67,6 +72,84 @@ test("runtime_thread_fork helper supports configurable fields from node logic", 
   assert.equal(request.threadId, "thread with space");
   assert.equal(request.endpoint, "/runtime/thread%20with%20space/fork");
   assert.equal(request.body.reason, "split the live branch");
+  assert.equal(request.body.actor, "workflow-author");
+  assert.equal(request.body.source, "react_flow");
+});
+
+test("runtime_operator_interrupt workflow node builds a React Flow daemon request", () => {
+  const node = makeWorkflowNode(
+    "interrupt-control",
+    "runtime_operator_interrupt",
+    "Interrupt control",
+    100,
+    120,
+  );
+  const request = createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
+    node,
+    {
+      threadId: "thread-react-flow-1",
+      turnId: "turn-react-flow-1",
+      reason: "pause live validation from workflow",
+    },
+    { workflowGraphId: "workflow.react-flow.operator-interrupt-proof" },
+  );
+
+  assert.equal(
+    request.schemaVersion,
+    WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
+  );
+  assert.equal(request.nodeType, "runtime_operator_interrupt");
+  assert.equal(request.nodeId, "interrupt-control");
+  assert.equal(request.threadId, "thread-react-flow-1");
+  assert.equal(request.turnId, "turn-react-flow-1");
+  assert.equal(
+    request.endpoint,
+    "/v1/threads/thread-react-flow-1/turns/turn-react-flow-1/interrupt",
+  );
+  assert.equal(request.body.reason, "pause live validation from workflow");
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.actor, "operator");
+  assert.equal(
+    request.body.workflowGraphId,
+    "workflow.react-flow.operator-interrupt-proof",
+  );
+  assert.equal(request.body.workflowNodeId, RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID);
+  assert.equal(request.body.eventKind, RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND);
+  assert.equal(request.body.componentKind, RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND);
+});
+
+test("runtime_operator_interrupt helper supports configurable fields from node logic", () => {
+  const node = makeWorkflowNode(
+    "interrupt-control-configured",
+    "runtime_operator_interrupt",
+    "Interrupt control",
+    100,
+    120,
+    {
+      runtimeOperatorInterruptEndpoint:
+        "/runtime/{threadId}/turns/{turnId}/interrupt",
+      runtimeOperatorInterruptThreadIdField: "runtime.threadId",
+      runtimeOperatorInterruptTurnIdField: "runtime.turnId",
+      runtimeOperatorInterruptReasonField: "operator.reason",
+      runtimeOperatorInterruptWorkflowNodeId: "runtime.operator-interrupt",
+      runtimeOperatorInterruptActor: "workflow-author",
+    },
+  );
+  const request = createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
+    node,
+    {
+      runtime: { threadId: "thread with space", turnId: "turn/with/slash" },
+      operator: { reason: "pause the active turn" },
+    },
+  );
+
+  assert.equal(request.threadId, "thread with space");
+  assert.equal(request.turnId, "turn/with/slash");
+  assert.equal(
+    request.endpoint,
+    "/runtime/thread%20with%20space/turns/turn%2Fwith%2Fslash/interrupt",
+  );
+  assert.equal(request.body.reason, "pause the active turn");
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.source, "react_flow");
 });
