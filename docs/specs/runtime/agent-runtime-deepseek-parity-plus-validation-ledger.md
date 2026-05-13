@@ -157,6 +157,7 @@ the practical workstream when the source heading is broad.
 | 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json | node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "run-inspector diagnostics repair action" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop |
 | 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring |
 | 158 | 2026-05-13 | P1. Subagent Runtime Parity | SDK SubagentManager route wrappers | /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json | npm run typecheck --workspace=@ioi/agent-sdk<br>npm test --workspace=@ioi/agent-sdk<br>node --test --test-name-pattern "SDK client and Thread wrappers drive daemon SubagentManager routes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "SubagentManager&#124;subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers<br>git diff --check |
+| 159 | 2026-05-13 | P1. Subagent Runtime Parity / P0. Terminal Coding-Agent TUI | TUI SubagentManager route controls | /tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json | cargo test -p ioi-cli --bin cli agent_tui -- --nocapture<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts&#124;agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-tui-controls |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4815,6 +4816,52 @@ Validation evidence:
     `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
+
+## Slice 159. 2026-05-13 - TUI SubagentManager route controls
+
+Guide section: P1. Subagent Runtime Parity / P0. Terminal Coding-Agent TUI
+
+Evidence bundles:
+
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- /tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli agent_tui -- --nocapture`
+  - focused Rust TUI route/parser/control-state tests passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract syntax check passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - React Flow projection build passed with subagent row fields.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - 12 projection tests passed, including TUI `subagent_rows`.
+- `node --test --test-name-pattern "agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live line-mode proof passed for `/subagent` list/spawn/wait/result/input/
+    cancel/resume/assign/propagate route controls and projected rows.
+- `node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - CLI/TUI source-contract and thin shell regressions passed.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - source contract passed for React Flow TUI control projection.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broader workflow-addressable control node regression passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-tui-controls`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json`.
+
+Residual validation note:
+
+- A broad non-bin `cargo test -p ioi-cli agent_tui -- --nocapture` remains
+  blocked by pre-existing integration-test compile errors that still require
+  `StartAgentParams.runtime_route_frame` in unrelated e2e harnesses. This slice
+  uses the focused `--bin cli agent_tui` target as evidence.
 
 ## Slice 158. 2026-05-13 - SDK SubagentManager route wrappers
 

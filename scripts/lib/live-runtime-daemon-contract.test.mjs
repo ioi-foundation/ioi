@@ -5166,6 +5166,13 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/memory delete/);
   assert.match(source, /\/memory disable/);
   assert.match(source, /\/memory path/);
+  assert.match(source, /\/subagent spawn/);
+  assert.match(source, /\/subagent wait/);
+  assert.match(source, /\/subagent input/);
+  assert.match(source, /\/subagent cancel/);
+  assert.match(source, /\/subagent resume/);
+  assert.match(source, /\/subagent assign/);
+  assert.match(source, /propagate \[reason\]/);
   assert.match(source, /memory_policy/);
   assert.match(source, /ModelRouteDecision/);
   assert.match(source, /memory_update/);
@@ -5211,6 +5218,13 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/policy/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/\{memory_id\}/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents\/\{subagent_id\}\/wait/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents\/\{subagent_id\}\/input/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents\/\{subagent_id\}\/cancel/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents\/\{subagent_id\}\/resume/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents\/\{subagent_id\}\/assign/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/subagents\/cancel/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
@@ -5257,6 +5271,12 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /OperatorControl\.MemoryEdit/);
   assert.match(source, /OperatorControl\.MemoryDelete/);
   assert.match(source, /OperatorControl\.MemoryPolicy/);
+  assert.match(source, /OperatorControl\.SubagentSpawn/);
+  assert.match(source, /OperatorControl\.SubagentWait/);
+  assert.match(source, /OperatorControl\.SubagentSendInput/);
+  assert.match(source, /OperatorControl\.SubagentCancel/);
+  assert.match(source, /OperatorControl\.SubagentResume/);
+  assert.match(source, /OperatorControl\.SubagentAssign/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /OperatorApproval\.Approve/);
@@ -5281,13 +5301,14 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /mode_status/);
   assert.match(source, /mcp_rows/);
   assert.match(source, /memory_rows/);
+  assert.match(source, /subagent_rows/);
   assert.match(source, /approval_rows/);
   assert.match(source, /approval_decisions/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/memory", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/diagnostics", "/restore", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/memory", "/subagents", "/subagent", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/diagnostics", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -5321,6 +5342,8 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /OperatorControl\.McpDisable/);
   assert.match(source, /OperatorControl\.McpInvoke/);
   assert.match(source, /OperatorControl\.Memory/);
+  assert.match(source, /OperatorControl\.SubagentSpawn/);
+  assert.match(source, /OperatorControl\.SubagentCancel/);
   assert.match(source, /TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_THREAD_MCP_SERVER_ENABLE_ROUTE_TEMPLATE/);
@@ -5328,6 +5351,8 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /TUI_THREAD_MCP_TOOL_INVOKE_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_THREAD_MEMORY_STATUS_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_THREAD_MEMORY_VALIDATE_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
@@ -5341,6 +5366,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /line_mode_command=events/);
   assert.match(source, /line_mode_command=mcp/);
   assert.match(source, /line_mode_command=memory/);
+  assert.match(source, /line_mode_command=subagent/);
   assert.match(source, /line_mode_command=restore/);
   assert.match(source, /line_mode_command=diagnostics action=repair/);
   assert.match(source, /line_mode_error/);
@@ -7723,10 +7749,10 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      `/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp search query --server mcp.search --source-mode workspace --limit 2\n/mcp fetch mcp.search/query --source-mode workspace\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/mcp servers --source-mode workspace\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
-      { cwd: root, timeout: 30000 },
+      `/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp search query --server mcp.search --source-mode workspace --limit 2\n/mcp fetch mcp.search/query --source-mode workspace\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/mcp servers --source-mode workspace\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/subagent spawn explore Inspect line-mode subagent route evidence --tool-pack coding --route route.native-local --output-contract SUMMARY,EVIDENCE,RECEIPTS --merge-policy evidence_only --cancel-inheritance propagate\n/subagents\n/subagent wait\n/subagent result\n/subagent input Add line-mode subagent input evidence.\n/subagent cancel line_mode_subagent_cancel\n/subagent resume Resume line-mode subagent evidence.\n/subagent assign implement --tool-pack coding-plus --merge-policy manual_review\n/subagent spawn verify Remain isolated from parent cancellation --cancel-inheritance isolate\n/subagent propagate line_mode_parent_cancel\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
+      { cwd: root, timeout: 60000 },
     );
-    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/subagents .*\/subagent .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
     assert.match(result.stdout, /line_mode_command=mode/);
     assert.match(result.stdout, /line_mode_command=model/);
     assert.match(result.stdout, /line_mode_command=thinking/);
@@ -7743,6 +7769,15 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /line_mode_command=memory action=status/);
     assert.match(result.stdout, /line_mode_command=memory action=remember/);
     assert.match(result.stdout, /line_mode_command=memory action=validate/);
+    assert.match(result.stdout, /line_mode_command=subagent action=spawn/);
+    assert.match(result.stdout, /line_mode_command=subagent action=list/);
+    assert.match(result.stdout, /line_mode_command=subagent action=wait/);
+    assert.match(result.stdout, /line_mode_command=subagent action=result/);
+    assert.match(result.stdout, /line_mode_command=subagent action=input/);
+    assert.match(result.stdout, /line_mode_command=subagent action=cancel/);
+    assert.match(result.stdout, /line_mode_command=subagent action=resume/);
+    assert.match(result.stdout, /line_mode_command=subagent action=assign/);
+    assert.match(result.stdout, /line_mode_command=subagent action=propagate/);
     assert.match(result.stdout, /line_mode_command=jobs count=\d+/);
     assert.match(result.stdout, /line_mode_command=job action=inspect/);
     assert.match(result.stdout, /line_mode_command=run action=replay/);
@@ -7760,12 +7795,21 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /OperatorControl\.McpInvoke/);
     assert.match(result.stdout, /OperatorControl\.Memory/);
     assert.match(result.stdout, /OperatorControl\.MemoryWrite/);
+    assert.match(result.stdout, /OperatorControl\.SubagentSpawn/);
+    assert.match(result.stdout, /OperatorControl\.SubagentWait/);
+    assert.match(result.stdout, /OperatorControl\.SubagentSendInput/);
+    assert.match(result.stdout, /OperatorControl\.SubagentCancel/);
+    assert.match(result.stdout, /OperatorControl\.SubagentResume/);
+    assert.match(result.stdout, /OperatorControl\.SubagentAssign/);
     assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query operation=search/);
     assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query operation=fetch/);
     assert.match(result.stdout, /mcp_row kind=mcp_resource server=mcp\.search/);
     assert.match(result.stdout, /mcp_row kind=mcp_prompt server=mcp\.search/);
     assert.match(result.stdout, /memory_row kind=memory_status/);
     assert.match(result.stdout, /memory_row kind=memory_record/);
+    assert.match(result.stdout, /subagent_row subagent=agent_[^\s]+ role=explore status=completed operation=spawn/);
+    assert.match(result.stdout, /subagent_row subagent=agent_[^\s]+ role=implement status=completed operation=assign/);
+    assert.match(result.stdout, /subagent_row subagent=agent_[^\s]+ role=verify status=completed operation=spawn/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
     const threadId = result.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
     assert.ok(threadId);
@@ -7848,6 +7892,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     );
     assert.ok(
       finalControlState.command_history.some(
+        (entry) => entry.command === "subagent" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
         (entry) => entry.command === "interrupt" && entry.status === "applied",
       ),
     );
@@ -7866,6 +7915,14 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_status"));
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_policy"));
     assert.ok(finalControlState.memory_rows.some((row) => row.memory_operation === "write"));
+    assert.ok(finalControlState.subagent_rows.some((row) => row.subagent_role === "implement"));
+    assert.ok(
+      finalControlState.subagent_rows.some(
+        (row) =>
+          row.subagent_role === "verify" &&
+          row.subagent_cancellation_inheritance === "isolate",
+      ),
+    );
     assert.ok(
       finalControlState.validation_errors.some(
         (entry) =>
@@ -7884,6 +7941,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
     assert.ok(lineModeControlProjection.mcpRowCount >= 2);
     assert.ok(lineModeControlProjection.memoryRowCount >= 2);
+    assert.ok(lineModeControlProjection.subagentRowCount >= 2);
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "model_route" && row.reactFlowNodeId === "runtime.model-router",
@@ -7912,6 +7970,14 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "memory_record" && row.memoryOperation === "write",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) =>
+          row.rowKind === "subagent" &&
+          row.subagentRole === "implement" &&
+          row.subagentOutputContractStatus === "passed",
       ),
     );
     assert.ok(

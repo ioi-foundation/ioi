@@ -869,6 +869,31 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         receipt_refs: ["receipt-memory-write"],
       },
     ],
+    subagent_rows: [
+      {
+        id: "subagent-row",
+        row_kind: "subagent",
+        status: "completed",
+        label: "Subagent",
+        command: "subagent",
+        raw_input: "/subagent spawn",
+        subagent_id: "agent-subagent-1",
+        subagent_role: "explore",
+        subagent_operation: "spawn",
+        subagent_lifecycle_status: "completed",
+        subagent_output_contract_status: "passed",
+        subagent_cancellation_inheritance: "propagate",
+        subagent_merge_policy: "evidence_only",
+        subagent_tool_pack: "coding",
+        subagent_run_id: "run-subagent-1",
+        subagent_child_thread_id: "thread-child-1",
+        subagent_restart_count: "1",
+        subagent_input_count: "2",
+        subagent_assignment_count: "1",
+        workflow_node_id: "runtime.subagent.spawn.explore",
+        receipt_refs: ["receipt-subagent-spawn"],
+      },
+    ],
     command_history: [
       {
         id: "tui-command-1",
@@ -915,7 +940,8 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.runLifecycleCount, 1);
   assert.equal(projection.mcpRowCount, 5);
   assert.equal(projection.memoryRowCount, 4);
-  assert.equal(projection.rowCount, 20);
+  assert.equal(projection.subagentRowCount, 1);
+  assert.equal(projection.rowCount, 21);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -932,6 +958,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["memory_policy", "memory", "completed"],
       ["memory_record", "memory", "completed"],
       ["memory_record", "memory", "completed"],
+      ["subagent", "subagent", "completed"],
       ["approval", null, "pending"],
       ["approval_decision", "approve", "approved"],
       ["job", "jobs", "completed"],
@@ -942,11 +969,11 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     ],
   );
   assert.equal(
-    projection.rows[14]?.receiptRefs[0],
+    projection.rows[15]?.receiptRefs[0],
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[18]?.reactFlowNodeId,
+    projection.rows[19]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
   assert.equal(projection.rows[2]?.modelId, "auto");
@@ -963,7 +990,12 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[11]?.memoryKey, "conversation");
   assert.equal(projection.rows[12]?.memoryOperation, "write");
   assert.equal(projection.rows[12]?.reactFlowNodeId, "runtime.memory.write");
-  assert.equal(projection.rows[15]?.jobId, "job-run-test");
-  assert.equal(projection.rows[16]?.runId, "run-test");
-  assert.equal(projection.rows[19]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[13]?.subagentId, "agent-subagent-1");
+  assert.equal(projection.rows[13]?.subagentRole, "explore");
+  assert.equal(projection.rows[13]?.subagentOutputContractStatus, "passed");
+  assert.equal(projection.rows[13]?.subagentRestartCount, 1);
+  assert.equal(projection.rows[13]?.reactFlowNodeId, "runtime.subagent.spawn.explore");
+  assert.equal(projection.rows[16]?.jobId, "job-run-test");
+  assert.equal(projection.rows[17]?.runId, "run-test");
+  assert.equal(projection.rows[20]?.message, "/steer requires guidance text");
 });

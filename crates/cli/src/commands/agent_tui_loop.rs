@@ -2,23 +2,25 @@
 
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
-    add_tui_mcp_server, apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run,
-    decide_tui_approval, delete_tui_memory, edit_tui_memory,
+    add_tui_mcp_server, apply_tui_workspace_restore, assign_tui_subagent, cancel_tui_job,
+    cancel_tui_run, cancel_tui_subagent, decide_tui_approval, delete_tui_memory, edit_tui_memory,
     execute_tui_diagnostics_repair_decision, fetch_tui_event_batch, fetch_tui_job,
-    fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread, import_tui_mcp,
-    inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
-    inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
-    invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread, list_tui_memory_records,
-    list_tui_workspace_snapshots, preview_tui_workspace_restore, remember_tui_memory,
-    remove_tui_mcp_server, replay_tui_run_events, resume_tui_thread, search_tui_mcp_tools,
-    selected_run_id_from_thread, selected_turn_id_from_values, set_tui_mcp_server_enabled,
-    steer_tui_turn, thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_job_rows,
-    tui_mcp_rows, tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows,
+    fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace, fetch_tui_subagent_result,
+    fetch_tui_thread, import_tui_mcp, inspect_tui_mcp_status, inspect_tui_memory_path,
+    inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn,
+    invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread,
+    list_tui_memory_records, list_tui_subagents, list_tui_workspace_snapshots,
+    preview_tui_workspace_restore, propagate_tui_subagent_cancellation, remember_tui_memory,
+    remove_tui_mcp_server, replay_tui_run_events, resume_tui_subagent, resume_tui_thread,
+    search_tui_mcp_tools, selected_run_id_from_thread, selected_turn_id_from_values,
+    send_tui_subagent_input, set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn,
+    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows,
+    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows,
     update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
-    update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
+    update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory, wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::io::{self, Write};
 
 const DEFAULT_INTERRUPT_REASON: &str = "operator requested interrupt from TUI";
@@ -69,6 +71,9 @@ pub(crate) enum TuiLineCommand {
         action: Option<String>,
     },
     Memory {
+        action: Option<String>,
+    },
+    Subagent {
         action: Option<String>,
     },
     WorkspaceStatus,
@@ -330,6 +335,23 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("memory status inspected"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Subagent { action }) => {
+                let (events, subagent_status) =
+                    handle_subagent_command(&mut session, &control_state, action).await?;
+                control_state.merge_subagent_rows(tui_subagent_rows(
+                    &subagent_status,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "subagent",
+                    line.trim(),
+                    "applied",
+                    Some("subagent controls inspected or updated"),
                     &session,
                     &events,
                 );
@@ -747,6 +769,9 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
             action: non_empty_string(rest),
         }),
         "memory" => Ok(TuiLineCommand::Memory {
+            action: non_empty_string(rest),
+        }),
+        "subagent" | "subagents" => Ok(TuiLineCommand::Subagent {
             action: non_empty_string(rest),
         }),
         "status" | "workspace-status" => Ok(TuiLineCommand::WorkspaceStatus),
@@ -1543,6 +1568,600 @@ async fn handle_memory_command(
     Ok((events, result))
 }
 
+async fn handle_subagent_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    action: Option<String>,
+) -> Result<(Vec<Value>, Value)> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let action_text = action.unwrap_or_else(|| "list".to_string());
+    let parts = action_text.split_whitespace().collect::<Vec<_>>();
+    let action = parts
+        .first()
+        .copied()
+        .unwrap_or("list")
+        .trim()
+        .to_ascii_lowercase();
+    let remaining = parts.iter().skip(1).copied().collect::<Vec<_>>();
+    let result = match action.as_str() {
+        "status" | "list" | "ls" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            if !positionals.is_empty() {
+                return Err(anyhow!("/subagent list accepts only --role"));
+            }
+            list_tui_subagents(
+                &thread_id,
+                options.role.as_deref(),
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "spawn" | "start" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            let (role, prompt_parts) = if let Some(role) = options.role.clone() {
+                (role, positionals)
+            } else {
+                let role = positionals
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "general".to_string());
+                let prompt_parts = if positionals.is_empty() {
+                    Vec::new()
+                } else {
+                    positionals[1..].to_vec()
+                };
+                (role, prompt_parts)
+            };
+            let prompt = prompt_parts.join(" ");
+            if prompt.trim().is_empty() {
+                return Err(anyhow!(
+                    "/subagent spawn requires <role> <prompt> or --role <role> <prompt>"
+                ));
+            }
+            let mut body = subagent_body_from_options(
+                &options,
+                &format!("runtime.subagent.spawn.{}", tui_safe_id(&role)),
+            );
+            body.insert("role".to_string(), Value::String(role));
+            body.insert("prompt".to_string(), Value::String(prompt));
+            spawn_tui_subagent(
+                &thread_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "wait" | "join" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            let (subagent_id, tail) =
+                split_subagent_target(control_state, &positionals, "/subagent wait")?;
+            if !tail.is_empty() {
+                return Err(anyhow!("/subagent wait accepts at most one <subagent_id>"));
+            }
+            let body = subagent_body_from_options(
+                &options,
+                &format!("runtime.subagent.join.{}", tui_safe_id(&subagent_id)),
+            );
+            wait_tui_subagent(
+                &thread_id,
+                &subagent_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "result" | "get" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            if options.has_control_values() {
+                return Err(anyhow!(
+                    "/subagent result accepts only an optional <subagent_id>"
+                ));
+            }
+            let (subagent_id, tail) =
+                split_subagent_target(control_state, &positionals, "/subagent result")?;
+            if !tail.is_empty() {
+                return Err(anyhow!(
+                    "/subagent result accepts at most one <subagent_id>"
+                ));
+            }
+            fetch_tui_subagent_result(
+                &thread_id,
+                &subagent_id,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "input" | "send" | "send-input" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            let (subagent_id, tail) =
+                split_subagent_target(control_state, &positionals, "/subagent input")?;
+            let message = tail.join(" ");
+            if message.trim().is_empty() {
+                return Err(anyhow!(
+                    "/subagent input requires <message> when a default subagent is loaded, or <subagent_id> <message>"
+                ));
+            }
+            let mut body = subagent_body_from_options(
+                &options,
+                &format!("runtime.subagent.input.{}", tui_safe_id(&subagent_id)),
+            );
+            body.insert("message".to_string(), Value::String(message));
+            send_tui_subagent_input(
+                &thread_id,
+                &subagent_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "cancel" | "stop" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            let (subagent_id, tail) =
+                split_subagent_target(control_state, &positionals, "/subagent cancel")?;
+            let reason = tail.join(" ");
+            let mut body = subagent_body_from_options(
+                &options,
+                &format!("runtime.subagent.cancel.{}", tui_safe_id(&subagent_id)),
+            );
+            if !reason.trim().is_empty() {
+                body.insert("reason".to_string(), Value::String(reason));
+            }
+            cancel_tui_subagent(
+                &thread_id,
+                &subagent_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "resume" | "restart" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            let (subagent_id, tail) =
+                split_subagent_target(control_state, &positionals, "/subagent resume")?;
+            let mut body = subagent_body_from_options(
+                &options,
+                &format!("runtime.subagent.resume.{}", tui_safe_id(&subagent_id)),
+            );
+            let message = tail.join(" ");
+            if !message.trim().is_empty() {
+                body.insert("message".to_string(), Value::String(message));
+            }
+            resume_tui_subagent(
+                &thread_id,
+                &subagent_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "assign" => {
+            let (positionals, mut options) = parse_subagent_option_tokens(&remaining)?;
+            let (subagent_id, tail) =
+                split_subagent_target(control_state, &positionals, "/subagent assign")?;
+            let role_from_option = options.role.take();
+            let role = role_from_option
+                .clone()
+                .or_else(|| tail.first().cloned())
+                .ok_or_else(|| {
+                    anyhow!(
+                        "/subagent assign requires <role> when a default subagent is loaded, or <subagent_id> <role>"
+                    )
+                })?;
+            if (role_from_option.is_some() && !tail.is_empty())
+                || (role_from_option.is_none() && tail.len() > 1)
+            {
+                return Err(anyhow!(
+                    "/subagent assign accepts exactly one role argument"
+                ));
+            }
+            let mut body = subagent_body_from_options(
+                &options,
+                &format!("runtime.subagent.assign.{}", tui_safe_id(&role)),
+            );
+            body.insert("role".to_string(), Value::String(role));
+            assign_tui_subagent(
+                &thread_id,
+                &subagent_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "propagate" | "cancel-all" | "parent-cancel" => {
+            let (positionals, options) = parse_subagent_option_tokens(&remaining)?;
+            let reason = positionals.join(" ");
+            let mut body = subagent_body_from_options(&options, "runtime.subagent.cancel.parent");
+            if !reason.trim().is_empty() {
+                body.insert("reason".to_string(), Value::String(reason));
+            }
+            propagate_tui_subagent_cancellation(
+                &thread_id,
+                body,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        _ => {
+            return Err(anyhow!(
+                "/subagent accepts list, spawn, wait, result, input, cancel, resume, assign, or propagate"
+            ));
+        }
+    };
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    let rows = tui_subagent_rows(&result, Some(&thread_id));
+    let count = json_path_string(&result, "/count").unwrap_or_else(|| rows.len().to_string());
+    let active_count = json_path_string(&result, "/active_count")
+        .or_else(|| json_path_string(&result, "/activeCount"))
+        .unwrap_or_else(|| {
+            rows.iter()
+                .filter(|row| {
+                    let status = json_path_string(row, "/status")
+                        .unwrap_or_default()
+                        .to_ascii_lowercase();
+                    matches!(
+                        status.as_str(),
+                        "queued" | "running" | "waiting_for_input" | "interrupted"
+                    )
+                })
+                .count()
+                .to_string()
+        });
+    let selected_row = rows.last();
+    println!(
+        "line_mode_command=subagent action={} thread={} status={} count={} active={} subagent={} lifecycle={} output_contract={} event={}",
+        action,
+        thread_id,
+        json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
+        count,
+        active_count,
+        selected_row
+            .and_then(|row| json_path_string(row, "/subagent_id"))
+            .unwrap_or_else(|| "none".to_string()),
+        selected_row
+            .and_then(|row| json_path_string(row, "/subagent_lifecycle_status"))
+            .or_else(|| json_path_string(&result, "/lifecycle_status"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        selected_row
+            .and_then(|row| json_path_string(row, "/subagent_output_contract_status"))
+            .or_else(|| json_path_string(&result, "/output_contract_status"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+    );
+    for row in &rows {
+        println!(
+            "  subagent_row subagent={} role={} status={} operation={} run={} contract={} restart={} inputs={} assignments={} cancel_inheritance={} node={}",
+            json_path_string(row, "/subagent_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/subagent_role").unwrap_or_else(|| "general".to_string()),
+            json_path_string(row, "/subagent_lifecycle_status")
+                .or_else(|| json_path_string(row, "/status"))
+                .unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/subagent_operation").unwrap_or_else(|| action.clone()),
+            json_path_string(row, "/subagent_run_id").unwrap_or_else(|| "none".to_string()),
+            json_path_string(row, "/subagent_output_contract_status")
+                .unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/subagent_restart_count").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/subagent_input_count").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/subagent_assignment_count").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/subagent_cancellation_inheritance")
+                .unwrap_or_else(|| "propagate".to_string()),
+            json_path_string(row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.subagent".to_string())
+        );
+    }
+    let events = handle_events_command(session, None).await?;
+    Ok((events, result))
+}
+
+#[derive(Debug, Default)]
+struct SubagentCommandOptions {
+    role: Option<String>,
+    tool_pack: Option<String>,
+    model_route_id: Option<String>,
+    max_concurrency: Option<u64>,
+    output_contract: Vec<String>,
+    merge_policy: Option<String>,
+    cancellation_inheritance: Option<String>,
+    fork_context: Option<bool>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    target_agent_id: Option<String>,
+}
+
+impl SubagentCommandOptions {
+    fn has_control_values(&self) -> bool {
+        self.role.is_some()
+            || self.tool_pack.is_some()
+            || self.model_route_id.is_some()
+            || self.max_concurrency.is_some()
+            || !self.output_contract.is_empty()
+            || self.merge_policy.is_some()
+            || self.cancellation_inheritance.is_some()
+            || self.fork_context.is_some()
+            || self.workflow_graph_id.is_some()
+            || self.workflow_node_id.is_some()
+            || self.target_agent_id.is_some()
+    }
+}
+
+fn parse_subagent_option_tokens(tokens: &[&str]) -> Result<(Vec<String>, SubagentCommandOptions)> {
+    let mut positionals = Vec::new();
+    let mut options = SubagentCommandOptions::default();
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = tokens[index];
+        match token {
+            "--role" => {
+                options.role = Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--tool-pack" | "--toolpack" => {
+                options.tool_pack = Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--route" | "--model-route" | "--model-route-id" => {
+                options.model_route_id =
+                    Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--max-concurrency" => {
+                let value = required_subagent_option_value(tokens, &mut index, token)?;
+                options.max_concurrency = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("{token} requires a numeric value"))?,
+                );
+            }
+            "--output-contract" => {
+                options.output_contract = parse_subagent_output_contract(
+                    &required_subagent_option_value(tokens, &mut index, token)?,
+                );
+            }
+            "--merge-policy" => {
+                options.merge_policy =
+                    Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--cancel-inheritance" | "--cancellation-inheritance" => {
+                options.cancellation_inheritance =
+                    Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--fork-context" => options.fork_context = Some(true),
+            "--fresh-context" => options.fork_context = Some(false),
+            "--workflow-graph" | "--workflow-graph-id" => {
+                options.workflow_graph_id =
+                    Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--workflow-node" | "--workflow-node-id" => {
+                options.workflow_node_id =
+                    Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            "--target-agent" | "--target-agent-id" => {
+                options.target_agent_id =
+                    Some(required_subagent_option_value(tokens, &mut index, token)?)
+            }
+            _ if token.starts_with("--role=") => {
+                options.role = Some(token.trim_start_matches("--role=").to_string())
+            }
+            _ if token.starts_with("--tool-pack=") => {
+                options.tool_pack = Some(token.trim_start_matches("--tool-pack=").to_string())
+            }
+            _ if token.starts_with("--toolpack=") => {
+                options.tool_pack = Some(token.trim_start_matches("--toolpack=").to_string())
+            }
+            _ if token.starts_with("--route=") => {
+                options.model_route_id = Some(token.trim_start_matches("--route=").to_string())
+            }
+            _ if token.starts_with("--model-route=") => {
+                options.model_route_id =
+                    Some(token.trim_start_matches("--model-route=").to_string())
+            }
+            _ if token.starts_with("--model-route-id=") => {
+                options.model_route_id =
+                    Some(token.trim_start_matches("--model-route-id=").to_string())
+            }
+            _ if token.starts_with("--max-concurrency=") => {
+                let value = token.trim_start_matches("--max-concurrency=");
+                options.max_concurrency = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("--max-concurrency requires a numeric value"))?,
+                );
+            }
+            _ if token.starts_with("--output-contract=") => {
+                options.output_contract =
+                    parse_subagent_output_contract(token.trim_start_matches("--output-contract="));
+            }
+            _ if token.starts_with("--merge-policy=") => {
+                options.merge_policy = Some(token.trim_start_matches("--merge-policy=").to_string())
+            }
+            _ if token.starts_with("--cancel-inheritance=") => {
+                options.cancellation_inheritance = Some(
+                    token
+                        .trim_start_matches("--cancel-inheritance=")
+                        .to_string(),
+                )
+            }
+            _ if token.starts_with("--cancellation-inheritance=") => {
+                options.cancellation_inheritance = Some(
+                    token
+                        .trim_start_matches("--cancellation-inheritance=")
+                        .to_string(),
+                )
+            }
+            _ if token.starts_with("--workflow-graph=") => {
+                options.workflow_graph_id =
+                    Some(token.trim_start_matches("--workflow-graph=").to_string())
+            }
+            _ if token.starts_with("--workflow-graph-id=") => {
+                options.workflow_graph_id =
+                    Some(token.trim_start_matches("--workflow-graph-id=").to_string())
+            }
+            _ if token.starts_with("--workflow-node=") => {
+                options.workflow_node_id =
+                    Some(token.trim_start_matches("--workflow-node=").to_string())
+            }
+            _ if token.starts_with("--workflow-node-id=") => {
+                options.workflow_node_id =
+                    Some(token.trim_start_matches("--workflow-node-id=").to_string())
+            }
+            _ if token.starts_with("--target-agent=") => {
+                options.target_agent_id =
+                    Some(token.trim_start_matches("--target-agent=").to_string())
+            }
+            _ if token.starts_with("--target-agent-id=") => {
+                options.target_agent_id =
+                    Some(token.trim_start_matches("--target-agent-id=").to_string())
+            }
+            _ if token.starts_with("--") => return Err(anyhow!("unknown /subagent flag {token}")),
+            _ => positionals.push(token.to_string()),
+        }
+        index += 1;
+    }
+    Ok((positionals, options))
+}
+
+fn required_subagent_option_value(
+    tokens: &[&str],
+    index: &mut usize,
+    flag: &str,
+) -> Result<String> {
+    *index += 1;
+    tokens
+        .get(*index)
+        .map(|value| (*value).to_string())
+        .ok_or_else(|| anyhow!("{flag} requires a value"))
+}
+
+fn parse_subagent_output_contract(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|section| !section.is_empty())
+        .map(|section| section.to_ascii_uppercase())
+        .collect()
+}
+
+fn subagent_body_from_options(
+    options: &SubagentCommandOptions,
+    default_workflow_node_id: &str,
+) -> Map<String, Value> {
+    let mut body = Map::new();
+    body.insert("source".to_string(), Value::String("cli_tui".to_string()));
+    body.insert("actor".to_string(), Value::String("operator".to_string()));
+    body.insert(
+        "workflowNodeId".to_string(),
+        Value::String(
+            options
+                .workflow_node_id
+                .clone()
+                .unwrap_or_else(|| default_workflow_node_id.to_string()),
+        ),
+    );
+    if let Some(workflow_graph_id) = options.workflow_graph_id.as_ref() {
+        body.insert(
+            "workflowGraphId".to_string(),
+            Value::String(workflow_graph_id.clone()),
+        );
+    }
+    if let Some(tool_pack) = options.tool_pack.as_ref() {
+        body.insert("toolPack".to_string(), Value::String(tool_pack.clone()));
+    }
+    if let Some(model_route_id) = options.model_route_id.as_ref() {
+        body.insert(
+            "modelRouteId".to_string(),
+            Value::String(model_route_id.clone()),
+        );
+    }
+    if let Some(max_concurrency) = options.max_concurrency {
+        body.insert(
+            "maxConcurrency".to_string(),
+            Value::Number(serde_json::Number::from(max_concurrency)),
+        );
+    }
+    if !options.output_contract.is_empty() {
+        body.insert(
+            "outputContract".to_string(),
+            Value::Array(
+                options
+                    .output_contract
+                    .iter()
+                    .cloned()
+                    .map(Value::String)
+                    .collect(),
+            ),
+        );
+    }
+    if let Some(merge_policy) = options.merge_policy.as_ref() {
+        body.insert(
+            "mergePolicy".to_string(),
+            Value::String(merge_policy.clone()),
+        );
+    }
+    if let Some(cancellation_inheritance) = options.cancellation_inheritance.as_ref() {
+        body.insert(
+            "cancellationInheritance".to_string(),
+            Value::String(cancellation_inheritance.clone()),
+        );
+    }
+    if let Some(fork_context) = options.fork_context {
+        body.insert("forkContext".to_string(), Value::Bool(fork_context));
+    }
+    if let Some(target_agent_id) = options.target_agent_id.as_ref() {
+        body.insert(
+            "targetAgentId".to_string(),
+            Value::String(target_agent_id.clone()),
+        );
+    }
+    body
+}
+
+fn split_subagent_target(
+    control_state: &TuiControlState,
+    positionals: &[String],
+    command_name: &str,
+) -> Result<(String, Vec<String>)> {
+    let default_id = control_state.default_subagent_id();
+    if let Some(first) = positionals.first() {
+        if looks_like_subagent_id(first) || default_id.is_none() {
+            return Ok((first.clone(), positionals[1..].to_vec()));
+        }
+        return Ok((
+            default_id.expect("checked default subagent"),
+            positionals.to_vec(),
+        ));
+    }
+    default_id
+        .map(|subagent_id| (subagent_id, Vec::new()))
+        .ok_or_else(|| {
+            anyhow!(
+                "{command_name} requires <subagent_id> when no subagent row is loaded; use /subagents first"
+            )
+        })
+}
+
+fn looks_like_subagent_id(value: &str) -> bool {
+    value.starts_with("agent_") || value.starts_with("subagent_")
+}
+
+fn tui_safe_id(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 async fn handle_coding_tool_command(
     session: &mut TuiInteractiveSession,
     tool_id: &str,
@@ -2013,7 +2632,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -2382,6 +3001,7 @@ struct TuiControlState {
     run_lifecycle_rows: Vec<Value>,
     mcp_rows: Vec<Value>,
     memory_rows: Vec<Value>,
+    subagent_rows: Vec<Value>,
     command_history: Vec<Value>,
     validation_errors: Vec<Value>,
     sequence: u64,
@@ -2402,6 +3022,7 @@ impl TuiControlState {
             run_lifecycle_rows: Vec::new(),
             mcp_rows: Vec::new(),
             memory_rows: Vec::new(),
+            subagent_rows: Vec::new(),
             command_history: Vec::new(),
             validation_errors: Vec::new(),
             sequence: 0,
@@ -2606,6 +3227,28 @@ impl TuiControlState {
         }
     }
 
+    fn merge_subagent_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/subagent_id")
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.subagent_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.subagent_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/subagent_id")
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.subagent_rows.push(row);
+            }
+        }
+    }
+
     fn default_pending_approval_id(&self) -> Option<String> {
         self.approval_rows.iter().find_map(|row| {
             let status = json_path_string(row, "/status")
@@ -2639,6 +3282,13 @@ impl TuiControlState {
             })
     }
 
+    fn default_subagent_id(&self) -> Option<String> {
+        self.subagent_rows
+            .iter()
+            .rev()
+            .find_map(|row| json_path_string(row, "/subagent_id"))
+    }
+
     fn to_json(&self) -> Value {
         serde_json::json!({
             "schema_version": TUI_CONTROL_STATE_SCHEMA_VERSION,
@@ -2654,6 +3304,7 @@ impl TuiControlState {
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
             "mcp_rows": self.mcp_rows.clone(),
             "memory_rows": self.memory_rows.clone(),
+            "subagent_rows": self.subagent_rows.clone(),
             "command_history": self.command_history.clone(),
             "validation_errors": self.validation_errors.clone(),
         })
@@ -2767,6 +3418,28 @@ mod tests {
             parse_tui_line_command("/memory validate").unwrap(),
             TuiLineCommand::Memory {
                 action: Some("validate".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/subagents").unwrap(),
+            TuiLineCommand::Subagent { action: None }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/subagent spawn explore Inspect daemon evidence --tool-pack coding --route route.native-local"
+            )
+            .unwrap(),
+            TuiLineCommand::Subagent {
+                action: Some(
+                    "spawn explore Inspect daemon evidence --tool-pack coding --route route.native-local"
+                        .to_string()
+                )
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/subagent input Follow up with route evidence").unwrap(),
+            TuiLineCommand::Subagent {
+                action: Some("input Follow up with route evidence".to_string())
             }
         );
         assert_eq!(
@@ -2999,6 +3672,45 @@ mod tests {
     }
 
     #[test]
+    fn parses_subagent_line_mode_options() {
+        let (positionals, options) = parse_subagent_option_tokens(&[
+            "explore",
+            "Inspect",
+            "runtime",
+            "--tool-pack",
+            "coding",
+            "--route=route.native-local",
+            "--max-concurrency",
+            "2",
+            "--output-contract",
+            "SUMMARY,EVIDENCE,RECEIPTS",
+            "--merge-policy=manual_review",
+            "--cancel-inheritance",
+            "isolate",
+            "--workflow-node",
+            "runtime.subagent.spawn.explore",
+        ])
+        .unwrap();
+        assert_eq!(positionals, vec!["explore", "Inspect", "runtime"]);
+        assert_eq!(options.tool_pack.as_deref(), Some("coding"));
+        assert_eq!(
+            options.model_route_id.as_deref(),
+            Some("route.native-local")
+        );
+        assert_eq!(options.max_concurrency, Some(2));
+        assert_eq!(
+            options.output_contract,
+            vec!["SUMMARY", "EVIDENCE", "RECEIPTS"]
+        );
+        assert_eq!(options.merge_policy.as_deref(), Some("manual_review"));
+        assert_eq!(options.cancellation_inheritance.as_deref(), Some("isolate"));
+        assert_eq!(
+            options.workflow_node_id.as_deref(),
+            Some("runtime.subagent.spawn.explore")
+        );
+    }
+
+    #[test]
     fn line_mode_control_state_records_history_cursor_and_validation_errors() {
         let session = TuiInteractiveSession {
             endpoint: "http://127.0.0.1:8765".to_string(),
@@ -3052,6 +3764,14 @@ mod tests {
         })];
         state.merge_job_rows(tui_job_rows(&jobs, Some("thread_live")));
         state.merge_run_lifecycle_rows(tui_run_lifecycle_rows(&jobs, Some("thread_live")));
+        state.merge_subagent_rows(vec![serde_json::json!({
+            "id": "tui-subagent-agent_live",
+            "row_kind": "subagent",
+            "subagent_id": "agent_live",
+            "subagent_role": "explore",
+            "status": "completed",
+            "workflow_node_id": "runtime.subagent.spawn.explore",
+        })]);
         state.record_validation_error("/steer", "/steer requires guidance text", &session);
         let json = state.to_json();
 
@@ -3065,6 +3785,7 @@ mod tests {
         assert_eq!(json["job_rows"][0]["job_id"], "job_run_live");
         assert_eq!(json["job_rows"][0]["run_id"], "run_live");
         assert_eq!(json["run_lifecycle_rows"][0]["run_id"], "run_live");
+        assert_eq!(json["subagent_rows"][0]["subagent_id"], "agent_live");
         assert_eq!(
             json["run_lifecycle_rows"][0]["routes"]["trace"],
             "/v1/runs/run_live/trace"
