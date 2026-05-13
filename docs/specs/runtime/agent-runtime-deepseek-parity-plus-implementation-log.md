@@ -146,6 +146,7 @@ workstream was narrower.
 | 144 | 2026-05-13 | P1. MCP Manager Parity | live MCP stdio transport invocation | /tmp/ioi-autopilot-gui-harness-mcp-live-stdio/2026-05-13T14-11-08-493Z/result.json |
 | 145 | 2026-05-13 | P1. MCP Manager Parity | MCP resources/prompts discovery | /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json |
 | 146 | 2026-05-13 | P1. MCP Manager Parity | MCP import/add/remove registry writes | /tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json |
+| 147 | 2026-05-13 | P1. MCP Manager Parity | live MCP HTTP/SSE transport | /tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6946,3 +6947,42 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-config-writes`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json`.
+
+### Slice 147. 2026-05-13 - Live MCP HTTP/SSE transport
+
+Implementation slice completed 2026-05-13, remote live MCP transport parity:
+
+- Added daemon MCP remote transport execution for streamable HTTP JSON-RPC and
+  endpoint-announced SSE sessions, including `initialize`,
+  `notifications/initialized`, `tools/list`, `resources/list`, `prompts/list`,
+  and `tools/call`.
+- Routed MCP status live discovery and tool invocation through stdio, HTTP, or
+  SSE based on the daemon-owned server transport config while preserving the
+  same approval, containment, receipt, event, and evidence-ref contract.
+- Extended MCP server validation and normalized server records with remote URL,
+  endpoint, and header-name metadata.
+- Added deterministic live contract coverage with an in-process HTTP/SSE MCP
+  fixture that proves `live_http`, `live_sse`,
+  `mcp.transport.http.live`, and `mcp.transport.sse.live` receipts.
+- Added SDK surface typing for remote transport invocation options and status
+  live-discovery metadata.
+- Extended React Flow MCP add state nodes with transport, URL, headers JSON,
+  and HTTP/SSE creator defaults so workflow-authored MCP config compiles into
+  daemon registry mutations.
+- Updated the master guide to mark HTTP/SSE complete and move the next MCP
+  tactical slice to self-hosted serve mode.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-http-sse`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json`.

@@ -444,6 +444,9 @@ export interface NodeLogic {
   tool_name?: string;
   mcpServerId?: string;
   mcpServerLabel?: string;
+  mcpTransport?: "stdio" | "http" | "sse" | string;
+  mcpServerUrl?: string;
+  mcpServerHeadersJson?: string;
   mcpServerConfigJson?: string;
   mcpImportJson?: string;
   mcpToolName?: string;

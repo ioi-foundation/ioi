@@ -2908,6 +2908,9 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         },
         mcpServerId: { type: "string" },
         mcpServerLabel: { type: "string" },
+        mcpTransport: { type: "string", enum: ["stdio", "http", "sse"] },
+        mcpServerUrl: { type: "string" },
+        mcpServerHeadersJson: { type: "string" },
         mcpServerConfigJson: { type: "string" },
         mcpImportJson: { type: "string" },
         memoryRecordId: { type: "string" },
@@ -4157,7 +4160,46 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
       mcpServerId: "",
       mcpServerLabel: "",
-      mcpServerConfigJson: "{}",
+      mcpTransport: "stdio",
+      mcpServerUrl: "",
+      mcpServerHeadersJson: "{}",
+      mcpServerConfigJson: "{\"transport\":\"stdio\"}",
+    },
+  });
+  const mcpHttpServerAdd = creatorDefinition("state", {
+    creatorId: "mcp.server.add.http",
+    label: "Add HTTP MCP server",
+    description: "Add a streamable HTTP MCP server to the active runtime registry.",
+    metricValue: "http",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_add",
+      reducer: "replace",
+      mcpServerId: "",
+      mcpServerLabel: "",
+      mcpTransport: "http",
+      mcpServerUrl: "",
+      mcpServerHeadersJson: "{}",
+      mcpServerConfigJson:
+        "{\"transport\":\"http\",\"url\":\"\",\"allowedTools\":[]}",
+    },
+  });
+  const mcpSseServerAdd = creatorDefinition("state", {
+    creatorId: "mcp.server.add.sse",
+    label: "Add SSE MCP server",
+    description: "Add a server-sent-events MCP server to the active runtime registry.",
+    metricValue: "sse",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_add",
+      reducer: "replace",
+      mcpServerId: "",
+      mcpServerLabel: "",
+      mcpTransport: "sse",
+      mcpServerUrl: "",
+      mcpServerHeadersJson: "{}",
+      mcpServerConfigJson:
+        "{\"transport\":\"sse\",\"url\":\"\",\"allowedTools\":[]}",
     },
   });
   const mcpServerRemove = creatorDefinition("state", {
@@ -4368,6 +4410,8 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     mcpStatus,
     mcpImport,
     mcpServerAdd,
+    mcpHttpServerAdd,
+    mcpSseServerAdd,
     mcpServerRemove,
     mcpServerEnable,
     mcpServerDisable,
