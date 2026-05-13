@@ -366,6 +366,44 @@ export interface RuntimeDiagnosticsRepairRetryResult {
   summary?: string;
 }
 
+export interface RuntimeDiagnosticsOperatorOverrideResult {
+  schemaVersion: string;
+  schema_version?: string;
+  object: "ioi.runtime_diagnostics_operator_override" | string;
+  threadId: string;
+  thread_id?: string;
+  status: string;
+  overrideStatus?: string;
+  override_status?: string;
+  gateEventId?: string | null;
+  gate_event_id?: string | null;
+  gateId?: string | null;
+  gate_id?: string | null;
+  targetTurnId?: string | null;
+  target_turn_id?: string | null;
+  targetRunId?: string | null;
+  target_run_id?: string | null;
+  approvalRequired?: boolean;
+  approval_required?: boolean;
+  approvalSatisfied?: boolean;
+  approval_satisfied?: boolean;
+  approvalSource?: string | null;
+  approval_source?: string | null;
+  continuationAllowed?: boolean;
+  continuation_allowed?: boolean;
+  event?: RuntimeEventEnvelope | null;
+  operator_override_event?: RuntimeEventEnvelope | null;
+  receiptRefs: string[];
+  receipt_refs?: string[];
+  artifactRefs: string[];
+  artifact_refs?: string[];
+  policyDecisionRefs: string[];
+  policy_decision_refs?: string[];
+  rollbackRefs: string[];
+  rollback_refs?: string[];
+  summary?: string;
+}
+
 export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   action?: "repair_retry" | "restore_preview" | "restore_apply" | "operator_override" | string;
@@ -396,6 +434,8 @@ export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
   restore_apply_idempotency_key?: string;
   repairRetryIdempotencyKey?: string;
   repair_retry_idempotency_key?: string;
+  operatorOverrideIdempotencyKey?: string;
+  operator_override_idempotency_key?: string;
   repairPromptText?: string;
   repair_prompt_text?: string;
   [key: string]: unknown;
@@ -430,6 +470,10 @@ export interface RuntimeDiagnosticsRepairDecisionExecutionResult {
   repair_turn?: RuntimeTurnRecord | null;
   repairRetryEvent?: RuntimeEventEnvelope | null;
   repair_retry_event?: RuntimeEventEnvelope | null;
+  operatorOverride?: RuntimeDiagnosticsOperatorOverrideResult;
+  operator_override?: RuntimeDiagnosticsOperatorOverrideResult;
+  operatorOverrideEvent?: RuntimeEventEnvelope | null;
+  operator_override_event?: RuntimeEventEnvelope | null;
   restorePreview?: RuntimeWorkspaceRestorePreviewResult;
   restore_preview?: RuntimeWorkspaceRestorePreviewResult;
   restoreApply?: RuntimeWorkspaceRestoreApplyResult;
@@ -2488,6 +2532,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       input.action ??
         (decisionId.includes("repair_retry")
           ? "repair_retry"
+          : decisionId.includes("operator_override")
+            ? "operator_override"
           : decisionId.includes("restore_apply")
             ? "restore_apply"
             : "restore_preview"),
@@ -2497,6 +2543,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         input.workflow_node_id ??
         (action === "repair_retry"
           ? "runtime.lsp-diagnostics.repair.retry"
+          : action === "operator_override"
+          ? "runtime.lsp-diagnostics.repair.operator-override"
           : action === "restore_apply"
           ? "runtime.lsp-diagnostics.repair.restore-apply"
           : "runtime.lsp-diagnostics.repair.restore-preview"),
@@ -2505,6 +2553,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const repairRetry =
       action === "repair_retry"
         ? await this.mockDiagnosticsRepairRetry(threadId, decisionId, workflowNodeId, input, snapshotId)
+        : undefined;
+    const operatorOverride =
+      action === "operator_override"
+        ? await this.mockDiagnosticsOperatorOverride(threadId, decisionId, workflowNodeId, input, snapshotId)
         : undefined;
     const restorePreview =
       action === "restore_preview"
@@ -2535,11 +2587,15 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
           })
         : undefined;
     const executionStatus =
-      restoreApply?.applyStatus === "blocked"
+      operatorOverride?.status === "blocked"
         ? "blocked"
-        : restoreApply?.applyStatus === "failed"
+        : operatorOverride?.status === "failed"
           ? "failed"
-          : "completed";
+          : restoreApply?.applyStatus === "blocked"
+            ? "blocked"
+            : restoreApply?.applyStatus === "failed"
+              ? "failed"
+              : "completed";
     const event = mockRuntimeEventEnvelope({
       agent,
       threadId,
@@ -2556,6 +2612,11 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         repair_retry_event_id: repairRetry?.event?.event_id ?? null,
         repair_retry_turn_id: repairRetry?.repairTurn?.turn_id ?? null,
         repair_retry_request_id: repairRetry?.repairTurn?.request_id ?? null,
+        operator_override_event_id: operatorOverride?.event?.event_id ?? null,
+        operator_override_status: operatorOverride?.overrideStatus ?? operatorOverride?.status ?? null,
+        operator_override_approval_required: operatorOverride?.approvalRequired ?? null,
+        operator_override_approval_satisfied: operatorOverride?.approvalSatisfied ?? null,
+        operator_override_continuation_allowed: operatorOverride?.continuationAllowed ?? null,
         restore_preview_event_id: restorePreview?.event?.event_id ?? null,
         restore_apply_event_id: restoreApply?.event?.event_id ?? null,
         restore_apply_status: restoreApply?.applyStatus ?? null,
@@ -2567,9 +2628,15 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       componentKind: "lsp_diagnostics_repair",
       workflowNodeId: `${workflowNodeId}.decision`,
       receiptRefs: [`receipt_lsp_diagnostics_repair_${decisionId}`],
-      artifactRefs: repairRetry?.artifactRefs ?? restoreApply?.artifactRefs ?? restorePreview?.artifactRefs ?? [],
-      policyDecisionRefs: [decisionId, ...(repairRetry?.policyDecisionRefs ?? []), ...(restoreApply?.policyDecisionRefs ?? [])],
-      rollbackRefs: [snapshotId, ...(repairRetry?.rollbackRefs ?? [])],
+      artifactRefs:
+        repairRetry?.artifactRefs ?? operatorOverride?.artifactRefs ?? restoreApply?.artifactRefs ?? restorePreview?.artifactRefs ?? [],
+      policyDecisionRefs: [
+        decisionId,
+        ...(repairRetry?.policyDecisionRefs ?? []),
+        ...(operatorOverride?.policyDecisionRefs ?? []),
+        ...(restoreApply?.policyDecisionRefs ?? []),
+      ],
+      rollbackRefs: [snapshotId, ...(repairRetry?.rollbackRefs ?? []), ...(operatorOverride?.rollbackRefs ?? [])],
     });
     return {
       schemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
@@ -2593,6 +2660,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       repair_turn: repairRetry?.repairTurn ?? null,
       repairRetryEvent: repairRetry?.event ?? null,
       repair_retry_event: repairRetry?.event ?? null,
+      operatorOverride,
+      operator_override: operatorOverride,
+      operatorOverrideEvent: operatorOverride?.event ?? null,
+      operator_override_event: operatorOverride?.event ?? null,
       restorePreview,
       restore_preview: restorePreview,
       restoreApply,
@@ -2672,6 +2743,96 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       repair_turn: repairTurn,
       event,
       repair_retry_event: event,
+      receiptRefs: event.receipt_refs,
+      receipt_refs: event.receipt_refs,
+      artifactRefs: event.artifact_refs,
+      artifact_refs: event.artifact_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      policy_decision_refs: event.policy_decision_refs,
+      rollbackRefs: event.rollback_refs,
+      rollback_refs: event.rollback_refs,
+      summary: String(event.payload?.summary ?? ""),
+    };
+  }
+
+  private async mockDiagnosticsOperatorOverride(
+    threadId: string,
+    decisionId: string,
+    workflowNodeId: string,
+    input: RuntimeDiagnosticsRepairDecisionExecuteInput,
+    snapshotId: string,
+  ): Promise<RuntimeDiagnosticsOperatorOverrideResult> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const approvalRequired = Boolean(input.operatorOverrideRequiresApproval ?? input.operator_override_requires_approval ?? false);
+    const approvalSatisfied =
+      !approvalRequired ||
+      Boolean(
+        input.operatorOverrideApproved ??
+          input.operator_override_approved ??
+          input.overrideApproved ??
+          input.override_approved ??
+          input.approvalGranted ??
+          input.approval_granted ??
+          input.confirm ??
+          input.confirmed ??
+          input.approved,
+      );
+    const status = approvalRequired && !approvalSatisfied ? "blocked" : "completed";
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "diagnostics.operator_override.executed",
+      sourceEventKind: "LspDiagnostics.OperatorOverrideExecuted",
+      itemId: `${threadId}:item:diagnostics-operator-override:${decisionId}`,
+      payload: {
+        event_kind: "LspDiagnosticsOperatorOverrideExecuted",
+        decision_id: decisionId,
+        action: "operator_override",
+        status,
+        snapshot_id: snapshotId,
+        approval_required: approvalRequired,
+        approval_satisfied: approvalSatisfied,
+        approval_source: approvalSatisfied ? "boolean_confirmation" : "missing",
+        continuation_allowed: status === "completed",
+        summary:
+          status === "completed"
+            ? `Diagnostics operator override granted for ${decisionId}.`
+            : `Diagnostics operator override blocked for ${decisionId}: approval is required.`,
+      },
+      createdAt: new Date().toISOString(),
+      status,
+      payloadSchemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      componentKind: "lsp_diagnostics_operator_override",
+      workflowNodeId,
+      receiptRefs: [`receipt_lsp_diagnostics_operator_override_${decisionId}`],
+      artifactRefs: [],
+      policyDecisionRefs: [
+        decisionId,
+        `policy_lsp_diagnostics_operator_override_${approvalSatisfied ? "approval_satisfied" : "approval_required"}`,
+      ],
+      rollbackRefs: [snapshotId],
+    });
+    return {
+      schemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      schema_version: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      object: "ioi.runtime_diagnostics_operator_override",
+      threadId,
+      thread_id: threadId,
+      status,
+      overrideStatus: status,
+      override_status: status,
+      approvalRequired,
+      approval_required: approvalRequired,
+      approvalSatisfied,
+      approval_satisfied: approvalSatisfied,
+      approvalSource: approvalSatisfied ? "boolean_confirmation" : "missing",
+      approval_source: approvalSatisfied ? "boolean_confirmation" : "missing",
+      continuationAllowed: status === "completed",
+      continuation_allowed: status === "completed",
+      event,
+      operator_override_event: event,
       receiptRefs: event.receipt_refs,
       receipt_refs: event.receipt_refs,
       artifactRefs: event.artifact_refs,

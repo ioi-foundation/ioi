@@ -4390,6 +4390,70 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkRepairApply.event?.workflow_node_id, "workflow.diagnostics.repair.restore-apply.decision");
     assert.deepEqual(sdkRepairApply.rollbackRefs, [applyDiagnosticPatchResult.workspace_snapshot?.snapshotId]);
     assert.match(fs.readFileSync(path.join(cwd, "apply-diagnostics.mjs"), "utf8"), /export const applyRepair = 1;/);
+    const operatorOverrideDecision = blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find(
+      (decision) => decision.action === "operator_override",
+    );
+    assert.ok(operatorOverrideDecision);
+    const sdkOperatorOverride = await sdkClient.executeThreadDiagnosticsRepairDecision(
+      thread.thread_id,
+      operatorOverrideDecision.decisionId,
+      {
+        source: "react_flow",
+        workflowGraphId: "workflow-coding-tools",
+        workflowNodeId: "workflow.diagnostics.repair.operator-override",
+      },
+    );
+    assert.equal(sdkOperatorOverride.schema_version, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.equal(sdkOperatorOverride.action, "operator_override");
+    assert.equal(sdkOperatorOverride.status, "completed");
+    assert.equal(sdkOperatorOverride.snapshotId, blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId);
+    assert.equal(sdkOperatorOverride.operatorOverride?.approvalRequired, false);
+    assert.equal(sdkOperatorOverride.operatorOverride?.approvalSatisfied, true);
+    assert.equal(sdkOperatorOverride.operatorOverride?.continuationAllowed, true);
+    assert.equal(sdkOperatorOverride.operatorOverrideEvent?.workflow_node_id, "workflow.diagnostics.repair.operator-override");
+    assert.equal(sdkOperatorOverride.event?.workflow_node_id, "workflow.diagnostics.repair.operator-override.decision");
+    assert.deepEqual(sdkOperatorOverride.rollbackRefs, [blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId]);
+    const overriddenTurn = await sdkClient.getTurn(thread.thread_id, blockedTurn.turn_id);
+    assert.equal(overriddenTurn.status, "completed");
+    const requiredOperatorOverrideDecision = applyBlockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find(
+      (decision) => decision.action === "operator_override",
+    );
+    assert.ok(requiredOperatorOverrideDecision);
+    const sdkOperatorOverrideBlocked = await sdkClient.executeThreadDiagnosticsRepairDecision(
+      thread.thread_id,
+      requiredOperatorOverrideDecision.decisionId,
+      {
+        source: "react_flow",
+        workflowGraphId: "workflow-coding-tools",
+        workflowNodeId: "workflow.diagnostics.repair.operator-override.required",
+      },
+    );
+    assert.equal(sdkOperatorOverrideBlocked.action, "operator_override");
+    assert.equal(sdkOperatorOverrideBlocked.status, "blocked");
+    assert.equal(sdkOperatorOverrideBlocked.operatorOverride?.approvalRequired, true);
+    assert.equal(sdkOperatorOverrideBlocked.operatorOverride?.approvalSatisfied, false);
+    assert.equal(sdkOperatorOverrideBlocked.operatorOverride?.continuationAllowed, false);
+    const stillBlockedTurn = await sdkClient.getTurn(thread.thread_id, applyBlockedTurn.turn_id);
+    assert.equal(stillBlockedTurn.status, "waiting_for_input");
+    const sdkOperatorOverrideApproved = await sdkClient.executeThreadDiagnosticsRepairDecision(
+      thread.thread_id,
+      requiredOperatorOverrideDecision.decisionId,
+      {
+        source: "react_flow",
+        workflowGraphId: "workflow-coding-tools",
+        workflowNodeId: "workflow.diagnostics.repair.operator-override.required",
+        approvalGranted: true,
+      },
+    );
+    assert.equal(sdkOperatorOverrideApproved.action, "operator_override");
+    assert.equal(sdkOperatorOverrideApproved.status, "completed");
+    assert.equal(sdkOperatorOverrideApproved.operatorOverride?.approvalRequired, true);
+    assert.equal(sdkOperatorOverrideApproved.operatorOverride?.approvalSatisfied, true);
+    assert.equal(sdkOperatorOverrideApproved.operatorOverride?.continuationAllowed, true);
+    assert.equal(sdkOperatorOverrideApproved.operatorOverrideEvent?.workflow_node_id, "workflow.diagnostics.repair.operator-override.required");
+    assert.equal(sdkOperatorOverrideApproved.event?.workflow_node_id, "workflow.diagnostics.repair.operator-override.required.decision");
+    const overrideApprovedTurn = await sdkClient.getTurn(thread.thread_id, applyBlockedTurn.turn_id);
+    assert.equal(overrideApprovedTurn.status, "completed");
     const sdkTest = await sdkClient.invokeThreadTool(thread.thread_id, "test.run", {
       input: { commandId: "node.test", path: "sample.test.mjs" },
       workflowNodeId: "runtime.coding-tool.sdk-test-run",
@@ -4790,6 +4854,51 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsRepairApplyDecisionEvent.payload_summary.approval_satisfied, true);
     assert.deepEqual(diagnosticsRepairApplyDecisionEvent.rollback_refs, [applyDiagnosticPatchResult.workspace_snapshot.snapshotId]);
     assert.ok(diagnosticsRepairApplyDecisionEvent.policy_decision_refs.some((ref) => ref.includes("restore_apply")));
+    const diagnosticsOperatorOverrideEvent = daemonEvents.find(
+      (event) => event.event_id === sdkOperatorOverride.operatorOverrideEvent?.event_id,
+    );
+    assert.ok(diagnosticsOperatorOverrideEvent);
+    assert.equal(diagnosticsOperatorOverrideEvent.source, "react_flow");
+    assert.equal(diagnosticsOperatorOverrideEvent.source_event_kind, "LspDiagnostics.OperatorOverrideExecuted");
+    assert.equal(diagnosticsOperatorOverrideEvent.event_kind, "diagnostics.operator_override.executed");
+    assert.equal(diagnosticsOperatorOverrideEvent.component_kind, "lsp_diagnostics_operator_override");
+    assert.equal(diagnosticsOperatorOverrideEvent.workflow_node_id, "workflow.diagnostics.repair.operator-override");
+    assert.equal(diagnosticsOperatorOverrideEvent.payload_schema_version, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.equal(diagnosticsOperatorOverrideEvent.payload_summary.action, "operator_override");
+    assert.equal(diagnosticsOperatorOverrideEvent.payload_summary.approval_required, false);
+    assert.equal(diagnosticsOperatorOverrideEvent.payload_summary.approval_satisfied, true);
+    assert.equal(diagnosticsOperatorOverrideEvent.payload_summary.continuation_allowed, true);
+    assert.deepEqual(diagnosticsOperatorOverrideEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    assert.ok(diagnosticsOperatorOverrideEvent.policy_decision_refs.some((ref) => ref.includes("operator_override")));
+    const diagnosticsOperatorOverrideDecisionEvent = daemonEvents.find(
+      (event) => event.event_id === sdkOperatorOverride.event?.event_id,
+    );
+    assert.ok(diagnosticsOperatorOverrideDecisionEvent);
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.source, "react_flow");
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.source_event_kind, "LspDiagnostics.RepairDecisionExecuted");
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.event_kind, "diagnostics.repair_decision.executed");
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.component_kind, "lsp_diagnostics_repair");
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.workflow_node_id, "workflow.diagnostics.repair.operator-override.decision");
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.payload_summary.operator_override_event_id, diagnosticsOperatorOverrideEvent.event_id);
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.payload_summary.operator_override_status, "completed");
+    assert.equal(diagnosticsOperatorOverrideDecisionEvent.payload_summary.operator_override_continuation_allowed, true);
+    const diagnosticsOperatorOverrideBlockedEvent = daemonEvents.find(
+      (event) => event.event_id === sdkOperatorOverrideBlocked.operatorOverrideEvent?.event_id,
+    );
+    assert.ok(diagnosticsOperatorOverrideBlockedEvent);
+    assert.equal(diagnosticsOperatorOverrideBlockedEvent.status, "blocked");
+    assert.equal(diagnosticsOperatorOverrideBlockedEvent.payload_summary.approval_required, true);
+    assert.equal(diagnosticsOperatorOverrideBlockedEvent.payload_summary.approval_satisfied, false);
+    assert.equal(diagnosticsOperatorOverrideBlockedEvent.payload_summary.continuation_allowed, false);
+    const diagnosticsOperatorOverrideApprovedEvent = daemonEvents.find(
+      (event) => event.event_id === sdkOperatorOverrideApproved.operatorOverrideEvent?.event_id,
+    );
+    assert.ok(diagnosticsOperatorOverrideApprovedEvent);
+    assert.equal(diagnosticsOperatorOverrideApprovedEvent.status, "completed");
+    assert.equal(diagnosticsOperatorOverrideApprovedEvent.workflow_node_id, "workflow.diagnostics.repair.operator-override.required");
+    assert.equal(diagnosticsOperatorOverrideApprovedEvent.payload_summary.approval_required, true);
+    assert.equal(diagnosticsOperatorOverrideApprovedEvent.payload_summary.approval_satisfied, true);
+    assert.equal(diagnosticsOperatorOverrideApprovedEvent.payload_summary.continuation_allowed, true);
     const tuiRestorePreviewEvent = daemonEvents.find(
       (event) =>
         event.source === "runtime_auto" &&
@@ -5004,6 +5113,39 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkDiagnosticsRepairRetryDecisionEvent.sourceEventKind, "LspDiagnostics.RepairDecisionExecuted");
     assert.equal(sdkDiagnosticsRepairRetryDecisionEvent.payloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
     assert.deepEqual(sdkDiagnosticsRepairRetryDecisionEvent.rollbackRefs, diagnosticsRepairRetryDecisionEvent.rollback_refs);
+    const sdkDiagnosticsOperatorOverrideEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsOperatorOverrideEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsOperatorOverrideEvent);
+    assert.equal(sdkDiagnosticsOperatorOverrideEvent.source, "react_flow");
+    assert.equal(sdkDiagnosticsOperatorOverrideEvent.type, "runtime_step");
+    assert.equal(sdkDiagnosticsOperatorOverrideEvent.componentKind, "lsp_diagnostics_operator_override");
+    assert.equal(sdkDiagnosticsOperatorOverrideEvent.sourceEventKind, "LspDiagnostics.OperatorOverrideExecuted");
+    assert.equal(sdkDiagnosticsOperatorOverrideEvent.payloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.deepEqual(sdkDiagnosticsOperatorOverrideEvent.rollbackRefs, diagnosticsOperatorOverrideEvent.rollback_refs);
+    assert.deepEqual(sdkDiagnosticsOperatorOverrideEvent.policyDecisionRefs, diagnosticsOperatorOverrideEvent.policy_decision_refs);
+    const sdkDiagnosticsOperatorOverrideDecisionEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsOperatorOverrideDecisionEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsOperatorOverrideDecisionEvent);
+    assert.equal(sdkDiagnosticsOperatorOverrideDecisionEvent.source, "react_flow");
+    assert.equal(sdkDiagnosticsOperatorOverrideDecisionEvent.type, "runtime_step");
+    assert.equal(sdkDiagnosticsOperatorOverrideDecisionEvent.componentKind, "lsp_diagnostics_repair");
+    assert.equal(sdkDiagnosticsOperatorOverrideDecisionEvent.sourceEventKind, "LspDiagnostics.RepairDecisionExecuted");
+    assert.equal(sdkDiagnosticsOperatorOverrideDecisionEvent.payloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.deepEqual(sdkDiagnosticsOperatorOverrideDecisionEvent.rollbackRefs, diagnosticsOperatorOverrideDecisionEvent.rollback_refs);
+    const sdkDiagnosticsOperatorOverrideBlockedEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsOperatorOverrideBlockedEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsOperatorOverrideBlockedEvent);
+    assert.equal(sdkDiagnosticsOperatorOverrideBlockedEvent.componentKind, "lsp_diagnostics_operator_override");
+    assert.equal(sdkDiagnosticsOperatorOverrideBlockedEvent.status, "blocked");
+    const sdkDiagnosticsOperatorOverrideApprovedEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsOperatorOverrideApprovedEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsOperatorOverrideApprovedEvent);
+    assert.equal(sdkDiagnosticsOperatorOverrideApprovedEvent.componentKind, "lsp_diagnostics_operator_override");
+    assert.equal(sdkDiagnosticsOperatorOverrideApprovedEvent.status, "completed");
 	    const sdkDiagnosticsRepairRestorePreviewEvent = sdkEvents.find(
 	      (event) => event.id === diagnosticsRepairRestorePreviewEvent.event_id,
 	    );
@@ -5178,6 +5320,39 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(diagnosticsRepairRetryDecisionNode.rollbackRefs, diagnosticsRepairRetryDecisionEvent.rollback_refs);
     assert.deepEqual(diagnosticsRepairRetryDecisionNode.receiptRefs, diagnosticsRepairRetryDecisionEvent.receipt_refs);
     assert.deepEqual(diagnosticsRepairRetryDecisionNode.policyDecisionRefs, diagnosticsRepairRetryDecisionEvent.policy_decision_refs);
+    const diagnosticsOperatorOverrideNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsOperatorOverrideEvent.event_id),
+    );
+    assert.ok(diagnosticsOperatorOverrideNode);
+    assert.equal(diagnosticsOperatorOverrideNode.workflowNodeId, "workflow.diagnostics.repair.operator-override");
+    assert.equal(diagnosticsOperatorOverrideNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsOperatorOverrideNode.componentKind, "lsp_diagnostics_operator_override");
+    assert.equal(diagnosticsOperatorOverrideNode.label, "Diagnostics operator override");
+    assert.equal(diagnosticsOperatorOverrideNode.status, "completed");
+    assert.deepEqual(diagnosticsOperatorOverrideNode.rollbackRefs, diagnosticsOperatorOverrideEvent.rollback_refs);
+    assert.deepEqual(diagnosticsOperatorOverrideNode.receiptRefs, diagnosticsOperatorOverrideEvent.receipt_refs);
+    assert.deepEqual(diagnosticsOperatorOverrideNode.policyDecisionRefs, diagnosticsOperatorOverrideEvent.policy_decision_refs);
+    const diagnosticsOperatorOverrideDecisionNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsOperatorOverrideDecisionEvent.event_id),
+    );
+    assert.ok(diagnosticsOperatorOverrideDecisionNode);
+    assert.equal(diagnosticsOperatorOverrideDecisionNode.workflowNodeId, "workflow.diagnostics.repair.operator-override.decision");
+    assert.equal(diagnosticsOperatorOverrideDecisionNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsOperatorOverrideDecisionNode.componentKind, "lsp_diagnostics_repair");
+    assert.equal(diagnosticsOperatorOverrideDecisionNode.label, "Diagnostics repair decision");
+    assert.equal(diagnosticsOperatorOverrideDecisionNode.status, "completed");
+    assert.deepEqual(diagnosticsOperatorOverrideDecisionNode.rollbackRefs, diagnosticsOperatorOverrideDecisionEvent.rollback_refs);
+    assert.deepEqual(diagnosticsOperatorOverrideDecisionNode.receiptRefs, diagnosticsOperatorOverrideDecisionEvent.receipt_refs);
+    assert.deepEqual(diagnosticsOperatorOverrideDecisionNode.policyDecisionRefs, diagnosticsOperatorOverrideDecisionEvent.policy_decision_refs);
+    const diagnosticsOperatorOverrideRequiredNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsOperatorOverrideApprovedEvent.event_id),
+    );
+    assert.ok(diagnosticsOperatorOverrideRequiredNode);
+    assert.equal(diagnosticsOperatorOverrideRequiredNode.workflowNodeId, "workflow.diagnostics.repair.operator-override.required");
+    assert.equal(diagnosticsOperatorOverrideRequiredNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsOperatorOverrideRequiredNode.componentKind, "lsp_diagnostics_operator_override");
+    assert.equal(diagnosticsOperatorOverrideRequiredNode.label, "Diagnostics operator override");
+    assert.equal(diagnosticsOperatorOverrideRequiredNode.status, "completed");
 	    const diagnosticsRepairRestorePreviewNode = reactFlowProjection.nodes.find((node) =>
 	      node.eventIds.includes(diagnosticsRepairRestorePreviewEvent.event_id),
 	    );
