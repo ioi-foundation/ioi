@@ -3,7 +3,8 @@
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     add_tui_mcp_server, apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run,
-    decide_tui_approval, delete_tui_memory, edit_tui_memory, fetch_tui_event_batch, fetch_tui_job,
+    decide_tui_approval, delete_tui_memory, edit_tui_memory,
+    execute_tui_diagnostics_repair_decision, fetch_tui_event_batch, fetch_tui_job,
     fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread, import_tui_mcp,
     inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
     inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
@@ -88,6 +89,13 @@ pub(crate) enum TuiLineCommand {
     },
     Diagnostics {
         path: String,
+    },
+    DiagnosticsRepair {
+        action: String,
+        decision_id: String,
+        message: Option<String>,
+        approved: bool,
+        allow_conflicts: bool,
     },
     ArtifactRead {
         artifact_id: String,
@@ -433,6 +441,32 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::DiagnosticsRepair {
+                action,
+                decision_id,
+                message,
+                approved,
+                allow_conflicts,
+            }) => {
+                let events = handle_diagnostics_repair_command(
+                    &mut session,
+                    &action,
+                    &decision_id,
+                    message.as_deref(),
+                    approved,
+                    allow_conflicts,
+                )
+                .await?;
+                control_state.record_command(
+                    "diagnostics",
+                    line.trim(),
+                    "applied",
+                    Some("diagnostics repair decision executed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::ArtifactRead { artifact_id }) => {
                 let mut input = serde_json::Map::new();
                 input.insert("artifactId".to_string(), Value::String(artifact_id));
@@ -746,6 +780,9 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
             path: non_empty_string(rest),
         }),
         "diagnostics" | "diag" | "lsp-diagnostics" => {
+            if line_command_head(rest).as_deref() == Some("repair") {
+                return parse_diagnostics_repair_args(rest);
+            }
             let path =
                 non_empty_string(rest).ok_or_else(|| anyhow!("/diagnostics requires a path"))?;
             Ok(TuiLineCommand::Diagnostics { path })
@@ -1671,6 +1708,76 @@ async fn handle_restore_apply_command(
     handle_events_command(session, None).await
 }
 
+async fn handle_diagnostics_repair_command(
+    session: &mut TuiInteractiveSession,
+    action: &str,
+    decision_id: &str,
+    message: Option<&str>,
+    approved: bool,
+    allow_conflicts: bool,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let result = execute_tui_diagnostics_repair_decision(
+        &thread_id,
+        decision_id,
+        action,
+        message,
+        approved,
+        allow_conflicts,
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=diagnostics action=repair repair_action={} decision={} status={} snapshot={} approved={} allow_conflicts={} receipts={} policies={} event={}",
+        action,
+        decision_id,
+        json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&result, "/snapshotId")
+            .or_else(|| json_path_string(&result, "/snapshot_id"))
+            .unwrap_or_else(|| "none".to_string()),
+        approved,
+        allow_conflicts,
+        result
+            .pointer("/receipt_refs")
+            .or_else(|| result.pointer("/receiptRefs"))
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        result
+            .pointer("/policy_decision_refs")
+            .or_else(|| result.pointer("/policyDecisionRefs"))
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+    );
+    if let Some(turn_id) = json_path_string(&result, "/repairTurn/turn_id")
+        .or_else(|| json_path_string(&result, "/repair_turn/turn_id"))
+    {
+        println!("  repair_turn={turn_id}");
+    }
+    if let Some(preview_status) = json_path_string(&result, "/restorePreview/previewStatus")
+        .or_else(|| json_path_string(&result, "/restore_preview/preview_status"))
+    {
+        println!("  restore_preview_status={preview_status}");
+    }
+    if let Some(apply_status) = json_path_string(&result, "/restoreApply/applyStatus")
+        .or_else(|| json_path_string(&result, "/restore_apply/apply_status"))
+    {
+        println!("  restore_apply_status={apply_status}");
+    }
+    if let Some(continuation_allowed) =
+        json_path_string(&result, "/operatorOverride/continuationAllowed")
+            .or_else(|| json_path_string(&result, "/operator_override/continuation_allowed"))
+    {
+        println!("  operator_override_continuation_allowed={continuation_allowed}");
+    }
+    handle_events_command(session, None).await
+}
+
 async fn handle_jobs_command(session: &mut TuiInteractiveSession) -> Result<Vec<Value>> {
     let thread_id = thread_id_from_value(&session.thread)?;
     let jobs =
@@ -1906,7 +2013,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -1922,6 +2029,15 @@ fn non_empty_string(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+fn line_command_head(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
+    Some(trimmed[..end].to_ascii_lowercase())
 }
 
 fn parse_patch_args(rest: &str) -> Result<(String, String, String)> {
@@ -2047,6 +2163,97 @@ fn parse_restore_args(rest: &str) -> Result<TuiLineCommand> {
         }
         _ => Err(anyhow!(
             "/restore accepts list, preview <snapshot_id>, or apply <snapshot_id> --approve"
+        )),
+    }
+}
+
+fn parse_diagnostics_repair_args(rest: &str) -> Result<TuiLineCommand> {
+    let trimmed = rest.trim();
+    let mut parts = trimmed.split_whitespace();
+    let subcommand = parts
+        .next()
+        .ok_or_else(|| anyhow!("/diagnostics repair requires an action"))?;
+    if subcommand.to_ascii_lowercase() != "repair" {
+        return Err(anyhow!("/diagnostics repair requires an action"));
+    }
+    let action_token = parts.next().ok_or_else(|| {
+        anyhow!("/diagnostics repair requires retry, preview-restore, apply-restore, or override")
+    })?;
+    let action = normalize_diagnostics_repair_action(action_token)?;
+    let mut decision_id = None;
+    let mut message = Vec::new();
+    let mut approved = false;
+    let mut allow_conflicts = false;
+    let mut saw_flag = false;
+    while let Some(part) = parts.next() {
+        match part {
+            "--approve" | "--approved" | "--confirm" | "--confirmed" => {
+                approved = true;
+                saw_flag = true;
+            }
+            "--allow-conflicts"
+            | "--allow_conflicts"
+            | "--override-conflicts"
+            | "--override_conflicts" => {
+                allow_conflicts = true;
+                saw_flag = true;
+            }
+            "--decision" | "--decision-id" | "--decision_id" => {
+                saw_flag = true;
+                let value = parts.next().ok_or_else(|| {
+                    anyhow!("/diagnostics repair --decision requires a decision id")
+                })?;
+                decision_id = Some(value.to_string());
+            }
+            "--message" | "-m" => {
+                message.extend(parts.map(ToOwned::to_owned));
+                if message.is_empty() {
+                    return Err(anyhow!("/diagnostics repair --message requires text"));
+                }
+                break;
+            }
+            value if value.starts_with("--") => {
+                return Err(anyhow!(
+                    "/diagnostics repair unknown flag {value}; use --decision, --message, --approve, or --allow-conflicts"
+                ));
+            }
+            value if decision_id.is_none() && !saw_flag => {
+                decision_id = Some(value.to_string());
+            }
+            value => {
+                message.push(value.to_string());
+                message.extend(parts.map(ToOwned::to_owned));
+                break;
+            }
+        }
+    }
+    if action == "restore_apply" && !approved {
+        return Err(anyhow!(
+            "/diagnostics repair apply-restore requires --approve"
+        ));
+    }
+    Ok(TuiLineCommand::DiagnosticsRepair {
+        decision_id: decision_id.unwrap_or_else(|| action.clone()),
+        action,
+        message: if message.is_empty() {
+            None
+        } else {
+            Some(message.join(" "))
+        },
+        approved,
+        allow_conflicts,
+    })
+}
+
+fn normalize_diagnostics_repair_action(value: &str) -> Result<String> {
+    let normalized = value.trim().to_ascii_lowercase().replace(['-', '.'], "_");
+    match normalized.as_str() {
+        "retry" | "repair" | "repair_retry" => Ok("repair_retry".to_string()),
+        "preview" | "preview_restore" | "restore_preview" => Ok("restore_preview".to_string()),
+        "apply" | "apply_restore" | "restore_apply" => Ok("restore_apply".to_string()),
+        "override" | "operator_override" => Ok("operator_override".to_string()),
+        _ => Err(anyhow!(
+            "/diagnostics repair accepts retry, preview-restore, apply-restore, or override"
         )),
     }
 }
@@ -2609,6 +2816,63 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/diagnostics repair retry").unwrap(),
+            TuiLineCommand::DiagnosticsRepair {
+                action: "repair_retry".to_string(),
+                decision_id: "repair_retry".to_string(),
+                message: None,
+                approved: false,
+                allow_conflicts: false,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/diagnostics repair preview-restore restore_preview").unwrap(),
+            TuiLineCommand::DiagnosticsRepair {
+                action: "restore_preview".to_string(),
+                decision_id: "restore_preview".to_string(),
+                message: None,
+                approved: false,
+                allow_conflicts: false,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/diagnostics repair apply-restore --approve --allow-conflicts")
+                .unwrap(),
+            TuiLineCommand::DiagnosticsRepair {
+                action: "restore_apply".to_string(),
+                decision_id: "restore_apply".to_string(),
+                message: None,
+                approved: true,
+                allow_conflicts: true,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/diagnostics repair override operator_override --approve Continue anyway"
+            )
+            .unwrap(),
+            TuiLineCommand::DiagnosticsRepair {
+                action: "operator_override".to_string(),
+                decision_id: "operator_override".to_string(),
+                message: Some("Continue anyway".to_string()),
+                approved: true,
+                allow_conflicts: false,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/diagnostics repair retry --message Try a focused diagnostics repair"
+            )
+            .unwrap(),
+            TuiLineCommand::DiagnosticsRepair {
+                action: "repair_retry".to_string(),
+                decision_id: "repair_retry".to_string(),
+                message: Some("Try a focused diagnostics repair".to_string()),
+                approved: false,
+                allow_conflicts: false,
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/artifact artifact_coding_tool_output").unwrap(),
             TuiLineCommand::ArtifactRead {
                 artifact_id: "artifact_coding_tool_output".to_string()
@@ -2717,6 +2981,9 @@ mod tests {
         assert!(parse_tui_line_command("/patch README.md before after").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
         assert!(parse_tui_line_command("/model auto --route").is_err());
+        assert!(parse_tui_line_command("/diagnostics repair").is_err());
+        assert!(parse_tui_line_command("/diagnostics repair unknown").is_err());
+        assert!(parse_tui_line_command("/diagnostics repair apply-restore").is_err());
         assert!(parse_tui_line_command("/jobs extra").is_err());
         assert!(parse_tui_line_command("/job cancel").is_err());
         assert!(parse_tui_line_command("/job cancel job extra").is_err());
