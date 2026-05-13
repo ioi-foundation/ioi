@@ -33,6 +33,16 @@ import {
   isRuntimeServiceProfile,
   runtimeProfileForRequest,
 } from "./runtime-api-bridge.mjs";
+import {
+  WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
+  WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
+  parseJsonObject,
+  workspaceRestoreApplyOperations,
+  workspaceRestoreOperationCounts,
+  workspaceRestorePreviewOperation,
+  workspaceSnapshotContentDraftsByPath,
+  workspaceSnapshotFileForPatch,
+} from "./workspace-restore.mjs";
 
 export {
   RuntimeAgentServiceCommandAdapter,
@@ -50,9 +60,8 @@ const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
 const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
 const WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION = "ioi.runtime.workspace-restore-preview.v1";
+const WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION = "ioi.runtime.workspace-restore-apply.v1";
 const WORKSPACE_RESTORE_PREVIEW_NODE_ID = "runtime.restore-gate";
-const WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES = 256 * 1024;
-const WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES = 32 * 1024;
 const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
@@ -2769,8 +2778,8 @@ export class AgentgresRuntimeStateStore {
       restore: {
         status: previewSupported ? "content_captured" : "partial_content",
         previewSupported,
-        applySupported: false,
-        reason: previewSupported ? "restore_apply_pending" : "snapshot_content_capture_incomplete",
+        applySupported: previewSupported,
+        reason: previewSupported ? "restore_apply_requires_approval" : "snapshot_content_capture_incomplete",
       },
       redaction: {
         profile: "workspace_snapshot_content_artifact",
@@ -3009,10 +3018,10 @@ export class AgentgresRuntimeStateStore {
       preview_status: previewStatus,
       previewSupported: blockedCount === 0,
       preview_supported: blockedCount === 0,
-      applySupported: false,
-      apply_supported: false,
-      restoreApplySupported: false,
-      restore_apply_supported: false,
+      applySupported: previewStatus === "ready",
+      apply_supported: previewStatus === "ready",
+      restoreApplySupported: previewStatus === "ready",
+      restore_apply_supported: previewStatus === "ready",
       fileCount: operations.length,
       file_count: operations.length,
       readyCount,
@@ -3062,6 +3071,182 @@ export class AgentgresRuntimeStateStore {
       event,
       restore_preview_event: event,
       restorePreviewEvent: event,
+    };
+  }
+
+  applyWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const normalizedSnapshotId = optionalString(snapshotId);
+    if (!normalizedSnapshotId) {
+      throw runtimeError({
+        status: 400,
+        code: "workspace_snapshot_id_required",
+        message: "Restore apply requires a workspace snapshot id.",
+        details: { threadId },
+      });
+    }
+    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
+    const approval = workspaceRestoreApplyApprovalForRequest(request);
+    const allowConflicts = workspaceRestoreApplyAllowsConflicts(request);
+    const conflictPolicy = allowConflicts ? "override_conflicts" : "clean_preview_only";
+    const snapshotPackage = this.workspaceSnapshotContentPackage(threadId, normalizedSnapshotId);
+    const previewOperations = normalizeArray(snapshotPackage.files).map((file) =>
+      workspaceRestorePreviewOperation({
+        workspaceRoot: agent.cwd,
+        file,
+        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
+      }),
+    );
+    if (!previewOperations.length) {
+      throw runtimeError({
+        status: 409,
+        code: "workspace_restore_apply_empty",
+        message: "Restore apply could not find content-backed files in the snapshot.",
+        details: { threadId, snapshotId: normalizedSnapshotId },
+      });
+    }
+    const previewCounts = workspaceRestoreOperationCounts(previewOperations);
+    const hardBlocked = previewCounts.blockedCount > 0;
+    const conflictBlocked = previewCounts.conflictCount > 0 && !allowConflicts;
+    let operations = previewOperations.map((operation) => ({
+      ...operation,
+      applyStatus: "blocked",
+      apply_status: "blocked",
+      applyReason: workspaceRestoreApplyBlockedReason(operation, {
+        approvalSatisfied: approval.satisfied,
+        allowConflicts,
+        hardBlocked,
+        conflictBlocked,
+      }),
+      apply_reason: workspaceRestoreApplyBlockedReason(operation, {
+        approvalSatisfied: approval.satisfied,
+        allowConflicts,
+        hardBlocked,
+        conflictBlocked,
+      }),
+    }));
+    if (approval.satisfied && !hardBlocked && !conflictBlocked) {
+      operations = workspaceRestoreApplyOperations({
+        workspaceRoot: agent.cwd,
+        files: snapshotPackage.files,
+        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
+        allowConflicts,
+      });
+    }
+    const counts = workspaceRestoreOperationCounts(operations);
+    const applyStatus = workspaceRestoreApplyStatus(counts);
+    const previewStatus = counts.conflictCount || counts.blockedCount ? "blocked" : "ready";
+    const policyDecisionRefs = workspaceRestoreApplyPolicyDecisionRefs({
+      snapshotId: normalizedSnapshotId,
+      approval,
+      allowConflicts,
+      hardBlocked,
+      conflictBlocked,
+      applyStatus,
+    });
+    const receiptId = `receipt_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(
+      JSON.stringify(operations.map((operation) => [operation.path, operation.applyStatus ?? operation.apply_status, operation.appliedHash ?? operation.applied_hash])),
+    ).slice(0, 12)}`;
+    const artifactId = `artifact_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
+    const result = {
+      schemaVersion: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
+      schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
+      object: "ioi.runtime_workspace_restore_apply",
+      threadId,
+      thread_id: threadId,
+      turnId: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
+      turn_id: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
+      workspaceRoot: agent.cwd,
+      workspace_root: agent.cwd,
+      snapshotId: normalizedSnapshotId,
+      snapshot_id: normalizedSnapshotId,
+      snapshotHash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
+      snapshot_hash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
+      previewStatus,
+      preview_status: previewStatus,
+      applyStatus,
+      apply_status: applyStatus,
+      applySupported: applyStatus !== "blocked" && applyStatus !== "failed",
+      apply_supported: applyStatus !== "blocked" && applyStatus !== "failed",
+      restoreApplySupported: applyStatus !== "blocked" && applyStatus !== "failed",
+      restore_apply_supported: applyStatus !== "blocked" && applyStatus !== "failed",
+      approvalRequired: true,
+      approval_required: true,
+      approvalSatisfied: approval.satisfied,
+      approval_satisfied: approval.satisfied,
+      conflictPolicy,
+      conflict_policy: conflictPolicy,
+      fileCount: counts.fileCount,
+      file_count: counts.fileCount,
+      readyCount: counts.readyCount,
+      ready_count: counts.readyCount,
+      noopCount: counts.noopCount,
+      noop_count: counts.noopCount,
+      conflictCount: counts.conflictCount,
+      conflict_count: counts.conflictCount,
+      blockedCount: counts.blockedCount,
+      blocked_count: counts.blockedCount,
+      appliedCount: counts.appliedCount,
+      applied_count: counts.appliedCount,
+      applyNoopCount: counts.applyNoopCount,
+      apply_noop_count: counts.applyNoopCount,
+      applyBlockedCount: counts.applyBlockedCount,
+      apply_blocked_count: counts.applyBlockedCount,
+      failedCount: counts.failedCount,
+      failed_count: counts.failedCount,
+      operations,
+      policy: {
+        status: applyStatus === "blocked" ? "blocked" : "allowed",
+        approvalRequired: true,
+        approvalSatisfied: approval.satisfied,
+        approvalSource: approval.source,
+        conflictPolicy,
+      },
+      policy_decision_refs: policyDecisionRefs,
+      policyDecisionRefs,
+      receiptRefs: [receiptId],
+      receipt_refs: [receiptId],
+      artifactRefs: [artifactId],
+      artifact_refs: [artifactId],
+      rollbackRefs: [normalizedSnapshotId],
+      rollback_refs: [normalizedSnapshotId],
+      summary: workspaceRestoreApplySummary({
+        snapshotId: normalizedSnapshotId,
+        applyStatus,
+        counts,
+        approval,
+        allowConflicts,
+      }),
+    };
+    const artifactRecord = this.materializeWorkspaceRestoreApplyArtifact({
+      threadId,
+      workspaceRoot: agent.cwd,
+      snapshotId: normalizedSnapshotId,
+      artifactId,
+      receiptId,
+      apply: result,
+    });
+    const event = this.appendWorkspaceRestoreApplyEvent({
+      threadId,
+      turnId: result.turnId,
+      workspaceRoot: agent.cwd,
+      workflowGraphId,
+      workflowNodeId,
+      apply: {
+        ...result,
+        artifactRefs: [artifactRecord.id],
+        artifact_refs: [artifactRecord.id],
+      },
+    });
+    return {
+      ...result,
+      artifactRefs: [artifactRecord.id],
+      artifact_refs: [artifactRecord.id],
+      event,
+      restore_apply_event: event,
+      restoreApplyEvent: event,
     };
   }
 
@@ -3144,6 +3329,48 @@ export class AgentgresRuntimeStateStore {
     return artifactRecord;
   }
 
+  materializeWorkspaceRestoreApplyArtifact({
+    threadId,
+    workspaceRoot,
+    snapshotId,
+    artifactId,
+    receiptId,
+    apply,
+  } = {}) {
+    const createdAt = new Date().toISOString();
+    const content = JSON.stringify(apply, null, 2);
+    const artifactRecord = {
+      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      id: artifactId,
+      thread_id: threadId,
+      threadId,
+      tool_name: "workspace.restore_apply",
+      toolName: "workspace.restore_apply",
+      tool_call_id: snapshotId,
+      toolCallId: snapshotId,
+      workspace_root: workspaceRoot,
+      workspaceRoot,
+      name: "workspace-restore-apply.json",
+      channel: "restore-apply",
+      media_type: "application/json",
+      mediaType: "application/json",
+      redaction: "workspace_restore_apply",
+      receipt_id: receiptId,
+      receiptId,
+      content,
+      content_bytes: Buffer.byteLength(content, "utf8"),
+      contentBytes: Buffer.byteLength(content, "utf8"),
+      content_hash: doctorHash(content),
+      contentHash: doctorHash(content),
+      created_at: createdAt,
+      createdAt,
+    };
+    this.codingArtifacts.set(artifactRecord.id, artifactRecord);
+    writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+    return artifactRecord;
+  }
+
   appendWorkspaceRestorePreviewEvent({
     threadId,
     turnId,
@@ -3177,6 +3404,44 @@ export class AgentgresRuntimeStateStore {
       payload_summary: {
         ...preview,
         event_kind: "WorkspaceRestorePreview",
+      },
+    });
+  }
+
+  appendWorkspaceRestoreApplyEvent({
+    threadId,
+    turnId,
+    workspaceRoot,
+    workflowGraphId,
+    workflowNodeId,
+    apply,
+  } = {}) {
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId || "",
+      item_id: `${turnId || threadId}:item:workspace-restore-apply:${safeId(apply.snapshotId)}`,
+      idempotency_key: `thread:${threadId}:workspace-restore-apply:${apply.snapshotId}:${doctorHash(
+        JSON.stringify(apply.operations),
+      ).slice(0, 12)}`,
+      source: "runtime_auto",
+      source_event_kind: "WorkspaceRestore.Applied",
+      event_kind: "workspace.restore.applied",
+      status: apply.applyStatus === "blocked" ? "blocked" : apply.applyStatus === "failed" ? "failed" : "completed",
+      actor: "runtime",
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "restore_gate",
+      tool_call_id: apply.snapshotId,
+      artifact_refs: apply.artifactRefs,
+      receipt_refs: apply.receiptRefs,
+      rollback_refs: apply.rollbackRefs,
+      policy_decision_refs: apply.policyDecisionRefs,
+      payload_schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
+      payload_summary: {
+        ...apply,
+        event_kind: "WorkspaceRestoreApply",
       },
     });
   }
@@ -5531,6 +5796,13 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     writeJsonResponse(
       response,
       store.previewWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
+    );
+    return;
+  }
+  if (request.method === "POST" && action === "snapshots" && segments[4] && segments[5] === "restore-apply" && !segments[6]) {
+    writeJsonResponse(
+      response,
+      store.applyWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
     );
     return;
   }
@@ -9455,323 +9727,93 @@ function postEditDiagnosticsConfig(request = {}, input = {}) {
   };
 }
 
-function workspaceSnapshotContentDraftsByPath(value) {
-  const drafts = new Map();
-  for (const draft of normalizeArray(value)) {
-    const relativePath = optionalString(draft?.path);
-    if (!relativePath) continue;
-    drafts.set(relativePath, draft);
-  }
-  return drafts;
-}
-
-function workspaceSnapshotFileForPatch(entry = {}, draft = {}, options = {}) {
-  const pathValue = optionalString(entry.path) ?? "unknown";
-  const beforeHash = optionalString(entry.beforeHash ?? entry.before_hash);
-  const afterHash = optionalString(entry.afterHash ?? entry.after_hash);
-  const beforeExists = Boolean(entry.beforeExists ?? entry.before_exists);
-  const afterExists = Object.hasOwn(entry, "afterExists") || Object.hasOwn(entry, "after_exists")
-    ? Boolean(entry.afterExists ?? entry.after_exists)
-    : true;
-  const beforeSizeBytes = Number(entry.beforeSizeBytes ?? entry.before_size_bytes ?? 0) || 0;
-  const afterSizeBytes = Number(entry.afterSizeBytes ?? entry.after_size_bytes ?? 0) || 0;
-  const beforeMtimeMs = nullableNumber(entry.beforeMtimeMs ?? entry.before_mtime_ms);
-  const afterMtimeMs = nullableNumber(entry.afterMtimeMs ?? entry.after_mtime_ms);
-  const maxContentBytes = Number(options.maxContentBytes ?? WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES) || WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES;
-  const beforeCapture = workspaceSnapshotCaptureSide({
-    exists: beforeExists,
-    contentHash: beforeHash,
-    content: Object.hasOwn(draft ?? {}, "beforeContent") ? draft.beforeContent : draft?.before_content,
-    maxContentBytes,
-  });
-  const afterCapture = workspaceSnapshotCaptureSide({
-    exists: afterExists,
-    contentHash: afterHash,
-    content: Object.hasOwn(draft ?? {}, "afterContent") ? draft.afterContent : draft?.after_content,
-    maxContentBytes,
-  });
-  const publicFile = {
-    path: pathValue,
-    created: Boolean(entry.created),
-    deleted: beforeExists && !afterExists,
-    changed: beforeHash !== afterHash,
-    before: {
-      exists: beforeExists,
-      contentHash: beforeHash,
-      sizeBytes: beforeExists ? beforeSizeBytes : 0,
-      mtimeMs: beforeMtimeMs,
-      contentCaptured: beforeCapture.captured,
-      contentBytes: beforeCapture.contentBytes,
-      omittedReason: beforeCapture.omittedReason,
-    },
-    after: {
-      exists: afterExists,
-      contentHash: afterHash,
-      sizeBytes: afterExists ? afterSizeBytes : 0,
-      mtimeMs: afterMtimeMs,
-      contentCaptured: afterCapture.captured,
-      contentBytes: afterCapture.contentBytes,
-      omittedReason: afterCapture.omittedReason,
-    },
-    receiptRefs: [],
-    artifactRefs: [],
-  };
+function workspaceRestoreApplyApprovalForRequest(request = {}) {
+  const text = optionalString(
+    request.approval ??
+      request.approvalDecision ??
+      request.approval_decision ??
+      request.policyDecision ??
+      request.policy_decision ??
+      request.decision ??
+      request.status,
+  )?.toLowerCase();
+  const approvedText = ["approve", "approved", "allow", "allowed", "accept", "accepted", "confirm", "confirmed"];
+  const approvedBoolean = [
+    request.confirm,
+    request.confirmed,
+    request.confirmRestoreApply,
+    request.confirm_restore_apply,
+    request.applyConfirmed,
+    request.apply_confirmed,
+    request.approvalGranted,
+    request.approval_granted,
+    request.approved,
+  ].some((value) => value === true || value === "true");
   return {
-    publicFile,
-    contentFile: {
-      ...publicFile,
-      before: {
-        ...publicFile.before,
-        content: beforeCapture.content,
-      },
-      after: {
-        ...publicFile.after,
-        content: afterCapture.content,
-      },
-      encoding: optionalString(draft?.encoding) ?? "utf8",
-    },
-    contentCaptured: beforeCapture.captured && afterCapture.captured,
+    required: true,
+    satisfied: approvedBoolean || approvedText.includes(text),
+    source: approvedBoolean ? "boolean_confirmation" : approvedText.includes(text) ? text : "missing",
   };
 }
 
-function workspaceSnapshotCaptureSide({ exists, contentHash, content, maxContentBytes }) {
-  if (!exists) {
-    return {
-      captured: true,
-      content: null,
-      contentBytes: 0,
-      omittedReason: null,
-    };
-  }
-  if (typeof content !== "string") {
-    return {
-      captured: false,
-      content: null,
-      contentBytes: 0,
-      omittedReason: "snapshot_content_missing",
-    };
-  }
-  const contentBytes = Buffer.byteLength(content, "utf8");
-  if (contentBytes > maxContentBytes) {
-    return {
-      captured: false,
-      content: null,
-      contentBytes,
-      omittedReason: "snapshot_content_size_limit_exceeded",
-    };
-  }
-  if (contentHash && doctorHash(content) !== contentHash) {
-    return {
-      captured: false,
-      content: null,
-      contentBytes,
-      omittedReason: "snapshot_content_hash_mismatch",
-    };
-  }
-  return {
-    captured: true,
-    content,
-    contentBytes,
-    omittedReason: null,
-  };
+function workspaceRestoreApplyAllowsConflicts(request = {}) {
+  const policy = optionalString(
+    request.conflictPolicy ??
+      request.conflict_policy ??
+      request.restorePolicy ??
+      request.restore_policy,
+  )?.toLowerCase();
+  return Boolean(request.allowConflicts ?? request.allow_conflicts ?? request.overrideConflicts ?? request.override_conflicts) ||
+    ["override", "override_conflicts", "force", "force_apply", "apply_with_conflicts"].includes(policy);
 }
 
-function nullableNumber(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+function workspaceRestoreApplyBlockedReason(operation = {}, options = {}) {
+  if (!options.approvalSatisfied) return "workspace_restore_apply_requires_approval";
+  if (operation.status === "blocked") return operation.blockedReason ?? operation.blocked_reason ?? "workspace_restore_preview_blocked";
+  if (operation.status === "conflict" && !options.allowConflicts) return "workspace_restore_conflict_requires_override";
+  if (options.hardBlocked) return "workspace_restore_apply_blocked_by_file";
+  if (options.conflictBlocked) return "workspace_restore_apply_blocked_by_conflict";
+  return "workspace_restore_apply_blocked_by_policy";
 }
 
-function workspaceRestorePreviewOperation({ workspaceRoot, file = {}, maxDiffBytes }) {
-  const target = resolveWorkspaceSnapshotPath(workspaceRoot, file.path);
-  const before = file.before && typeof file.before === "object" ? file.before : {};
-  const after = file.after && typeof file.after === "object" ? file.after : {};
-  const current = readWorkspaceRestoreCurrent(target.absolutePath);
-  const beforeExists = Boolean(before.exists);
-  const afterExists = Boolean(after.exists);
-  const desiredContent = beforeExists && typeof before.content === "string" ? before.content : "";
-  const desiredHash = beforeExists ? optionalString(before.contentHash) : null;
-  const afterHash = afterExists ? optionalString(after.contentHash) : null;
-  const currentMatchesSnapshotPost =
-    current.exists === afterExists && (!afterExists || current.contentHash === afterHash);
-  const currentMatchesRestoreTarget =
-    current.exists === beforeExists && (!beforeExists || current.contentHash === desiredHash);
-  const contentAvailable = !beforeExists || typeof before.content === "string";
-  const operation = currentMatchesRestoreTarget
-    ? "noop"
-    : beforeExists
-      ? current.exists
-        ? "replace"
-        : "create"
-      : "delete";
-  const status = currentMatchesRestoreTarget
-    ? "noop"
-    : !contentAvailable || current.blocked
-      ? "blocked"
-      : currentMatchesSnapshotPost
-        ? "ready"
-        : "conflict";
-  const diff = status === "ready"
-    ? workspaceRestoreDiffPreview({
-        relativePath: target.relativePath,
-        before: current.exists ? current.content : "",
-        after: beforeExists ? desiredContent : "",
-        maxBytes: maxDiffBytes,
-      })
-    : { text: "", bytes: 0, truncated: false };
-  return {
-    path: target.relativePath,
-    operation,
-    status,
-    currentExists: current.exists,
-    current_exists: current.exists,
-    currentHash: current.contentHash,
-    current_hash: current.contentHash,
-    currentBytes: current.contentBytes,
-    current_bytes: current.contentBytes,
-    targetExists: beforeExists,
-    target_exists: beforeExists,
-    targetHash: desiredHash,
-    target_hash: desiredHash,
-    snapshotAfterExists: afterExists,
-    snapshot_after_exists: afterExists,
-    snapshotAfterHash: afterHash,
-    snapshot_after_hash: afterHash,
-    currentMatchesSnapshotPost,
-    current_matches_snapshot_post: currentMatchesSnapshotPost,
-    currentMatchesRestoreTarget,
-    current_matches_restore_target: currentMatchesRestoreTarget,
-    blockedReason: current.blockedReason ?? (!contentAvailable ? "snapshot_restore_target_content_missing" : null),
-    blocked_reason: current.blockedReason ?? (!contentAvailable ? "snapshot_restore_target_content_missing" : null),
-    diff: diff.text,
-    diffBytes: diff.bytes,
-    diff_bytes: diff.bytes,
-    diffHash: doctorHash(diff.text),
-    diff_hash: doctorHash(diff.text),
-    diffTruncated: diff.truncated,
-    diff_truncated: diff.truncated,
-  };
+function workspaceRestoreApplyStatus(counts = {}) {
+  if (counts.applyBlockedCount > 0) return "blocked";
+  if (counts.failedCount > 0) return "failed";
+  if (counts.appliedCount === 0 && counts.applyNoopCount === counts.fileCount) return "noop";
+  return "applied";
 }
 
-function readWorkspaceRestoreCurrent(absolutePath) {
-  if (!fs.existsSync(absolutePath)) {
-    return {
-      exists: false,
-      content: "",
-      contentHash: null,
-      contentBytes: 0,
-      blocked: false,
-      blockedReason: null,
-    };
-  }
-  const stat = fs.statSync(absolutePath);
-  if (!stat.isFile()) {
-    return {
-      exists: true,
-      content: "",
-      contentHash: null,
-      contentBytes: stat.size,
-      blocked: true,
-      blockedReason: "current_path_not_regular_file",
-    };
-  }
-  if (stat.size > WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES) {
-    return {
-      exists: true,
-      content: "",
-      contentHash: null,
-      contentBytes: stat.size,
-      blocked: true,
-      blockedReason: "current_content_size_limit_exceeded",
-    };
-  }
-  const content = fs.readFileSync(absolutePath, "utf8");
-  return {
-    exists: true,
-    content,
-    contentHash: doctorHash(content),
-    contentBytes: Buffer.byteLength(content, "utf8"),
-    blocked: false,
-    blockedReason: null,
-  };
+function workspaceRestoreApplyPolicyDecisionRefs({
+  snapshotId,
+  approval,
+  allowConflicts,
+  hardBlocked,
+  conflictBlocked,
+  applyStatus,
+} = {}) {
+  return uniqueStrings([
+    `policy_workspace_restore_apply_${safeId(snapshotId)}_${approval?.satisfied ? "approval_satisfied" : "approval_required"}`,
+    allowConflicts ? `policy_workspace_restore_apply_${safeId(snapshotId)}_conflict_override` : null,
+    hardBlocked ? `policy_workspace_restore_apply_${safeId(snapshotId)}_blocked_file` : null,
+    conflictBlocked ? `policy_workspace_restore_apply_${safeId(snapshotId)}_conflict_blocked` : null,
+    applyStatus === "failed" ? `policy_workspace_restore_apply_${safeId(snapshotId)}_write_failed` : null,
+  ].filter(Boolean));
 }
 
-function resolveWorkspaceSnapshotPath(workspaceRoot, selectedPath) {
-  const relativeInput = optionalString(selectedPath);
-  if (!relativeInput || path.isAbsolute(relativeInput) || relativeInput.includes("\0")) {
-    throw policyError("Workspace snapshot path must be a safe workspace-relative path.", {
-      workspaceRoot,
-      path: selectedPath ?? null,
-    });
+function workspaceRestoreApplySummary({ snapshotId, applyStatus, counts = {}, approval, allowConflicts }) {
+  if (!approval?.satisfied) {
+    return `Restore apply blocked for ${snapshotId}: operator approval is required.`;
   }
-  const root = path.resolve(workspaceRoot);
-  const absolutePath = path.resolve(root, relativeInput);
-  if (!isPathInside(root, absolutePath)) {
-    throw policyError("Workspace snapshot path escaped the workspace root.", {
-      workspaceRoot,
-      path: selectedPath,
-    });
+  if (applyStatus === "blocked") {
+    return `Restore apply blocked for ${snapshotId}: ${counts.conflictCount} conflict(s), ${counts.blockedCount} blocked file(s).`;
   }
-  return {
-    absolutePath,
-    relativePath: (path.relative(root, absolutePath) || ".").replaceAll("\\", "/"),
-  };
-}
-
-function isPathInside(rootPath, candidatePath) {
-  const relativePath = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
-  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
-}
-
-function workspaceRestoreDiffPreview({ relativePath, before, after, maxBytes }) {
-  if (before === after) return { text: "", bytes: 0, truncated: false };
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-workspace-restore-diff-"));
-  const beforePath = path.join(tmpRoot, "current");
-  const afterPath = path.join(tmpRoot, "restore");
-  try {
-    fs.writeFileSync(beforePath, before, "utf8");
-    fs.writeFileSync(afterPath, after, "utf8");
-    let raw = "";
-    try {
-      raw = execFileSync("git", [
-        "diff",
-        "--no-index",
-        "--no-color",
-        "--",
-        beforePath,
-        afterPath,
-      ], {
-        encoding: "utf8",
-        maxBuffer: 4 * 1024 * 1024,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch (error) {
-      raw = String(error?.stdout ?? error?.stderr ?? "");
-    }
-    const labeled = raw
-      .replaceAll(beforePath, `a/${relativePath}`)
-      .replaceAll(afterPath, `b/${relativePath}`);
-    const buffer = Buffer.from(labeled, "utf8");
-    const limit = Math.max(1, Number(maxBytes) || WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES);
-    const text = buffer.byteLength > limit ? buffer.subarray(0, limit).toString("utf8") : labeled;
-    return {
-      text,
-      bytes: buffer.byteLength,
-      truncated: buffer.byteLength > limit,
-    };
-  } finally {
-    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  if (applyStatus === "failed") {
+    return `Restore apply failed for ${snapshotId}: ${counts.failedCount} file write(s) failed.`;
   }
-}
-
-function parseJsonObject(value) {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(String(value ?? ""));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
+  if (applyStatus === "noop") {
+    return `Restore apply found ${counts.fileCount} file(s) already restored for ${snapshotId}.`;
   }
+  return `Restore apply restored ${counts.appliedCount} file(s) from ${snapshotId}${allowConflicts ? " with conflict override" : ""}.`;
 }
 
 function normalizeDiagnosticsMode(value) {

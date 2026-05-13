@@ -3610,6 +3610,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `RUNTIME_ARTIFACT_SPILLOVER_START ${'x'.repeat(4096)} RUNTIME_ARTIFACT_SPILLOVER_END`;\n\ntest('runtime coding test proof', () => {\n  console.log(marker);\n  assert.equal(2 + 2, 4);\n});\n",
   );
   fs.writeFileSync(path.join(cwd, "diagnostic-target.mjs"), "export const value = 1;\n");
+  fs.writeFileSync(path.join(cwd, "restore-target.mjs"), "export const restore = 1;\n");
   fs.writeFileSync(path.join(cwd, "blocking-target.mjs"), "export const blocked = 1;\n");
   fs.writeFileSync(path.join(cwd, "skip-diagnostics.mjs"), "export const skip = 1;\n");
   git(cwd, [
@@ -3620,6 +3621,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     "src/project-target.ts",
     "sample.test.mjs",
     "diagnostic-target.mjs",
+    "restore-target.mjs",
     "blocking-target.mjs",
     "skip-diagnostics.mjs",
   ]);
@@ -3805,7 +3807,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     );
     assert.equal(diagnosticPatchResult.workspace_snapshot?.restore?.status, "content_captured");
     assert.equal(diagnosticPatchResult.workspace_snapshot?.restore?.previewSupported, true);
-    assert.equal(diagnosticPatchResult.workspace_snapshot?.restore?.applySupported, false);
+    assert.equal(diagnosticPatchResult.workspace_snapshot?.restore?.applySupported, true);
     assert.equal(diagnosticPatchResult.workspace_snapshot?.files[0]?.before?.contentCaptured, true);
     assert.equal(diagnosticPatchResult.workspace_snapshot?.files[0]?.after?.contentCaptured, true);
     assert.equal(diagnosticPatchResult.workspace_snapshot?.files[0]?.before?.content, undefined);
@@ -3856,7 +3858,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(restorePreviewResult.schema_version, "ioi.runtime.workspace-restore-preview.v1");
     assert.equal(restorePreviewResult.snapshot_id, diagnosticPatchResult.workspace_snapshot?.snapshotId);
     assert.equal(restorePreviewResult.preview_status, "ready");
-    assert.equal(restorePreviewResult.apply_supported, false);
+    assert.equal(restorePreviewResult.apply_supported, true);
     assert.equal(restorePreviewResult.operations[0]?.path, "diagnostic-target.mjs");
     assert.equal(restorePreviewResult.operations[0]?.operation, "replace");
     assert.equal(restorePreviewResult.operations[0]?.status, "ready");
@@ -3867,6 +3869,68 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(restorePreviewResult.event.event_kind, "workspace.restore.previewed");
     assert.equal(restorePreviewResult.event.component_kind, "restore_gate");
     assert.equal(restorePreviewResult.event.workflow_node_id, "workflow.restore.preview");
+    const restorePatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch.restore-target",
+          toolPack: { coding: { diagnosticsMode: "skip" } },
+          input: {
+            path: "restore-target.mjs",
+            oldText: "export const restore = 1;",
+            newText: "export const restore = 2;",
+          },
+        }),
+      },
+    );
+    assert.equal(restorePatchResult.status, "completed");
+    assert.equal(restorePatchResult.result.applied, true);
+    assert.equal(restorePatchResult.workspace_snapshot?.restore?.applySupported, true);
+    assert.match(fs.readFileSync(path.join(cwd, "restore-target.mjs"), "utf8"), /restore = 2/);
+    const restoreApplyBlockedResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots/${restorePatchResult.workspace_snapshot?.snapshotId}/restore-apply`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.restore.apply.blocked",
+        }),
+      },
+    );
+    assert.equal(restoreApplyBlockedResult.schema_version, "ioi.runtime.workspace-restore-apply.v1");
+    assert.equal(restoreApplyBlockedResult.apply_status, "blocked");
+    assert.equal(restoreApplyBlockedResult.approval_required, true);
+    assert.equal(restoreApplyBlockedResult.approval_satisfied, false);
+    assert.equal(restoreApplyBlockedResult.operations[0]?.apply_status, "blocked");
+    assert.equal(restoreApplyBlockedResult.operations[0]?.apply_reason, "workspace_restore_apply_requires_approval");
+    assert.match(fs.readFileSync(path.join(cwd, "restore-target.mjs"), "utf8"), /restore = 2/);
+    const restoreApplyResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots/${restorePatchResult.workspace_snapshot?.snapshotId}/restore-apply`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.restore.apply",
+          approval_granted: true,
+        }),
+      },
+    );
+    assert.equal(restoreApplyResult.apply_status, "applied");
+    assert.equal(restoreApplyResult.apply_supported, true);
+    assert.equal(restoreApplyResult.approval_satisfied, true);
+    assert.equal(restoreApplyResult.applied_count, 1);
+    assert.equal(restoreApplyResult.operations[0]?.path, "restore-target.mjs");
+    assert.equal(restoreApplyResult.operations[0]?.apply_status, "applied");
+    assert.deepEqual(restoreApplyResult.rollback_refs, [restorePatchResult.workspace_snapshot?.snapshotId]);
+    assert.equal(restoreApplyResult.event.event_kind, "workspace.restore.applied");
+    assert.equal(restoreApplyResult.event.component_kind, "restore_gate");
+    assert.equal(restoreApplyResult.event.workflow_node_id, "workflow.restore.apply");
+    assert.match(fs.readFileSync(path.join(cwd, "restore-target.mjs"), "utf8"), /restore = 1/);
     assert.equal(diagnosticPatchResult.auto_diagnostics?.status, "completed");
     assert.equal(diagnosticPatchResult.auto_diagnostics?.tool_name, "lsp.diagnostics");
     assert.equal(diagnosticPatchResult.auto_diagnostics?.event.source, "runtime_auto");
@@ -4105,6 +4169,17 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkRestorePreview.previewStatus, "ready");
     assert.equal(sdkRestorePreview.operations[0]?.status, "ready");
     assert.deepEqual(sdkRestorePreview.rollbackRefs, [diagnosticPatchResult.workspace_snapshot?.snapshotId]);
+    const sdkRestoreApply = await sdkClient.applyThreadWorkspaceRestore(
+      thread.thread_id,
+      restorePatchResult.workspace_snapshot?.snapshotId,
+      {
+        workflowNodeId: "runtime.restore-gate.sdk-apply",
+        approvalGranted: true,
+      },
+    );
+    assert.equal(sdkRestoreApply.applyStatus, "noop");
+    assert.equal(sdkRestoreApply.operations[0]?.applyStatus, "noop");
+    assert.deepEqual(sdkRestoreApply.rollbackRefs, [restorePatchResult.workspace_snapshot?.snapshotId]);
     const sdkTest = await sdkClient.invokeThreadTool(thread.thread_id, "test.run", {
       input: { commandId: "node.test", path: "sample.test.mjs" },
       workflowNodeId: "runtime.coding-tool.sdk-test-run",
@@ -4359,7 +4434,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
         event.event_kind === "workspace.snapshot.created" &&
         event.component_kind === "workspace_snapshot",
     );
-    assert.ok(workspaceSnapshotEvents.length >= 4);
+    assert.ok(workspaceSnapshotEvents.length >= 5);
     const diagnosticSnapshotEvent = workspaceSnapshotEvents.find(
       (event) => event.payload_summary.snapshot_id === diagnosticPatchResult.workspace_snapshot.snapshotId,
     );
@@ -4373,7 +4448,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticSnapshotEvent.payload_summary.changed_file_count, 1);
     assert.equal(diagnosticSnapshotEvent.payload_summary.restore_status, "content_captured");
     assert.equal(String(diagnosticSnapshotEvent.payload_summary.restore_preview_supported), "true");
-    assert.equal(String(diagnosticSnapshotEvent.payload_summary.restore_apply_supported), "false");
+    assert.equal(String(diagnosticSnapshotEvent.payload_summary.restore_apply_supported), "true");
     assert.equal(diagnosticSnapshotEvent.payload_summary.files[0]?.path, "diagnostic-target.mjs");
     assert.deepEqual(diagnosticSnapshotEvent.rollback_refs, [diagnosticPatchResult.workspace_snapshot.snapshotId]);
     assert.deepEqual(diagnosticSnapshotEvent.receipt_refs, diagnosticPatchResult.workspace_snapshot.receiptRefs);
@@ -4393,6 +4468,29 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(restorePreviewEvent.rollback_refs, [diagnosticPatchResult.workspace_snapshot.snapshotId]);
     assert.deepEqual(restorePreviewEvent.receipt_refs, restorePreviewResult.receipt_refs);
     assert.deepEqual(restorePreviewEvent.artifact_refs, restorePreviewResult.artifact_refs);
+    const restoreApplyBlockedEvent = daemonEvents.find(
+      (event) => event.event_id === restoreApplyBlockedResult.event.event_id,
+    );
+    assert.ok(restoreApplyBlockedEvent);
+    assert.equal(restoreApplyBlockedEvent.status, "blocked");
+    assert.equal(restoreApplyBlockedEvent.event_kind, "workspace.restore.applied");
+    assert.equal(restoreApplyBlockedEvent.payload_summary.apply_status, "blocked");
+    assert.deepEqual(restoreApplyBlockedEvent.policy_decision_refs, restoreApplyBlockedResult.policy_decision_refs);
+    const restoreApplyEvent = daemonEvents.find(
+      (event) => event.event_id === restoreApplyResult.event.event_id,
+    );
+    assert.ok(restoreApplyEvent);
+    assert.equal(restoreApplyEvent.source, "runtime_auto");
+    assert.equal(restoreApplyEvent.source_event_kind, "WorkspaceRestore.Applied");
+    assert.equal(restoreApplyEvent.event_kind, "workspace.restore.applied");
+    assert.equal(restoreApplyEvent.component_kind, "restore_gate");
+    assert.equal(restoreApplyEvent.workflow_node_id, "workflow.restore.apply");
+    assert.equal(restoreApplyEvent.payload_schema_version, "ioi.runtime.workspace-restore-apply.v1");
+    assert.equal(restoreApplyEvent.payload_summary.apply_status, "applied");
+    assert.equal(restoreApplyEvent.payload_summary.operations[0]?.apply_status, "applied");
+    assert.deepEqual(restoreApplyEvent.rollback_refs, [restorePatchResult.workspace_snapshot.snapshotId]);
+    assert.deepEqual(restoreApplyEvent.receipt_refs, restoreApplyResult.receipt_refs);
+    assert.deepEqual(restoreApplyEvent.artifact_refs, restoreApplyResult.artifact_refs);
     const reactFlowArtifactRead = codingEvents.find(
       (event) =>
         event.payload.tool_name === "artifact.read" &&
@@ -4502,6 +4600,14 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkRestorePreviewEvent.sourceEventKind, "WorkspaceRestore.Previewed");
     assert.deepEqual(sdkRestorePreviewEvent.rollbackRefs, restorePreviewEvent.rollback_refs);
     assert.deepEqual(sdkRestorePreviewEvent.artifactRefs, restorePreviewEvent.artifact_refs);
+    const sdkRestoreApplyEvent = sdkEvents.find((event) => event.id === restoreApplyEvent.event_id);
+    assert.ok(sdkRestoreApplyEvent);
+    assert.equal(sdkRestoreApplyEvent.type, "runtime_step");
+    assert.equal(sdkRestoreApplyEvent.componentKind, "restore_gate");
+    assert.equal(sdkRestoreApplyEvent.sourceEventKind, "WorkspaceRestore.Applied");
+    assert.deepEqual(sdkRestoreApplyEvent.rollbackRefs, restoreApplyEvent.rollback_refs);
+    assert.deepEqual(sdkRestoreApplyEvent.artifactRefs, restoreApplyEvent.artifact_refs);
+    assert.deepEqual(sdkRestoreApplyEvent.policyDecisionRefs, restoreApplyEvent.policy_decision_refs);
     const sdkArtifactReadEvent = sdkEvents.find((event) => event.id === reactFlowArtifactRead.event_id);
     assert.ok(sdkArtifactReadEvent);
     assert.equal(sdkArtifactReadEvent.toolName, "artifact.read");
@@ -4598,6 +4704,18 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(restorePreviewNode.rollbackRefs, restorePreviewEvent.rollback_refs);
     assert.deepEqual(restorePreviewNode.receiptRefs, restorePreviewEvent.receipt_refs);
     assert.deepEqual(restorePreviewNode.artifactRefs, restorePreviewEvent.artifact_refs);
+    const restoreApplyNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(restoreApplyEvent.event_id),
+    );
+    assert.ok(restoreApplyNode);
+    assert.equal(restoreApplyNode.workflowNodeId, "workflow.restore.apply");
+    assert.equal(restoreApplyNode.nodeKind, "hook_policy");
+    assert.equal(restoreApplyNode.componentKind, "restore_gate");
+    assert.equal(restoreApplyNode.label, "Restore apply");
+    assert.equal(restoreApplyNode.status, "completed");
+    assert.deepEqual(restoreApplyNode.rollbackRefs, restoreApplyEvent.rollback_refs);
+    assert.deepEqual(restoreApplyNode.receiptRefs, restoreApplyEvent.receipt_refs);
+    assert.deepEqual(restoreApplyNode.artifactRefs, restoreApplyEvent.artifact_refs);
     const retrieveNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(reactFlowRetrieve.event_id),
     );
