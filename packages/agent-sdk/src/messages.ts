@@ -491,6 +491,81 @@ export interface RuntimeMcpStatus {
   event?: RuntimeEventEnvelope;
 }
 
+export interface RuntimeMemoryValidationIssue {
+  code: string;
+  severity: "error" | "warning" | string;
+  message: string;
+  memory_record_id?: string | null;
+  memoryRecordId?: string | null;
+  memory_scope?: string | null;
+  memoryScope?: string | null;
+  path?: string;
+}
+
+export interface RuntimeMemoryValidationResult {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_memory_manager_validation" | string;
+  ok: boolean;
+  status?: string;
+  issue_count?: number;
+  issueCount?: number;
+  warning_count?: number;
+  warningCount?: number;
+  record_count?: number;
+  recordCount?: number;
+  thread_id?: string | null;
+  threadId?: string | null;
+  agent_id?: string | null;
+  agentId?: string | null;
+  workspace?: string | null;
+  issues: RuntimeMemoryValidationIssue[];
+  warnings: RuntimeMemoryValidationIssue[];
+  policy?: AgentMemoryPolicy;
+  paths?: unknown;
+  filters?: unknown;
+  records?: AgentMemoryRecord[];
+  event?: RuntimeEventEnvelope;
+}
+
+export interface RuntimeMemoryStatus {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_memory_manager_status" | string;
+  status: string;
+  disabled?: boolean;
+  injection_enabled?: boolean;
+  injectionEnabled?: boolean;
+  read_only?: boolean;
+  readOnly?: boolean;
+  write_requires_approval?: boolean;
+  writeRequiresApproval?: boolean;
+  write_blocked_reason?: string | null;
+  writeBlockedReason?: string | null;
+  record_count: number;
+  recordCount?: number;
+  scope_count?: number;
+  scopeCount?: number;
+  memory_key_count?: number;
+  memoryKeyCount?: number;
+  scopes?: string[];
+  memory_keys?: string[];
+  memoryKeys?: string[];
+  thread_id?: string | null;
+  threadId?: string | null;
+  agent_id?: string | null;
+  agentId?: string | null;
+  workspace?: string | null;
+  policy?: AgentMemoryPolicy;
+  paths?: unknown;
+  filters?: unknown;
+  records: AgentMemoryRecord[];
+  validation?: RuntimeMemoryValidationResult;
+  routes?: Record<string, string>;
+  rows?: Array<Record<string, unknown>>;
+  event?: RuntimeEventEnvelope;
+}
+
 export interface RuntimeReceipt {
   id: string;
   kind: string;

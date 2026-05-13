@@ -2886,7 +2886,16 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         stateKey: { type: "string" },
         stateOperation: {
           type: "string",
-          enum: ["read", "write", "append", "merge", "memory_search", "memory_list"],
+          enum: [
+            "read",
+            "write",
+            "append",
+            "merge",
+            "memory_status",
+            "memory_policy",
+            "memory_search",
+            "memory_list",
+          ],
         },
         memoryKey: { type: "string" },
         memoryScope: {
@@ -4099,6 +4108,35 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
     },
   });
+  const memoryStatus = creatorDefinition("state", {
+    creatorId: "memory.status",
+    label: "Memory status",
+    description: "Inspect governed memory status and validation receipts.",
+    metricValue: "status",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_status",
+      reducer: "replace",
+      memoryScope: "thread",
+      memoryRedaction: "none",
+    },
+  });
+  const memoryPolicy = creatorDefinition("state", {
+    creatorId: "memory.policy",
+    label: "Memory policy",
+    description: "Inspect effective memory policy for a thread or workflow.",
+    metricValue: "policy",
+    defaultLogic: {
+      stateKey: "memory",
+      stateOperation: "memory_policy",
+      reducer: "replace",
+      memoryScope: "thread",
+      memorySubagentInheritance: "explicit",
+      memoryInjectionEnabled: true,
+      memoryReadOnly: false,
+      memoryWriteRequiresApproval: false,
+    },
+  });
   const memorySearch = creatorDefinition("state", {
     creatorId: "memory.search",
     label: "Memory search",
@@ -4196,6 +4234,8 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelEmbedding,
     modelEvaluator,
     stateRead,
+    memoryStatus,
+    memoryPolicy,
     memorySearch,
     memoryList,
     stateWrite,

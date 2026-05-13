@@ -505,7 +505,15 @@ export interface NodeLogic {
 
   // --- State ---
   stateKey?: string;
-  stateOperation?: "read" | "write" | "append" | "merge" | "memory_search" | "memory_list";
+  stateOperation?:
+    | "read"
+    | "write"
+    | "append"
+    | "merge"
+    | "memory_status"
+    | "memory_policy"
+    | "memory_search"
+    | "memory_list";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
   doctorEndpoint?: string;

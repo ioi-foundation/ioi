@@ -3427,6 +3427,7 @@ test("local daemon emits deterministic model route fallback decisions with recei
 });
 
 test("local daemon records explicit memory writes and injects provenance into the next turn", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-memory-daemon-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-memory-daemon-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
@@ -3449,6 +3450,57 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(memory.records.length, 1);
     assert.equal(memory.records[0].fact, "The operator prefers focused runtime slices.");
     assert.equal(memory.policy.injectionEnabled, true);
+
+    const memoryStatus = await fetchJson(
+      `${daemon.endpoint}/v1/memory?thread_id=${thread.thread_id}`,
+    );
+    assert.equal(memoryStatus.schemaVersion, "ioi.runtime.memory-manager-status.v1");
+    assert.equal(memoryStatus.status, "ready");
+    assert.equal(memoryStatus.record_count, 1);
+    assert.equal(memoryStatus.validation.ok, true);
+    assert.equal(memoryStatus.policy.id, memory.policy.id);
+
+    const memoryValidation = await fetchJson(`${daemon.endpoint}/v1/memory/validate`, {
+      method: "POST",
+      body: JSON.stringify({ thread_id: thread.thread_id }),
+    });
+    assert.equal(memoryValidation.schemaVersion, "ioi.runtime.memory-manager-validation.v1");
+    assert.equal(memoryValidation.ok, true);
+    assert.equal(memoryValidation.record_count, 1);
+
+    const threadMemoryStatus = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/status`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId: "memory-control-graph",
+          workflowNodeId: "memory-status-node",
+        }),
+      },
+    );
+    assert.equal(threadMemoryStatus.event.source_event_kind, "OperatorControl.Memory");
+    assert.equal(threadMemoryStatus.event.component_kind, "memory_policy");
+    assert.equal(threadMemoryStatus.event.workflow_node_id, "memory-status-node");
+    assert.ok(threadMemoryStatus.rows.some((row) => row.row_kind === "memory_status"));
+
+    const threadMemoryValidation = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/validate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ source: "react_flow" }),
+      },
+    );
+    assert.equal(threadMemoryValidation.event.source_event_kind, "OperatorControl.MemoryValidate");
+    assert.equal(threadMemoryValidation.event.workflow_node_id, "runtime.memory-manager.validate");
+    assert.equal(threadMemoryValidation.ok, true);
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    assert.equal((await sdkClient.getMemoryStatus({ thread_id: thread.thread_id })).record_count, 1);
+    assert.equal((await sdkClient.validateMemory({ thread_id: thread.thread_id })).ok, true);
+    assert.equal((await sdkThread.memory()).record_count, 1);
+    assert.equal((await sdkThread.validateMemory()).ok, true);
 
     await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`, {
       method: "POST",
@@ -3778,6 +3830,11 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/mcp\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/status/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/validate/);
+  assert.match(source, /\/v1\/memory/);
+  assert.match(source, /\/v1\/memory\/validate/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/status/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/validate/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/policy/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
@@ -3791,6 +3848,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /file\.inspect/);
   assert.match(source, /OperatorControl\.Mcp/);
   assert.match(source, /OperatorControl\.McpValidate/);
+  assert.match(source, /OperatorControl\.Memory/);
+  assert.match(source, /OperatorControl\.MemoryValidate/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /OperatorApproval\.Approve/);
@@ -3814,13 +3873,14 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /validation_errors/);
   assert.match(source, /mode_status/);
   assert.match(source, /mcp_rows/);
+  assert.match(source, /memory_rows/);
   assert.match(source, /approval_rows/);
   assert.match(source, /approval_decisions/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/memory", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3850,8 +3910,11 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /OperatorControl\.Model/);
   assert.match(source, /OperatorControl\.Thinking/);
   assert.match(source, /OperatorControl\.Mcp/);
+  assert.match(source, /OperatorControl\.Memory/);
   assert.match(source, /TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_THREAD_MEMORY_STATUS_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_THREAD_MEMORY_VALIDATE_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
@@ -3862,6 +3925,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /line_mode_command=interrupt/);
   assert.match(source, /line_mode_command=events/);
   assert.match(source, /line_mode_command=mcp/);
+  assert.match(source, /line_mode_command=memory/);
   assert.match(source, /line_mode_command=restore/);
   assert.match(source, /line_mode_error/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
@@ -5999,15 +6063,17 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
+      "/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp validate\n/memory status\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
-    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
     assert.match(result.stdout, /line_mode_command=mode/);
     assert.match(result.stdout, /line_mode_command=model/);
     assert.match(result.stdout, /line_mode_command=thinking/);
     assert.match(result.stdout, /line_mode_command=mcp action=tools/);
     assert.match(result.stdout, /line_mode_command=mcp action=validate/);
+    assert.match(result.stdout, /line_mode_command=memory action=status/);
+    assert.match(result.stdout, /line_mode_command=memory action=validate/);
     assert.match(result.stdout, /line_mode_command=jobs count=\d+/);
     assert.match(result.stdout, /line_mode_command=job action=inspect/);
     assert.match(result.stdout, /line_mode_command=run action=replay/);
@@ -6018,7 +6084,9 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /OperatorControl\.Interrupt/);
     assert.match(result.stdout, /OperatorControl\.Thinking/);
     assert.match(result.stdout, /OperatorControl\.Mcp/);
+    assert.match(result.stdout, /OperatorControl\.Memory/);
     assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query/);
+    assert.match(result.stdout, /memory_row kind=memory_status/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
     const threadId = result.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
     assert.ok(threadId);
@@ -6096,6 +6164,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     );
     assert.ok(
       finalControlState.command_history.some(
+        (entry) => entry.command === "memory" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
         (entry) => entry.command === "interrupt" && entry.status === "applied",
       ),
     );
@@ -6108,6 +6181,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(finalControlState.run_lifecycle_rows.some((row) => row.run_id));
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_server_id === "mcp.search"));
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_tool_name === "query"));
+    assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_status"));
+    assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_policy"));
     assert.ok(
       finalControlState.validation_errors.some(
         (entry) =>
@@ -6125,6 +6200,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(lineModeControlProjection.jobCount >= 1);
     assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
     assert.ok(lineModeControlProjection.mcpRowCount >= 2);
+    assert.ok(lineModeControlProjection.memoryRowCount >= 2);
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "model_route" && row.reactFlowNodeId === "runtime.model-router",
@@ -6138,6 +6214,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "mcp_tool" && row.mcpToolName === "query",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) => row.rowKind === "memory_status" && row.reactFlowNodeId === "runtime.memory-manager",
       ),
     );
     assert.ok(

@@ -4,13 +4,15 @@ use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run, decide_tui_approval,
     fetch_tui_event_batch, fetch_tui_job, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread,
-    inspect_tui_mcp_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
-    latest_event_seq, list_tui_jobs_for_thread, list_tui_workspace_snapshots,
-    preview_tui_workspace_restore, replay_tui_run_events, resume_tui_thread,
-    selected_run_id_from_thread, selected_turn_id_from_values, steer_tui_turn,
+    inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
+    inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
+    latest_event_seq, list_tui_jobs_for_thread, list_tui_memory_records,
+    list_tui_workspace_snapshots, preview_tui_workspace_restore, replay_tui_run_events,
+    resume_tui_thread, selected_run_id_from_thread, selected_turn_id_from_values, steer_tui_turn,
     thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows,
-    tui_mode_status, tui_run_lifecycle_rows, update_tui_thread_mode, update_tui_thread_model,
-    update_tui_thread_thinking, validate_tui_mcp,
+    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, update_tui_memory_policy,
+    update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp,
+    validate_tui_memory,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -61,6 +63,9 @@ pub(crate) enum TuiLineCommand {
         reasoning_effort: Option<String>,
     },
     Mcp {
+        action: Option<String>,
+    },
+    Memory {
         action: Option<String>,
     },
     WorkspaceStatus,
@@ -299,6 +304,22 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("MCP catalog inspected"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Memory { action }) => {
+                let (events, memory_status) = handle_memory_command(&mut session, action).await?;
+                control_state.merge_memory_rows(tui_memory_rows(
+                    &memory_status,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "memory",
+                    line.trim(),
+                    "applied",
+                    Some("memory status inspected"),
                     &session,
                     &events,
                 );
@@ -689,6 +710,9 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
         "mcp" => Ok(TuiLineCommand::Mcp {
             action: non_empty_string(rest),
         }),
+        "memory" => Ok(TuiLineCommand::Memory {
+            action: non_empty_string(rest),
+        }),
         "status" | "workspace-status" => Ok(TuiLineCommand::WorkspaceStatus),
         "diff" => Ok(TuiLineCommand::Diff {
             path: non_empty_string(rest),
@@ -1053,6 +1077,101 @@ async fn handle_mcp_command(
             json_path_string(&row, "/status").unwrap_or_else(|| "unknown".to_string()),
             json_path_string(&row, "/workflow_node_id")
                 .unwrap_or_else(|| "runtime.mcp-manager".to_string())
+        );
+    }
+    let events = handle_events_command(session, None).await?;
+    Ok((events, result))
+}
+
+async fn handle_memory_command(
+    session: &mut TuiInteractiveSession,
+    action: Option<String>,
+) -> Result<(Vec<Value>, Value)> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let action = action
+        .unwrap_or_else(|| "status".to_string())
+        .to_ascii_lowercase();
+    let result = match action.as_str() {
+        "status" => {
+            inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
+                .await?
+        }
+        "validate" | "doctor" => {
+            validate_tui_memory(&thread_id, &session.endpoint, session.token.as_deref()).await?
+        }
+        "show" | "records" | "list" => {
+            let projection =
+                list_tui_memory_records(&thread_id, &session.endpoint, session.token.as_deref())
+                    .await?;
+            let mut status =
+                inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
+                    .await?;
+            if let Some(records) = projection.pointer("/records").cloned() {
+                status["records"] = records;
+            }
+            status
+        }
+        "policy" => {
+            let policy =
+                inspect_tui_memory_policy(&thread_id, &session.endpoint, session.token.as_deref())
+                    .await?;
+            let mut status =
+                inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
+                    .await?;
+            status["policy"] = policy;
+            status
+        }
+        "path" => {
+            let paths =
+                inspect_tui_memory_path(&thread_id, &session.endpoint, session.token.as_deref())
+                    .await?;
+            let mut status =
+                inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
+                    .await?;
+            status["paths"] = paths;
+            status
+        }
+        "disable" | "enable" => {
+            update_tui_memory_policy(
+                &thread_id,
+                action == "disable",
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?;
+            inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
+                .await?
+        }
+        _ => {
+            return Err(anyhow!(
+                "/memory accepts status, show, policy, path, validate, enable, or disable"
+            ));
+        }
+    };
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=memory action={} status={} records={} issues={} event={}",
+        action,
+        json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&result, "/record_count")
+            .or_else(|| json_path_string(&result, "/recordCount"))
+            .unwrap_or_else(|| "0".to_string()),
+        json_path_string(&result, "/issue_count")
+            .or_else(|| json_path_string(&result, "/validation/issue_count"))
+            .unwrap_or_else(|| "0".to_string()),
+        json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+    );
+    for row in tui_memory_rows(&result, Some(&thread_id)) {
+        println!(
+            "  memory_row kind={} record={} scope={} key={} status={} node={}",
+            json_path_string(&row, "/row_kind").unwrap_or_else(|| "memory".to_string()),
+            json_path_string(&row, "/memory_record_id").unwrap_or_else(|| "n/a".to_string()),
+            json_path_string(&row, "/memory_scope").unwrap_or_else(|| "n/a".to_string()),
+            json_path_string(&row, "/memory_key").unwrap_or_else(|| "n/a".to_string()),
+            json_path_string(&row, "/status").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.memory-manager".to_string())
         );
     }
     let events = handle_events_command(session, None).await?;
@@ -1459,7 +1578,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|validate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|validate] /memory [status|show|policy|path|validate|enable|disable] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -1727,6 +1846,7 @@ struct TuiControlState {
     job_rows: Vec<Value>,
     run_lifecycle_rows: Vec<Value>,
     mcp_rows: Vec<Value>,
+    memory_rows: Vec<Value>,
     command_history: Vec<Value>,
     validation_errors: Vec<Value>,
     sequence: u64,
@@ -1746,6 +1866,7 @@ impl TuiControlState {
             job_rows: Vec::new(),
             run_lifecycle_rows: Vec::new(),
             mcp_rows: Vec::new(),
+            memory_rows: Vec::new(),
             command_history: Vec::new(),
             validation_errors: Vec::new(),
             sequence: 0,
@@ -1928,6 +2049,28 @@ impl TuiControlState {
         }
     }
 
+    fn merge_memory_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/id")
+                .or_else(|| json_path_string(&row, "/memory_record_id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.memory_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.memory_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/id")
+                    .or_else(|| json_path_string(existing, "/memory_record_id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.memory_rows.push(row);
+            }
+        }
+    }
+
     fn default_pending_approval_id(&self) -> Option<String> {
         self.approval_rows.iter().find_map(|row| {
             let status = json_path_string(row, "/status")
@@ -1975,6 +2118,7 @@ impl TuiControlState {
             "job_rows": self.job_rows.clone(),
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
             "mcp_rows": self.mcp_rows.clone(),
+            "memory_rows": self.memory_rows.clone(),
             "command_history": self.command_history.clone(),
             "validation_errors": self.validation_errors.clone(),
         })
@@ -2070,6 +2214,12 @@ mod tests {
             parse_tui_line_command("/mcp tools").unwrap(),
             TuiLineCommand::Mcp {
                 action: Some("tools".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/memory validate").unwrap(),
+            TuiLineCommand::Memory {
+                action: Some("validate".to_string())
             }
         );
         assert_eq!(

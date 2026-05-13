@@ -52,6 +52,13 @@ import {
   normalizeMcpServerRecord,
   validateMcpServerRecords,
 } from "./mcp-manager.mjs";
+import {
+  RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
+  RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
+  memoryRowsForStatus,
+  memoryStatusForProjection,
+  validateMemoryProjection,
+} from "./memory-manager.mjs";
 
 export {
   RuntimeAgentServiceCommandAdapter,
@@ -752,6 +759,164 @@ export class AgentgresRuntimeStateStore {
       id: memoryId,
       source: body.source ?? "memory_delete_api",
     });
+  }
+
+  memoryProjectionForContext(options = {}) {
+    const threadId = optionalString(options.thread_id ?? options.threadId);
+    const agentId =
+      optionalString(options.agent_id ?? options.agentId) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    if (threadId) return this.listMemoryForThread(threadId, options);
+    if (agentId) return this.listMemoryForAgent(agentId, options);
+    return this.memory.projection({
+      workspace: this.defaultCwd,
+      filters: memoryListFilters(options),
+    });
+  }
+
+  memoryStatus(options = {}) {
+    const projection = this.memoryProjectionForContext(options);
+    return {
+      ...memoryStatusForProjection(projection),
+      thread_id: projection.threadId ?? null,
+      threadId: projection.threadId ?? null,
+      agent_id: projection.agentId ?? null,
+      agentId: projection.agentId ?? null,
+      workspace: projection.workspace ?? null,
+    };
+  }
+
+  validateMemory(input = {}) {
+    const projection =
+      input.projection && typeof input.projection === "object"
+        ? input.projection
+        : this.memoryProjectionForContext(input);
+    const validation = validateMemoryProjection(projection);
+    return {
+      ...validation,
+      thread_id: projection.threadId ?? null,
+      threadId: projection.threadId ?? null,
+      agent_id: projection.agentId ?? null,
+      agentId: projection.agentId ?? null,
+      workspace: projection.workspace ?? null,
+    };
+  }
+
+  recordThreadMemoryStatus(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const status = this.memoryStatus({ ...request, thread_id: threadId });
+    return this.appendThreadMemoryControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "memory_status",
+      sourceEventKind: "OperatorControl.Memory",
+      eventKind: "memory.status",
+      componentKind: "memory_policy",
+      workflowNodeId: "runtime.memory-manager",
+      payloadSchemaVersion: RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
+      status: status.status === "needs_review" ? "blocked" : "completed",
+      payload: {
+        ...status,
+        event_kind: "MemoryStatus",
+        control_kind: "memory_status",
+        thread_id: threadId,
+        agent_id: agent.id,
+        rows: memoryRowsForStatus(status),
+        summary: `Memory has ${status.record_count} record(s); policy ${status.policy?.id ?? "default"} is ${status.status}.`,
+      },
+    });
+  }
+
+  validateThreadMemory(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const validation = this.validateMemory({ ...request, thread_id: threadId });
+    return this.appendThreadMemoryControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "memory_validate",
+      sourceEventKind: "OperatorControl.MemoryValidate",
+      eventKind: "memory.validation",
+      componentKind: "memory_policy",
+      workflowNodeId: "runtime.memory-manager.validate",
+      payloadSchemaVersion: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
+      status: validation.ok ? "completed" : "blocked",
+      payload: {
+        ...validation,
+        event_kind: "MemoryValidationReport",
+        control_kind: "memory_validate",
+        thread_id: threadId,
+        agent_id: agent.id,
+        summary: validation.ok
+          ? `Memory validation passed for ${validation.record_count} record(s).`
+          : `Memory validation found ${validation.issue_count} issue(s).`,
+      },
+    });
+  }
+
+  appendThreadMemoryControlEvent({
+    threadId,
+    agent,
+    request,
+    controlKind,
+    sourceEventKind,
+    eventKind,
+    componentKind,
+    workflowNodeId,
+    payloadSchemaVersion,
+    status,
+    payload,
+  }) {
+    const thread = this.threadForAgent(agent);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(thread.latest_turn_id) ??
+      "";
+    const source = operatorControlSource(request.source);
+    const graphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const nodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      workflowNodeId;
+    const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
+    const receiptId = `receipt_memory_${safeId(controlKind)}_${eventHash}`;
+    const policyId = `policy_memory_${safeId(controlKind)}_read_${eventHash}`;
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:memory:${safeId(controlKind)}:${eventHash}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:memory:${controlKind}:${eventHash}`,
+      source,
+      source_event_kind: sourceEventKind,
+      event_kind: eventKind,
+      status,
+      actor: "operator",
+      workspace_root: agent.cwd,
+      workflow_graph_id: graphId,
+      workflow_node_id: nodeId,
+      component_kind: componentKind,
+      payload_schema_version: payloadSchemaVersion,
+      payload_summary: payload,
+      receipt_refs: [receiptId],
+      policy_decision_refs: [policyId],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const result = {
+      ...payload,
+      event,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, `thread.${controlKind}`);
+    return result;
   }
 
   async createThread(request = {}) {
@@ -5167,9 +5332,7 @@ async function handleRequest({ request, response, store }) {
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/memory") {
-      const agentId = url.searchParams.get("agent_id") ?? url.searchParams.get("agentId");
-      if (!agentId) throw notFound("Memory listing requires agent_id.", { path: url.pathname });
-      writeJsonResponse(response, store.listMemoryForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/runs") {
@@ -5210,6 +5373,26 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/tools") {
       writeJsonResponse(response, store.listTools(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/memory") {
+      writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/memory/records") {
+      writeJsonResponse(response, store.memoryProjectionForContext(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/memory/policy") {
+      writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())).policy);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/memory/path") {
+      writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())).paths);
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/memory/validate") {
+      writeJsonResponse(response, store.validateMemory(await readBody(request)));
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/mcp") {
@@ -7084,6 +7267,14 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "mcp" && segments[4] === "validate" && !segments[5]) {
     writeJsonResponse(response, store.validateThreadMcp(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "memory" && segments[4] === "status" && !segments[5]) {
+    writeJsonResponse(response, store.recordThreadMemoryStatus(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "memory" && segments[4] === "validate" && !segments[5]) {
+    writeJsonResponse(response, store.validateThreadMemory(threadId, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "turns" && !segments[4]) {
