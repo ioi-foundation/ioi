@@ -159,15 +159,17 @@ Completed workstream snapshot as of 2026-05-12:
   modular pattern: the former 943-line component is a small parent that
   delegates live readiness summary/dispatch evidence, authority gate rows, and
   read-only routing plus canary links to typed React Flow workflow modules.
+  The activation panel is now also modular: the former 736-line parent
+  delegates wizard detail rendering and blocker/action controls while keeping
+  the activation wizard and gate-panel source-contract hooks in place.
 
 Most recent guide slice:
 
-- 2026-05-13: React Flow settings harness promotion readiness panel split
+- 2026-05-13: React Flow settings harness activation panel split
 - Artifacts:
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx,
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessSummary.tsx,
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessAuthorityGates.tsx,
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessRoutingCanary.tsx,
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx,
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx,
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationActions.tsx,
   scripts/lib/harness-refactor-shape.test.mjs,
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
 - Validation: agent-ide build, harness refactor shape test, source-contract
@@ -176,14 +178,15 @@ Most recent guide slice:
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-13: Promotion readiness panel split GUI preflight
+- 2026-05-13: Activation panel split GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json
+  /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-13 | React Flow settings harness | Activation wizard details/action panel split | scripts/lib/harness-refactor-shape.test.mjs |
 | 2026-05-13 | React Flow settings harness | Promotion readiness summary/authority/routing panel split | scripts/lib/harness-refactor-shape.test.mjs |
 | 2026-05-13 | React Flow settings harness | Active runtime binding summary/deep-link panel split | scripts/lib/harness-refactor-shape.test.mjs |
 | 2026-05-13 | P0 live runtime bridge | Shared React Flow runtime-control helper extraction | packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts |
@@ -220,12 +223,11 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Split `settingsHarnessActivationPanel.tsx`, now the largest remaining
-   settings-harness panel at roughly 736 lines, into focused wizard status,
-   action controls, and gate-navigation modules.
-2. Split `settingsHarnessWorkerBindingPanel.tsx` next if activation stays
-   stable; it remains the second-largest settings harness panel at roughly 711
-   lines.
+1. Split `settingsHarnessWorkerBindingPanel.tsx`, now the largest remaining
+   settings-harness panel at roughly 711 lines, into focused inspector summary,
+   revision binding controls, and active-runtime handoff modules.
+2. Reassess `settingsHarnessPanel.tsx` after the worker split; it is now the
+   next broad orchestration surface at roughly 490 lines.
 3. Add the next runtime-control primitive only through the shared
    request-envelope/descriptor helpers, with one live graph-identity proof.
 4. Keep the master guide clean by updating the companion ledgers instead of
