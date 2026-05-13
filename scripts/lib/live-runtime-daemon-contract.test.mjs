@@ -5793,6 +5793,110 @@ test("React Flow usage meter workflow node reads daemon telemetry with graph ide
   }
 });
 
+test("React Flow context budget workflow node evaluates daemon telemetry policy", async () => {
+  const {
+    createRuntimeContextBudgetControlRequestFromWorkflowNode,
+    createRuntimeUsageMeterControlRequestFromWorkflowNode,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-context-budget-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-context-budget-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        prompt: "Produce context budget evidence for a workflow-authored policy node.",
+        mode: "send",
+      }),
+    });
+    const workflowGraphId = "workflow.react-flow.context-budget";
+    const usageRequest = createRuntimeUsageMeterControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-usage-meter",
+        type: "runtime_usage_meter",
+        config: {
+          logic: {
+            runtimeUsageMeterScope: "thread",
+            runtimeUsageMeterThreadIdField: "threadId",
+            runtimeUsageMeterWorkflowNodeId: "runtime.usage-meter",
+          },
+        },
+      },
+      { threadId: thread.thread_id },
+      { workflowGraphId },
+    );
+    const usageTelemetry = await fetchJson(`${daemon.endpoint}${usageRequest.endpoint}`);
+    assert.ok(usageTelemetry.total_tokens >= turn.usage.total_tokens);
+
+    const budgetRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-context-budget",
+        type: "runtime_context_budget",
+        config: {
+          logic: {
+            runtimeContextBudgetScope: "thread",
+            runtimeContextBudgetThreadIdField: "threadId",
+            runtimeContextBudgetUsageField: "usageTelemetry",
+            runtimeContextBudgetMode: "block",
+            runtimeContextBudgetMaxTotalTokens: 1,
+            runtimeContextBudgetMaxCostUsd: 0.000001,
+            runtimeContextBudgetMaxContextPressure: 0.000001,
+            runtimeContextBudgetWorkflowNodeId: "runtime.context-budget",
+          },
+        },
+      },
+      { threadId: thread.thread_id, usageTelemetry },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(budgetRequest.nodeType, "runtime_context_budget");
+    assert.equal(budgetRequest.method, "POST");
+    assert.equal(budgetRequest.scope, "thread");
+    assert.match(budgetRequest.endpoint, /\/v1\/threads\/.+\/context-budget/);
+    assert.equal(budgetRequest.body.mode, "block");
+    assert.equal(budgetRequest.body.thresholds.maxTotalTokens, 1);
+    assert.equal(budgetRequest.body.workflowNodeId, "runtime.context-budget");
+
+    const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
+      method: budgetRequest.method,
+      body: JSON.stringify(budgetRequest.body),
+    });
+    assert.equal(budgetResult.schema_version, "ioi.runtime.context-budget-policy.v1");
+    assert.equal(budgetResult.status, "blocked");
+    assert.equal(budgetResult.mode, "block");
+    assert.equal(budgetResult.workflow_graph_id, workflowGraphId);
+    assert.equal(budgetResult.workflow_node_id, "runtime.context-budget");
+    assert.equal(budgetResult.component_kind, "context_budget");
+    assert.equal(budgetResult.would_block, true);
+    assert.ok(budgetResult.violations.length >= 1);
+    assert.ok(budgetResult.receipt_refs[0].startsWith("receipt_context_budget_thread_"));
+    assert.ok(budgetResult.policy_decision_refs[0].startsWith("policy_context_budget_thread_"));
+
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    const budgetEvent = events.find(
+      (event) =>
+        event.component_kind === "context_budget" &&
+        event.workflow_node_id === "runtime.context-budget",
+    );
+    assert.ok(budgetEvent);
+    assert.equal(budgetEvent.event_kind, "policy.blocked");
+    assert.equal(budgetEvent.source_event_kind, "RuntimeContextBudget.Evaluate");
+    assert.equal(budgetEvent.status, "blocked");
+    assert.deepEqual(budgetEvent.receipt_refs, budgetResult.receipt_refs);
+    assert.deepEqual(budgetEvent.policy_decision_refs, budgetResult.policy_decision_refs);
+    assert.equal(budgetEvent.payload_summary.status, "blocked");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
@@ -9226,6 +9330,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeContextBudgetControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+    ),
+    "utf8",
+  );
   const runtimeDaemon = fs.readFileSync(
     path.join(root, "packages/runtime-daemon/src/index.mjs"),
     "utf8",
@@ -9837,15 +9948,26 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUsageControlNodes, /runtime_usage_meter/);
   assert.match(workflowRuntimeUsageControlNodes, /RuntimeUsageTelemetry\.Read/);
   assert.match(workflowRuntimeUsageControlNodes, /usage_meter_scope/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /createRuntimeContextBudgetControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /runtime_context_budget/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
   assert.match(nodeRegistry, /creatorId: "usage\.meter"/);
+  assert.match(nodeRegistry, /creatorId: "context\.budget"/);
   assert.match(nodeRegistry, /RuntimeUsageMeterNode/);
+  assert.match(nodeRegistry, /RuntimeContextBudgetNode/);
   assert.match(nodeRegistry, /runtimeUsageMeterSimulationMode/);
+  assert.match(nodeRegistry, /runtimeContextBudgetMaxContextPressure/);
   assert.match(graphTypes, /runtime_usage_meter/);
+  assert.match(graphTypes, /runtime_context_budget/);
   assert.match(workflowRuntimeUiStrings, /runtime_usage_meter/);
+  assert.match(workflowRuntimeUiStrings, /runtime_context_budget/);
   assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
   assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
   assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);
   assert.match(runtimeDaemon, /\/v1\/usage/);
+  assert.match(runtimeDaemon, /\/v1\/context-budget/);
+  assert.match(runtimeDaemon, /evaluateContextBudget/);
   assert.match(runtimeDaemon, /usage_final/);
   assert.match(runtimeUsageTelemetry, /RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/);
   assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForRun/);

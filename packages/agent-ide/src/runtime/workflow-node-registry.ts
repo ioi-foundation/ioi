@@ -1192,6 +1192,145 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: {},
   },
   {
+    type: "runtime_context_budget",
+    label: "Runtime Context Budget",
+    group: "Flow",
+    family: "flow_control",
+    token: "CB",
+    familyLabel: "Runtime",
+    metricLabel: "Context",
+    metricValue: "budget",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["usage"],
+    outputs: ["policy", "status"],
+    portDefinitions: [
+      port("usage", "Usage telemetry", "input", "state", "state", false, "state"),
+      port("policy", "Budget policy", "output", "state", "output", false, "state"),
+      port("status", "Budget status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("usage", "Usage telemetry", "input", "state", "state", false, "state"),
+      port("policy", "Budget policy", "output", "state", "output", false, "state"),
+      port("status", "Budget status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeContextBudgetEndpoint",
+        "runtimeContextBudgetScope",
+        "runtimeContextBudgetMode",
+        "runtimeContextBudgetWorkflowNodeId",
+      ],
+      properties: {
+        runtimeContextBudgetEndpoint: { type: "string" },
+        runtimeContextBudgetField: { type: "string" },
+        runtimeContextBudgetUsageField: { type: "string" },
+        runtimeContextBudgetStatusField: { type: "string" },
+        runtimeContextBudgetPolicyField: { type: "string" },
+        runtimeContextBudgetThreadId: { type: "string" },
+        runtimeContextBudgetThreadIdField: { type: "string" },
+        runtimeContextBudgetRunId: { type: "string" },
+        runtimeContextBudgetRunIdField: { type: "string" },
+        runtimeContextBudgetScope: {
+          type: "string",
+          enum: ["run", "thread", "workflow"],
+        },
+        runtimeContextBudgetScopeField: { type: "string" },
+        runtimeContextBudgetMode: {
+          type: "string",
+          enum: ["simulate", "warn", "block"],
+        },
+        runtimeContextBudgetModeField: { type: "string" },
+        runtimeContextBudgetMaxTotalTokens: { type: ["number", "string"] },
+        runtimeContextBudgetMaxTotalTokensField: { type: "string" },
+        runtimeContextBudgetMaxCostUsd: { type: ["number", "string"] },
+        runtimeContextBudgetMaxCostUsdField: { type: "string" },
+        runtimeContextBudgetMaxContextPressure: { type: ["number", "string"] },
+        runtimeContextBudgetMaxContextPressureField: { type: "string" },
+        runtimeContextBudgetWarnAtRatio: { type: ["number", "string"] },
+        runtimeContextBudgetWarnAtRatioField: { type: "string" },
+        runtimeContextBudgetSimulationMode: { type: "boolean" },
+        runtimeContextBudgetWorkflowNodeId: { type: "string" },
+        runtimeContextBudgetSource: { type: "string" },
+        runtimeContextBudgetActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_context_budget"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_context_budget",
+      "runtimeContextBudget.status",
+    ),
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_context_budget",
+      executorId: "workflow.runtime_context_budget",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_context_budget",
+        "runtimeContextBudget.status",
+      ),
+      runtimeContextBudgetEndpoint: "/v1/threads/{threadId}/context-budget",
+      runtimeContextBudgetField: "runtimeContextBudget",
+      runtimeContextBudgetUsageField: "runtimeUsageMeter",
+      runtimeContextBudgetStatusField: "runtimeContextBudget.status",
+      runtimeContextBudgetPolicyField: "runtimeContextBudget.policyDecision",
+      runtimeContextBudgetThreadIdField: "threadId",
+      runtimeContextBudgetRunIdField: "runId",
+      runtimeContextBudgetScope: "thread",
+      runtimeContextBudgetScopeField: "usageScope",
+      runtimeContextBudgetMode: "simulate",
+      runtimeContextBudgetModeField: "contextBudgetMode",
+      runtimeContextBudgetMaxTotalTokens: 4096,
+      runtimeContextBudgetMaxCostUsd: 0.25,
+      runtimeContextBudgetMaxContextPressure: 0.85,
+      runtimeContextBudgetWarnAtRatio: 0.8,
+      runtimeContextBudgetSimulationMode: true,
+      runtimeContextBudgetWorkflowNodeId: "runtime.context-budget",
+      runtimeContextBudgetSource: "react_flow",
+      runtimeContextBudgetActor: "operator",
+      readOnly: true,
+      dryRun: true,
+      mutationExecuted: false,
+      redactionProfile: "runtime_context_budget_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeContextBudget: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: ["string", "null"] },
+          runId: { type: ["string", "null"] },
+          scope: { type: "string" },
+          endpoint: { type: "string" },
+          request: { type: "object" },
+          policyDecision: { type: "object" },
+          receiptRefs: { type: "array", items: { type: "string" } },
+          policyDecisionRefs: { type: "array", items: { type: "string" } },
+        },
+      },
+      activationGate: {
+        consumesRuntimeContextBudget: true,
+        runtimeContextBudgetField: "runtimeContextBudget",
+        runtimeContextBudgetStatusField: "runtimeContextBudget.status",
+      },
+      nodeTypeLabel: "RuntimeContextBudgetNode",
+    },
+    defaultLaw: {},
+  },
+  {
     type: "runtime_rollback_snapshot",
     label: "Runtime Rollback Snapshot",
     group: "Flow",
@@ -4450,6 +4589,27 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       runtimeUsageMeterActor: "operator",
     },
   });
+  const contextBudget = creatorDefinition("runtime_context_budget", {
+    creatorId: "context.budget",
+    label: "Context budget",
+    description: "Evaluate daemon-owned token, cost, and context pressure telemetry against workflow policy.",
+    metricValue: "budget",
+    defaultLogic: {
+      runtimeContextBudgetEndpoint: "/v1/threads/{threadId}/context-budget",
+      runtimeContextBudgetScope: "thread",
+      runtimeContextBudgetMode: "simulate",
+      runtimeContextBudgetUsageField: "runtimeUsageMeter",
+      runtimeContextBudgetThreadIdField: "threadId",
+      runtimeContextBudgetRunIdField: "runId",
+      runtimeContextBudgetMaxTotalTokens: 4096,
+      runtimeContextBudgetMaxCostUsd: 0.25,
+      runtimeContextBudgetMaxContextPressure: 0.85,
+      runtimeContextBudgetWarnAtRatio: 0.8,
+      runtimeContextBudgetSimulationMode: true,
+      runtimeContextBudgetWorkflowNodeId: "runtime.context-budget",
+      runtimeContextBudgetActor: "operator",
+    },
+  });
   const mcpStatus = creatorDefinition("state", {
     creatorId: "mcp.status",
     label: "MCP status",
@@ -4941,6 +5101,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelEmbedding,
     modelEvaluator,
     usageMeter,
+    contextBudget,
     stateRead,
     mcpStatus,
     mcpToolSearch,
@@ -4986,6 +5147,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           "output",
           "skill_context",
           "runtime_usage_meter",
+          "runtime_context_budget",
         ].includes(definition.type),
     ).map((definition) =>
       creatorDefinition(definition.type, {
@@ -5102,9 +5264,11 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
     case "runtime_context_compact":
       return ["runtime_operator_steer", "decision", "verifier", "output"];
     case "runtime_usage_meter":
-      return ["runtime_context_compact", "budget_gate", "decision", "output"];
+      return ["runtime_context_budget", "runtime_context_compact", "budget_gate", "decision", "output"];
+    case "runtime_context_budget":
+      return ["runtime_context_compact", "decision", "output"];
     case "runtime_rollback_snapshot":
-      return ["runtime_context_compact", "runtime_usage_meter", "decision", "verifier", "output"];
+      return ["runtime_context_compact", "runtime_usage_meter", "runtime_context_budget", "decision", "verifier", "output"];
     case "runtime_restore_gate":
       return ["runtime_rollback_snapshot", "human_gate", "decision", "output"];
     case "runtime_diagnostics_repair":
@@ -5214,6 +5378,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_operator_steer" ||
     type === "runtime_context_compact" ||
     type === "runtime_usage_meter" ||
+    type === "runtime_context_budget" ||
     type === "runtime_rollback_snapshot" ||
     type === "runtime_restore_gate" ||
     type === "runtime_diagnostics_repair" ||

@@ -599,7 +599,8 @@ export interface NodeLogic {
     | "subagent_cancel_propagation"
     | "subagent_resume"
     | "subagent_assign"
-    | "usage_meter";
+    | "usage_meter"
+    | "context_budget";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
   memoryRecordId?: string;
@@ -777,6 +778,32 @@ export interface NodeLogic {
   runtimeUsageMeterWorkflowNodeId?: string;
   runtimeUsageMeterSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeUsageMeterActor?: string;
+  runtimeContextBudgetEndpoint?: string;
+  runtimeContextBudget?: unknown;
+  runtimeContextBudgetField?: string;
+  runtimeContextBudgetUsageField?: string;
+  runtimeContextBudgetStatusField?: string;
+  runtimeContextBudgetPolicyField?: string;
+  runtimeContextBudgetThreadId?: string;
+  runtimeContextBudgetThreadIdField?: string;
+  runtimeContextBudgetRunId?: string;
+  runtimeContextBudgetRunIdField?: string;
+  runtimeContextBudgetScope?: "run" | "thread" | "workflow" | string;
+  runtimeContextBudgetScopeField?: string;
+  runtimeContextBudgetMode?: "simulate" | "warn" | "block" | string;
+  runtimeContextBudgetModeField?: string;
+  runtimeContextBudgetMaxTotalTokens?: number | string;
+  runtimeContextBudgetMaxTotalTokensField?: string;
+  runtimeContextBudgetMaxCostUsd?: number | string;
+  runtimeContextBudgetMaxCostUsdField?: string;
+  runtimeContextBudgetMaxContextPressure?: number | string;
+  runtimeContextBudgetMaxContextPressureField?: string;
+  runtimeContextBudgetWarnAtRatio?: number | string;
+  runtimeContextBudgetWarnAtRatioField?: string;
+  runtimeContextBudgetSimulationMode?: boolean;
+  runtimeContextBudgetWorkflowNodeId?: string;
+  runtimeContextBudgetSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeContextBudgetActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -869,6 +896,7 @@ export interface NodeLogic {
     consumesRuntimeOperatorSteer?: boolean;
     consumesRuntimeContextCompact?: boolean;
     consumesRuntimeUsageMeter?: boolean;
+    consumesRuntimeContextBudget?: boolean;
     consumesRuntimeRollbackSnapshot?: boolean;
     consumesRuntimeRestoreGate?: boolean;
     consumesRuntimeDiagnosticsRepair?: boolean;
@@ -900,6 +928,8 @@ export interface NodeLogic {
     runtimeContextCompactStatusField?: string;
     runtimeUsageMeterField?: string;
     runtimeUsageMeterStatusField?: string;
+    runtimeContextBudgetField?: string;
+    runtimeContextBudgetStatusField?: string;
     runtimeRollbackSnapshotField?: string;
     runtimeRollbackSnapshotStatusField?: string;
     runtimeRestoreGateField?: string;
@@ -1429,6 +1459,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_operator_steer">
   | WorkflowNodeConfigBase<"runtime_context_compact">
   | WorkflowNodeConfigBase<"runtime_usage_meter">
+  | WorkflowNodeConfigBase<"runtime_context_budget">
   | WorkflowNodeConfigBase<"runtime_rollback_snapshot">
   | WorkflowNodeConfigBase<"runtime_restore_gate">
   | WorkflowNodeConfigBase<"runtime_diagnostics_repair">
@@ -4128,6 +4159,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_operator_steer"
   | "runtime_context_compact"
   | "runtime_usage_meter"
+  | "runtime_context_budget"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"
@@ -4690,6 +4722,7 @@ export type WorkflowNodeKind =
   | "runtime_operator_steer"
   | "runtime_context_compact"
   | "runtime_usage_meter"
+  | "runtime_context_budget"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"
