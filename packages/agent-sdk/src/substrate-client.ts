@@ -218,7 +218,12 @@ export interface RuntimeThreadToolInvocationResult {
   shell_fallback_used: boolean;
   receipt_refs: string[];
   artifact_refs: string[];
+  rollback_refs?: string[];
   event?: RuntimeEventEnvelope;
+  workspace_snapshot?: Record<string, unknown> | null;
+  workspaceSnapshot?: Record<string, unknown> | null;
+  workspace_snapshot_event?: RuntimeEventEnvelope | null;
+  workspaceSnapshotEvent?: RuntimeEventEnvelope | null;
   result?: Record<string, unknown> | null;
   error?: Record<string, unknown> | null;
 }
@@ -927,7 +932,12 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
       riskDomain: "filesystem",
       inputSchema: { type: "object", required: ["path"] },
       outputSchema: { type: "object" },
-      evidenceRequirements: ["file_apply_patch_receipt", "workspace_mutation_receipt", "coding_tool_receipt"],
+      evidenceRequirements: [
+        "file_apply_patch_receipt",
+        "workspace_mutation_receipt",
+        "workspace_snapshot_receipt",
+        "coding_tool_receipt",
+      ],
       workflowNodeType: "FilesystemPatchNode",
       workflowConfigFields: [
         "toolPack.coding.filesystemEnabled",
@@ -1915,10 +1925,25 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? `runtime.coding-tool.${toolId}`),
       receiptRefs: [`receipt_mock_${toolId.replaceAll(".", "_")}`],
     });
-    const artifactRefs =
-      toolId === "artifact.read" || toolId === "tool.retrieve_result"
+    const mockWorkspaceSnapshot =
+      toolId === "file.apply_patch"
+        ? {
+            schemaVersion: "ioi.runtime.workspace-snapshot.v1",
+            snapshotId: `workspace_snapshot_${toolCallId}`,
+            snapshotKind: "pre_post_touched_files",
+            fileCount: 1,
+            changedFileCount: 1,
+            restore: { status: "metadata_only", previewSupported: false, applySupported: false },
+            receiptRefs: [`receipt_workspace_snapshot_${toolCallId}`],
+            artifactRefs: [`artifact_workspace_snapshot_${toolCallId}`],
+          }
+        : null;
+    const artifactRefs = [
+      ...(toolId === "artifact.read" || toolId === "tool.retrieve_result"
         ? [`artifact_mock_${toolId.replaceAll(".", "_")}`]
-        : [];
+        : []),
+      ...(mockWorkspaceSnapshot?.artifactRefs ?? []),
+    ];
     return {
       schema_version: "ioi.runtime.coding-tool-result.v1",
       object: "ioi.runtime_coding_tool_result",
@@ -1934,7 +1959,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       shell_fallback_used: false,
       receipt_refs: event.receipt_refs,
       artifact_refs: artifactRefs,
+      rollback_refs: mockWorkspaceSnapshot ? [String(mockWorkspaceSnapshot.snapshotId)] : [],
       event,
+      workspace_snapshot: mockWorkspaceSnapshot,
+      workspaceSnapshot: mockWorkspaceSnapshot,
       result: {
         input: input.input ?? input,
         ...(toolId === "file.apply_patch"
@@ -1946,6 +1974,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
                 },
               ],
               diagnosticsRecommended: true,
+              workspaceSnapshot: mockWorkspaceSnapshot,
+              workspace_snapshot: mockWorkspaceSnapshot,
             }
           : {}),
         ...(toolId === "lsp.diagnostics"

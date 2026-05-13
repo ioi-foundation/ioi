@@ -109,9 +109,9 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: P0-C project-aware diagnostics backend ladder
+- 2026-05-13: P0-D workspace snapshot records for mutating coding tools
 - Evidence:
-  `/tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json`
+  `/tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json`
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -125,9 +125,9 @@ Completed-slice history belongs in the companion ledgers.
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
 | P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, `/status`, `/diff`, `/inspect`, `/patch`, `/patch-dry-run`, `/test`, `/diagnostics`, `/artifact`, `/retrieve`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/approval/coding-tool rows that React Flow can inspect. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
-| P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`, and `tool.retrieve_result` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve`, receipt-backed `tool.completed` events, range-aware test-output spillover artifacts, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, diagnostics mode/default command, artifact retrieval, allowed paths, command ids, and timeouts. `lsp.diagnostics` now defaults to `auto`, resolves TypeScript files with a nearest-`tsconfig.json` project check when local `tsc` is available, and emits degraded/fallback receipts when it must fall back. | Connect diagnostics findings to rollback/repair policy. | Tool-pack nodes can enable/disable git/test/diagnostics/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests. |
+| P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`, and `tool.retrieve_result` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve`, receipt-backed `tool.completed` events, range-aware test-output spillover artifacts, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, diagnostics mode/default command, artifact retrieval, allowed paths, command ids, and timeouts. `file.apply_patch` now reports changed-file existence/size/mtime metadata and emits metadata-only workspace snapshot ids, artifacts, receipts, and rollback refs for applied mutations. `lsp.diagnostics` defaults to `auto`, resolves TypeScript files with a nearest-`tsconfig.json` project check when local `tsc` is available, and emits degraded/fallback receipts when it must fall back. | Connect diagnostics findings to rollback/repair policy. | Tool-pack nodes can enable/disable git/test/diagnostics/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests; applied patch rows now link to workspace snapshot evidence. |
 | P0-C | Post-edit LSP diagnostics | Mutating `file.apply_patch` now auto-runs configured diagnostics for changed files, records `runtime_auto` diagnostic events, injects compact findings into the next local or runtime-bridge turn, emits a receipt-backed `lsp.diagnostics.injected` event, and projects the injection through SDK and React Flow. React Flow coding-pack controls expose `advisory`, `blocking`, and `skip` modes plus default diagnostic command; nested `toolPack.coding.*` config is honored by daemon invocation. `blocking` mode now stops model continuation before a local or runtime-bridge turn, creates a blocked turn/run with no assistant delta, emits a receipt-backed `policy.blocked` diagnostics gate, and projects the repair gate through SDK and React Flow. Default `auto` diagnostics now carry requested/resolved command ids, backend, backend status/reason, project context, TypeScript project findings, and degraded fallback receipts. | Bind diagnostics findings to rollback/repair policy and begin first-class workspace snapshots. | `LspDiagnosticsNode` and coding-pack diagnostics controls change runtime warning/error injection behavior and surface injected findings, backend metadata, degraded receipts, and blocking gates as workflow-addressable rows. |
-| P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
+| P0-D | Workspace rollback snapshots | Applied `file.apply_patch` calls now create first-class, receipt-backed, metadata-only `workspace.snapshot.created` records with pre/post touched-file hashes, rollback refs, snapshot artifacts, SDK result fields, and React Flow `quality_ledger` rows. Snapshot content capture and restore execution are still pending. | Add content-backed snapshot capture plus restore preview/apply events and receipts without touching user `.git`. | Existing snapshot rows must become configurable rollback/restore workflow inputs; `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
 | P1-A | Subagent runtime parity | Delegation patterns exist, but the full role-aware lifecycle and output contract are not productized. | Spawn, wait, send input, cancel, resume, and validate output contract for parallel child agents. | Subagent pool/role/join nodes enforce concurrency, budget, and merge policy. |
 | P1-B | MCP manager parity | MCP containment exists, but manager UX and self-hosted MCP modes remain incomplete. | Import, validate, enable/disable, invoke, and serve MCP under IOI containment. | MCP server/tool/resource nodes compile into governed runtime config. |
 | P1-C | Modes, trust, approvals | Rich policy internals exist, but product-level Plan/Agent/YOLO/review modes need one stable contract. | Mode changes are evented and enforced by runtime policy even when UI config is permissive. | Graph-level mode selector and node approval overrides compile into one approval manifest. |
@@ -135,16 +135,18 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Start P0-D rollback snapshots: mutating coding-tool turns should create
-   receipt-backed pre/post workspace snapshots without touching user `.git`.
-2. Bind blocking diagnostics findings to the rollback/repair policy so a failed
+1. Add content-backed snapshot capture and a restore-preview path over the new
+   P0-D workspace snapshot records, without touching user `.git`.
+2. Add restore apply as an explicit policy-gated operation with receipts,
+   rollback refs, and React Flow restore-gate rows.
+3. Bind blocking diagnostics findings to the rollback/repair policy so a failed
    `auto` diagnostic can propose restore preview, repair retry, or explicit
    operator override.
-3. If a keyboard-first TUI gap appears while wiring diagnostics, keep it
+4. If a keyboard-first TUI gap appears while wiring restore, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
-4. Continue settings harness cleanup only as maintenance, gated by a concrete
+5. Continue settings harness cleanup only as maintenance, gated by a concrete
    parity slice dependency or a source-contract bloat guard failure.
-5. Keep this guide strategic. Put completed slice narratives in the
+6. Keep this guide strategic. Put completed slice narratives in the
    implementation log and proof commands/evidence paths in the validation
    ledger.
 
@@ -587,12 +589,16 @@ but needs coding workspace rollback as a first-class runtime capability.
 
 Target:
 
-Add per-turn workspace snapshots that do not mutate user `.git`.
+Add per-turn workspace snapshots and restore controls that do not mutate user
+`.git`.
 
 Runtime work:
 
 - Add `WorkspaceSnapshotService`.
-- Snapshot before and after every mutating turn in Agent/YOLO modes.
+- Snapshot before and after every mutating turn in Agent/YOLO modes. The current
+  live baseline records metadata-only pre/post touched-file snapshots for
+  applied `file.apply_patch` calls; content-backed capture remains the next
+  step.
 - Store snapshot metadata:
   - snapshot id;
   - thread id;
@@ -604,7 +610,7 @@ Runtime work:
   - storage path;
   - restore eligibility;
   - receipt refs.
-- Support restore preview and restore apply.
+- Support restore preview and restore apply over captured snapshot content.
 - Respect `.gitignore`, path policy, file size limits, and redaction rules.
 
 Daemon/API work:
