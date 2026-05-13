@@ -112,6 +112,7 @@ the practical workstream when the source heading is broad.
 | 111 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness promotion readiness panel split | /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness |
 | 112 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness activation panel split | /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness |
 | 113 | 2026-05-13 | Guide Governance | Master guide parity-gap triage cleanup | /tmp/ioi-autopilot-gui-harness-master-guide-triage/2026-05-13T01-35-47-401Z/result.json | node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-master-guide-triage<br>git diff --check |
+| 114 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Thin daemon-backed `ioi agent tui` shell | /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json | cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands<br>cargo test -p ioi-cli --bin cli agent_tui<br>cargo check -p ioi-cli --bin cli<br>node --test --test-name-pattern "agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell<br>git diff --check |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4004,5 +4005,42 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-master-guide-triage`
   - live GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-master-guide-triage/2026-05-13T01-35-47-401Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
+
+## Slice 114. 2026-05-13 - Thin daemon-backed `ioi agent tui` shell
+
+Guide section: P0. Terminal Coding-Agent TUI
+
+Evidence bundles:
+
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent.rs
+- crates/cli/src/commands/agent_event_stream.rs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+  - CLI parser accepts `agent tui` with daemon endpoint, goal, message,
+    runtime profile, model route, interrupt, cursor, and JSON flags.
+- `cargo test -p ioi-cli --bin cli agent_tui`
+  - TUI route, turn-selection, and start-option unit tests passed.
+- `cargo check -p ioi-cli --bin cli`
+  - CLI binary type-check passed with the new command module.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `node --test --test-name-pattern "agent TUI thin shell starts a live thread|agent TUI thin shell is daemon-backed|agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract passed: `agent tui` started a runtime-service thread,
+    submitted a turn, interrupted via daemon control route, rendered canonical
+    events, and replayed by `Last-Event-ID` with no private runtime loop.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live runtime daemon contract syntax check passed.
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - GUI harness validation core syntax check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json`.
 - `git diff --check`
   - whitespace check passed.

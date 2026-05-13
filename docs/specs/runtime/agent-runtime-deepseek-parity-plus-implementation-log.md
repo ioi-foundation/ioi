@@ -113,6 +113,7 @@ workstream was narrower.
 | 111 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness promotion readiness panel split | /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json |
 | 112 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness activation panel split | /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json |
 | 113 | 2026-05-13 | Guide Governance | Master guide parity-gap triage cleanup | docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md |
+| 114 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Thin daemon-backed `ioi agent tui` shell | /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -233,6 +234,43 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 114. 2026-05-13 - Thin daemon-backed `ioi agent tui` shell
+
+Implementation slice completed 2026-05-13, thin daemon-backed terminal agent UI:
+
+- Added `crates/cli/src/commands/agent_tui.rs` and the `AgentCommands::Tui`
+  entrypoint for `ioi agent tui`.
+- The thin TUI shell can start a new daemon runtime thread with `--goal`, select
+  an existing thread with `--thread-id`, resume a selected thread, submit one
+  user message, render canonical thread events, replay by `--since-seq` or
+  `--last-event-id`, and call interrupt/steer controls.
+- The implementation reuses the existing daemon thread, turn, event-stream, and
+  control endpoints:
+  `/v1/threads`, `/v1/threads/{thread_id}`,
+  `/v1/threads/{thread_id}/turns`,
+  `/v1/threads/{thread_id}/events`, and the interrupt/steer control routes.
+- Added JSON output under `ioi.agent-cli.tui.v1` with
+  `private_runtime_loop: false`, event rows, route metadata, and graph/node
+  deep-link ids extracted from runtime event envelopes.
+- Updated the live runtime daemon contract to prove the TUI path starts a live
+  runtime-service thread, submits a turn, interrupts through the daemon control
+  endpoint, replays by `Last-Event-ID`, and does not depend on the legacy
+  desktop-agent execution loop.
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `cargo test -p ioi-cli --bin cli agent_tui`
+- `cargo check -p ioi-cli --bin cli`
+- `cargo fmt -p ioi-cli -- --check`
+- `node --test --test-name-pattern "agent TUI thin shell starts a live thread|agent TUI thin shell is daemon-backed|agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json`.
 - `git diff --check`
 - live GUI/workflow harness:
   `docs/evidence/autopilot-gui-harness-validation/2026-05-11T03-17-06-563Z/result.json`
