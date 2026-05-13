@@ -346,6 +346,35 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json`.
 
+### Slice 117. 2026-05-13 - React Flow/TUI operator-control equivalence proof
+
+Implementation slice completed 2026-05-13, React Flow/TUI operator-control
+equivalence proof:
+
+- Added shared live-contract helpers that normalize operator-control event
+  shape, canonical cursor, SDK identity, React Flow projected node identity,
+  and `ioi agent tui --json` event-row reopen descriptors.
+- Added a live interrupt equivalence proof: one React Flow-authored
+  `runtime_operator_interrupt` request and one line-mode TUI `/interrupt`
+  command both emit the same operator-control contract shape while preserving
+  their own event ids, cursors, workflow node ids, receipts, policies, SDK
+  events, React Flow projection nodes, and TUI reopen rows.
+- Added the matching live steer equivalence proof for
+  `runtime_operator_steer` and `/steer`, so both primary TUI line-mode controls
+  are proven equivalent to workflow-authored runtime-control nodes.
+- Kept this as a proof slice only: no runtime ownership changes, no new UI
+  shell, and no changes to the daemon event model.
+
+Validation evidence:
+
+- `node --test --test-name-pattern "React Flow and line-mode TUI .* controls share" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow and line-mode TUI .* controls share|agent TUI line-mode slash commands|React Flow operator interrupt control preserves graph identity|React Flow operator steer control preserves graph identity|agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json`.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:

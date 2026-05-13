@@ -91,6 +91,92 @@ async function fetchSseEvents(url, options = {}) {
     });
 }
 
+function canonicalRuntimeEventCursor(event) {
+  return `${event.event_stream_id}:${event.seq}`;
+}
+
+function operatorControlContractShape(event) {
+  return {
+    eventKind: event.event_kind,
+    sourceEventKind: event.source_event_kind,
+    status: event.status,
+    componentKind: event.component_kind,
+    workflowNodeId: event.workflow_node_id,
+    payloadSchemaVersion: event.payload_schema_version,
+  };
+}
+
+async function fetchTuiJsonEventRow(cli, endpoint, threadId, eventId) {
+  const result = await execFileAsync(
+    cli,
+    [
+      "agent",
+      "tui",
+      "--thread-id",
+      threadId,
+      "--since-seq",
+      "0",
+      "--endpoint",
+      endpoint,
+      "--json",
+    ],
+    { cwd: root },
+  );
+  const payload = JSON.parse(result.stdout);
+  const row = payload.event_rows.find((candidate) => candidate.event_id === eventId);
+  assert.ok(row, `expected TUI JSON event row for ${eventId}`);
+  return row;
+}
+
+function assertOperatorControlCrossSurfaceIdentity({
+  daemonEvent,
+  sdkEvent,
+  reactFlowNode,
+  tuiRow,
+  expected,
+}) {
+  const cursor = canonicalRuntimeEventCursor(daemonEvent);
+  assert.equal(sdkEvent.id, daemonEvent.event_id);
+  assert.equal(sdkEvent.cursor, cursor);
+  assert.equal(sdkEvent.eventKind, expected.eventKind);
+  assert.equal(sdkEvent.sourceEventKind, expected.sourceEventKind);
+  assert.equal(sdkEvent.componentKind, expected.componentKind);
+  assert.equal(sdkEvent.workflowGraphId, expected.workflowGraphId);
+  assert.equal(sdkEvent.workflowNodeId, expected.workflowNodeId);
+  assert.equal(sdkEvent.payloadSchemaVersion, expected.payloadSchemaVersion);
+  assert.deepEqual(sdkEvent.receiptRefs, daemonEvent.receipt_refs);
+  assert.deepEqual(sdkEvent.policyDecisionRefs, daemonEvent.policy_decision_refs);
+
+  assert.equal(reactFlowNode.latestEventId, daemonEvent.event_id);
+  assert.equal(reactFlowNode.latestCursor, cursor);
+  assert.equal(reactFlowNode.workflowGraphId, expected.workflowGraphId);
+  assert.equal(reactFlowNode.workflowNodeId, expected.workflowNodeId);
+  assert.equal(reactFlowNode.componentKind, expected.componentKind);
+  assert.equal(reactFlowNode.tuiDeepLink.eventId, daemonEvent.event_id);
+  assert.equal(reactFlowNode.tuiDeepLink.cursor, cursor);
+  assert.equal(reactFlowNode.tuiDeepLink.workflowGraphId, expected.workflowGraphId);
+  assert.equal(reactFlowNode.tuiDeepLink.workflowNodeId, expected.workflowNodeId);
+
+  assert.equal(tuiRow.event_id, daemonEvent.event_id);
+  assert.equal(tuiRow.cursor, cursor);
+  assert.equal(tuiRow.thread_id, daemonEvent.thread_id);
+  assert.equal(tuiRow.turn_id, daemonEvent.turn_id);
+  assert.equal(tuiRow.workflow_graph_id, expected.workflowGraphId);
+  assert.equal(tuiRow.workflow_node_id, expected.workflowNodeId);
+  assert.equal(tuiRow.event_kind, expected.eventKind);
+  assert.equal(tuiRow.source_event_kind, expected.sourceEventKind);
+  assert.equal(tuiRow.component_kind, expected.componentKind);
+  assert.deepEqual(tuiRow.tui_reopen.args, [
+    "agent",
+    "tui",
+    "--thread-id",
+    daemonEvent.thread_id,
+    "--since-seq",
+    String(daemonEvent.seq),
+  ]);
+  assert.equal(tuiRow.tui_reopen.last_event_id, daemonEvent.event_id);
+}
+
 async function fetchJsonStatus(url, options) {
   const response = await fetch(url, {
     headers: { "content-type": "application/json" },
@@ -3695,6 +3781,402 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
       "--since-seq",
       String(interruptEvent.seq),
     ]);
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
+test("React Flow and line-mode TUI interrupt controls share the operator-control event contract", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-control-equivalence-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-control-equivalence-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-control-equivalence-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const workflowGraphId = "workflow.react-flow.tui-control-equivalence";
+  const workflowNodeId = "runtime.operator-interrupt";
+  const contractShape = {
+    eventKind: "turn.interrupted",
+    sourceEventKind: "OperatorControl.Interrupt",
+    status: "interrupted",
+    componentKind: "operator_control",
+    workflowNodeId,
+    payloadSchemaVersion: "ioi.runtime.operator-control.v1",
+  };
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-control-equivalence";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const reactFlowThread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove React Flow and TUI interrupts share the control event contract.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const reactFlowTurn = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${reactFlowThread.thread_id}/turns`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: "Prepare the React Flow side of the control equivalence proof.",
+        }),
+      },
+    );
+    const workflowNode = {
+      id: "react-flow-tui-equivalence-interrupt-control",
+      type: "runtime_operator_interrupt",
+      config: {
+        logic: {
+          runtimeOperatorInterruptEndpoint: "/v1/threads/{threadId}/turns/{turnId}/interrupt",
+          runtimeOperatorInterruptThreadIdField: "threadId",
+          runtimeOperatorInterruptTurnIdField: "turnId",
+          runtimeOperatorInterruptReasonField: "reason",
+          runtimeOperatorInterruptWorkflowNodeId: workflowNodeId,
+          runtimeOperatorInterruptActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.turn.interrupt"] },
+      },
+    };
+    const reactFlowControl = createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
+      workflowNode,
+      {
+        threadId: reactFlowThread.thread_id,
+        turnId: reactFlowTurn.turn_id,
+        reason: "react-flow equivalence interrupt",
+      },
+      { workflowGraphId },
+    );
+    await fetchJson(`${daemon.endpoint}${reactFlowControl.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(reactFlowControl.body),
+    });
+
+    const tuiResult = await execFileWithInput(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--goal",
+        "Prove line-mode TUI shares the React Flow control event contract.",
+        "--message",
+        "Prepare the TUI side of the control equivalence proof.",
+        "--runtime-profile",
+        "runtime_service",
+        "--model",
+        "auto",
+        "--route-id",
+        "route.native-local",
+        "--cwd",
+        cwd,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--interactive",
+      ],
+      "/interrupt tui equivalence interrupt\n/quit\n",
+      { cwd: root, timeout: 30000 },
+    );
+    const tuiThreadId = tuiResult.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
+    assert.ok(tuiThreadId);
+
+    const reactFlowEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${reactFlowThread.thread_id}/events?since_seq=0`,
+    );
+    const tuiEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${tuiThreadId}/events?since_seq=0`,
+    );
+    const reactFlowEvent = reactFlowEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.Interrupt" &&
+        event.source === "react_flow" &&
+        event.payload?.reason === "react-flow equivalence interrupt",
+    );
+    const tuiEvent = tuiEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.Interrupt" &&
+        event.source === "cli_tui" &&
+        event.payload?.reason === "tui equivalence interrupt",
+    );
+    assert.ok(reactFlowEvent);
+    assert.ok(tuiEvent);
+    assert.deepEqual(operatorControlContractShape(reactFlowEvent), contractShape);
+    assert.deepEqual(operatorControlContractShape(tuiEvent), contractShape);
+    assert.equal(reactFlowEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(tuiEvent.workflow_graph_id, null);
+    assert.ok(reactFlowEvent.receipt_refs.includes(`receipt_${reactFlowTurn.request_id}_operator_interrupt`));
+    assert.ok(reactFlowEvent.policy_decision_refs.includes(`policy_${reactFlowTurn.request_id}_operator_interrupt_allow`));
+    assert.ok(tuiEvent.receipt_refs.some((ref) => ref.endsWith("_operator_interrupt")));
+    assert.ok(tuiEvent.policy_decision_refs.some((ref) => ref.endsWith("_operator_interrupt_allow")));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const reactFlowSdkThread = await Thread.open(reactFlowThread.thread_id, {
+      substrateClient: sdkClient,
+    });
+    const tuiSdkThread = await Thread.open(tuiThreadId, { substrateClient: sdkClient });
+    const reactFlowSdkEvents = await collect(reactFlowSdkThread.events({ sinceSeq: 0 }));
+    const tuiSdkEvents = await collect(tuiSdkThread.events({ sinceSeq: 0 }));
+    const reactFlowSdkEvent = reactFlowSdkEvents.find(
+      (event) => event.id === reactFlowEvent.event_id,
+    );
+    const tuiSdkEvent = tuiSdkEvents.find((event) => event.id === tuiEvent.event_id);
+    assert.ok(reactFlowSdkEvent);
+    assert.ok(tuiSdkEvent);
+
+    const reactFlowProjection =
+      projectRuntimeThreadEventsToWorkflowProjection(reactFlowSdkEvents);
+    const tuiProjection = projectRuntimeThreadEventsToWorkflowProjection(tuiSdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(reactFlowEvent.event_id),
+    );
+    const tuiNode = tuiProjection.nodes.find((node) =>
+      node.eventIds.includes(tuiEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.ok(tuiNode);
+
+    const reactFlowTuiRow = await fetchTuiJsonEventRow(
+      cli,
+      daemon.endpoint,
+      reactFlowThread.thread_id,
+      reactFlowEvent.event_id,
+    );
+    const lineModeTuiRow = await fetchTuiJsonEventRow(
+      cli,
+      daemon.endpoint,
+      tuiThreadId,
+      tuiEvent.event_id,
+    );
+    assertOperatorControlCrossSurfaceIdentity({
+      daemonEvent: reactFlowEvent,
+      sdkEvent: reactFlowSdkEvent,
+      reactFlowNode,
+      tuiRow: reactFlowTuiRow,
+      expected: { ...contractShape, workflowGraphId },
+    });
+    assertOperatorControlCrossSurfaceIdentity({
+      daemonEvent: tuiEvent,
+      sdkEvent: tuiSdkEvent,
+      reactFlowNode: tuiNode,
+      tuiRow: lineModeTuiRow,
+      expected: { ...contractShape, workflowGraphId: null },
+    });
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
+test("React Flow and line-mode TUI steer controls share the operator-control event contract", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeOperatorSteerControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-steer-equivalence-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-steer-equivalence-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-steer-equivalence-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const workflowGraphId = "workflow.react-flow.tui-steer-equivalence";
+  const workflowNodeId = "runtime.operator-steer";
+  const contractShape = {
+    eventKind: "turn.steered",
+    sourceEventKind: "OperatorControl.Steer",
+    status: "completed",
+    componentKind: "operator_control",
+    workflowNodeId,
+    payloadSchemaVersion: "ioi.runtime.operator-control.v1",
+  };
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-steer-equivalence";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const reactFlowThread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove React Flow and TUI steers share the control event contract.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const reactFlowTurn = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${reactFlowThread.thread_id}/turns`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: "Prepare the React Flow side of the steer equivalence proof.",
+        }),
+      },
+    );
+    const workflowNode = {
+      id: "react-flow-tui-equivalence-steer-control",
+      type: "runtime_operator_steer",
+      config: {
+        logic: {
+          runtimeOperatorSteerEndpoint: "/v1/threads/{threadId}/turns/{turnId}/steer",
+          runtimeOperatorSteerThreadIdField: "threadId",
+          runtimeOperatorSteerTurnIdField: "turnId",
+          runtimeOperatorSteerGuidanceField: "guidance",
+          runtimeOperatorSteerWorkflowNodeId: workflowNodeId,
+          runtimeOperatorSteerActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.turn.steer"] },
+      },
+    };
+    const reactFlowControl = createRuntimeOperatorSteerControlRequestFromWorkflowNode(
+      workflowNode,
+      {
+        threadId: reactFlowThread.thread_id,
+        turnId: reactFlowTurn.turn_id,
+        guidance: "react-flow equivalence steer",
+      },
+      { workflowGraphId },
+    );
+    await fetchJson(`${daemon.endpoint}${reactFlowControl.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(reactFlowControl.body),
+    });
+
+    const tuiResult = await execFileWithInput(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--goal",
+        "Prove line-mode TUI shares the React Flow steer event contract.",
+        "--message",
+        "Prepare the TUI side of the steer equivalence proof.",
+        "--runtime-profile",
+        "runtime_service",
+        "--model",
+        "auto",
+        "--route-id",
+        "route.native-local",
+        "--cwd",
+        cwd,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--interactive",
+      ],
+      "/steer tui equivalence steer\n/quit\n",
+      { cwd: root, timeout: 30000 },
+    );
+    const tuiThreadId = tuiResult.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
+    assert.ok(tuiThreadId);
+
+    const reactFlowEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${reactFlowThread.thread_id}/events?since_seq=0`,
+    );
+    const tuiEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${tuiThreadId}/events?since_seq=0`,
+    );
+    const reactFlowEvent = reactFlowEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.Steer" &&
+        event.source === "react_flow" &&
+        event.payload?.guidance === "react-flow equivalence steer",
+    );
+    const tuiEvent = tuiEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.Steer" &&
+        event.source === "cli_tui" &&
+        event.payload?.guidance === "tui equivalence steer",
+    );
+    assert.ok(reactFlowEvent);
+    assert.ok(tuiEvent);
+    assert.deepEqual(operatorControlContractShape(reactFlowEvent), contractShape);
+    assert.deepEqual(operatorControlContractShape(tuiEvent), contractShape);
+    assert.equal(reactFlowEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(tuiEvent.workflow_graph_id, null);
+    assert.ok(reactFlowEvent.receipt_refs.some((ref) => ref.startsWith(`receipt_${reactFlowTurn.request_id}_operator_steer_`)));
+    assert.ok(reactFlowEvent.policy_decision_refs.includes(`policy_${reactFlowTurn.request_id}_operator_steer_allow`));
+    assert.ok(tuiEvent.receipt_refs.some((ref) => ref.includes("_operator_steer_")));
+    assert.ok(tuiEvent.policy_decision_refs.some((ref) => ref.endsWith("_operator_steer_allow")));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const reactFlowSdkThread = await Thread.open(reactFlowThread.thread_id, {
+      substrateClient: sdkClient,
+    });
+    const tuiSdkThread = await Thread.open(tuiThreadId, { substrateClient: sdkClient });
+    const reactFlowSdkEvents = await collect(reactFlowSdkThread.events({ sinceSeq: 0 }));
+    const tuiSdkEvents = await collect(tuiSdkThread.events({ sinceSeq: 0 }));
+    const reactFlowSdkEvent = reactFlowSdkEvents.find(
+      (event) => event.id === reactFlowEvent.event_id,
+    );
+    const tuiSdkEvent = tuiSdkEvents.find((event) => event.id === tuiEvent.event_id);
+    assert.ok(reactFlowSdkEvent);
+    assert.ok(tuiSdkEvent);
+
+    const reactFlowProjection =
+      projectRuntimeThreadEventsToWorkflowProjection(reactFlowSdkEvents);
+    const tuiProjection = projectRuntimeThreadEventsToWorkflowProjection(tuiSdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(reactFlowEvent.event_id),
+    );
+    const tuiNode = tuiProjection.nodes.find((node) =>
+      node.eventIds.includes(tuiEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.ok(tuiNode);
+
+    const reactFlowTuiRow = await fetchTuiJsonEventRow(
+      cli,
+      daemon.endpoint,
+      reactFlowThread.thread_id,
+      reactFlowEvent.event_id,
+    );
+    const lineModeTuiRow = await fetchTuiJsonEventRow(
+      cli,
+      daemon.endpoint,
+      tuiThreadId,
+      tuiEvent.event_id,
+    );
+    assertOperatorControlCrossSurfaceIdentity({
+      daemonEvent: reactFlowEvent,
+      sdkEvent: reactFlowSdkEvent,
+      reactFlowNode,
+      tuiRow: reactFlowTuiRow,
+      expected: { ...contractShape, workflowGraphId },
+    });
+    assertOperatorControlCrossSurfaceIdentity({
+      daemonEvent: tuiEvent,
+      sdkEvent: tuiSdkEvent,
+      reactFlowNode: tuiNode,
+      tuiRow: lineModeTuiRow,
+      expected: { ...contractShape, workflowGraphId: null },
+    });
   } finally {
     if (daemon) await daemon.close();
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
