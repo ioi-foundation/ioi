@@ -3586,7 +3586,8 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `RUNTIME_ARTIFACT_SPILLOVER_START ${'x'.repeat(4096)} RUNTIME_ARTIFACT_SPILLOVER_END`;\n\ntest('runtime coding test proof', () => {\n  console.log(marker);\n  assert.equal(2 + 2, 4);\n});\n",
   );
   fs.writeFileSync(path.join(cwd, "diagnostic-target.mjs"), "export const value = 1;\n");
-  git(cwd, ["add", "README.md", "sample.test.mjs", "diagnostic-target.mjs"]);
+  fs.writeFileSync(path.join(cwd, "skip-diagnostics.mjs"), "export const skip = 1;\n");
+  git(cwd, ["add", "README.md", "sample.test.mjs", "diagnostic-target.mjs", "skip-diagnostics.mjs"]);
   git(cwd, ["commit", "-m", "seed workspace"]);
   fs.appendFileSync(path.join(cwd, "README.md"), "\nChanged line for diff proof.\n");
 
@@ -3630,6 +3631,10 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.ok(diagnosticsContract);
     assert.equal(diagnosticsContract.effectClass, "local_read");
     assert.equal(diagnosticsContract.riskDomain, "diagnostics");
+    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
+    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
+    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
+    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
     const artifactContract = catalog.find((tool) => tool.stableToolId === "artifact.read");
     assert.ok(artifactContract);
     assert.equal(artifactContract.effectClass, "local_read");
@@ -3742,6 +3747,52 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticPatchResult.status, "completed");
     assert.equal(diagnosticPatchResult.result.diagnosticsRecommended, true);
     assert.equal(diagnosticPatchResult.result.changedFiles[0]?.path, "diagnostic-target.mjs");
+    assert.equal(diagnosticPatchResult.auto_diagnostics?.status, "completed");
+    assert.equal(diagnosticPatchResult.auto_diagnostics?.tool_name, "lsp.diagnostics");
+    assert.equal(diagnosticPatchResult.auto_diagnostics?.event.source, "runtime_auto");
+    assert.equal(diagnosticPatchResult.auto_diagnostics?.workflow_node_id, "runtime.coding-tool.lsp-diagnostics.auto");
+    assert.equal(diagnosticPatchResult.auto_diagnostics?.result.diagnosticStatus, "findings");
+    assert.equal(diagnosticPatchResult.auto_diagnostics?.result.diagnosticCount, 1);
+    const injectedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: "Continue after diagnostics.",
+        diagnosticsMode: "advisory",
+      }),
+    });
+    assert.equal(injectedTurn.status, "completed");
+    const injectedConversation = await fetchJson(`${daemon.endpoint}/v1/runs/${injectedTurn.request_id}/conversation`);
+    assert.match(injectedConversation[0]?.content ?? "", /Post-edit diagnostics \(advisory, findings\)/);
+    assert.match(injectedConversation[0]?.content ?? "", /diagnostic-target\.mjs/);
+    const injectedTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${injectedTurn.request_id}/trace`);
+    assert.equal(injectedTrace.diagnosticsFeedback?.diagnosticStatus, "findings");
+    assert.equal(injectedTrace.diagnosticsFeedback?.mode, "advisory");
+    assert.equal(injectedTrace.diagnosticsFeedback?.diagnosticCount, 1);
+    const skippedDiagnosticPatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch.diagnostics-skip",
+          toolPack: {
+            coding: {
+              diagnosticsMode: "skip",
+              defaultDiagnosticCommandId: "node.check",
+            },
+          },
+          input: {
+            path: "skip-diagnostics.mjs",
+            oldText: "export const skip = 1;",
+            newText: "export const skip = ;",
+          },
+        }),
+      },
+    );
+    assert.equal(skippedDiagnosticPatchResult.status, "completed");
+    assert.equal(skippedDiagnosticPatchResult.result.diagnosticsRecommended, true);
+    assert.equal(skippedDiagnosticPatchResult.auto_diagnostics, null);
     assert.equal(diagnosticsResult.status, "completed");
     assert.equal(diagnosticsResult.tool_name, "lsp.diagnostics");
     assert.equal(diagnosticsResult.result.diagnosticStatus, "findings");
@@ -4039,6 +4090,14 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     );
     assert.ok(reactFlowDiagnostics);
     assert.equal(reactFlowDiagnostics.workflow_node_id, "workflow.coding.lsp.diagnostics");
+    const autoDiagnostics = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "lsp.diagnostics" &&
+        event.source === "runtime_auto" &&
+        event.workflow_node_id === "runtime.coding-tool.lsp-diagnostics.auto",
+    );
+    assert.ok(autoDiagnostics);
+    assert.equal(autoDiagnostics.payload_summary.result_summary.diagnosticStatus, "findings");
     const reactFlowArtifactRead = codingEvents.find(
       (event) =>
         event.payload.tool_name === "artifact.read" &&
@@ -4053,6 +4112,18 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     );
     assert.ok(reactFlowRetrieve);
     assert.equal(reactFlowRetrieve.workflow_node_id, "workflow.coding.tool.retrieve_result");
+    const diagnosticsInjection = daemonEvents.find(
+      (event) =>
+        event.event_kind === "lsp.diagnostics.injected" &&
+        event.component_kind === "lsp_diagnostics",
+    );
+    assert.ok(diagnosticsInjection);
+    assert.equal(diagnosticsInjection.source, "runtime_auto");
+    assert.equal(diagnosticsInjection.workflow_node_id, "runtime.lsp-diagnostics.injected");
+    assert.equal(diagnosticsInjection.payload_schema_version, "ioi.runtime.lsp-diagnostics-injection.v1");
+    assert.equal(diagnosticsInjection.payload.diagnostic_status, "findings");
+    assert.equal(diagnosticsInjection.payload.mode, "advisory");
+    assert.match(diagnosticsInjection.payload.prompt_text, /diagnostic-target\.mjs/);
 
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
     const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
@@ -4074,6 +4145,17 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.ok(sdkDiagnosticsEvent);
     assert.equal(sdkDiagnosticsEvent.toolName, "lsp.diagnostics");
     assert.equal(sdkDiagnosticsEvent.sourceEventKind, "CodingTool.LspDiagnostics");
+    const sdkAutoDiagnosticsEvent = sdkEvents.find((event) => event.id === autoDiagnostics.event_id);
+    assert.ok(sdkAutoDiagnosticsEvent);
+    assert.equal(sdkAutoDiagnosticsEvent.toolName, "lsp.diagnostics");
+    assert.equal(sdkAutoDiagnosticsEvent.source, "runtime_auto");
+    assert.equal(sdkAutoDiagnosticsEvent.sourceEventKind, "CodingTool.LspDiagnostics");
+    const sdkDiagnosticsInjectionEvent = sdkEvents.find((event) => event.id === diagnosticsInjection.event_id);
+    assert.ok(sdkDiagnosticsInjectionEvent);
+    assert.equal(sdkDiagnosticsInjectionEvent.type, "runtime_step");
+    assert.equal(sdkDiagnosticsInjectionEvent.componentKind, "lsp_diagnostics");
+    assert.equal(sdkDiagnosticsInjectionEvent.sourceEventKind, "LspDiagnostics.Injected");
+    assert.deepEqual(sdkDiagnosticsInjectionEvent.receiptRefs, diagnosticsInjection.receipt_refs);
     const sdkArtifactReadEvent = sdkEvents.find((event) => event.id === reactFlowArtifactRead.event_id);
     assert.ok(sdkArtifactReadEvent);
     assert.equal(sdkArtifactReadEvent.toolName, "artifact.read");
@@ -4114,6 +4196,20 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsNode.workflowNodeId, "workflow.coding.lsp.diagnostics");
     assert.equal(diagnosticsNode.label, "Coding tool: lsp.diagnostics");
     assert.deepEqual(diagnosticsNode.receiptRefs, reactFlowDiagnostics.receipt_refs);
+    const autoDiagnosticsNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(autoDiagnostics.event_id),
+    );
+    assert.ok(autoDiagnosticsNode);
+    assert.equal(autoDiagnosticsNode.workflowNodeId, "runtime.coding-tool.lsp-diagnostics.auto");
+    assert.equal(autoDiagnosticsNode.label, "Coding tool: lsp.diagnostics");
+    const diagnosticsInjectionNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsInjection.event_id),
+    );
+    assert.ok(diagnosticsInjectionNode);
+    assert.equal(diagnosticsInjectionNode.workflowNodeId, "runtime.lsp-diagnostics.injected");
+    assert.equal(diagnosticsInjectionNode.componentKind, "lsp_diagnostics");
+    assert.equal(diagnosticsInjectionNode.label, "Diagnostics injected");
+    assert.deepEqual(diagnosticsInjectionNode.receiptRefs, diagnosticsInjection.receipt_refs);
     const retrieveNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(reactFlowRetrieve.event_id),
     );

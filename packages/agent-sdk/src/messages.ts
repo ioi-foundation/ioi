@@ -124,6 +124,7 @@ export const RUNTIME_EVENT_SOURCES = [
   "sdk_client",
   "cli_tui",
   "react_flow",
+  "runtime_auto",
   "fixture",
 ] as const;
 

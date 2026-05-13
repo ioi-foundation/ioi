@@ -124,6 +124,7 @@ workstream was narrower.
 | 122 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack structured test-run contract | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-test-run/2026-05-13T03-36-24-435Z/result.json |
 | 123 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack artifact spillover and retrieval | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval/2026-05-13T03-53-05-208Z/result.json |
 | 124 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | coding tool-pack post-edit diagnostics MVP | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json |
+| 125 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | automatic post-edit diagnostics injection loop | /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -687,6 +688,52 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json`.
+
+### Slice 125. 2026-05-13 - Automatic post-edit diagnostics injection loop
+
+Implementation slice completed 2026-05-13, automatic post-edit diagnostics
+injection loop:
+
+- Added runtime-auto post-edit diagnostics orchestration after successful
+  mutating `file.apply_patch` calls, using changed-file metadata to invoke
+  `lsp.diagnostics` without shell-only fallback.
+- Added compact diagnostics feedback records that collect findings, receipts,
+  source diagnostic event ids, and prompt-ready summaries, then inject them
+  into the next local daemon or runtime-bridge turn.
+- Added receipt-backed `lsp.diagnostics.injected` runtime events with
+  `runtime_auto` source, `ioi.runtime.lsp-diagnostics-injection.v1` schema,
+  `lsp_diagnostics` component kind, and React Flow projection label.
+- Added React Flow coding-pack controls for diagnostics mode
+  (`advisory`/`blocking`/`skip`) and default diagnostic command, and taught the
+  daemon to honor both direct `toolPack` and nested `toolPack.coding.*`
+  workflow config shapes.
+- Updated SDK TTI source literals and Rust live-bridge schema constants so
+  `runtime_auto` events remain cross-language contract surfaces.
+- Extended the live daemon contract to prove automatic diagnostics after a
+  syntax-breaking patch, compact injection into the next turn prompt/trace,
+  nested React Flow `skip` config, SDK event stream projection, and React Flow
+  injected-diagnostics rows.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `rustfmt --check crates/types/src/app/runtime/thread_turn_item.rs`
+- `cargo check -p ioi-types`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json`.
+
+Known validation note:
+
+- Broad `cargo fmt --all -- --check` remains blocked by unrelated formatting
+  drift in `apps/autopilot/src-tauri/src/orchestrator/store/*.rs`; this slice's
+  touched Rust file passed direct `rustfmt --check`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
