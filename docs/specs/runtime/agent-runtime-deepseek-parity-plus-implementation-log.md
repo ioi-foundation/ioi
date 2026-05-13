@@ -112,6 +112,7 @@ workstream was narrower.
 | 110 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness active runtime binding panel split | /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json |
 | 111 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness promotion readiness panel split | /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json |
 | 112 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness activation panel split | /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json |
+| 113 | 2026-05-13 | Guide Governance | Master guide parity-gap triage cleanup | docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5637,3 +5638,30 @@ Known validation note:
 - The parent keeps activation step and candidate-gate source marker templates
   and passes them to the wizard detail component so source-contract probes can
   still bind to the existing React Flow workflow hooks after extraction.
+
+### Slice 113. 2026-05-13 - Master guide parity-gap triage cleanup
+
+Implementation slice completed 2026-05-13, master guide parity-gap triage
+cleanup:
+
+- Replaced the noisy current-state implementation narrative in the master guide
+  with a compact strategic snapshot, keeping completed-slice details in this
+  implementation log and proof commands in the validation ledger.
+- Added an active parity gap ledger that separates true DeepSeek parity gaps
+  from React Flow/settings harness maintenance work.
+- Re-ranked the immediate tactical queue around the missing terminal
+  coding-agent TUI surface, with coding tool-pack, LSP diagnostics, rollback
+  snapshots, subagents, MCP, modes, and telemetry as explicit follow-on gaps.
+- Updated the `Next Implementation Slices` section so the next code slice is
+  guide-led: a thin `ioi agent tui` shell over the existing daemon thread/event
+  API, followed by TUI/workflow deep links and only then maintenance cleanup
+  when it supports a named parity gap.
+
+Validation evidence:
+
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-master-guide-triage`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-master-guide-triage/2026-05-13T01-35-47-401Z/result.json`.
+- `git diff --check`
