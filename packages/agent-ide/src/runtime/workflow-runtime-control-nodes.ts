@@ -28,6 +28,16 @@ export const RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND =
   "OperatorControl.Steer" as const;
 export const RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.operator-control.v1" as const;
+export const WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-context-compact-control.v1" as const;
+export const RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID =
+  "runtime.context-compact" as const;
+export const RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND = "context_compaction" as const;
+export const RUNTIME_CONTEXT_COMPACT_SOURCE = "react_flow" as const;
+export const RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND =
+  "OperatorControl.Compact" as const;
+export const RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.context-compaction.v1" as const;
 
 export interface RuntimeThreadForkControlRequestBody {
   reason: string;
@@ -145,6 +155,51 @@ export interface RuntimeOperatorSteerControlRequestInput {
 }
 
 export interface RuntimeOperatorSteerWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeContextCompactControlRequestBody {
+  reason: string;
+  scope: string;
+  turnId: string | null;
+  source: typeof RUNTIME_CONTEXT_COMPACT_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeContextCompactControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_context_compact";
+  nodeId: string | null;
+  threadId: string;
+  turnId: string | null;
+  endpoint: string;
+  body: RuntimeContextCompactControlRequestBody;
+}
+
+export interface RuntimeContextCompactControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  turnId?: string | null;
+  turnIdField?: string | null;
+  input?: unknown;
+  reason?: string | null;
+  reasonField?: string | null;
+  scope?: string | null;
+  scopeField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeContextCompactWorkflowNodeOptions {
   workflowGraphId?: string | null;
   actor?: string | null;
 }
@@ -291,6 +346,61 @@ export function createRuntimeOperatorSteerControlRequest(
   };
 }
 
+export function createRuntimeContextCompactControlRequest(
+  params: RuntimeContextCompactControlRequestInput,
+): RuntimeContextCompactControlRequest {
+  const threadId =
+    cleanString(params.threadId) ??
+    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
+    stringAtPath(params.input, "thread_id");
+  if (!threadId) {
+    throw new Error("runtime_context_compact nodes need a threadId input before dispatch.");
+  }
+
+  const turnId =
+    cleanString(params.turnId) ??
+    stringAtPath(params.input, params.turnIdField ?? "turnId") ??
+    stringAtPath(params.input, "turn_id");
+  const reason =
+    stringAtPath(params.input, params.reasonField ?? "") ??
+    cleanString(params.reason) ??
+    "Compact thread context from React Flow workflow control.";
+  const scope =
+    stringAtPath(params.input, params.scopeField ?? "") ??
+    cleanString(params.scope) ??
+    "thread";
+  const workflowNodeId =
+    cleanString(params.workflowNodeId) ?? RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID;
+  const workflowGraphId = cleanString(params.workflowGraphId);
+  const endpointTemplate =
+    cleanString(params.endpoint) ?? "/v1/threads/{threadId}/compact";
+  const endpoint = endpointFromTemplate(endpointTemplate, {
+    threadId,
+    turnId: turnId ?? "",
+  });
+
+  return {
+    schemaVersion: WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
+    nodeType: "runtime_context_compact",
+    nodeId: cleanString(params.nodeId),
+    threadId,
+    turnId: turnId ?? null,
+    endpoint,
+    body: {
+      reason,
+      scope,
+      turnId: turnId ?? null,
+      source: RUNTIME_CONTEXT_COMPACT_SOURCE,
+      actor: cleanString(params.actor) ?? "operator",
+      workflowGraphId,
+      workflowNodeId,
+      eventKind: RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
+    },
+  };
+}
+
 export function createRuntimeThreadForkControlRequestFromWorkflowNode(
   node: Pick<Node, "id" | "type" | "config">,
   input: unknown = {},
@@ -376,6 +486,38 @@ export function createRuntimeOperatorSteerControlRequestFromWorkflowNode(
     actor:
       cleanString(options.actor) ??
       cleanString(logic.runtimeOperatorSteerActor) ??
+      "operator",
+  });
+}
+
+export function createRuntimeContextCompactControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeContextCompactWorkflowNodeOptions = {},
+): RuntimeContextCompactControlRequest {
+  if (node.type !== "runtime_context_compact") {
+    throw new Error(`Expected runtime_context_compact node, received ${node.type}.`);
+  }
+  const logic: NodeLogic = node.config?.logic ?? {};
+  return createRuntimeContextCompactControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeContextCompactThreadId),
+    threadIdField: cleanString(logic.runtimeContextCompactThreadIdField) ?? "threadId",
+    turnId: cleanString(logic.runtimeContextCompactTurnId),
+    turnIdField: cleanString(logic.runtimeContextCompactTurnIdField) ?? "turnId",
+    reason: cleanString(logic.runtimeContextCompactReason),
+    reasonField: cleanString(logic.runtimeContextCompactReasonField),
+    scope: cleanString(logic.runtimeContextCompactScope),
+    scopeField: cleanString(logic.runtimeContextCompactScopeField),
+    endpoint: cleanString(logic.runtimeContextCompactEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeContextCompactWorkflowNodeId) ??
+      RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+    actor:
+      cleanString(options.actor) ??
+      cleanString(logic.runtimeContextCompactActor) ??
       "operator",
   });
 }

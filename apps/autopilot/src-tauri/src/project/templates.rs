@@ -540,6 +540,7 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
             "Operator Interrupt",
         ),
         ("runtime_operator_steer", "Runtime", "Operator Steer"),
+        ("runtime_context_compact", "Runtime", "Context Compact"),
         ("repository_context", "Context", "Repository Context"),
         ("branch_policy", "Policy", "Branch Policy"),
         ("github_context", "Context", "GitHub Context"),
@@ -714,6 +715,33 @@ pub(super) fn workflow_runtime_operator_steer_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeOperatorSteer": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_context_compact_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "threadId": { "type": "string" },
+            "turnId": { "type": ["string", "null"] },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeContextCompact": { "type": "object" }
         }
     })
 }
@@ -1142,6 +1170,43 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 "connectionClasses": ["state", "data", "control"]
             })),
         ),
+        workflow_scaffold(
+            "workflow.runtime.context_compact",
+            "runtime_context_compact",
+            "Runtime",
+            "Context compact control",
+            "Compact runtime thread context from a React Flow workflow control.",
+            "Compact",
+            "control",
+            json!({
+                "runtimeContextCompactEndpoint": "/v1/threads/{threadId}/compact",
+                "runtimeContextCompactField": "runtimeContextCompact",
+                "runtimeContextCompactEventField": "runtimeContextCompact.event",
+                "runtimeContextCompactStatusField": "runtimeContextCompact.status",
+                "runtimeContextCompactReceiptField": "runtimeContextCompact.receiptRefs",
+                "runtimeContextCompactPolicyField": "runtimeContextCompact.policyDecisionRefs",
+                "runtimeContextCompactThreadIdField": "threadId",
+                "runtimeContextCompactTurnIdField": "turnId",
+                "runtimeContextCompactReasonField": "reason",
+                "runtimeContextCompactReason": "Compact thread context from React Flow workflow control.",
+                "runtimeContextCompactScopeField": "scope",
+                "runtimeContextCompactScope": "thread",
+                "runtimeContextCompactWorkflowNodeId": "runtime.context-compact",
+                "runtimeContextCompactSource": "react_flow",
+                "runtimeContextCompactActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_context_compact_safe",
+                "outputSchema": workflow_runtime_context_compact_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.context.compact"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control"]
+            })),
+        ),
     ];
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
@@ -1154,6 +1219,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "runtime_thread_fork"
                 | "runtime_operator_interrupt"
                 | "runtime_operator_steer"
+                | "runtime_context_compact"
                 | "workflow_package_export"
                 | "workflow_package_import"
                 | "output"
@@ -1195,6 +1261,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         | "runtime_thread_fork"
         | "runtime_operator_interrupt"
         | "runtime_operator_steer"
+        | "runtime_context_compact"
         | "workflow_package_export"
         | "workflow_package_import" => "write",
         _ => "none",
@@ -1215,6 +1282,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_thread_fork"
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
+            | "runtime_context_compact"
             | "workflow_package_export"
             | "workflow_package_import"
     );
@@ -1240,6 +1308,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_thread_fork"
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
+            | "runtime_context_compact"
             | "workflow_package_export"
             | "workflow_package_import"
             | "subgraph"
@@ -1260,6 +1329,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "runtime_thread_fork" => vec!["state", "data", "control"],
         "runtime_operator_interrupt" => vec!["state", "data", "control"],
         "runtime_operator_steer" => vec!["state", "data", "control"],
+        "runtime_context_compact" => vec!["state", "data", "control"],
         "workflow_package_export" => vec!["data", "output_bundle"],
         "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],

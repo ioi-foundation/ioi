@@ -77,6 +77,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_thread_fork" ||
       node.type === "runtime_operator_interrupt" ||
       node.type === "runtime_operator_steer" ||
+      node.type === "runtime_context_compact" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
       node.type === "skill_context" ||
@@ -171,6 +172,25 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
       },
     };
   }
+  if (node.type === "runtime_context_compact") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        turnId: { type: ["string", "null"] },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeContextCompact: { type: "object" },
+      },
+    };
+  }
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
   if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;
@@ -222,6 +242,18 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         threadId: { type: "string" },
         turnId: { type: "string" },
         guidance: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_context_compact") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        turnId: { type: "string" },
+        reason: { type: "string" },
+        scope: { type: "string" },
         workflowGraphId: { type: "string" },
       },
     };

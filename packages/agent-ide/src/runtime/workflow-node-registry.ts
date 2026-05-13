@@ -959,6 +959,122 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.turn.steer"] },
   },
   {
+    type: "runtime_context_compact",
+    label: "Runtime Context Compact",
+    group: "Flow",
+    family: "flow_control",
+    token: "CC",
+    familyLabel: "Runtime",
+    metricLabel: "Compact",
+    metricValue: "control",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["thread"],
+    outputs: ["compact", "event", "status"],
+    portDefinitions: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("compact", "Compact request", "output", "state", "output", false, "state"),
+      port("event", "Compaction event", "output", "state", "output", false, "state"),
+      port("status", "Compaction status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("compact", "Compact request", "output", "state", "output", false, "state"),
+      port("event", "Compaction event", "output", "state", "output", false, "state"),
+      port("status", "Compaction status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeContextCompactEndpoint",
+        "runtimeContextCompactThreadIdField",
+        "runtimeContextCompactWorkflowNodeId",
+      ],
+      properties: {
+        runtimeContextCompactEndpoint: { type: "string" },
+        runtimeContextCompactField: { type: "string" },
+        runtimeContextCompactEventField: { type: "string" },
+        runtimeContextCompactStatusField: { type: "string" },
+        runtimeContextCompactReceiptField: { type: "string" },
+        runtimeContextCompactPolicyField: { type: "string" },
+        runtimeContextCompactThreadId: { type: "string" },
+        runtimeContextCompactThreadIdField: { type: "string" },
+        runtimeContextCompactTurnId: { type: "string" },
+        runtimeContextCompactTurnIdField: { type: "string" },
+        runtimeContextCompactReason: { type: "string" },
+        runtimeContextCompactReasonField: { type: "string" },
+        runtimeContextCompactScope: { type: "string" },
+        runtimeContextCompactScopeField: { type: "string" },
+        runtimeContextCompactWorkflowNodeId: { type: "string" },
+        runtimeContextCompactSource: { type: "string" },
+        runtimeContextCompactActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_context_compact"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_context_compact",
+      "runtimeContextCompact.status",
+    ),
+    policyProfile: policyProfile("write"),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_context_compact",
+      executorId: "workflow.runtime_context_compact",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_context_compact",
+        "runtimeContextCompact.status",
+      ),
+      runtimeContextCompactEndpoint: "/v1/threads/{threadId}/compact",
+      runtimeContextCompactField: "runtimeContextCompact",
+      runtimeContextCompactEventField: "runtimeContextCompact.event",
+      runtimeContextCompactStatusField: "runtimeContextCompact.status",
+      runtimeContextCompactReceiptField: "runtimeContextCompact.receiptRefs",
+      runtimeContextCompactPolicyField:
+        "runtimeContextCompact.policyDecisionRefs",
+      runtimeContextCompactThreadIdField: "threadId",
+      runtimeContextCompactTurnIdField: "turnId",
+      runtimeContextCompactReasonField: "reason",
+      runtimeContextCompactReason:
+        "Compact thread context from React Flow workflow control.",
+      runtimeContextCompactScopeField: "scope",
+      runtimeContextCompactScope: "thread",
+      runtimeContextCompactWorkflowNodeId: "runtime.context-compact",
+      runtimeContextCompactSource: "react_flow",
+      runtimeContextCompactActor: "operator",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_context_compact_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeContextCompact: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeContextCompact: true,
+        runtimeContextCompactField: "runtimeContextCompact",
+        runtimeContextCompactStatusField: "runtimeContextCompact.status",
+      },
+      nodeTypeLabel: "RuntimeContextCompactNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.context.compact"] },
+  },
+  {
     type: "workflow_package_export",
     label: "Workflow Package Export",
     group: "Tools",
@@ -3722,6 +3838,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_thread_fork", "human_gate", "decision", "output"];
     case "runtime_operator_steer":
       return ["runtime_operator_interrupt", "decision", "verifier", "output"];
+    case "runtime_context_compact":
+      return ["runtime_operator_steer", "decision", "verifier", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -3825,6 +3943,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_thread_fork" ||
     type === "runtime_operator_interrupt" ||
     type === "runtime_operator_steer" ||
+    type === "runtime_context_compact" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

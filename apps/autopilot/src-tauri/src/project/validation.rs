@@ -290,6 +290,27 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeContextCompact {
+            if workflow_json_string(&logic, "runtimeContextCompactEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_context_compact_endpoint".to_string(),
+                    message: "Runtime context compact nodes need a compact endpoint template."
+                        .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeContextCompactThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeContextCompactThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_context_compact_thread".to_string(),
+                    message:
+                        "Runtime context compact nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::Subgraph
             && logic
                 .get("subgraphRef")

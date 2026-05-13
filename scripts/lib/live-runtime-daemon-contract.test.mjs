@@ -2509,6 +2509,140 @@ test("context compact keeps one canonical compaction event across SDK, CLI, and 
   }
 });
 
+test("React Flow context compact control preserves graph identity across daemon, SDK, and projection", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeContextCompactControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-compact-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-compact-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-compact-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const reason = "reduce live context from React Flow compact control";
+  const scope = "thread";
+  const workflowGraphId = "workflow.react-flow.context-compact-proof";
+  const workflowNodeId = "runtime.context-compact";
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-react-flow-compact";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove React Flow-originated context compact keeps graph identity.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a React Flow-originated context compact validation.",
+      }),
+    });
+
+    const workflowNode = {
+      id: "react-flow-context-compact-control",
+      type: "runtime_context_compact",
+      config: {
+        logic: {
+          runtimeContextCompactEndpoint: "/v1/threads/{threadId}/compact",
+          runtimeContextCompactThreadIdField: "threadId",
+          runtimeContextCompactTurnIdField: "turnId",
+          runtimeContextCompactReasonField: "reason",
+          runtimeContextCompactScopeField: "scope",
+          runtimeContextCompactWorkflowNodeId: workflowNodeId,
+          runtimeContextCompactActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.context.compact"] },
+      },
+    };
+    const control = createRuntimeContextCompactControlRequestFromWorkflowNode(
+      workflowNode,
+      { threadId: thread.thread_id, turnId: turn.turn_id, reason, scope },
+      { workflowGraphId },
+    );
+    assert.equal(control.nodeType, "runtime_context_compact");
+    assert.equal(control.body.source, "react_flow");
+    assert.equal(control.body.workflowGraphId, workflowGraphId);
+    assert.equal(control.body.workflowNodeId, workflowNodeId);
+    assert.equal(control.body.componentKind, "context_compaction");
+
+    const compacted = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(control.body),
+    });
+    assert.equal(compacted.thread_id, thread.thread_id);
+    assert.ok(compacted.latest_seq > thread.latest_seq);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const compactEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Compact" && event.source === "react_flow",
+    );
+    assert.ok(compactEvent);
+    assert.equal(compactEvent.event_kind, "context.compacted");
+    assert.equal(compactEvent.status, "completed");
+    assert.equal(compactEvent.source, "react_flow");
+    assert.equal(compactEvent.actor, "user");
+    assert.equal(compactEvent.thread_id, thread.thread_id);
+    assert.equal(compactEvent.turn_id, turn.turn_id);
+    assert.equal(compactEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(compactEvent.workflow_node_id, workflowNodeId);
+    assert.equal(compactEvent.component_kind, "context_compaction");
+    assert.equal(compactEvent.payload_schema_version, "ioi.runtime.context-compaction.v1");
+    assert.equal(compactEvent.payload.reason, reason);
+    assert.equal(compactEvent.payload.scope, scope);
+    assert.equal(compactEvent.payload.requested_by, "operator");
+    assert.ok(compactEvent.receipt_refs.some((ref) =>
+      ref.startsWith(`receipt_${turn.request_id}_context_compaction_`),
+    ));
+    assert.ok(compactEvent.policy_decision_refs.includes(`policy_${turn.request_id}_context_compaction_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkCompactEvent = sdkEvents.find((event) => event.id === compactEvent.event_id);
+    assert.ok(sdkCompactEvent);
+    assert.equal(sdkCompactEvent.type, "context_compacted");
+    assert.equal(sdkCompactEvent.sourceEventKind, "OperatorControl.Compact");
+    assert.equal(sdkCompactEvent.componentKind, "context_compaction");
+    assert.equal(sdkCompactEvent.workflowGraphId, workflowGraphId);
+    assert.equal(sdkCompactEvent.workflowNodeId, workflowNodeId);
+    assert.deepEqual(sdkCompactEvent.receiptRefs, compactEvent.receipt_refs);
+    assert.deepEqual(sdkCompactEvent.policyDecisionRefs, compactEvent.policy_decision_refs);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(compactEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.ok(reactFlowProjection.workflowGraphIds.includes(workflowGraphId));
+    assert.equal(reactFlowNode.nodeKind, "runtime_context_compact");
+    assert.equal(reactFlowNode.componentKind, "context_compaction");
+    assert.equal(reactFlowNode.workflowGraphId, workflowGraphId);
+    assert.equal(reactFlowNode.workflowNodeId, workflowNodeId);
+    assert.equal(reactFlowNode.status, "completed");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Compact"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("thread fork keeps one canonical source event across SDK, CLI, and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
@@ -4692,12 +4826,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTemplates, /workflow_runtime_thread_fork_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_operator_interrupt_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_operator_steer_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_context_compact_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_github_pr_create_output_schema/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageExport/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageImport/);
   assert.match(tauriRuntimeProjection, /RuntimeThreadFork/);
   assert.match(tauriRuntimeProjection, /RuntimeOperatorInterrupt/);
   assert.match(tauriRuntimeProjection, /RuntimeOperatorSteer/);
+  assert.match(tauriRuntimeProjection, /RuntimeContextCompact/);
   assert.match(tauriRuntimeProjection, /GithubPrCreate/);
   assert.match(tauriRuntimeProjection, /output_bundle/);
   assert.match(workflowContracts, /repository\.context/);
@@ -4744,6 +4880,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeOperatorSteerNode/);
   assert.match(nodeRegistry, /runtimeOperatorSteerWorkflowNodeId/);
   assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/turns\/\{turnId\}\/steer/);
+  assert.match(nodeRegistry, /runtime_context_compact/);
+  assert.match(nodeRegistry, /RuntimeContextCompactNode/);
+  assert.match(nodeRegistry, /runtimeContextCompactWorkflowNodeId/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/compact/);
   assert.match(nodeRegistry, /workflow_package_export/);
   assert.match(nodeRegistry, /WorkflowPackageExportNode/);
   assert.match(nodeRegistry, /workflow\.package\.export/);
@@ -5033,6 +5173,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_thread_fork\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_operator_interrupt\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_operator_steer\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_context_compact\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
@@ -5049,20 +5190,25 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeProjectionAdapter, /return "runtime_operator_interrupt"/);
   assert.match(runtimeProjectionAdapter, /case "runtime_operator_steer"/);
   assert.match(runtimeProjectionAdapter, /return "runtime_operator_steer"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_context_compact"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_context_compact"/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
   assert.match(runtimeActionSchema, /"skill_context"/);
   assert.match(runtimeActionSchema, /"workflow_package_export"/);
   assert.match(runtimeActionSchema, /"workflow_package_import"/);
   assert.match(runtimeActionSchema, /"runtime_operator_steer"/);
+  assert.match(runtimeActionSchema, /"runtime_context_compact"/);
   assert.match(generatedActionSchema, /"skill_context"/);
   assert.match(generatedActionSchema, /"workflow_package_export"/);
   assert.match(generatedActionSchema, /"workflow_package_import"/);
   assert.match(generatedActionSchema, /"runtime_operator_steer"/);
+  assert.match(generatedActionSchema, /"runtime_context_compact"/);
   assert.match(generatedRustActionSchema, /"skill_context"/);
   assert.match(generatedRustActionSchema, /"workflow_package_export"/);
   assert.match(generatedRustActionSchema, /"workflow_package_import"/);
   assert.match(generatedRustActionSchema, /"runtime_operator_steer"/);
+  assert.match(generatedRustActionSchema, /"runtime_context_compact"/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

@@ -588,6 +588,24 @@ export interface NodeLogic {
   runtimeOperatorSteerWorkflowNodeId?: string;
   runtimeOperatorSteerSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeOperatorSteerActor?: string;
+  runtimeContextCompactEndpoint?: string;
+  runtimeContextCompact?: unknown;
+  runtimeContextCompactField?: string;
+  runtimeContextCompactEventField?: string;
+  runtimeContextCompactStatusField?: string;
+  runtimeContextCompactReceiptField?: string;
+  runtimeContextCompactPolicyField?: string;
+  runtimeContextCompactThreadId?: string;
+  runtimeContextCompactThreadIdField?: string;
+  runtimeContextCompactTurnId?: string;
+  runtimeContextCompactTurnIdField?: string;
+  runtimeContextCompactReason?: string;
+  runtimeContextCompactReasonField?: string;
+  runtimeContextCompactScope?: string;
+  runtimeContextCompactScopeField?: string;
+  runtimeContextCompactWorkflowNodeId?: string;
+  runtimeContextCompactSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeContextCompactActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -678,6 +696,7 @@ export interface NodeLogic {
     consumesRuntimeThreadFork?: boolean;
     consumesRuntimeOperatorInterrupt?: boolean;
     consumesRuntimeOperatorSteer?: boolean;
+    consumesRuntimeContextCompact?: boolean;
     consumesWorkflowPackageExport?: boolean;
     consumesWorkflowPackageImportReview?: boolean;
     consumesRepositoryContext?: boolean;
@@ -702,6 +721,8 @@ export interface NodeLogic {
     runtimeOperatorInterruptStatusField?: string;
     runtimeOperatorSteerField?: string;
     runtimeOperatorSteerStatusField?: string;
+    runtimeContextCompactField?: string;
+    runtimeContextCompactStatusField?: string;
     workflowPackageExportField?: string;
     workflowPackageReadinessStatusField?: string;
     workflowPackagePortableField?: string;
@@ -1184,6 +1205,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_thread_fork">
   | WorkflowNodeConfigBase<"runtime_operator_interrupt">
   | WorkflowNodeConfigBase<"runtime_operator_steer">
+  | WorkflowNodeConfigBase<"runtime_context_compact">
   | WorkflowNodeConfigBase<"workflow_package_export">
   | WorkflowNodeConfigBase<"workflow_package_import">
   | WorkflowNodeConfigBase<"repository_context">
@@ -3878,6 +3900,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_thread_fork"
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
+  | "runtime_context_compact"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"
@@ -4435,6 +4458,7 @@ export type WorkflowNodeKind =
   | "runtime_thread_fork"
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
+  | "runtime_context_compact"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"
