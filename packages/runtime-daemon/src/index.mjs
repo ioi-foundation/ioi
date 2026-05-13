@@ -46,6 +46,7 @@ const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_ca
 const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
 const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
+const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
@@ -154,6 +155,7 @@ export class AgentgresRuntimeStateStore {
     this.agents = new Map();
     this.runs = new Map();
     this.runtimeEventStreams = new Map();
+    this.codingArtifacts = new Map();
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
@@ -2518,7 +2520,22 @@ export class AgentgresRuntimeStateStore {
     let result = null;
     let error = null;
     try {
-      result = executeCodingTool(normalizedToolId, agent.cwd, input);
+      result = executeCodingTool(normalizedToolId, agent.cwd, input, {
+        threadId,
+        toolId: normalizedToolId,
+        toolCallId,
+        readArtifact: (artifactId, range) => this.readCodingToolArtifact(threadId, artifactId, range),
+        retrieveToolResult: (query) => this.retrieveCodingToolResult(threadId, query),
+      });
+      const materializedArtifacts = this.materializeCodingToolArtifactDrafts({
+        threadId,
+        toolId: normalizedToolId,
+        toolCallId,
+        workspaceRoot: agent.cwd,
+        result,
+        receiptId,
+      });
+      result = codingToolResultWithoutDrafts(result, materializedArtifacts);
       artifactRefs.push(...normalizeArray(result.artifactRefs));
       receiptRefs.push(...normalizeArray(result.receiptRefs));
     } catch (caught) {
@@ -2602,6 +2619,96 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  materializeCodingToolArtifactDrafts({ threadId, toolId, toolCallId, workspaceRoot, result, receiptId }) {
+    const drafts = normalizeArray(result?.artifactDrafts ?? result?.artifact_drafts);
+    const createdAt = new Date().toISOString();
+    return drafts
+      .map((draft, index) => {
+        if (!draft || typeof draft !== "object" || Array.isArray(draft)) return null;
+        const content = String(draft.content ?? "");
+        const channel = optionalString(draft.channel) ?? `artifact-${index + 1}`;
+        const mediaType = optionalString(draft.mediaType ?? draft.media_type) ?? "text/plain";
+        const contentBytes = Buffer.byteLength(content, "utf8");
+        const contentHash = doctorHash(content);
+        const artifactRecord = {
+          schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+          schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+          id: `artifact_coding_tool_${safeId(toolCallId)}_${safeId(channel)}`,
+          thread_id: threadId,
+          threadId,
+          tool_name: toolId,
+          toolName: toolId,
+          tool_call_id: toolCallId,
+          toolCallId,
+          workspace_root: workspaceRoot,
+          workspaceRoot,
+          name: optionalString(draft.name) ?? `${safeId(toolId)}-${channel}.txt`,
+          channel,
+          media_type: mediaType,
+          mediaType,
+          redaction: optionalString(draft.redaction) ?? "none",
+          receipt_id: receiptId,
+          receiptId,
+          content,
+          content_bytes: contentBytes,
+          contentBytes,
+          content_hash: contentHash,
+          contentHash,
+          created_at: createdAt,
+          createdAt,
+        };
+        this.codingArtifacts.set(artifactRecord.id, artifactRecord);
+        writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+        return artifactRecord;
+      })
+      .filter(Boolean);
+  }
+
+  readCodingToolArtifact(threadId, artifactId, range = {}) {
+    const artifactRecord = this.codingArtifacts.get(artifactId);
+    if (!artifactRecord) throw notFound(`Artifact not found: ${artifactId}`, { threadId, artifactId });
+    if (artifactRecord.thread_id && artifactRecord.thread_id !== threadId) {
+      throw policyError("Artifact read blocked outside the owning runtime thread.", {
+        threadId,
+        artifactId,
+        ownerThreadId: artifactRecord.thread_id,
+      });
+    }
+    return codingToolArtifactReadResult(artifactRecord, range);
+  }
+
+  retrieveCodingToolResult(threadId, query = {}) {
+    if (query.artifactId) {
+      return {
+        ...this.readCodingToolArtifact(threadId, query.artifactId, query.range),
+        shellFallbackUsed: false,
+      };
+    }
+    const toolCallId = optionalString(query.toolCallId);
+    if (!toolCallId) {
+      throw runtimeError({
+        status: 400,
+        code: "tool_retrieve_result_target_required",
+        message: "tool.retrieve_result requires a toolCallId or artifactId.",
+        details: { threadId },
+      });
+    }
+    const artifacts = [...this.codingArtifacts.values()]
+      .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.tool_call_id === toolCallId)
+      .sort((left, right) => String(left.channel ?? "").localeCompare(String(right.channel ?? "")));
+    if (!artifacts.length) {
+      throw notFound(`Tool result artifact not found: ${toolCallId}`, { threadId, toolCallId });
+    }
+    const channel = optionalString(query.channel);
+    const artifactRecord = artifacts.find((item) => item.channel === channel) ?? artifacts[0];
+    return {
+      ...codingToolArtifactReadResult(artifactRecord, query.range),
+      toolCallId,
+      availableArtifacts: artifacts.map(codingToolArtifactMetadata),
+      shellFallbackUsed: false,
+    };
+  }
+
   ensureDirs() {
     for (const dir of [
       "agents",
@@ -2673,6 +2780,13 @@ export class AgentgresRuntimeStateStore {
     for (const file of listJson(this.pathFor("runs"))) {
       const run = readJson(file);
       this.runs.set(run.id, run);
+    }
+    for (const file of listJson(this.pathFor("artifacts"))) {
+      const artifactRecord = readJson(file);
+      const schemaVersion = artifactRecord.schema_version ?? artifactRecord.schemaVersion;
+      if (schemaVersion === CODING_TOOL_ARTIFACT_SCHEMA_VERSION && artifactRecord.id) {
+        this.codingArtifacts.set(artifactRecord.id, artifactRecord);
+      }
     }
     for (const file of listJsonl(this.pathFor("events"))) {
       for (const record of readJsonl(file)) {
@@ -9473,6 +9587,64 @@ function artifactRefsForRunEvent(event) {
   if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];
   if (event.type === "artifact") return event.data?.artifactNames ?? [];
   return [];
+}
+
+function codingToolResultWithoutDrafts(result = {}, artifacts = []) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+  const publicResult = { ...result };
+  delete publicResult.artifactDrafts;
+  delete publicResult.artifact_drafts;
+  if (artifacts.length) {
+    publicResult.artifactRefs = uniqueStrings([
+      ...normalizeArray(publicResult.artifactRefs),
+      ...artifacts.map((artifactRecord) => artifactRecord.id),
+    ]);
+    publicResult.artifacts = artifacts.map(codingToolArtifactMetadata);
+  }
+  return publicResult;
+}
+
+function codingToolArtifactMetadata(artifactRecord = {}) {
+  return {
+    schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+    artifactId: artifactRecord.id,
+    artifactRef: artifactRecord.id,
+    threadId: artifactRecord.thread_id ?? artifactRecord.threadId ?? null,
+    toolName: artifactRecord.tool_name ?? artifactRecord.toolName ?? null,
+    toolCallId: artifactRecord.tool_call_id ?? artifactRecord.toolCallId ?? null,
+    name: artifactRecord.name ?? null,
+    channel: artifactRecord.channel ?? null,
+    mediaType: artifactRecord.media_type ?? artifactRecord.mediaType ?? "text/plain",
+    contentBytes: Number(artifactRecord.content_bytes ?? artifactRecord.contentBytes ?? 0),
+    contentHash: artifactRecord.content_hash ?? artifactRecord.contentHash ?? null,
+    receiptId: artifactRecord.receipt_id ?? artifactRecord.receiptId ?? null,
+    redaction: artifactRecord.redaction ?? "none",
+    createdAt: artifactRecord.created_at ?? artifactRecord.createdAt ?? null,
+  };
+}
+
+function codingToolArtifactReadResult(artifactRecord = {}, range = {}) {
+  const content = String(artifactRecord.content ?? "");
+  const buffer = Buffer.from(content, "utf8");
+  const offsetBytes = Math.max(0, Math.min(buffer.byteLength, Number(range.offsetBytes ?? range.offset_bytes ?? 0) || 0));
+  const lengthLimit = Math.max(1, Number(range.lengthBytes ?? range.length_bytes ?? range.maxBytes ?? range.max_bytes ?? 64 * 1024) || 64 * 1024);
+  const chunk = buffer.subarray(offsetBytes, Math.min(buffer.byteLength, offsetBytes + lengthLimit));
+  const text = chunk.toString("utf8");
+  const metadata = codingToolArtifactMetadata(artifactRecord);
+  return {
+    schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+    ...metadata,
+    artifactRefs: [artifactRecord.id].filter(Boolean),
+    offsetBytes,
+    lengthBytes: chunk.byteLength,
+    totalBytes: buffer.byteLength,
+    content: text,
+    contentHash: doctorHash(text),
+    fullContentHash: metadata.contentHash,
+    truncated: offsetBytes + chunk.byteLength < buffer.byteLength,
+    receiptRefs: [`receipt_artifact_read_${safeId(artifactRecord.id)}_${doctorHash(`${offsetBytes}:${chunk.byteLength}`).slice(0, 12)}`],
+    shellFallbackUsed: false,
+  };
 }
 
 function terminalCount(events) {

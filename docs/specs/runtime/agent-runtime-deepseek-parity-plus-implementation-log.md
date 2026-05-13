@@ -602,6 +602,44 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-test-run/2026-05-13T03-36-24-435Z/result.json`.
 
+### Slice 123. 2026-05-13 - Coding tool-pack artifact spillover and retrieval
+
+Implementation slice completed 2026-05-13, coding tool-pack artifact
+spillover and retrieval:
+
+- Added daemon-owned `artifact.read` and `tool.retrieve_result` to the `coding`
+  pack with read-only artifact risk metadata, workflow node types, receipt
+  requirements, and SDK catalog projection.
+- Made truncated `test.run` output materialize thread-scoped coding artifacts
+  while keeping inline stdout/stderr as bounded previews.
+- Added range-aware artifact reads with thread ownership checks, content
+  hashes, artifact refs, receipt refs, and stable tool-call ids.
+- Extended CLI `agent tools run` with artifact/retrieve flags and TUI
+  line-mode with `/artifact <artifact_id>` and `/retrieve <tool_call_id>`.
+- Reflected artifact/retrieve toggles and creators in React Flow coding-pack
+  workflow bindings, and projected artifact refs into coding-tool rows.
+- Updated the live daemon contract to prove large test-output spillover and
+  retrieval across daemon, SDK, CLI, TUI, and React Flow.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs && node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli`
+- `cargo check -p ioi-cli`
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval/2026-05-13T03-53-05-208Z/result.json`.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:

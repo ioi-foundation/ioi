@@ -3571,7 +3571,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.doesNotMatch(source, /StepAgentParams/);
 });
 
-test("coding tool pack invokes status, diff, inspect, apply patch, and test run across daemon, SDK, CLI, TUI, and React Flow", async () => {
+test("coding tool pack invokes status, diff, inspect, apply patch, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-workspace-"));
@@ -3583,7 +3583,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
   fs.writeFileSync(path.join(cwd, "README.md"), "# Runtime coding tools\n\nInitial line.\n");
   fs.writeFileSync(
     path.join(cwd, "sample.test.mjs"),
-    "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\ntest('runtime coding test proof', () => {\n  assert.equal(2 + 2, 4);\n});\n",
+    "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `RUNTIME_ARTIFACT_SPILLOVER_START ${'x'.repeat(4096)} RUNTIME_ARTIFACT_SPILLOVER_END`;\n\ntest('runtime coding test proof', () => {\n  console.log(marker);\n  assert.equal(2 + 2, 4);\n});\n",
   );
   git(cwd, ["add", "README.md", "sample.test.mjs"]);
   git(cwd, ["commit", "-m", "seed workspace"]);
@@ -3599,11 +3599,20 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
         options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
       }),
     });
+    const expectedCodingToolIds = [
+      "artifact.read",
+      "file.apply_patch",
+      "file.inspect",
+      "git.diff",
+      "test.run",
+      "tool.retrieve_result",
+      "workspace.status",
+    ];
 
     const catalog = await fetchJson(`${daemon.endpoint}/v1/tools?pack=coding`);
     assert.deepEqual(
       catalog.map((tool) => tool.stableToolId).sort(),
-      ["file.apply_patch", "file.inspect", "git.diff", "test.run", "workspace.status"],
+      expectedCodingToolIds,
     );
     assert.ok(catalog.every((tool) => tool.pack === "coding"));
     assert.ok(catalog.every((tool) => tool.workflowNodeType));
@@ -3615,6 +3624,12 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.ok(testContract);
     assert.equal(testContract.effectClass, "local_command");
     assert.ok(testContract.authorityScopeRequirements.includes("scope:workspace.test"));
+    const artifactContract = catalog.find((tool) => tool.stableToolId === "artifact.read");
+    assert.ok(artifactContract);
+    assert.equal(artifactContract.effectClass, "local_read");
+    const retrieveContract = catalog.find((tool) => tool.stableToolId === "tool.retrieve_result");
+    assert.ok(retrieveContract);
+    assert.equal(retrieveContract.riskDomain, "artifact");
 
     const statusResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/workspace.status/invoke`,
@@ -3670,7 +3685,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
           input: {
             commandId: "node.test",
             path: "sample.test.mjs",
-            maxOutputBytes: 4096,
+            maxOutputBytes: 128,
           },
         }),
       },
@@ -3691,13 +3706,57 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.equal(testResult.result.testStatus, "passed");
     assert.equal(testResult.result.exitCode, 0);
     assert.equal(testResult.result.shellFallbackUsed, false);
-    assert.match(`${testResult.result.stdout}\n${testResult.result.stderr}`, /runtime coding test proof/);
+    assert.match(`${testResult.result.stdout}\n${testResult.result.stderr}`, /RUNTIME_ARTIFACT_SPILLOVER_START/);
+    assert.equal(testResult.result.truncated, true);
+    assert.ok(testResult.artifact_refs.length >= 1);
+    assert.ok(testResult.result.artifacts.length >= 1);
+    const spilloverArtifactId = testResult.result.artifacts.find((artifact) => artifact.channel === "output")?.artifactId;
+    assert.ok(spilloverArtifactId);
+    const artifactReadResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/artifact.read/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.artifact.read",
+          input: {
+            artifactId: spilloverArtifactId,
+            lengthBytes: 8192,
+          },
+        }),
+      },
+    );
+    assert.equal(artifactReadResult.status, "completed");
+    assert.equal(artifactReadResult.tool_name, "artifact.read");
+    assert.equal(artifactReadResult.result.artifactId, spilloverArtifactId);
+    assert.match(artifactReadResult.result.content, /RUNTIME_ARTIFACT_SPILLOVER_END/);
+    const retrieveResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/tool.retrieve_result/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.tool.retrieve_result",
+          input: {
+            toolCallId: testResult.tool_call_id,
+            channel: "output",
+            lengthBytes: 8192,
+          },
+        }),
+      },
+    );
+    assert.equal(retrieveResult.status, "completed");
+    assert.equal(retrieveResult.tool_name, "tool.retrieve_result");
+    assert.equal(retrieveResult.result.toolCallId, testResult.tool_call_id);
+    assert.match(retrieveResult.result.content, /RUNTIME_ARTIFACT_SPILLOVER_END/);
 
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const sdkCatalog = await sdkClient.listTools({ pack: "coding" });
     assert.deepEqual(
       sdkCatalog.map((tool) => tool.stableToolId).sort(),
-      ["file.apply_patch", "file.inspect", "git.diff", "test.run", "workspace.status"],
+      expectedCodingToolIds,
     );
     const sdkInvoke = await sdkClient.invokeThreadTool(thread.thread_id, "file.inspect", {
       input: { path: "README.md" },
@@ -3723,6 +3782,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.equal(sdkTest.status, "completed");
     assert.equal(sdkTest.tool_name, "test.run");
     assert.equal(sdkTest.result.testStatus, "passed");
+    const sdkArtifactRead = await sdkClient.invokeThreadTool(thread.thread_id, "artifact.read", {
+      input: { artifactId: spilloverArtifactId, lengthBytes: 8192 },
+      workflowNodeId: "runtime.coding-tool.sdk-artifact-read",
+    });
+    assert.equal(sdkArtifactRead.status, "completed");
+    assert.equal(sdkArtifactRead.tool_name, "artifact.read");
+    assert.match(String(sdkArtifactRead.result.content), /RUNTIME_ARTIFACT_SPILLOVER_END/);
 
     const cliCatalog = JSON.parse(
       (await execFileAsync(cli, ["agent", "tools", "coding", "--endpoint", daemon.endpoint, "--json"], {
@@ -3732,7 +3798,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.equal(cliCatalog.schema_version, "ioi.agent-cli.coding-tool-pack.v1");
     assert.deepEqual(
       cliCatalog.tools.map((tool) => tool.stableToolId).sort(),
-      ["file.apply_patch", "file.inspect", "git.diff", "test.run", "workspace.status"],
+      expectedCodingToolIds,
     );
     const cliInvoke = JSON.parse(
       (await execFileAsync(
@@ -3805,6 +3871,30 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.equal(cliTest.status, "completed");
     assert.equal(cliTest.tool_name, "test.run");
     assert.equal(cliTest.result.testStatus, "passed");
+    const cliRetrieve = JSON.parse(
+      (await execFileAsync(
+        cli,
+        [
+          "agent",
+          "tools",
+          "run",
+          "tool.retrieve_result",
+          "--thread-id",
+          thread.thread_id,
+          "--tool-call-id",
+          testResult.tool_call_id,
+          "--length-bytes",
+          "8192",
+          "--endpoint",
+          daemon.endpoint,
+          "--json",
+        ],
+        { cwd: root },
+      )).stdout,
+    );
+    assert.equal(cliRetrieve.status, "completed");
+    assert.equal(cliRetrieve.tool_name, "tool.retrieve_result");
+    assert.match(cliRetrieve.result.content, /RUNTIME_ARTIFACT_SPILLOVER_END/);
 
     const tuiResult = await execFileWithInput(
       cli,
@@ -3817,15 +3907,17 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
         daemon.endpoint,
         "--interactive",
       ],
-      "/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/quit\n",
+      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/quit\n`,
       { cwd: root, timeout: 30000 },
     );
-    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/quit/);
+    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/artifact <artifact_id> .*\/retrieve <tool_call_id_or_artifact_id> .*\/quit/);
     assert.match(tuiResult.stdout, /line_mode_command=status tool=workspace\.status status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=diff tool=git\.diff status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=inspect tool=file\.inspect status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=patch tool=file\.apply_patch status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=test tool=test\.run status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=artifact tool=artifact\.read status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=retrieve tool=tool\.retrieve_result status=completed/);
     assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI patched line\./);
     assert.doesNotMatch(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI dry-run line/);
 
@@ -3833,7 +3925,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
     );
     const codingEvents = daemonEvents.filter((event) => event.component_kind === "coding_tool");
-    assert.ok(codingEvents.length >= 15);
+    assert.ok(codingEvents.length >= 20);
     assert.ok(codingEvents.every((event) => event.payload_schema_version === "ioi.runtime.coding-tool-result.v1"));
     assert.ok(codingEvents.every((event) => event.event_kind === "tool.completed"));
     assert.ok(codingEvents.every((event) => event.payload.shell_fallback_used === "false"));
@@ -3860,6 +3952,21 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     );
     assert.ok(reactFlowTest);
     assert.equal(reactFlowTest.workflow_node_id, "workflow.coding.test.run");
+    assert.ok(reactFlowTest.artifact_refs.includes(spilloverArtifactId));
+    const reactFlowArtifactRead = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "artifact.read" &&
+        event.source === "react_flow",
+    );
+    assert.ok(reactFlowArtifactRead);
+    assert.equal(reactFlowArtifactRead.workflow_node_id, "workflow.coding.artifact.read");
+    const reactFlowRetrieve = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "tool.retrieve_result" &&
+        event.source === "react_flow",
+    );
+    assert.ok(reactFlowRetrieve);
+    assert.equal(reactFlowRetrieve.workflow_node_id, "workflow.coding.tool.retrieve_result");
 
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
     const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
@@ -3876,6 +3983,15 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.ok(sdkTestEvent);
     assert.equal(sdkTestEvent.toolName, "test.run");
     assert.equal(sdkTestEvent.sourceEventKind, "CodingTool.TestRun");
+    assert.ok(sdkTestEvent.artifactRefs.includes(spilloverArtifactId));
+    const sdkArtifactReadEvent = sdkEvents.find((event) => event.id === reactFlowArtifactRead.event_id);
+    assert.ok(sdkArtifactReadEvent);
+    assert.equal(sdkArtifactReadEvent.toolName, "artifact.read");
+    assert.equal(sdkArtifactReadEvent.sourceEventKind, "CodingTool.ArtifactRead");
+    const sdkRetrieveEvent = sdkEvents.find((event) => event.id === reactFlowRetrieve.event_id);
+    assert.ok(sdkRetrieveEvent);
+    assert.equal(sdkRetrieveEvent.toolName, "tool.retrieve_result");
+    assert.equal(sdkRetrieveEvent.sourceEventKind, "CodingTool.ToolRetrieveResult");
 
     const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
     const statusNode = reactFlowProjection.nodes.find((node) =>
@@ -3900,6 +4016,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, and test run 
     assert.equal(testNode.workflowNodeId, "workflow.coding.test.run");
     assert.equal(testNode.label, "Coding tool: test.run");
     assert.deepEqual(testNode.receiptRefs, reactFlowTest.receipt_refs);
+    assert.ok(testNode.artifactRefs.includes(spilloverArtifactId));
+    const retrieveNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(reactFlowRetrieve.event_id),
+    );
+    assert.ok(retrieveNode);
+    assert.equal(retrieveNode.workflowNodeId, "workflow.coding.tool.retrieve_result");
+    assert.equal(retrieveNode.label, "Coding tool: tool.retrieve_result");
   } finally {
     if (daemon) await daemon.close();
   }
