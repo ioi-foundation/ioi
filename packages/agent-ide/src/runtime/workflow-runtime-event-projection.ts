@@ -1,4 +1,10 @@
 import type { WorkflowNodeKind } from "../types/graph";
+import { diagnosticsRepairActionsForEvents } from "./workflow-runtime-diagnostics-repair-actions";
+import type { WorkflowRuntimeDiagnosticsRepairActionDescriptor } from "./workflow-runtime-diagnostics-repair-actions";
+export type {
+  WorkflowRuntimeDiagnosticsRepairAction,
+  WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+} from "./workflow-runtime-diagnostics-repair-actions";
 
 export const WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION =
   "ioi.workflow.runtime-event-projection.v1" as const;
@@ -103,6 +109,7 @@ export interface WorkflowRuntimeReactFlowNodeData {
   approvalId: string | null;
   agentStatus: string | null;
   summary: string | null;
+  diagnosticsRepairActions: WorkflowRuntimeDiagnosticsRepairActionDescriptor[];
   tuiDeepLink: WorkflowRuntimeTuiDeepLinkDescriptor;
 }
 
@@ -1022,6 +1029,10 @@ function projectedNodeForBucket(
     approvalId: latestEvent.approvalId ?? null,
     agentStatus: latestEvent.agentStatus ?? null,
     summary: summaryForRuntimeThreadEvent(latestEvent),
+    diagnosticsRepairActions: diagnosticsRepairActionsForEvents(
+      events,
+      latestEvent,
+    ),
     tuiDeepLink: tuiDeepLinkForRuntimeThreadEvent(latestEvent, bucket.nodeId),
   };
   const reactFlowNode: WorkflowRuntimeReactFlowNode = {

@@ -56,7 +56,10 @@ import { workflowEntrypointsModel } from "../../../runtime/workflow-entrypoints-
 import { workflowFileBundleModel } from "../../../runtime/workflow-file-bundle-model";
 import { workflowSettingsModel } from "../../../runtime/workflow-settings-model";
 import { workflowSettingsHarnessModel } from "../../../runtime/workflow-settings-harness-model";
-import type { WorkflowRuntimeThreadEventLike } from "../../../runtime/workflow-runtime-event-projection";
+import type {
+  WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeThreadEventLike,
+} from "../../../runtime/workflow-runtime-event-projection";
 import {
   resolveWorkflowHarnessNodeAttemptInspection,
   resolveWorkflowHarnessReceiptInspection,
@@ -337,6 +340,7 @@ export function WorkflowRailPanel({
   onCompareRun,
   onOpenExecutions,
   onInspectNode,
+  onExecuteRuntimeDiagnosticsRepair,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -414,6 +418,9 @@ export function WorkflowRailPanel({
   onCompareRun: (run: WorkflowRunSummary) => void;
   onOpenExecutions?: () => void;
   onInspectNode: (nodeId: string) => void;
+  onExecuteRuntimeDiagnosticsRepair?: (
+    action: WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  ) => void | Promise<void>;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
   onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
@@ -3305,6 +3312,7 @@ export function WorkflowRailPanel({
         onSelectRun={onSelectRun}
         onCompareRun={onCompareRun}
         onInspectNode={onInspectNode}
+        onExecuteRuntimeDiagnosticsRepair={onExecuteRuntimeDiagnosticsRepair}
       />
     );
   }

@@ -349,11 +349,40 @@ test("projects diagnostics blocking gates as workflow-addressable policy nodes",
       summary: "Blocking diagnostics gate paused model continuation after 1 finding(s).",
       reason: "post_edit_diagnostics_findings",
       repair_policy: {
+        restoreConflictPolicy: "allow_override",
+        restore_conflict_policy: "allow_override",
+        workspaceSnapshotRefs: ["workspace_snapshot_123"],
+        workspace_snapshot_refs: ["workspace_snapshot_123"],
         decisions: [
-          { action: "repair_retry" },
-          { action: "restore_preview" },
-          { action: "restore_apply" },
-          { action: "operator_override" },
+          {
+            decisionId: "policy-lsp-diagnostics-gate-decision-repair-retry",
+            decision_id: "policy-lsp-diagnostics-gate-decision-repair-retry",
+            action: "repair_retry",
+            status: "available",
+            summary: "Retry with diagnostics context.",
+          },
+          {
+            decisionId: "policy-lsp-diagnostics-gate-decision-restore-preview",
+            decision_id: "policy-lsp-diagnostics-gate-decision-restore-preview",
+            action: "restore_preview",
+            status: "available",
+          },
+          {
+            decisionId: "policy-lsp-diagnostics-gate-decision-restore-apply",
+            decision_id: "policy-lsp-diagnostics-gate-decision-restore-apply",
+            action: "restore_apply",
+            status: "requires_approval",
+            requiresApproval: true,
+            requires_approval: true,
+          },
+          {
+            decisionId: "policy-lsp-diagnostics-gate-decision-operator-override",
+            decision_id: "policy-lsp-diagnostics-gate-decision-operator-override",
+            action: "operator_override",
+            status: "requires_approval",
+            requiresApproval: true,
+            requires_approval: true,
+          },
         ],
       },
     },
@@ -375,6 +404,42 @@ test("projects diagnostics blocking gates as workflow-addressable policy nodes",
   ]);
   assert.deepEqual(nodes[0]?.rollbackRefs, ["workspace_snapshot_123"]);
   assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.lsp-diagnostics-blocking-gate.v1");
+  assert.equal(nodes[0]?.diagnosticsRepairActions.length, 4);
+  assert.deepEqual(
+    nodes[0]?.diagnosticsRepairActions.map((action) => action.action),
+    ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+  );
+  assert.deepEqual(nodes[0]?.diagnosticsRepairActions[0], {
+    id:
+      "diagnostics-repair:thread-test:policy-lsp-diagnostics-gate-decision-repair-retry:repair_retry",
+    decisionId: "policy-lsp-diagnostics-gate-decision-repair-retry",
+    action: "repair_retry",
+    label: "Retry repair",
+    summary: "Retry with diagnostics context.",
+    status: "available",
+    executable: true,
+    requiresApproval: false,
+    approvalGranted: false,
+    allowConflicts: true,
+    restoreConflictPolicy: "allow_override",
+    threadId: "thread-test",
+    workflowGraphId: "workflow-test",
+    workflowNodeId: "runtime.run-inspector.diagnostics-repair.repair-retry",
+    eventId: "event-diagnostics-gate",
+    rollbackRefs: ["workspace_snapshot_123"],
+    workspaceSnapshotRefs: ["workspace_snapshot_123"],
+    policyDecisionRefs: [
+      "policy-lsp-diagnostics-gate",
+      "policy-lsp-diagnostics-gate-decision-repair-retry",
+      "policy-lsp-diagnostics-gate-decision-restore-preview",
+      "policy-lsp-diagnostics-gate-decision-restore-apply",
+      "policy-lsp-diagnostics-gate-decision-operator-override",
+    ],
+    receiptRefs: ["receipt-lsp-diagnostics-gate"],
+  });
+  assert.equal(nodes[0]?.diagnosticsRepairActions[2]?.requiresApproval, true);
+  assert.equal(nodes[0]?.diagnosticsRepairActions[2]?.approvalGranted, true);
+  assert.equal(nodes[0]?.diagnosticsRepairActions[2]?.allowConflicts, true);
 });
 
 test("projects diagnostics repair decisions as workflow-addressable policy nodes", () => {
