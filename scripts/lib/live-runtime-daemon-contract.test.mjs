@@ -5340,6 +5340,8 @@ test("React Flow subagent fan-out workflow compiles nodes into live daemon contr
         ...subagent,
         row_kind: "subagent",
         subagent_operation: "propagate_cancel",
+        workflow_graph_id: workflowGraphId,
+        workflowGraphId,
         workflow_node_id: propagationRequest.body.workflowNodeId,
         workflowNodeId: propagationRequest.body.workflowNodeId,
       })),
@@ -5347,15 +5349,42 @@ test("React Flow subagent fan-out workflow compiles nodes into live daemon contr
         ...subagent,
         row_kind: "subagent",
         subagent_operation: "propagate_skip",
+        workflow_graph_id: workflowGraphId,
+        workflowGraphId,
         workflow_node_id: propagationRequest.body.workflowNodeId,
         workflowNodeId: propagationRequest.body.workflowNodeId,
       })),
     ];
     const projection = projectRuntimeTuiControlStateToWorkflowProjection({
       thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
       subagent_rows: propagationRows,
     });
     assert.equal(projection.subagentRowCount, 3);
+    assert.equal(projection.subagentChildSubflowCount, 3);
+    assert.equal(projection.subagentChildSubflowReactFlowNodes.length, 6);
+    assert.equal(projection.subagentChildSubflowReactFlowEdges.length, 6);
+    assert.ok(
+      projection.subagentChildSubflows.every(
+        (subflow) =>
+          subflow.workflowGraphId === workflowGraphId &&
+          subflow.parentReactFlowNodeId === propagationRequest.body.workflowNodeId &&
+          subflow.childThreadId &&
+          subflow.childRunId,
+      ),
+    );
+    assert.deepEqual(
+      projection.subagentChildSubflows.map((subflow) => subflow.subagentRole).sort(),
+      ["explore", "implementer", "verifier"],
+    );
+    assert.ok(
+      projection.subagentChildSubflowReactFlowNodes.some(
+        (node) =>
+          node.type === "runtimeSubagentRun" &&
+          node.data.subagentRole === "verifier" &&
+          node.data.subagentCancellationInheritance === "isolate",
+      ),
+    );
     assert.ok(
       projection.rows.some(
         (row) =>
@@ -9581,9 +9610,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-diagnostics-repair-action-/);
   assert.match(workflowRunsPanel, /data-diagnostics-repair-action-count/);
   assert.match(workflowRunsPanel, /onExecuteRuntimeDiagnosticsRepair/);
+  assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
+  assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
+  assert.match(workflowRunsPanel, /data-child-thread-id/);
   assert.match(workflowRuntimeEventProjection, /WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION/);
   assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeTuiDeepLinkDescriptor/);
   assert.match(workflowRuntimeEventProjection, /tuiDeepLinkForRuntimeThreadEvent/);
+  assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeSubagentChildSubflowDescriptor/);
+  assert.match(workflowRuntimeEventProjection, /subagentChildSubflowReactFlowNodes/);
+  assert.match(workflowRuntimeEventProjection, /runtimeSubagentSubflow/);
   assert.match(workflowRuntimeEventProjection, /diagnosticsRepairActionsForEvents/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /WorkflowRuntimeDiagnosticsRepairActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /repair_decisions/);

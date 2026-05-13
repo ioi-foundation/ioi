@@ -361,9 +361,16 @@ export type {
   WorkflowRuntimeReactFlowNode,
   WorkflowRuntimeReactFlowNodeData,
   WorkflowRuntimeReactFlowPosition,
+  WorkflowRuntimeSubagentChildSubflowDescriptor,
+  WorkflowRuntimeSubagentChildSubflowEdgeData,
+  WorkflowRuntimeSubagentChildSubflowNodeData,
+  WorkflowRuntimeSubagentChildSubflowReactFlowEdge,
+  WorkflowRuntimeSubagentChildSubflowReactFlowNode,
   WorkflowRuntimeThreadEventLike,
   WorkflowRuntimeThreadEventType,
   WorkflowRuntimeTuiDeepLinkDescriptor,
+  WorkflowRuntimeTuiControlStateProjection,
+  WorkflowRuntimeTuiControlStateRow,
 } from "./runtime/workflow-runtime-event-projection";
 export type {
   RuntimeContextCompactControlRequest,

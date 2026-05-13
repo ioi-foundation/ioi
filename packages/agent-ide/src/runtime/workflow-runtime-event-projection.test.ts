@@ -686,6 +686,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     schema_version: "ioi.agent-cli.tui-control-state.v1",
     surface: "tui",
     thread_id: "thread-test",
+    workflow_graph_id: "workflow-subagent-fanout",
     current_turn_id: "turn-test",
     last_cursor: "events_thread:test:8",
     last_event_id: "event-steer",
@@ -890,6 +891,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         subagent_restart_count: "1",
         subagent_input_count: "2",
         subagent_assignment_count: "1",
+        workflow_graph_id: "workflow-subagent-fanout",
         workflow_node_id: "runtime.subagent.spawn.explore",
         receipt_refs: ["receipt-subagent-spawn"],
       },
@@ -930,6 +932,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   );
   assert.equal(projection.sourceSchemaVersion, "ioi.agent-cli.tui-control-state.v1");
   assert.equal(projection.threadId, "thread-test");
+  assert.equal(projection.workflowGraphId, "workflow-subagent-fanout");
   assert.equal(projection.currentTurnId, "turn-test");
   assert.equal(projection.lastCursor, "events_thread:test:8");
   assert.equal(projection.commandCount, 2);
@@ -941,6 +944,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.mcpRowCount, 5);
   assert.equal(projection.memoryRowCount, 4);
   assert.equal(projection.subagentRowCount, 1);
+  assert.equal(projection.subagentChildSubflowCount, 1);
   assert.equal(projection.rowCount, 21);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
@@ -994,7 +998,30 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[13]?.subagentRole, "explore");
   assert.equal(projection.rows[13]?.subagentOutputContractStatus, "passed");
   assert.equal(projection.rows[13]?.subagentRestartCount, 1);
+  assert.equal(projection.rows[13]?.workflowGraphId, "workflow-subagent-fanout");
   assert.equal(projection.rows[13]?.reactFlowNodeId, "runtime.subagent.spawn.explore");
+  assert.equal(projection.subagentChildSubflows[0]?.workflowGraphId, "workflow-subagent-fanout");
+  assert.equal(projection.subagentChildSubflows[0]?.parentReactFlowNodeId, "runtime.subagent.spawn.explore");
+  assert.equal(projection.subagentChildSubflows[0]?.childThreadId, "thread-child-1");
+  assert.equal(projection.subagentChildSubflows[0]?.childRunId, "run-subagent-1");
+  assert.equal(
+    projection.subagentChildSubflows[0]?.childReactFlowNodeId,
+    "runtime.subagent-subflow.agent-subagent-1",
+  );
+  assert.equal(
+    projection.subagentChildSubflows[0]?.childRunReactFlowNodeId,
+    "runtime.subagent-subflow.agent-subagent-1.run.run-subagent-1",
+  );
+  assert.equal(projection.subagentChildSubflowReactFlowNodes.length, 2);
+  assert.equal(projection.subagentChildSubflowReactFlowEdges.length, 2);
+  assert.equal(
+    projection.subagentChildSubflowReactFlowNodes[0]?.parentId,
+    "runtime.subagent.spawn.explore",
+  );
+  assert.equal(
+    projection.subagentChildSubflowReactFlowNodes[1]?.parentId,
+    "runtime.subagent-subflow.agent-subagent-1",
+  );
   assert.equal(projection.rows[16]?.jobId, "job-run-test");
   assert.equal(projection.rows[17]?.runId, "run-test");
   assert.equal(projection.rows[20]?.message, "/steer requires guidance text");

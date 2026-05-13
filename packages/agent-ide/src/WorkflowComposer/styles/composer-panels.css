@@ -263,7 +263,9 @@
 }
 
 .workflow-run-runtime-event-nodes,
-.workflow-run-runtime-event-edges {
+.workflow-run-runtime-event-edges,
+.workflow-run-tui-control-state-rows,
+.workflow-run-subagent-subflows {
   display: grid;
   gap: 6px;
   margin: 0;
@@ -271,17 +273,21 @@
   list-style: none;
 }
 
-.workflow-run-runtime-event-node {
+.workflow-run-runtime-event-node,
+.workflow-run-tui-control-state-row,
+.workflow-run-subagent-subflow {
   border-left: 2px solid var(--border-default);
   background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
 }
 
-.workflow-run-runtime-event-node details {
+.workflow-run-runtime-event-node details,
+.workflow-run-subagent-subflow details {
   display: grid;
   gap: 6px;
 }
 
-.workflow-run-runtime-event-node summary {
+.workflow-run-runtime-event-node summary,
+.workflow-run-subagent-subflow summary {
   display: grid;
   grid-template-columns: minmax(108px, 0.72fr) minmax(0, 1fr) minmax(88px, 0.8fr);
   gap: 8px;
@@ -291,7 +297,8 @@
   cursor: pointer;
 }
 
-.workflow-run-runtime-event-node summary:focus-visible {
+.workflow-run-runtime-event-node summary:focus-visible,
+.workflow-run-subagent-subflow summary:focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
@@ -299,6 +306,12 @@
 .workflow-run-runtime-event-node strong,
 .workflow-run-runtime-event-node span,
 .workflow-run-runtime-event-node small,
+.workflow-run-tui-control-state-row strong,
+.workflow-run-tui-control-state-row span,
+.workflow-run-tui-control-state-row small,
+.workflow-run-subagent-subflow strong,
+.workflow-run-subagent-subflow span,
+.workflow-run-subagent-subflow small,
 .workflow-run-runtime-event-edge span,
 .workflow-run-runtime-event-edge small {
   min-width: 0;
@@ -310,11 +323,25 @@
 
 .workflow-run-runtime-event-node span,
 .workflow-run-runtime-event-node small,
+.workflow-run-tui-control-state-row span,
+.workflow-run-tui-control-state-row small,
+.workflow-run-subagent-subflow span,
+.workflow-run-subagent-subflow small,
 .workflow-run-runtime-event-edge small {
   color: var(--text-tertiary);
 }
 
-.workflow-run-runtime-event-node dl {
+.workflow-run-tui-control-state-row {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.72fr) minmax(0, 1fr) minmax(88px, 0.8fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  padding: 7px 8px;
+}
+
+.workflow-run-runtime-event-node dl,
+.workflow-run-subagent-subflow dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px 10px;
@@ -322,17 +349,20 @@
   padding: 0 8px 8px;
 }
 
-.workflow-run-runtime-event-node dl div {
+.workflow-run-runtime-event-node dl div,
+.workflow-run-subagent-subflow dl div {
   min-width: 0;
 }
 
-.workflow-run-runtime-event-node dt {
+.workflow-run-runtime-event-node dt,
+.workflow-run-subagent-subflow dt {
   color: var(--text-tertiary);
   font-size: 10px;
   text-transform: uppercase;
 }
 
-.workflow-run-runtime-event-node dd {
+.workflow-run-runtime-event-node dd,
+.workflow-run-subagent-subflow dd {
   min-width: 0;
   overflow: hidden;
   margin: 2px 0 0;
@@ -366,17 +396,27 @@
   padding: 6px 8px;
 }
 
-.workflow-run-runtime-event-node.is-running {
+.workflow-run-runtime-event-node.is-running,
+.workflow-run-tui-control-state-row.is-running,
+.workflow-run-subagent-subflow.is-running {
   border-left-color: var(--accent-blue);
 }
 
-.workflow-run-runtime-event-node.is-completed {
+.workflow-run-runtime-event-node.is-completed,
+.workflow-run-tui-control-state-row.is-completed,
+.workflow-run-subagent-subflow.is-completed {
   border-left-color: var(--status-success);
 }
 
 .workflow-run-runtime-event-node.is-waiting,
 .workflow-run-runtime-event-node.is-blocked,
-.workflow-run-runtime-event-node.is-failed {
+.workflow-run-runtime-event-node.is-failed,
+.workflow-run-tui-control-state-row.is-waiting,
+.workflow-run-tui-control-state-row.is-blocked,
+.workflow-run-tui-control-state-row.is-failed,
+.workflow-run-subagent-subflow.is-waiting,
+.workflow-run-subagent-subflow.is-blocked,
+.workflow-run-subagent-subflow.is-failed {
   border-left-color: var(--status-warning);
 }
 

@@ -282,6 +282,39 @@ Validation evidence:
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
 
+### Slice 161. 2026-05-13 - React Flow subagent child-subflow projection
+
+Implementation slice completed 2026-05-13, P1-A delegated child-run visibility:
+
+- Added typed child-subflow projection to the TUI control-state runtime
+  projection. Subagent rows with child thread/run ids now produce
+  `subagentChildSubflows`, `runtimeSubagentSubflow` group nodes,
+  `runtimeSubagentRun` child nodes, and parent/subflow/run React Flow edges.
+- Preserved workflow graph id, parent workflow node id, child thread id,
+  child run id, subagent lifecycle, output-contract status, merge policy,
+  cancellation inheritance, tool pack, receipts, and policy refs in the
+  subflow descriptors.
+- Rendered delegated children in the run inspector as collapsible subflow rows
+  with data attributes for parent node, child thread, child run, graph id, and
+  edge count, keeping workflow automation and GUI proofs addressable.
+- Extended the live React Flow fan-out proof so explorer, implementer, and
+  verifier descendants must project as grouped child subflows under the parent
+  workflow node.
+- Remaining P1-A gap: budget/cost enforcement proof for delegated subagents
+  against daemon-owned records and usage telemetry.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-child-subflows`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-child-subflows/2026-05-13T19-50-06-418Z/result.json`.
+
 ### Slice 160. 2026-05-13 - React Flow subagent fan-out workflow proof
 
 Implementation slice completed 2026-05-13, P1-A React Flow subagent fan-out parity:
