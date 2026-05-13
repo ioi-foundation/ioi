@@ -3532,7 +3532,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3558,12 +3558,16 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /daemon_request/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
+  assert.match(source, /TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
   assert.match(source, /workflow_node_ids/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_control_state/);
   assert.match(source, /tui_reopen_args/);
   assert.match(source, /line_mode_command=interrupt/);
   assert.match(source, /line_mode_command=events/);
+  assert.match(source, /line_mode_command=restore/);
   assert.match(source, /line_mode_error/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
   assert.doesNotMatch(source, /submit_runtime_call/);
@@ -4423,10 +4427,10 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
         daemon.endpoint,
         "--interactive",
       ],
-      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/diagnostics diagnostic-target.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/quit\n`,
-      { cwd: root, timeout: 30000 },
+      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/diagnostics diagnostic-target.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/restore\n/restore preview ${blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId}\n/restore apply ${blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId} --approve\n/quit\n`,
+      { cwd: root, timeout: 45000 },
     );
-    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/diagnostics <path> .*\/artifact <artifact_id> .*\/retrieve <tool_call_id_or_artifact_id> .*\/quit/);
+    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/diagnostics <path> .*\/artifact <artifact_id> .*\/retrieve <tool_call_id_or_artifact_id> .*\/restore \[list\|preview <snapshot_id>\|apply <snapshot_id> --approve\] .*\/quit/);
     assert.match(tuiResult.stdout, /line_mode_command=status tool=workspace\.status status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=diff tool=git\.diff status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=inspect tool=file\.inspect status=completed/);
@@ -4435,8 +4439,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.match(tuiResult.stdout, /line_mode_command=diagnostics tool=lsp\.diagnostics status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=artifact tool=artifact\.read status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=retrieve tool=tool\.retrieve_result status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=restore action=list count=\d+/);
+    assert.match(tuiResult.stdout, /line_mode_command=restore action=preview snapshot=workspace_snapshot_[^\s]+ status=ready/);
+    assert.match(tuiResult.stdout, /line_mode_command=restore action=apply snapshot=workspace_snapshot_[^\s]+ status=applied approval_satisfied=true/);
+    assert.match(tuiResult.stdout, /"command":"restore"/);
     assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI patched line\./);
     assert.doesNotMatch(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI dry-run line/);
+    assert.match(fs.readFileSync(path.join(cwd, "blocking-target.mjs"), "utf8"), /export const blocked = 1;/);
 
     const daemonEvents = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
@@ -4569,6 +4578,33 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(restoreApplyEvent.rollback_refs, [restorePatchResult.workspace_snapshot.snapshotId]);
     assert.deepEqual(restoreApplyEvent.receipt_refs, restoreApplyResult.receipt_refs);
     assert.deepEqual(restoreApplyEvent.artifact_refs, restoreApplyResult.artifact_refs);
+    const tuiRestorePreviewEvent = daemonEvents.find(
+      (event) =>
+        event.source === "runtime_auto" &&
+        event.source_event_kind === "WorkspaceRestore.Previewed" &&
+        event.workflow_node_id === "runtime.restore-gate.tui-preview" &&
+        event.payload_summary.snapshot_id === blockingDiagnosticPatchResult.workspace_snapshot.snapshotId,
+    );
+    assert.ok(tuiRestorePreviewEvent);
+    assert.equal(tuiRestorePreviewEvent.event_kind, "workspace.restore.previewed");
+    assert.equal(tuiRestorePreviewEvent.component_kind, "restore_gate");
+    assert.equal(tuiRestorePreviewEvent.payload_schema_version, "ioi.runtime.workspace-restore-preview.v1");
+    assert.equal(tuiRestorePreviewEvent.payload_summary.preview_status, "ready");
+    assert.deepEqual(tuiRestorePreviewEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    const tuiRestoreApplyEvent = daemonEvents.find(
+      (event) =>
+        event.source === "runtime_auto" &&
+        event.source_event_kind === "WorkspaceRestore.Applied" &&
+        event.workflow_node_id === "runtime.restore-gate.tui-apply" &&
+        event.payload_summary.snapshot_id === blockingDiagnosticPatchResult.workspace_snapshot.snapshotId,
+    );
+    assert.ok(tuiRestoreApplyEvent);
+    assert.equal(tuiRestoreApplyEvent.event_kind, "workspace.restore.applied");
+    assert.equal(tuiRestoreApplyEvent.component_kind, "restore_gate");
+    assert.equal(tuiRestoreApplyEvent.payload_schema_version, "ioi.runtime.workspace-restore-apply.v1");
+    assert.equal(tuiRestoreApplyEvent.payload_summary.apply_status, "applied");
+    assert.equal(tuiRestoreApplyEvent.payload_summary.approval_satisfied, true);
+    assert.deepEqual(tuiRestoreApplyEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
     const reactFlowArtifactRead = codingEvents.find(
       (event) =>
         event.payload.tool_name === "artifact.read" &&
@@ -4735,6 +4771,18 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(sdkRestoreApplyEvent.rollbackRefs, restoreApplyEvent.rollback_refs);
     assert.deepEqual(sdkRestoreApplyEvent.artifactRefs, restoreApplyEvent.artifact_refs);
     assert.deepEqual(sdkRestoreApplyEvent.policyDecisionRefs, restoreApplyEvent.policy_decision_refs);
+    const sdkTuiRestorePreviewEvent = sdkEvents.find((event) => event.id === tuiRestorePreviewEvent.event_id);
+    assert.ok(sdkTuiRestorePreviewEvent);
+    assert.equal(sdkTuiRestorePreviewEvent.source, "runtime_auto");
+    assert.equal(sdkTuiRestorePreviewEvent.componentKind, "restore_gate");
+    assert.equal(sdkTuiRestorePreviewEvent.sourceEventKind, "WorkspaceRestore.Previewed");
+    assert.deepEqual(sdkTuiRestorePreviewEvent.rollbackRefs, tuiRestorePreviewEvent.rollback_refs);
+    const sdkTuiRestoreApplyEvent = sdkEvents.find((event) => event.id === tuiRestoreApplyEvent.event_id);
+    assert.ok(sdkTuiRestoreApplyEvent);
+    assert.equal(sdkTuiRestoreApplyEvent.source, "runtime_auto");
+    assert.equal(sdkTuiRestoreApplyEvent.componentKind, "restore_gate");
+    assert.equal(sdkTuiRestoreApplyEvent.sourceEventKind, "WorkspaceRestore.Applied");
+    assert.deepEqual(sdkTuiRestoreApplyEvent.rollbackRefs, tuiRestoreApplyEvent.rollback_refs);
     const sdkArtifactReadEvent = sdkEvents.find((event) => event.id === reactFlowArtifactRead.event_id);
     assert.ok(sdkArtifactReadEvent);
     assert.equal(sdkArtifactReadEvent.toolName, "artifact.read");
@@ -4844,6 +4892,26 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(restoreApplyNode.rollbackRefs, restoreApplyEvent.rollback_refs);
     assert.deepEqual(restoreApplyNode.receiptRefs, restoreApplyEvent.receipt_refs);
     assert.deepEqual(restoreApplyNode.artifactRefs, restoreApplyEvent.artifact_refs);
+    const tuiRestorePreviewNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(tuiRestorePreviewEvent.event_id),
+    );
+    assert.ok(tuiRestorePreviewNode);
+    assert.equal(tuiRestorePreviewNode.workflowNodeId, "runtime.restore-gate.tui-preview");
+    assert.equal(tuiRestorePreviewNode.nodeKind, "hook_policy");
+    assert.equal(tuiRestorePreviewNode.componentKind, "restore_gate");
+    assert.equal(tuiRestorePreviewNode.label, "Restore preview");
+    assert.equal(tuiRestorePreviewNode.status, "completed");
+    assert.deepEqual(tuiRestorePreviewNode.rollbackRefs, tuiRestorePreviewEvent.rollback_refs);
+    const tuiRestoreApplyNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(tuiRestoreApplyEvent.event_id),
+    );
+    assert.ok(tuiRestoreApplyNode);
+    assert.equal(tuiRestoreApplyNode.workflowNodeId, "runtime.restore-gate.tui-apply");
+    assert.equal(tuiRestoreApplyNode.nodeKind, "hook_policy");
+    assert.equal(tuiRestoreApplyNode.componentKind, "restore_gate");
+    assert.equal(tuiRestoreApplyNode.label, "Restore apply");
+    assert.equal(tuiRestoreApplyNode.status, "completed");
+    assert.deepEqual(tuiRestoreApplyNode.rollbackRefs, tuiRestoreApplyEvent.rollback_refs);
     const retrieveNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(reactFlowRetrieve.event_id),
     );

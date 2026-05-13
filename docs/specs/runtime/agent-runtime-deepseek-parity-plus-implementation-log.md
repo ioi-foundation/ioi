@@ -133,6 +133,7 @@ workstream was narrower.
 | 131 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | diagnostics rollback/repair policy | /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json |
 | 132 | 2026-05-13 | P0-B/P0-C/P0-D. Workflow Restore/Repair Controls | workflow restore and diagnostics repair binding controls | /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json |
 | 133 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | restore workflow nodes and request builders | /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json |
+| 134 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | keyboard-first TUI restore UX | /tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -1036,6 +1037,41 @@ Known validation note:
 - Full `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml --check`
   still reports unrelated formatting drift in existing orchestrator store files;
   the Rust files touched by this slice were formatted directly with `rustfmt`.
+
+### Slice 134. 2026-05-13 - Keyboard-first TUI restore UX
+
+Implementation slice completed 2026-05-13, keyboard-first TUI restore UX:
+
+- Added canonical TUI route descriptors and daemon helpers for snapshot listing,
+  restore preview, and approval-safe restore apply.
+- Added line-mode `/restore`, `/restore list`, `/restore preview
+  <snapshot_id>`, and `/restore apply <snapshot_id> --approve` commands, with
+  optional conflict override flags and parser validation that blocks apply
+  without explicit approval.
+- Printed snapshot summaries and restore preview/apply status rows in the TUI,
+  then replayed canonical daemon events so the same restore activity projects
+  into SDK and React Flow restore-gate rows.
+- Extended the live daemon contract so a real TUI session lists snapshots,
+  previews an unpreviewed snapshot, applies it, verifies workspace restoration,
+  and proves the TUI-authored restore-gate workflow node ids survive daemon,
+  SDK, and React Flow projection.
+
+Validation evidence:
+
+- `cargo fmt -p ioi-cli`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli rejects_unknown_or_incomplete_line_mode_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli tui_event_route_uses_canonical_thread_stream_cursor -- --nocapture`
+- `cargo check -p ioi-cli --bin cli`
+- `node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-restore-ux`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

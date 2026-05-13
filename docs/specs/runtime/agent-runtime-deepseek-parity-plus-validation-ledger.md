@@ -132,6 +132,7 @@ the practical workstream when the source heading is broad.
 | 131 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | diagnostics rollback/repair policy | /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "projects coding tool&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent CLI exposes model&#124;agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy |
 | 132 | 2026-05-13 | P0-B/P0-C/P0-D. Workflow Restore/Repair Controls | workflow restore and diagnostics repair binding controls | /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/coding-tools.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls |
 | 133 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | restore workflow nodes and request builders | /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_projection --lib<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_thread_fork_node_builds_react_flow_control_request --lib<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata --lib<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes |
+| 134 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | keyboard-first TUI restore UX | /tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json | cargo fmt -p ioi-cli<br>cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture<br>cargo test -p ioi-cli --bin cli rejects_unknown_or_incomplete_line_mode_commands -- --nocapture<br>cargo test -p ioi-cli --bin cli tui_event_route_uses_canonical_thread_stream_cursor -- --nocapture<br>cargo check -p ioi-cli --bin cli<br>node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-restore-ux |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4704,6 +4705,54 @@ Known validation note:
 - Full `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml --check`
   still reports unrelated formatting drift in existing orchestrator store files;
   this slice's changed Rust files were formatted directly with `rustfmt`.
+
+## Slice 134. 2026-05-13 - Keyboard-first TUI restore UX
+
+Guide section: P0-D. Workspace Rollback Snapshots
+
+Evidence bundles:
+
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- /tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json
+
+Validation evidence:
+
+- `cargo fmt -p ioi-cli`
+  - Rust formatting completed.
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+  - TUI slash command parser test passed for `/restore` list, preview, apply,
+    and conflict-override forms.
+- `cargo test -p ioi-cli --bin cli rejects_unknown_or_incomplete_line_mode_commands -- --nocapture`
+  - TUI parser rejects restore preview without a snapshot id, restore apply
+    without `--approve`, and unknown restore flags.
+- `cargo test -p ioi-cli --bin cli tui_event_route_uses_canonical_thread_stream_cursor -- --nocapture`
+  - TUI route helper test passed for snapshot restore route expansion.
+- `cargo check -p ioi-cli --bin cli`
+  - CLI package check passed.
+- `node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - TUI source-contract guard passed for daemon-owned restore routes and
+    line-mode command output.
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon/SDK/CLI/TUI/React Flow proof passed for TUI snapshot listing,
+    restore preview, approval-safe restore apply, workspace restoration, and
+    TUI restore-gate workflow node projection.
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broader CLI/TUI source-contract guard passed with `/restore` in the
+    slash-command inventory.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract syntax check passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `git diff --check`
+  - whitespace check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-restore-ux`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json`.
 
 ## Slice 121. 2026-05-13 - Coding tool-pack governed apply-patch contract
 
