@@ -352,8 +352,22 @@ export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
   workflow_graph_id?: string;
   workflowNodeId?: string;
   workflow_node_id?: string;
+  approvalGranted?: boolean;
+  approval_granted?: boolean;
+  confirm?: boolean;
+  confirmed?: boolean;
+  allowConflicts?: boolean;
+  allow_conflicts?: boolean;
+  overrideConflicts?: boolean;
+  override_conflicts?: boolean;
+  restoreConflictPolicy?: string;
+  restore_conflict_policy?: string;
   idempotencyKey?: string;
   idempotency_key?: string;
+  restorePreviewIdempotencyKey?: string;
+  restore_preview_idempotency_key?: string;
+  restoreApplyIdempotencyKey?: string;
+  restore_apply_idempotency_key?: string;
   [key: string]: unknown;
 }
 
@@ -382,8 +396,12 @@ export interface RuntimeDiagnosticsRepairDecisionExecutionResult {
   repair_policy?: Record<string, unknown>;
   restorePreview?: RuntimeWorkspaceRestorePreviewResult;
   restore_preview?: RuntimeWorkspaceRestorePreviewResult;
+  restoreApply?: RuntimeWorkspaceRestoreApplyResult;
+  restore_apply?: RuntimeWorkspaceRestoreApplyResult;
   restorePreviewEvent?: RuntimeEventEnvelope | null;
   restore_preview_event?: RuntimeEventEnvelope | null;
+  restoreApplyEvent?: RuntimeEventEnvelope | null;
+  restore_apply_event?: RuntimeEventEnvelope | null;
   event?: RuntimeEventEnvelope | null;
   receiptRefs: string[];
   receipt_refs?: string[];
@@ -2430,13 +2448,48 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     input: RuntimeDiagnosticsRepairDecisionExecuteInput = {},
   ): Promise<RuntimeDiagnosticsRepairDecisionExecutionResult> {
     const snapshotId = input.snapshotId ?? input.snapshot_id ?? `workspace_snapshot_mock_${threadId}`;
-    const restorePreview = await this.previewThreadWorkspaceRestore(threadId, snapshotId, {
-      source: input.source ?? "sdk_client",
-      workflowGraphId: input.workflowGraphId,
-      workflow_graph_id: input.workflow_graph_id,
-      workflowNodeId: input.workflowNodeId ?? "runtime.lsp-diagnostics.repair.restore-preview",
-      workflow_node_id: input.workflow_node_id,
-    });
+    const action = String(input.action ?? "restore_preview");
+    const workflowNodeId = String(
+      input.workflowNodeId ??
+        input.workflow_node_id ??
+        (action === "restore_apply"
+          ? "runtime.lsp-diagnostics.repair.restore-apply"
+          : "runtime.lsp-diagnostics.repair.restore-preview"),
+    );
+    const restorePreview =
+      action === "restore_preview"
+        ? await this.previewThreadWorkspaceRestore(threadId, snapshotId, {
+            source: input.source ?? "sdk_client",
+            workflowGraphId: input.workflowGraphId,
+            workflow_graph_id: input.workflow_graph_id,
+            workflowNodeId,
+          })
+        : undefined;
+    const restoreApply =
+      action === "restore_apply"
+        ? await this.applyThreadWorkspaceRestore(threadId, snapshotId, {
+            source: input.source ?? "sdk_client",
+            workflowGraphId: input.workflowGraphId,
+            workflow_graph_id: input.workflow_graph_id,
+            workflowNodeId,
+            approvalGranted: input.approvalGranted,
+            approval_granted: input.approval_granted,
+            confirm: input.confirm,
+            confirmed: input.confirmed,
+            allowConflicts: input.allowConflicts,
+            allow_conflicts: input.allow_conflicts,
+            overrideConflicts: input.overrideConflicts,
+            override_conflicts: input.override_conflicts,
+            conflictPolicy: input.restoreConflictPolicy,
+            conflict_policy: input.restore_conflict_policy,
+          })
+        : undefined;
+    const executionStatus =
+      restoreApply?.applyStatus === "blocked"
+        ? "blocked"
+        : restoreApply?.applyStatus === "failed"
+          ? "failed"
+          : "completed";
     const agent = await this.getAgent(agentIdForThread(threadId));
     const event = mockRuntimeEventEnvelope({
       agent,
@@ -2449,14 +2502,21 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       payload: {
         event_kind: "LspDiagnosticsRepairDecisionExecuted",
         decision_id: decisionId,
-        action: input.action ?? "restore_preview",
+        action,
         snapshot_id: snapshotId,
-        restore_preview_event_id: restorePreview.event?.event_id ?? null,
+        restore_preview_event_id: restorePreview?.event?.event_id ?? null,
+        restore_apply_event_id: restoreApply?.event?.event_id ?? null,
+        restore_apply_status: restoreApply?.applyStatus ?? null,
+        approval_satisfied: restoreApply?.approvalSatisfied ?? null,
       },
       createdAt: new Date().toISOString(),
+      status: executionStatus,
+      payloadSchemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
       componentKind: "lsp_diagnostics_repair",
-      workflowNodeId: `${String(input.workflowNodeId ?? input.workflow_node_id ?? "runtime.lsp-diagnostics.repair.restore-preview")}.decision`,
+      workflowNodeId: `${workflowNodeId}.decision`,
       receiptRefs: [`receipt_lsp_diagnostics_repair_${decisionId}`],
+      artifactRefs: restoreApply?.artifactRefs ?? restorePreview?.artifactRefs ?? [],
+      policyDecisionRefs: [decisionId, ...(restoreApply?.policyDecisionRefs ?? [])],
       rollbackRefs: [snapshotId],
     });
     return {
@@ -2467,28 +2527,32 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       thread_id: threadId,
       decisionId,
       decision_id: decisionId,
-      action: String(input.action ?? "restore_preview"),
-      status: "completed",
+      action,
+      status: executionStatus,
       snapshotId,
       snapshot_id: snapshotId,
       workflowGraphId: input.workflowGraphId ?? input.workflow_graph_id ?? null,
       workflow_graph_id: input.workflow_graph_id ?? input.workflowGraphId ?? null,
-      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? "runtime.lsp-diagnostics.repair.restore-preview"),
-      workflow_node_id: String(input.workflow_node_id ?? input.workflowNodeId ?? "runtime.lsp-diagnostics.repair.restore-preview"),
+      workflowNodeId,
+      workflow_node_id: workflowNodeId,
       restorePreview,
       restore_preview: restorePreview,
-      restorePreviewEvent: restorePreview.event ?? null,
-      restore_preview_event: restorePreview.event ?? null,
+      restoreApply,
+      restore_apply: restoreApply,
+      restorePreviewEvent: restorePreview?.event ?? null,
+      restore_preview_event: restorePreview?.event ?? null,
+      restoreApplyEvent: restoreApply?.event ?? null,
+      restore_apply_event: restoreApply?.event ?? null,
       event,
       receiptRefs: event.receipt_refs,
       receipt_refs: event.receipt_refs,
-      artifactRefs: restorePreview.artifactRefs,
-      artifact_refs: restorePreview.artifact_refs,
-      policyDecisionRefs: [decisionId],
-      policy_decision_refs: [decisionId],
+      artifactRefs: event.artifact_refs,
+      artifact_refs: event.artifact_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      policy_decision_refs: event.policy_decision_refs,
       rollbackRefs: [snapshotId],
       rollback_refs: [snapshotId],
-      summary: `Executed diagnostics repair decision restore_preview for ${snapshotId}.`,
+      summary: `Executed diagnostics repair decision ${action} for ${snapshotId}.`,
     };
   }
 

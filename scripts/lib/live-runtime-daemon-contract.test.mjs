@@ -3616,6 +3616,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
   fs.writeFileSync(path.join(cwd, "diagnostic-target.mjs"), "export const value = 1;\n");
   fs.writeFileSync(path.join(cwd, "restore-target.mjs"), "export const restore = 1;\n");
   fs.writeFileSync(path.join(cwd, "blocking-target.mjs"), "export const blocked = 1;\n");
+  fs.writeFileSync(path.join(cwd, "apply-diagnostics.mjs"), "export const applyRepair = 1;\n");
   fs.writeFileSync(path.join(cwd, "skip-diagnostics.mjs"), "export const skip = 1;\n");
   git(cwd, [
     "add",
@@ -3627,6 +3628,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     "diagnostic-target.mjs",
     "restore-target.mjs",
     "blocking-target.mjs",
+    "apply-diagnostics.mjs",
     "skip-diagnostics.mjs",
   ]);
   git(cwd, ["commit", "-m", "seed workspace"]);
@@ -4079,6 +4081,53 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(blockedTrace.runtimeTask?.status, "blocked");
     assert.equal(blockedTrace.runtimeJob?.status, "blocked");
     assert.equal(blockedTrace.runtimeChecklist?.blockedItemCount, 1);
+    const applyDiagnosticPatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch.diagnostics-apply",
+          toolPack: {
+            coding: {
+              restorePolicy: "apply_with_approval",
+              restoreConflictPolicy: "require_approval",
+              diagnosticsRepairDefault: "restore_apply",
+              operatorOverrideRequiresApproval: true,
+            },
+          },
+          input: {
+            path: "apply-diagnostics.mjs",
+            oldText: "export const applyRepair = 1;",
+            newText: "export const applyRepair = ;",
+          },
+        }),
+      },
+    );
+    assert.equal(applyDiagnosticPatchResult.status, "completed");
+    assert.equal(applyDiagnosticPatchResult.auto_diagnostics?.result.diagnosticStatus, "findings");
+    assert.deepEqual(applyDiagnosticPatchResult.auto_diagnostics?.rollback_refs, [
+      applyDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    const applyBlockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: "Continue after apply repair diagnostics.",
+        diagnosticsMode: "blocking",
+      }),
+    });
+    assert.equal(applyBlockedTurn.status, "waiting_for_input");
+    assert.equal(applyBlockedTurn.stop_reason, "blocked_by_post_edit_diagnostics");
+    const applyBlockedTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${applyBlockedTurn.request_id}/trace`);
+    assert.equal(applyBlockedTrace.diagnosticsFeedback?.repairPolicy?.defaultDecision, "restore_apply");
+    assert.equal(
+      applyBlockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find((decision) => decision.action === "restore_apply")?.status,
+      "requires_approval",
+    );
+    assert.deepEqual(applyBlockedTrace.diagnosticsFeedback?.repairPolicy?.workspaceSnapshotRefs, [
+      applyDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
     const skippedDiagnosticPatchResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
       {
@@ -4290,6 +4339,30 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.notEqual(sdkRepairPreview.restorePreviewEvent?.event_id, preRepairPlainPreview.restorePreviewEvent?.event_id);
     assert.equal(sdkRepairPreview.event?.workflow_node_id, "workflow.diagnostics.repair.restore-preview.decision");
     assert.deepEqual(sdkRepairPreview.rollbackRefs, [blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId]);
+    const restoreApplyDecision = applyBlockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find(
+      (decision) => decision.action === "restore_apply",
+    );
+    assert.ok(restoreApplyDecision);
+    const sdkRepairApply = await sdkClient.executeThreadDiagnosticsRepairDecision(
+      thread.thread_id,
+      restoreApplyDecision.decisionId,
+      {
+        source: "react_flow",
+        workflowGraphId: "workflow-coding-tools",
+        workflowNodeId: "workflow.diagnostics.repair.restore-apply",
+        approvalGranted: true,
+      },
+    );
+    assert.equal(sdkRepairApply.schema_version, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.equal(sdkRepairApply.action, "restore_apply");
+    assert.equal(sdkRepairApply.status, "completed");
+    assert.equal(sdkRepairApply.snapshotId, applyDiagnosticPatchResult.workspace_snapshot?.snapshotId);
+    assert.equal(sdkRepairApply.restoreApply?.applyStatus, "applied");
+    assert.equal(sdkRepairApply.restoreApply?.approvalSatisfied, true);
+    assert.equal(sdkRepairApply.restoreApplyEvent?.workflow_node_id, "workflow.diagnostics.repair.restore-apply");
+    assert.equal(sdkRepairApply.event?.workflow_node_id, "workflow.diagnostics.repair.restore-apply.decision");
+    assert.deepEqual(sdkRepairApply.rollbackRefs, [applyDiagnosticPatchResult.workspace_snapshot?.snapshotId]);
+    assert.match(fs.readFileSync(path.join(cwd, "apply-diagnostics.mjs"), "utf8"), /export const applyRepair = 1;/);
     const sdkTest = await sdkClient.invokeThreadTool(thread.thread_id, "test.run", {
       input: { commandId: "node.test", path: "sample.test.mjs" },
       workflowNodeId: "runtime.coding-tool.sdk-test-run",
@@ -4631,6 +4704,35 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsRepairDecisionEvent.payload_summary.restore_preview_event_id, diagnosticsRepairRestorePreviewEvent.event_id);
     assert.deepEqual(diagnosticsRepairDecisionEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
     assert.ok(diagnosticsRepairDecisionEvent.policy_decision_refs.some((ref) => ref.includes("restore_preview")));
+    const diagnosticsRepairRestoreApplyEvent = daemonEvents.find(
+      (event) => event.event_id === sdkRepairApply.restoreApplyEvent?.event_id,
+    );
+    assert.ok(diagnosticsRepairRestoreApplyEvent);
+    assert.equal(diagnosticsRepairRestoreApplyEvent.source, "runtime_auto");
+    assert.equal(diagnosticsRepairRestoreApplyEvent.event_kind, "workspace.restore.applied");
+    assert.equal(diagnosticsRepairRestoreApplyEvent.component_kind, "restore_gate");
+    assert.equal(diagnosticsRepairRestoreApplyEvent.workflow_node_id, "workflow.diagnostics.repair.restore-apply");
+    assert.equal(diagnosticsRepairRestoreApplyEvent.payload_summary.snapshot_id, applyDiagnosticPatchResult.workspace_snapshot.snapshotId);
+    assert.equal(diagnosticsRepairRestoreApplyEvent.payload_summary.apply_status, "applied");
+    assert.equal(diagnosticsRepairRestoreApplyEvent.payload_summary.approval_satisfied, true);
+    assert.deepEqual(diagnosticsRepairRestoreApplyEvent.rollback_refs, [applyDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    assert.ok(diagnosticsRepairRestoreApplyEvent.policy_decision_refs.some((ref) => ref.includes("approval_satisfied")));
+    const diagnosticsRepairApplyDecisionEvent = daemonEvents.find(
+      (event) => event.event_id === sdkRepairApply.event?.event_id,
+    );
+    assert.ok(diagnosticsRepairApplyDecisionEvent);
+    assert.equal(diagnosticsRepairApplyDecisionEvent.source, "react_flow");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.source_event_kind, "LspDiagnostics.RepairDecisionExecuted");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.event_kind, "diagnostics.repair_decision.executed");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.component_kind, "lsp_diagnostics_repair");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.workflow_node_id, "workflow.diagnostics.repair.restore-apply.decision");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.payload_schema_version, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.payload_summary.action, "restore_apply");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.payload_summary.restore_apply_event_id, diagnosticsRepairRestoreApplyEvent.event_id);
+    assert.equal(diagnosticsRepairApplyDecisionEvent.payload_summary.restore_apply_status, "applied");
+    assert.equal(diagnosticsRepairApplyDecisionEvent.payload_summary.approval_satisfied, true);
+    assert.deepEqual(diagnosticsRepairApplyDecisionEvent.rollback_refs, [applyDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    assert.ok(diagnosticsRepairApplyDecisionEvent.policy_decision_refs.some((ref) => ref.includes("restore_apply")));
     const tuiRestorePreviewEvent = daemonEvents.find(
       (event) =>
         event.source === "runtime_auto" &&
@@ -4841,6 +4943,24 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkDiagnosticsRepairDecisionEvent.sourceEventKind, "LspDiagnostics.RepairDecisionExecuted");
     assert.equal(sdkDiagnosticsRepairDecisionEvent.payloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
     assert.deepEqual(sdkDiagnosticsRepairDecisionEvent.rollbackRefs, diagnosticsRepairDecisionEvent.rollback_refs);
+    const sdkDiagnosticsRepairRestoreApplyEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsRepairRestoreApplyEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsRepairRestoreApplyEvent);
+    assert.equal(sdkDiagnosticsRepairRestoreApplyEvent.componentKind, "restore_gate");
+    assert.equal(sdkDiagnosticsRepairRestoreApplyEvent.sourceEventKind, "WorkspaceRestore.Applied");
+    assert.deepEqual(sdkDiagnosticsRepairRestoreApplyEvent.rollbackRefs, diagnosticsRepairRestoreApplyEvent.rollback_refs);
+    assert.deepEqual(sdkDiagnosticsRepairRestoreApplyEvent.policyDecisionRefs, diagnosticsRepairRestoreApplyEvent.policy_decision_refs);
+    const sdkDiagnosticsRepairApplyDecisionEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsRepairApplyDecisionEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsRepairApplyDecisionEvent);
+    assert.equal(sdkDiagnosticsRepairApplyDecisionEvent.source, "react_flow");
+    assert.equal(sdkDiagnosticsRepairApplyDecisionEvent.type, "runtime_step");
+    assert.equal(sdkDiagnosticsRepairApplyDecisionEvent.componentKind, "lsp_diagnostics_repair");
+    assert.equal(sdkDiagnosticsRepairApplyDecisionEvent.sourceEventKind, "LspDiagnostics.RepairDecisionExecuted");
+    assert.equal(sdkDiagnosticsRepairApplyDecisionEvent.payloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.deepEqual(sdkDiagnosticsRepairApplyDecisionEvent.rollbackRefs, diagnosticsRepairApplyDecisionEvent.rollback_refs);
     const sdkTuiRestorePreviewEvent = sdkEvents.find((event) => event.id === tuiRestorePreviewEvent.event_id);
     assert.ok(sdkTuiRestorePreviewEvent);
     assert.equal(sdkTuiRestorePreviewEvent.source, "runtime_auto");
@@ -4918,9 +5038,15 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsGateNode.componentKind, "lsp_diagnostics_gate");
     assert.equal(diagnosticsGateNode.label, "Diagnostics blocking gate");
     assert.equal(diagnosticsGateNode.status, "blocked");
-    assert.deepEqual(diagnosticsGateNode.receiptRefs, diagnosticsBlockingGate.receipt_refs);
-    assert.deepEqual(diagnosticsGateNode.policyDecisionRefs, diagnosticsBlockingGate.policy_decision_refs);
-    assert.deepEqual(diagnosticsGateNode.rollbackRefs, diagnosticsBlockingGate.rollback_refs);
+    for (const receiptRef of diagnosticsBlockingGate.receipt_refs) {
+      assert.ok(diagnosticsGateNode.receiptRefs.includes(receiptRef));
+    }
+    for (const policyDecisionRef of diagnosticsBlockingGate.policy_decision_refs) {
+      assert.ok(diagnosticsGateNode.policyDecisionRefs.includes(policyDecisionRef));
+    }
+    for (const rollbackRef of diagnosticsBlockingGate.rollback_refs) {
+      assert.ok(diagnosticsGateNode.rollbackRefs.includes(rollbackRef));
+    }
     const workspaceSnapshotNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(diagnosticSnapshotEvent.event_id),
     );
@@ -4974,6 +5100,30 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(diagnosticsRepairDecisionNode.rollbackRefs, diagnosticsRepairDecisionEvent.rollback_refs);
     assert.deepEqual(diagnosticsRepairDecisionNode.receiptRefs, diagnosticsRepairDecisionEvent.receipt_refs);
     assert.deepEqual(diagnosticsRepairDecisionNode.policyDecisionRefs, diagnosticsRepairDecisionEvent.policy_decision_refs);
+    const diagnosticsRepairRestoreApplyNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsRepairRestoreApplyEvent.event_id),
+    );
+    assert.ok(diagnosticsRepairRestoreApplyNode);
+    assert.equal(diagnosticsRepairRestoreApplyNode.workflowNodeId, "workflow.diagnostics.repair.restore-apply");
+    assert.equal(diagnosticsRepairRestoreApplyNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsRepairRestoreApplyNode.componentKind, "restore_gate");
+    assert.equal(diagnosticsRepairRestoreApplyNode.label, "Restore apply");
+    assert.equal(diagnosticsRepairRestoreApplyNode.status, "completed");
+    assert.deepEqual(diagnosticsRepairRestoreApplyNode.rollbackRefs, diagnosticsRepairRestoreApplyEvent.rollback_refs);
+    assert.deepEqual(diagnosticsRepairRestoreApplyNode.receiptRefs, diagnosticsRepairRestoreApplyEvent.receipt_refs);
+    assert.deepEqual(diagnosticsRepairRestoreApplyNode.artifactRefs, diagnosticsRepairRestoreApplyEvent.artifact_refs);
+    const diagnosticsRepairApplyDecisionNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsRepairApplyDecisionEvent.event_id),
+    );
+    assert.ok(diagnosticsRepairApplyDecisionNode);
+    assert.equal(diagnosticsRepairApplyDecisionNode.workflowNodeId, "workflow.diagnostics.repair.restore-apply.decision");
+    assert.equal(diagnosticsRepairApplyDecisionNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsRepairApplyDecisionNode.componentKind, "lsp_diagnostics_repair");
+    assert.equal(diagnosticsRepairApplyDecisionNode.label, "Diagnostics repair decision");
+    assert.equal(diagnosticsRepairApplyDecisionNode.status, "completed");
+    assert.deepEqual(diagnosticsRepairApplyDecisionNode.rollbackRefs, diagnosticsRepairApplyDecisionEvent.rollback_refs);
+    assert.deepEqual(diagnosticsRepairApplyDecisionNode.receiptRefs, diagnosticsRepairApplyDecisionEvent.receipt_refs);
+    assert.deepEqual(diagnosticsRepairApplyDecisionNode.policyDecisionRefs, diagnosticsRepairApplyDecisionEvent.policy_decision_refs);
     const restoreApplyNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(restoreApplyEvent.event_id),
     );

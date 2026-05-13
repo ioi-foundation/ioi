@@ -52,7 +52,11 @@ test("React Flow coding tool pack exposes restore and diagnostics repair policy 
   assert.match(runtimeDaemon, /executeDiagnosticsRepairDecision/);
   assert.match(runtimeDaemon, /repair-decisions/);
   assert.match(runtimeDaemon, /diagnostics\.repair_decision\.executed/);
+  assert.match(runtimeDaemon, /restore_apply/);
+  assert.match(runtimeDaemon, /restore_apply_event_id/);
+  assert.match(runtimeDaemon, /LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID/);
   assert.match(agentSdk, /executeThreadDiagnosticsRepairDecision/);
+  assert.match(agentSdk, /restoreApply/);
   assert.match(runtimeProjection, /lsp_diagnostics_repair/);
   assert.match(runtimeProjection, /Diagnostics repair decision/);
 });
