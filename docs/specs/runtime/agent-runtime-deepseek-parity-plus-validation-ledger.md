@@ -172,6 +172,39 @@ the practical workstream when the source heading is broad.
 | 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action |
 | 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "runtime_approval_request&#124;context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --import tsx --test --test-name-pattern "React Flow approval request control creates a daemon-owned approval gate" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/generate-runtime-action-contracts.mjs --check<br>cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>git diff --check<br>npm run validate:autopilot-gui-harness |
 | 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/subagent-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test --test-name-pattern "React Flow delegate-summary context-pressure action spawns a daemon-owned subagent" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness<br>git diff --check |
+| 174 | 2026-05-13 | P1-C. Modes, Trust, Approvals | review-mode coding-tool approval manifest gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon owns thread mode, model, and thinking controls for TUI and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-coding-approval<br>git diff --check |
+
+## Slice 174. 2026-05-13 - Review-mode coding-tool approval manifest gate
+
+Guide section: P1-C. Modes, Trust, Approvals
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon syntax check passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract syntax check passed.
+- `node --test --test-name-pattern "daemon owns thread mode, model, and thinking controls for TUI and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - mode-control regression passed.
+- `node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - review-mode mutating coding-tool approval gate, daemon event, SDK event,
+    React Flow `human_gate`, TUI approval-row, and no-workspace-mutation proof
+    passed.
+- `node --test --test-name-pattern "coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - default coding-pack regression passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source-contract guard passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-coding-approval`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
 
 ## Slice 173. 2026-05-13 - Context-pressure delegate-summary subagent execution
 

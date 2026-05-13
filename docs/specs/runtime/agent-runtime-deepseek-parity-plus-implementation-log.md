@@ -173,8 +173,44 @@ workstream was narrower.
 | 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json |
 | 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json |
 | 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json |
+| 174 | 2026-05-13 | P1-C. Modes, Trust, Approvals | review-mode coding-tool approval manifest gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 174. 2026-05-13 - Review-mode coding-tool approval manifest gate
+
+Implementation slice completed 2026-05-13, P1-C trust/approval enforcement:
+
+- Added daemon-side `review` thread mode and mapped both `plan` and `review`
+  to plan-mode execution with human-required policy posture.
+- Added a coding-tool approval manifest gate before `executeCodingTool` runs:
+  any non-read coding-tool contract in `plan`/`review` mode, or in
+  human/policy approval mode, returns a blocked coding-tool result and does not
+  mutate the workspace.
+- Extended `approval.required` events with action, tool id, effect class, risk
+  domain, authority scopes, and an
+  `ioi.runtime.coding-tool-approval-manifest.v1` payload summary while
+  preserving React Flow graph/node identity.
+- Proved a permissive UI/workflow request (`approvalGranted` plus
+  `approvalMode: never_prompt`) cannot bypass review-mode daemon policy.
+- Added live cross-surface proof that the same approval gate is visible through
+  daemon events, SDK `approval_required` events, React Flow `human_gate`
+  projection, and TUI approval rows.
+- Updated the master guide to make graph-level approval/trust override
+  compilation and approval decision/retry execution the next P1-C slice.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "daemon owns thread mode, model, and thinking controls for TUI and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-coding-approval`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json`.
+- `git diff --check`
 
 ### Slice 173. 2026-05-13 - Context-pressure delegate-summary subagent execution
 

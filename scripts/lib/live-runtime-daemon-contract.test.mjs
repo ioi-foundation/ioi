@@ -1738,6 +1738,160 @@ test("daemon owns thread mode, model, and thinking controls for TUI and React Fl
   }
 });
 
+test("daemon requires approval before review-mode mutating coding tools from React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-approval-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-approval-state-"));
+  const targetPath = path.join(cwd, "README.md");
+  fs.writeFileSync(targetPath, "Review mode keeps this line.\n");
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.coding-approval-proof";
+    const workflowNodeId = "workflow.coding.file.apply_patch.review-gate";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove review mode blocks mutating coding tools until approval.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const mode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "review",
+        approvalMode: "never_prompt",
+        source: "react_flow",
+        workflowGraphId,
+        workflowNodeId: "runtime.thread-mode.review",
+      }),
+    });
+    assert.equal(mode.mode, "review");
+    assert.equal(mode.approval_mode, "never_prompt");
+
+    const patch = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId,
+          approvalGranted: true,
+          approvalMode: "never_prompt",
+          input: {
+            path: "README.md",
+            oldText: "Review mode keeps this line.",
+            newText: "Review mode should not mutate without approval.",
+          },
+        }),
+      },
+    );
+    assert.equal(patch.status, "blocked");
+    assert.equal(patch.approval_required, true);
+    assert.equal(patch.result?.status, "blocked");
+    assert.equal(patch.error?.code, "coding_tool_approval_required");
+    assert.equal(patch.approval_manifest?.schema_version, "ioi.runtime.coding-tool-approval-manifest.v1");
+    assert.equal(patch.approval_manifest?.tool_id, "file.apply_patch");
+    assert.equal(patch.approval_manifest?.effect_class, "local_write");
+    assert.equal(patch.approval_manifest?.thread_mode, "review");
+    assert.equal(patch.approval_manifest?.approval_mode, "never_prompt");
+    assert.equal(patch.approval_manifest?.policy_reason, "thread_review_mode_requires_approval");
+    assert.equal(patch.approval_manifest?.ui_override_ignored, true);
+    assert.ok(patch.approval_manifest?.authority_scope_requirements.includes("scope:workspace.write"));
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "Review mode keeps this line.\n");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const approvalEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "approval.required" &&
+        event.payload?.tool_id === "file.apply_patch" &&
+        event.workflow_graph_id === workflowGraphId,
+    );
+    assert.ok(approvalEvent);
+    assert.equal(approvalEvent.source, "react_flow");
+    assert.equal(approvalEvent.workflow_node_id, workflowNodeId);
+    assert.equal(approvalEvent.component_kind, "approval_gate");
+    assert.equal(approvalEvent.payload.action, "coding_tool.invoke");
+    assert.equal(approvalEvent.payload.effect_class, "local_write");
+    assert.equal(approvalEvent.payload_summary?.approval_manifest?.thread_mode, "review");
+    assert.equal(approvalEvent.payload_summary?.approval_manifest?.ui_override_ignored, true);
+    assert.ok(approvalEvent.receipt_refs.includes(patch.receipt_refs[0]));
+    assert.ok(
+      approvalEvent.policy_decision_refs.some(
+        (ref) => ref.includes("file.apply_patch") && ref.includes("approval_required"),
+      ),
+    );
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkApprovalEvent = sdkEvents.find((event) => event.id === approvalEvent.event_id);
+    assert.ok(sdkApprovalEvent);
+    assert.equal(sdkApprovalEvent.type, "approval_required");
+    assert.equal(sdkApprovalEvent.workflowGraphId, workflowGraphId);
+    assert.equal(sdkApprovalEvent.workflowNodeId, workflowNodeId);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const approvalNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(approvalEvent.event_id),
+    );
+    assert.ok(approvalNode);
+    assert.equal(approvalNode.nodeKind, "human_gate");
+    assert.equal(approvalNode.componentKind, "approval_gate");
+    assert.equal(approvalNode.workflowNodeId, workflowNodeId);
+    assert.ok(reactFlowProjection.workflowGraphIds.includes(workflowGraphId));
+
+    const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: thread.thread_id,
+      last_cursor: `${approvalEvent.event_stream_id}:${approvalEvent.seq}`,
+      last_event_id: approvalEvent.event_id,
+      workflow_graph_id: workflowGraphId,
+      mode_status: {
+        mode: mode.mode,
+        approval_mode: mode.approval_mode,
+        trust_profile: "local_private",
+        workflow_node_id: "runtime.thread-mode.review",
+      },
+      approval_rows: [
+        {
+          approval_id: patch.approval_id,
+          status: "pending",
+          message: patch.error?.message,
+          workflow_node_id: workflowNodeId,
+          event_id: approvalEvent.event_id,
+          receipt_refs: approvalEvent.receipt_refs,
+          policy_decision_refs: approvalEvent.policy_decision_refs,
+          sequence: approvalEvent.seq,
+        },
+      ],
+      command_history: [
+        { command: "mode", raw_input: "/mode review", status: "applied" },
+        { command: "patch", raw_input: "/patch README.md ...", status: "blocked" },
+      ],
+    });
+    assert.ok(tuiProjection.rows.some((row) => row.rowKind === "mode_status" && row.status === "current"));
+    assert.ok(
+      tuiProjection.rows.some(
+        (row) =>
+          row.rowKind === "approval" &&
+          row.approvalId === patch.approval_id &&
+          row.reactFlowNodeId === workflowNodeId,
+      ),
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("daemon owns MCP discovery, validation, and React Flow workflow rows", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -10751,6 +10905,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /requestThreadApproval/);
   assert.match(runtimeDaemon, /OperatorApproval\.Request/);
   assert.match(runtimeDaemon, /approval\.required/);
+  assert.match(runtimeDaemon, /codingToolApprovalManifestForThread/);
+  assert.match(runtimeDaemon, /coding_tool_approval_required/);
+  assert.match(runtimeDaemon, /thread_review_mode_requires_approval/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeApprovalRequestControlRequest/);

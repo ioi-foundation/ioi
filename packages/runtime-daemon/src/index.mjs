@@ -3485,6 +3485,24 @@ export class AgentgresRuntimeStateStore {
     const reason =
       optionalString(request.reason ?? request.message ?? request.input) ??
       "operator requested approval";
+    const action =
+      optionalString(request.action ?? request.approval_action ?? request.approvalAction) ??
+      "request_approval";
+    const toolId =
+      optionalString(request.tool_id ?? request.toolId ?? request.tool_name ?? request.toolName) ??
+      null;
+    const effectClass =
+      optionalString(request.effect_class ?? request.effectClass) ??
+      null;
+    const riskDomain =
+      optionalString(request.risk_domain ?? request.riskDomain) ??
+      null;
+    const approvalManifest =
+      request.approval_manifest && typeof request.approval_manifest === "object"
+        ? request.approval_manifest
+        : request.approvalManifest && typeof request.approvalManifest === "object"
+          ? request.approvalManifest
+          : null;
     const runOrAgentId = run?.id ?? agent.id;
     const approvalSeed = `${threadId}:${turnId || "thread"}:${reason}`;
     const approvalHash = crypto.createHash("sha256").update(approvalSeed).digest("hex").slice(0, 16);
@@ -3550,8 +3568,19 @@ export class AgentgresRuntimeStateStore {
         reason,
         requested_by: requestedBy,
         control_surface: source,
-        action: "request_approval",
+        action,
         scope,
+        tool_id: toolId,
+        toolId,
+        effect_class: effectClass,
+        effectClass,
+        risk_domain: riskDomain,
+        riskDomain,
+        authority_scope_requirements: normalizeArray(
+          request.authority_scope_requirements ?? request.authorityScopeRequirements,
+        ),
+        approval_manifest: approvalManifest,
+        approvalManifest,
         pressure: pressure ?? null,
         pressure_status: pressureStatus,
         pressureStatus,
@@ -5872,6 +5901,37 @@ export class AgentgresRuntimeStateStore {
     const diagnosticsRepairContext =
       diagnosticsRepairContextForRequest(request) ??
       diagnosticsRepairContextForToolPack(request, input, normalizedToolId);
+    const toolContract = codingToolContracts().find((tool) => tool.stableToolId === normalizedToolId);
+    const approvalManifest = codingToolApprovalManifestForThread({
+      agent,
+      threadId,
+      turnId,
+      toolId: normalizedToolId,
+      toolCallId,
+      toolContract,
+      input,
+      request,
+      workflowGraphId,
+      workflowNodeId,
+    });
+    if (approvalManifest) {
+      return this.blockCodingToolForApproval({
+        agent,
+        threadId,
+        turnId,
+        toolId: normalizedToolId,
+        toolCallId,
+        receiptId,
+        input,
+        request,
+        workflowGraphId,
+        workflowNodeId,
+        requestRollbackRefs,
+        diagnosticsRepairContext,
+        approvalManifest,
+        toolContract,
+      });
+    }
     const artifactRefs = [];
     const receiptRefs = [receiptId];
     let status = "completed";
@@ -6033,6 +6093,108 @@ export class AgentgresRuntimeStateStore {
       workspaceSnapshotEvent,
       auto_diagnostics: autoDiagnostics,
       autoDiagnostics,
+      result,
+      error,
+    };
+  }
+
+  blockCodingToolForApproval({
+    agent,
+    threadId,
+    turnId,
+    toolId,
+    toolCallId,
+    receiptId,
+    input,
+    request,
+    workflowGraphId,
+    workflowNodeId,
+    requestRollbackRefs,
+    diagnosticsRepairContext,
+    approvalManifest,
+    toolContract,
+  }) {
+    const error = {
+      code: "coding_tool_approval_required",
+      message: `${toolId} requires approval before execution in ${approvalManifest.thread_mode} mode.`,
+      details: {
+        toolId,
+        tool_call_id: toolCallId,
+        thread_mode: approvalManifest.thread_mode,
+        approval_mode: approvalManifest.approval_mode,
+        policy_reason: approvalManifest.policy_reason,
+      },
+    };
+    const approval = this.requestThreadApproval(threadId, {
+      ...request,
+      source: operatorControlSource(request.source),
+      turnId,
+      workflowGraphId,
+      workflowNodeId,
+      action: "coding_tool.invoke",
+      actor: "runtime",
+      reason: error.message,
+      scope: "coding_tool",
+      approvalId: `approval_coding_tool_${safeId(toolId)}_${doctorHash(
+        `${threadId}:${turnId || "thread"}:${toolCallId}`,
+      ).slice(0, 16)}`,
+      toolId,
+      effectClass: approvalManifest.effect_class,
+      riskDomain: approvalManifest.risk_domain,
+      authorityScopeRequirements: approvalManifest.authority_scope_requirements,
+      approvalManifest,
+      receiptRefs: [receiptId],
+      policyDecisionRefs: [`policy_coding_tool_${safeId(toolId)}_approval_required`],
+    });
+    const result = {
+      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      toolName: toolId,
+      status: "blocked",
+      approvalRequired: true,
+      approval_required: true,
+      approvalId: approval.approval_id,
+      approval_id: approval.approval_id,
+      approvalManifest,
+      approval_manifest: approvalManifest,
+      inputSummary: codingToolInputSummary(toolId, input),
+      input_summary: codingToolInputSummary(toolId, input),
+      error,
+    };
+    return {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      object: "ioi.runtime_coding_tool_result",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      status: "blocked",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      shell_fallback_used: false,
+      approval_required: true,
+      approvalRequired: true,
+      approval_id: approval.approval_id,
+      approvalId: approval.approval_id,
+      approval_manifest: approvalManifest,
+      approvalManifest,
+      receipt_refs: approval.receipt_refs,
+      artifact_refs: [],
+      rollback_refs: uniqueStrings(requestRollbackRefs),
+      event: null,
+      approval,
+      approval_event_id: approval.event_id,
+      workspace_snapshot: null,
+      workspaceSnapshot: null,
+      workspace_snapshot_event: null,
+      workspaceSnapshotEvent: null,
+      auto_diagnostics: null,
+      autoDiagnostics: null,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
+      tool_contract: toolContract ?? null,
+      toolContract: toolContract ?? null,
       result,
       error,
     };
@@ -14577,12 +14739,13 @@ function normalizeThreadInteractionMode(value) {
   const mode = optionalString(value)?.toLowerCase().replace(/-/g, "_") ?? "agent";
   if (["agent", "send", "chat", "run", "tui"].includes(mode)) return "agent";
   if (["plan", "planning", "read_only", "readonly"].includes(mode)) return "plan";
+  if (["review", "review_mode", "human_review", "approval_review"].includes(mode)) return "review";
   if (["yolo", "auto", "auto_local", "never_prompt"].includes(mode)) return "yolo";
   if (["custom", "dry_run", "handoff", "learn"].includes(mode)) return "custom";
   throw runtimeError({
     status: 400,
     code: "thread_mode_invalid",
-    message: "Thread mode must be plan, agent, yolo, or custom.",
+    message: "Thread mode must be plan, review, agent, yolo, or custom.",
     details: { mode: value ?? null },
   });
 }
@@ -14604,6 +14767,7 @@ function normalizeThreadApprovalMode(value, fallback = "suggest") {
 function approvalModeForThreadMode(mode) {
   switch (normalizeThreadInteractionMode(mode)) {
     case "plan":
+    case "review":
       return "human_required";
     case "yolo":
       return "never_prompt";
@@ -14617,6 +14781,7 @@ function approvalModeForThreadMode(mode) {
 function runModeForThreadMode(mode) {
   switch (normalizeThreadInteractionMode(mode)) {
     case "plan":
+    case "review":
       return "plan";
     case "agent":
     case "yolo":
@@ -14631,6 +14796,103 @@ function threadModeForRunMode(runMode, fallback = "agent") {
   if (mode === "plan") return "plan";
   if (mode === "send" || mode === "agent" || mode === "tui") return normalizeThreadInteractionMode(fallback);
   return normalizeThreadInteractionMode(fallback);
+}
+
+function codingToolApprovalManifestForThread({
+  agent,
+  threadId,
+  turnId,
+  toolId,
+  toolCallId,
+  toolContract,
+  input,
+  request,
+  workflowGraphId,
+  workflowNodeId,
+}) {
+  const effectClass = optionalString(toolContract?.effectClass) ?? "unknown";
+  if (!codingToolEffectRequiresApproval(effectClass)) return null;
+  const controls = normalizedAgentRuntimeControls(agent);
+  const threadMode = normalizeThreadInteractionMode(controls.mode ?? agent.mode ?? "agent");
+  const approvalMode = normalizeThreadApprovalMode(controls.approvalMode, approvalModeForThreadMode(threadMode));
+  const modeRequiresApproval = threadMode === "plan" || threadMode === "review";
+  const approvalModeRequiresApproval = approvalMode === "human_required" || approvalMode === "policy_required";
+  if (!modeRequiresApproval && !approvalModeRequiresApproval) return null;
+  const requestedApprovalMode =
+    optionalString(request.approval_mode ?? request.approvalMode ?? request.toolPack?.approvalMode) ?? null;
+  const requestedMode = optionalString(request.mode ?? request.threadMode ?? request.thread_mode) ?? null;
+  let normalizedRequestedMode = null;
+  if (requestedMode) {
+    try {
+      normalizedRequestedMode = normalizeThreadInteractionMode(requestedMode);
+    } catch {
+      normalizedRequestedMode = requestedMode.toLowerCase().replace(/-/g, "_");
+    }
+  }
+  const policyReason = modeRequiresApproval
+    ? threadMode === "review"
+      ? "thread_review_mode_requires_approval"
+      : "thread_plan_mode_requires_approval"
+    : `approval_mode_${approvalMode}_requires_approval`;
+  const scopeRequirements = uniqueStrings(
+    normalizeArray(toolContract?.authorityScopeRequirements ?? toolContract?.authority_scope_requirements),
+  );
+  return {
+    schema_version: "ioi.runtime.coding-tool-approval-manifest.v1",
+    schemaVersion: "ioi.runtime.coding-tool-approval-manifest.v1",
+    object: "ioi.runtime_coding_tool_approval_manifest",
+    action: "coding_tool.invoke",
+    status: "approval_required",
+    approval_required: true,
+    approvalRequired: true,
+    policy_reason: policyReason,
+    policyReason,
+    daemon_enforced: true,
+    daemonEnforced: true,
+    ui_override_ignored:
+      Boolean(request.approval_granted ?? request.approvalGranted ?? request.approved) ||
+      Boolean(requestedApprovalMode && requestedApprovalMode !== approvalMode) ||
+      Boolean(normalizedRequestedMode && normalizedRequestedMode !== threadMode),
+    thread_id: threadId,
+    threadId,
+    turn_id: turnId || null,
+    turnId: turnId || null,
+    tool_id: toolId,
+    toolId,
+    tool_call_id: toolCallId,
+    toolCallId,
+    effect_class: effectClass,
+    effectClass,
+    risk_domain: optionalString(toolContract?.riskDomain ?? toolContract?.risk_domain) ?? "unknown",
+    riskDomain: optionalString(toolContract?.riskDomain ?? toolContract?.risk_domain) ?? "unknown",
+    authority_scope_requirements: scopeRequirements,
+    authorityScopeRequirements: scopeRequirements,
+    primitive_capabilities: normalizeArray(toolContract?.primitiveCapabilities ?? toolContract?.primitive_capabilities),
+    primitiveCapabilities: normalizeArray(toolContract?.primitiveCapabilities ?? toolContract?.primitive_capabilities),
+    thread_mode: threadMode,
+    threadMode,
+    approval_mode: approvalMode,
+    approvalMode,
+    trust_profile: "local_private",
+    trustProfile: "local_private",
+    requested_mode: requestedMode,
+    requestedMode,
+    normalized_requested_mode: normalizedRequestedMode,
+    normalizedRequestedMode,
+    requested_approval_mode: requestedApprovalMode,
+    requestedApprovalMode,
+    workflow_graph_id: workflowGraphId,
+    workflowGraphId,
+    workflow_node_id: workflowNodeId,
+    workflowNodeId,
+    input_summary: codingToolInputSummary(toolId, input),
+    inputSummary: codingToolInputSummary(toolId, input),
+  };
+}
+
+function codingToolEffectRequiresApproval(effectClass) {
+  const normalized = optionalString(effectClass)?.toLowerCase() ?? "unknown";
+  return normalized !== "local_read";
 }
 
 function normalizeReasoningEffort(value, allowNull = false) {
