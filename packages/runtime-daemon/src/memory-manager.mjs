@@ -4,6 +4,8 @@ export const RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-status.v1";
 export const RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-validation.v1";
+export const RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION =
+  "ioi.runtime.memory-manager-mutation.v1";
 
 const VALID_MEMORY_SCOPES = new Set([
   "global",
@@ -65,6 +67,9 @@ export function memoryStatusForProjection(projection = {}) {
       validate: "/v1/threads/{thread_id}/memory/validate",
       policy: "/v1/threads/{thread_id}/memory/policy",
       path: "/v1/threads/{thread_id}/memory/path",
+      remember: "/v1/threads/{thread_id}/memory",
+      edit: "/v1/threads/{thread_id}/memory/{memory_id}",
+      delete: "/v1/threads/{thread_id}/memory/{memory_id}",
     },
     evidence_refs: uniqueStrings([
       "runtime_memory_manager",

@@ -3575,6 +3575,36 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal((await sdkThread.memory()).record_count, 1);
     assert.equal((await sdkThread.validateMemory()).ok, true);
 
+    const sdkRemember = await sdkThread.rememberMemory({
+      text: "The operator wants direct memory writes projected through React Flow.",
+      memoryKey: "workflow-preferences",
+      workflowGraphId: "memory-write-graph",
+      workflowNodeId: "memory-write-node",
+    });
+    assert.equal(sdkRemember.operation, "write");
+    assert.equal(sdkRemember.event.source_event_kind, "OperatorControl.MemoryWrite");
+    assert.equal(sdkRemember.event.workflow_node_id, "memory-write-node");
+    assert.ok(sdkRemember.rows.some((row) => row.memory_operation === "write"));
+
+    const sdkEdit = await sdkThread.updateMemory(sdkRemember.record.id, {
+      text: "The operator wants direct memory edits projected through React Flow.",
+      workflowGraphId: "memory-write-graph",
+      workflowNodeId: "memory-edit-node",
+    });
+    assert.equal(sdkEdit.operation, "edit");
+    assert.equal(sdkEdit.event.source_event_kind, "OperatorControl.MemoryEdit");
+    assert.equal(sdkEdit.event.workflow_node_id, "memory-edit-node");
+    assert.ok(sdkEdit.rows.some((row) => row.memory_operation === "edit"));
+
+    const sdkDelete = await sdkThread.deleteMemory(sdkRemember.record.id, {
+      workflowGraphId: "memory-write-graph",
+      workflowNodeId: "memory-delete-node",
+    });
+    assert.equal(sdkDelete.operation, "delete");
+    assert.equal(sdkDelete.event.source_event_kind, "OperatorControl.MemoryDelete");
+    assert.equal(sdkDelete.event.workflow_node_id, "memory-delete-node");
+    assert.ok(sdkDelete.rows.some((row) => row.memory_operation === "delete"));
+
     await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/memory`, {
       method: "POST",
       body: JSON.stringify({
@@ -3720,6 +3750,9 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(memoryEvent.workflow_node_id, "runtime.memory");
     assert.equal(memoryEvent.payload_summary.memory_record_id, memory.records[0].id);
     assert.deepEqual(memoryEvent.receipt_refs, rememberTurn.memory_write_receipt_ids);
+    assert.ok(events.some((event) => event.source_event_kind === "OperatorControl.MemoryWrite"));
+    assert.ok(events.some((event) => event.source_event_kind === "OperatorControl.MemoryEdit"));
+    assert.ok(events.some((event) => event.source_event_kind === "OperatorControl.MemoryDelete"));
     assert.ok(events.some((event) => event.payload_summary?.event_kind === "MemoryEdit"));
     assert.ok(events.some((event) => event.payload_summary?.event_kind === "MemoryPolicy"));
   } finally {
@@ -3883,6 +3916,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/mcp/);
   assert.match(source, /# remember/);
   assert.match(source, /\/memory show/);
+  assert.match(source, /\/memory remember/);
+  assert.match(source, /\/memory edit/);
+  assert.match(source, /\/memory delete/);
   assert.match(source, /\/memory disable/);
   assert.match(source, /\/memory path/);
   assert.match(source, /memory_policy/);
@@ -3911,6 +3947,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/status/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/policy/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/memory\/\{memory_id\}/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
@@ -3929,6 +3966,10 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /OperatorControl\.McpInvoke/);
   assert.match(source, /OperatorControl\.Memory/);
   assert.match(source, /OperatorControl\.MemoryValidate/);
+  assert.match(source, /OperatorControl\.MemoryWrite/);
+  assert.match(source, /OperatorControl\.MemoryEdit/);
+  assert.match(source, /OperatorControl\.MemoryDelete/);
+  assert.match(source, /OperatorControl\.MemoryPolicy/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /OperatorApproval\.Approve/);
@@ -6148,7 +6189,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {\"q\":\"line-mode\"}\n/mcp validate\n/memory status\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
+      "/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {\"q\":\"line-mode\"}\n/mcp validate\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
     assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
@@ -6161,6 +6202,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /line_mode_command=mcp action=invoke/);
     assert.match(result.stdout, /line_mode_command=mcp action=validate/);
     assert.match(result.stdout, /line_mode_command=memory action=status/);
+    assert.match(result.stdout, /line_mode_command=memory action=remember/);
     assert.match(result.stdout, /line_mode_command=memory action=validate/);
     assert.match(result.stdout, /line_mode_command=jobs count=\d+/);
     assert.match(result.stdout, /line_mode_command=job action=inspect/);
@@ -6176,8 +6218,10 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /OperatorControl\.McpEnable/);
     assert.match(result.stdout, /OperatorControl\.McpInvoke/);
     assert.match(result.stdout, /OperatorControl\.Memory/);
+    assert.match(result.stdout, /OperatorControl\.MemoryWrite/);
     assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query/);
     assert.match(result.stdout, /memory_row kind=memory_status/);
+    assert.match(result.stdout, /memory_row kind=memory_record/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
     const threadId = result.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
     assert.ok(threadId);
@@ -6275,6 +6319,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_operation === "invoke"));
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_status"));
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_policy"));
+    assert.ok(finalControlState.memory_rows.some((row) => row.memory_operation === "write"));
     assert.ok(
       finalControlState.validation_errors.some(
         (entry) =>
@@ -6316,6 +6361,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "memory_status" && row.reactFlowNodeId === "runtime.memory-manager",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) => row.rowKind === "memory_record" && row.memoryOperation === "write",
       ),
     );
     assert.ok(
@@ -7406,17 +7456,29 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.enable"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.disable"/);
+  assert.match(nodeRegistry, /creatorId: "memory\.remember"/);
+  assert.match(nodeRegistry, /creatorId: "memory\.edit"/);
+  assert.match(nodeRegistry, /creatorId: "memory\.delete"/);
   assert.match(nodeRegistry, /creatorId: "plugin_tool\.mcp"/);
   assert.match(graphTypes, /mcp_status/);
   assert.match(graphTypes, /mcp_enable/);
   assert.match(graphTypes, /mcp_disable/);
+  assert.match(graphTypes, /memory_remember/);
+  assert.match(graphTypes, /memory_edit/);
+  assert.match(graphTypes, /memory_delete/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-validate-before-invoke/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-record-id/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-text/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_memory_lane/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_send_options/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_query_output/);
+  assert.match(tauriProjectWorkflowMemoryLane, /workflow_memory_mutation_output/);
   assert.match(tauriProjectWorkflowMemoryLane, /memory_search/);
   assert.match(tauriProjectWorkflowMemoryLane, /memory_list/);
+  assert.match(tauriProjectWorkflowMemoryLane, /memory_remember/);
+  assert.match(tauriProjectWorkflowMemoryLane, /memory_edit/);
+  assert.match(tauriProjectWorkflowMemoryLane, /memory_delete/);
   assert.match(tauriProjectWorkflowMemoryLane, /workflow_redacted_memory_record/);
   assert.match(
     tauriProjectWorkflowNodeExecutionLane,

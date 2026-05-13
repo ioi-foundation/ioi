@@ -6,7 +6,10 @@ import {
   type RuntimeThreadCompactInput,
   type RuntimeThreadCreateInput,
   type RuntimeThreadForkInput,
+  type RuntimeThreadMemoryDeleteInput,
+  type RuntimeThreadMemoryEditInput,
   type RuntimeThreadMemoryInput,
+  type RuntimeThreadMemoryWriteInput,
   type RuntimeThreadMcpInput,
   type RuntimeMcpToolInvokeInput,
   type RuntimeThreadModeInput,
@@ -15,6 +18,7 @@ import {
   type RuntimeTurnCreateInput,
   type RuntimeTurnInterruptInput,
   type RuntimeTurnSteerInput,
+  type RememberMemoryResult,
 } from "./substrate-client.js";
 import type {
   RuntimeMemoryStatus,
@@ -155,6 +159,24 @@ export class Thread {
 
   async validateMemory(input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryValidationResult> {
     return this.client.validateThreadMemory(this.id, input);
+  }
+
+  async rememberMemory(input: RuntimeThreadMemoryWriteInput): Promise<RememberMemoryResult> {
+    return this.client.rememberThreadMemory(this.id, input);
+  }
+
+  async updateMemory(
+    memoryId: string,
+    input: RuntimeThreadMemoryEditInput,
+  ): Promise<RememberMemoryResult> {
+    return this.client.updateThreadMemory(this.id, memoryId, input);
+  }
+
+  async deleteMemory(
+    memoryId: string,
+    input: RuntimeThreadMemoryDeleteInput = {},
+  ): Promise<RememberMemoryResult> {
+    return this.client.deleteThreadMemory(this.id, memoryId, input);
   }
 
   async submit(input: RuntimeTurnCreateInput): Promise<Turn> {

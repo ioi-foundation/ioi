@@ -366,6 +366,12 @@ export interface RuntimeThreadMemoryInput extends RuntimeMemoryValidationInput {
   idempotency_key?: string;
 }
 
+export interface RuntimeThreadMemoryWriteInput extends RememberMemoryInput, RuntimeThreadMemoryInput {}
+
+export interface RuntimeThreadMemoryEditInput extends UpdateMemoryRecordInput, RuntimeThreadMemoryInput {}
+
+export interface RuntimeThreadMemoryDeleteInput extends DeleteMemoryRecordInput, RuntimeThreadMemoryInput {}
+
 export interface RuntimeWorkspaceSnapshotListResult {
   schemaVersion: string;
   object: "ioi.runtime_workspace_snapshot_list" | string;
@@ -835,6 +841,17 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input?: RuntimeThreadMemoryInput,
   ): Promise<RuntimeMemoryValidationResult>;
+  rememberThreadMemory(threadId: string, input: RuntimeThreadMemoryWriteInput): Promise<RememberMemoryResult>;
+  updateThreadMemory(
+    threadId: string,
+    memoryId: string,
+    input: RuntimeThreadMemoryEditInput,
+  ): Promise<RememberMemoryResult>;
+  deleteThreadMemory(
+    threadId: string,
+    memoryId: string,
+    input?: RuntimeThreadMemoryDeleteInput,
+  ): Promise<RememberMemoryResult>;
   invokeThreadTool(
     threadId: string,
     toolId: string,
@@ -1371,6 +1388,53 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "validateThreadMemory",
       "POST",
       `/v1/threads/${encodePath(threadId)}/memory/validate`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async rememberThreadMemory(
+    threadId: string,
+    input: RuntimeThreadMemoryWriteInput,
+  ): Promise<RememberMemoryResult> {
+    return this.request(
+      "rememberThreadMemory",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/memory`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async updateThreadMemory(
+    threadId: string,
+    memoryId: string,
+    input: RuntimeThreadMemoryEditInput,
+  ): Promise<RememberMemoryResult> {
+    return this.request(
+      "updateThreadMemory",
+      "PATCH",
+      `/v1/threads/${encodePath(threadId)}/memory/${encodePath(memoryId)}`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async deleteThreadMemory(
+    threadId: string,
+    memoryId: string,
+    input: RuntimeThreadMemoryDeleteInput = {},
+  ): Promise<RememberMemoryResult> {
+    return this.request(
+      "deleteThreadMemory",
+      "DELETE",
+      `/v1/threads/${encodePath(threadId)}/memory/${encodePath(memoryId)}`,
       {
         source: "sdk_client",
         ...input,
@@ -3171,6 +3235,29 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         workflowNodeId: "runtime.memory-manager.validate",
       }),
     };
+  }
+
+  async rememberThreadMemory(
+    threadId: string,
+    input: RuntimeThreadMemoryWriteInput,
+  ): Promise<RememberMemoryResult> {
+    return this.rememberMemory(agentIdForThread(threadId), { ...input, threadId });
+  }
+
+  async updateThreadMemory(
+    threadId: string,
+    memoryId: string,
+    input: RuntimeThreadMemoryEditInput,
+  ): Promise<RememberMemoryResult> {
+    return this.updateMemory(agentIdForThread(threadId), memoryId, { ...input, threadId });
+  }
+
+  async deleteThreadMemory(
+    threadId: string,
+    memoryId: string,
+    input: RuntimeThreadMemoryDeleteInput = {},
+  ): Promise<RememberMemoryResult> {
+    return this.deleteMemory(agentIdForThread(threadId), memoryId, { ...input, threadId });
   }
 
   async invokeThreadTool(

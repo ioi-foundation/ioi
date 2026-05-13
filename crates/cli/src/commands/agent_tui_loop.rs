@@ -3,15 +3,15 @@
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run, decide_tui_approval,
-    fetch_tui_event_batch, fetch_tui_job, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread,
-    inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
-    inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
-    invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread, list_tui_memory_records,
-    list_tui_workspace_snapshots, preview_tui_workspace_restore, replay_tui_run_events,
-    resume_tui_thread, selected_run_id_from_thread, selected_turn_id_from_values,
-    set_tui_mcp_server_enabled, steer_tui_turn, thread_id_from_value, tui_approval_decisions,
-    tui_approval_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
-    tui_run_lifecycle_rows, update_tui_memory_policy, update_tui_thread_mode,
+    delete_tui_memory, edit_tui_memory, fetch_tui_event_batch, fetch_tui_job, fetch_tui_run,
+    fetch_tui_run_trace, fetch_tui_thread, inspect_tui_mcp_status, inspect_tui_memory_path,
+    inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn,
+    invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread,
+    list_tui_memory_records, list_tui_workspace_snapshots, preview_tui_workspace_restore,
+    remember_tui_memory, replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
+    selected_turn_id_from_values, set_tui_mcp_server_enabled, steer_tui_turn, thread_id_from_value,
+    tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows,
+    tui_mode_status, tui_run_lifecycle_rows, update_tui_memory_policy, update_tui_thread_mode,
     update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
 };
 use anyhow::{anyhow, Result};
@@ -1128,9 +1128,9 @@ async fn handle_memory_command(
     action: Option<String>,
 ) -> Result<(Vec<Value>, Value)> {
     let thread_id = thread_id_from_value(&session.thread)?;
-    let action = action
-        .unwrap_or_else(|| "status".to_string())
-        .to_ascii_lowercase();
+    let action_text = action.unwrap_or_else(|| "status".to_string());
+    let mut parts = action_text.split_whitespace();
+    let action = parts.next().unwrap_or("status").trim().to_ascii_lowercase();
     let result = match action.as_str() {
         "status" => {
             inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
@@ -1178,13 +1178,53 @@ async fn handle_memory_command(
                 &session.endpoint,
                 session.token.as_deref(),
             )
-            .await?;
-            inspect_tui_memory_status(&thread_id, &session.endpoint, session.token.as_deref())
-                .await?
+            .await?
+        }
+        "remember" | "write" => {
+            let text = parts.collect::<Vec<_>>().join(" ");
+            if text.trim().is_empty() {
+                return Err(anyhow!("/memory remember requires text"));
+            }
+            remember_tui_memory(
+                &thread_id,
+                text.trim(),
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "edit" => {
+            let memory_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/memory edit requires <memory_id> <text>"))?;
+            let text = parts.collect::<Vec<_>>().join(" ");
+            if text.trim().is_empty() {
+                return Err(anyhow!("/memory edit requires <memory_id> <text>"));
+            }
+            edit_tui_memory(
+                &thread_id,
+                memory_id,
+                text.trim(),
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "delete" | "remove" | "forget" => {
+            let memory_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/memory delete requires <memory_id>"))?;
+            delete_tui_memory(
+                &thread_id,
+                memory_id,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
         }
         _ => {
             return Err(anyhow!(
-                "/memory accepts status, show, policy, path, validate, enable, or disable"
+                "/memory accepts status, show, policy, path, validate, enable, disable, remember, edit, or delete"
             ));
         }
     };
@@ -1618,7 +1658,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] /memory [status|show|policy|path|validate|enable|disable] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {

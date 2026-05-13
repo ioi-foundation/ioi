@@ -141,6 +141,7 @@ the practical workstream when the source heading is broad.
 | 140 | 2026-05-13 | P1. MCP Manager Parity | daemon-owned MCP discovery/status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/mcp-manager.mjs<br>cargo test -p ioi-cli --bin cli tui --quiet<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "daemon owns MCP&#124;agent TUI line-mode slash commands&#124;agent CLI exposes model&#124;agent TUI thin shell" scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 141 | 2026-05-13 | P1. Memory UX Parity | daemon-owned memory manager status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/memory-manager.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "memory writes&#124;agent CLI exposes model&#124;agent TUI thin shell&#124;agent TUI line-mode" scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 142 | 2026-05-13 | P1. MCP Manager Parity | MCP enable/disable/invocation controls | /tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI thin shell&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-controls |
+| 143 | 2026-05-13 | P1. Memory UX Parity | memory write-side TUI/workflow controls | /tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/memory-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>cargo check -p autopilot<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "local daemon records explicit memory writes&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-memory-write-controls |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4438,6 +4439,58 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-controls`
   - live autopilot GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json`.
+
+## Slice 143. 2026-05-13 - Memory write-side TUI/workflow controls
+
+Guide section: P1. Memory UX Parity
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/runtime-daemon/src/memory-manager.mjs
+- packages/agent-sdk/src/index.ts
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/src/thread.ts
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx
+- apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs
+- apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon memory mutation control route syntax check passed.
+- `node --check packages/runtime-daemon/src/memory-manager.mjs`
+  - daemon memory manager syntax check passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract test harness syntax check passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust TUI formatting check passed.
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+  - Rust TUI parser/control tests passed with memory remember/edit/delete
+    coverage.
+- `cargo check -p autopilot`
+  - Autopilot workflow execution lane compiled with memory mutation nodes.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed with thread memory mutation helpers.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed with memory mutation node
+    controls.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow runtime event projection tests passed with memory mutation row
+    coverage.
+- `node --test --test-name-pattern "local daemon records explicit memory writes|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon, SDK, TUI line-mode, source-contract, and React Flow projection
+    proof passed for memory write/edit/delete controls.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-memory-write-controls`
+  - live autopilot GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json`.
 
 ## Slice 137. 2026-05-13 - Executable diagnostics repair retry
 

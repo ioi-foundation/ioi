@@ -142,6 +142,7 @@ workstream was narrower.
 | 140 | 2026-05-13 | P1. MCP Manager Parity | daemon-owned MCP discovery/status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 141 | 2026-05-13 | P1. Memory UX Parity | daemon-owned memory manager status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 142 | 2026-05-13 | P1. MCP Manager Parity | MCP enable/disable/invocation controls | /tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json |
+| 143 | 2026-05-13 | P1. Memory UX Parity | memory write-side TUI/workflow controls | /tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6800,3 +6801,41 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-controls`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json`.
+
+### Slice 143. 2026-05-13 - Memory write-side TUI/workflow controls
+
+Implementation slice completed 2026-05-13, direct memory mutation controls:
+
+- Added daemon-owned thread memory mutation control events for remember, edit,
+  delete, and policy updates, with canonical `OperatorControl.MemoryWrite`,
+  `OperatorControl.MemoryEdit`, `OperatorControl.MemoryDelete`, and
+  `OperatorControl.MemoryPolicy` event rows.
+- Preserved memory record receipts, policy decision refs, workflow node ids, and
+  redacted row metadata in mutation payloads so TUI, SDK, and React Flow all
+  inspect the same memory truth.
+- Exposed `Thread.rememberMemory`, `Thread.updateMemory`, and
+  `Thread.deleteMemory` through the SDK while preserving existing memory CRUD
+  helpers.
+- Added TUI `/memory remember`, `/memory edit`, and `/memory delete` line-mode
+  commands plus memory mutation row projection for daemon-provided rows.
+- Added React Flow state-node operations and binding editor controls for
+  `memory_remember`, `memory_edit`, and `memory_delete`.
+- Wired Autopilot workflow execution for memory mutation state nodes through
+  the modular workflow memory lane, returning receipt-backed evidence payloads
+  without turning workflow memory writes into canvas-local state.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/memory-manager.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `cargo check -p autopilot`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "local daemon records explicit memory writes|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-memory-write-controls`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json`.

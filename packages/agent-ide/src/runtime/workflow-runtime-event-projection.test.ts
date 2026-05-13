@@ -765,6 +765,20 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         memory_operation: "read",
         workflow_node_id: "runtime.memory",
       },
+      {
+        id: "memory-write-row",
+        row_kind: "memory_record",
+        status: "completed",
+        label: "Memory write",
+        command: "memory",
+        raw_input: "/memory remember",
+        memory_record_id: "memory-456",
+        memory_scope: "thread",
+        memory_key: "conversation",
+        memory_operation: "write",
+        workflow_node_id: "runtime.memory.write",
+        receipt_refs: ["receipt-memory-write"],
+      },
     ],
     command_history: [
       {
@@ -811,8 +825,8 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.jobCount, 1);
   assert.equal(projection.runLifecycleCount, 1);
   assert.equal(projection.mcpRowCount, 3);
-  assert.equal(projection.memoryRowCount, 3);
-  assert.equal(projection.rowCount, 17);
+  assert.equal(projection.memoryRowCount, 4);
+  assert.equal(projection.rowCount, 18);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -826,6 +840,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["memory_status", "memory", "completed"],
       ["memory_policy", "memory", "completed"],
       ["memory_record", "memory", "completed"],
+      ["memory_record", "memory", "completed"],
       ["approval", null, "pending"],
       ["approval_decision", "approve", "approved"],
       ["job", "jobs", "completed"],
@@ -836,11 +851,11 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     ],
   );
   assert.equal(
-    projection.rows[11]?.receiptRefs[0],
+    projection.rows[12]?.receiptRefs[0],
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[15]?.reactFlowNodeId,
+    projection.rows[16]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
   assert.equal(projection.rows[2]?.modelId, "auto");
@@ -853,7 +868,9 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[7]?.memoryOperation, "status");
   assert.equal(projection.rows[9]?.memoryRecordId, "memory-123");
   assert.equal(projection.rows[9]?.memoryKey, "conversation");
-  assert.equal(projection.rows[12]?.jobId, "job-run-test");
-  assert.equal(projection.rows[13]?.runId, "run-test");
-  assert.equal(projection.rows[16]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[10]?.memoryOperation, "write");
+  assert.equal(projection.rows[10]?.reactFlowNodeId, "runtime.memory.write");
+  assert.equal(projection.rows[13]?.jobId, "job-run-test");
+  assert.equal(projection.rows[14]?.runId, "run-test");
+  assert.equal(projection.rows[17]?.message, "/steer requires guidance text");
 });

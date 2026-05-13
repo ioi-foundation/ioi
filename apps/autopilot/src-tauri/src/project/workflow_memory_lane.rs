@@ -5,6 +5,9 @@ use super::workflow_value_helpers::{
 };
 use super::*;
 
+const WORKFLOW_MEMORY_MUTATION_OPERATIONS: [&str; 3] =
+    ["memory_remember", "memory_edit", "memory_delete"];
+
 pub(super) fn workflow_memory_send_options(logic: &Value, node_id: &str) -> Value {
     let injection_enabled =
         workflow_value_bool_any(logic, &["memoryInjectionEnabled", "injectionEnabled"])
@@ -122,6 +125,92 @@ pub(super) fn workflow_memory_query_output(
         "records": filtered,
         "value": {
             "records": value_records
+        }
+    })
+}
+
+pub(super) fn workflow_memory_mutation_output(
+    logic: &Value,
+    input: &Value,
+    node_id: &str,
+    evidence_kind: &str,
+) -> Value {
+    let operation = workflow_value_string_any(logic, &["stateOperation", "memoryOperation"])
+        .unwrap_or_else(|| "memory_remember".to_string());
+    let operation = if WORKFLOW_MEMORY_MUTATION_OPERATIONS.contains(&operation.as_str()) {
+        operation
+    } else {
+        "memory_remember".to_string()
+    };
+    let memory_operation = operation
+        .strip_prefix("memory_")
+        .unwrap_or(operation.as_str());
+    let state_key = workflow_value_string_any(logic, &["stateKey", "memoryKey"])
+        .unwrap_or_else(|| "memory".to_string());
+    let memory_key = workflow_value_string_any(logic, &["memoryKey", "stateKey"]);
+    let scope = workflow_value_string_any(logic, &["memoryScope", "scope"])
+        .unwrap_or_else(|| "thread".to_string());
+    let memory_text = workflow_value_string_any(logic, &["memoryText", "text", "fact"])
+        .or_else(|| workflow_value_string_any(input, &["memoryText", "text", "fact"]))
+        .unwrap_or_default();
+    let record_id = workflow_value_string_any(logic, &["memoryRecordId", "memoryId", "id"])
+        .or_else(|| workflow_value_string_any(input, &["memoryRecordId", "memoryId", "id"]))
+        .unwrap_or_else(|| {
+            format!(
+                "memory_{}",
+                &workflow_sha256_hex(&format!("{node_id}:{memory_operation}:{memory_text}"))[..16]
+            )
+        });
+    let workflow_node_type = match memory_operation {
+        "edit" => "MemoryEdit",
+        "delete" => "MemoryDelete",
+        _ => "MemoryRemember",
+    };
+    let record = json!({
+        "schemaVersion": "ioi.agent-runtime.memory.v1",
+        "id": record_id,
+        "object": "ioi.agent_memory_record",
+        "scope": scope,
+        "fact": if memory_operation == "delete" { "" } else { memory_text.as_str() },
+        "memoryKey": memory_key,
+        "workflowNodeId": node_id,
+        "workflowNodeType": workflow_node_type,
+        "source": "react_flow_workflow",
+        "redaction": workflow_value_string_any(logic, &["memoryRedaction", "redaction"]).unwrap_or_else(|| "none".to_string()),
+        "evidenceRefs": ["react_flow_workflow_memory", memory_operation],
+    });
+    let receipt = json!({
+        "id": format!("receipt_{}_{}", record_id, memory_operation),
+        "kind": format!("memory_{}", if memory_operation == "remember" { "write" } else { memory_operation }),
+        "summary": format!("Workflow memory {memory_operation} configured for {record_id}."),
+        "redaction": "none",
+        "memoryRecordId": record_id,
+        "evidenceRefs": ["react_flow_workflow_memory", memory_operation],
+    });
+    json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "stateKey": state_key,
+        "operation": operation,
+        "reducer": if memory_operation == "remember" { "append" } else { "replace" },
+        "memoryMutation": {
+            "operation": memory_operation,
+            "memoryKey": memory_key,
+            "scope": scope,
+            "writeRequiresApproval": workflow_value_bool_any(
+                logic,
+                &["memoryWriteRequiresApproval", "writeRequiresApproval"],
+            )
+            .unwrap_or(true),
+            "writeApproved": workflow_value_bool_any(logic, &["memoryWriteApproved", "writeApproved"]).unwrap_or(false),
+            "redaction": workflow_value_string_any(logic, &["memoryRedaction", "redaction"]).unwrap_or_else(|| "none".to_string())
+        },
+        "record": record.clone(),
+        "receipt": receipt.clone(),
+        "value": {
+            "operation": memory_operation,
+            "record": record,
+            "receipt": receipt
         }
     })
 }

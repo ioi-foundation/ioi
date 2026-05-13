@@ -19,7 +19,9 @@ use super::workflow_binding_lane::{
     workflow_sandbox_policy, workflow_tool_binding,
 };
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
-use super::workflow_memory_lane::{workflow_memory_query_output, workflow_memory_send_options};
+use super::workflow_memory_lane::{
+    workflow_memory_mutation_output, workflow_memory_query_output, workflow_memory_send_options,
+};
 use super::workflow_node_metadata_lane::{
     workflow_node_id, workflow_node_logic, workflow_node_type,
 };
@@ -1363,6 +1365,11 @@ pub(super) fn execute_workflow_node(
                 .unwrap_or("merge");
             if matches!(operation, "memory_search" | "memory_list") {
                 workflow_memory_query_output(&logic, &input, &node_id, evidence_kind)
+            } else if matches!(
+                operation,
+                "memory_remember" | "memory_edit" | "memory_delete"
+            ) {
+                workflow_memory_mutation_output(&logic, &input, &node_id, evidence_kind)
             } else {
                 let reducer =
                     logic

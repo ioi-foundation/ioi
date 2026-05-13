@@ -36,6 +36,7 @@ const TUI_THREAD_MEMORY_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}
 const TUI_THREAD_MEMORY_POLICY_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/policy";
 const TUI_THREAD_MEMORY_PATH_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/path";
 const TUI_THREAD_MEMORY_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory";
+const TUI_THREAD_MEMORY_RECORD_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/{memory_id}";
 const TUI_MEMORY_STATUS_ROUTE: &str = "/v1/memory";
 const TUI_MEMORY_VALIDATE_ROUTE: &str = "/v1/memory/validate";
 const TUI_MCP_STATUS_ROUTE: &str = "/v1/mcp";
@@ -261,6 +262,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "thread_memory_policy": TUI_THREAD_MEMORY_POLICY_ROUTE_TEMPLATE,
         "thread_memory_path": TUI_THREAD_MEMORY_PATH_ROUTE_TEMPLATE,
         "thread_memory": TUI_THREAD_MEMORY_ROUTE_TEMPLATE,
+        "thread_memory_record": TUI_THREAD_MEMORY_RECORD_ROUTE_TEMPLATE,
         "memory_status": TUI_MEMORY_STATUS_ROUTE,
         "memory_validate": TUI_MEMORY_VALIDATE_ROUTE,
         "mcp_status": TUI_MCP_STATUS_ROUTE,
@@ -926,6 +928,87 @@ pub(crate) async fn update_tui_memory_policy(
             "disabled": disabled,
             "injectionEnabled": !disabled,
             "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.MemoryPolicy",
+            "component_kind": "memory_policy",
+            "workflow_node_id": "runtime.memory-manager.policy",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn remember_tui_memory(
+    thread_id: &str,
+    text: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MEMORY_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "text": text,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.MemoryWrite",
+            "component_kind": "memory_write",
+            "workflow_node_id": "runtime.memory.write",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn edit_tui_memory(
+    thread_id: &str,
+    memory_id: &str,
+    text: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::PATCH,
+        &route_with_thread_and_memory(
+            TUI_THREAD_MEMORY_RECORD_ROUTE_TEMPLATE,
+            thread_id,
+            memory_id,
+        ),
+        Some(serde_json::json!({
+            "text": text,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.MemoryEdit",
+            "component_kind": "memory_write",
+            "workflow_node_id": "runtime.memory.edit",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn delete_tui_memory(
+    thread_id: &str,
+    memory_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::DELETE,
+        &route_with_thread_and_memory(
+            TUI_THREAD_MEMORY_RECORD_ROUTE_TEMPLATE,
+            thread_id,
+            memory_id,
+        ),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.MemoryDelete",
+            "component_kind": "memory_write",
+            "workflow_node_id": "runtime.memory.delete",
         })),
     )
     .await
@@ -1516,9 +1599,39 @@ pub(crate) fn tui_memory_rows(status: &Value, fallback_thread_id: Option<&str>) 
         .pointer("/policy_decision_refs")
         .cloned()
         .unwrap_or_else(|| Value::Array(Vec::new()));
+    if let Some(projected_rows) = status
+        .pointer("/memory_rows")
+        .or_else(|| status.pointer("/rows"))
+        .and_then(Value::as_array)
+    {
+        return projected_rows
+            .iter()
+            .map(|row| {
+                let mut row = row.clone();
+                if let Some(object) = row.as_object_mut() {
+                    object.entry("thread_id").or_insert_with(|| {
+                        thread_id.clone().map(Value::String).unwrap_or(Value::Null)
+                    });
+                    object.entry("event_id").or_insert_with(|| {
+                        event_id.clone().map(Value::String).unwrap_or(Value::Null)
+                    });
+                    object.entry("cursor").or_insert_with(|| {
+                        cursor.clone().map(Value::String).unwrap_or(Value::Null)
+                    });
+                    object
+                        .entry("receipt_refs")
+                        .or_insert_with(|| receipt_refs.clone());
+                    object
+                        .entry("policy_decision_refs")
+                        .or_insert_with(|| policy_refs.clone());
+                }
+                row
+            })
+            .collect();
+    }
     let policy = status.pointer("/policy").unwrap_or(&Value::Null);
     let memory_status = json_path_string(status, "/status").unwrap_or_else(|| "ready".to_string());
-    let row_status = if memory_status == "ready" {
+    let row_status = if memory_status == "ready" || memory_status == "completed" {
         "completed"
     } else {
         "blocked"
@@ -1583,9 +1696,58 @@ pub(crate) fn tui_memory_rows(status: &Value, fallback_thread_id: Option<&str>) 
             "policy_decision_refs": policy_refs.clone(),
         }),
     ];
+    let mutation_operation = json_path_string(status, "/memory_operation")
+        .or_else(|| json_path_string(status, "/memoryOperation"));
+    let mutation_record_id = status
+        .pointer("/record")
+        .and_then(|record| json_path_string(record, "/id"));
+    if let (Some(operation), Some(record)) =
+        (mutation_operation.as_deref(), status.pointer("/record"))
+    {
+        let record_id = mutation_record_id
+            .clone()
+            .unwrap_or_else(|| "memory".to_string());
+        let raw_input = match operation {
+            "edit" => "/memory edit",
+            "delete" => "/memory delete",
+            "write" => "/memory remember",
+            _ => "/memory",
+        };
+        rows.push(serde_json::json!({
+            "id": format!("tui-memory-record-{}", safe_id(&record_id)),
+            "row_kind": "memory_record",
+            "status": "completed",
+            "label": match operation {
+                "edit" => "Memory edit",
+                "delete" => "Memory delete",
+                "write" => "Memory write",
+                _ => "Memory record",
+            },
+            "command": "memory",
+            "raw_input": raw_input,
+            "message": json_path_string(record, "/fact").unwrap_or_else(|| format!("memory {operation}")),
+            "thread_id": json_path_string(record, "/threadId").or_else(|| thread_id.clone()),
+            "event_id": event_id.clone(),
+            "cursor": cursor.clone(),
+            "memory_record_id": record_id,
+            "memory_scope": json_path_string(record, "/scope"),
+            "memory_key": json_path_string(record, "/memoryKey"),
+            "memory_operation": operation,
+            "workflow_node_id": json_path_string(record, "/workflowNodeId")
+                .or_else(|| json_path_string(status, "/event/workflow_node_id"))
+                .unwrap_or_else(|| "runtime.memory".to_string()),
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_refs.clone(),
+        }));
+    }
     if let Some(records) = status.pointer("/records").and_then(Value::as_array) {
         for record in records {
             let record_id = json_path_string(record, "/id").unwrap_or_else(|| "memory".to_string());
+            if mutation_record_id.as_deref() == Some(record_id.as_str())
+                && mutation_operation.as_deref().unwrap_or("read") != "read"
+            {
+                continue;
+            }
             rows.push(serde_json::json!({
                 "id": format!("tui-memory-record-{}", safe_id(&record_id)),
                 "row_kind": "memory_record",
@@ -2020,6 +2182,10 @@ fn route_with_thread_and_mcp_server(template: &str, thread_id: &str, server_id: 
 
 fn route_with_thread_and_mcp_tool(template: &str, thread_id: &str, tool_id: &str) -> String {
     route_with_thread(template, thread_id).replace("{tool_id}", tool_id)
+}
+
+fn route_with_thread_and_memory(template: &str, thread_id: &str, memory_id: &str) -> String {
+    route_with_thread(template, thread_id).replace("{memory_id}", memory_id)
 }
 
 fn route_with_thread_and_snapshot(template: &str, thread_id: &str, snapshot_id: &str) -> String {
