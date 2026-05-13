@@ -141,7 +141,22 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
         summary: "Test run passed with exit code 0.",
       },
     }),
-    event("event-coding-retrieve", 4, {
+    event("event-coding-diagnostics", 4, {
+      type: "tool_completed",
+      eventKind: "tool.completed",
+      sourceEventKind: "CodingTool.LspDiagnostics",
+      workflowNodeId: "runtime.coding-tool.lsp.diagnostics",
+      componentKind: "coding_tool",
+      toolName: "lsp.diagnostics",
+      payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
+      receiptRefs: ["receipt-coding-diagnostics"],
+      payload: {
+        tool_pack: "coding",
+        shell_fallback_used: false,
+        summary: "Diagnostics findings with 1 finding(s).",
+      },
+    }),
+    event("event-coding-retrieve", 5, {
       type: "tool_completed",
       eventKind: "tool.completed",
       sourceEventKind: "CodingTool.ToolRetrieveResult",
@@ -181,7 +196,11 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
   assert.deepEqual(testNode?.receiptRefs, ["receipt-coding-test"]);
   assert.deepEqual(testNode?.artifactRefs, ["artifact-coding-test-output"]);
   assert.equal(testNode?.summary, "Test run passed with exit code 0.");
-  const retrieveNode = projection.nodes[3];
+  const diagnosticsNode = projection.nodes[3];
+  assert.equal(diagnosticsNode?.workflowNodeId, "runtime.coding-tool.lsp.diagnostics");
+  assert.equal(diagnosticsNode?.label, "Coding tool: lsp.diagnostics");
+  assert.deepEqual(diagnosticsNode?.receiptRefs, ["receipt-coding-diagnostics"]);
+  const retrieveNode = projection.nodes[4];
   assert.equal(retrieveNode?.workflowNodeId, "runtime.coding-tool.tool.retrieve-result");
   assert.equal(retrieveNode?.label, "Coding tool: tool.retrieve_result");
   assert.deepEqual(retrieveNode?.artifactRefs, ["artifact-coding-test-output"]);

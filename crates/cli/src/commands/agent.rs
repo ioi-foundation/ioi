@@ -372,27 +372,27 @@ pub enum ToolCommands {
     },
     /// Invoke a daemon-backed coding tool for a runtime thread.
     Run {
-        /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, test.run, artifact.read, or tool.retrieve_result.
+        /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, or tool.retrieve_result.
         tool: String,
         /// Runtime thread id that owns the tool event stream.
         #[clap(long = "thread-id")]
         thread_id: String,
-        /// Workspace-relative path for file.inspect, git.diff, file.apply_patch, or test.run.
+        /// Workspace-relative path for file.inspect, git.diff, file.apply_patch, test.run, or lsp.diagnostics.
         #[clap(long)]
         path: Option<String>,
-        /// Structured test command id for test.run, for example node.test.
+        /// Structured command id for test.run or lsp.diagnostics, for example node.test or node.check.
         #[clap(long = "command-id")]
         command_id: Option<String>,
-        /// Workspace-relative cwd for test.run.
+        /// Workspace-relative cwd for test.run or lsp.diagnostics.
         #[clap(long)]
         cwd: Option<String>,
-        /// Extra structured argument for test.run. Repeat for multiple args.
+        /// Extra structured argument for test.run or lsp.diagnostics. Repeat for multiple args.
         #[clap(long = "test-arg")]
         test_args: Vec<String>,
-        /// Timeout in milliseconds for test.run.
+        /// Timeout in milliseconds for test.run or lsp.diagnostics.
         #[clap(long = "timeout-ms")]
         timeout_ms: Option<u64>,
-        /// Maximum stdout/stderr preview bytes for test.run.
+        /// Maximum stdout/stderr preview bytes for test.run or lsp.diagnostics.
         #[clap(long = "max-output-bytes")]
         max_output_bytes: Option<u64>,
         /// Artifact id/ref for artifact.read or tool.retrieve_result.
@@ -1364,6 +1364,11 @@ async fn invoke_coding_tool(
             "agent tools run file.apply_patch requires --path <workspace-relative-path>"
         ));
     }
+    if tool == "lsp.diagnostics" && path.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err(anyhow!(
+            "agent tools run lsp.diagnostics requires --path <workspace-relative-path>"
+        ));
+    }
     let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
     let token = resolve_daemon_token(token.as_deref());
     let mut body = serde_json::Map::new();
@@ -1378,7 +1383,7 @@ async fn invoke_coding_tool(
             serde_json::Value::String(path.to_string()),
         );
     }
-    if tool == "test.run" {
+    if tool == "test.run" || tool == "lsp.diagnostics" {
         if let Some(command_id) = command_id
             .as_deref()
             .filter(|value| !value.trim().is_empty())
@@ -2550,6 +2555,34 @@ mod tests {
         .expect("coding test command should parse");
         assert!(matches!(
             coding_test_run.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Run {
+                    command_id: Some(_),
+                    timeout_ms: Some(30000),
+                    json: true,
+                    ..
+                }),
+                ..
+            })
+        ));
+        let coding_diagnostics_run = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "run",
+            "lsp.diagnostics",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--command-id",
+            "node.check",
+            "--path",
+            "src/main.mjs",
+            "--timeout-ms",
+            "30000",
+            "--json",
+        ])
+        .expect("coding diagnostics command should parse");
+        assert!(matches!(
+            coding_diagnostics_run.command,
             Some(AgentCommands::Tools {
                 command: Some(ToolCommands::Run {
                     command_id: Some(_),

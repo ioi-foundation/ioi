@@ -61,6 +61,9 @@ pub(crate) enum TuiLineCommand {
     Test {
         path: Option<String>,
     },
+    Diagnostics {
+        path: String,
+    },
     ArtifactRead {
         artifact_id: String,
     },
@@ -290,6 +293,26 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::Diagnostics { path }) => {
+                let mut input = serde_json::Map::new();
+                input.insert(
+                    "commandId".to_string(),
+                    Value::String("node.check".to_string()),
+                );
+                input.insert("path".to_string(), Value::String(path));
+                let events =
+                    handle_coding_tool_input_command(&mut session, "lsp.diagnostics", input)
+                        .await?;
+                control_state.record_command(
+                    "diagnostics",
+                    line.trim(),
+                    "applied",
+                    Some("diagnostics run"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::ArtifactRead { artifact_id }) => {
                 let mut input = serde_json::Map::new();
                 input.insert("artifactId".to_string(), Value::String(artifact_id));
@@ -429,6 +452,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
         "test" | "test-run" => Ok(TuiLineCommand::Test {
             path: non_empty_string(rest),
         }),
+        "diagnostics" | "diag" | "lsp-diagnostics" => {
+            let path =
+                non_empty_string(rest).ok_or_else(|| anyhow!("/diagnostics requires a path"))?;
+            Ok(TuiLineCommand::Diagnostics { path })
+        }
         "artifact" | "artifact-read" => {
             let artifact_id = non_empty_string(rest)
                 .ok_or_else(|| anyhow!("/artifact requires an artifact id"))?;
@@ -642,6 +670,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "file.inspect" => "inspect",
         "file.apply_patch" => "patch",
         "test.run" => "test",
+        "lsp.diagnostics" => "diagnostics",
         "artifact.read" => "artifact",
         "tool.retrieve_result" => "retrieve",
         _ => "tool",
@@ -649,7 +678,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -980,6 +1009,12 @@ mod tests {
             parse_tui_line_command("/test sample.test.mjs").unwrap(),
             TuiLineCommand::Test {
                 path: Some("sample.test.mjs".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/diagnostics src/main.mjs").unwrap(),
+            TuiLineCommand::Diagnostics {
+                path: "src/main.mjs".to_string()
             }
         );
         assert_eq!(

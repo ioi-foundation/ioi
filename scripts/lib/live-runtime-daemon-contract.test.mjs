@@ -3571,7 +3571,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.doesNotMatch(source, /StepAgentParams/);
 });
 
-test("coding tool pack invokes status, diff, inspect, apply patch, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow", async () => {
+test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-workspace-"));
@@ -3585,7 +3585,8 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     path.join(cwd, "sample.test.mjs"),
     "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `RUNTIME_ARTIFACT_SPILLOVER_START ${'x'.repeat(4096)} RUNTIME_ARTIFACT_SPILLOVER_END`;\n\ntest('runtime coding test proof', () => {\n  console.log(marker);\n  assert.equal(2 + 2, 4);\n});\n",
   );
-  git(cwd, ["add", "README.md", "sample.test.mjs"]);
+  fs.writeFileSync(path.join(cwd, "diagnostic-target.mjs"), "export const value = 1;\n");
+  git(cwd, ["add", "README.md", "sample.test.mjs", "diagnostic-target.mjs"]);
   git(cwd, ["commit", "-m", "seed workspace"]);
   fs.appendFileSync(path.join(cwd, "README.md"), "\nChanged line for diff proof.\n");
 
@@ -3604,6 +3605,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
       "file.apply_patch",
       "file.inspect",
       "git.diff",
+      "lsp.diagnostics",
       "test.run",
       "tool.retrieve_result",
       "workspace.status",
@@ -3624,6 +3626,10 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.ok(testContract);
     assert.equal(testContract.effectClass, "local_command");
     assert.ok(testContract.authorityScopeRequirements.includes("scope:workspace.test"));
+    const diagnosticsContract = catalog.find((tool) => tool.stableToolId === "lsp.diagnostics");
+    assert.ok(diagnosticsContract);
+    assert.equal(diagnosticsContract.effectClass, "local_read");
+    assert.equal(diagnosticsContract.riskDomain, "diagnostics");
     const artifactContract = catalog.find((tool) => tool.stableToolId === "artifact.read");
     assert.ok(artifactContract);
     assert.equal(artifactContract.effectClass, "local_read");
@@ -3690,6 +3696,38 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
         }),
       },
     );
+    const diagnosticPatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch.diagnostics",
+          input: {
+            path: "diagnostic-target.mjs",
+            oldText: "export const value = 1;",
+            newText: "export const value = ;",
+          },
+        }),
+      },
+    );
+    const diagnosticsResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/lsp.diagnostics/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.lsp.diagnostics",
+          input: {
+            commandId: "node.check",
+            path: "diagnostic-target.mjs",
+            maxOutputBytes: 4096,
+          },
+        }),
+      },
+    );
     assert.equal(statusResult.status, "completed");
     assert.equal(statusResult.shell_fallback_used, false);
     assert.equal(diffResult.result.paths[0], "README.md");
@@ -3701,6 +3739,15 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.equal(dryRunPatchResult.result.applied, false);
     assert.match(dryRunPatchResult.result.diff, /Dry-run patched line/);
     assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /Initial line\./);
+    assert.equal(diagnosticPatchResult.status, "completed");
+    assert.equal(diagnosticPatchResult.result.diagnosticsRecommended, true);
+    assert.equal(diagnosticPatchResult.result.changedFiles[0]?.path, "diagnostic-target.mjs");
+    assert.equal(diagnosticsResult.status, "completed");
+    assert.equal(diagnosticsResult.tool_name, "lsp.diagnostics");
+    assert.equal(diagnosticsResult.result.diagnosticStatus, "findings");
+    assert.equal(diagnosticsResult.result.diagnosticCount, 1);
+    assert.equal(diagnosticsResult.result.shellFallbackUsed, false);
+    assert.match(diagnosticsResult.result.diagnostics[0]?.message ?? "", /SyntaxError|Unexpected/);
     assert.equal(testResult.status, "completed");
     assert.equal(testResult.tool_name, "test.run");
     assert.equal(testResult.result.testStatus, "passed");
@@ -3782,6 +3829,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.equal(sdkTest.status, "completed");
     assert.equal(sdkTest.tool_name, "test.run");
     assert.equal(sdkTest.result.testStatus, "passed");
+    const sdkDiagnostics = await sdkClient.invokeThreadTool(thread.thread_id, "lsp.diagnostics", {
+      input: { commandId: "node.check", path: "diagnostic-target.mjs" },
+      workflowNodeId: "runtime.coding-tool.sdk-lsp-diagnostics",
+    });
+    assert.equal(sdkDiagnostics.status, "completed");
+    assert.equal(sdkDiagnostics.tool_name, "lsp.diagnostics");
+    assert.equal(sdkDiagnostics.result.diagnosticStatus, "findings");
     const sdkArtifactRead = await sdkClient.invokeThreadTool(thread.thread_id, "artifact.read", {
       input: { artifactId: spilloverArtifactId, lengthBytes: 8192 },
       workflowNodeId: "runtime.coding-tool.sdk-artifact-read",
@@ -3871,6 +3925,30 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.equal(cliTest.status, "completed");
     assert.equal(cliTest.tool_name, "test.run");
     assert.equal(cliTest.result.testStatus, "passed");
+    const cliDiagnostics = JSON.parse(
+      (await execFileAsync(
+        cli,
+        [
+          "agent",
+          "tools",
+          "run",
+          "lsp.diagnostics",
+          "--thread-id",
+          thread.thread_id,
+          "--command-id",
+          "node.check",
+          "--path",
+          "diagnostic-target.mjs",
+          "--endpoint",
+          daemon.endpoint,
+          "--json",
+        ],
+        { cwd: root },
+      )).stdout,
+    );
+    assert.equal(cliDiagnostics.status, "completed");
+    assert.equal(cliDiagnostics.tool_name, "lsp.diagnostics");
+    assert.equal(cliDiagnostics.result.diagnosticStatus, "findings");
     const cliRetrieve = JSON.parse(
       (await execFileAsync(
         cli,
@@ -3907,15 +3985,16 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
         daemon.endpoint,
         "--interactive",
       ],
-      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/quit\n`,
+      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/diagnostics diagnostic-target.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/quit\n`,
       { cwd: root, timeout: 30000 },
     );
-    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/artifact <artifact_id> .*\/retrieve <tool_call_id_or_artifact_id> .*\/quit/);
+    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/diagnostics <path> .*\/artifact <artifact_id> .*\/retrieve <tool_call_id_or_artifact_id> .*\/quit/);
     assert.match(tuiResult.stdout, /line_mode_command=status tool=workspace\.status status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=diff tool=git\.diff status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=inspect tool=file\.inspect status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=patch tool=file\.apply_patch status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=test tool=test\.run status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=diagnostics tool=lsp\.diagnostics status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=artifact tool=artifact\.read status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=retrieve tool=tool\.retrieve_result status=completed/);
     assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI patched line\./);
@@ -3925,7 +4004,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
     );
     const codingEvents = daemonEvents.filter((event) => event.component_kind === "coding_tool");
-    assert.ok(codingEvents.length >= 20);
+    assert.ok(codingEvents.length >= 24);
     assert.ok(codingEvents.every((event) => event.payload_schema_version === "ioi.runtime.coding-tool-result.v1"));
     assert.ok(codingEvents.every((event) => event.event_kind === "tool.completed"));
     assert.ok(codingEvents.every((event) => event.payload.shell_fallback_used === "false"));
@@ -3953,6 +4032,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.ok(reactFlowTest);
     assert.equal(reactFlowTest.workflow_node_id, "workflow.coding.test.run");
     assert.ok(reactFlowTest.artifact_refs.includes(spilloverArtifactId));
+    const reactFlowDiagnostics = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "lsp.diagnostics" &&
+        event.source === "react_flow",
+    );
+    assert.ok(reactFlowDiagnostics);
+    assert.equal(reactFlowDiagnostics.workflow_node_id, "workflow.coding.lsp.diagnostics");
     const reactFlowArtifactRead = codingEvents.find(
       (event) =>
         event.payload.tool_name === "artifact.read" &&
@@ -3984,6 +4070,10 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.equal(sdkTestEvent.toolName, "test.run");
     assert.equal(sdkTestEvent.sourceEventKind, "CodingTool.TestRun");
     assert.ok(sdkTestEvent.artifactRefs.includes(spilloverArtifactId));
+    const sdkDiagnosticsEvent = sdkEvents.find((event) => event.id === reactFlowDiagnostics.event_id);
+    assert.ok(sdkDiagnosticsEvent);
+    assert.equal(sdkDiagnosticsEvent.toolName, "lsp.diagnostics");
+    assert.equal(sdkDiagnosticsEvent.sourceEventKind, "CodingTool.LspDiagnostics");
     const sdkArtifactReadEvent = sdkEvents.find((event) => event.id === reactFlowArtifactRead.event_id);
     assert.ok(sdkArtifactReadEvent);
     assert.equal(sdkArtifactReadEvent.toolName, "artifact.read");
@@ -4017,6 +4107,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, test run, and
     assert.equal(testNode.label, "Coding tool: test.run");
     assert.deepEqual(testNode.receiptRefs, reactFlowTest.receipt_refs);
     assert.ok(testNode.artifactRefs.includes(spilloverArtifactId));
+    const diagnosticsNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(reactFlowDiagnostics.event_id),
+    );
+    assert.ok(diagnosticsNode);
+    assert.equal(diagnosticsNode.workflowNodeId, "workflow.coding.lsp.diagnostics");
+    assert.equal(diagnosticsNode.label, "Coding tool: lsp.diagnostics");
+    assert.deepEqual(diagnosticsNode.receiptRefs, reactFlowDiagnostics.receipt_refs);
     const retrieveNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(reactFlowRetrieve.event_id),
     );

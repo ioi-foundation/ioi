@@ -120,6 +120,10 @@ workstream was narrower.
 | 118 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI control-state projection and run-inspector rows | /tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json |
 | 119 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI approval and mode-status control rows | /tmp/ioi-autopilot-gui-harness-tui-approval-mode-status/2026-05-13T02-46-20-811Z/result.json |
 | 120 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack status/diff/inspect contract | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-status-diff-inspect/2026-05-13T03-05-13-000Z/result.json |
+| 121 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack governed apply-patch contract | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch/2026-05-13T03-24-26-739Z/result.json |
+| 122 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack structured test-run contract | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-test-run/2026-05-13T03-36-24-435Z/result.json |
+| 123 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack artifact spillover and retrieval | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval/2026-05-13T03-53-05-208Z/result.json |
+| 124 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | coding tool-pack post-edit diagnostics MVP | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -639,6 +643,50 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-artifact-retrieval/2026-05-13T03-53-05-208Z/result.json`.
+
+### Slice 124. 2026-05-13 - Coding tool-pack post-edit diagnostics MVP
+
+Implementation slice completed 2026-05-13, coding tool-pack post-edit
+diagnostics MVP:
+
+- Added daemon-owned `lsp.diagnostics` to the `coding` pack with read-only
+  diagnostics risk metadata, `LspDiagnosticsNode` workflow type, receipt
+  requirements, and SDK catalog projection.
+- Added safe diagnostics backends for `node.check` and local
+  `typescript.check`; `node.check` runs `node --check` over `.js`, `.mjs`, and
+  `.cjs` files without executing user code, while `typescript.check` degrades
+  cleanly when no local `node_modules/.bin/tsc` exists.
+- Extended `file.apply_patch` results with `changedFiles` metadata and
+  `diagnosticsRecommended` so the next runtime slice can trigger automatic
+  post-edit diagnostics injection.
+- Extended CLI `agent tools run lsp.diagnostics`, TUI `/diagnostics <path>`,
+  SDK invocation, and React Flow coding-pack controls/creator entries for
+  diagnostics enablement, allowed diagnostic command ids, paths, and timeout.
+- Updated React Flow event projection tests and the live daemon contract to
+  prove a React Flow-originated patch can introduce a syntax finding, then
+  surface that finding through daemon events, SDK, CLI, TUI, and projected
+  coding-tool rows.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli`
+- `cargo check -p ioi-cli`
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

@@ -3494,7 +3494,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
   const codingToolPack = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.coding_pack",
     label: "Coding tool pack",
-    description: "Invoke daemon-owned workspace status, git diff, file inspection, governed patch, test, and artifact retrieval tools.",
+    description: "Invoke daemon-owned workspace status, git diff, file inspection, governed patch, test, diagnostics, and artifact retrieval tools.",
     metricValue: "coding",
     defaultLogic: {
       toolBinding: {
@@ -3508,6 +3508,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           "file.inspect",
           "file.apply_patch",
           "test.run",
+          "lsp.diagnostics",
           "artifact.read",
           "tool.retrieve_result",
         ],
@@ -3521,9 +3522,11 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           filesystemEnabled: true,
           writeEnabled: true,
           testEnabled: true,
+          diagnosticsEnabled: true,
           artifactEnabled: true,
           resultRetrievalEnabled: true,
           allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+          allowedDiagnosticCommandIds: ["node.check", "typescript.check"],
           timeoutMs: 60000,
           dryRun: false,
           allowedPaths: [],
@@ -3622,6 +3625,31 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           testEnabled: true,
           allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
           timeoutMs: 60000,
+          allowedPaths: [],
+        },
+      },
+    },
+  });
+  const lspDiagnosticsTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.lsp_diagnostics",
+    label: "LSP diagnostics",
+    description: "Run daemon-owned post-edit diagnostics over workspace files.",
+    metricValue: "diagnostics",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "lsp.diagnostics",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["lsp.diagnostics"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: { commandId: "node.check" },
+        toolPack: {
+          pack: "coding",
+          diagnosticsEnabled: true,
+          allowedDiagnosticCommandIds: ["node.check", "typescript.check"],
+          timeoutMs: 30000,
           allowedPaths: [],
         },
       },
@@ -3934,6 +3962,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     fileInspectTool,
     fileApplyPatchTool,
     testRunTool,
+    lspDiagnosticsTool,
     artifactReadTool,
     toolRetrieveResultTool,
     outputInline,

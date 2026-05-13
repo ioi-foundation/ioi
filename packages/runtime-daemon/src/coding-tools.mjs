@@ -13,6 +13,7 @@ export const CODING_TOOL_IDS = new Set([
   "file.inspect",
   "file.apply_patch",
   "test.run",
+  "lsp.diagnostics",
   "artifact.read",
   "tool.retrieve_result",
 ]);
@@ -27,6 +28,10 @@ const CODING_TOOL_TEST_MAX_OUTPUT_BYTES = 64 * 1024;
 const CODING_TOOL_TEST_MAX_TIMEOUT_MS = 5 * 60 * 1000;
 const CODING_TOOL_TEST_DEFAULT_TIMEOUT_MS = 60 * 1000;
 const CODING_TOOL_TEST_COMMAND_IDS = ["node.test", "npm.test", "cargo.test", "cargo.check"];
+const CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES = 64 * 1024;
+const CODING_TOOL_DIAGNOSTIC_MAX_TIMEOUT_MS = 2 * 60 * 1000;
+const CODING_TOOL_DIAGNOSTIC_DEFAULT_TIMEOUT_MS = 30 * 1000;
+const CODING_TOOL_DIAGNOSTIC_COMMAND_IDS = ["node.check", "typescript.check"];
 const CODING_TOOL_ARTIFACT_MAX_READ_BYTES = 256 * 1024;
 const CODING_TOOL_ARTIFACT_DEFAULT_READ_BYTES = 64 * 1024;
 
@@ -219,6 +224,49 @@ export function codingToolContracts() {
     },
     {
       schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stableToolId: "lsp.diagnostics",
+      displayName: "LSP diagnostics",
+      pack: CODING_TOOL_PACK_ID,
+      primitiveCapabilities: ["prim:lsp.diagnostics", "prim:process.exec_file"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "diagnostics",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          commandId: { type: "string", enum: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS },
+          cwd: { type: "string" },
+          path: { type: "string" },
+          paths: { type: "array", items: { type: "string" } },
+          args: { type: "array", items: { type: "string" } },
+          timeoutMs: { type: "integer", minimum: 1, maximum: CODING_TOOL_DIAGNOSTIC_MAX_TIMEOUT_MS },
+          maxOutputBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES },
+        },
+      },
+      outputSchema: {
+        type: "object",
+        required: [
+          "workspaceRoot",
+          "commandId",
+          "diagnosticStatus",
+          "diagnostics",
+          "diagnosticCount",
+          "outputHash",
+          "shellFallbackUsed",
+        ],
+      },
+      evidenceRequirements: ["lsp_diagnostics_receipt", "coding_tool_receipt"],
+      workflowNodeType: "LspDiagnosticsNode",
+      workflowConfigFields: [
+        "toolPack.coding.diagnosticsEnabled",
+        "toolPack.coding.allowedDiagnosticCommandIds",
+        "toolPack.coding.allowedPaths",
+        "toolPack.coding.timeoutMs",
+      ],
+    },
+    {
+      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
       stableToolId: "artifact.read",
       displayName: "Read artifact",
       pack: CODING_TOOL_PACK_ID,
@@ -304,6 +352,8 @@ export function executeCodingTool(toolId, workspaceRoot, input = {}, context = {
       return fileApplyPatchTool(workspaceRoot, input);
     case "test.run":
       return testRunTool(workspaceRoot, input);
+    case "lsp.diagnostics":
+      return lspDiagnosticsTool(workspaceRoot, input);
     case "artifact.read":
       return artifactReadTool(input, context);
     case "tool.retrieve_result":
@@ -328,6 +378,14 @@ export function codingToolInputSummary(toolId, input = {}) {
   if (toolId === "test.run") {
     return {
       commandId: optionalString(input.commandId ?? input.command_id) ?? "node.test",
+      paths: codingToolRawPathSummary(input),
+      cwd: optionalString(input.cwd) ?? ".",
+      timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
+    };
+  }
+  if (toolId === "lsp.diagnostics") {
+    return {
+      commandId: optionalString(input.commandId ?? input.command_id) ?? "node.check",
       paths: codingToolRawPathSummary(input),
       cwd: optionalString(input.cwd) ?? ".",
       timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
@@ -396,6 +454,16 @@ export function codingToolResultSummary(toolId, result = {}) {
       spilloverRecommended: Boolean(result?.spilloverRecommended),
     };
   }
+  if (toolId === "lsp.diagnostics") {
+    return {
+      commandId: result?.commandId ?? null,
+      diagnosticStatus: result?.diagnosticStatus ?? null,
+      diagnosticCount: Number(result?.diagnosticCount ?? 0),
+      backendStatus: result?.backendStatus ?? null,
+      truncated: Boolean(result?.truncated),
+      spilloverRecommended: Boolean(result?.spilloverRecommended),
+    };
+  }
   if (toolId === "artifact.read") {
     return {
       artifactId: result?.artifactId ?? null,
@@ -435,6 +503,9 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
   }
   if (toolId === "test.run") {
     return `Test run ${result?.testStatus ?? "completed"} with exit code ${Number(result?.exitCode ?? 0)}.`;
+  }
+  if (toolId === "lsp.diagnostics") {
+    return `Diagnostics ${result?.diagnosticStatus ?? "completed"} with ${Number(result?.diagnosticCount ?? 0)} finding(s).`;
   }
   if (toolId === "artifact.read") {
     return `Read artifact ${result?.artifactId ?? "artifact"}.`;
@@ -702,6 +773,18 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
     diffBytes: diff.bytes,
     diffHash: hashText(diff.text),
     truncated: diff.truncated,
+    changedFiles: changed
+      ? [
+          {
+            path: target.relativePath,
+            beforeHash,
+            afterHash,
+            created: !exists,
+            diagnosticsRecommended: !dryRun,
+          },
+        ]
+      : [],
+    diagnosticsRecommended: Boolean(changed && !dryRun),
     receiptRefs: [
       `receipt_file_apply_patch_${safeReceiptPath(target.relativePath)}_${afterHash.slice(0, 12)}`,
     ],
@@ -789,6 +872,237 @@ function testRunTool(workspaceRoot, input = {}) {
     receiptRefs: [`receipt_test_run_${safeReceiptPath(commandId)}_${outputHash.slice(0, 12)}`],
     shellFallbackUsed: false,
   };
+}
+
+function lspDiagnosticsTool(workspaceRoot, input = {}) {
+  const commandId = optionalString(input.commandId ?? input.command_id) ?? "node.check";
+  const runCwd = resolveWorkspaceDirectory(workspaceRoot, optionalString(input.cwd) ?? ".");
+  const timeoutMs = boundedInteger(
+    input.timeoutMs ?? input.timeout_ms,
+    CODING_TOOL_DIAGNOSTIC_DEFAULT_TIMEOUT_MS,
+    1,
+    CODING_TOOL_DIAGNOSTIC_MAX_TIMEOUT_MS,
+  );
+  const maxOutputBytes = boundedInteger(
+    input.maxOutputBytes ?? input.max_output_bytes,
+    CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES,
+    1,
+    CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES,
+  );
+  const paths = codingToolPaths(workspaceRoot, input);
+  if (!paths.length) {
+    throw codingToolError(400, "lsp_diagnostics_path_required", "lsp.diagnostics requires path or paths.", {
+      toolId: "lsp.diagnostics",
+    });
+  }
+  const startedAt = Date.now();
+  const diagnosticRun =
+    commandId === "node.check"
+      ? nodeCheckDiagnostics(workspaceRoot, runCwd, paths, timeoutMs)
+      : commandId === "typescript.check"
+        ? typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input)
+        : null;
+  if (!diagnosticRun) {
+    throw codingToolError(403, "lsp_diagnostics_command_not_allowed", "lsp.diagnostics commandId is not allowlisted.", {
+      commandId,
+      allowedCommandIds: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS,
+    });
+  }
+  const durationMs = Date.now() - startedAt;
+  const stdoutPreview = utf8Preview(diagnosticRun.stdout, maxOutputBytes);
+  const stderrPreview = utf8Preview(diagnosticRun.stderr, maxOutputBytes);
+  const outputHash = hashText(`${diagnosticRun.stdout}\n${diagnosticRun.stderr}`);
+  const truncated = stdoutPreview.truncated || stderrPreview.truncated;
+  const artifactDrafts = truncated
+    ? [
+        {
+          name: "diagnostics-output.txt",
+          channel: "diagnostics",
+          mediaType: "text/plain",
+          content: `${diagnosticRun.stdout}\n${diagnosticRun.stderr}`,
+        },
+      ]
+    : [];
+  return {
+    schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+    workspaceRoot,
+    commandId,
+    command: diagnosticRun.displayCommand,
+    cwd: runCwd.relativePath,
+    backend: diagnosticRun.backend,
+    backendStatus: diagnosticRun.backendStatus,
+    diagnosticStatus: diagnosticRun.diagnosticStatus,
+    diagnostics: diagnosticRun.diagnostics,
+    diagnosticCount: diagnosticRun.diagnostics.length,
+    paths: paths.map((entry) => entry.relativePath),
+    exitCode: diagnosticRun.exitCode,
+    timedOut: diagnosticRun.timedOut,
+    durationMs,
+    timeoutMs,
+    stdout: stdoutPreview.text,
+    stderr: stderrPreview.text,
+    outputBytes: Buffer.byteLength(diagnosticRun.stdout, "utf8") + Buffer.byteLength(diagnosticRun.stderr, "utf8"),
+    outputHash,
+    truncated,
+    spilloverRecommended: truncated,
+    artifactDrafts,
+    allowedCommandIds: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS,
+    receiptRefs: [`receipt_lsp_diagnostics_${safeReceiptPath(commandId)}_${outputHash.slice(0, 12)}`],
+    shellFallbackUsed: false,
+  };
+}
+
+function nodeCheckDiagnostics(workspaceRoot, runCwd, paths, timeoutMs) {
+  const diagnostics = [];
+  const outputs = [];
+  let exitCode = 0;
+  let timedOut = false;
+  let unsupportedCount = 0;
+  for (const target of paths) {
+    if (!/\.(cjs|js|mjs)$/i.test(target.relativePath)) {
+      unsupportedCount += 1;
+      diagnostics.push({
+        path: target.relativePath,
+        severity: "warning",
+        source: "node.check",
+        code: "unsupported_path",
+        message: "node.check only supports .js, .mjs, and .cjs files.",
+        line: null,
+        column: null,
+      });
+      continue;
+    }
+    const run = execFileCaptured(process.execPath, ["--check", target.absolutePath], {
+      cwd: runCwd.absolutePath,
+      timeoutMs,
+      env: {},
+    });
+    outputs.push({ target, run });
+    exitCode = Math.max(exitCode, Number(run.exitCode ?? 0));
+    timedOut = timedOut || Boolean(run.timedOut);
+    if (run.exitCode !== 0 || run.timedOut) {
+      diagnostics.push(...nodeCheckOutputDiagnostics(target, run));
+    }
+  }
+  const stdout = outputs.map(({ run }) => run.stdout).filter(Boolean).join("\n");
+  const stderr = outputs
+    .map(({ target, run }) => [`# ${target.relativePath}`, run.stderr].filter(Boolean).join("\n"))
+    .filter(Boolean)
+    .join("\n");
+  const backendStatus =
+    unsupportedCount === paths.length ? "degraded" : timedOut ? "timed_out" : "available";
+  return {
+    backend: "node.check",
+    backendStatus,
+    displayCommand: "node --check",
+    stdout,
+    stderr,
+    exitCode: timedOut ? 124 : exitCode,
+    timedOut,
+    diagnostics,
+    diagnosticStatus:
+      backendStatus === "degraded" ? "degraded" : diagnostics.some((item) => item.severity === "error") ? "findings" : "clean",
+  };
+}
+
+function nodeCheckOutputDiagnostics(target, run) {
+  if (run.timedOut) {
+    return [
+      {
+        path: target.relativePath,
+        severity: "error",
+        source: "node.check",
+        code: "timeout",
+        message: "node.check timed out.",
+        line: null,
+        column: null,
+      },
+    ];
+  }
+  const stderr = String(run.stderr ?? "");
+  const lines = stderr.split(/\r?\n/);
+  const location = lines.find((line) => line.startsWith(target.absolutePath));
+  const locationMatch = location?.match(/:(\d+)(?::(\d+))?$/);
+  const message =
+    lines.find((line) => /^(SyntaxError|TypeError|ReferenceError|Error):/.test(line.trim()))?.trim() ??
+    stderr.trim().split(/\r?\n/).filter(Boolean).at(-1) ??
+    "node.check reported a diagnostic.";
+  const caretIndex = lines.findIndex((line) => /^\s*\^+\s*$/.test(line));
+  const column = caretIndex > 0 ? Math.max(1, lines[caretIndex].indexOf("^") + 1) : Number(locationMatch?.[2] ?? 0) || null;
+  return [
+    {
+      path: target.relativePath,
+      severity: "error",
+      source: "node.check",
+      code: message.split(":")[0]?.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "diagnostic",
+      message,
+      line: Number(locationMatch?.[1] ?? 0) || null,
+      column,
+    },
+  ];
+}
+
+function typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input = {}) {
+  const executable = localTscExecutable(workspaceRoot);
+  if (!executable) {
+    return {
+      backend: "typescript.check",
+      backendStatus: "degraded",
+      displayCommand: "tsc --noEmit --pretty false",
+      stdout: "",
+      stderr: "typescript.check degraded: local node_modules/.bin/tsc was not found.",
+      exitCode: 0,
+      timedOut: false,
+      diagnostics: [],
+      diagnosticStatus: "degraded",
+    };
+  }
+  const extraArgs = normalizeStringArray(input.args).slice(0, 100);
+  const pathArgs = paths.map((entry) => path.relative(runCwd.absolutePath, entry.absolutePath) || ".");
+  const args = ["--noEmit", "--pretty", "false", ...pathArgs, ...extraArgs];
+  const run = execFileCaptured(executable, args, { cwd: runCwd.absolutePath, timeoutMs, env: {} });
+  const diagnostics = run.exitCode === 0 && !run.timedOut
+    ? []
+    : typescriptOutputDiagnostics(paths, `${run.stdout}\n${run.stderr}`);
+  return {
+    backend: "typescript.check",
+    backendStatus: run.timedOut ? "timed_out" : "available",
+    displayCommand: "tsc --noEmit --pretty false",
+    stdout: run.stdout,
+    stderr: run.stderr,
+    exitCode: run.exitCode,
+    timedOut: run.timedOut,
+    diagnostics,
+    diagnosticStatus: run.timedOut || diagnostics.length ? "findings" : "clean",
+  };
+}
+
+function typescriptOutputDiagnostics(paths, output) {
+  const knownPaths = new Set(paths.map((entry) => entry.relativePath));
+  return String(output ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/);
+      if (!match) return null;
+      const relativePath = match[1].replaceAll("\\", "/");
+      return {
+        path: knownPaths.has(relativePath) ? relativePath : relativePath,
+        severity: "error",
+        source: "typescript.check",
+        code: match[4],
+        message: match[5],
+        line: Number(match[2]),
+        column: Number(match[3]),
+      };
+    })
+    .filter(Boolean);
+}
+
+function localTscExecutable(workspaceRoot) {
+  const executable = path.join(workspaceRoot, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc");
+  return fs.existsSync(executable) ? executable : null;
 }
 
 function artifactReadTool(input = {}, context = {}) {
