@@ -86,152 +86,65 @@ roadmap decisions, and the immediate tactical queue. New completed-slice detail
 should go into the implementation log, with proof paths summarized in the
 validation ledger.
 
-Completed workstream snapshot as of 2026-05-12:
+Strategic snapshot as of 2026-05-13:
 
-- Model routing, memory, doctor/config, skills, hooks, GitHub/PR, runtime
-  jobs, and task checklists have validated foundation slices.
-- Package/import execution, localization/accessibility, PR-create dry-run
-  execution, live shadow promotion, and default dispatch have live GUI evidence.
-- Workflow runtime lanes, scheduler lanes, readiness models, and React Flow
-  settings harness surfaces have been heavily modularized with source-contract
-  tests.
-- The active strategic risk remains the P0 live runtime API bridge plus durable
-  thread/turn/item event model; the schema snapshot and daemon event-store
-  spine are now locked, replay aliases resolve over stored event ids, the
-  daemon has an explicit `RuntimeApiBridge` boundary that prevents
-  runtime-service mode from falling back to fixture success paths, and the
-  `ioi-runtime-bridge` Rust executable now owns durable
-  `RuntimeAgentService` `start@v1`, `post_message@v1`, and `step@v1`
-  execution behind the command adapter. The daemon live contract now wires that
-  executable through env auto-discovery and proves persisted runtime-service
-  thread/turn replay from the real Rust boundary. The bridge now drains
-  emitted `KernelEvent` rows and maps the first reasoning/tool/policy/receipt
-  variants into workflow-addressable TTI events. The SDK now exposes typed
-  `Thread`/`Turn` wrappers over the canonical thread/turn/event API, including
-  mapped KernelEvent projection metadata that React Flow can consume. The React
-  Flow workflow surface now has a pure runtime event projection over those
-  thread events, emitting stable nodes, edges, statuses, cursors, and evidence
-  refs without becoming a second truth store. The workflow run inspector now
-  loads canonical runtime thread events for selected workflow runs and renders
-  the projection as read-only graph-addressable status evidence. The CLI/TUI
-  operator surface now has a no-fallback `agent stream` command over the same
-  daemon event store, including `since_seq`, `Last-Event-ID`, thread/run
-  replay, compact KernelEvent row output, and JSON replay for downstream TUI
-  use. The daemon live contract now proves one real mapped KernelEvent row keeps
-  the same `event_id`, `seq`, cursor, component kind, workflow node id, payload
-  schema, and evidence-ref arrays across daemon SSE replay, SDK
-  `Thread.events()`, CLI/TUI `agent stream`, and the React Flow projection. The
-  first four live control slices are now landed: operator interrupt creates a
-  canonical terminal `turn.interrupted` event, operator steer creates a
-  non-terminal `turn.steered` guidance event, and context compact creates a
-  thread-level `context.compacted` event anchored to the latest turn when
-  available. Thread fork creates a source-thread `thread.forked` event with the
-  fork thread id, source seq, receipt, policy decision, and React Flow node
-  metadata. Daemon SSE, SDK, CLI/TUI, and React Flow consume these controls by
-  the same `event_id`, `seq`, cursor, component kind, workflow node id, payload
-  schema, receipt refs, and policy refs. The fork control is now also
-  configurable as a React Flow workflow-authoring node,
-  `runtime_thread_fork`, which builds a daemon request with
-  `source=react_flow`, graph id, node id, and control metadata preserved
-  through daemon SSE, SDK `Thread.events()`, and the read-only React Flow
-  projection. The authoring surface now also exposes
-  `runtime_operator_interrupt`, which builds the live interrupt daemon request
-  from React Flow node config, preserves `source=react_flow` plus graph/node
-  identity through daemon SSE, SDK `Thread.events()`, and the read-only React
-  Flow projection, and shares request-building primitives with thread fork.
-  React Flow now also exposes `runtime_operator_steer`, which builds the live
-  steer daemon request from node config, preserves `source=react_flow` plus
-  graph/node identity through daemon SSE, SDK `Thread.events()`, and the
-  read-only React Flow projection, and emits a non-terminal `turn.steered`
-  guidance event without mutating the turn terminal state.
-  React Flow now also exposes `runtime_context_compact`, which builds the live
-  thread compaction daemon request from node config, preserves
-  `source=react_flow` plus graph/node identity through daemon SSE, SDK
-  `Thread.events()`, and the read-only React Flow projection, and keeps
-  compaction thread-scoped while anchoring to the active/latest turn. The four
-  React Flow runtime-control nodes now share request-envelope and workflow-node
-  helper code for thread/turn resolution, endpoint expansion, actor/source
-  metadata, graph identity, and Rust local descriptor output.
-  The React Flow settings harness active runtime binding panel is no longer a
-  single 970-line component: the parent now delegates the rollup summary and
-  deep-link strip to typed modules while preserving the existing test ids and
-  source-contract markers. The promotion readiness panel now follows the same
-  modular pattern: the former 943-line component is a small parent that
-  delegates live readiness summary/dispatch evidence, authority gate rows, and
-  read-only routing plus canary links to typed React Flow workflow modules.
-  The activation panel is now also modular: the former 736-line parent
-  delegates wizard detail rendering and blocker/action controls while keeping
-  the activation wizard and gate-panel source-contract hooks in place.
+- The live bridge foundation is now usable for parity work: TTI schemas,
+  daemon event-store replay, Rust `RuntimeAgentService` bridge execution,
+  KernelEvent mapping, SDK `Thread`/`Turn` wrappers, CLI `agent stream`, React
+  Flow read-only event projection, and the first live controls
+  (`interrupt`, `steer`, `compact`, `fork`) all have cross-surface proofs.
+- React Flow workflow-authoring can now create those same runtime-control
+  requests with preserved graph/node identity through daemon SSE, SDK events,
+  CLI stream output, and the read-only React Flow projection.
+- Model routing, memory, doctor/config, skills, hooks, GitHub/PR, task/job
+  records, package/import execution, localization/accessibility, promotion, and
+  default dispatch have validated foundation slices in the companion ledgers.
+- React Flow settings harness refactors are now maintenance work. They should
+  continue only when they unblock a named parity-plus capability or prevent an
+  active workflow-development surface from becoming unmaintainable.
 
-Most recent guide slice:
+Most recent completed implementation slice:
 
 - 2026-05-13: React Flow settings harness activation panel split
-- Artifacts:
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx,
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx,
-  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationActions.tsx,
-  scripts/lib/harness-refactor-shape.test.mjs,
-  docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
-- Validation: agent-ide build, harness refactor shape test, source-contract
-  workflow-addressability test, GUI harness preflight, and syntax checks; see
-  the validation ledger.
-
-Most recent live GUI implementation evidence:
-
-- 2026-05-13: Activation panel split GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json
+  `/tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json`
+- Trace detail:
+  `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
+  and
+  `docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md`
 
-Recent completed slice index:
+### Active Parity Gap Ledger
 
-| Date | Workstream | Slice | Evidence |
-| --- | --- | --- | --- |
-| 2026-05-13 | React Flow settings harness | Activation wizard details/action panel split | scripts/lib/harness-refactor-shape.test.mjs |
-| 2026-05-13 | React Flow settings harness | Promotion readiness summary/authority/routing panel split | scripts/lib/harness-refactor-shape.test.mjs |
-| 2026-05-13 | React Flow settings harness | Active runtime binding summary/deep-link panel split | scripts/lib/harness-refactor-shape.test.mjs |
-| 2026-05-13 | P0 live runtime bridge | Shared React Flow runtime-control helper extraction | packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts |
-| 2026-05-13 | P0 live runtime bridge | React Flow runtime context compact control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-13 | P0 live runtime bridge | React Flow runtime operator steer control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-13 | P0 live runtime bridge | React Flow runtime operator interrupt control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | React Flow runtime thread fork control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Live thread fork control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Live context compact control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Live operator steer turn-control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Live operator interrupt turn-control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Cross-surface same-sequence KernelEvent proof | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | CLI/TUI runtime event stream command | crates/cli/src/commands/agent_event_stream.rs |
-| 2026-05-12 | P0 live runtime bridge | Workflow run inspector runtime event graph | packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx |
-| 2026-05-12 | P0 live runtime bridge | React Flow runtime event projection over Thread.events | packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts |
-| 2026-05-12 | P0 live runtime bridge | SDK Thread/Turn canonical event projection | packages/agent-sdk/src/thread.ts |
-| 2026-05-12 | P0 live runtime bridge | KernelEvent bridge mapper foundation | crates/node/src/runtime_bridge_events.rs |
-| 2026-05-12 | P0 live runtime bridge | Daemon Rust bridge executable contract | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Rust RuntimeAgentService bridge executable | crates/node/src/bin/ioi-runtime-bridge.rs |
-| 2026-05-12 | P0 live runtime bridge | RuntimeAgentService command bridge adapter | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | RuntimeApiBridge boundary and turn projection | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Runtime event replay alias parity | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | Daemon event-store spine | scripts/lib/live-runtime-daemon-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | TTI schema snapshots | scripts/lib/live-bridge-tti-schema-contract.test.mjs |
-| 2026-05-12 | P0 live runtime bridge | TTI/event contract lock | docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md |
-| 2026-05-12 | React Flow settings harness | Active runtime rollback panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-11-04-005Z/result.json |
-| 2026-05-12 | React Flow settings harness | Rollback restore proof panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-29-45-390Z/result.json |
-| 2026-05-12 | React Flow settings harness | Active runtime binding panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T17-46-33-581Z/result.json |
-| 2026-05-12 | React Flow settings harness | Activation gate panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T18-07-42-338Z/result.json |
-| 2026-05-12 | React Flow settings harness | Promotion readiness panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T18-24-22-311Z/result.json |
-| 2026-05-12 | React Flow settings harness | Package evidence panel extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T18-46-56-765Z/result.json |
-| 2026-05-12 | React Flow settings harness | Activation gate refs/timeline extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-05-02-607Z/result.json |
-| 2026-05-12 | React Flow settings harness | Package import/rows extraction | docs/evidence/autopilot-gui-harness-validation/2026-05-12T19-30-56-229Z/result.json |
+This table is the guide-level source of truth for choosing the next slice.
+Completed-slice history belongs in the companion ledgers.
 
-Immediate tactical queue:
+| Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
+| --- | --- | --- | --- | --- |
+| P0-A | Terminal coding-agent TUI | `agent stream` proves no-fallback event replay, but there is no keyboard-first coding TUI over the live daemon. | Start or resume a live thread from a terminal UI, stream events, and round-trip interrupt/steer without a private execution loop. | TUI rows deep-link to workflow nodes; workflow inspector deep-links back to the TUI thread. |
+| P0-B | Coding tool pack | Broad runtime tools exist, but a DeepSeek-style structured coding pack is not yet complete as one governed catalog. | Inspect, patch, git diff/status, test, artifact spillover, and retrieve output without shell-only fallbacks. | Tool-pack nodes can enable/disable git/test/shell/artifact capabilities independently. |
+| P0-C | Post-edit LSP diagnostics | Diagnostics are specified, but post-edit injection is not yet a live runtime feedback loop. | File edit emits LSP diagnostic events, injects compact findings before the next model call, and degrades cleanly when the LSP is missing. | `LspDiagnosticsNode` config changes runtime warning/error injection behavior. |
+| P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
+| P1-A | Subagent runtime parity | Delegation patterns exist, but the full role-aware lifecycle and output contract are not productized. | Spawn, wait, send input, cancel, resume, and validate output contract for parallel child agents. | Subagent pool/role/join nodes enforce concurrency, budget, and merge policy. |
+| P1-B | MCP manager parity | MCP containment exists, but manager UX and self-hosted MCP modes remain incomplete. | Import, validate, enable/disable, invoke, and serve MCP under IOI containment. | MCP server/tool/resource nodes compile into governed runtime config. |
+| P1-C | Modes, trust, approvals | Rich policy internals exist, but product-level Plan/Agent/YOLO/review modes need one stable contract. | Mode changes are evented and enforced by runtime policy even when UI config is permissive. | Graph-level mode selector and node approval overrides compile into one approval manifest. |
+| P1-D | Usage, cost, context telemetry | Usage fragments exist, but product-grade per-turn/session cost and context pressure are not unified. | Live usage/context events aggregate through API, SDK, CLI/TUI, and workflow budget nodes. | Usage and budget nodes can simulate and enforce workflow caps. |
 
-1. Split `settingsHarnessWorkerBindingPanel.tsx`, now the largest remaining
-   settings-harness panel at roughly 711 lines, into focused inspector summary,
-   revision binding controls, and active-runtime handoff modules.
-2. Reassess `settingsHarnessPanel.tsx` after the worker split; it is now the
-   next broad orchestration surface at roughly 490 lines.
-3. Add the next runtime-control primitive only through the shared
-   request-envelope/descriptor helpers, with one live graph-identity proof.
-4. Keep the master guide clean by updating the companion ledgers instead of
-   appending full validation runs inline.
+### Immediate Tactical Queue
+
+1. Build the first thin `ioi agent tui` slice over the existing daemon thread
+   and event APIs. It should prove start/resume, live event rendering,
+   cursor replay, and interrupt/steer round-trip without introducing a private
+   runtime loop.
+2. Add the React Flow/TUI deep-link contract for the same TUI slice: terminal
+   event rows point to graph nodes when metadata exists, and workflow run
+   inspector rows point back to the live thread.
+3. If TUI work reveals a missing structured tool contract, pause and land the
+   smallest P0-B coding tool-pack contract needed for that TUI path.
+4. Continue settings harness cleanup only as maintenance, gated by a concrete
+   parity slice dependency or a source-contract bloat guard failure.
+5. Keep this guide strategic. Put completed slice narratives in the
+   implementation log and proof commands/evidence paths in the validation
+   ledger.
 
 ## Reference Capability Inventory
 
@@ -1753,24 +1666,28 @@ This guide is complete when:
 ## Next Implementation Slices
 
 The live bridge contract is now locked in
-`docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md`. The next
-runtime slices should implement that contract in small, testable pieces while
-keeping React Flow cleanup slices small and source-contract guarded.
+`docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md`, and the
+first live runtime controls are available across daemon SSE, SDK, CLI stream,
+and React Flow workflow-originated requests. The next slices should therefore
+exercise the bridge through user-visible DeepSeek parity surfaces instead of
+adding more infrastructure by default.
 
-Remaining runtime bridge implementation sequence:
+Next runtime implementation sequence:
 
-The bridge/event projection loop is closed for the current mapped KernelEvent
-foundation, and the first live control paths, operator interrupt, operator
-steer, context compact, and thread fork, are implemented as canonical
-`turn.interrupted`, `turn.steered`, `context.compacted`, and `thread.forked`
-events. Fork, interrupt, steer, and compact are now configurable from the React
-Flow workflow-authoring surface as `runtime_thread_fork`,
-`runtime_operator_interrupt`, `runtime_operator_steer`, and
-`runtime_context_compact`, with live React Flow-originated graph identity
-proofs. The next runtime slice should extract the shared runtime-control
-request primitives across those nodes so future control nodes stay modular.
+1. Land a thin `ioi agent tui` shell over the existing daemon thread/event API.
+   This first slice should support selecting or starting a thread, rendering the
+   live event stream, replaying by cursor, and submitting interrupt/steer
+   controls through the same runtime endpoints used by SDK and React Flow.
+2. Add TUI/workflow deep links for event rows with graph metadata. The terminal
+   surface should jump to the workflow node/run inspector, and the workflow
+   inspector should expose the thread reference needed to reopen the TUI.
+3. Close any blocking P0-B coding tool-pack contract gaps discovered by the TUI
+   path. Prefer one structured tool contract at a time over broad shell
+   fallback behavior.
+4. Move from the thin TUI shell toward the full terminal coding-agent surface:
+   modes, approvals, jobs, restore, MCP, memory, cost/context, subagents, and
+   workflow graph affordances.
 
-Do not start the runtime bridge push with the full TUI. The TUI becomes
-straightforward once live threads, events, and tool contracts are real. Keep
-parallel UI cleanup slices small, source-contract guarded, and linked from the
-implementation and validation ledgers.
+React Flow cleanup remains allowed, but it is now a support track. A cleanup
+slice should cite the parity gap it unblocks or the source-contract guard it
+keeps healthy before it displaces a P0 parity slice.
