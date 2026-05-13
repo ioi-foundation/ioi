@@ -295,10 +295,7 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
             }
             Ok(TuiLineCommand::Diagnostics { path }) => {
                 let mut input = serde_json::Map::new();
-                input.insert(
-                    "commandId".to_string(),
-                    Value::String("node.check".to_string()),
-                );
+                input.insert("commandId".to_string(), Value::String("auto".to_string()));
                 input.insert("path".to_string(), Value::String(path));
                 let events =
                     handle_coding_tool_input_command(&mut session, "lsp.diagnostics", input)

@@ -8914,7 +8914,7 @@ function postEditDiagnosticsConfig(request = {}, input = {}) {
         input.diagnostic_command_id ??
         pack.defaultDiagnosticCommandId ??
         pack.default_diagnostic_command_id,
-    ) ?? "node.check",
+    ) ?? "auto",
     cwd: optionalString(input.cwd ?? request.cwd) ?? ".",
     timeoutMs:
       input.diagnosticTimeoutMs ??
