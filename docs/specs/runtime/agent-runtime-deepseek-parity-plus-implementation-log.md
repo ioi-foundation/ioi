@@ -168,8 +168,43 @@ workstream was narrower.
 | 166 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow CompactionPolicyNode daemon actuator | /tmp/ioi-autopilot-gui-harness-compaction-policy-node/2026-05-13T21-26-21-995Z/result.json |
 | 167 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | TUI cost/context telemetry controls | /tmp/ioi-autopilot-gui-harness-tui-cost-context/2026-05-13T21-42-24-199Z/result.json |
 | 168 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | streaming usage/context-pressure deltas | /tmp/ioi-autopilot-gui-harness-streaming-usage-context/2026-05-13T22-06-08-190Z/result.json |
+| 169 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | live React Flow telemetry hydration | /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 169. 2026-05-13 - Live React Flow telemetry hydration
+
+Implementation slice completed 2026-05-13, P1-D live telemetry hydration:
+
+- Added a small `workflow-runtime-live-telemetry` helper module that creates a
+  provisional running workflow run for a pre-bound thread and merges live
+  thread events by stable id/cursor/sequence without duplicating rows.
+- Updated the React Flow workflow composer run path to create a workflow thread
+  before execution, select the provisional run in the Runs rail, poll runtime
+  thread events while execution is in flight, and hydrate the existing runtime
+  projection with live `usage_delta` and `context_pressure_delta` rows.
+- Taught `run_workflow_project` to accept an existing `threadId`/`thread_id`
+  option so GUI-side polling and backend execution share the same durable
+  thread. The command still creates a new thread when no id is supplied.
+- Removed the provisional running row when the final run result arrives or when
+  execution fails before a final result, avoiding stale active-run entries.
+- Added React Flow run-history model coverage proving in-flight telemetry
+  projection to `runtime.usage-telemetry` and `runtime.context-budget`, plus a
+  Tauri regression proving a pre-bound thread id is reused by the workflow run.
+
+Validation evidence:
+
+- `node --check packages/agent-ide/src/runtime/workflow-runtime-live-telemetry.ts`
+- `node --import tsx --test --test-name-pattern "live telemetry" packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `rustfmt --check apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/test_harness_and_runs.rs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_run_project_reuses_prebound_thread_for_live_telemetry_hydration -- --nocapture`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json`.
 
 ### Slice 168. 2026-05-13 - Streaming usage/context-pressure deltas
 

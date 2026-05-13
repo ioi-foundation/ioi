@@ -475,6 +475,43 @@ fn workflow_run_validation_proposal_and_evidence_are_sidecars() {
 }
 
 #[test]
+fn workflow_run_project_reuses_prebound_thread_for_live_telemetry_hydration() {
+    let root = temp_root("live-telemetry-thread");
+    let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
+        project_root: root.display().to_string(),
+        template_id: "basic-agent-answer".to_string(),
+        name: Some("Live Telemetry Thread".to_string()),
+    })
+    .expect("template should instantiate");
+
+    let thread = create_workflow_thread(
+        bundle.workflow_path.clone(),
+        Some(json!({"prompt": "prebound"})),
+    )
+    .expect("workflow thread should create");
+    let run = run_workflow_project(
+        bundle.workflow_path,
+        Some(json!({
+            "threadId": thread.id.clone(),
+            "input": { "prompt": "live telemetry hydration" }
+        })),
+    )
+    .expect("workflow run should reuse prebound thread");
+
+    assert_eq!(run.thread.id, thread.id);
+    assert_eq!(run.summary.thread_id.as_deref(), Some(thread.id.as_str()));
+    assert_eq!(run.final_state.thread_id, thread.id);
+    assert_eq!(
+        run.thread
+            .input
+            .as_ref()
+            .and_then(|input| input.get("prompt"))
+            .and_then(Value::as_str),
+        Some("live telemetry hydration"),
+    );
+}
+
+#[test]
 fn workflow_proposal_apply_enforces_bounded_node_targets() {
     let root = temp_root("proposal-bounds");
     let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
@@ -803,4 +840,3 @@ fn workflow_validation_blocks_unbound_runtime_nodes_without_name_heuristics() {
         .iter()
         .any(|requirement| requirement.status == "missing"));
 }
-
