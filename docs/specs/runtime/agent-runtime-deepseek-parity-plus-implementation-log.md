@@ -131,6 +131,7 @@ workstream was narrower.
 | 129 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | content-backed workspace restore preview | /tmp/ioi-autopilot-gui-harness-workspace-restore-preview/2026-05-13T05-42-32-697Z/result.json |
 | 130 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | policy-gated workspace restore apply | /tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json |
 | 131 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | diagnostics rollback/repair policy | /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json |
+| 132 | 2026-05-13 | P0-B/P0-C/P0-D. Workflow Restore/Repair Controls | workflow restore and diagnostics repair binding controls | /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -956,6 +957,44 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json`.
+
+### Slice 132. 2026-05-13 - Workflow restore and diagnostics repair binding controls
+
+Implementation slice completed 2026-05-13, workflow restore and diagnostics
+repair binding controls:
+
+- Added typed React Flow coding-tool-pack config fields for restore policy,
+  restore conflict policy, diagnostics repair default, and operator override
+  approval requirements.
+- Surfaced the new policy knobs in
+  `WorkflowNodeBindingEditor/sections.tsx` with stable workflow editor
+  test ids and added creator defaults for the coding pack, file apply-patch,
+  and LSP diagnostics nodes.
+- Extended the daemon coding-tool catalog so `file.apply_patch` and
+  `lsp.diagnostics` advertise the new `toolPack.coding.*` workflow config
+  fields.
+- Threaded workflow-authored policy fields from `toolPack.coding.*` into
+  runtime-auto diagnostics repair context and into the blocking diagnostics
+  rollback/repair policy.
+- Updated live coverage to prove a React Flow tool-pack request can set
+  `preview_only`, `require_approval`, `restore_preview`, and
+  operator-override approval behavior, and that those choices appear in the
+  daemon trace, diagnostics injection, and blocking gate.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

@@ -883,6 +883,14 @@ export interface WorkflowToolBinding {
     allowedDiagnosticCommandIds?: string[];
     diagnosticsMode?: "advisory" | "blocking" | "skip";
     defaultDiagnosticCommandId?: string;
+    restorePolicy?: "disabled" | "preview_only" | "apply_with_approval";
+    restoreConflictPolicy?: "block" | "require_approval" | "allow_override";
+    diagnosticsRepairDefault?:
+      | "repair_retry"
+      | "restore_preview"
+      | "restore_apply"
+      | "operator_override";
+    operatorOverrideRequiresApproval?: boolean;
     timeoutMs?: number;
     dryRun?: boolean;
     allowedPaths?: string[];
