@@ -72,6 +72,7 @@ import {
   normalizeSubagentOutputContract,
   normalizeSubagentRole,
   optionalPositiveInteger,
+  subagentBudgetStatusForRun,
   subagentBudgetForRequest,
   subagentCancellationPropagates,
   subagentContractOutputForRun,
@@ -1495,6 +1496,10 @@ export class AgentgresRuntimeStateStore {
     );
     const output = subagentContractOutputForRun(run, outputContract);
     const outputContractStatus = validateSubagentOutputContract(output, outputContract);
+    const budget = subagentBudgetForRequest(request);
+    const budgetStatus = subagentBudgetStatusForRun({ budget, run, prompt });
+    const subagentLifecycleStatus =
+      budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status);
     const workflowGraphId =
       optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
     const workflowNodeId =
@@ -1533,9 +1538,9 @@ export class AgentgresRuntimeStateStore {
       workflowNodeId,
       session_boot_id: runtimeSessionIdForAgent(childAgent),
       sessionBootId: runtimeSessionIdForAgent(childAgent),
-      lifecycle_status: lifecycleStatusForRun(run.status),
-      lifecycleStatus: lifecycleStatusForRun(run.status),
-      status: lifecycleStatusForRun(run.status),
+      lifecycle_status: subagentLifecycleStatus,
+      lifecycleStatus: subagentLifecycleStatus,
+      status: subagentLifecycleStatus,
       restart_status: "not_restarted",
       restartStatus: "not_restarted",
       fork_context: request.fork_context === true || request.forkContext === true,
@@ -1544,7 +1549,15 @@ export class AgentgresRuntimeStateStore {
       contextMode: request.fork_context === true || request.forkContext === true ? "forked" : "fresh",
       max_concurrency: maxConcurrency,
       maxConcurrency,
-      budget: subagentBudgetForRequest(request),
+      budget,
+      budget_status: budgetStatus.status,
+      budgetStatus,
+      usage_telemetry: budgetStatus.usage,
+      usageTelemetry: budgetStatus.usage,
+      budget_policy_decision: budgetStatus.policy_decision,
+      budgetPolicyDecision: budgetStatus.policyDecision,
+      block_reason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
+      blockReason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
       output_contract: outputContract,
       outputContract,
       output_contract_status: outputContractStatus.status,
@@ -1584,7 +1597,7 @@ export class AgentgresRuntimeStateStore {
       record,
       request,
       operation: "spawn",
-      status: "completed",
+      status: subagentLifecycleStatus,
     });
     const saved = {
       ...record,
@@ -1602,6 +1615,23 @@ export class AgentgresRuntimeStateStore {
       outputContractStatus,
     });
     this.writeSubagent(saved, "subagent.spawn");
+    if (budgetStatus.status === "exceeded") {
+      throw policyError("Subagent budget limit exceeded.", {
+        threadId,
+        role,
+        subagentId,
+        reason: "subagent_budget_exceeded",
+        budgetStatus,
+        budget_status: budgetStatus.status,
+        subagent: this.subagentProjection(saved),
+        eventId: event.event_id,
+        event_id: event.event_id,
+        receiptRefs: event.receipt_refs,
+        receipt_refs: event.receipt_refs,
+        policyDecisionRefs: event.policy_decision_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      });
+    }
     return {
       ...this.subagentProjection(saved),
       event,
@@ -1616,11 +1646,14 @@ export class AgentgresRuntimeStateStore {
       output,
       record.output_contract ?? record.outputContract,
     );
+    const previousLifecycleStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status;
+    const lifecycleStatus =
+      previousLifecycleStatus === "blocked" ? "blocked" : lifecycleStatusForRun(run.status);
     const updated = {
       ...record,
-      lifecycle_status: lifecycleStatusForRun(run.status),
-      lifecycleStatus: lifecycleStatusForRun(run.status),
-      status: lifecycleStatusForRun(run.status),
+      lifecycle_status: lifecycleStatus,
+      lifecycleStatus,
+      status: lifecycleStatus,
       output_contract_status: outputContractStatus.status,
       outputContractStatus,
       output_contract_validation: outputContractStatus,
@@ -2352,6 +2385,13 @@ export class AgentgresRuntimeStateStore {
       record.workflowNodeId ??
       `runtime.subagent.${operation}`;
     const payload = subagentManagerEventPayload({ record, operation, status });
+    const budgetPolicyDecision = record.budget_policy_decision ?? record.budgetPolicyDecision ?? null;
+    const budgetStatus =
+      record.budget_status ?? record.budgetStatus?.status ?? budgetPolicyDecision?.reason ?? null;
+    const policyDecisionRefs =
+      budgetStatus === "exceeded" && budgetPolicyDecision?.id && typeof budgetPolicyDecision.id === "string"
+        ? [budgetPolicyDecision.id]
+        : [`policy_subagent_${safeId(operation)}_allow_${eventHash}`];
     return this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
@@ -2372,7 +2412,7 @@ export class AgentgresRuntimeStateStore {
       payload_schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
       payload,
       receipt_refs: [`receipt_subagent_${safeId(operation)}_${eventHash}`],
-      policy_decision_refs: [`policy_subagent_${safeId(operation)}_allow_${eventHash}`],
+      policy_decision_refs: policyDecisionRefs,
       artifact_refs: [],
       rollback_refs: [],
       redaction_profile: "internal",

@@ -160,6 +160,7 @@ the practical workstream when the source heading is broad.
 | 159 | 2026-05-13 | P1. Subagent Runtime Parity / P0. Terminal Coding-Agent TUI | TUI SubagentManager route controls | /tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json | cargo test -p ioi-cli --bin cli agent_tui -- --nocapture<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts&#124;agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-tui-controls |
 | 160 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent fan-out workflow proof | /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout/2026-05-13T19-37-08-337Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls&#124;SubagentManager&#124;subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout |
 | 161 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent child-subflow projection | /tmp/ioi-autopilot-gui-harness-subagent-child-subflows/2026-05-13T19-50-06-418Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-child-subflows |
+| 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json | node --check packages/runtime-daemon/src/subagent-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run typecheck --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli agent_tui -- --nocapture<br>node --test --test-name-pattern "React Flow subagent budget and cost caps&#124;React Flow subagent fan-out workflow compiles nodes into live daemon controls&#124;local daemon exposes SubagentManager" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-budget-cost |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4818,6 +4819,58 @@ Validation evidence:
     `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
+
+## Slice 162. 2026-05-13 - Subagent budget/cost enforcement and projection
+
+Guide section: P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context
+Telemetry
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/subagent-manager.mjs
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/substrate-client.ts
+- crates/cli/src/commands/agent_tui.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/subagent-manager.mjs`
+  - subagent budget/status helpers passed syntax validation.
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon route wiring passed syntax validation.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract syntax check passed.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - 12 projection tests passed, including budget status, token estimate, and
+    cost estimate propagation into rows and child subflows.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow projection/run-inspector source contract passed with budget data
+    attributes.
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+  - SDK typecheck passed with subagent budget/usage telemetry types.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - React Flow package build passed with budget-aware run-inspector rendering.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed after the TUI row builder refactor.
+- `cargo test -p ioi-cli --bin cli agent_tui -- --nocapture`
+  - 11 TUI control tests passed.
+- `node --test --test-name-pattern "React Flow subagent budget and cost caps|React Flow subagent fan-out workflow compiles nodes into live daemon controls|local daemon exposes SubagentManager" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused live daemon proof passed for normal SubagentManager operations,
+    React Flow fan-out, and over-budget subagent blocking with policy evidence.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - workflow-addressability source guard passed with subagent budget compiler
+    and run-inspector hooks.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-budget-cost`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json`.
 
 ## Slice 161. 2026-05-13 - React Flow subagent child-subflow projection
 

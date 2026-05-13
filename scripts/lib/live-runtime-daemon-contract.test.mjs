@@ -4688,6 +4688,10 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, resume, a
     assert.equal(spawn.model_route_id, "route.native-local");
     assert.equal(spawn.context_mode, "fresh");
     assert.equal(spawn.lifecycle_status, "completed");
+    assert.equal(spawn.budget_status, "within_budget");
+    assert.equal(spawn.budgetStatus.status, "within_budget");
+    assert.ok(spawn.usage_telemetry.cumulative_total_tokens > 0);
+    assert.ok(spawn.usage_telemetry.cumulative_cost_estimate_usd > 0);
     assert.equal(spawn.output_contract_status, "passed");
     assert.equal(spawn.outputContractStatus.status, "passed");
     assert.equal(spawn.event.source_event_kind, "OperatorControl.SubagentSpawn");
@@ -4728,6 +4732,8 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, resume, a
     assert.ok(waited.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_wait_")));
     assert.equal(waited.event.source_event_kind, "OperatorControl.SubagentWait");
     assert.equal(waited.event.payload_summary.output_contract_status, "passed");
+    assert.equal(waited.budget_status, "within_budget");
+    assert.ok(waited.usage_telemetry.cumulative_total_tokens > 0);
 
     const result = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/result`,
@@ -5423,6 +5429,164 @@ test("React Flow subagent fan-out workflow compiles nodes into live daemon contr
     assert.ok(spawnEvents.every((event) => event.workflow_graph_id === workflowGraphId));
     assert.ok(waitEvents.every((event) => event.workflow_graph_id === workflowGraphId));
     assert.ok(propagatedCancelEvents.every((event) => event.payload_summary.cancellation_inherited === true));
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("React Flow subagent budget and cost caps block delegated child runs with projection evidence", async () => {
+  const {
+    createRuntimeSubagentControlRequestFromWorkflowNode,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-budget-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-budget-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const workflowGraphId = "workflow.react-flow.subagent-budget";
+    const stateNode = (id, logic) => ({
+      id,
+      type: "state",
+      config: {
+        logic: {
+          stateKey: "subagents",
+          reducer: "append",
+          stateOperation: "subagent_spawn",
+          subagentRole: "explore",
+          subagentPrompt: "Return budget telemetry evidence for delegated child work.",
+          subagentToolPack: "coding",
+          subagentModelRoute: "route.native-local",
+          subagentOutputContractJson: "[\"SUMMARY\",\"EVIDENCE\",\"RECEIPTS\"]",
+          subagentMergePolicy: "evidence_only",
+          subagentCancellationInheritance: "propagate",
+          ...logic,
+        },
+      },
+    });
+
+    const allowedRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
+      stateNode("subagent-budget-allowed", {
+        subagentBudgetJson: JSON.stringify({ maxTokens: 12000, maxCostUsd: 1 }),
+      }),
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.deepEqual(allowedRequest.body.budget, { maxTokens: 12000, maxCostUsd: 1 });
+    const allowed = await fetchJson(`${daemon.endpoint}${allowedRequest.endpoint}`, {
+      method: allowedRequest.method,
+      body: JSON.stringify(allowedRequest.body),
+    });
+    assert.equal(allowed.lifecycle_status, "completed");
+    assert.equal(allowed.budget_status, "within_budget");
+    assert.equal(allowed.budgetStatus.status, "within_budget");
+    assert.ok(allowed.usage_telemetry.cumulative_total_tokens > 1);
+    assert.ok(allowed.usage_telemetry.cumulative_cost_estimate_usd > 0);
+    assert.equal(allowed.event.payload_summary.budget_status, "within_budget");
+
+    const blockedRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
+      stateNode("subagent-budget-blocked", {
+        subagentPrompt:
+          "Return enough delegated evidence that the one token budget is exceeded.",
+        subagentBudgetJson: JSON.stringify({ maxTokens: 1, maxCostUsd: 0.000001 }),
+      }),
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    const blocked = await fetchJsonStatus(`${daemon.endpoint}${blockedRequest.endpoint}`, {
+      method: blockedRequest.method,
+      body: JSON.stringify(blockedRequest.body),
+    });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, "policy");
+    assert.equal(blocked.body.error.details.reason, "subagent_budget_exceeded");
+    assert.equal(blocked.body.error.details.budget_status, "exceeded");
+    assert.equal(blocked.body.error.details.budgetStatus.status, "exceeded");
+    assert.equal(blocked.body.error.details.subagent.lifecycle_status, "blocked");
+    assert.ok(
+      blocked.body.error.details.policy_decision_refs.some((ref) =>
+        ref.includes("policy_subagent_budget_"),
+      ),
+    );
+
+    const blockedSubagentId = blocked.body.error.details.subagent.subagent_id;
+    const listed = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`);
+    const blockedRecord = listed.subagents.find((subagent) => subagent.subagent_id === blockedSubagentId);
+    assert.ok(blockedRecord);
+    assert.equal(blockedRecord.lifecycle_status, "blocked");
+    assert.equal(blockedRecord.budget_status, "exceeded");
+    assert.equal(blockedRecord.block_reason, "subagent_budget_exceeded");
+    assert.ok(blockedRecord.usage_telemetry.cumulative_total_tokens > 1);
+
+    const waitedBlocked = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${blockedSubagentId}/wait`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId: "subagent-budget-blocked-wait",
+        }),
+      },
+    );
+    assert.equal(waitedBlocked.lifecycle_status, "blocked");
+    assert.equal(waitedBlocked.budget_status, "exceeded");
+    assert.equal(waitedBlocked.event.status, "blocked");
+    assert.equal(waitedBlocked.event.payload_summary.budget_status, "exceeded");
+
+    const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      subagent_rows: [
+        {
+          ...allowed,
+          row_kind: "subagent",
+          subagent_operation: "spawn",
+          workflow_graph_id: workflowGraphId,
+          workflow_node_id: allowedRequest.body.workflowNodeId,
+        },
+        {
+          ...blockedRecord,
+          row_kind: "subagent",
+          subagent_operation: "spawn",
+          workflow_graph_id: workflowGraphId,
+          workflow_node_id: blockedRequest.body.workflowNodeId,
+        },
+      ],
+    });
+    assert.equal(projection.subagentRowCount, 2);
+    assert.equal(projection.subagentChildSubflowCount, 2);
+    assert.ok(
+      projection.rows.some(
+        (row) =>
+          row.rowKind === "subagent" &&
+          row.subagentBudgetStatus === "exceeded" &&
+          row.subagentTokenEstimate > 1 &&
+          row.subagentCostEstimateUsd > 0,
+      ),
+    );
+    assert.ok(
+      projection.subagentChildSubflows.some(
+        (subflow) =>
+          subflow.subagentBudgetStatus === "exceeded" &&
+          subflow.subagentLifecycleStatus === "blocked" &&
+          subflow.subagentTokenEstimate > 1,
+      ),
+    );
+    assert.ok(
+      projection.subagentChildSubflowReactFlowNodes.some(
+        (node) =>
+          node.type === "runtimeSubagentRun" &&
+          node.data.subagentBudgetStatus === "exceeded" &&
+          node.data.subagentTokenEstimate > 1,
+      ),
+    );
   } finally {
     await daemon.close();
   }
@@ -8854,6 +9018,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const runtimeDaemon = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/index.mjs"),
+    "utf8",
+  );
   const workflowNodeBindingEditorSections = fs.readFileSync(
     path.join(
       root,
@@ -9452,6 +9620,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentCancel/);
   assert.match(workflowRuntimeSubagentControlNodes, /subagent_cancel_propagation/);
   assert.match(workflowRuntimeSubagentControlNodes, /propagate_cancel/);
+  assert.match(workflowRuntimeSubagentControlNodes, /subagentBudgetJson/);
+  assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
+  assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
@@ -9471,6 +9642,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /subagent_send_input/);
   assert.match(graphTypes, /subagent_cancel_propagation/);
   assert.match(graphTypes, /subagentCancellationInheritance/);
+  assert.match(graphTypes, /subagentBudgetJson/);
   assert.match(graphTypes, /subagentOutputContractJson/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-transport/);
@@ -9493,6 +9665,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-prompt/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-fork-context/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-max-concurrency/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-budget-json/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-output-contract-json/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-merge-policy/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-cancellation-inheritance/);

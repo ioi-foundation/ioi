@@ -286,6 +286,9 @@ export interface WorkflowRuntimeTuiControlStateRow {
   subagentCancellationInheritance?: string | null;
   subagentMergePolicy?: string | null;
   subagentToolPack?: string | null;
+  subagentBudgetStatus?: string | null;
+  subagentCostEstimateUsd?: number | null;
+  subagentTokenEstimate?: number | null;
   subagentRunId?: string | null;
   subagentChildThreadId?: string | null;
   subagentRestartCount?: number | null;
@@ -325,6 +328,9 @@ export interface WorkflowRuntimeSubagentChildSubflowNodeData {
   subagentCancellationInheritance: string | null;
   subagentMergePolicy: string | null;
   subagentToolPack: string | null;
+  subagentBudgetStatus: string | null;
+  subagentCostEstimateUsd: number | null;
+  subagentTokenEstimate: number | null;
   childThreadId: string;
   childRunId: string | null;
   receiptRefs: string[];
@@ -384,6 +390,9 @@ export interface WorkflowRuntimeSubagentChildSubflowDescriptor {
   subagentCancellationInheritance: string | null;
   subagentMergePolicy: string | null;
   subagentToolPack: string | null;
+  subagentBudgetStatus: string | null;
+  subagentCostEstimateUsd: number | null;
+  subagentTokenEstimate: number | null;
   childThreadId: string;
   childRunId: string | null;
   childReactFlowNodeId: string;
@@ -822,6 +831,48 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       "toolPack",
       "tool_pack",
     );
+    const budgetStatusRecord = recordField(entry, "budgetStatus", "budget_status");
+    const usageTelemetryRecord =
+      recordField(entry, "usageTelemetry", "usage_telemetry") ??
+      recordField(budgetStatusRecord, "usage");
+    const subagentBudgetStatus =
+      stringField(
+        entry,
+        "subagentBudgetStatus",
+        "subagent_budget_status",
+        "budgetStatus",
+        "budget_status",
+      ) ?? stringField(budgetStatusRecord, "status");
+    const subagentCostEstimateUsd =
+      numberField(
+        entry,
+        "subagentCostEstimateUsd",
+        "subagent_cost_estimate_usd",
+        "costEstimateUsd",
+        "cost_estimate_usd",
+      ) ??
+      numberField(
+        usageTelemetryRecord,
+        "cumulativeCostEstimateUsd",
+        "cumulative_cost_estimate_usd",
+        "costEstimateUsd",
+        "cost_estimate_usd",
+      );
+    const subagentTokenEstimate =
+      numberField(
+        entry,
+        "subagentTokenEstimate",
+        "subagent_token_estimate",
+        "tokenEstimate",
+        "token_estimate",
+      ) ??
+      numberField(
+        usageTelemetryRecord,
+        "cumulativeTotalTokens",
+        "cumulative_total_tokens",
+        "totalTokens",
+        "total_tokens",
+      );
     const subagentRunId =
       stringField(entry, "subagentRunId", "subagent_run_id") ??
       stringField(entry, "runId", "run_id");
@@ -868,6 +919,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       subagentCancellationInheritance: cancellationInheritance,
       subagentMergePolicy: mergePolicy,
       subagentToolPack: toolPack,
+      subagentBudgetStatus: subagentBudgetStatus ?? null,
+      subagentCostEstimateUsd: subagentCostEstimateUsd ?? null,
+      subagentTokenEstimate: subagentTokenEstimate ?? null,
       subagentRunId,
       subagentChildThreadId,
       subagentRestartCount: numberField(
@@ -1213,6 +1267,9 @@ function subagentChildSubflowsForRows(
       subagentCancellationInheritance: row.subagentCancellationInheritance ?? null,
       subagentMergePolicy: row.subagentMergePolicy ?? null,
       subagentToolPack: row.subagentToolPack ?? null,
+      subagentBudgetStatus: row.subagentBudgetStatus ?? null,
+      subagentCostEstimateUsd: row.subagentCostEstimateUsd ?? null,
+      subagentTokenEstimate: row.subagentTokenEstimate ?? null,
       childThreadId,
       childRunId: row.subagentRunId ?? null,
       receiptRefs: row.receiptRefs,
@@ -1314,6 +1371,9 @@ function subagentChildSubflowsForRows(
       subagentCancellationInheritance: row.subagentCancellationInheritance ?? null,
       subagentMergePolicy: row.subagentMergePolicy ?? null,
       subagentToolPack: row.subagentToolPack ?? null,
+      subagentBudgetStatus: row.subagentBudgetStatus ?? null,
+      subagentCostEstimateUsd: row.subagentCostEstimateUsd ?? null,
+      subagentTokenEstimate: row.subagentTokenEstimate ?? null,
       childThreadId,
       childRunId: row.subagentRunId ?? null,
       childReactFlowNodeId: groupNodeId,

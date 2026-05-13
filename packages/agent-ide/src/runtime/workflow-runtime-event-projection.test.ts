@@ -886,6 +886,13 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         subagent_cancellation_inheritance: "propagate",
         subagent_merge_policy: "evidence_only",
         subagent_tool_pack: "coding",
+        budget_status: {
+          status: "within_budget",
+          usage: {
+            cumulative_total_tokens: 324,
+            cumulative_cost_estimate_usd: 0.000324,
+          },
+        },
         subagent_run_id: "run-subagent-1",
         subagent_child_thread_id: "thread-child-1",
         subagent_restart_count: "1",
@@ -997,6 +1004,9 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[13]?.subagentId, "agent-subagent-1");
   assert.equal(projection.rows[13]?.subagentRole, "explore");
   assert.equal(projection.rows[13]?.subagentOutputContractStatus, "passed");
+  assert.equal(projection.rows[13]?.subagentBudgetStatus, "within_budget");
+  assert.equal(projection.rows[13]?.subagentTokenEstimate, 324);
+  assert.equal(projection.rows[13]?.subagentCostEstimateUsd, 0.000324);
   assert.equal(projection.rows[13]?.subagentRestartCount, 1);
   assert.equal(projection.rows[13]?.workflowGraphId, "workflow-subagent-fanout");
   assert.equal(projection.rows[13]?.reactFlowNodeId, "runtime.subagent.spawn.explore");
@@ -1004,6 +1014,8 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.subagentChildSubflows[0]?.parentReactFlowNodeId, "runtime.subagent.spawn.explore");
   assert.equal(projection.subagentChildSubflows[0]?.childThreadId, "thread-child-1");
   assert.equal(projection.subagentChildSubflows[0]?.childRunId, "run-subagent-1");
+  assert.equal(projection.subagentChildSubflows[0]?.subagentBudgetStatus, "within_budget");
+  assert.equal(projection.subagentChildSubflows[0]?.subagentTokenEstimate, 324);
   assert.equal(
     projection.subagentChildSubflows[0]?.childReactFlowNodeId,
     "runtime.subagent-subflow.agent-subagent-1",
