@@ -10,6 +10,8 @@ export const RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION =
 export const RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-invocation.v1";
 
+const MCP_SECRET_REF_BINDINGS = Symbol.for("ioi.runtime.mcp.secretRefBindings");
+
 export function mcpRegistryForWorkspace(cwd, options = {}) {
   const workspaceRoot = path.resolve(options.local?.cwd ?? cwd ?? process.cwd());
   const servers = [];
@@ -116,15 +118,14 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     config.headers && typeof config.headers === "object" && !Array.isArray(config.headers)
       ? config.headers
       : {};
-  const secretRefs = Object.fromEntries(
-    Object.entries({ ...env, ...headers }).map(([key, value]) => [
-      key,
-      typeof value === "string" && value.startsWith("vault://")
-        ? { redacted: true, hash: doctorHash(value) }
-        : { redacted: true, invalidVaultRef: Boolean(value) },
-    ]),
+  const envSecretRefs = publicMcpSecretRefs(env, "env");
+  const headerSecretRefs = publicMcpSecretRefs(headers, "header");
+  const secretRefs = { ...envSecretRefs, ...headerSecretRefs };
+  const secretRefBindings = mergeMcpSecretRefBindings(
+    config[MCP_SECRET_REF_BINDINGS],
+    mcpSecretRefBindingsForConfig({ env, headers }),
   );
-  return {
+  const record = {
     schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
     schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
     id,
@@ -140,6 +141,10 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     endpoint: serverUrl ?? null,
     header_names: Object.keys(headers).sort(),
     headerNames: Object.keys(headers).sort(),
+    header_secret_refs: headerSecretRefs,
+    headerSecretRefs,
+    env_secret_refs: envSecretRefs,
+    envSecretRefs,
     source: optionalString(config.source) ?? context.source ?? "mcp.json",
     source_path:
       optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
@@ -177,6 +182,24 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     },
     secret_refs: secretRefs,
     secretRefs,
+    vault_boundary: {
+      required: Object.keys(secretRefs).length > 0,
+      header_ref_count: Object.keys(headerSecretRefs).length,
+      headerRefCount: Object.keys(headerSecretRefs).length,
+      env_ref_count: Object.keys(envSecretRefs).length,
+      envRefCount: Object.keys(envSecretRefs).length,
+      secret_values_included: false,
+      secretValuesIncluded: false,
+      runtime_resolution: "execution_time_only",
+      runtimeResolution: "execution_time_only",
+    },
+    vaultBoundary: {
+      required: Object.keys(secretRefs).length > 0,
+      headerRefCount: Object.keys(headerSecretRefs).length,
+      envRefCount: Object.keys(envSecretRefs).length,
+      secretValuesIncluded: false,
+      runtimeResolution: "execution_time_only",
+    },
     health: {
       status: config.status === "connected" ? "connected" : "not_connected",
       live_probe: false,
@@ -195,6 +218,7 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       id,
     ]),
   };
+  return attachMcpSecretRefBindings(record, secretRefBindings);
 }
 
 export function mcpToolsForServers(servers = []) {
@@ -444,6 +468,8 @@ export async function discoverMcpHttpCatalog(server, options = {}) {
       listedPrompts: prompts,
       prompts,
       notifications: session.notifications,
+      auth_boundary: session.authBoundary ?? session.auth_boundary ?? null,
+      authBoundary: session.authBoundary ?? session.auth_boundary ?? null,
     };
   });
 }
@@ -491,6 +517,8 @@ export async function invokeMcpHttpTool(server, toolName, input = {}, options = 
       listed_prompts: listedPrompts,
       listedPrompts,
       notifications: session.notifications,
+      auth_boundary: session.authBoundary ?? session.auth_boundary ?? null,
+      authBoundary: session.authBoundary ?? session.auth_boundary ?? null,
       result: call ?? {},
     };
   });
@@ -511,13 +539,21 @@ async function withMcpHttpSession(server, options, callback) {
     options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
     10_000,
   );
+  const remoteHeaderResolution = resolveMcpRemoteHeaders(
+    mcpRemoteHeaderInputForServer(server, options.headers),
+    {
+      vault: options.vault,
+      serverId: server?.id,
+      transport: "http",
+    },
+  );
   const notifications = [];
   let nextRequestId = 1;
   const sendJsonRpc = async (message, expectsResponse) => {
     const response = await fetchMcpHttp(serverUrl, message, {
       ...options,
       timeoutMs,
-      headers: options.headers ?? server?.headers,
+      headers: remoteHeaderResolution.headers,
     });
     if (!expectsResponse) return null;
     return resolveMcpJsonRpcResponse(response, message.id, notifications, "mcp_http_json_rpc_error");
@@ -537,6 +573,8 @@ async function withMcpHttpSession(server, options, callback) {
     executionMode: "live_http",
     serverUrl,
     timeoutMs,
+    authBoundary: remoteHeaderResolution.authBoundary,
+    auth_boundary: remoteHeaderResolution.authBoundary,
     initialize,
     notifications,
     sendRequest,
@@ -553,6 +591,14 @@ async function withMcpSseSession(server, options, callback) {
     10_000,
   );
   const abortController = new AbortController();
+  const remoteHeaderResolution = resolveMcpRemoteHeaders(
+    mcpRemoteHeaderInputForServer(server, options.headers),
+    {
+      vault: options.vault,
+      serverId: server?.id,
+      transport: "sse",
+    },
+  );
   const notifications = [];
   const pending = new Map();
   let endpointUrl = null;
@@ -567,7 +613,7 @@ async function withMcpSseSession(server, options, callback) {
   const response = await withTimeout(
     fetch(serverUrl, {
       method: "GET",
-      headers: { Accept: "text/event-stream" },
+      headers: { Accept: "text/event-stream", ...remoteHeaderResolution.headers },
       signal: abortController.signal,
     }),
     timeoutMs,
@@ -659,7 +705,7 @@ async function withMcpSseSession(server, options, callback) {
       const immediate = await fetchMcpHttp(endpointUrl, message, {
         ...options,
         timeoutMs,
-        headers: options.headers ?? server?.headers,
+        headers: remoteHeaderResolution.headers,
       });
       if (immediate !== null) {
         const result = resolveMcpJsonRpcResponse(
@@ -709,6 +755,8 @@ async function withMcpSseSession(server, options, callback) {
       serverUrl,
       endpointUrl,
       timeoutMs,
+      authBoundary: remoteHeaderResolution.authBoundary,
+      auth_boundary: remoteHeaderResolution.authBoundary,
       initialize,
       notifications,
       sendRequest,
@@ -1091,6 +1139,175 @@ function mcpRemoteHeaders(headers = {}) {
       .filter(([, value]) => typeof value === "string" && value.trim() && !value.startsWith("vault://"))
       .map(([key, value]) => [key, value]),
   );
+}
+
+function mcpRemoteHeaderInputForServer(server, requestHeaders = {}) {
+  const bindings = server?.[MCP_SECRET_REF_BINDINGS]?.headers ?? {};
+  const headers =
+    requestHeaders && typeof requestHeaders === "object" && !Array.isArray(requestHeaders)
+      ? requestHeaders
+      : {};
+  return { ...bindings, ...headers };
+}
+
+function resolveMcpRemoteHeaders(headers = {}, options = {}) {
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) {
+    return emptyMcpRemoteHeaderResolution(options);
+  }
+  const resolvedHeaders = {};
+  const headerNames = [];
+  const vaultRefHashes = [];
+  const evidenceRefs = [];
+  for (const [rawKey, rawValue] of Object.entries(headers)) {
+    const headerName = normalizeMcpRemoteHeaderName(rawKey);
+    if (!headerName) {
+      throw mcpHttpError("mcp_remote_header_invalid", "MCP remote header names must be valid HTTP header tokens.", {
+        header_name_hash: doctorHash(rawKey),
+      });
+    }
+    const value = typeof rawValue === "string" ? rawValue.trim() : "";
+    if (!value) continue;
+    headerNames.push(headerName);
+    if (value.startsWith("vault://")) {
+      if (!options.vault || typeof options.vault.resolveVaultRef !== "function") {
+        throw mcpHttpError("mcp_remote_header_vault_unavailable", "MCP remote header vault resolution is unavailable.", {
+          server_id: options.serverId ?? null,
+          header_name: headerName,
+          vault_ref_hash: doctorHash(value),
+        });
+      }
+      const resolved = options.vault.resolveVaultRef(
+        value,
+        `mcp.remote_header:${options.serverId ?? "unknown"}:${headerName}`,
+      );
+      if (!resolved?.resolvedMaterial || typeof resolved.material !== "string" || !resolved.material) {
+        throw mcpHttpError("mcp_remote_header_vault_unbound", "MCP remote header vault material is not bound.", {
+          server_id: options.serverId ?? null,
+          header_name: headerName,
+          vault_ref_hash: resolved?.vaultRefHash ?? doctorHash(value),
+          material_source: resolved?.materialSource ?? "unbound",
+        });
+      }
+      resolvedHeaders[headerName] = resolved.material;
+      vaultRefHashes.push(resolved.vaultRefHash ?? doctorHash(value));
+      evidenceRefs.push(...normalizeArray(resolved.evidenceRefs));
+      continue;
+    }
+    if (mcpSensitiveHeaderName(headerName)) {
+      throw mcpHttpError("mcp_remote_header_requires_vault_ref", "MCP auth headers must use vault:// refs.", {
+        server_id: options.serverId ?? null,
+        header_name: headerName,
+      });
+    }
+    resolvedHeaders[headerName] = value;
+  }
+  const uniqueHeaderNames = uniqueStrings(headerNames).sort();
+  const uniqueVaultRefHashes = uniqueStrings(vaultRefHashes).sort();
+  const uniqueEvidenceRefs = uniqueStrings(["VaultPort.resolveVaultRef", ...evidenceRefs]).sort();
+  return {
+    headers: resolvedHeaders,
+    authBoundary: {
+      required: uniqueHeaderNames.length > 0,
+      status: "resolved",
+      transport: options.transport ?? null,
+      header_names: uniqueHeaderNames,
+      headerNames: uniqueHeaderNames,
+      vault_ref_hashes: uniqueVaultRefHashes,
+      vaultRefHashes: uniqueVaultRefHashes,
+      resolved_header_count: Object.keys(resolvedHeaders).length,
+      resolvedHeaderCount: Object.keys(resolvedHeaders).length,
+      vault_resolved_header_count: uniqueVaultRefHashes.length,
+      vaultResolvedHeaderCount: uniqueVaultRefHashes.length,
+      secret_values_included: false,
+      secretValuesIncluded: false,
+      evidence_refs: uniqueEvidenceRefs,
+      evidenceRefs: uniqueEvidenceRefs,
+    },
+  };
+}
+
+function emptyMcpRemoteHeaderResolution(options = {}) {
+  return {
+    headers: {},
+    authBoundary: {
+      required: false,
+      status: "not_configured",
+      transport: options.transport ?? null,
+      header_names: [],
+      headerNames: [],
+      vault_ref_hashes: [],
+      vaultRefHashes: [],
+      resolved_header_count: 0,
+      resolvedHeaderCount: 0,
+      vault_resolved_header_count: 0,
+      vaultResolvedHeaderCount: 0,
+      secret_values_included: false,
+      secretValuesIncluded: false,
+      evidence_refs: [],
+      evidenceRefs: [],
+    },
+  };
+}
+
+function normalizeMcpRemoteHeaderName(value) {
+  const headerName = optionalString(value);
+  if (!headerName) return null;
+  if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(headerName)) return null;
+  return headerName.toLowerCase();
+}
+
+function mcpSensitiveHeaderName(headerName) {
+  return /authorization|token|secret|api[-_]?key|x-api-key/i.test(headerName);
+}
+
+function publicMcpSecretRefs(values = {}, source = "secret") {
+  if (!values || typeof values !== "object" || Array.isArray(values)) return {};
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      typeof value === "string" && value.startsWith("vault://")
+        ? { redacted: true, hash: doctorHash(value), source }
+        : { redacted: true, invalidVaultRef: Boolean(value), source },
+    ]),
+  );
+}
+
+function mcpSecretRefBindingsForConfig(config = {}) {
+  return {
+    env: vaultRefBindings(config.env),
+    headers: vaultRefBindings(config.headers),
+  };
+}
+
+function vaultRefBindings(values = {}) {
+  if (!values || typeof values !== "object" || Array.isArray(values)) return {};
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => typeof value === "string" && value.startsWith("vault://")),
+  );
+}
+
+function mergeMcpSecretRefBindings(...bindings) {
+  const merged = { env: {}, headers: {} };
+  for (const binding of bindings) {
+    if (!binding || typeof binding !== "object" || Array.isArray(binding)) continue;
+    Object.assign(merged.env, vaultRefBindings(binding.env));
+    Object.assign(merged.headers, vaultRefBindings(binding.headers));
+  }
+  return merged;
+}
+
+function attachMcpSecretRefBindings(record, bindings = {}) {
+  const normalized = mergeMcpSecretRefBindings(bindings);
+  if (Object.keys(normalized.env).length === 0 && Object.keys(normalized.headers).length === 0) {
+    return record;
+  }
+  Object.defineProperty(record, MCP_SECRET_REF_BINDINGS, {
+    value: normalized,
+    enumerable: true,
+    configurable: false,
+    writable: false,
+  });
+  return record;
 }
 
 function loadMcpConfigSources(workspaceRoot) {

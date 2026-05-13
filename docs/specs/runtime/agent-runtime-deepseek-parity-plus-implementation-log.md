@@ -148,6 +148,7 @@ workstream was narrower.
 | 146 | 2026-05-13 | P1. MCP Manager Parity | MCP import/add/remove registry writes | /tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json |
 | 147 | 2026-05-13 | P1. MCP Manager Parity | live MCP HTTP/SSE transport | /tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json |
 | 148 | 2026-05-13 | P1. MCP Manager Parity | self-hosted MCP serve mode | /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json |
+| 149 | 2026-05-13 | P1. MCP Manager Parity | remote MCP auth/vault header hardening | /tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -7021,3 +7022,43 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-serve`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json`.
+
+### Slice 149. 2026-05-13 - Remote MCP auth/vault header hardening
+
+Implementation slice completed 2026-05-13, remote MCP auth hardening:
+
+- Added an internal, non-JSON MCP secret-ref binding path so remote HTTP/SSE
+  server configs can retain executable `vault://` header refs in memory while
+  daemon status, SDK responses, TUI rows, receipts, operation logs, and React
+  Flow config surfaces expose only header names, hashes, and vault-boundary
+  provenance.
+- Resolved remote MCP auth headers through `VaultPort.resolveVaultRef` at live
+  discovery/invocation setup time only, injected resolved material into the
+  actual HTTP/SSE requests, and carried redacted auth-boundary evidence on
+  transport execution records.
+- Added fail-closed behavior for auth-looking literal remote headers and
+  unbound vault refs so validation and invocation cannot silently send raw
+  token material.
+- Extended the deterministic live MCP fixture and contract test to require the
+  same vault-backed header on secure HTTP and SSE endpoints, prove material is
+  observed only by the remote fixture, and prove public payloads omit both the
+  vault ref and material.
+- Clarified the React Flow MCP add editor label so workflow-authored remote MCP
+  headers are treated as vault header refs.
+- Updated the master guide so the next MCP parity slice is large-server
+  deferred/tool-search exposure.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-auth-vault`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json`.
