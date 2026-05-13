@@ -2,10 +2,10 @@
 
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
-    decide_tui_approval, fetch_tui_event_batch, fetch_tui_thread, interrupt_tui_turn,
-    invoke_tui_coding_tool, latest_event_seq, resume_tui_thread, selected_turn_id_from_values,
-    steer_tui_turn, thread_id_from_value, tui_approval_decisions, tui_approval_rows,
-    tui_mode_status,
+    apply_tui_workspace_restore, decide_tui_approval, fetch_tui_event_batch, fetch_tui_thread,
+    interrupt_tui_turn, invoke_tui_coding_tool, latest_event_seq, list_tui_workspace_snapshots,
+    preview_tui_workspace_restore, resume_tui_thread, selected_turn_id_from_values, steer_tui_turn,
+    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_mode_status,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -69,6 +69,14 @@ pub(crate) enum TuiLineCommand {
     },
     RetrieveResult {
         target: String,
+    },
+    RestoreList,
+    RestorePreview {
+        snapshot_id: String,
+    },
+    RestoreApply {
+        snapshot_id: String,
+        allow_conflicts: bool,
     },
     Quit,
 }
@@ -345,6 +353,47 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::RestoreList) => {
+                let events = handle_restore_list_command(&mut session).await?;
+                control_state.record_command(
+                    "restore",
+                    line.trim(),
+                    "applied",
+                    Some("workspace snapshots listed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RestorePreview { snapshot_id }) => {
+                let events = handle_restore_preview_command(&mut session, &snapshot_id).await?;
+                control_state.record_command(
+                    "restore",
+                    line.trim(),
+                    "applied",
+                    Some("restore previewed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RestoreApply {
+                snapshot_id,
+                allow_conflicts,
+            }) => {
+                let events =
+                    handle_restore_apply_command(&mut session, &snapshot_id, allow_conflicts)
+                        .await?;
+                control_state.record_command(
+                    "restore",
+                    line.trim(),
+                    "applied",
+                    Some("restore apply requested"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::Quit) => {
                 println!("line_mode_command=quit");
                 control_state.record_command(
@@ -464,6 +513,7 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 .ok_or_else(|| anyhow!("/retrieve requires a tool call id or artifact id"))?;
             Ok(TuiLineCommand::RetrieveResult { target })
         }
+        "restore" => parse_restore_args(rest),
         "quit" | "exit" | "q" => Ok(TuiLineCommand::Quit),
         _ => Err(anyhow!("unknown TUI command /{command}; use /help")),
     }
@@ -660,6 +710,129 @@ async fn handle_coding_tool_input_command(
     handle_events_command(session, None).await
 }
 
+async fn handle_restore_list_command(session: &mut TuiInteractiveSession) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let result =
+        list_tui_workspace_snapshots(&thread_id, &session.endpoint, session.token.as_deref())
+            .await?;
+    let snapshots = result
+        .pointer("/snapshots")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    println!(
+        "line_mode_command=restore action=list count={}",
+        snapshots.len()
+    );
+    for snapshot in snapshots {
+        println!(
+            "  snapshot={} changed_files={} restore={} receipts={} artifacts={}",
+            json_path_string(&snapshot, "/snapshotId")
+                .or_else(|| json_path_string(&snapshot, "/snapshot_id"))
+                .unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&snapshot, "/changedFileCount")
+                .or_else(|| json_path_string(&snapshot, "/changed_file_count"))
+                .or_else(|| json_path_string(&snapshot, "/fileCount"))
+                .unwrap_or_else(|| "0".to_string()),
+            json_path_string(&snapshot, "/restore/status").unwrap_or_else(|| "unknown".to_string()),
+            snapshot
+                .pointer("/receiptRefs")
+                .or_else(|| snapshot.pointer("/receipt_refs"))
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0),
+            snapshot
+                .pointer("/artifactRefs")
+                .or_else(|| snapshot.pointer("/artifact_refs"))
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0)
+        );
+    }
+    Ok(Vec::new())
+}
+
+async fn handle_restore_preview_command(
+    session: &mut TuiInteractiveSession,
+    snapshot_id: &str,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let result = preview_tui_workspace_restore(
+        &thread_id,
+        snapshot_id,
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=restore action=preview snapshot={} status={} apply_supported={} receipts={} artifacts={}",
+        snapshot_id,
+        json_path_string(&result, "/preview_status")
+            .or_else(|| json_path_string(&result, "/previewStatus"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&result, "/apply_supported")
+            .or_else(|| json_path_string(&result, "/applySupported"))
+            .unwrap_or_else(|| "false".to_string()),
+        result
+            .pointer("/receipt_refs")
+            .or_else(|| result.pointer("/receiptRefs"))
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        result
+            .pointer("/artifact_refs")
+            .or_else(|| result.pointer("/artifactRefs"))
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    handle_events_command(session, None).await
+}
+
+async fn handle_restore_apply_command(
+    session: &mut TuiInteractiveSession,
+    snapshot_id: &str,
+    allow_conflicts: bool,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let result = apply_tui_workspace_restore(
+        &thread_id,
+        snapshot_id,
+        allow_conflicts,
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=restore action=apply snapshot={} status={} approval_satisfied={} allow_conflicts={} receipts={} policies={}",
+        snapshot_id,
+        json_path_string(&result, "/apply_status")
+            .or_else(|| json_path_string(&result, "/applyStatus"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&result, "/approval_satisfied")
+            .or_else(|| json_path_string(&result, "/approvalSatisfied"))
+            .unwrap_or_else(|| "false".to_string()),
+        allow_conflicts,
+        result
+            .pointer("/receipt_refs")
+            .or_else(|| result.pointer("/receiptRefs"))
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        result
+            .pointer("/policy_decision_refs")
+            .or_else(|| result.pointer("/policyDecisionRefs"))
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    handle_events_command(session, None).await
+}
+
 fn coding_tool_line_command(tool_id: &str) -> &'static str {
     match tool_id {
         "workspace.status" => "status",
@@ -675,7 +848,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -712,6 +885,75 @@ fn parse_patch_args(rest: &str) -> Result<(String, String, String)> {
         return Err(anyhow!("/patch requires a path and non-empty old text"));
     }
     Ok((path, old_text, new_text))
+}
+
+fn parse_restore_args(rest: &str) -> Result<TuiLineCommand> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return Ok(TuiLineCommand::RestoreList);
+    }
+
+    let mut parts = trimmed.split_whitespace();
+    let action = parts
+        .next()
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| anyhow!("/restore accepts list, preview, or apply"))?;
+    match action.as_str() {
+        "list" | "snapshots" => {
+            if parts.next().is_some() {
+                return Err(anyhow!("/restore list does not accept extra arguments"));
+            }
+            Ok(TuiLineCommand::RestoreList)
+        }
+        "preview" => {
+            let snapshot_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/restore preview requires a snapshot id"))?;
+            if parts.next().is_some() {
+                return Err(anyhow!("/restore preview accepts exactly one snapshot id"));
+            }
+            Ok(TuiLineCommand::RestorePreview {
+                snapshot_id: snapshot_id.to_string(),
+            })
+        }
+        "apply" => {
+            let snapshot_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/restore apply requires a snapshot id"))?;
+            let mut approved = false;
+            let mut allow_conflicts = false;
+            for flag in parts {
+                match flag {
+                    "--approve" | "--approved" | "--confirm" | "--confirmed" => {
+                        approved = true;
+                    }
+                    "--allow-conflicts"
+                    | "--allow_conflicts"
+                    | "--override-conflicts"
+                    | "--override_conflicts" => {
+                        allow_conflicts = true;
+                    }
+                    _ => {
+                        return Err(anyhow!(
+                            "/restore apply unknown flag {flag}; use --approve [--allow-conflicts]"
+                        ));
+                    }
+                }
+            }
+            if !approved {
+                return Err(anyhow!(
+                    "/restore apply requires --approve to apply a snapshot"
+                ));
+            }
+            Ok(TuiLineCommand::RestoreApply {
+                snapshot_id: snapshot_id.to_string(),
+                allow_conflicts,
+            })
+        }
+        _ => Err(anyhow!(
+            "/restore accepts list, preview <snapshot_id>, or apply <snapshot_id> --approve"
+        )),
+    }
 }
 
 fn parse_approval_decision_args(rest: &str) -> (Option<String>, Option<String>) {
@@ -1027,6 +1269,37 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/restore").unwrap(),
+            TuiLineCommand::RestoreList
+        );
+        assert_eq!(
+            parse_tui_line_command("/restore list").unwrap(),
+            TuiLineCommand::RestoreList
+        );
+        assert_eq!(
+            parse_tui_line_command("/restore preview workspace_snapshot_abc123").unwrap(),
+            TuiLineCommand::RestorePreview {
+                snapshot_id: "workspace_snapshot_abc123".to_string()
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/restore apply workspace_snapshot_abc123 --approve").unwrap(),
+            TuiLineCommand::RestoreApply {
+                snapshot_id: "workspace_snapshot_abc123".to_string(),
+                allow_conflicts: false,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/restore apply workspace_snapshot_abc123 --approve --allow-conflicts"
+            )
+            .unwrap(),
+            TuiLineCommand::RestoreApply {
+                snapshot_id: "workspace_snapshot_abc123".to_string(),
+                allow_conflicts: true,
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/quit").unwrap(),
             TuiLineCommand::Quit
         );
@@ -1039,6 +1312,12 @@ mod tests {
         assert!(parse_tui_line_command("/inspect").is_err());
         assert!(parse_tui_line_command("/patch README.md before after").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
+        assert!(parse_tui_line_command("/restore preview").is_err());
+        assert!(parse_tui_line_command("/restore apply workspace_snapshot_abc123").is_err());
+        assert!(parse_tui_line_command(
+            "/restore apply workspace_snapshot_abc123 --approve --unknown"
+        )
+        .is_err());
         assert!(parse_tui_line_command("/unknown").is_err());
     }
 

@@ -28,6 +28,11 @@ const TUI_APPROVAL_DECISION_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/approvals/{approval_id}/decision";
 const TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/tools/{tool_id}/invoke";
+const TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/snapshots";
+const TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-preview";
+const TUI_RESTORE_APPLY_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-apply";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -233,6 +238,9 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
                 "steer": TUI_STEER_ROUTE_TEMPLATE,
                 "approval_decision": TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
                 "coding_tool_invoke": TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE,
+                "snapshot_list": TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE,
+                "restore_preview": TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE,
+                "restore_apply": TUI_RESTORE_APPLY_ROUTE_TEMPLATE,
             }
         }))?
     );
@@ -283,7 +291,7 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             .unwrap_or_else(|| "local_private".to_string())
     );
     println!(
-        "  controls=/interrupt /steer /approvals /approve /reject /resume via daemon thread endpoints"
+        "  controls=/interrupt /steer /approvals /approve /reject /restore /resume via daemon thread endpoints"
     );
     if !approval_rows.is_empty() {
         println!("Approvals: count={}", approval_rows.len());
@@ -618,6 +626,70 @@ pub(crate) async fn invoke_tui_coding_tool(
             "workflow_node_id": format!("runtime.coding-tool.{}", safe_id(tool_id)),
             "component_kind": "coding_tool",
             "input": input,
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn list_tui_workspace_snapshots(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_thread(TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE, thread_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn preview_tui_workspace_restore(
+    thread_id: &str,
+    snapshot_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_snapshot(TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE, thread_id, snapshot_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "component_kind": "restore_gate",
+            "workflow_node_id": "runtime.restore-gate.tui-preview",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn apply_tui_workspace_restore(
+    thread_id: &str,
+    snapshot_id: &str,
+    allow_conflicts: bool,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_snapshot(TUI_RESTORE_APPLY_ROUTE_TEMPLATE, thread_id, snapshot_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "component_kind": "restore_gate",
+            "workflow_node_id": "runtime.restore-gate.tui-apply",
+            "approval_granted": true,
+            "approvalGranted": true,
+            "allow_conflicts": allow_conflicts,
+            "allowConflicts": allow_conflicts,
+            "override_conflicts": allow_conflicts,
+            "overrideConflicts": allow_conflicts,
         })),
     )
     .await
@@ -1036,6 +1108,10 @@ fn route_with_thread_and_approval(template: &str, thread_id: &str, approval_id: 
     route_with_thread(template, thread_id).replace("{approval_id}", approval_id)
 }
 
+fn route_with_thread_and_snapshot(template: &str, thread_id: &str, snapshot_id: &str) -> String {
+    route_with_thread(template, thread_id).replace("{snapshot_id}", snapshot_id)
+}
+
 fn safe_id(value: &str) -> String {
     value
         .chars()
@@ -1070,6 +1146,14 @@ mod tests {
                 "approval_live"
             ),
             "/v1/threads/thread_live/approvals/approval_live/decision"
+        );
+        assert_eq!(
+            route_with_thread_and_snapshot(
+                TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE,
+                "thread_live",
+                "workspace_snapshot_live"
+            ),
+            "/v1/threads/thread_live/snapshots/workspace_snapshot_live/restore-preview"
         );
     }
 
