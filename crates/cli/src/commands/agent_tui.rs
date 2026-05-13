@@ -44,6 +44,21 @@ const TUI_THREAD_MEMORY_POLICY_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/m
 const TUI_THREAD_MEMORY_PATH_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/path";
 const TUI_THREAD_MEMORY_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory";
 const TUI_THREAD_MEMORY_RECORD_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/{memory_id}";
+const TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/subagents";
+const TUI_THREAD_SUBAGENT_WAIT_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/{subagent_id}/wait";
+const TUI_THREAD_SUBAGENT_RESULT_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/{subagent_id}/result";
+const TUI_THREAD_SUBAGENT_INPUT_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/{subagent_id}/input";
+const TUI_THREAD_SUBAGENT_CANCEL_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/{subagent_id}/cancel";
+const TUI_THREAD_SUBAGENT_RESUME_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/{subagent_id}/resume";
+const TUI_THREAD_SUBAGENT_ASSIGN_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/{subagent_id}/assign";
+const TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/subagents/cancel";
 const TUI_MEMORY_STATUS_ROUTE: &str = "/v1/memory";
 const TUI_MEMORY_VALIDATE_ROUTE: &str = "/v1/memory/validate";
 const TUI_MCP_STATUS_ROUTE: &str = "/v1/mcp";
@@ -311,6 +326,38 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         routes_object.insert(
             "thread_mcp_server_remove".to_string(),
             Value::String(TUI_THREAD_MCP_SERVER_REMOVE_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagents".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_wait".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_WAIT_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_result".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_RESULT_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_input".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_INPUT_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_cancel".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_CANCEL_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_resume".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_RESUME_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_assign".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_ASSIGN_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_subagent_cancel_propagate".to_string(),
+            Value::String(TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE.to_string()),
         );
     }
     println!(
@@ -1190,6 +1237,208 @@ pub(crate) async fn delete_tui_memory(
     .await
 }
 
+pub(crate) async fn list_tui_subagents(
+    thread_id: &str,
+    role: Option<&str>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut params = vec![("source", "cli_tui".to_string())];
+    if let Some(role) = role.filter(|value| !value.trim().is_empty()) {
+        params.push(("role", role.to_string()));
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_query(
+            route_with_thread(TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE, thread_id),
+            params,
+        ),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn spawn_tui_subagent(
+    thread_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentSpawn");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE, thread_id),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn wait_tui_subagent(
+    thread_id: &str,
+    subagent_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentWait");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_subagent(
+            TUI_THREAD_SUBAGENT_WAIT_ROUTE_TEMPLATE,
+            thread_id,
+            subagent_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn fetch_tui_subagent_result(
+    thread_id: &str,
+    subagent_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_thread_and_subagent(
+            TUI_THREAD_SUBAGENT_RESULT_ROUTE_TEMPLATE,
+            thread_id,
+            subagent_id,
+        ),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn send_tui_subagent_input(
+    thread_id: &str,
+    subagent_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentSendInput");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_subagent(
+            TUI_THREAD_SUBAGENT_INPUT_ROUTE_TEMPLATE,
+            thread_id,
+            subagent_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn cancel_tui_subagent(
+    thread_id: &str,
+    subagent_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentCancel");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_subagent(
+            TUI_THREAD_SUBAGENT_CANCEL_ROUTE_TEMPLATE,
+            thread_id,
+            subagent_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn resume_tui_subagent(
+    thread_id: &str,
+    subagent_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentResume");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_subagent(
+            TUI_THREAD_SUBAGENT_RESUME_ROUTE_TEMPLATE,
+            thread_id,
+            subagent_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn assign_tui_subagent(
+    thread_id: &str,
+    subagent_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentAssign");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_subagent(
+            TUI_THREAD_SUBAGENT_ASSIGN_ROUTE_TEMPLATE,
+            thread_id,
+            subagent_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn propagate_tui_subagent_cancellation(
+    thread_id: &str,
+    body: Map<String, Value>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let body = tui_subagent_control_body(body, "OperatorControl.SubagentCancel");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(
+            TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE,
+            thread_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+fn tui_subagent_control_body(mut body: Map<String, Value>, event_kind: &str) -> Map<String, Value> {
+    body.entry("source".to_string())
+        .or_insert_with(|| Value::String("cli_tui".to_string()));
+    body.entry("actor".to_string())
+        .or_insert_with(|| Value::String("operator".to_string()));
+    body.entry("event_kind".to_string())
+        .or_insert_with(|| Value::String(event_kind.to_string()));
+    body.entry("component_kind".to_string())
+        .or_insert_with(|| Value::String("subagent_lifecycle".to_string()));
+    body
+}
+
 pub(crate) async fn decide_tui_approval(
     thread_id: &str,
     turn_id: Option<&str>,
@@ -1652,7 +1901,7 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
     serde_json::json!({
         "schema_version": TUI_CONTROL_STATE_SCHEMA_VERSION,
         "surface": "tui",
-        "thread_id": thread_id,
+        "thread_id": thread_id.clone(),
         "current_turn_id": current_turn_id,
         "last_cursor": last_cursor,
         "last_event_id": last_event_id,
@@ -2091,6 +2340,245 @@ pub(crate) fn tui_memory_rows(status: &Value, fallback_thread_id: Option<&str>) 
     rows
 }
 
+pub(crate) fn tui_subagent_rows(status: &Value, fallback_thread_id: Option<&str>) -> Vec<Value> {
+    let thread_id = json_path_string(status, "/thread_id")
+        .or_else(|| json_path_string(status, "/threadId"))
+        .or_else(|| json_path_string(status, "/parent_thread_id"))
+        .or_else(|| json_path_string(status, "/parentThreadId"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let event_id = json_path_string(status, "/event/event_id")
+        .or_else(|| json_path_string(status, "/event_id"));
+    let cursor = status.pointer("/event").and_then(|event| {
+        let stream = json_path_string(event, "/event_stream_id")?;
+        let seq = event.pointer("/seq")?.as_u64()?;
+        Some(format!("{stream}:{seq}"))
+    });
+    let receipt_refs = status
+        .pointer("/receipt_refs")
+        .or_else(|| status.pointer("/receiptRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let policy_refs = status
+        .pointer("/policy_decision_refs")
+        .or_else(|| status.pointer("/policyDecisionRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let operation = tui_subagent_operation_for_status(status);
+    let mut rows = Vec::new();
+
+    if let Some(subagents) = status.pointer("/subagents").and_then(Value::as_array) {
+        for subagent in subagents {
+            rows.push(tui_subagent_row(
+                subagent,
+                thread_id.as_deref(),
+                event_id.as_deref(),
+                cursor.as_deref(),
+                "list",
+                &receipt_refs,
+                &policy_refs,
+            ));
+        }
+    }
+    if let Some(subagent) = status.pointer("/subagent") {
+        rows.push(tui_subagent_row(
+            subagent,
+            thread_id.as_deref(),
+            event_id.as_deref(),
+            cursor.as_deref(),
+            &operation,
+            &receipt_refs,
+            &policy_refs,
+        ));
+    }
+    if json_path_string(status, "/object").as_deref() == Some("ioi.runtime_subagent")
+        || json_path_string(status, "/subagent_id").is_some()
+        || json_path_string(status, "/subagentId").is_some()
+    {
+        rows.push(tui_subagent_row(
+            status,
+            thread_id.as_deref(),
+            event_id.as_deref(),
+            cursor.as_deref(),
+            &operation,
+            &receipt_refs,
+            &policy_refs,
+        ));
+    }
+    for (pointer, operation) in [
+        ("/canceled_subagents", "cancel"),
+        ("/canceledSubagents", "cancel"),
+        ("/skipped_subagents", "propagate_skip"),
+        ("/skippedSubagents", "propagate_skip"),
+    ] {
+        if let Some(subagents) = status.pointer(pointer).and_then(Value::as_array) {
+            for subagent in subagents {
+                rows.push(tui_subagent_row(
+                    subagent,
+                    thread_id.as_deref(),
+                    event_id.as_deref(),
+                    cursor.as_deref(),
+                    operation,
+                    &receipt_refs,
+                    &policy_refs,
+                ));
+            }
+        }
+    }
+
+    let mut unique_rows = Vec::new();
+    let mut seen = BTreeSet::new();
+    for row in rows {
+        let key = json_path_string(&row, "/subagent_id")
+            .or_else(|| json_path_string(&row, "/id"))
+            .unwrap_or_default();
+        if key.is_empty() || seen.insert(key) {
+            unique_rows.push(row);
+        }
+    }
+    unique_rows
+}
+
+fn tui_subagent_operation_for_status(status: &Value) -> String {
+    let source_event_kind = json_path_string(status, "/event/source_event_kind")
+        .or_else(|| json_path_string(status, "/source_event_kind"))
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if source_event_kind.contains("subagentspawn") {
+        return "spawn".to_string();
+    }
+    if source_event_kind.contains("subagentwait") {
+        return "wait".to_string();
+    }
+    if source_event_kind.contains("subagentresult") {
+        return "result".to_string();
+    }
+    if source_event_kind.contains("subagentsendinput") {
+        return "input".to_string();
+    }
+    if source_event_kind.contains("subagentcancel") {
+        return "cancel".to_string();
+    }
+    if source_event_kind.contains("subagentresume") {
+        return "resume".to_string();
+    }
+    if source_event_kind.contains("subagentassign") {
+        return "assign".to_string();
+    }
+    if status.pointer("/assignment").is_some() {
+        return "assign".to_string();
+    }
+    if status.pointer("/resume").is_some() {
+        return "resume".to_string();
+    }
+    if status.pointer("/input").is_some() {
+        return "input".to_string();
+    }
+    if status.pointer("/cancellation").is_some() {
+        return "cancel".to_string();
+    }
+    if json_path_string(status, "/object").as_deref() == Some("ioi.runtime_subagent_result") {
+        return "result".to_string();
+    }
+    "list".to_string()
+}
+
+fn tui_subagent_row(
+    record: &Value,
+    fallback_thread_id: Option<&str>,
+    fallback_event_id: Option<&str>,
+    fallback_cursor: Option<&str>,
+    operation: &str,
+    receipt_refs: &Value,
+    policy_refs: &Value,
+) -> Value {
+    let subagent_id = json_path_string(record, "/subagent_id")
+        .or_else(|| json_path_string(record, "/subagentId"))
+        .or_else(|| json_path_string(record, "/agent_id"))
+        .or_else(|| json_path_string(record, "/agentId"))
+        .unwrap_or_else(|| "subagent".to_string());
+    let thread_id = json_path_string(record, "/parent_thread_id")
+        .or_else(|| json_path_string(record, "/parentThreadId"))
+        .or_else(|| json_path_string(record, "/thread_id"))
+        .or_else(|| json_path_string(record, "/threadId"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let run_id = json_path_string(record, "/run_id").or_else(|| json_path_string(record, "/runId"));
+    let child_thread_id = json_path_string(record, "/child_thread_id")
+        .or_else(|| json_path_string(record, "/childThreadId"));
+    let role = json_path_string(record, "/role").unwrap_or_else(|| "general".to_string());
+    let lifecycle_status = json_path_string(record, "/lifecycle_status")
+        .or_else(|| json_path_string(record, "/lifecycleStatus"))
+        .or_else(|| json_path_string(record, "/status"))
+        .unwrap_or_else(|| "unknown".to_string());
+    let output_contract_status = json_path_string(record, "/output_contract_status")
+        .or_else(|| json_path_string(record, "/outputContractStatus/status"))
+        .or_else(|| json_path_string(record, "/output_contract_validation/status"))
+        .unwrap_or_else(|| "unknown".to_string());
+    let workflow_node_id = json_path_string(record, "/workflow_node_id")
+        .or_else(|| json_path_string(record, "/workflowNodeId"))
+        .unwrap_or_else(|| format!("runtime.subagent.{}.{}", operation, safe_id(&role)));
+    serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "surface": "tui",
+        "id": format!("tui-subagent-{}", safe_id(&subagent_id)),
+        "row_kind": "subagent",
+        "status": lifecycle_status.clone(),
+        "label": "Subagent",
+        "command": "subagent",
+        "raw_input": format!("/subagent {operation}"),
+        "message": format!("{role} · contract={output_contract_status}"),
+        "thread_id": thread_id,
+        "turn_id": json_path_string(record, "/parent_turn_id").or_else(|| json_path_string(record, "/parentTurnId")),
+        "event_id": json_path_string(record, "/event_id").or_else(|| fallback_event_id.map(ToOwned::to_owned)),
+        "cursor": fallback_cursor,
+        "subagent_id": subagent_id.clone(),
+        "subagent_role": role.clone(),
+        "subagent_operation": operation,
+        "subagent_lifecycle_status": lifecycle_status.clone(),
+        "subagent_output_contract_status": output_contract_status.clone(),
+        "subagent_cancellation_inheritance": json_path_string(record, "/cancellation_inheritance")
+            .or_else(|| json_path_string(record, "/cancellationInheritance")),
+        "subagent_cancellation_reason": json_path_string(record, "/cancellation_reason")
+            .or_else(|| json_path_string(record, "/cancellationReason")),
+        "subagent_merge_policy": json_path_string(record, "/merge_policy")
+            .or_else(|| json_path_string(record, "/mergePolicy")),
+        "subagent_tool_pack": json_path_string(record, "/tool_pack")
+            .or_else(|| json_path_string(record, "/toolPack")),
+        "subagent_child_thread_id": child_thread_id,
+        "subagent_run_id": run_id.clone(),
+        "subagent_restart_count": json_path_string(record, "/restart_count")
+            .or_else(|| json_path_string(record, "/restartCount"))
+            .unwrap_or_else(|| "0".to_string()),
+        "subagent_input_count": json_path_string(record, "/input_count")
+            .or_else(|| json_path_string(record, "/inputCount"))
+            .unwrap_or_else(|| "0".to_string()),
+        "subagent_assignment_count": json_path_string(record, "/assignment_count")
+            .or_else(|| json_path_string(record, "/assignmentCount"))
+            .unwrap_or_else(|| "0".to_string()),
+        "workflow_graph_id": json_path_string(record, "/workflow_graph_id")
+            .or_else(|| json_path_string(record, "/workflowGraphId")),
+        "workflow_node_id": workflow_node_id,
+        "routes": {
+            "list": thread_id.as_deref().map(|thread_id| route_with_thread(TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE, thread_id)),
+            "wait": thread_id.as_deref().map(|thread_id| route_with_thread_and_subagent(TUI_THREAD_SUBAGENT_WAIT_ROUTE_TEMPLATE, thread_id, &subagent_id)),
+            "result": thread_id.as_deref().map(|thread_id| route_with_thread_and_subagent(TUI_THREAD_SUBAGENT_RESULT_ROUTE_TEMPLATE, thread_id, &subagent_id)),
+            "input": thread_id.as_deref().map(|thread_id| route_with_thread_and_subagent(TUI_THREAD_SUBAGENT_INPUT_ROUTE_TEMPLATE, thread_id, &subagent_id)),
+            "cancel": thread_id.as_deref().map(|thread_id| route_with_thread_and_subagent(TUI_THREAD_SUBAGENT_CANCEL_ROUTE_TEMPLATE, thread_id, &subagent_id)),
+            "resume": thread_id.as_deref().map(|thread_id| route_with_thread_and_subagent(TUI_THREAD_SUBAGENT_RESUME_ROUTE_TEMPLATE, thread_id, &subagent_id)),
+            "assign": thread_id.as_deref().map(|thread_id| route_with_thread_and_subagent(TUI_THREAD_SUBAGENT_ASSIGN_ROUTE_TEMPLATE, thread_id, &subagent_id)),
+            "propagate_cancel": thread_id.as_deref().map(|thread_id| route_with_thread(TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE, thread_id)),
+            "run": run_id.as_deref().map(|run_id| route_with_run(TUI_RUN_ROUTE_TEMPLATE, run_id)),
+        },
+        "receipt_refs": record.pointer("/receipt_refs")
+            .or_else(|| record.pointer("/receiptRefs"))
+            .cloned()
+            .unwrap_or_else(|| receipt_refs.clone()),
+        "policy_decision_refs": record.pointer("/policy_decision_refs")
+            .or_else(|| record.pointer("/policyDecisionRefs"))
+            .cloned()
+            .unwrap_or_else(|| policy_refs.clone()),
+    })
+}
+
 pub(crate) fn tui_approval_rows(events: &[Value], fallback_thread_id: Option<&str>) -> Vec<Value> {
     events
         .iter()
@@ -2502,6 +2990,10 @@ fn route_with_thread_and_mcp_tool(template: &str, thread_id: &str, tool_id: &str
     route_with_thread(template, thread_id).replace("{tool_id}", tool_id)
 }
 
+fn route_with_thread_and_subagent(template: &str, thread_id: &str, subagent_id: &str) -> String {
+    route_with_thread(template, thread_id).replace("{subagent_id}", subagent_id)
+}
+
 fn route_with_query(route: String, params: Vec<(&str, String)>) -> String {
     let query = params
         .into_iter()
@@ -2622,6 +3114,25 @@ mod tests {
         assert_eq!(
             route_with_run(TUI_RUN_REPLAY_ROUTE_TEMPLATE, "run_live"),
             "/v1/runs/run_live/replay"
+        );
+        assert_eq!(
+            route_with_thread(TUI_THREAD_SUBAGENT_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/subagents"
+        );
+        assert_eq!(
+            route_with_thread_and_subagent(
+                TUI_THREAD_SUBAGENT_WAIT_ROUTE_TEMPLATE,
+                "thread_live",
+                "agent_live"
+            ),
+            "/v1/threads/thread_live/subagents/agent_live/wait"
+        );
+        assert_eq!(
+            route_with_thread(
+                TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE,
+                "thread_live"
+            ),
+            "/v1/threads/thread_live/subagents/cancel"
         );
     }
 

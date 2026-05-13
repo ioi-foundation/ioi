@@ -194,6 +194,7 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "memory_status"
   | "memory_policy"
   | "memory_record"
+  | "subagent"
   | "approval"
   | "approval_decision"
   | "job"
@@ -245,6 +246,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   mcp_rows?: unknown[];
   memoryRows?: unknown[];
   memory_rows?: unknown[];
+  subagentRows?: unknown[];
+  subagent_rows?: unknown[];
   commandHistory?: unknown[];
   command_history?: unknown[];
   validationErrors?: unknown[];
@@ -273,6 +276,19 @@ export interface WorkflowRuntimeTuiControlStateRow {
   memoryScope?: string | null;
   memoryKey?: string | null;
   memoryOperation?: string | null;
+  subagentId?: string | null;
+  subagentRole?: string | null;
+  subagentOperation?: string | null;
+  subagentLifecycleStatus?: string | null;
+  subagentOutputContractStatus?: string | null;
+  subagentCancellationInheritance?: string | null;
+  subagentMergePolicy?: string | null;
+  subagentToolPack?: string | null;
+  subagentRunId?: string | null;
+  subagentChildThreadId?: string | null;
+  subagentRestartCount?: number | null;
+  subagentInputCount?: number | null;
+  subagentAssignmentCount?: number | null;
   routeId: string | null;
   reasoningEffort: string | null;
   threadId: string | null;
@@ -301,6 +317,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   runLifecycleCount: number;
   mcpRowCount: number;
   memoryRowCount: number;
+  subagentRowCount: number;
   rowCount: number;
   rows: WorkflowRuntimeTuiControlStateRow[];
 }
@@ -395,6 +412,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
   );
   const mcpRows = arrayField(state, "mcpRows", "mcp_rows");
   const memoryRows = arrayField(state, "memoryRows", "memory_rows");
+  const subagentRows = arrayField(state, "subagentRows", "subagent_rows");
   const rows: WorkflowRuntimeTuiControlStateRow[] = [];
 
   if (threadId || currentTurnId || lastCursor || lastEventId) {
@@ -664,6 +682,133 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     });
   });
 
+  subagentRows.forEach((entry, index) => {
+    const subagentId = stringField(entry, "subagentId", "subagent_id");
+    const role = stringField(entry, "subagentRole", "subagent_role", "role") ?? "general";
+    const operation =
+      stringField(entry, "subagentOperation", "subagent_operation") ??
+      stringField(entry, "operation") ??
+      "list";
+    const lifecycleStatus =
+      stringField(entry, "subagentLifecycleStatus", "subagent_lifecycle_status") ??
+      stringField(entry, "lifecycleStatus", "lifecycle_status") ??
+      stringField(entry, "status");
+    const outputContractStatus =
+      stringField(
+        entry,
+        "subagentOutputContractStatus",
+        "subagent_output_contract_status",
+        "outputContractStatus",
+        "output_contract_status",
+      ) ?? stringField(recordField(entry, "outputContractStatus", "output_contract_status"), "status");
+    const cancellationInheritance = stringField(
+      entry,
+      "subagentCancellationInheritance",
+      "subagent_cancellation_inheritance",
+      "cancellationInheritance",
+      "cancellation_inheritance",
+    );
+    const mergePolicy = stringField(
+      entry,
+      "subagentMergePolicy",
+      "subagent_merge_policy",
+      "mergePolicy",
+      "merge_policy",
+    );
+    const toolPack = stringField(
+      entry,
+      "subagentToolPack",
+      "subagent_tool_pack",
+      "toolPack",
+      "tool_pack",
+    );
+    const subagentRunId =
+      stringField(entry, "subagentRunId", "subagent_run_id") ??
+      stringField(entry, "runId", "run_id");
+    const subagentChildThreadId = stringField(
+      entry,
+      "subagentChildThreadId",
+      "subagent_child_thread_id",
+      "childThreadId",
+      "child_thread_id",
+    );
+    const status = tuiControlRowStatus(lifecycleStatus);
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    const fallbackNodeId = `runtime.subagent.${slug(operation)}.${slug(role ?? subagentId ?? String(sequence))}`;
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-subagent:${slug(subagentId ?? `${role}:${sequence}`)}`,
+      rowKind: "subagent",
+      status,
+      label: subagentId ? `Subagent ${role}` : "Subagent",
+      command: stringField(entry, "command") ?? "subagent",
+      rawInput:
+        stringField(entry, "rawInput", "raw_input") ??
+        `/subagent ${operation}`,
+      message:
+        stringField(entry, "message", "summary") ??
+        ([role, operation, outputContractStatus].filter(Boolean).join(" · ") || null),
+      approvalId: null,
+      jobId: null,
+      runId: subagentRunId,
+      modelId: null,
+      routeId:
+        stringField(entry, "modelRouteId", "model_route_id") ??
+        stringField(entry, "routeId", "route_id"),
+      reasoningEffort: null,
+      subagentId,
+      subagentRole: role,
+      subagentOperation: operation,
+      subagentLifecycleStatus: lifecycleStatus ?? null,
+      subagentOutputContractStatus: outputContractStatus ?? null,
+      subagentCancellationInheritance: cancellationInheritance,
+      subagentMergePolicy: mergePolicy,
+      subagentToolPack: toolPack,
+      subagentRunId,
+      subagentChildThreadId,
+      subagentRestartCount: numberField(
+        entry,
+        "subagentRestartCount",
+        "subagent_restart_count",
+        "restartCount",
+        "restart_count",
+      ),
+      subagentInputCount: numberField(
+        entry,
+        "subagentInputCount",
+        "subagent_input_count",
+        "inputCount",
+        "input_count",
+      ),
+      subagentAssignmentCount: numberField(
+        entry,
+        "subagentAssignmentCount",
+        "subagent_assignment_count",
+        "assignmentCount",
+        "assignment_count",
+      ),
+      threadId:
+        stringField(entry, "threadId", "thread_id", "parentThreadId", "parent_thread_id") ??
+        threadId,
+      turnId:
+        stringField(entry, "turnId", "turn_id", "parentTurnId", "parent_turn_id") ??
+        currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        fallbackNodeId,
+    });
+  });
+
   approvalRows.forEach((entry, index) => {
     const approvalId = stringField(entry, "approvalId", "approval_id");
     const status = tuiControlRowStatus(stringField(entry, "status"));
@@ -897,6 +1042,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     runLifecycleCount: runLifecycleRows.length,
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
+    subagentRowCount: subagentRows.length,
     rowCount: rows.length,
     rows,
   };
@@ -1311,62 +1457,61 @@ function objectField(value: unknown): Record<string, unknown> | null {
 
 function stringField(
   value: unknown,
-  camelKey: string,
-  snakeKey?: string,
+  ...keys: string[]
 ): string | null {
   const objectValue = objectField(value);
   if (!objectValue) return null;
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
-  return typeof candidate === "string" && candidate.trim()
-    ? candidate
+  const candidate = keys.find((key) => objectValue[key] !== undefined);
+  const valueForKey = candidate ? objectValue[candidate] : undefined;
+  return typeof valueForKey === "string" && valueForKey.trim()
+    ? valueForKey
     : null;
 }
 
 function numberField(
   value: unknown,
-  camelKey: string,
-  snakeKey?: string,
+  ...keys: string[]
 ): number | null {
   const objectValue = objectField(value);
   if (!objectValue) return null;
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
-  return typeof candidate === "number" && Number.isFinite(candidate)
-    ? candidate
-    : null;
+  const candidate = keys.find((key) => objectValue[key] !== undefined);
+  const valueForKey = candidate ? objectValue[candidate] : undefined;
+  if (typeof valueForKey === "number" && Number.isFinite(valueForKey)) {
+    return valueForKey;
+  }
+  if (typeof valueForKey === "string" && valueForKey.trim()) {
+    const parsed = Number(valueForKey);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function arrayField(
   value: unknown,
-  camelKey: string,
-  snakeKey?: string,
+  ...keys: string[]
 ): unknown[] {
   const objectValue = objectField(value);
   if (!objectValue) return [];
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
-  return Array.isArray(candidate) ? candidate : [];
+  const candidate = keys.find((key) => objectValue[key] !== undefined);
+  const valueForKey = candidate ? objectValue[candidate] : undefined;
+  return Array.isArray(valueForKey) ? valueForKey : [];
 }
 
 function recordField(
   value: unknown,
-  camelKey: string,
-  snakeKey?: string,
+  ...keys: string[]
 ): Record<string, unknown> | null {
   const objectValue = objectField(value);
   if (!objectValue) return null;
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
-  return objectField(candidate);
+  const candidate = keys.find((key) => objectValue[key] !== undefined);
+  return objectField(candidate ? objectValue[candidate] : undefined);
 }
 
 function stringArrayField(
   value: unknown,
-  camelKey: string,
-  snakeKey?: string,
+  ...keys: string[]
 ): string[] {
-  return arrayField(value, camelKey, snakeKey).filter(
+  return arrayField(value, ...keys).filter(
     (candidate): candidate is string =>
       typeof candidate === "string" && Boolean(candidate.trim()),
   );

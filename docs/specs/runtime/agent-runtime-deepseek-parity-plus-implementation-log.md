@@ -158,6 +158,7 @@ workstream was narrower.
 | 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json |
 | 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json |
 | 158 | 2026-05-13 | P1. Subagent Runtime Parity | SDK SubagentManager route wrappers | /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json |
+| 159 | 2026-05-13 | P1. Subagent Runtime Parity / P0. Terminal Coding-Agent TUI | TUI SubagentManager route controls | /tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -280,6 +281,44 @@ Validation evidence:
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
 
+### Slice 159. 2026-05-13 - TUI SubagentManager route controls
+
+Implementation slice completed 2026-05-13, P1-A TUI subagent control parity:
+
+- Added daemon-backed TUI route helpers for SubagentManager list, spawn, wait,
+  result, send input, cancel, resume, assign, and parent cancellation
+  propagation.
+- Added line-mode `/subagents` and `/subagent` actions for
+  `list|spawn|wait|result|input|cancel|resume|assign|propagate`, including
+  role, tool-pack, model route, output contract, merge policy, cancellation
+  inheritance, context mode, and React Flow graph/node identity options.
+- Extended TUI control-state projection with `subagent_rows`, defaulting
+  follow-up commands to the latest known subagent id while preserving explicit
+  id targeting.
+- Extended React Flow run-inspector projection for subagent rows with lifecycle
+  status, output-contract status, cancellation inheritance, merge policy, tool
+  pack, restart count, input count, assignment count, child thread id, and
+  workflow node id.
+- Extended live daemon line-mode proof so TUI slash commands drive the same
+  daemon route family as SDK and React Flow contracts.
+- Remaining P1-A gap: a React Flow-authored parallel fan-out workflow that
+  proves concurrency, output-contract merge readiness, and cancellation
+  propagation through the GUI/control projection.
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli agent_tui -- --nocapture`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-tui-controls`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json`.
+
 ### Slice 158. 2026-05-13 - SDK SubagentManager route wrappers
 
 Implementation slice completed 2026-05-13, P1-A SDK subagent manager parity:
@@ -297,8 +336,8 @@ Implementation slice completed 2026-05-13, P1-A SDK subagent manager parity:
 - Added a live daemon contract proving SDK client calls and `Thread` wrappers
   reach the daemon routes while preserving React Flow workflow graph/node
   identity in emitted subagent lifecycle events.
-- Updated the master guide so remaining P1-A work is TUI slash/side-panel
-  wrappers and broader React Flow-authored parallel fan-out proof.
+- Updated the master guide at the time to move P1-A from SDK coverage toward
+  TUI controls and broader React Flow-authored parallel fan-out proof.
 
 Validation evidence:
 
