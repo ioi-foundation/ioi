@@ -3532,7 +3532,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3571,7 +3571,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.doesNotMatch(source, /StepAgentParams/);
 });
 
-test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI, TUI, and React Flow", async () => {
+test("coding tool pack invokes status, diff, inspect, and apply patch across daemon, SDK, CLI, TUI, and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-workspace-"));
@@ -3599,10 +3599,14 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     const catalog = await fetchJson(`${daemon.endpoint}/v1/tools?pack=coding`);
     assert.deepEqual(
       catalog.map((tool) => tool.stableToolId).sort(),
-      ["file.inspect", "git.diff", "workspace.status"],
+      ["file.apply_patch", "file.inspect", "git.diff", "workspace.status"],
     );
     assert.ok(catalog.every((tool) => tool.pack === "coding"));
     assert.ok(catalog.every((tool) => tool.workflowNodeType));
+    const patchContract = catalog.find((tool) => tool.stableToolId === "file.apply_patch");
+    assert.ok(patchContract);
+    assert.equal(patchContract.effectClass, "local_write");
+    assert.ok(patchContract.authorityScopeRequirements.includes("scope:workspace.write"));
 
     const statusResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/workspace.status/invoke`,
@@ -3630,18 +3634,40 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
         body: JSON.stringify({ input: { path: "README.md" } }),
       },
     );
+    const dryRunPatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch",
+          input: {
+            path: "README.md",
+            oldText: "Initial line.",
+            newText: "Dry-run patched line.",
+            dryRun: true,
+          },
+        }),
+      },
+    );
     assert.equal(statusResult.status, "completed");
     assert.equal(statusResult.shell_fallback_used, false);
     assert.equal(diffResult.result.paths[0], "README.md");
     assert.match(diffResult.result.diff, /Changed line for diff proof/);
     assert.equal(inspectResult.result.kind, "file");
     assert.match(inspectResult.result.preview, /Runtime coding tools/);
+    assert.equal(dryRunPatchResult.status, "completed");
+    assert.equal(dryRunPatchResult.result.dryRun, true);
+    assert.equal(dryRunPatchResult.result.applied, false);
+    assert.match(dryRunPatchResult.result.diff, /Dry-run patched line/);
+    assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /Initial line\./);
 
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const sdkCatalog = await sdkClient.listTools({ pack: "coding" });
     assert.deepEqual(
       sdkCatalog.map((tool) => tool.stableToolId).sort(),
-      ["file.inspect", "git.diff", "workspace.status"],
+      ["file.apply_patch", "file.inspect", "git.diff", "workspace.status"],
     );
     const sdkInvoke = await sdkClient.invokeThreadTool(thread.thread_id, "file.inspect", {
       input: { path: "README.md" },
@@ -3649,6 +3675,17 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     });
     assert.equal(sdkInvoke.status, "completed");
     assert.equal(sdkInvoke.tool_name, "file.inspect");
+    const sdkPatch = await sdkClient.invokeThreadTool(thread.thread_id, "file.apply_patch", {
+      input: {
+        path: "README.md",
+        oldText: "Initial line.",
+        newText: "SDK patched line.",
+      },
+      workflowNodeId: "runtime.coding-tool.sdk-file-apply-patch",
+    });
+    assert.equal(sdkPatch.status, "completed");
+    assert.equal(sdkPatch.tool_name, "file.apply_patch");
+    assert.equal(sdkPatch.result.applied, true);
 
     const cliCatalog = JSON.parse(
       (await execFileAsync(cli, ["agent", "tools", "coding", "--endpoint", daemon.endpoint, "--json"], {
@@ -3658,7 +3695,7 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     assert.equal(cliCatalog.schema_version, "ioi.agent-cli.coding-tool-pack.v1");
     assert.deepEqual(
       cliCatalog.tools.map((tool) => tool.stableToolId).sort(),
-      ["file.inspect", "git.diff", "workspace.status"],
+      ["file.apply_patch", "file.inspect", "git.diff", "workspace.status"],
     );
     const cliInvoke = JSON.parse(
       (await execFileAsync(
@@ -3681,6 +3718,32 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     );
     assert.equal(cliInvoke.status, "completed");
     assert.equal(cliInvoke.tool_name, "file.inspect");
+    const cliPatch = JSON.parse(
+      (await execFileAsync(
+        cli,
+        [
+          "agent",
+          "tools",
+          "run",
+          "file.apply_patch",
+          "--thread-id",
+          thread.thread_id,
+          "--path",
+          "README.md",
+          "--old-text",
+          "Changed line for diff proof.",
+          "--new-text",
+          "CLI patched diff proof.",
+          "--endpoint",
+          daemon.endpoint,
+          "--json",
+        ],
+        { cwd: root },
+      )).stdout,
+    );
+    assert.equal(cliPatch.status, "completed");
+    assert.equal(cliPatch.tool_name, "file.apply_patch");
+    assert.equal(cliPatch.result.applied, true);
 
     const tuiResult = await execFileWithInput(
       cli,
@@ -3693,19 +3756,22 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
         daemon.endpoint,
         "--interactive",
       ],
-      "/status\n/diff README.md\n/inspect README.md\n/quit\n",
+      "/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
-    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/quit/);
+    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/quit/);
     assert.match(tuiResult.stdout, /line_mode_command=status tool=workspace\.status status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=diff tool=git\.diff status=completed/);
     assert.match(tuiResult.stdout, /line_mode_command=inspect tool=file\.inspect status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=patch tool=file\.apply_patch status=completed/);
+    assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI patched line\./);
+    assert.doesNotMatch(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI dry-run line/);
 
     const daemonEvents = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
     );
     const codingEvents = daemonEvents.filter((event) => event.component_kind === "coding_tool");
-    assert.ok(codingEvents.length >= 7);
+    assert.ok(codingEvents.length >= 11);
     assert.ok(codingEvents.every((event) => event.payload_schema_version === "ioi.runtime.coding-tool-result.v1"));
     assert.ok(codingEvents.every((event) => event.event_kind === "tool.completed"));
     assert.ok(codingEvents.every((event) => event.payload.shell_fallback_used === "false"));
@@ -3718,6 +3784,13 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     assert.ok(reactFlowStatus);
     assert.equal(reactFlowStatus.workflow_graph_id, "workflow-coding-tools");
     assert.equal(reactFlowStatus.workflow_node_id, "workflow.coding.workspace.status");
+    const reactFlowPatch = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "file.apply_patch" &&
+        event.source === "react_flow",
+    );
+    assert.ok(reactFlowPatch);
+    assert.equal(reactFlowPatch.workflow_node_id, "workflow.coding.file.apply_patch");
 
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
     const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
@@ -3726,6 +3799,10 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     assert.equal(sdkStatusEvent.toolName, "workspace.status");
     assert.equal(sdkStatusEvent.componentKind, "coding_tool");
     assert.equal(sdkStatusEvent.payloadSchemaVersion, "ioi.runtime.coding-tool-result.v1");
+    const sdkPatchEvent = sdkEvents.find((event) => event.id === reactFlowPatch.event_id);
+    assert.ok(sdkPatchEvent);
+    assert.equal(sdkPatchEvent.toolName, "file.apply_patch");
+    assert.equal(sdkPatchEvent.sourceEventKind, "CodingTool.FileApplyPatch");
 
     const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
     const statusNode = reactFlowProjection.nodes.find((node) =>
@@ -3736,6 +3813,13 @@ test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI
     assert.equal(statusNode.componentKind, "coding_tool");
     assert.equal(statusNode.label, "Coding tool: workspace.status");
     assert.deepEqual(statusNode.receiptRefs, reactFlowStatus.receipt_refs);
+    const patchNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(reactFlowPatch.event_id),
+    );
+    assert.ok(patchNode);
+    assert.equal(patchNode.workflowNodeId, "workflow.coding.file.apply_patch");
+    assert.equal(patchNode.label, "Coding tool: file.apply_patch");
+    assert.deepEqual(patchNode.receiptRefs, reactFlowPatch.receipt_refs);
   } finally {
     if (daemon) await daemon.close();
   }

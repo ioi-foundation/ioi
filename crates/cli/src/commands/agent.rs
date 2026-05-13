@@ -372,14 +372,32 @@ pub enum ToolCommands {
     },
     /// Invoke a daemon-backed coding tool for a runtime thread.
     Run {
-        /// Coding tool id, for example workspace.status, git.diff, or file.inspect.
+        /// Coding tool id, for example workspace.status, git.diff, file.inspect, or file.apply_patch.
         tool: String,
         /// Runtime thread id that owns the tool event stream.
         #[clap(long = "thread-id")]
         thread_id: String,
-        /// Workspace-relative path for file.inspect or git.diff.
+        /// Workspace-relative path for file.inspect, git.diff, or file.apply_patch.
         #[clap(long)]
         path: Option<String>,
+        /// Exact text to replace for file.apply_patch.
+        #[clap(long = "old-text")]
+        old_text: Option<String>,
+        /// Replacement text for file.apply_patch.
+        #[clap(long = "new-text")]
+        new_text: Option<String>,
+        /// Text to append for file.apply_patch.
+        #[clap(long = "append-text")]
+        append_text: Option<String>,
+        /// Text to prepend for file.apply_patch.
+        #[clap(long = "prepend-text")]
+        prepend_text: Option<String>,
+        /// Preview a file.apply_patch result without writing.
+        #[clap(long = "dry-run")]
+        dry_run: bool,
+        /// Allow file.apply_patch to create a missing file when the parent directory exists.
+        #[clap(long)]
+        create: bool,
         /// Runtime turn id to associate with the tool result.
         #[clap(long = "turn-id")]
         turn_id: Option<String>,
@@ -1183,6 +1201,12 @@ async fn run_tool_command(
             tool,
             thread_id,
             path,
+            old_text,
+            new_text,
+            append_text,
+            prepend_text,
+            dry_run,
+            create,
             turn_id,
             workflow_graph_id,
             workflow_node_id,
@@ -1194,6 +1218,12 @@ async fn run_tool_command(
                 tool,
                 thread_id,
                 path,
+                old_text,
+                new_text,
+                append_text,
+                prepend_text,
+                dry_run,
+                create,
                 turn_id,
                 workflow_graph_id,
                 workflow_node_id,
@@ -1257,6 +1287,12 @@ async fn invoke_coding_tool(
     tool: String,
     thread_id: String,
     path: Option<String>,
+    old_text: Option<String>,
+    new_text: Option<String>,
+    append_text: Option<String>,
+    prepend_text: Option<String>,
+    dry_run: bool,
+    create: bool,
     turn_id: Option<String>,
     workflow_graph_id: Option<String>,
     workflow_node_id: Option<String>,
@@ -1267,6 +1303,11 @@ async fn invoke_coding_tool(
     if tool == "file.inspect" && path.as_deref().map(str::trim).unwrap_or("").is_empty() {
         return Err(anyhow!(
             "agent tools run file.inspect requires --path <workspace-relative-path>"
+        ));
+    }
+    if tool == "file.apply_patch" && path.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err(anyhow!(
+            "agent tools run file.apply_patch requires --path <workspace-relative-path>"
         ));
     }
     let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
@@ -1282,6 +1323,55 @@ async fn invoke_coding_tool(
             "path".to_string(),
             serde_json::Value::String(path.to_string()),
         );
+    }
+    if let Some(old_text) = old_text
+        .as_deref()
+        .filter(|value| tool == "file.apply_patch" && !value.is_empty())
+    {
+        input.insert(
+            "oldText".to_string(),
+            serde_json::Value::String(old_text.to_string()),
+        );
+    }
+    if let Some(new_text) = new_text.as_deref().filter(|_| tool == "file.apply_patch") {
+        input.insert(
+            "newText".to_string(),
+            serde_json::Value::String(new_text.to_string()),
+        );
+    }
+    if let Some(append_text) = append_text
+        .as_deref()
+        .filter(|_| tool == "file.apply_patch")
+    {
+        input.insert(
+            "appendText".to_string(),
+            serde_json::Value::String(append_text.to_string()),
+        );
+    }
+    if let Some(prepend_text) = prepend_text
+        .as_deref()
+        .filter(|_| tool == "file.apply_patch")
+    {
+        input.insert(
+            "prependText".to_string(),
+            serde_json::Value::String(prepend_text.to_string()),
+        );
+    }
+    if tool == "file.apply_patch" {
+        if dry_run {
+            input.insert("dryRun".to_string(), serde_json::Value::Bool(true));
+        }
+        if create {
+            input.insert("create".to_string(), serde_json::Value::Bool(true));
+        }
+        let has_edit = input.contains_key("oldText")
+            || input.contains_key("appendText")
+            || input.contains_key("prependText");
+        if !has_edit {
+            return Err(anyhow!(
+                "agent tools run file.apply_patch requires --old-text/--new-text, --append-text, or --prepend-text"
+            ));
+        }
     }
     if !input.is_empty() {
         body.insert("input".to_string(), serde_json::Value::Object(input));
@@ -2271,6 +2361,34 @@ mod tests {
             coding_tool_run.command,
             Some(AgentCommands::Tools {
                 command: Some(ToolCommands::Run { json: true, .. }),
+                ..
+            })
+        ));
+        let coding_patch_run = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "run",
+            "file.apply_patch",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--path",
+            "README.md",
+            "--old-text",
+            "before",
+            "--new-text",
+            "after",
+            "--dry-run",
+            "--json",
+        ])
+        .expect("coding patch command should parse");
+        assert!(matches!(
+            coding_patch_run.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Run {
+                    dry_run: true,
+                    json: true,
+                    ..
+                }),
                 ..
             })
         ));

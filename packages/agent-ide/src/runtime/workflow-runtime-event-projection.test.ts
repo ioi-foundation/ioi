@@ -110,6 +110,21 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
         summary: "Workspace status inspected 1 changed file(s).",
       },
     }),
+    event("event-coding-patch", 2, {
+      type: "tool_completed",
+      eventKind: "tool.completed",
+      sourceEventKind: "CodingTool.FileApplyPatch",
+      workflowNodeId: "runtime.coding-tool.file.apply-patch",
+      componentKind: "coding_tool",
+      toolName: "file.apply_patch",
+      payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
+      receiptRefs: ["receipt-coding-patch"],
+      payload: {
+        tool_pack: "coding",
+        shell_fallback_used: false,
+        summary: "Patch applied to README.md.",
+      },
+    }),
   ]);
 
   const node = projection.nodes[0];
@@ -121,6 +136,12 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
   assert.equal(node?.latestPayloadSchemaVersion, "ioi.runtime.coding-tool-result.v1");
   assert.deepEqual(node?.receiptRefs, ["receipt-coding-status"]);
   assert.equal(node?.summary, "Workspace status inspected 1 changed file(s).");
+  const patchNode = projection.nodes[1];
+  assert.equal(patchNode?.workflowNodeId, "runtime.coding-tool.file.apply-patch");
+  assert.equal(patchNode?.label, "Coding tool: file.apply_patch");
+  assert.equal(patchNode?.toolName, "file.apply_patch");
+  assert.deepEqual(patchNode?.receiptRefs, ["receipt-coding-patch"]);
+  assert.equal(patchNode?.summary, "Patch applied to README.md.");
 });
 
 test("projects approval and policy events without workflow node ids", () => {

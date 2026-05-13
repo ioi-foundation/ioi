@@ -3494,7 +3494,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
   const codingToolPack = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.coding_pack",
     label: "Coding tool pack",
-    description: "Invoke daemon-owned workspace status, git diff, and file inspection tools.",
+    description: "Invoke daemon-owned workspace status, git diff, file inspection, and governed patch tools.",
     metricValue: "coding",
     defaultLogic: {
       toolBinding: {
@@ -3502,15 +3502,17 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         bindingKind: "coding_tool_pack",
         mockBinding: false,
         credentialReady: true,
-        capabilityScope: ["workspace.status", "git.diff", "file.inspect"],
-        sideEffectClass: "read",
-        requiresApproval: false,
+        capabilityScope: ["workspace.status", "git.diff", "file.inspect", "file.apply_patch"],
+        sideEffectClass: "write",
+        requiresApproval: true,
         arguments: {},
         toolPack: {
           pack: "coding",
           workspaceStatusEnabled: true,
           gitEnabled: true,
           filesystemEnabled: true,
+          writeEnabled: true,
+          dryRun: false,
           allowedPaths: [],
         },
       },
@@ -3557,6 +3559,31 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         toolPack: {
           pack: "coding",
           filesystemEnabled: true,
+          allowedPaths: [],
+        },
+      },
+    },
+  });
+  const fileApplyPatchTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.file_apply_patch",
+    label: "File apply patch",
+    description: "Apply an exact workspace file edit through the daemon coding tool contract.",
+    metricValue: "patch",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "file.apply_patch",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["file.apply_patch"],
+        sideEffectClass: "write",
+        requiresApproval: true,
+        arguments: {},
+        toolPack: {
+          pack: "coding",
+          filesystemEnabled: true,
+          writeEnabled: true,
+          dryRun: true,
           allowedPaths: [],
         },
       },
@@ -3821,6 +3848,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     codingToolPack,
     gitDiffTool,
     fileInspectTool,
+    fileApplyPatchTool,
     outputInline,
     outputFile,
     outputMedia,
