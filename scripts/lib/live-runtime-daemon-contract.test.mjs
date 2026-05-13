@@ -267,6 +267,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   ].map((file) => path.join(root, file));
@@ -5136,6 +5137,268 @@ test("SDK client and Thread wrappers drive daemon SubagentManager routes with wo
   }
 });
 
+test("React Flow subagent fan-out workflow compiles nodes into live daemon controls", async () => {
+  const {
+    createRuntimeSubagentControlRequestFromWorkflowNode,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-react-flow-subagent-fanout-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-react-flow-subagent-fanout-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const workflowGraphId = "workflow.react-flow.subagent-fanout";
+    const stateNode = (id, label, logic) => ({
+      id,
+      type: "state",
+      config: {
+        logic: {
+          stateKey: "subagents",
+          reducer: "replace",
+          ...logic,
+        },
+      },
+      label,
+    });
+    const spawnNodes = [
+      stateNode("subagent-spawn-explore", "Spawn explorer", {
+        stateOperation: "subagent_spawn",
+        reducer: "append",
+        subagentRole: "explore",
+        subagentPrompt: "Map the remaining P1-A fan-out parity evidence.",
+        subagentToolPack: "coding",
+        subagentModelRoute: "route.native-local",
+        subagentMaxConcurrency: 2,
+        subagentOutputContractJson: "[\"SUMMARY\",\"EVIDENCE\",\"RECEIPTS\"]",
+        subagentMergePolicy: "evidence_only",
+        subagentCancellationInheritance: "propagate",
+      }),
+      stateNode("subagent-spawn-implementer", "Spawn implementer", {
+        stateOperation: "subagent_spawn",
+        reducer: "append",
+        subagentRole: "implementer",
+        subagentPrompt: "Implement the selected fan-out workflow slice.",
+        subagentToolPack: "coding-plus",
+        subagentModelRoute: "route.native-local",
+        subagentMaxConcurrency: 1,
+        subagentOutputContractJson: "[\"SUMMARY\",\"CHANGES\",\"EVIDENCE\",\"RECEIPTS\"]",
+        subagentMergePolicy: "manual_review",
+        subagentCancellationInheritance: "propagate",
+      }),
+      stateNode("subagent-spawn-verifier", "Spawn verifier", {
+        stateOperation: "subagent_spawn",
+        reducer: "append",
+        subagentRole: "verifier",
+        subagentPrompt: "Verify fan-out evidence and remain isolated from parent cancellation.",
+        subagentToolPack: "coding",
+        subagentModelRoute: "route.native-local",
+        subagentMaxConcurrency: 2,
+        subagentOutputContractJson: "[\"SUMMARY\",\"EVIDENCE\",\"RISKS\",\"RECEIPTS\"]",
+        subagentMergePolicy: "evidence_only",
+        subagentCancellationInheritance: "isolate",
+      }),
+    ];
+
+    const spawnRequests = spawnNodes.map((node) =>
+      createRuntimeSubagentControlRequestFromWorkflowNode(
+        node,
+        { threadId: thread.thread_id },
+        { workflowGraphId, actor: "workflow-author" },
+      ),
+    );
+    assert.deepEqual(
+      spawnRequests.map((request) => request.operation),
+      ["spawn", "spawn", "spawn"],
+    );
+    assert.equal(spawnRequests[1].body?.maxConcurrency, 1);
+    assert.equal(spawnRequests[1].body?.mergePolicy, "manual_review");
+    assert.equal(spawnRequests[2].body?.cancellationInheritance, "isolate");
+
+    const spawned = await Promise.all(
+      spawnRequests.map((request) =>
+        fetchJson(`${daemon.endpoint}${request.endpoint}`, {
+          method: request.method,
+          body: JSON.stringify(request.body),
+        }),
+      ),
+    );
+    const [explorer, implementer, verifier] = spawned;
+    assert.deepEqual(
+      spawned.map((subagent) => subagent.role),
+      ["explore", "implementer", "verifier"],
+    );
+    assert.ok(spawned.every((subagent) => subagent.outputContractStatus.status === "passed"));
+    assert.equal(explorer.event.workflow_graph_id, workflowGraphId);
+    assert.equal(implementer.maxConcurrency, 1);
+    assert.equal(implementer.mergePolicy, "manual_review");
+    assert.equal(verifier.cancellationInheritance, "isolate");
+
+    const poolNode = stateNode("subagent-pool-explore", "Explorer pool", {
+      stateOperation: "subagent_list",
+      subagentRole: "explore",
+      subagentMaxConcurrency: 2,
+    });
+    const poolRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
+      poolNode,
+      { threadId: thread.thread_id },
+      { workflowGraphId },
+    );
+    assert.equal(poolRequest.method, "GET");
+    assert.match(poolRequest.endpoint, /role=explore/);
+    const explorerPool = await fetchJson(`${daemon.endpoint}${poolRequest.endpoint}`);
+    assert.equal(explorerPool.count, 1);
+    assert.equal(explorerPool.subagents[0].subagent_id, explorer.subagent_id);
+
+    const waitRequests = spawned.map((subagent) =>
+      createRuntimeSubagentControlRequestFromWorkflowNode(
+        stateNode(`subagent-wait-${subagent.role}`, `Join ${subagent.role}`, {
+          stateOperation: "subagent_wait",
+          reducer: "merge",
+          subagentId: subagent.subagent_id,
+          subagentWaitTimeoutMs: 120000,
+          subagentOutputContractJson: JSON.stringify(subagent.outputContract),
+          subagentMergePolicy: subagent.mergePolicy,
+        }),
+        { threadId: thread.thread_id },
+        { workflowGraphId, actor: "workflow-author" },
+      ),
+    );
+    const waited = await Promise.all(
+      waitRequests.map((request) =>
+        fetchJson(`${daemon.endpoint}${request.endpoint}`, {
+          method: request.method,
+          body: JSON.stringify(request.body),
+        }),
+      ),
+    );
+    assert.ok(waited.every((result) => result.lifecycle_status === "completed"));
+    assert.ok(waited.every((result) => result.outputContractStatus.status === "passed"));
+
+    const activeImplementer = {
+      ...daemon.store.subagents.get(implementer.subagent_id),
+      lifecycle_status: "running",
+      lifecycleStatus: "running",
+      status: "running",
+    };
+    daemon.store.writeSubagent(activeImplementer, "subagent.fanout.active-fixture");
+    const blockedRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
+      stateNode("subagent-spawn-implementer-blocked", "Blocked implementer", {
+        stateOperation: "subagent_spawn",
+        reducer: "append",
+        subagentRole: "implementer",
+        subagentPrompt: "This second implementer should be blocked by max concurrency.",
+        subagentMaxConcurrency: 1,
+      }),
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    const blocked = await fetchJsonStatus(`${daemon.endpoint}${blockedRequest.endpoint}`, {
+      method: blockedRequest.method,
+      body: JSON.stringify(blockedRequest.body),
+    });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, "policy");
+    assert.equal(blocked.body.error.details.role, "implementer");
+    assert.equal(blocked.body.error.details.maxConcurrency, 1);
+    assert.equal(blocked.body.error.details.activeForRole, 1);
+
+    const propagationRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
+      stateNode("subagent-cancel-parent", "Parent cancel", {
+        stateOperation: "subagent_cancel_propagation",
+        reducer: "replace",
+        subagentInput: "react_flow_parent_cancel",
+      }),
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(propagationRequest.operation, "propagate_cancel");
+    assert.equal(propagationRequest.endpoint, `/v1/threads/${thread.thread_id}/subagents/cancel`);
+    assert.equal(propagationRequest.body.reason, "react_flow_parent_cancel");
+    const propagation = await fetchJson(`${daemon.endpoint}${propagationRequest.endpoint}`, {
+      method: propagationRequest.method,
+      body: JSON.stringify(propagationRequest.body),
+    });
+    assert.equal(propagation.object, "ioi.runtime_subagent_cancellation_propagation");
+    assert.equal(propagation.candidate_count, 3);
+    assert.equal(propagation.canceled_count, 2);
+    assert.equal(propagation.skipped_count, 1);
+    assert.deepEqual(
+      propagation.canceled_subagents.map((subagent) => subagent.role).sort(),
+      ["explore", "implementer"],
+    );
+    assert.equal(propagation.skipped_subagents[0].subagent_id, verifier.subagent_id);
+    assert.equal(propagation.skipped_subagents[0].cancellation_inheritance, "isolate");
+
+    const propagationRows = [
+      ...propagation.canceled_subagents.map((subagent) => ({
+        ...subagent,
+        row_kind: "subagent",
+        subagent_operation: "propagate_cancel",
+        workflow_node_id: propagationRequest.body.workflowNodeId,
+        workflowNodeId: propagationRequest.body.workflowNodeId,
+      })),
+      ...propagation.skipped_subagents.map((subagent) => ({
+        ...subagent,
+        row_kind: "subagent",
+        subagent_operation: "propagate_skip",
+        workflow_node_id: propagationRequest.body.workflowNodeId,
+        workflowNodeId: propagationRequest.body.workflowNodeId,
+      })),
+    ];
+    const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+      thread_id: thread.thread_id,
+      subagent_rows: propagationRows,
+    });
+    assert.equal(projection.subagentRowCount, 3);
+    assert.ok(
+      projection.rows.some(
+        (row) =>
+          row.rowKind === "subagent" &&
+          row.subagentRole === "verifier" &&
+          row.subagentCancellationInheritance === "isolate" &&
+          row.subagentOperation === "propagate_skip",
+      ),
+    );
+    assert.ok(
+      projection.rows.some(
+        (row) =>
+          row.rowKind === "subagent" &&
+          row.subagentRole === "implementer" &&
+          row.subagentLifecycleStatus === "canceled" &&
+          row.subagentMergePolicy === "manual_review",
+      ),
+    );
+    assert.ok(
+      projection.rows
+        .filter((row) => row.rowKind === "subagent")
+        .every((row) => row.reactFlowNodeId === propagationRequest.body.workflowNodeId),
+    );
+
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    const spawnEvents = events.filter((event) => event.source_event_kind === "OperatorControl.SubagentSpawn");
+    const waitEvents = events.filter((event) => event.source_event_kind === "OperatorControl.SubagentWait");
+    const propagatedCancelEvents = events.filter(
+      (event) =>
+        event.source_event_kind === "OperatorControl.SubagentCancel" &&
+        event.workflow_node_id === propagationRequest.body.workflowNodeId,
+    );
+    assert.equal(spawnEvents.length, 3);
+    assert.equal(waitEvents.length, 3);
+    assert.equal(propagatedCancelEvents.length, 2);
+    assert.ok(spawnEvents.every((event) => event.workflow_graph_id === workflowGraphId));
+    assert.ok(waitEvents.every((event) => event.workflow_graph_id === workflowGraphId));
+    assert.ok(propagatedCancelEvents.every((event) => event.payload_summary.cancellation_inherited === true));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
@@ -9115,6 +9378,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowContracts, /subagent\.spawn/);
   assert.match(workflowContracts, /subagent\.join/);
   assert.match(workflowContracts, /subagent\.result/);
+  assert.match(workflowContracts, /subagent\.cancel_propagation/);
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.tool\.search"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.tool\.fetch"/);
@@ -9134,6 +9398,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "subagent\.result"/);
   assert.match(nodeRegistry, /creatorId: "subagent\.send_input"/);
   assert.match(nodeRegistry, /creatorId: "subagent\.cancel"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.cancel_propagation"/);
   assert.match(nodeRegistry, /creatorId: "subagent\.resume"/);
   assert.match(nodeRegistry, /creatorId: "memory\.remember"/);
   assert.match(nodeRegistry, /creatorId: "memory\.edit"/);
@@ -9156,6 +9421,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentSpawn/);
   assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentSendInput/);
   assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentCancel/);
+  assert.match(workflowRuntimeSubagentControlNodes, /subagent_cancel_propagation/);
+  assert.match(workflowRuntimeSubagentControlNodes, /propagate_cancel/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
@@ -9173,6 +9440,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /subagent_wait/);
   assert.match(graphTypes, /subagent_result/);
   assert.match(graphTypes, /subagent_send_input/);
+  assert.match(graphTypes, /subagent_cancel_propagation/);
   assert.match(graphTypes, /subagentCancellationInheritance/);
   assert.match(graphTypes, /subagentOutputContractJson/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
@@ -9199,6 +9467,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-output-contract-json/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-merge-policy/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-cancellation-inheritance/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /value="isolate"/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-record-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-text/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_memory_lane/);

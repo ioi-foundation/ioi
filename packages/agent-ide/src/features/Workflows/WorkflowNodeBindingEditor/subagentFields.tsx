@@ -7,6 +7,7 @@ const SUBAGENT_STATE_OPERATIONS: Array<NonNullable<NodeLogic["stateOperation"]>>
   "subagent_result",
   "subagent_send_input",
   "subagent_cancel",
+  "subagent_cancel_propagation",
   "subagent_resume",
   "subagent_assign",
 ];
@@ -23,6 +24,8 @@ const SUBAGENT_TARGET_OPERATIONS: Array<NonNullable<NodeLogic["stateOperation"]>
 const SUBAGENT_PROMPT_OPERATIONS: Array<NonNullable<NodeLogic["stateOperation"]>> = [
   "subagent_spawn",
   "subagent_send_input",
+  "subagent_cancel",
+  "subagent_cancel_propagation",
 ];
 
 interface WorkflowSubagentStateFieldsProps {
@@ -84,11 +87,16 @@ export function WorkflowSubagentStateFields({
         <label>
           {logic.stateOperation === "subagent_send_input"
             ? "Subagent input"
+            : logic.stateOperation === "subagent_cancel" ||
+                logic.stateOperation === "subagent_cancel_propagation"
+              ? "Cancellation reason"
             : "Subagent prompt"}
           <textarea
             data-testid="workflow-state-subagent-prompt"
             value={String(
-              logic.stateOperation === "subagent_send_input"
+              logic.stateOperation === "subagent_send_input" ||
+                logic.stateOperation === "subagent_cancel" ||
+                logic.stateOperation === "subagent_cancel_propagation"
                 ? logic.subagentInput ?? logic.subagentPrompt ?? ""
                 : logic.subagentPrompt ?? "",
             )}
@@ -97,6 +105,9 @@ export function WorkflowSubagentStateFields({
                 ...logic,
                 ...(logic.stateOperation === "subagent_send_input"
                   ? { subagentInput: event.target.value }
+                  : logic.stateOperation === "subagent_cancel" ||
+                      logic.stateOperation === "subagent_cancel_propagation"
+                    ? { subagentInput: event.target.value }
                   : { subagentPrompt: event.target.value }),
               })
             }
@@ -233,6 +244,7 @@ export function WorkflowSubagentStateFields({
           }
         >
           <option value="manual">Manual</option>
+          <option value="manual_review">Manual review</option>
           <option value="append">Append</option>
           <option value="replace">Replace</option>
           <option value="merge">Merge</option>
@@ -252,6 +264,7 @@ export function WorkflowSubagentStateFields({
           }
         >
           <option value="propagate">Propagate</option>
+          <option value="isolate">Isolate</option>
           <option value="detach">Detach</option>
           <option value="manual">Manual</option>
         </select>

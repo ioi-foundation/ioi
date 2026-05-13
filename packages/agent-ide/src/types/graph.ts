@@ -495,12 +495,18 @@ export interface NodeLogic {
   subagentOutputContractJson?: string;
   subagentMergePolicy?:
     | "manual"
+    | "manual_review"
     | "append"
     | "replace"
     | "merge"
     | "evidence_only"
     | string;
-  subagentCancellationInheritance?: "propagate" | "detach" | "manual" | string;
+  subagentCancellationInheritance?:
+    | "propagate"
+    | "isolate"
+    | "detach"
+    | "manual"
+    | string;
 
   // --- Code / Function ---
   language?: string;
@@ -590,6 +596,7 @@ export interface NodeLogic {
     | "subagent_result"
     | "subagent_send_input"
     | "subagent_cancel"
+    | "subagent_cancel_propagation"
     | "subagent_resume"
     | "subagent_assign";
   reducer?: "replace" | "append" | "merge";

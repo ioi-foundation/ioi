@@ -1248,6 +1248,7 @@ export function WorkflowNodeBindingSections({
               <option value="subagent_result">Subagent result</option>
               <option value="subagent_send_input">Subagent send input</option>
               <option value="subagent_cancel">Subagent cancel</option>
+              <option value="subagent_cancel_propagation">Subagent cancel propagation</option>
               <option value="subagent_resume">Subagent resume</option>
               <option value="subagent_assign">Subagent role assign</option>
               <option value="memory_status">Memory status</option>

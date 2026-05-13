@@ -3095,11 +3095,11 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         subagentOutputContractJson: { type: "string" },
         subagentMergePolicy: {
           type: "string",
-          enum: ["manual", "append", "replace", "merge", "evidence_only"],
+          enum: ["manual", "manual_review", "append", "replace", "merge", "evidence_only"],
         },
         subagentCancellationInheritance: {
           type: "string",
-          enum: ["propagate", "detach", "manual"],
+          enum: ["propagate", "isolate", "detach", "manual"],
         },
         memoryRecordId: { type: "string" },
         memoryText: { type: "string" },
@@ -4612,6 +4612,19 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       subagentCancellationInheritance: "propagate",
     },
   });
+  const subagentCancelPropagation = creatorDefinition("state", {
+    creatorId: "subagent.cancel_propagation",
+    label: "Propagate subagent cancel",
+    description: "Cancel all child agents whose cancellation inheritance follows the parent thread.",
+    metricValue: "propagate",
+    defaultLogic: {
+      stateKey: "subagents",
+      stateOperation: "subagent_cancel_propagation",
+      reducer: "replace",
+      subagentInput: "parent_workflow_cancel",
+      subagentCancellationInheritance: "propagate",
+    },
+  });
   const subagentResume = creatorDefinition("state", {
     creatorId: "subagent.resume",
     label: "Resume subagent",
@@ -4814,6 +4827,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     subagentResult,
     subagentSendInput,
     subagentCancel,
+    subagentCancelPropagation,
     subagentResume,
     memoryStatus,
     memoryPolicy,

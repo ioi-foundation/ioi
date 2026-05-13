@@ -108,6 +108,7 @@ export const DEEPSEEK_PARITY_REQUIRED_NODE_TYPES = [
   "subagent.result",
   "subagent.send_input",
   "subagent.cancel",
+  "subagent.cancel_propagation",
   "subagent.resume",
   "worker.template",
   "worker.handoff_quality",

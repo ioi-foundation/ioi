@@ -128,6 +128,7 @@ test("subagent result and list nodes build read-only daemon requests", () => {
   assert.equal(listRequest.method, "GET");
   assert.match(listRequest.endpoint, /^\/v1\/threads\/thread-list\/subagents\?/);
   assert.match(listRequest.endpoint, /source=react_flow/);
+  assert.match(listRequest.endpoint, /role=general/);
   assert.equal(listRequest.body, null);
   assert.equal(resultRequest.operation, "result");
   assert.equal(resultRequest.method, "GET");
@@ -136,6 +137,39 @@ test("subagent result and list nodes build read-only daemon requests", () => {
     /^\/v1\/threads\/thread-result\/subagents\/agent-result-1\/result\?/,
   );
   assert.equal(resultRequest.body, null);
+});
+
+test("subagent cancellation propagation node targets the parent fan-out route", () => {
+  const node = makeWorkflowNode(
+    "subagent-cancel-propagation",
+    "state",
+    "Cancel parent descendants",
+    100,
+    120,
+    {
+      stateKey: "subagents",
+      stateOperation: "subagent_cancel_propagation",
+      reducer: "replace",
+      subagentInput: "workflow_parent_cancel",
+      subagentCancellationInheritance: "propagate",
+    },
+  );
+
+  const request = createRuntimeSubagentControlRequestFromWorkflowNode(
+    node,
+    { threadId: "thread-fanout" },
+    { workflowGraphId: "workflow.subagent.fanout", actor: "workflow-author" },
+  );
+
+  assert.equal(request.operation, "propagate_cancel");
+  assert.equal(request.method, "POST");
+  assert.equal(request.subagentId, null);
+  assert.equal(request.endpoint, "/v1/threads/thread-fanout/subagents/cancel");
+  assert.equal(request.body?.eventKind, RUNTIME_SUBAGENT_EVENT_KIND_BY_OPERATION.propagate_cancel);
+  assert.equal(request.body?.workflowGraphId, "workflow.subagent.fanout");
+  assert.equal(request.body?.workflowNodeId, "runtime.subagent.propagate_cancel.general");
+  assert.equal(request.body?.reason, "workflow_parent_cancel");
+  assert.equal(request.body?.cancellationReason, "workflow_parent_cancel");
 });
 
 test("subagent send, cancel, resume, and assign nodes target child lifecycle endpoints", () => {

@@ -159,6 +159,7 @@ workstream was narrower.
 | 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json |
 | 158 | 2026-05-13 | P1. Subagent Runtime Parity | SDK SubagentManager route wrappers | /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json |
 | 159 | 2026-05-13 | P1. Subagent Runtime Parity / P0. Terminal Coding-Agent TUI | TUI SubagentManager route controls | /tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json |
+| 160 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent fan-out workflow proof | /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout/2026-05-13T19-37-08-337Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -280,6 +281,39 @@ Validation evidence:
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
+
+### Slice 160. 2026-05-13 - React Flow subagent fan-out workflow proof
+
+Implementation slice completed 2026-05-13, P1-A React Flow subagent fan-out parity:
+
+- Extended the React Flow subagent control compiler with parent cancellation
+  propagation requests targeting `/v1/threads/{thread_id}/subagents/cancel`.
+- Added workflow editor and node-registry support for `subagent_cancel_propagation`,
+  `isolate` cancellation inheritance, and `manual_review` merge policy so
+  workflow-authored controls can express the daemon policy states already
+  available to SDK and TUI callers.
+- Added React Flow compiler coverage for cancellation propagation and role
+  filtered pool/list requests.
+- Added a live daemon proof that compiles React Flow pool, spawn, join, and
+  parent-cancel propagation nodes, executes explorer/implementer/verifier
+  fan-out in parallel, validates output-contract merge readiness, proves
+  max-concurrency policy blocking, preserves workflow graph/node identity in
+  daemon events, and projects propagation results as React Flow-readable
+  `subagent_rows`.
+- Remaining P1-A gap: collapsible child subflow projection plus explicit
+  budget/cost enforcement proof for delegated subagents.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls|SubagentManager|subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout/2026-05-13T19-37-08-337Z/result.json`.
 
 ### Slice 159. 2026-05-13 - TUI SubagentManager route controls
 

@@ -22,6 +22,7 @@ export type RuntimeSubagentOperation =
   | "result"
   | "send_input"
   | "cancel"
+  | "propagate_cancel"
   | "resume"
   | "assign";
 
@@ -32,6 +33,7 @@ export const RUNTIME_SUBAGENT_EVENT_KIND_BY_OPERATION = {
   result: "OperatorControl.SubagentResult",
   send_input: "OperatorControl.SubagentSendInput",
   cancel: "OperatorControl.SubagentCancel",
+  propagate_cancel: "OperatorControl.SubagentCancel",
   resume: "OperatorControl.SubagentResume",
   assign: "OperatorControl.SubagentAssign",
 } as const satisfies Record<RuntimeSubagentOperation, string>;
@@ -63,6 +65,9 @@ export interface RuntimeSubagentControlRequestBody {
   role: string;
   prompt: string;
   message: string;
+  reason: string | null;
+  cancellation_reason: string | null;
+  cancellationReason: string | null;
   fork_context: boolean;
   forkContext: boolean;
   context_mode: "fresh" | "forked";
@@ -210,6 +215,7 @@ export function createRuntimeSubagentControlRequest(
       subagentId: subagentId ?? null,
       endpoint: withQuery(endpoint, {
         source: RUNTIME_SUBAGENT_SOURCE,
+        role: params.operation === "list" ? role : null,
         workflow_graph_id: cleanString(params.workflowGraphId),
         workflow_node_id: workflowNodeId,
       }),
@@ -254,6 +260,18 @@ export function createRuntimeSubagentControlRequest(
       role,
       prompt,
       message,
+      reason:
+        params.operation === "cancel" || params.operation === "propagate_cancel"
+          ? message || null
+          : null,
+      cancellation_reason:
+        params.operation === "cancel" || params.operation === "propagate_cancel"
+          ? message || null
+          : null,
+      cancellationReason:
+        params.operation === "cancel" || params.operation === "propagate_cancel"
+          ? message || null
+          : null,
       fork_context: forkContext,
       forkContext,
       context_mode: forkContext ? "forked" : "fresh",
@@ -322,6 +340,7 @@ function operationForStateOperation(
   if (stateOperation === "subagent_result") return "result";
   if (stateOperation === "subagent_send_input") return "send_input";
   if (stateOperation === "subagent_cancel") return "cancel";
+  if (stateOperation === "subagent_cancel_propagation") return "propagate_cancel";
   if (stateOperation === "subagent_resume") return "resume";
   if (stateOperation === "subagent_assign") return "assign";
   throw new Error(
@@ -343,6 +362,7 @@ function subagentEndpoint(
 ): string {
   const threadRoute = `/v1/threads/${encodeSegment(threadId)}/subagents`;
   if (operation === "list" || operation === "spawn") return threadRoute;
+  if (operation === "propagate_cancel") return `${threadRoute}/cancel`;
   const targetRoute = `${threadRoute}/${encodeSegment(subagentId ?? "")}`;
   if (operation === "wait") return `${targetRoute}/wait`;
   if (operation === "result") return `${targetRoute}/result`;
@@ -353,7 +373,7 @@ function subagentEndpoint(
 }
 
 function needsSubagentId(operation: RuntimeSubagentOperation): boolean {
-  return operation !== "list" && operation !== "spawn";
+  return operation !== "list" && operation !== "spawn" && operation !== "propagate_cancel";
 }
 
 function parseJsonObject(
