@@ -183,6 +183,46 @@ export interface MemoryPolicyUpdateResult {
   receipt: RuntimeReceipt;
 }
 
+export interface RuntimeToolListOptions {
+  pack?: string;
+}
+
+export interface RuntimeThreadToolInvokeInput {
+  input?: Record<string, unknown>;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  turnId?: string;
+  turn_id?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  toolCallId?: string;
+  tool_call_id?: string;
+  idempotencyKey?: string;
+  idempotency_key?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeThreadToolInvocationResult {
+  schema_version: string;
+  object: "ioi.runtime_coding_tool_result" | string;
+  tool_pack: string;
+  tool_name: string;
+  tool_call_id: string;
+  thread_id: string;
+  turn_id: string | null;
+  status: string;
+  workspace_root: string;
+  workflow_graph_id: string | null;
+  workflow_node_id: string | null;
+  shell_fallback_used: boolean;
+  receipt_refs: string[];
+  artifact_refs: string[];
+  event?: RuntimeEventEnvelope;
+  result?: Record<string, unknown> | null;
+  error?: Record<string, unknown> | null;
+}
+
 export interface AgentMemoryPathProjection {
   schemaVersion: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_path_projection";
@@ -302,7 +342,12 @@ export interface RuntimeSubstrateClient {
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
-  listTools(): Promise<RuntimeToolCatalogEntry[]>;
+  listTools(options?: RuntimeToolListOptions): Promise<RuntimeToolCatalogEntry[]>;
+  invokeThreadTool(
+    threadId: string,
+    toolId: string,
+    input?: RuntimeThreadToolInvokeInput,
+  ): Promise<RuntimeThreadToolInvocationResult>;
   rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
   listMemory(agentId: string, options?: MemoryListOptions): Promise<AgentMemoryProjection>;
   updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
@@ -578,8 +623,24 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("listRuntimeNodes", "GET", "/v1/runtime/nodes");
   }
 
-  async listTools(): Promise<RuntimeToolCatalogEntry[]> {
-    return this.request("listTools", "GET", "/v1/tools");
+  async listTools(options: RuntimeToolListOptions = {}): Promise<RuntimeToolCatalogEntry[]> {
+    return this.request("listTools", "GET", `/v1/tools${toolListQuery(options)}`);
+  }
+
+  async invokeThreadTool(
+    threadId: string,
+    toolId: string,
+    input: RuntimeThreadToolInvokeInput = {},
+  ): Promise<RuntimeThreadToolInvocationResult> {
+    return this.request(
+      "invokeThreadTool",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/tools/${encodePath(toolId)}/invoke`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
   }
 
   async rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult> {
@@ -799,6 +860,63 @@ function memoryListQuery(options: MemoryListOptions = {}): string {
   }
   const text = params.toString();
   return text ? `?${text}` : "";
+}
+
+function toolListQuery(options: RuntimeToolListOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.pack) params.set("pack", options.pack);
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
+  return [
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "workspace.status",
+      displayName: "Workspace status",
+      pack: "coding",
+      primitiveCapabilities: ["prim:workspace.status", "prim:git.status"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "workspace",
+      inputSchema: { type: "object" },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["workspace_status_receipt", "coding_tool_receipt"],
+      workflowNodeType: "CodingToolNode",
+      workflowConfigFields: ["toolPack.coding.workspaceStatus", "toolPack.coding.gitEnabled"],
+    },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "git.diff",
+      displayName: "Git diff",
+      pack: "coding",
+      primitiveCapabilities: ["prim:git.diff"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "git",
+      inputSchema: { type: "object" },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["git_diff_receipt", "coding_tool_receipt"],
+      workflowNodeType: "GitToolNode",
+      workflowConfigFields: ["toolPack.coding.gitEnabled", "toolPack.coding.allowedPaths"],
+    },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "file.inspect",
+      displayName: "Inspect file",
+      pack: "coding",
+      primitiveCapabilities: ["prim:fs.inspect"],
+      authorityScopeRequirements: [],
+      effectClass: "local_read",
+      riskDomain: "filesystem",
+      inputSchema: { type: "object", required: ["path"] },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["file_inspect_receipt", "coding_tool_receipt"],
+      workflowNodeType: "FilesystemToolNode",
+      workflowConfigFields: ["toolPack.coding.filesystemEnabled", "toolPack.coding.allowedPaths"],
+    },
+  ];
 }
 
 function parseDaemonResponseBody(text: string): unknown {
@@ -1633,11 +1751,12 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     ];
   }
 
-  async listTools(): Promise<RuntimeToolCatalogEntry[]> {
-    return [
+  async listTools(options: RuntimeToolListOptions = {}): Promise<RuntimeToolCatalogEntry[]> {
+    const tools: RuntimeToolCatalogEntry[] = [
       {
         stableToolId: "fs.read",
         displayName: "Read file",
+        pack: "runtime",
         primitiveCapabilities: ["prim:fs.read"],
         authorityScopeRequirements: [],
         effectClass: "local_read",
@@ -1649,6 +1768,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       {
         stableToolId: "sys.exec",
         displayName: "Shell command",
+        pack: "runtime",
         primitiveCapabilities: ["prim:sys.exec"],
         authorityScopeRequirements: ["scope:host.controlled_execution"],
         effectClass: "local_command",
@@ -1660,6 +1780,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       {
         stableToolId: "mcp.invoke",
         displayName: "MCP tool invocation",
+        pack: "runtime",
         primitiveCapabilities: ["prim:connector.invoke"],
         authorityScopeRequirements: ["scope:mcp.invoke"],
         effectClass: "connector_call",
@@ -1668,7 +1789,57 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         outputSchema: { type: "object" },
         evidenceRequirements: ["mcp_containment_receipt"],
       },
+      ...mockCodingToolContracts(),
     ];
+    return options.pack ? tools.filter((tool) => tool.pack === options.pack) : tools;
+  }
+
+  async invokeThreadTool(
+    threadId: string,
+    toolId: string,
+    input: RuntimeThreadToolInvokeInput = {},
+  ): Promise<RuntimeThreadToolInvocationResult> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const toolCallId = `mock_coding_tool_${crypto.randomUUID()}`;
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "tool.completed",
+      sourceEventKind: `CodingTool.${toolId.replaceAll(".", "")}`,
+      itemId: `${threadId}:item:${toolId}`,
+      payload: {
+        event_kind: "CodingToolResult",
+        tool_pack: "coding",
+        tool_name: toolId,
+        tool_call_id: toolCallId,
+        shell_fallback_used: false,
+      },
+      createdAt: new Date().toISOString(),
+      componentKind: "coding_tool",
+      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? `runtime.coding-tool.${toolId}`),
+      receiptRefs: [`receipt_mock_${toolId.replaceAll(".", "_")}`],
+    });
+    return {
+      schema_version: "ioi.runtime.coding-tool-result.v1",
+      object: "ioi.runtime_coding_tool_result",
+      tool_pack: "coding",
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: null,
+      status: "completed",
+      workspace_root: agent.cwd,
+      workflow_graph_id: null,
+      workflow_node_id: event.workflow_node_id,
+      shell_fallback_used: false,
+      receipt_refs: event.receipt_refs,
+      artifact_refs: [],
+      event,
+      result: { input: input.input ?? input },
+      error: null,
+    };
   }
 
   async rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult> {
@@ -2725,6 +2896,10 @@ function safeFileName(value: string): string {
 
 function threadIdForAgent(agentId: string): string {
   return agentId.startsWith("agent_") ? `thread_${agentId.slice("agent_".length)}` : `thread_${agentId}`;
+}
+
+function agentIdForThread(threadId: string): string {
+  return threadId.startsWith("thread_") ? `agent_${threadId.slice("thread_".length)}` : threadId;
 }
 
 function buildMockRun(

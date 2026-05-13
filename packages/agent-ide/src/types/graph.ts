@@ -857,7 +857,8 @@ export interface WorkflowFunctionBinding {
 export type WorkflowToolBindingKind =
   | "plugin_tool"
   | "mcp_tool"
-  | "workflow_tool";
+  | "workflow_tool"
+  | "coding_tool_pack";
 
 export interface WorkflowToolBinding {
   toolRef: string;
@@ -868,6 +869,14 @@ export interface WorkflowToolBinding {
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;
   arguments?: Record<string, unknown>;
+  toolPack?: {
+    pack: string;
+    workspaceStatusEnabled?: boolean;
+    gitEnabled?: boolean;
+    filesystemEnabled?: boolean;
+    allowedPaths?: string[];
+    [key: string]: unknown;
+  };
   workflowTool?: {
     workflowPath: string;
     argumentSchema?: WorkflowJsonSchema;

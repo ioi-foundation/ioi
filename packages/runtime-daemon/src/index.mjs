@@ -16,6 +16,18 @@ import {
 import * as routeDecision from "./model-mounting/route-decision.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
+  CODING_TOOL_IDS,
+  CODING_TOOL_PACK_ID,
+  CODING_TOOL_RESULT_SCHEMA_VERSION,
+  codingToolContracts,
+  codingToolInputForRequest,
+  codingToolInputSummary,
+  codingToolResultSummary,
+  codingToolSourceEventKind,
+  codingToolSummary,
+  executeCodingTool,
+} from "./coding-tools.mjs";
+import {
   RuntimeApiBridgeUnavailableError,
   createRuntimeApiBridge,
   isRuntimeServiceProfile,
@@ -2429,11 +2441,13 @@ export class AgentgresRuntimeStateStore {
     ];
   }
 
-  listTools() {
-    return [
+  listTools(options = {}) {
+    const pack = optionalString(options.pack)?.toLowerCase();
+    const tools = [
       {
         stableToolId: "fs.read",
         displayName: "Read file",
+        pack: "runtime",
         primitiveCapabilities: ["prim:fs.read"],
         authorityScopeRequirements: [],
         effectClass: "local_read",
@@ -2445,6 +2459,7 @@ export class AgentgresRuntimeStateStore {
       {
         stableToolId: "sys.exec",
         displayName: "Shell command",
+        pack: "runtime",
         primitiveCapabilities: ["prim:sys.exec"],
         authorityScopeRequirements: ["scope:host.controlled_execution"],
         effectClass: "local_command",
@@ -2456,6 +2471,7 @@ export class AgentgresRuntimeStateStore {
       {
         stableToolId: "mcp.invoke",
         displayName: "MCP tool invocation",
+        pack: "runtime",
         primitiveCapabilities: ["prim:connector.invoke"],
         authorityScopeRequirements: ["scope:mcp.invoke"],
         effectClass: "connector_call",
@@ -2464,7 +2480,126 @@ export class AgentgresRuntimeStateStore {
         outputSchema: { type: "object" },
         evidenceRequirements: ["mcp_containment_receipt"],
       },
+      ...codingToolContracts(),
     ];
+    return pack
+      ? tools.filter((tool) => optionalString(tool.pack)?.toLowerCase() === pack)
+      : tools;
+  }
+
+  invokeThreadTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const normalizedToolId = optionalString(toolId);
+    if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
+      throw notFound(`Coding tool not found: ${toolId}`, {
+        threadId,
+        toolId,
+        pack: CODING_TOOL_PACK_ID,
+      });
+    }
+    const input = codingToolInputForRequest(request);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(this.threadForAgent(agent).latest_turn_id) ??
+      "";
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      `runtime.coding-tool.${safeId(normalizedToolId)}`;
+    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `coding_tool_${doctorHash(`${threadId}:${normalizedToolId}:${JSON.stringify(input)}:${Date.now()}`).slice(0, 16)}`;
+    const receiptId = `receipt_coding_tool_${safeId(normalizedToolId)}_${doctorHash(
+      `${threadId}:${normalizedToolId}:${toolCallId}`,
+    ).slice(0, 12)}`;
+    const artifactRefs = [];
+    const receiptRefs = [receiptId];
+    let status = "completed";
+    let result = null;
+    let error = null;
+    try {
+      result = executeCodingTool(normalizedToolId, agent.cwd, input);
+      artifactRefs.push(...normalizeArray(result.artifactRefs));
+      receiptRefs.push(...normalizeArray(result.receiptRefs));
+    } catch (caught) {
+      status = "failed";
+      error = {
+        code: caught?.code ?? "coding_tool_failed",
+        message: String(caught?.message ?? caught),
+        details: caught?.details ?? null,
+      };
+      result = {
+        schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+        toolName: normalizedToolId,
+        status,
+        error,
+      };
+    }
+    const summary = codingToolSummary(normalizedToolId, result, status);
+    const payloadSummary = {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      event_kind: "CodingToolResult",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: normalizedToolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      status,
+      summary,
+      shell_fallback_used: false,
+      input_summary: codingToolInputSummary(normalizedToolId, input),
+      result_summary: codingToolResultSummary(normalizedToolId, result),
+      result,
+      error,
+      receipt_id: receiptId,
+      receipt_count: receiptRefs.length,
+      artifact_count: artifactRefs.length,
+    };
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:coding-tool:${safeId(normalizedToolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:coding-tool:${toolCallId}`,
+      source: operatorControlSource(request.source),
+      source_event_kind: codingToolSourceEventKind(normalizedToolId),
+      event_kind: status === "failed" ? "tool.failed" : "tool.completed",
+      status,
+      actor: "runtime",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "coding_tool",
+      tool_call_id: toolCallId,
+      artifact_refs: artifactRefs,
+      receipt_refs: uniqueStrings(receiptRefs),
+      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
+    return {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      object: "ioi.runtime_coding_tool_result",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: normalizedToolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      status,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      shell_fallback_used: false,
+      receipt_refs: event.receipt_refs,
+      artifact_refs: event.artifact_refs,
+      event,
+      result,
+      error,
+    };
   }
 
   ensureDirs() {
@@ -2782,7 +2917,7 @@ async function handleRequest({ request, response, store }) {
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/tools") {
-      writeJsonResponse(response, store.listTools());
+      writeJsonResponse(response, store.listTools(Object.fromEntries(url.searchParams.entries())));
       return;
     }
     throw notFound("Public daemon route not found.", {
@@ -4645,6 +4780,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
       ...body,
       decision: segments[5],
     }));
+    return;
+  }
+  if (request.method === "POST" && action === "tools" && segments[4] && segments[5] === "invoke" && !segments[6]) {
+    writeJsonResponse(response, store.invokeThreadTool(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "turns" && !segments[4]) {

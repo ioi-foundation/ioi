@@ -119,6 +119,7 @@ workstream was narrower.
 | 117 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI operator-control equivalence proof | /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json |
 | 118 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI control-state projection and run-inspector rows | /tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json |
 | 119 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI approval and mode-status control rows | /tmp/ioi-autopilot-gui-harness-tui-approval-mode-status/2026-05-13T02-46-20-811Z/result.json |
+| 120 | 2026-05-13 | P0-B. Coding Tool Pack | coding tool-pack status/diff/inspect contract | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-status-diff-inspect/2026-05-13T03-05-13-000Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -476,6 +477,60 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-approval-mode-status`
   - live GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-tui-approval-mode-status/2026-05-13T02-46-20-811Z/result.json`.
+
+### Slice 120. 2026-05-13 - Coding tool-pack status/diff/inspect contract
+
+Implementation slice completed 2026-05-13, P0-B coding tool-pack parity:
+
+- Added daemon-owned `workspace.status`, `git.diff`, and `file.inspect`
+  contracts in `packages/runtime-daemon/src/coding-tools.mjs` and exposed them
+  through `/v1/tools?pack=coding`, with path containment, read-only git
+  execution, bounded file previews, and explicit `shell_fallback_used=false`
+  result fields.
+- Added `/v1/threads/{thread_id}/tools/{tool_id}/invoke` so coding tool calls
+  emit receipt-backed `tool.completed` or `tool.failed` runtime events with
+  `component_kind=coding_tool`, `payload_schema_version=ioi.runtime.coding-tool-result.v1`,
+  stable workflow node ids, and SDK/TUI/React Flow-visible payload summaries.
+- Added SDK `listTools({ pack })` and `invokeThreadTool`, CLI
+  `agent tools coding` and `agent tools run`, and TUI line-mode `/status`,
+  `/diff [path]`, and `/inspect <path>` commands.
+- Added React Flow support for `coding_tool_pack` tool bindings, coding-pack
+  creator entries, and coding-tool projection labels/receipt rows.
+- Added a live contract test that drives the same status/diff/inspect tools
+  through daemon HTTP, SDK, CLI, line-mode TUI, and React Flow projection.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs && node --check packages/runtime-daemon/src/coding-tools.mjs`
+  - daemon syntax checks passed.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `cargo fmt -p ioi-cli`
+  - Rust formatting completed.
+- `cargo check -p ioi-cli`
+  - CLI package check passed.
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+  - CLI nested coding-tool command parser test passed.
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+  - TUI `/status`, `/diff`, and `/inspect` parser test passed.
+- `node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon/SDK/CLI/TUI/React Flow coding tool-pack proof passed.
+- `node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source-contract guard for CLI/TUI routes and slash commands passed.
+- `node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - TUI daemon-backed source guard passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-status-diff-inspect`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-status-diff-inspect/2026-05-13T03-05-13-000Z/result.json`.
+
+Known validation note:
+
+- Broad `cargo test -p ioi-cli ...` still compiles unrelated CLI integration
+  tests and remains blocked by existing `StartAgentParams.runtime_route_frame`
+  initializer debt. Targeted CLI binary tests and `cargo check -p ioi-cli`
+  passed for the touched CLI surfaces.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

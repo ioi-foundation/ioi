@@ -26,6 +26,8 @@ const TUI_INTERRUPT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_
 const TUI_STEER_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_id}/steer";
 const TUI_APPROVAL_DECISION_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/approvals/{approval_id}/decision";
+const TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/tools/{tool_id}/invoke";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -230,6 +232,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
                 "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
                 "steer": TUI_STEER_ROUTE_TEMPLATE,
                 "approval_decision": TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
+                "coding_tool_invoke": TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE,
             }
         }))?
     );
@@ -592,6 +595,30 @@ pub(crate) async fn decide_tui_approval(
             approval_id,
         ),
         Some(Value::Object(body)),
+    )
+    .await
+}
+
+pub(crate) async fn invoke_tui_coding_tool(
+    thread_id: &str,
+    tool_id: &str,
+    input: Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let route = route_with_thread(TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE, thread_id)
+        .replace("{tool_id}", tool_id);
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route,
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "workflow_node_id": format!("runtime.coding-tool.{}", safe_id(tool_id)),
+            "component_kind": "coding_tool",
+            "input": input,
+        })),
     )
     .await
 }

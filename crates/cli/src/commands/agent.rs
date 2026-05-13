@@ -1,6 +1,8 @@
 // Path: crates/cli/src/commands/agent.rs
 
-use super::agent_event_stream::{stream_agent_events, AgentEventStreamArgs};
+use super::agent_event_stream::{
+    resolve_daemon_endpoint, resolve_daemon_token, stream_agent_events, AgentEventStreamArgs,
+};
 use super::agent_tui::{run_agent_tui, AgentTuiArgs};
 use super::model_mount_http::daemon_request;
 use anyhow::{anyhow, Context, Result};
@@ -29,6 +31,8 @@ use tonic::transport::Channel;
 /// CLI command handlers are clients of this service; execution semantics remain
 /// owned by the daemon/runtime substrate.
 const DESKTOP_AGENT_SERVICE_ID: &str = "desktop_agent";
+const CODING_TOOLS_ROUTE: &str = "/v1/tools?pack=coding";
+const CODING_TOOL_INVOKE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/tools/{tool_id}/invoke";
 
 #[derive(Parser, Debug)]
 pub struct AgentArgs {
@@ -354,6 +358,47 @@ pub enum ToolCommands {
         #[clap(long)]
         json: bool,
     },
+    /// List daemon-discovered coding tool-pack contracts.
+    Coding {
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
+    /// Invoke a daemon-backed coding tool for a runtime thread.
+    Run {
+        /// Coding tool id, for example workspace.status, git.diff, or file.inspect.
+        tool: String,
+        /// Runtime thread id that owns the tool event stream.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Workspace-relative path for file.inspect or git.diff.
+        #[clap(long)]
+        path: Option<String>,
+        /// Runtime turn id to associate with the tool result.
+        #[clap(long = "turn-id")]
+        turn_id: Option<String>,
+        /// Workflow graph id for React Flow-originated invocations.
+        #[clap(long = "workflow-graph-id")]
+        workflow_graph_id: Option<String>,
+        /// Workflow node id for React Flow-originated invocations.
+        #[clap(long = "workflow-node-id")]
+        workflow_node_id: Option<String>,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -498,7 +543,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
             command,
             tool,
             json,
-        } => run_tool_command(command, tool, json),
+        } => run_tool_command(command, tool, json).await,
         AgentCommands::ConfigExplain { key, json } => print_config_explain(key.as_deref(), json),
         AgentCommands::Policy { command } => run_policy_command(command),
         AgentCommands::Doctor { json } => print_doctor(json).await,
@@ -1120,7 +1165,7 @@ fn print_agent_tools(tool: Option<&str>, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn run_tool_command(
+async fn run_tool_command(
     command: Option<ToolCommands>,
     legacy_tool: Option<String>,
     json: bool,
@@ -1129,8 +1174,177 @@ fn run_tool_command(
         Some(ToolCommands::List { json }) => print_agent_tools(None, json),
         Some(ToolCommands::Inspect { tool, json }) => print_agent_tools(Some(&tool), json),
         Some(ToolCommands::ExplainPolicy { tool, json }) => print_tool_policy(&tool, json),
+        Some(ToolCommands::Coding {
+            endpoint,
+            token,
+            json,
+        }) => print_coding_tool_catalog(endpoint, token, json).await,
+        Some(ToolCommands::Run {
+            tool,
+            thread_id,
+            path,
+            turn_id,
+            workflow_graph_id,
+            workflow_node_id,
+            endpoint,
+            token,
+            json,
+        }) => {
+            invoke_coding_tool(
+                tool,
+                thread_id,
+                path,
+                turn_id,
+                workflow_graph_id,
+                workflow_node_id,
+                endpoint,
+                token,
+                json,
+            )
+            .await
+        }
         None => print_agent_tools(legacy_tool.as_deref(), json),
     }
+}
+
+async fn print_coding_tool_catalog(
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let value = daemon_request(
+        Some(&endpoint),
+        token.as_deref(),
+        Method::GET,
+        CODING_TOOLS_ROUTE,
+        None,
+    )
+    .await?;
+    if json {
+        return print_json(&serde_json::json!({
+            "schema_version": "ioi.agent-cli.coding-tool-pack.v1",
+            "tool_pack": "coding",
+            "endpoint": endpoint,
+            "route": CODING_TOOLS_ROUTE,
+            "tools": value,
+        }));
+    }
+    let count = value.as_array().map(Vec::len).unwrap_or(0);
+    println!("Agent coding tools: {count}");
+    if let Some(tools) = value.as_array() {
+        for tool in tools {
+            let id = tool
+                .get("stableToolId")
+                .and_then(|value| value.as_str())
+                .unwrap_or("unknown");
+            let display = tool
+                .get("displayName")
+                .and_then(|value| value.as_str())
+                .unwrap_or(id);
+            let node = tool
+                .get("workflowNodeType")
+                .and_then(|value| value.as_str())
+                .unwrap_or("CodingToolNode");
+            println!("  {id}: {display} node={node}");
+        }
+    }
+    Ok(())
+}
+
+async fn invoke_coding_tool(
+    tool: String,
+    thread_id: String,
+    path: Option<String>,
+    turn_id: Option<String>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    if tool == "file.inspect" && path.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err(anyhow!(
+            "agent tools run file.inspect requires --path <workspace-relative-path>"
+        ));
+    }
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let mut body = serde_json::Map::new();
+    body.insert(
+        "source".to_string(),
+        serde_json::Value::String("sdk_client".to_string()),
+    );
+    let mut input = serde_json::Map::new();
+    if let Some(path) = path.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "path".to_string(),
+            serde_json::Value::String(path.to_string()),
+        );
+    }
+    if !input.is_empty() {
+        body.insert("input".to_string(), serde_json::Value::Object(input));
+    }
+    if let Some(turn_id) = turn_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        body.insert(
+            "turn_id".to_string(),
+            serde_json::Value::String(turn_id.to_string()),
+        );
+    }
+    if let Some(workflow_graph_id) = workflow_graph_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body.insert(
+            "workflow_graph_id".to_string(),
+            serde_json::Value::String(workflow_graph_id.to_string()),
+        );
+    }
+    if let Some(workflow_node_id) = workflow_node_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body.insert(
+            "workflow_node_id".to_string(),
+            serde_json::Value::String(workflow_node_id.to_string()),
+        );
+    }
+    let route = coding_tool_invoke_route(&thread_id, &tool);
+    let value = daemon_request(
+        Some(&endpoint),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::Value::Object(body)),
+    )
+    .await?;
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .get("status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let receipts = value
+        .get("receipt_refs")
+        .and_then(|value| value.as_array())
+        .map(Vec::len)
+        .unwrap_or(0);
+    let workflow_node = value
+        .get("workflow_node_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("none");
+    println!(
+        "Agent coding tool: tool={tool} thread={thread_id} status={status} node={workflow_node} receipts={receipts}"
+    );
+    Ok(())
+}
+
+fn coding_tool_invoke_route(thread_id: &str, tool_id: &str) -> String {
+    CODING_TOOL_INVOKE_ROUTE_TEMPLATE
+        .replace("{thread_id}", thread_id)
+        .replace("{tool_id}", tool_id)
 }
 
 fn print_tool_policy(tool: &str, json: bool) -> Result<()> {
@@ -2022,6 +2236,41 @@ mod tests {
             tools.command,
             Some(AgentCommands::Tools {
                 command: Some(ToolCommands::Inspect { json: true, .. }),
+                ..
+            })
+        ));
+        let coding_tools = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "coding",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--json",
+        ])
+        .expect("coding tools command should parse");
+        assert!(matches!(
+            coding_tools.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Coding { json: true, .. }),
+                ..
+            })
+        ));
+        let coding_tool_run = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "run",
+            "file.inspect",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--path",
+            "README.md",
+            "--json",
+        ])
+        .expect("coding tool run command should parse");
+        assert!(matches!(
+            coding_tool_run.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Run { json: true, .. }),
                 ..
             })
         ));
