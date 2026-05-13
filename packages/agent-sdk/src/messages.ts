@@ -413,6 +413,9 @@ export interface RuntimeMcpServerEntry {
   args?: string[];
   server_url?: string | null;
   serverUrl?: string | null;
+  endpoint?: string | null;
+  header_names?: string[];
+  headerNames?: string[];
   source?: string;
   source_path?: string | null;
   sourcePath?: string | null;
@@ -612,6 +615,8 @@ export interface RuntimeMcpStatus {
   prompts?: RuntimeMcpPromptEntry[];
   validation?: RuntimeMcpValidationResult;
   routes?: Record<string, string>;
+  live_discovery?: Record<string, unknown>;
+  liveDiscovery?: Record<string, unknown>;
   event?: RuntimeEventEnvelope;
 }
 

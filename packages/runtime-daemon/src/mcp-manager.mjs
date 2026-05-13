@@ -89,10 +89,13 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     optionalString(config.name) ??
     "mcp";
   const id = optionalString(config.id) ?? `mcp.${safeId(name)}`;
-  const serverUrl = optionalString(config.serverUrl ?? config.server_url ?? config.url);
-  const transport =
+  const serverUrl = optionalString(
+    config.serverUrl ?? config.server_url ?? config.url ?? config.endpoint,
+  );
+  const transport = normalizeMcpTransport(
     optionalString(config.transport) ??
-    (serverUrl ? (String(serverUrl).includes("/sse") ? "sse" : "http") : "stdio");
+      (serverUrl ? (String(serverUrl).includes("/sse") ? "sse" : "http") : "stdio"),
+  );
   const declaredTools = uniqueStrings([
     ...normalizeArray(config.allowedTools ?? config.allowed_tools),
     ...Object.keys(config.tools ?? {}),
@@ -134,6 +137,9 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     args: Array.isArray(config.args) ? config.args.map(String) : [],
     server_url: serverUrl ?? null,
     serverUrl: serverUrl ?? null,
+    endpoint: serverUrl ?? null,
+    header_names: Object.keys(headers).sort(),
+    headerNames: Object.keys(headers).sort(),
     source: optionalString(config.source) ?? context.source ?? "mcp.json",
     source_path:
       optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
@@ -221,13 +227,55 @@ export function validateMcpServerRecords(servers = []) {
   const issues = [];
   const warnings = [];
   for (const server of servers) {
-    if (!server.command && !server.server_url && !server.serverUrl) {
+    const transport = normalizeMcpTransport(server.transport);
+    const serverUrl = optionalString(server.server_url ?? server.serverUrl ?? server.endpoint);
+    if (!["stdio", "http", "sse"].includes(transport)) {
+      issues.push({
+        code: "mcp_transport_unsupported",
+        severity: "error",
+        server_id: server.id,
+        serverId: server.id,
+        transport,
+        message: "MCP server transport must be stdio, http, or sse.",
+      });
+    }
+    if (transport === "stdio" && !server.command) {
       issues.push({
         code: "mcp_server_transport_missing",
         severity: "error",
         server_id: server.id,
         serverId: server.id,
-        message: "MCP server must declare a command or remote URL.",
+        message: "MCP stdio server must declare a command.",
+      });
+    }
+    if ((transport === "http" || transport === "sse") && !serverUrl) {
+      issues.push({
+        code: "mcp_server_transport_missing",
+        severity: "error",
+        server_id: server.id,
+        serverId: server.id,
+        message: "MCP HTTP/SSE server must declare a remote URL.",
+      });
+    }
+    if ((transport === "http" || transport === "sse") && serverUrl && !/^https?:\/\//i.test(serverUrl)) {
+      issues.push({
+        code: "mcp_remote_url_invalid",
+        severity: "error",
+        server_id: server.id,
+        serverId: server.id,
+        message: "MCP HTTP/SSE server URL must use http:// or https://.",
+      });
+    }
+    if (
+      (transport === "http" || transport === "sse") &&
+      server.containment?.allow_network_egress === false
+    ) {
+      issues.push({
+        code: "mcp_remote_network_blocked",
+        severity: "error",
+        server_id: server.id,
+        serverId: server.id,
+        message: "MCP HTTP/SSE server requires network egress in containment policy.",
       });
     }
     const secretRefs = server.secretRefs ?? server.secret_refs ?? {};
@@ -355,6 +403,324 @@ export async function invokeMcpStdioTool(server, toolName, input = {}, options =
       result: call ?? {},
     };
   });
+}
+
+export async function discoverMcpHttpCatalog(server, options = {}) {
+  return withMcpRemoteSession(server, options, async (session) => {
+    const listed = await session.sendRequest("tools/list", {});
+    const resourceList = await optionalMcpCatalogRequest(session, "resources/list");
+    const promptList = await optionalMcpCatalogRequest(session, "prompts/list");
+    const tools = normalizeArray(listed?.tools).map((tool) => normalizeMcpToolEntry(tool, server));
+    const resources = normalizeMcpResourceDeclarations(resourceList?.resources, server);
+    const prompts = normalizeMcpPromptDeclarations(promptList?.prompts, server);
+    return {
+      ok: true,
+      status: "completed",
+      transport: session.transport,
+      execution_mode: session.executionMode,
+      executionMode: session.executionMode,
+      server_url: session.serverUrl,
+      serverUrl: session.serverUrl,
+      timeout_ms: session.timeoutMs,
+      protocol_version:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      protocolVersion:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      server_info: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      serverInfo: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      listed_tools: tools,
+      listedTools: tools,
+      tools,
+      resource_count: resources.length,
+      resourceCount: resources.length,
+      listed_resources: resources,
+      listedResources: resources,
+      resources,
+      prompt_count: prompts.length,
+      promptCount: prompts.length,
+      listed_prompts: prompts,
+      listedPrompts: prompts,
+      prompts,
+      notifications: session.notifications,
+    };
+  });
+}
+
+export async function invokeMcpHttpTool(server, toolName, input = {}, options = {}) {
+  return withMcpRemoteSession(server, options, async (session) => {
+    const listed = await session.sendRequest("tools/list", {});
+    const resourceList = await optionalMcpCatalogRequest(session, "resources/list");
+    const promptList = await optionalMcpCatalogRequest(session, "prompts/list");
+    const listedTools = normalizeArray(listed?.tools).map((tool) =>
+      normalizeMcpToolEntry(tool, server),
+    );
+    const listedResources = normalizeMcpResourceDeclarations(resourceList?.resources, server);
+    const listedPrompts = normalizeMcpPromptDeclarations(promptList?.prompts, server);
+    const call = await session.sendRequest("tools/call", {
+      name: toolName,
+      arguments:
+        input && typeof input === "object" && !Array.isArray(input) ? input : { value: input },
+    });
+    return {
+      ok: true,
+      status: "completed",
+      transport: session.transport,
+      execution_mode: session.executionMode,
+      executionMode: session.executionMode,
+      server_url: session.serverUrl,
+      serverUrl: session.serverUrl,
+      timeout_ms: session.timeoutMs,
+      protocol_version:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      protocolVersion:
+        session.initialize?.protocolVersion ?? session.initialize?.protocol_version ?? null,
+      server_info: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      serverInfo: session.initialize?.serverInfo ?? session.initialize?.server_info ?? null,
+      tool_count: listedTools.length,
+      toolCount: listedTools.length,
+      listed_tools: listedTools,
+      listedTools,
+      resource_count: listedResources.length,
+      resourceCount: listedResources.length,
+      listed_resources: listedResources,
+      listedResources,
+      prompt_count: listedPrompts.length,
+      promptCount: listedPrompts.length,
+      listed_prompts: listedPrompts,
+      listedPrompts,
+      notifications: session.notifications,
+      result: call ?? {},
+    };
+  });
+}
+
+async function withMcpRemoteSession(server, options, callback) {
+  const transport = normalizeMcpTransport(server?.transport);
+  if (transport === "sse") return withMcpSseSession(server, options, callback);
+  return withMcpHttpSession(server, options, callback);
+}
+
+async function withMcpHttpSession(server, options, callback) {
+  const serverUrl = optionalString(server?.serverUrl ?? server?.server_url ?? server?.endpoint);
+  if (!serverUrl) {
+    throw mcpHttpError("mcp_http_url_missing", "MCP HTTP invocation requires a server URL.");
+  }
+  const timeoutMs = positiveInteger(
+    options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
+    10_000,
+  );
+  const notifications = [];
+  let nextRequestId = 1;
+  const sendJsonRpc = async (message, expectsResponse) => {
+    const response = await fetchMcpHttp(serverUrl, message, {
+      ...options,
+      timeoutMs,
+      headers: options.headers ?? server?.headers,
+    });
+    if (!expectsResponse) return null;
+    return resolveMcpJsonRpcResponse(response, message.id, notifications, "mcp_http_json_rpc_error");
+  };
+  const sendRequest = (method, params = {}) =>
+    sendJsonRpc({ jsonrpc: "2.0", id: nextRequestId++, method, params }, true);
+  const sendNotification = (method, params = {}) =>
+    sendJsonRpc({ jsonrpc: "2.0", method, params }, false);
+  const initialize = await sendRequest("initialize", {
+    protocolVersion: "2024-11-05",
+    capabilities: { roots: { listChanged: true } },
+    clientInfo: { name: "ioi-runtime-daemon", version: "0.1.0" },
+  });
+  await sendNotification("notifications/initialized");
+  return callback({
+    transport: "http",
+    executionMode: "live_http",
+    serverUrl,
+    timeoutMs,
+    initialize,
+    notifications,
+    sendRequest,
+  });
+}
+
+async function withMcpSseSession(server, options, callback) {
+  const serverUrl = optionalString(server?.serverUrl ?? server?.server_url ?? server?.endpoint);
+  if (!serverUrl) {
+    throw mcpHttpError("mcp_sse_url_missing", "MCP SSE invocation requires a server URL.");
+  }
+  const timeoutMs = positiveInteger(
+    options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
+    10_000,
+  );
+  const abortController = new AbortController();
+  const notifications = [];
+  const pending = new Map();
+  let endpointUrl = null;
+  let nextRequestId = 1;
+  const rejectPending = (error) => {
+    for (const pendingRequest of pending.values()) {
+      clearTimeout(pendingRequest.timer);
+      pendingRequest.reject(error);
+    }
+    pending.clear();
+  };
+  const response = await withTimeout(
+    fetch(serverUrl, {
+      method: "GET",
+      headers: { Accept: "text/event-stream" },
+      signal: abortController.signal,
+    }),
+    timeoutMs,
+    () => {
+      abortController.abort();
+      return mcpHttpError("mcp_sse_connect_timeout", "MCP SSE connection timed out.", {
+        timeout_ms: timeoutMs,
+      });
+    },
+  );
+  if (!response.ok) {
+    throw mcpHttpError("mcp_sse_connect_failed", "MCP SSE server rejected the event stream.", {
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }
+  if (!response.body?.getReader) {
+    throw mcpHttpError("mcp_sse_stream_unavailable", "MCP SSE response body is not readable.");
+  }
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let endpointResolved;
+  let endpointRejected;
+  const endpointPromise = new Promise((resolve, reject) => {
+    endpointResolved = resolve;
+    endpointRejected = reject;
+  });
+  const handleEvent = (event) => {
+    if (event.event === "endpoint") {
+      endpointUrl = new URL(event.data.trim(), serverUrl).href;
+      endpointResolved(endpointUrl);
+      return;
+    }
+    if (!event.data.trim()) return;
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch (error) {
+      notifications.push({
+        parse_error: String(error?.message ?? error),
+        raw: event.data.slice(0, 500),
+      });
+      return;
+    }
+    const id = message.id == null ? null : String(message.id);
+    if (id && pending.has(id)) {
+      const pendingRequest = pending.get(id);
+      pending.delete(id);
+      clearTimeout(pendingRequest.timer);
+      if (message.error) {
+        pendingRequest.reject(
+          mcpHttpError("mcp_sse_json_rpc_error", "MCP SSE server returned a JSON-RPC error.", {
+            error: message.error,
+          }),
+        );
+        return;
+      }
+      pendingRequest.resolve(message.result ?? null);
+      return;
+    }
+    notifications.push(message);
+  };
+  const readLoop = (async () => {
+    const reader = response.body.getReader();
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = consumeSseEventsFromBuffer(() => buffer, (next) => {
+          buffer = next;
+        });
+        for (const event of events) handleEvent(event);
+      }
+    } catch (error) {
+      if (!abortController.signal.aborted) {
+        endpointRejected(error);
+        rejectPending(error);
+      }
+    }
+  })();
+  try {
+    await withTimeout(endpointPromise, timeoutMs, () =>
+      mcpHttpError("mcp_sse_endpoint_timeout", "MCP SSE endpoint announcement timed out.", {
+        timeout_ms: timeoutMs,
+      }),
+    );
+    const postMessage = async (message) => {
+      const immediate = await fetchMcpHttp(endpointUrl, message, {
+        ...options,
+        timeoutMs,
+        headers: options.headers ?? server?.headers,
+      });
+      if (immediate !== null) {
+        const result = resolveMcpJsonRpcResponse(
+          immediate,
+          message.id,
+          notifications,
+          "mcp_sse_json_rpc_error",
+        );
+        if (message.id != null && pending.has(String(message.id))) {
+          const pendingRequest = pending.get(String(message.id));
+          pending.delete(String(message.id));
+          clearTimeout(pendingRequest.timer);
+          pendingRequest.resolve(result);
+        }
+      }
+    };
+    const sendRequest = (method, params = {}) =>
+      new Promise((resolve, reject) => {
+        const id = nextRequestId++;
+        const timer = setTimeout(() => {
+          pending.delete(String(id));
+          reject(
+            mcpHttpError("mcp_sse_request_timeout", `MCP SSE request timed out: ${method}.`, {
+              method,
+              timeout_ms: timeoutMs,
+            }),
+          );
+        }, timeoutMs);
+        pending.set(String(id), { resolve, reject, timer, method });
+        postMessage({ jsonrpc: "2.0", id, method, params }).catch((error) => {
+          clearTimeout(timer);
+          pending.delete(String(id));
+          reject(error);
+        });
+      });
+    const sendNotification = (method, params = {}) =>
+      postMessage({ jsonrpc: "2.0", method, params });
+    const initialize = await sendRequest("initialize", {
+      protocolVersion: "2024-11-05",
+      capabilities: { roots: { listChanged: true } },
+      clientInfo: { name: "ioi-runtime-daemon", version: "0.1.0" },
+    });
+    await sendNotification("notifications/initialized");
+    return await callback({
+      transport: "sse",
+      executionMode: "live_sse",
+      serverUrl,
+      endpointUrl,
+      timeoutMs,
+      initialize,
+      notifications,
+      sendRequest,
+    });
+  } finally {
+    rejectPending(mcpHttpError("mcp_sse_closed", "MCP SSE invocation closed."));
+    abortController.abort();
+    await Promise.race([
+      readLoop,
+      new Promise((resolve) => setTimeout(resolve, 100)),
+    ]);
+  }
 }
 
 async function withMcpStdioSession(server, options, callback) {
@@ -546,6 +912,187 @@ async function optionalMcpCatalogRequest(session, method) {
   }
 }
 
+async function fetchMcpHttp(serverUrl, message, options = {}) {
+  const response = await fetchWithTimeout(serverUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json, text/event-stream",
+      "Content-Type": "application/json",
+      "Mcp-Protocol-Version": "2024-11-05",
+      ...mcpRemoteHeaders(options.headers),
+    },
+    body: JSON.stringify(message),
+  }, options.timeoutMs ?? 10_000);
+  if (!response.ok) {
+    throw mcpHttpError("mcp_http_request_failed", "MCP HTTP server rejected the request.", {
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }
+  return readMcpHttpResponse(response);
+}
+
+async function fetchWithTimeout(url, init = {}, timeoutMs = 10_000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const upstreamSignal = init.signal;
+  const abortFromUpstream = () => controller.abort();
+  if (upstreamSignal) {
+    if (upstreamSignal.aborted) controller.abort();
+    else upstreamSignal.addEventListener("abort", abortFromUpstream, { once: true });
+  }
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw mcpHttpError("mcp_http_request_timeout", "MCP HTTP request timed out.", {
+        url,
+        timeout_ms: timeoutMs,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    if (upstreamSignal) upstreamSignal.removeEventListener("abort", abortFromUpstream);
+  }
+}
+
+async function readMcpHttpResponse(response) {
+  if (response.status === 202 || response.status === 204) return null;
+  const text = await response.text();
+  if (!text.trim()) return null;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("text/event-stream") || text.trimStart().startsWith("event:") || text.trimStart().startsWith("data:")) {
+    return parseSseText(text).map((event) => {
+      try {
+        return JSON.parse(event.data);
+      } catch (error) {
+        return { parse_error: String(error?.message ?? error), raw: event.data.slice(0, 500) };
+      }
+    });
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw mcpHttpError("mcp_http_invalid_json", "MCP HTTP response was not valid JSON.", {
+      error: String(error?.message ?? error),
+      raw: text.slice(0, 500),
+    });
+  }
+}
+
+function resolveMcpJsonRpcResponse(response, id, notifications, errorCode) {
+  const messages = Array.isArray(response) ? response : [response].filter(Boolean);
+  const requestedId = String(id);
+  for (const message of messages) {
+    if (!message || typeof message !== "object") continue;
+    if (message.parse_error) {
+      notifications.push(message);
+      continue;
+    }
+    const messageId = message.id == null ? null : String(message.id);
+    if (messageId === requestedId) {
+      if (message.error) {
+        throw mcpHttpError(errorCode, "MCP remote server returned a JSON-RPC error.", {
+          error: message.error,
+        });
+      }
+      return message.result ?? null;
+    }
+    notifications.push(message);
+  }
+  throw mcpHttpError("mcp_http_response_missing", "MCP remote response did not include the requested JSON-RPC id.", {
+    id,
+  });
+}
+
+function consumeSseEventsFromBuffer(readBuffer, writeBuffer) {
+  let buffer = readBuffer();
+  const events = [];
+  let splitIndex = sseBlockBoundaryIndex(buffer);
+  while (splitIndex) {
+    const block = buffer.slice(0, splitIndex.index);
+    buffer = buffer.slice(splitIndex.index + splitIndex.length);
+    const event = parseSseBlock(block);
+    if (event) events.push(event);
+    splitIndex = sseBlockBoundaryIndex(buffer);
+  }
+  writeBuffer(buffer);
+  return events;
+}
+
+function parseSseText(text) {
+  const normalized = text.endsWith("\n\n") || text.endsWith("\r\n\r\n") ? text : `${text}\n\n`;
+  let buffer = normalized;
+  const events = [];
+  let splitIndex = sseBlockBoundaryIndex(buffer);
+  while (splitIndex) {
+    const block = buffer.slice(0, splitIndex.index);
+    buffer = buffer.slice(splitIndex.index + splitIndex.length);
+    const event = parseSseBlock(block);
+    if (event) events.push(event);
+    splitIndex = sseBlockBoundaryIndex(buffer);
+  }
+  return events;
+}
+
+function sseBlockBoundaryIndex(buffer) {
+  const lf = buffer.indexOf("\n\n");
+  const crlf = buffer.indexOf("\r\n\r\n");
+  const candidates = [
+    lf >= 0 ? { index: lf, length: 2 } : null,
+    crlf >= 0 ? { index: crlf, length: 4 } : null,
+  ].filter(Boolean);
+  if (candidates.length === 0) return null;
+  return candidates.sort((left, right) => left.index - right.index)[0];
+}
+
+function parseSseBlock(block) {
+  const lines = String(block ?? "").split(/\r?\n/);
+  let event = "message";
+  const data = [];
+  for (const line of lines) {
+    if (!line || line.startsWith(":")) continue;
+    if (line.startsWith("event:")) {
+      event = line.slice("event:".length).trim() || "message";
+      continue;
+    }
+    if (line.startsWith("data:")) {
+      data.push(line.slice("data:".length).trimStart());
+    }
+  }
+  if (data.length === 0) return null;
+  return { event, data: data.join("\n") };
+}
+
+function withTimeout(promise, timeoutMs, errorFactory) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(errorFactory()), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function mcpRemoteHeaders(headers = {}) {
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) return {};
+  return Object.fromEntries(
+    Object.entries(headers)
+      .filter(([, value]) => typeof value === "string" && value.trim() && !value.startsWith("vault://"))
+      .map(([key, value]) => [key, value]),
+  );
+}
+
 function loadMcpConfigSources(workspaceRoot) {
   const sources = [];
   for (const [source, filePath] of [
@@ -734,7 +1281,21 @@ function limitText(value, maxLength) {
   return text.slice(text.length - maxLength);
 }
 
+function normalizeMcpTransport(value) {
+  const transport = optionalString(value)?.toLowerCase() ?? "stdio";
+  if (["streamable_http", "streamable-http", "http-json-rpc"].includes(transport)) return "http";
+  if (["server-sent-events", "eventsource"].includes(transport)) return "sse";
+  return transport;
+}
+
 function mcpStdioError(code, message, details = {}) {
+  const error = new Error(message);
+  error.code = code;
+  error.details = details;
+  return error;
+}
+
+function mcpHttpError(code, message, details = {}) {
   const error = new Error(message);
   error.code = code;
   error.details = details;

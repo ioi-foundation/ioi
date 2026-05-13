@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -12,6 +13,40 @@ import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/ind
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const execFileAsync = promisify(execFile);
 const mcpStdioFixture = path.join(root, "scripts/fixtures/mcp-stdio-echo-server.mjs");
+const mcpFixtureTools = [
+  {
+    name: "query",
+    description: "Echo a query argument through a deterministic MCP remote tool.",
+    inputSchema: {
+      type: "object",
+      properties: { q: { type: "string" } },
+      required: ["q"],
+    },
+  },
+  {
+    name: "fetch",
+    description: "Echo a fetch id through a deterministic MCP remote tool.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+    },
+  },
+];
+const mcpFixtureResources = [
+  {
+    uri: "ioi://fixture/remote-context",
+    name: "remote-context",
+    description: "Deterministic read-only context exposed by the MCP remote fixture.",
+    mimeType: "application/json",
+  },
+];
+const mcpFixturePrompts = [
+  {
+    name: "remote-brief",
+    description: "Build a concise brief for the deterministic MCP remote fixture.",
+    arguments: [{ name: "topic", required: true }],
+  },
+];
 
 async function execFileWithInput(file, args, input, options = {}) {
   return new Promise((resolve, reject) => {
@@ -25,6 +60,127 @@ async function execFileWithInput(file, args, input, options = {}) {
       resolve({ stdout, stderr });
     });
     child.stdin.end(input);
+  });
+}
+
+async function startMcpRemoteFixtureServer() {
+  const sseClients = new Map();
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (request.method === "GET" && url.pathname === "/sse") {
+      const sessionId = `session_${cryptoRandomSuffix()}`;
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      });
+      response.write(`event: endpoint\ndata: /messages?sessionId=${sessionId}\n\n`);
+      sseClients.set(sessionId, response);
+      request.on("close", () => sseClients.delete(sessionId));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/messages") {
+      const sessionId = url.searchParams.get("sessionId") ?? "";
+      const client = sseClients.get(sessionId);
+      const message = JSON.parse(await readRequestBody(request));
+      const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-sse");
+      response.writeHead(202).end();
+      if (client && rpc) {
+        client.write(`event: message\ndata: ${JSON.stringify(rpc)}\n\n`);
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/mcp") {
+      const message = JSON.parse(await readRequestBody(request));
+      const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-http");
+      if (!rpc) {
+        response.writeHead(202).end();
+        return;
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(rpc));
+      return;
+    }
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "not_found" }));
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const address = server.address();
+  return {
+    url: `http://${address.address}:${address.port}`,
+    close: () =>
+      new Promise((resolve, reject) => {
+        for (const client of sseClients.values()) client.end();
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
+  };
+}
+
+function mcpFixtureJsonRpcResponse(message, serverName) {
+  if (message.method === "notifications/initialized") return null;
+  if (message.method === "initialize") {
+    return {
+      jsonrpc: "2.0",
+      id: message.id,
+      result: {
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {}, resources: {}, prompts: {} },
+        serverInfo: { name: serverName, version: "0.1.0" },
+      },
+    };
+  }
+  if (message.method === "tools/list") {
+    return { jsonrpc: "2.0", id: message.id, result: { tools: mcpFixtureTools } };
+  }
+  if (message.method === "resources/list") {
+    return { jsonrpc: "2.0", id: message.id, result: { resources: mcpFixtureResources } };
+  }
+  if (message.method === "prompts/list") {
+    return { jsonrpc: "2.0", id: message.id, result: { prompts: mcpFixturePrompts } };
+  }
+  if (message.method === "tools/call") {
+    const name = message.params?.name ?? "query";
+    const args = message.params?.arguments ?? {};
+    return {
+      jsonrpc: "2.0",
+      id: message.id,
+      result: {
+        content: [{ type: "text", text: `${name}:${args.q ?? args.id ?? args.value ?? ""}` }],
+        structuredContent: {
+          ok: true,
+          server: serverName,
+          tool: name,
+          arguments: args,
+        },
+      },
+    };
+  }
+  return {
+    jsonrpc: "2.0",
+    id: message.id,
+    error: { code: -32601, message: `Unsupported method: ${message.method}` },
+  };
+}
+
+function cryptoRandomSuffix() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function readRequestBody(request) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => resolve(body));
+    request.on("error", reject);
   });
 }
 
@@ -1532,6 +1688,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
   } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-state-"));
+  const remoteFixture = await startMcpRemoteFixtureServer();
   fs.mkdirSync(path.join(cwd, ".cursor"), { recursive: true });
   fs.writeFileSync(
     path.join(cwd, ".cursor", "mcp.json"),
@@ -1723,6 +1880,62 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(invoked.result.structuredContent.arguments.q, "parity");
     assert.ok(invoked.receipt_refs[0].startsWith("receipt_mcp_mcp_invoke"));
 
+    const remoteHttpAdded = await sdkThread.addMcpServer({
+      label: "remote-http",
+      server: {
+        transport: "http",
+        url: `${remoteFixture.url}/mcp`,
+        allowedTools: ["query"],
+      },
+    });
+    assert.equal(remoteHttpAdded.added[0].transport, "http");
+    assert.equal(remoteHttpAdded.added[0].serverUrl, `${remoteFixture.url}/mcp`);
+
+    const remoteSseAdded = await sdkThread.addMcpServer({
+      label: "remote-sse",
+      server: {
+        transport: "sse",
+        url: `${remoteFixture.url}/sse`,
+        allowedTools: ["query"],
+      },
+    });
+    assert.equal(remoteSseAdded.added[0].transport, "sse");
+
+    const remoteStatus = await sdkThread.mcp({ live_discovery: true });
+    const remoteDiscoveries = remoteStatus.live_discovery.servers.filter((entry) =>
+      ["mcp.remote-http", "mcp.remote-sse"].includes(entry.server_id),
+    );
+    assert.equal(remoteDiscoveries.length, 2);
+    assert.ok(remoteDiscoveries.some((entry) => entry.executionMode === "live_http"));
+    assert.ok(remoteDiscoveries.some((entry) => entry.executionMode === "live_sse"));
+    assert.ok(remoteStatus.tools.some((tool) => tool.serverId === "mcp.remote-http" && tool.toolName === "query"));
+    assert.ok(remoteStatus.resources.some((resource) => resource.uri === "ioi://fixture/remote-context"));
+    assert.ok(remoteStatus.prompts.some((prompt) => prompt.name === "remote-brief"));
+
+    const httpInvoked = await sdkThread.invokeMcpTool({
+      serverId: "mcp.remote-http",
+      toolName: "query",
+      input: { q: "http-parity" },
+    });
+    assert.equal(httpInvoked.status, "completed");
+    assert.equal(httpInvoked.containment.executionMode, "live_http");
+    assert.equal(httpInvoked.transport_execution.executionMode, "live_http");
+    assert.equal(httpInvoked.result.structuredContent.server, "ioi-fixture-mcp-http");
+    assert.equal(httpInvoked.result.structuredContent.arguments.q, "http-parity");
+    assert.ok(httpInvoked.evidence_refs.includes("mcp.transport.http.live"));
+
+    const sseInvoked = await sdkThread.invokeMcpTool({
+      serverId: "mcp.remote-sse",
+      toolName: "query",
+      input: { q: "sse-parity" },
+    });
+    assert.equal(sseInvoked.status, "completed");
+    assert.equal(sseInvoked.containment.executionMode, "live_sse");
+    assert.equal(sseInvoked.transport_execution.executionMode, "live_sse");
+    assert.equal(sseInvoked.result.structuredContent.server, "ioi-fixture-mcp-sse");
+    assert.equal(sseInvoked.result.structuredContent.arguments.q, "sse-parity");
+    assert.ok(sseInvoked.evidence_refs.includes("mcp.transport.sse.live"));
+
     const publicDisabled = await sdkClient.disableMcpServer("mcp.search", {
       threadId: thread.thread_id,
     });
@@ -1829,6 +2042,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     );
   } finally {
     await daemon.close();
+    await remoteFixture.close();
   }
 });
 
@@ -4065,7 +4279,13 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /OperatorControl\.McpInvoke/);
   assert.match(source, /discoverMcpStdioCatalog/);
   assert.match(source, /invokeMcpStdioTool/);
+  assert.match(source, /discoverMcpHttpCatalog/);
+  assert.match(source, /invokeMcpHttpTool/);
   assert.match(source, /live_stdio/);
+  assert.match(source, /live_http/);
+  assert.match(source, /live_sse/);
+  assert.match(source, /mcp\.transport\.http\.live/);
+  assert.match(source, /mcp\.transport\.sse\.live/);
   assert.match(source, /resources\/list/);
   assert.match(source, /prompts\/list/);
   assert.match(source, /OperatorControl\.Memory/);
@@ -7573,6 +7793,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.import"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.server\.add\.http"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.server\.add\.sse"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.remove"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.enable"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.disable"/);
@@ -7584,12 +7806,18 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_remove/);
+  assert.match(graphTypes, /mcpTransport/);
+  assert.match(graphTypes, /mcpServerUrl/);
+  assert.match(graphTypes, /mcpServerHeadersJson/);
   assert.match(graphTypes, /mcp_enable/);
   assert.match(graphTypes, /mcp_disable/);
   assert.match(graphTypes, /memory_remember/);
   assert.match(graphTypes, /memory_edit/);
   assert.match(graphTypes, /memory_delete/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-transport/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-url/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-headers/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-config/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-import-json/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-validate-before-invoke/);

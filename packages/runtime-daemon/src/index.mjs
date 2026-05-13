@@ -47,7 +47,9 @@ import {
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+  discoverMcpHttpCatalog,
   discoverMcpStdioCatalog,
+  invokeMcpHttpTool,
   invokeMcpStdioTool,
   mcpRegistryForWorkspace,
   mcpPromptsForServers,
@@ -2886,18 +2888,21 @@ export class AgentgresRuntimeStateStore {
     const promptMap = new Map((status.prompts ?? []).map((prompt) => [mcpPromptKey(prompt), prompt]));
     const discoveries = [];
     for (const server of status.servers ?? []) {
-      if (
-        server.enabled === false ||
-        (server.transport ?? "stdio") !== "stdio" ||
-        !optionalString(server.command)
-      ) {
+      const liveMode = mcpLiveExecutionModeForServer(server, request);
+      if (server.enabled === false || !liveMode) {
         continue;
       }
       try {
-        const catalog = await discoverMcpStdioCatalog(server, {
-          cwd: agent.cwd,
-          timeoutMs: request.timeout_ms ?? request.timeoutMs,
-        });
+        const catalog =
+          liveMode === "live_stdio"
+            ? await discoverMcpStdioCatalog(server, {
+                cwd: agent.cwd,
+                timeoutMs: request.timeout_ms ?? request.timeoutMs,
+              })
+            : await discoverMcpHttpCatalog(server, {
+                cwd: agent.cwd,
+                timeoutMs: request.timeout_ms ?? request.timeoutMs,
+              });
         for (const tool of catalog.tools ?? catalog.listed_tools ?? []) {
           toolMap.set(mcpToolKey(tool), tool);
         }
@@ -2911,7 +2916,9 @@ export class AgentgresRuntimeStateStore {
           server_id: server.id,
           serverId: server.id,
           status: "completed",
-          transport: "stdio",
+          transport: catalog.transport ?? server.transport ?? "stdio",
+          execution_mode: catalog.execution_mode ?? catalog.executionMode ?? liveMode,
+          executionMode: catalog.executionMode ?? catalog.execution_mode ?? liveMode,
           tool_count: catalog.tool_count ?? 0,
           resource_count: catalog.resource_count ?? 0,
           prompt_count: catalog.prompt_count ?? 0,
@@ -2921,8 +2928,10 @@ export class AgentgresRuntimeStateStore {
           server_id: server.id,
           serverId: server.id,
           status: "failed",
-          transport: "stdio",
-          error_code: optionalString(error?.code) ?? "mcp_stdio_discovery_failed",
+          transport: server.transport ?? "stdio",
+          execution_mode: liveMode,
+          executionMode: liveMode,
+          error_code: optionalString(error?.code) ?? "mcp_live_discovery_failed",
           message: String(error?.message ?? error),
         });
       }
@@ -3113,7 +3122,8 @@ export class AgentgresRuntimeStateStore {
     let output = null;
     let transportExecution = null;
     if (status === "completed") {
-      if (shouldInvokeMcpOverLiveStdio(server, request)) {
+      const liveMode = mcpLiveExecutionModeForServer(server, request);
+      if (liveMode === "live_stdio") {
         try {
           transportExecution = await invokeMcpStdioTool(server, toolName, input, {
             cwd: agent.cwd,
@@ -3132,6 +3142,31 @@ export class AgentgresRuntimeStateStore {
             executionMode: "live_stdio",
             error: {
               code: optionalString(error?.code) ?? "mcp_stdio_transport_error",
+              message: String(error?.message ?? error),
+              details: error?.details ?? {},
+            },
+          };
+        }
+      } else if (liveMode === "live_http" || liveMode === "live_sse") {
+        const transport = liveMode === "live_sse" ? "sse" : "http";
+        try {
+          transportExecution = await invokeMcpHttpTool(server, toolName, input, {
+            cwd: agent.cwd,
+            timeoutMs: request.timeout_ms ?? request.timeoutMs,
+            headers: request.headers,
+          });
+          output = transportExecution.result ?? {};
+        } catch (error) {
+          status = "blocked";
+          blockers.push(`${transport}_transport_failed`);
+          transportExecution = {
+            ok: false,
+            status: "failed",
+            transport,
+            execution_mode: liveMode,
+            executionMode: liveMode,
+            error: {
+              code: optionalString(error?.code) ?? `mcp_${transport}_transport_error`,
               message: String(error?.message ?? error),
               details: error?.details ?? {},
             },
@@ -3195,20 +3230,14 @@ export class AgentgresRuntimeStateStore {
       evidence_refs: [
         "mcp.manager.tool.invoke",
         "mcp_containment_receipt",
-        transportExecution?.executionMode === "live_stdio" ||
-        transportExecution?.execution_mode === "live_stdio"
-          ? "mcp.transport.stdio.live"
-          : "mcp.manager.simulated_receipt",
+        mcpTransportEvidenceRef(transportExecution),
         server.id,
         `tool:${toolName}`,
       ],
       evidenceRefs: [
         "mcp.manager.tool.invoke",
         "mcp_containment_receipt",
-        transportExecution?.executionMode === "live_stdio" ||
-        transportExecution?.execution_mode === "live_stdio"
-          ? "mcp.transport.stdio.live"
-          : "mcp.manager.simulated_receipt",
+        mcpTransportEvidenceRef(transportExecution),
         server.id,
         `tool:${toolName}`,
       ],
@@ -3239,7 +3268,7 @@ export class AgentgresRuntimeStateStore {
         invocation,
         summary:
           status === "completed"
-            ? `MCP tool ${server.id}.${toolName} invoked with ${transportExecution?.executionMode === "live_stdio" || transportExecution?.execution_mode === "live_stdio" ? "live stdio transport" : "containment receipt"}.`
+            ? `MCP tool ${server.id}.${toolName} invoked with ${mcpTransportSummary(transportExecution)}.`
             : `MCP tool ${server.id}.${toolName} blocked: ${blockers.join(", ")}.`,
         policy_decision: status === "completed" ? "invoke_allowed" : "invoke_blocked",
         result: output,
@@ -11898,19 +11927,45 @@ function resolveMcpToolRecord(servers = [], toolId, request = {}) {
   return { server, toolName: requestedToolName };
 }
 
-function shouldInvokeMcpOverLiveStdio(server, request = {}) {
+function mcpLiveExecutionModeForServer(server, request = {}) {
   const executionMode = optionalString(request.execution_mode ?? request.executionMode);
   if (
     request.simulated === true ||
     request.simulate === true ||
     executionMode === "simulated_manager_receipt"
   ) {
-    return false;
+    return null;
   }
-  if (request.live_transport === true || request.liveTransport === true || executionMode === "live_stdio") {
-    return true;
+  if (["live_stdio", "live_http", "live_sse"].includes(executionMode)) {
+    return executionMode;
   }
-  return (server.transport ?? "stdio") === "stdio" && Boolean(optionalString(server.command));
+  const transport = optionalString(server.transport)?.toLowerCase() ?? "stdio";
+  if (transport === "stdio" && optionalString(server.command)) return "live_stdio";
+  if (transport === "http" && optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) return "live_http";
+  if (transport === "sse" && optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) return "live_sse";
+  if (request.live_transport === true || request.liveTransport === true) {
+    if (optionalString(server.command)) return "live_stdio";
+    if (optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) {
+      return transport === "sse" ? "live_sse" : "live_http";
+    }
+  }
+  return null;
+}
+
+function mcpTransportEvidenceRef(transportExecution = {}) {
+  const executionMode = transportExecution?.executionMode ?? transportExecution?.execution_mode;
+  if (executionMode === "live_stdio") return "mcp.transport.stdio.live";
+  if (executionMode === "live_http") return "mcp.transport.http.live";
+  if (executionMode === "live_sse") return "mcp.transport.sse.live";
+  return "mcp.manager.simulated_receipt";
+}
+
+function mcpTransportSummary(transportExecution = {}) {
+  const executionMode = transportExecution?.executionMode ?? transportExecution?.execution_mode;
+  if (executionMode === "live_stdio") return "live stdio transport";
+  if (executionMode === "live_http") return "live HTTP transport";
+  if (executionMode === "live_sse") return "live SSE transport";
+  return "containment receipt";
 }
 
 function mcpRegistryWithServers(registry = {}, servers = []) {

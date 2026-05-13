@@ -79,6 +79,19 @@ export function WorkflowNodeBindingSections({
     serverId.trim() && toolName.trim()
       ? `mcp.${serverId.trim()}.${toolName.trim()}`
       : (logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read");
+  const mcpServerConfigPatch = (
+    patch: Record<string, unknown>,
+    logicPatch: Partial<NodeLogic> = {},
+  ) => {
+    const current = asRecord(
+      parseJsonField(String(logic.mcpServerConfigJson ?? "{}"), {}),
+    );
+    updateLogic({
+      ...logic,
+      ...logicPatch,
+      mcpServerConfigJson: JSON.stringify({ ...current, ...patch }, null, 2),
+    });
+  };
   const updateCodingToolPack = (nextPack: typeof codingToolPack) => {
     const capabilityScope = [
       nextPack.workspaceStatusEnabled ? "workspace.status" : null,
@@ -1263,6 +1276,114 @@ export function WorkflowNodeBindingSections({
                   }
                 />
               </label>
+              {logic.stateOperation === "mcp_add" ? (
+                <>
+                  <label>
+                    MCP transport
+                    <select
+                      data-testid="workflow-state-mcp-transport"
+                      value={String(logic.mcpTransport ?? "stdio")}
+                      onChange={(event) =>
+                        mcpServerConfigPatch(
+                          { transport: event.target.value },
+                          {
+                            mcpTransport: event.target.value as
+                              | "stdio"
+                              | "http"
+                              | "sse",
+                          },
+                        )
+                      }
+                    >
+                      <option value="stdio">Stdio</option>
+                      <option value="http">HTTP</option>
+                      <option value="sse">SSE</option>
+                    </select>
+                  </label>
+                  {logic.mcpTransport === "http" ||
+                  logic.mcpTransport === "sse" ? (
+                    <>
+                      <label>
+                        MCP server URL
+                        <input
+                          data-testid="workflow-state-mcp-server-url"
+                          value={String(logic.mcpServerUrl ?? "")}
+                          placeholder={
+                            logic.mcpTransport === "sse"
+                              ? "http://127.0.0.1:3000/sse"
+                              : "http://127.0.0.1:3000/mcp"
+                          }
+                          onChange={(event) =>
+                            mcpServerConfigPatch(
+                              { url: event.target.value },
+                              { mcpServerUrl: event.target.value },
+                            )
+                          }
+                        />
+                      </label>
+                      <label>
+                        MCP headers JSON
+                        <textarea
+                          data-testid="workflow-state-mcp-server-headers"
+                          value={String(logic.mcpServerHeadersJson ?? "{}")}
+                          onChange={(event) =>
+                            mcpServerConfigPatch(
+                              {
+                                headers: parseJsonField(
+                                  event.target.value,
+                                  {},
+                                ),
+                              },
+                              { mcpServerHeadersJson: event.target.value },
+                            )
+                          }
+                        />
+                      </label>
+                    </>
+                  ) : null}
+                  <label>
+                    MCP label
+                    <input
+                      data-testid="workflow-state-mcp-server-label"
+                      value={String(logic.mcpServerLabel ?? "")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServerLabel: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP server config JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-server-config"
+                      value={String(logic.mcpServerConfigJson ?? "{}")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServerConfigJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              ) : null}
+              {logic.stateOperation === "mcp_import" ? (
+                <label>
+                  MCP import JSON
+                  <textarea
+                    data-testid="workflow-state-mcp-import-json"
+                    value={String(logic.mcpImportJson ?? "{\"mcpServers\":{}}")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        mcpImportJson: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+              ) : null}
             </>
           ) : null}
           {logic.stateOperation === "memory_status" ||
