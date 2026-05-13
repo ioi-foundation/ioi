@@ -109,6 +109,7 @@ workstream was narrower.
 | 107 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator steer control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control/2026-05-13T00-24-15-404Z/result.json |
 | 108 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime context compact control node | /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json |
 | 109 | 2026-05-13 | P0. Live Runtime API Bridge | Shared React Flow runtime-control helper extraction | /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json |
+| 110 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness active runtime binding panel split | /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5506,3 +5507,48 @@ Known validation note:
   tests than the four control-node tests. It passed 51 active tests, ignored one
   Chromium-only probe, and included all four React Flow runtime-control
   workflow-node output tests.
+
+### Slice 110. 2026-05-13 - React Flow settings harness active runtime binding panel split
+
+Implementation slice completed 2026-05-13, React Flow settings harness active
+runtime binding panel split:
+
+- Split the former 970-line active runtime binding panel into a smaller parent
+  panel plus typed `settingsHarnessActiveRuntimeBindingSummary.tsx` and
+  `settingsHarnessActiveRuntimeBindingDeepLinks.tsx` modules.
+- Preserved the parent `WorkflowSettingsHarnessActiveRuntimeBindingPanelProps`
+  boundary, `workflow-harness-active-runtime-binding-deep-links` test id, and
+  `data-worker-binding-registry-bound` source-contract marker so existing
+  React Flow workflow-addressability checks continue to bind to the same
+  surface.
+- Moved the dense rollup/stat rendering into
+  `WorkflowSettingsHarnessActiveRuntimeBindingSummary`, including registry,
+  attach, lifecycle, worker session, checkpoint, invariant, envelope, and
+  handoff metadata.
+- Moved selector, dispatch, worker binding, rollback, rollback-proof, receipt,
+  and replay fixture deep-link buttons into
+  `WorkflowSettingsHarnessActiveRuntimeBindingDeepLinks`.
+- Updated the harness refactor shape test to assert both new modules exist,
+  own implementation, expose typed prop boundaries, import shared settings
+  harness contracts, and remain free of `any`.
+- Refreshed the GUI harness validation core line-count checkpoint to the
+  current committed baseline so the guard resumes blocking future growth.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json`.
+
+Known validation note:
+
+- The first harness refactor shape run failed only because
+  `scripts/lib/autopilot-gui-harness-validation/core.mjs` was already above
+  its stale checkpoint by the test's own newline-counting method. The slice did
+  not modify that core file; the checkpoint was refreshed to the current
+  baseline and the suite then passed.

@@ -152,31 +152,35 @@ Completed workstream snapshot as of 2026-05-12:
   React Flow runtime-control nodes now share request-envelope and workflow-node
   helper code for thread/turn resolution, endpoint expansion, actor/source
   metadata, graph identity, and Rust local descriptor output.
+  The React Flow settings harness active runtime binding panel is no longer a
+  single 970-line component: the parent now delegates the rollup summary and
+  deep-link strip to typed modules while preserving the existing test ids and
+  source-contract markers.
 
 Most recent guide slice:
 
-- 2026-05-13: Shared React Flow runtime-control helper extraction
-- Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
-  packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts,
-  apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs,
-  packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts,
+- 2026-05-13: React Flow settings harness active runtime binding panel split
+- Artifacts:
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx,
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx,
+  packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx,
+  scripts/lib/harness-refactor-shape.test.mjs,
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
-- Validation: targeted React Flow control-node/projection tests, source
-  contract, runtime action contract generation check, agent-ide build, Rust
-  runtime-control workflow-node tests, scaffold/action-kind tests, live daemon
-  React Flow-originated compact proof, and GUI harness preflight; see the
-  validation ledger.
+- Validation: agent-ide build, harness refactor shape test, source-contract
+  workflow-addressability test, GUI harness preflight, and syntax checks; see
+  the validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-13: Runtime-control helper refactor GUI preflight
+- 2026-05-13: Active runtime binding panel split GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json
+  /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-13 | React Flow settings harness | Active runtime binding summary/deep-link panel split | scripts/lib/harness-refactor-shape.test.mjs |
 | 2026-05-13 | P0 live runtime bridge | Shared React Flow runtime-control helper extraction | packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts |
 | 2026-05-13 | P0 live runtime bridge | React Flow runtime context compact control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-13 | P0 live runtime bridge | React Flow runtime operator steer control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -211,9 +215,9 @@ Recent completed slice index:
 
 Immediate tactical queue:
 
-1. Continue React Flow settings-harness modularization by splitting remaining
-   oversized internals inside `settingsHarnessActiveRuntimeBindingPanel.tsx`,
-   currently the largest settings harness panel.
+1. Split `settingsHarnessPromotionReadinessPanel.tsx`, now the largest
+   settings-harness panel at roughly 943 lines, into focused readiness,
+   authority gate, and reference-list modules.
 2. Add the next runtime-control primitive only through the shared
    request-envelope/descriptor helpers, with one live graph-identity proof.
 3. Keep the master guide clean by updating the companion ledgers instead of
