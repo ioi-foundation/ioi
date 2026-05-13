@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -250,6 +251,203 @@ export function validateMcpServerRecords(servers = []) {
   };
 }
 
+export async function invokeMcpStdioTool(server, toolName, input = {}, options = {}) {
+  const command = optionalString(server?.command);
+  if (!command) {
+    throw mcpStdioError("mcp_stdio_command_missing", "MCP stdio invocation requires a server command.");
+  }
+  const args = Array.isArray(server.args) ? server.args.map(String) : [];
+  const cwd = path.resolve(
+    options.cwd ??
+      server.containment?.workspace_root ??
+      server.containment?.workspaceRoot ??
+      server.workspace_root ??
+      server.workspaceRoot ??
+      process.cwd(),
+  );
+  const tmpDir = path.join(cwd, ".tmp");
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const timeoutMs = positiveInteger(
+    options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
+    10_000,
+  );
+  const child = spawn(command, args, {
+    cwd,
+    env: {
+      PATH: process.env.PATH ?? "/usr/bin:/bin",
+      HOME: cwd,
+      TMPDIR: tmpDir,
+      IOI_MCP_MODE: optionalString(options.mcp_mode ?? options.mcpMode) ?? "development",
+      ...(options.env && typeof options.env === "object" && !Array.isArray(options.env)
+        ? Object.fromEntries(
+            Object.entries(options.env).map(([key, value]) => [key, String(value)]),
+          )
+        : {}),
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  const pending = new Map();
+  const notifications = [];
+  let stdoutBuffer = "";
+  let stderrText = "";
+  let nextRequestId = 1;
+
+  const rejectPending = (error) => {
+    for (const { reject, timer } of pending.values()) {
+      clearTimeout(timer);
+      reject(error);
+    }
+    pending.clear();
+  };
+  const writeMessage = (message) => {
+    if (!child.stdin || child.stdin.destroyed || !child.stdin.writable) {
+      throw mcpStdioError("mcp_stdio_stdin_closed", "MCP stdio server stdin is closed.");
+    }
+    child.stdin.write(`${JSON.stringify(message)}\n`);
+  };
+  const handleMessage = (message) => {
+    if (!message || typeof message !== "object") return;
+    const id = message.id == null ? null : String(message.id);
+    if (id && pending.has(id)) {
+      const pendingRequest = pending.get(id);
+      pending.delete(id);
+      clearTimeout(pendingRequest.timer);
+      if (message.error) {
+        pendingRequest.reject(
+          mcpStdioError("mcp_stdio_json_rpc_error", "MCP stdio server returned a JSON-RPC error.", {
+            error: message.error,
+          }),
+        );
+        return;
+      }
+      pendingRequest.resolve(message.result ?? null);
+      return;
+    }
+    if (id && message.method) {
+      writeMessage({ jsonrpc: "2.0", id: message.id, result: {} });
+      return;
+    }
+    notifications.push(message);
+  };
+  child.stdout?.on("data", (chunk) => {
+    stdoutBuffer += String(chunk);
+    let newlineIndex = stdoutBuffer.indexOf("\n");
+    while (newlineIndex >= 0) {
+      const line = stdoutBuffer.slice(0, newlineIndex).trim();
+      stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
+      if (line) {
+        try {
+          handleMessage(JSON.parse(line));
+        } catch (error) {
+          notifications.push({
+            parse_error: String(error?.message ?? error),
+            raw: line.slice(0, 500),
+          });
+        }
+      }
+      newlineIndex = stdoutBuffer.indexOf("\n");
+    }
+  });
+  child.stderr?.on("data", (chunk) => {
+    stderrText = limitText(`${stderrText}${String(chunk)}`, 4096);
+  });
+
+  const closePromise = new Promise((resolve) => {
+    child.once("close", (code, signal) => resolve({ code, signal }));
+  });
+  child.once("error", (error) => {
+    rejectPending(
+      mcpStdioError("mcp_stdio_spawn_failed", "MCP stdio server failed to spawn.", {
+        error: String(error?.message ?? error),
+      }),
+    );
+  });
+  child.once("exit", (code, signal) => {
+    if (pending.size > 0) {
+      rejectPending(
+        mcpStdioError("mcp_stdio_server_exited", "MCP stdio server exited before responding.", {
+          code,
+          signal,
+        }),
+      );
+    }
+  });
+
+  const sendRequest = (method, params = {}) =>
+    new Promise((resolve, reject) => {
+      const id = nextRequestId++;
+      const timer = setTimeout(() => {
+        pending.delete(String(id));
+        reject(
+          mcpStdioError("mcp_stdio_request_timeout", `MCP stdio request timed out: ${method}.`, {
+            method,
+            timeout_ms: timeoutMs,
+          }),
+        );
+      }, timeoutMs);
+      pending.set(String(id), { resolve, reject, timer, method });
+      try {
+        writeMessage({ jsonrpc: "2.0", id, method, params });
+      } catch (error) {
+        clearTimeout(timer);
+        pending.delete(String(id));
+        reject(error);
+      }
+    });
+
+  try {
+    const initialize = await sendRequest("initialize", {
+      protocolVersion: "2024-11-05",
+      capabilities: { roots: { listChanged: true } },
+      clientInfo: { name: "ioi-runtime-daemon", version: "0.1.0" },
+    });
+    writeMessage({ jsonrpc: "2.0", method: "notifications/initialized" });
+    const listed = await sendRequest("tools/list", {});
+    const listedTools = normalizeArray(listed?.tools).map((tool) => ({
+      name: optionalString(tool?.name) ?? "tool",
+      description: optionalString(tool?.description) ?? null,
+      inputSchema: tool?.inputSchema ?? tool?.input_schema ?? null,
+    }));
+    const call = await sendRequest("tools/call", {
+      name: toolName,
+      arguments: input && typeof input === "object" && !Array.isArray(input)
+        ? input
+        : { value: input },
+    });
+    return {
+      ok: true,
+      status: "completed",
+      transport: "stdio",
+      execution_mode: "live_stdio",
+      executionMode: "live_stdio",
+      command,
+      args,
+      cwd,
+      timeout_ms: timeoutMs,
+      protocol_version: initialize?.protocolVersion ?? initialize?.protocol_version ?? null,
+      protocolVersion: initialize?.protocolVersion ?? initialize?.protocol_version ?? null,
+      server_info: initialize?.serverInfo ?? initialize?.server_info ?? null,
+      serverInfo: initialize?.serverInfo ?? initialize?.server_info ?? null,
+      tool_count: listedTools.length,
+      toolCount: listedTools.length,
+      listed_tools: listedTools,
+      listedTools,
+      notifications,
+      stderr: stderrText.trim() || null,
+      result: call ?? {},
+    };
+  } finally {
+    rejectPending(mcpStdioError("mcp_stdio_closed", "MCP stdio invocation closed."));
+    if (child.stdin && !child.stdin.destroyed) child.stdin.end();
+    if (!child.killed) child.kill();
+    await Promise.race([
+      closePromise,
+      new Promise((resolve) => setTimeout(() => resolve({ code: null, signal: "timeout" }), 500)),
+    ]);
+  }
+}
+
 function loadMcpConfigSources(workspaceRoot) {
   const sources = [];
   for (const [source, filePath] of [
@@ -291,6 +489,24 @@ function uniqueStrings(values) {
 
 function doctorHash(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+function positiveInteger(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : fallback;
+}
+
+function limitText(value, maxLength) {
+  const text = String(value ?? "");
+  if (text.length <= maxLength) return text;
+  return text.slice(text.length - maxLength);
+}
+
+function mcpStdioError(code, message, details = {}) {
+  const error = new Error(message);
+  error.code = code;
+  error.details = details;
+  return error;
 }
 
 function safeId(value) {

@@ -143,6 +143,7 @@ workstream was narrower.
 | 141 | 2026-05-13 | P1. Memory UX Parity | daemon-owned memory manager status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 142 | 2026-05-13 | P1. MCP Manager Parity | MCP enable/disable/invocation controls | /tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json |
 | 143 | 2026-05-13 | P1. Memory UX Parity | memory write-side TUI/workflow controls | /tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json |
+| 144 | 2026-05-13 | P1. MCP Manager Parity | live MCP stdio transport invocation | /tmp/ioi-autopilot-gui-harness-mcp-live-stdio/2026-05-13T14-11-08-493Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6839,3 +6840,38 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-memory-write-controls`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json`.
+
+### Slice 144. 2026-05-13 - Live MCP stdio transport invocation
+
+Implementation slice completed 2026-05-13, first live MCP transport:
+
+- Added a daemon stdio MCP JSON-RPC client for command-backed servers that
+  performs `initialize`, `notifications/initialized`, `tools/list`, and
+  `tools/call` over newline-delimited stdio.
+- Kept the existing governed `/v1/mcp/tools/{tool_id}/invoke` and
+  `/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke` API surfaces intact while
+  making stdio invocation live by default for configured command servers.
+- Preserved `OperatorControl.McpInvoke`, tool call ids, approval blockers,
+  containment metadata, receipt refs, policy refs, workflow node ids, SDK
+  results, TUI rows, and React Flow projection.
+- Added a deterministic fixture MCP stdio server under `scripts/fixtures/` so
+  the live contract can prove transport execution without external services.
+- Exposed transport execution metadata through SDK result types and the mock
+  client so consumers can distinguish `live_stdio`, simulated receipt, and mock
+  execution paths.
+- Updated the master guide to mark stdio transport live and move the next MCP
+  slice to resources/prompts plus import/add/remove writes.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check scripts/fixtures/mcp-stdio-echo-server.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-live-stdio`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-live-stdio/2026-05-13T14-11-08-493Z/result.json`.
+- `git diff --check`
