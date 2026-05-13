@@ -2,10 +2,13 @@
 
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
-    apply_tui_workspace_restore, decide_tui_approval, fetch_tui_event_batch, fetch_tui_thread,
-    interrupt_tui_turn, invoke_tui_coding_tool, latest_event_seq, list_tui_workspace_snapshots,
-    preview_tui_workspace_restore, resume_tui_thread, selected_turn_id_from_values, steer_tui_turn,
-    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_mode_status,
+    apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run, decide_tui_approval,
+    fetch_tui_event_batch, fetch_tui_job, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread,
+    inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool, latest_event_seq,
+    list_tui_jobs_for_thread, list_tui_workspace_snapshots, preview_tui_workspace_restore,
+    replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
+    selected_turn_id_from_values, steer_tui_turn, thread_id_from_value, tui_approval_decisions,
+    tui_approval_rows, tui_job_rows, tui_mode_status, tui_run_lifecycle_rows,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -69,6 +72,28 @@ pub(crate) enum TuiLineCommand {
     },
     RetrieveResult {
         target: String,
+    },
+    Jobs,
+    JobInspect {
+        job_id: Option<String>,
+    },
+    JobCancel {
+        job_id: String,
+    },
+    Run {
+        run_id: Option<String>,
+    },
+    RunTrace {
+        run_id: Option<String>,
+    },
+    RunInspect {
+        run_id: Option<String>,
+    },
+    RunReplay {
+        run_id: Option<String>,
+    },
+    RunCancel {
+        run_id: String,
     },
     RestoreList,
     RestorePreview {
@@ -353,6 +378,125 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::Jobs) => {
+                let jobs = handle_jobs_command(&mut session).await?;
+                control_state
+                    .merge_job_rows(tui_job_rows(&jobs, control_state.thread_id.as_deref()));
+                control_state.merge_run_lifecycle_rows(tui_run_lifecycle_rows(
+                    &jobs,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "jobs",
+                    line.trim(),
+                    "applied",
+                    Some("jobs listed"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::JobInspect { job_id }) => {
+                let job = handle_job_inspect_command(&mut session, &control_state, job_id).await?;
+                let jobs = vec![job];
+                control_state
+                    .merge_job_rows(tui_job_rows(&jobs, control_state.thread_id.as_deref()));
+                control_state.merge_run_lifecycle_rows(tui_run_lifecycle_rows(
+                    &jobs,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "job",
+                    line.trim(),
+                    "applied",
+                    Some("job inspected"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::JobCancel { job_id }) => {
+                let job = handle_job_cancel_command(&mut session, &job_id).await?;
+                let jobs = vec![job];
+                control_state
+                    .merge_job_rows(tui_job_rows(&jobs, control_state.thread_id.as_deref()));
+                control_state.merge_run_lifecycle_rows(tui_run_lifecycle_rows(
+                    &jobs,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "job",
+                    line.trim(),
+                    "applied",
+                    Some("job canceled"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Run { run_id }) => {
+                handle_run_command(&mut session, &control_state, run_id).await?;
+                control_state.record_command(
+                    "run",
+                    line.trim(),
+                    "applied",
+                    Some("run inspected"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RunTrace { run_id }) => {
+                handle_run_trace_command(&mut session, &control_state, run_id, false).await?;
+                control_state.record_command(
+                    "run",
+                    line.trim(),
+                    "applied",
+                    Some("run trace fetched"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RunInspect { run_id }) => {
+                handle_run_trace_command(&mut session, &control_state, run_id, true).await?;
+                control_state.record_command(
+                    "run",
+                    line.trim(),
+                    "applied",
+                    Some("run inspection fetched"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RunReplay { run_id }) => {
+                let events =
+                    handle_run_replay_command(&mut session, &control_state, run_id).await?;
+                control_state.record_command(
+                    "run",
+                    line.trim(),
+                    "applied",
+                    Some("run replayed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RunCancel { run_id }) => {
+                let run = handle_run_cancel_command(&mut session, &run_id).await?;
+                let status =
+                    json_path_string(&run, "/status").unwrap_or_else(|| "run canceled".to_string());
+                control_state.record_command(
+                    "run",
+                    line.trim(),
+                    "applied",
+                    Some(status.as_str()),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::RestoreList) => {
                 let events = handle_restore_list_command(&mut session).await?;
                 control_state.record_command(
@@ -513,6 +657,14 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 .ok_or_else(|| anyhow!("/retrieve requires a tool call id or artifact id"))?;
             Ok(TuiLineCommand::RetrieveResult { target })
         }
+        "jobs" | "runs" => {
+            if !rest.is_empty() {
+                return Err(anyhow!("/{command} does not accept extra arguments"));
+            }
+            Ok(TuiLineCommand::Jobs)
+        }
+        "job" => parse_job_args(rest),
+        "run" => parse_run_args(rest),
         "restore" => parse_restore_args(rest),
         "quit" | "exit" | "q" => Ok(TuiLineCommand::Quit),
         _ => Err(anyhow!("unknown TUI command /{command}; use /help")),
@@ -833,6 +985,226 @@ async fn handle_restore_apply_command(
     handle_events_command(session, None).await
 }
 
+async fn handle_jobs_command(session: &mut TuiInteractiveSession) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let jobs =
+        list_tui_jobs_for_thread(&session.thread, &session.endpoint, session.token.as_deref())
+            .await?;
+    let rows = tui_job_rows(&jobs, Some(&thread_id));
+    println!("line_mode_command=jobs count={}", rows.len());
+    for row in &rows {
+        println!(
+            "  job={} run={} status={} progress={} cancelable={} node={}",
+            json_path_string(row, "/job_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/run_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/status").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/progress_percent").unwrap_or_else(|| "0".to_string()),
+            json_path_string(row, "/cancelable").unwrap_or_else(|| "false".to_string()),
+            json_path_string(row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.runtime-job".to_string())
+        );
+    }
+    Ok(jobs)
+}
+
+async fn handle_job_inspect_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    job_id: Option<String>,
+) -> Result<Value> {
+    let job_id = select_job_id(session, control_state, job_id).await?;
+    let job = fetch_tui_job(&job_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=job action=inspect job={} run={} status={} lifecycle={} cancelable={}",
+        json_path_string(&job, "/jobId")
+            .or_else(|| json_path_string(&job, "/job_id"))
+            .unwrap_or_else(|| job_id.clone()),
+        json_path_string(&job, "/runId")
+            .or_else(|| json_path_string(&job, "/run_id"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&job, "/status").unwrap_or_else(|| "unknown".to_string()),
+        job.pointer("/lifecycle")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(">")
+            })
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&job, "/cancelable").unwrap_or_else(|| "false".to_string())
+    );
+    Ok(job)
+}
+
+async fn handle_job_cancel_command(
+    session: &mut TuiInteractiveSession,
+    job_id: &str,
+) -> Result<Value> {
+    let job = cancel_tui_job(job_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=job action=cancel job={} run={} status={} cancellation={}",
+        json_path_string(&job, "/jobId")
+            .or_else(|| json_path_string(&job, "/job_id"))
+            .unwrap_or_else(|| job_id.to_string()),
+        json_path_string(&job, "/runId")
+            .or_else(|| json_path_string(&job, "/run_id"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&job, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&job, "/cancellation/reason")
+            .unwrap_or_else(|| "operator_cancel".to_string())
+    );
+    Ok(job)
+}
+
+async fn handle_run_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    run_id: Option<String>,
+) -> Result<Value> {
+    let run_id = select_run_id(session, control_state, run_id).await?;
+    let run = fetch_tui_run(&run_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=run action=inspect run={} status={} mode={} events={} artifacts={}",
+        json_path_string(&run, "/id").unwrap_or_else(|| run_id.clone()),
+        json_path_string(&run, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&run, "/mode").unwrap_or_else(|| "unknown".to_string()),
+        run.pointer("/events")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        run.pointer("/artifacts")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    Ok(run)
+}
+
+async fn handle_run_trace_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    run_id: Option<String>,
+    inspect: bool,
+) -> Result<Value> {
+    let run_id = select_run_id(session, control_state, run_id).await?;
+    let trace = if inspect {
+        inspect_tui_run(&run_id, &session.endpoint, session.token.as_deref()).await?
+    } else {
+        fetch_tui_run_trace(&run_id, &session.endpoint, session.token.as_deref()).await?
+    };
+    println!(
+        "line_mode_command=run action={} run={} status={} events={} receipts={} canonical_state={}",
+        if inspect { "inspect" } else { "trace" },
+        run_id,
+        json_path_string(&trace, "/runtimeTask/status")
+            .or_else(|| json_path_string(&trace, "/runtime_task/status"))
+            .or_else(|| json_path_string(&trace, "/taskState/status"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        trace
+            .pointer("/events")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        trace
+            .pointer("/receipts")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        trace.pointer("/canonicalState").is_some()
+    );
+    Ok(trace)
+}
+
+async fn handle_run_replay_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    run_id: Option<String>,
+) -> Result<Vec<Value>> {
+    let run_id = select_run_id(session, control_state, run_id).await?;
+    let batch =
+        replay_tui_run_events(&run_id, &session.endpoint, session.token.as_deref(), None).await?;
+    println!(
+        "line_mode_command=run action=replay route={} count={}",
+        batch.event_route,
+        batch.events.len()
+    );
+    print_events(&batch.events);
+    Ok(batch.events)
+}
+
+async fn handle_run_cancel_command(
+    session: &mut TuiInteractiveSession,
+    run_id: &str,
+) -> Result<Value> {
+    let run = cancel_tui_run(run_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=run action=cancel run={} status={} events={}",
+        json_path_string(&run, "/id").unwrap_or_else(|| run_id.to_string()),
+        json_path_string(&run, "/status").unwrap_or_else(|| "unknown".to_string()),
+        run.pointer("/events")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    Ok(run)
+}
+
+async fn select_job_id(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    explicit_job_id: Option<String>,
+) -> Result<String> {
+    if let Some(job_id) = explicit_job_id.filter(|value| !value.trim().is_empty()) {
+        return Ok(job_id);
+    }
+    if let Some(job_id) = control_state.default_job_id() {
+        return Ok(job_id);
+    }
+    let jobs =
+        list_tui_jobs_for_thread(&session.thread, &session.endpoint, session.token.as_deref())
+            .await?;
+    jobs.iter()
+        .rev()
+        .find_map(|job| {
+            json_path_string(job, "/jobId").or_else(|| json_path_string(job, "/job_id"))
+        })
+        .ok_or_else(|| {
+            anyhow!("/job requires a job id when no job rows are loaded; use /jobs first")
+        })
+}
+
+async fn select_run_id(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    explicit_run_id: Option<String>,
+) -> Result<String> {
+    if let Some(run_id) = explicit_run_id.filter(|value| !value.trim().is_empty()) {
+        return Ok(run_id);
+    }
+    if let Some(run_id) = control_state.default_run_id() {
+        return Ok(run_id);
+    }
+    if let Some(run_id) = selected_run_id_from_thread(&session.thread) {
+        return Ok(run_id);
+    }
+    let jobs =
+        list_tui_jobs_for_thread(&session.thread, &session.endpoint, session.token.as_deref())
+            .await?;
+    jobs.iter()
+        .rev()
+        .find_map(|job| {
+            json_path_string(job, "/runId").or_else(|| json_path_string(job, "/run_id"))
+        })
+        .ok_or_else(|| {
+            anyhow!(
+                "/run requires a run id when no thread run or job rows are loaded; use /jobs first"
+            )
+        })
+}
+
 fn coding_tool_line_command(tool_id: &str) -> &'static str {
     match tool_id {
         "workspace.status" => "status",
@@ -848,7 +1220,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -956,6 +1328,100 @@ fn parse_restore_args(rest: &str) -> Result<TuiLineCommand> {
     }
 }
 
+fn parse_job_args(rest: &str) -> Result<TuiLineCommand> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return Ok(TuiLineCommand::JobInspect { job_id: None });
+    }
+    let mut parts = trimmed.split_whitespace();
+    let first = parts
+        .next()
+        .ok_or_else(|| anyhow!("/job accepts [job_id] or cancel <job_id>"))?;
+    match first.to_ascii_lowercase().as_str() {
+        "cancel" => {
+            let job_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/job cancel requires a job id"))?;
+            if parts.next().is_some() {
+                return Err(anyhow!("/job cancel accepts exactly one job id"));
+            }
+            Ok(TuiLineCommand::JobCancel {
+                job_id: job_id.to_string(),
+            })
+        }
+        "inspect" | "show" => {
+            let job_id = parts.next().map(ToOwned::to_owned);
+            if parts.next().is_some() {
+                return Err(anyhow!("/job inspect accepts at most one job id"));
+            }
+            Ok(TuiLineCommand::JobInspect { job_id })
+        }
+        _ => {
+            if parts.next().is_some() {
+                return Err(anyhow!("/job accepts [job_id] or cancel <job_id>"));
+            }
+            Ok(TuiLineCommand::JobInspect {
+                job_id: Some(first.to_string()),
+            })
+        }
+    }
+}
+
+fn parse_run_args(rest: &str) -> Result<TuiLineCommand> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return Ok(TuiLineCommand::Run { run_id: None });
+    }
+    let mut parts = trimmed.split_whitespace();
+    let first = parts
+        .next()
+        .ok_or_else(|| anyhow!("/run accepts [run_id], trace, inspect, replay, or cancel"))?;
+    match first.to_ascii_lowercase().as_str() {
+        "trace" => {
+            let run_id = parts.next().map(ToOwned::to_owned);
+            if parts.next().is_some() {
+                return Err(anyhow!("/run trace accepts at most one run id"));
+            }
+            Ok(TuiLineCommand::RunTrace { run_id })
+        }
+        "inspect" => {
+            let run_id = parts.next().map(ToOwned::to_owned);
+            if parts.next().is_some() {
+                return Err(anyhow!("/run inspect accepts at most one run id"));
+            }
+            Ok(TuiLineCommand::RunInspect { run_id })
+        }
+        "replay" | "events" => {
+            let run_id = parts.next().map(ToOwned::to_owned);
+            if parts.next().is_some() {
+                return Err(anyhow!("/run replay accepts at most one run id"));
+            }
+            Ok(TuiLineCommand::RunReplay { run_id })
+        }
+        "cancel" => {
+            let run_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/run cancel requires a run id"))?;
+            if parts.next().is_some() {
+                return Err(anyhow!("/run cancel accepts exactly one run id"));
+            }
+            Ok(TuiLineCommand::RunCancel {
+                run_id: run_id.to_string(),
+            })
+        }
+        _ => {
+            if parts.next().is_some() {
+                return Err(anyhow!(
+                    "/run accepts [run_id], trace, inspect, replay, or cancel"
+                ));
+            }
+            Ok(TuiLineCommand::Run {
+                run_id: Some(first.to_string()),
+            })
+        }
+    }
+}
+
 fn parse_approval_decision_args(rest: &str) -> (Option<String>, Option<String>) {
     let trimmed = rest.trim();
     if trimmed.is_empty() {
@@ -982,6 +1448,8 @@ struct TuiControlState {
     mode_status: Value,
     approval_rows: Vec<Value>,
     approval_decisions: Vec<Value>,
+    job_rows: Vec<Value>,
+    run_lifecycle_rows: Vec<Value>,
     command_history: Vec<Value>,
     validation_errors: Vec<Value>,
     sequence: u64,
@@ -998,6 +1466,8 @@ impl TuiControlState {
             mode_status: tui_mode_status(&session.thread, current_turn_id.as_deref()),
             approval_rows: Vec::new(),
             approval_decisions: Vec::new(),
+            job_rows: Vec::new(),
+            run_lifecycle_rows: Vec::new(),
             command_history: Vec::new(),
             validation_errors: Vec::new(),
             sequence: 0,
@@ -1114,6 +1584,50 @@ impl TuiControlState {
         }
     }
 
+    fn merge_job_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/job_id")
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.job_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.job_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/job_id")
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.job_rows.push(row);
+            }
+        }
+    }
+
+    fn merge_run_lifecycle_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/run_id")
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.run_lifecycle_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.run_lifecycle_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/run_id")
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.run_lifecycle_rows.push(row);
+            }
+        }
+    }
+
     fn default_pending_approval_id(&self) -> Option<String> {
         self.approval_rows.iter().find_map(|row| {
             let status = json_path_string(row, "/status")
@@ -1127,6 +1641,26 @@ impl TuiControlState {
         })
     }
 
+    fn default_job_id(&self) -> Option<String> {
+        self.job_rows
+            .iter()
+            .rev()
+            .find_map(|row| json_path_string(row, "/job_id"))
+    }
+
+    fn default_run_id(&self) -> Option<String> {
+        self.run_lifecycle_rows
+            .iter()
+            .rev()
+            .find_map(|row| json_path_string(row, "/run_id"))
+            .or_else(|| {
+                self.job_rows
+                    .iter()
+                    .rev()
+                    .find_map(|row| json_path_string(row, "/run_id"))
+            })
+    }
+
     fn to_json(&self) -> Value {
         serde_json::json!({
             "schema_version": TUI_CONTROL_STATE_SCHEMA_VERSION,
@@ -1138,6 +1672,8 @@ impl TuiControlState {
             "mode_status": self.mode_status.clone(),
             "approval_rows": self.approval_rows.clone(),
             "approval_decisions": self.approval_decisions.clone(),
+            "job_rows": self.job_rows.clone(),
+            "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
             "command_history": self.command_history.clone(),
             "validation_errors": self.validation_errors.clone(),
         })
@@ -1269,6 +1805,58 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/jobs").unwrap(),
+            TuiLineCommand::Jobs
+        );
+        assert_eq!(
+            parse_tui_line_command("/runs").unwrap(),
+            TuiLineCommand::Jobs
+        );
+        assert_eq!(
+            parse_tui_line_command("/job").unwrap(),
+            TuiLineCommand::JobInspect { job_id: None }
+        );
+        assert_eq!(
+            parse_tui_line_command("/job inspect job_run_live").unwrap(),
+            TuiLineCommand::JobInspect {
+                job_id: Some("job_run_live".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/job cancel job_run_live").unwrap(),
+            TuiLineCommand::JobCancel {
+                job_id: "job_run_live".to_string()
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run run_live").unwrap(),
+            TuiLineCommand::Run {
+                run_id: Some("run_live".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run trace").unwrap(),
+            TuiLineCommand::RunTrace { run_id: None }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run inspect run_live").unwrap(),
+            TuiLineCommand::RunInspect {
+                run_id: Some("run_live".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run replay run_live").unwrap(),
+            TuiLineCommand::RunReplay {
+                run_id: Some("run_live".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run cancel run_live").unwrap(),
+            TuiLineCommand::RunCancel {
+                run_id: "run_live".to_string()
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/restore").unwrap(),
             TuiLineCommand::RestoreList
         );
@@ -1312,6 +1900,11 @@ mod tests {
         assert!(parse_tui_line_command("/inspect").is_err());
         assert!(parse_tui_line_command("/patch README.md before after").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
+        assert!(parse_tui_line_command("/jobs extra").is_err());
+        assert!(parse_tui_line_command("/job cancel").is_err());
+        assert!(parse_tui_line_command("/job cancel job extra").is_err());
+        assert!(parse_tui_line_command("/run cancel").is_err());
+        assert!(parse_tui_line_command("/run trace run extra").is_err());
         assert!(parse_tui_line_command("/restore preview").is_err());
         assert!(parse_tui_line_command("/restore apply workspace_snapshot_abc123").is_err());
         assert!(parse_tui_line_command(
@@ -1361,6 +1954,20 @@ mod tests {
                 }),
             ],
         );
+        let jobs = vec![serde_json::json!({
+            "jobId": "job_run_live",
+            "taskId": "task_live",
+            "runId": "run_live",
+            "threadId": "thread_live",
+            "turnId": "turn_live",
+            "status": "completed",
+            "lifecycle": ["queued", "started", "completed"],
+            "progress": { "percent": 100 },
+            "workflowNodeId": "runtime.runtime-job",
+            "cancelable": true,
+        })];
+        state.merge_job_rows(tui_job_rows(&jobs, Some("thread_live")));
+        state.merge_run_lifecycle_rows(tui_run_lifecycle_rows(&jobs, Some("thread_live")));
         state.record_validation_error("/steer", "/steer requires guidance text", &session);
         let json = state.to_json();
 
@@ -1371,6 +1978,13 @@ mod tests {
         assert_eq!(json["last_event_id"], "event_approval");
         assert_eq!(json["mode_status"]["approval_mode"], "suggest");
         assert_eq!(json["approval_rows"][0]["approval_id"], "approval_live");
+        assert_eq!(json["job_rows"][0]["job_id"], "job_run_live");
+        assert_eq!(json["job_rows"][0]["run_id"], "run_live");
+        assert_eq!(json["run_lifecycle_rows"][0]["run_id"], "run_live");
+        assert_eq!(
+            json["run_lifecycle_rows"][0]["routes"]["trace"],
+            "/v1/runs/run_live/trace"
+        );
         assert_eq!(json["command_history"][0]["command"], "events");
         assert_eq!(
             json["validation_errors"][0]["message"],

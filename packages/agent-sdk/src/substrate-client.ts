@@ -114,6 +114,53 @@ export interface RuntimeRunRecord {
   result: string;
 }
 
+export interface RuntimeJobRecord {
+  schemaVersion: string;
+  object: "ioi.runtime_job" | string;
+  jobId: string;
+  taskId: string;
+  runId: string;
+  agentId: string | null;
+  threadId?: string | null;
+  turnId?: string | null;
+  status: "queued" | "running" | "completed" | "canceled" | "failed" | "blocked" | string;
+  lifecycle: string[];
+  summary?: string;
+  queueName?: string;
+  runner?: string;
+  jobType?: string;
+  priority?: string;
+  background?: boolean;
+  durable?: boolean;
+  replayable?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  queuedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  progress?: {
+    completedSteps?: number;
+    totalSteps?: number;
+    percent?: number;
+  };
+  eventCount?: number | null;
+  terminalEventCount?: number | null;
+  artifactNames?: string[];
+  receiptKinds?: string[];
+  cancelable?: boolean;
+  cancelEndpoint?: string;
+  endpoints?: Record<string, string>;
+  workflowNodeId?: string;
+  evidenceRefs?: string[];
+  [key: string]: unknown;
+}
+
+export interface RuntimeJobListOptions {
+  agentId?: string;
+  agent_id?: string;
+  status?: string;
+}
+
 export interface AgentMemoryProjection {
   schemaVersion: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_projection";
@@ -602,6 +649,9 @@ export interface RuntimeSubstrateClient {
   cancelRun(runId: string): Promise<RuntimeRunRecord>;
   getRun(runId: string): Promise<RuntimeRunRecord>;
   listRuns(agentId?: string): Promise<RuntimeRunRecord[]>;
+  listJobs(options?: RuntimeJobListOptions): Promise<RuntimeJobRecord[]>;
+  getJob(jobId: string): Promise<RuntimeJobRecord>;
+  cancelJob(jobId: string): Promise<RuntimeJobRecord>;
   conversation(runId: string): Promise<ConversationMessage[]>;
   listArtifacts(runId: string): Promise<RuntimeArtifact[]>;
   downloadArtifact(runId: string, artifactId: string): Promise<RuntimeArtifact>;
@@ -857,6 +907,23 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async listRuns(agentId?: string): Promise<RuntimeRunRecord[]> {
     const query = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
     return this.request("listRuns", "GET", `/v1/runs${query}`);
+  }
+
+  async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {
+    const params = new URLSearchParams();
+    const agentId = options.agentId ?? options.agent_id;
+    if (agentId) params.set("agentId", agentId);
+    if (options.status) params.set("status", options.status);
+    const query = params.toString() ? `?${params}` : "";
+    return this.request("listJobs", "GET", `/v1/jobs${query}`);
+  }
+
+  async getJob(jobId: string): Promise<RuntimeJobRecord> {
+    return this.request("getJob", "GET", `/v1/jobs/${encodePath(jobId)}`);
+  }
+
+  async cancelJob(jobId: string): Promise<RuntimeJobRecord> {
+    return this.request("cancelJob", "POST", `/v1/jobs/${encodePath(jobId)}/cancel`);
   }
 
   async conversation(runId: string): Promise<ConversationMessage[]> {
@@ -1193,6 +1260,60 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
 function encodePath(value: string): string {
   return encodeURIComponent(value);
+}
+
+function runtimeJobRecordForSdkRun(run: RuntimeRunRecord): RuntimeJobRecord {
+  const terminal = ["completed", "failed", "canceled", "blocked"].includes(run.status);
+  const jobId = `job_${run.id}`;
+  return {
+    schemaVersion: "ioi.agent-runtime.job-record.v1",
+    object: "ioi.runtime_job",
+    jobId,
+    taskId: `task_${run.id}`,
+    runId: run.id,
+    agentId: run.agentId,
+    threadId: threadIdForAgent(run.agentId),
+    turnId: turnIdForRun(run.id),
+    status: run.status,
+    lifecycle: terminal ? ["queued", "started", run.status] : ["queued", "started"],
+    summary: `Runtime job ${jobId} is ${run.status}.`,
+    queueName: "local-agentgres",
+    runner: "local-sdk-agentgres",
+    jobType: "agent_run",
+    priority: "normal",
+    background: true,
+    durable: true,
+    replayable: true,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    queuedAt: run.createdAt,
+    startedAt: run.createdAt,
+    completedAt: terminal ? run.updatedAt : null,
+    progress: {
+      completedSteps: terminal ? 1 : 0,
+      totalSteps: 1,
+      percent: terminal ? 100 : run.status === "running" ? 50 : 0,
+    },
+    eventCount: run.events.length,
+    terminalEventCount: run.events.filter((event) =>
+      ["completed", "failed", "canceled", "blocked"].includes(event.type),
+    ).length,
+    artifactNames: run.artifacts.map((artifact) => artifact.name),
+    receiptKinds: run.receipts.map((receipt) => receipt.kind),
+    cancelable: run.status !== "canceled",
+    cancelEndpoint: `/v1/jobs/${jobId}/cancel`,
+    endpoints: {
+      self: `/v1/jobs/${jobId}`,
+      cancel: `/v1/jobs/${jobId}/cancel`,
+      run: `/v1/runs/${run.id}`,
+      events: `/v1/runs/${run.id}/events`,
+      replay: `/v1/runs/${run.id}/replay`,
+      trace: `/v1/runs/${run.id}/trace`,
+      inspect: `/v1/runs/${run.id}/inspect`,
+    },
+    workflowNodeId: "runtime.runtime-job",
+    evidenceRefs: ["runtime_job", `run:${run.id}`],
+  };
 }
 
 function memoryListQuery(options: MemoryListOptions = {}): string {
@@ -2106,6 +2227,29 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return [...this.runs.values()]
       .filter((run) => !agentId || run.agentId === agentId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {
+    const agentId = options.agentId ?? options.agent_id;
+    return (await this.listRuns(agentId))
+      .map((run) => runtimeJobRecordForSdkRun(run))
+      .filter((job) => !options.status || job.status === options.status);
+  }
+
+  async getJob(jobId: string): Promise<RuntimeJobRecord> {
+    const job = (await this.listJobs()).find(
+      (candidate) => candidate.jobId === jobId || candidate.runId === jobId,
+    );
+    if (!job) {
+      throw new IoiAgentError({ code: "not_found", message: `Job not found: ${jobId}` });
+    }
+    return job;
+  }
+
+  async cancelJob(jobId: string): Promise<RuntimeJobRecord> {
+    const job = await this.getJob(jobId);
+    const run = await this.cancelRun(job.runId);
+    return runtimeJobRecordForSdkRun(run);
   }
 
   async conversation(runId: string): Promise<ConversationMessage[]> {

@@ -33,6 +33,15 @@ const TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-preview";
 const TUI_RESTORE_APPLY_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-apply";
+const TUI_JOB_LIST_ROUTE: &str = "/v1/jobs";
+const TUI_JOB_ROUTE_TEMPLATE: &str = "/v1/jobs/{job_id}";
+const TUI_JOB_CANCEL_ROUTE_TEMPLATE: &str = "/v1/jobs/{job_id}/cancel";
+const TUI_RUN_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}";
+const TUI_RUN_CANCEL_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/cancel";
+const TUI_RUN_EVENTS_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/events";
+const TUI_RUN_REPLAY_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/replay";
+const TUI_RUN_TRACE_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/trace";
+const TUI_RUN_INSPECT_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/inspect";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -149,6 +158,7 @@ pub async fn run_agent_tui(args: AgentTuiArgs) -> Result<()> {
         args.last_event_id.as_deref(),
     )
     .await?;
+    let jobs = list_tui_jobs_for_thread(&thread, &endpoint, token.as_deref()).await?;
     let latest_event_seq = latest_event_seq(&event_batch.events);
     let render = TuiRender {
         endpoint: endpoint.clone(),
@@ -157,6 +167,7 @@ pub async fn run_agent_tui(args: AgentTuiArgs) -> Result<()> {
         submitted_turn,
         control,
         events: event_batch.events,
+        jobs,
         since_seq: args.since_seq,
         last_event_id: args.last_event_id,
         follow: args.follow,
@@ -192,6 +203,7 @@ pub(crate) struct TuiRender {
     submitted_turn: Option<Value>,
     control: Option<Value>,
     events: Vec<Value>,
+    jobs: Vec<Value>,
     since_seq: Option<u64>,
     last_event_id: Option<String>,
     follow: bool,
@@ -201,7 +213,41 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
     let workflow_node_ids = workflow_node_ids(&render.events);
     let thread_id = json_path_string(&render.thread, "/thread_id");
     let event_rows = tui_event_rows(&render.events, thread_id.as_deref());
+    let job_rows = tui_job_rows(&render.jobs, thread_id.as_deref());
+    let run_lifecycle_rows = tui_run_lifecycle_rows(&render.jobs, thread_id.as_deref());
     let tui_control_state = tui_control_state_for_render(render, thread_id.as_deref());
+    let deep_links = serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "workflow_node_ids": workflow_node_ids.clone(),
+        "thread_id": thread_id.clone(),
+        "event_row_count": event_rows.len(),
+        "job_row_count": job_rows.len(),
+        "run_lifecycle_row_count": run_lifecycle_rows.len(),
+    });
+    let routes = serde_json::json!({
+        "thread_create": TUI_THREAD_CREATE_ROUTE,
+        "thread_list": TUI_THREAD_LIST_ROUTE,
+        "thread": TUI_THREAD_ROUTE_TEMPLATE,
+        "thread_resume": TUI_THREAD_RESUME_ROUTE_TEMPLATE,
+        "turn_create": TUI_TURN_CREATE_ROUTE_TEMPLATE,
+        "event_stream": TUI_EVENT_STREAM_ROUTE_TEMPLATE,
+        "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
+        "steer": TUI_STEER_ROUTE_TEMPLATE,
+        "approval_decision": TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
+        "coding_tool_invoke": TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE,
+        "snapshot_list": TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE,
+        "restore_preview": TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE,
+        "restore_apply": TUI_RESTORE_APPLY_ROUTE_TEMPLATE,
+        "job_list": TUI_JOB_LIST_ROUTE,
+        "job": TUI_JOB_ROUTE_TEMPLATE,
+        "job_cancel": TUI_JOB_CANCEL_ROUTE_TEMPLATE,
+        "run": TUI_RUN_ROUTE_TEMPLATE,
+        "run_cancel": TUI_RUN_CANCEL_ROUTE_TEMPLATE,
+        "run_events": TUI_RUN_EVENTS_ROUTE_TEMPLATE,
+        "run_replay": TUI_RUN_REPLAY_ROUTE_TEMPLATE,
+        "run_trace": TUI_RUN_TRACE_ROUTE_TEMPLATE,
+        "run_inspect": TUI_RUN_INSPECT_ROUTE_TEMPLATE,
+    });
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -217,31 +263,16 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
             "last_event_id": render.last_event_id,
             "follow": render.follow,
             "event_count": render.events.len(),
+            "job_count": render.jobs.len(),
             "workflow_node_ids": workflow_node_ids,
             "tui_control_state": tui_control_state,
             "event_rows": event_rows,
+            "job_rows": job_rows,
+            "run_lifecycle_rows": run_lifecycle_rows,
             "events": render.events,
-            "deep_links": {
-                "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
-                "workflow_node_ids": workflow_node_ids,
-                "thread_id": thread_id,
-                "event_row_count": event_rows.len(),
-            },
-            "routes": {
-                "thread_create": TUI_THREAD_CREATE_ROUTE,
-                "thread_list": TUI_THREAD_LIST_ROUTE,
-                "thread": TUI_THREAD_ROUTE_TEMPLATE,
-                "thread_resume": TUI_THREAD_RESUME_ROUTE_TEMPLATE,
-                "turn_create": TUI_TURN_CREATE_ROUTE_TEMPLATE,
-                "event_stream": TUI_EVENT_STREAM_ROUTE_TEMPLATE,
-                "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
-                "steer": TUI_STEER_ROUTE_TEMPLATE,
-                "approval_decision": TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
-                "coding_tool_invoke": TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE,
-                "snapshot_list": TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE,
-                "restore_preview": TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE,
-                "restore_apply": TUI_RESTORE_APPLY_ROUTE_TEMPLATE,
-            }
+            "jobs": render.jobs,
+            "deep_links": deep_links,
+            "routes": routes,
         }))?
     );
     Ok(())
@@ -291,8 +322,24 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             .unwrap_or_else(|| "local_private".to_string())
     );
     println!(
-        "  controls=/interrupt /steer /approvals /approve /reject /restore /resume via daemon thread endpoints"
+        "  controls=/interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
     );
+    let job_rows = tui_job_rows(&render.jobs, Some(&thread_id));
+    if !job_rows.is_empty() {
+        println!("Jobs: count={}", job_rows.len());
+        for row in job_rows {
+            println!(
+                "  job={} run={} status={} progress={} cancelable={} node={}",
+                json_path_string(&row, "/job_id").unwrap_or_else(|| "unknown".to_string()),
+                json_path_string(&row, "/run_id").unwrap_or_else(|| "unknown".to_string()),
+                json_path_string(&row, "/status").unwrap_or_else(|| "unknown".to_string()),
+                json_path_string(&row, "/progress_percent").unwrap_or_else(|| "0".to_string()),
+                json_path_string(&row, "/cancelable").unwrap_or_else(|| "false".to_string()),
+                json_path_string(&row, "/workflow_node_id")
+                    .unwrap_or_else(|| "runtime.runtime-job".to_string())
+            );
+        }
+    }
     if !approval_rows.is_empty() {
         println!("Approvals: count={}", approval_rows.len());
         for row in approval_rows {
@@ -695,6 +742,143 @@ pub(crate) async fn apply_tui_workspace_restore(
     .await
 }
 
+pub(crate) async fn list_tui_jobs_for_thread(
+    thread: &Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Vec<Value>> {
+    let thread_id = json_path_string(thread, "/thread_id");
+    let agent_id = json_path_string(thread, "/agent_id")
+        .or_else(|| json_path_string(thread, "/agentId"))
+        .or_else(|| json_path_string(thread, "/session_id"))
+        .or_else(|| json_path_string(thread, "/sessionId"));
+    let mut route = TUI_JOB_LIST_ROUTE.to_string();
+    if let Some(agent_id) = agent_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        route.push_str(&format!("?agentId={agent_id}"));
+    }
+    let value = daemon_request(Some(endpoint), token, Method::GET, &route, None).await?;
+    let jobs = value
+        .as_array()
+        .ok_or_else(|| anyhow!("daemon job list did not return an array"))?;
+    Ok(jobs
+        .iter()
+        .filter(|job| {
+            let job_thread_id =
+                json_path_string(job, "/threadId").or_else(|| json_path_string(job, "/thread_id"));
+            match (thread_id.as_deref(), job_thread_id.as_deref()) {
+                (Some(expected), Some(actual)) => actual == expected,
+                _ => true,
+            }
+        })
+        .cloned()
+        .collect())
+}
+
+pub(crate) async fn fetch_tui_job(
+    job_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_job(TUI_JOB_ROUTE_TEMPLATE, job_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn cancel_tui_job(
+    job_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, job_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn fetch_tui_run(
+    run_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_run(TUI_RUN_ROUTE_TEMPLATE, run_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn cancel_tui_run(
+    run_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_run(TUI_RUN_CANCEL_ROUTE_TEMPLATE, run_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn fetch_tui_run_trace(
+    run_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_run(TUI_RUN_TRACE_ROUTE_TEMPLATE, run_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn inspect_tui_run(
+    run_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_run(TUI_RUN_INSPECT_ROUTE_TEMPLATE, run_id),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn replay_tui_run_events(
+    run_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+    last_event_id: Option<&str>,
+) -> Result<TuiEventBatch> {
+    let event_route = route_with_run(TUI_RUN_REPLAY_ROUTE_TEMPLATE, run_id);
+    let event_url = runtime_event_url(endpoint, &event_route);
+    let events = fetch_runtime_event_stream(&event_url, token, last_event_id, false).await?;
+    Ok(TuiEventBatch {
+        event_route,
+        events,
+    })
+}
+
 fn selected_turn_id(
     args: &AgentTuiArgs,
     submitted_turn: Option<&Value>,
@@ -771,6 +955,8 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
     let mut command_history = Vec::new();
     let approval_rows = tui_approval_rows(&render.events, thread_id.as_deref());
     let approval_decisions = tui_approval_decisions(&render.events, thread_id.as_deref());
+    let job_rows = tui_job_rows(&render.jobs, thread_id.as_deref());
+    let run_lifecycle_rows = tui_run_lifecycle_rows(&render.jobs, thread_id.as_deref());
 
     if let Some(turn) = render.submitted_turn.as_ref() {
         command_history.push(serde_json::json!({
@@ -819,6 +1005,8 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
         "mode_status": tui_mode_status(&render.thread, current_turn_id.as_deref()),
         "approval_rows": approval_rows,
         "approval_decisions": approval_decisions,
+        "job_rows": job_rows,
+        "run_lifecycle_rows": run_lifecycle_rows,
         "command_history": command_history,
         "validation_errors": [],
     })
@@ -997,6 +1185,143 @@ fn approval_message_for_event(event: &Value) -> Option<String> {
         .or_else(|| json_path_string(event, "/payload_summary/summary"))
 }
 
+pub(crate) fn tui_job_rows(jobs: &[Value], fallback_thread_id: Option<&str>) -> Vec<Value> {
+    jobs.iter()
+        .enumerate()
+        .map(|(index, job)| tui_job_row(job, fallback_thread_id, index))
+        .collect()
+}
+
+fn tui_job_row(job: &Value, fallback_thread_id: Option<&str>, index: usize) -> Value {
+    let job_id = json_path_string(job, "/jobId")
+        .or_else(|| json_path_string(job, "/job_id"))
+        .unwrap_or_else(|| format!("job_{index}"));
+    let run_id = json_path_string(job, "/runId").or_else(|| json_path_string(job, "/run_id"));
+    let task_id = json_path_string(job, "/taskId").or_else(|| json_path_string(job, "/task_id"));
+    let thread_id = json_path_string(job, "/threadId")
+        .or_else(|| json_path_string(job, "/thread_id"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let turn_id = json_path_string(job, "/turnId").or_else(|| json_path_string(job, "/turn_id"));
+    let status = json_path_string(job, "/status").unwrap_or_else(|| "unknown".to_string());
+    let workflow_node_id = json_path_string(job, "/workflowNodeId")
+        .or_else(|| json_path_string(job, "/workflow_node_id"))
+        .unwrap_or_else(|| "runtime.runtime-job".to_string());
+    let cancel_endpoint = json_path_string(job, "/cancelEndpoint")
+        .or_else(|| json_path_string(job, "/cancel_endpoint"))
+        .or_else(|| json_path_string(job, "/endpoints/cancel"))
+        .unwrap_or_else(|| route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, &job_id));
+    serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "surface": "tui",
+        "id": format!("tui-job-{job_id}"),
+        "row_kind": "job",
+        "job_id": job_id,
+        "task_id": task_id,
+        "run_id": run_id,
+        "agent_id": json_path_string(job, "/agentId").or_else(|| json_path_string(job, "/agent_id")),
+        "thread_id": thread_id,
+        "turn_id": turn_id,
+        "status": status,
+        "lifecycle": job.pointer("/lifecycle").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "queue_name": json_path_string(job, "/queueName").or_else(|| json_path_string(job, "/queue_name")),
+        "runner": json_path_string(job, "/runner"),
+        "job_type": json_path_string(job, "/jobType").or_else(|| json_path_string(job, "/job_type")),
+        "priority": json_path_string(job, "/priority"),
+        "progress_percent": json_path_string(job, "/progress/percent").unwrap_or_else(|| "0".to_string()),
+        "cancelable": job.pointer("/cancelable").cloned().unwrap_or(Value::Bool(false)),
+        "cancel_endpoint": cancel_endpoint,
+        "endpoints": job.pointer("/endpoints").cloned().unwrap_or_else(|| serde_json::json!({
+            "self": route_with_job(TUI_JOB_ROUTE_TEMPLATE, json_path_string(job, "/jobId").or_else(|| json_path_string(job, "/job_id")).as_deref().unwrap_or("job")),
+            "cancel": route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, json_path_string(job, "/jobId").or_else(|| json_path_string(job, "/job_id")).as_deref().unwrap_or("job")),
+            "run": run_id.as_deref().map(|run_id| route_with_run(TUI_RUN_ROUTE_TEMPLATE, run_id)),
+            "events": run_id.as_deref().map(|run_id| route_with_run(TUI_RUN_EVENTS_ROUTE_TEMPLATE, run_id)),
+            "replay": run_id.as_deref().map(|run_id| route_with_run(TUI_RUN_REPLAY_ROUTE_TEMPLATE, run_id)),
+            "trace": run_id.as_deref().map(|run_id| route_with_run(TUI_RUN_TRACE_ROUTE_TEMPLATE, run_id)),
+            "inspect": run_id.as_deref().map(|run_id| route_with_run(TUI_RUN_INSPECT_ROUTE_TEMPLATE, run_id)),
+        })),
+        "workflow_node_id": workflow_node_id,
+        "artifact_names": job.pointer("/artifactNames").or_else(|| job.pointer("/artifact_names")).cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "receipt_kinds": job.pointer("/receiptKinds").or_else(|| job.pointer("/receipt_kinds")).cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "evidence_refs": job.pointer("/evidenceRefs").or_else(|| job.pointer("/evidence_refs")).cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "tui_reopen": {
+            "command": "ioi agent tui",
+            "args": tui_reopen_args(thread_id.as_deref(), None),
+            "thread_id": thread_id,
+            "run_id": run_id,
+        },
+        "react_flow": {
+            "workflow_node_id": workflow_node_id,
+            "job_id": json_path_string(job, "/jobId").or_else(|| json_path_string(job, "/job_id")),
+            "run_id": json_path_string(job, "/runId").or_else(|| json_path_string(job, "/run_id")),
+        }
+    })
+}
+
+pub(crate) fn tui_run_lifecycle_rows(
+    jobs: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    jobs.iter()
+        .enumerate()
+        .map(|(index, job)| tui_run_lifecycle_row(job, fallback_thread_id, index))
+        .collect()
+}
+
+fn tui_run_lifecycle_row(job: &Value, fallback_thread_id: Option<&str>, index: usize) -> Value {
+    let job_row = tui_job_row(job, fallback_thread_id, index);
+    let run_id = json_path_string(&job_row, "/run_id").unwrap_or_else(|| format!("run_{index}"));
+    let status = json_path_string(&job_row, "/status").unwrap_or_else(|| "unknown".to_string());
+    let thread_id = json_path_string(&job_row, "/thread_id");
+    let workflow_node_id = json_path_string(&job_row, "/workflow_node_id")
+        .unwrap_or_else(|| "runtime.runtime-job".to_string());
+    serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "surface": "tui",
+        "id": format!("tui-run-lifecycle-{run_id}"),
+        "row_kind": "run_lifecycle",
+        "run_id": run_id,
+        "job_id": json_path_string(&job_row, "/job_id"),
+        "task_id": json_path_string(&job_row, "/task_id"),
+        "thread_id": thread_id,
+        "turn_id": json_path_string(&job_row, "/turn_id"),
+        "status": status,
+        "lifecycle": job_row.pointer("/lifecycle").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "progress_percent": json_path_string(&job_row, "/progress_percent").unwrap_or_else(|| "0".to_string()),
+        "workflow_node_id": workflow_node_id,
+        "routes": {
+            "run": route_with_run(TUI_RUN_ROUTE_TEMPLATE, json_path_string(&job_row, "/run_id").as_deref().unwrap_or("run")),
+            "events": route_with_run(TUI_RUN_EVENTS_ROUTE_TEMPLATE, json_path_string(&job_row, "/run_id").as_deref().unwrap_or("run")),
+            "replay": route_with_run(TUI_RUN_REPLAY_ROUTE_TEMPLATE, json_path_string(&job_row, "/run_id").as_deref().unwrap_or("run")),
+            "trace": route_with_run(TUI_RUN_TRACE_ROUTE_TEMPLATE, json_path_string(&job_row, "/run_id").as_deref().unwrap_or("run")),
+            "inspect": route_with_run(TUI_RUN_INSPECT_ROUTE_TEMPLATE, json_path_string(&job_row, "/run_id").as_deref().unwrap_or("run")),
+            "cancel": route_with_run(TUI_RUN_CANCEL_ROUTE_TEMPLATE, json_path_string(&job_row, "/run_id").as_deref().unwrap_or("run")),
+        },
+        "tui_reopen": {
+            "command": "ioi agent tui",
+            "args": tui_reopen_args(thread_id.as_deref(), None),
+            "thread_id": thread_id,
+            "run_id": json_path_string(&job_row, "/run_id"),
+        },
+        "react_flow": {
+            "workflow_node_id": workflow_node_id,
+            "run_id": json_path_string(&job_row, "/run_id"),
+            "job_id": json_path_string(&job_row, "/job_id"),
+        }
+    })
+}
+
+pub(crate) fn selected_run_id_from_thread(thread: &Value) -> Option<String> {
+    selected_turn_value(thread, None)
+        .and_then(|turn| {
+            json_path_string(turn, "/request_id")
+                .or_else(|| json_path_string(turn, "/requestId"))
+                .or_else(|| json_path_string(turn, "/run_id"))
+                .or_else(|| json_path_string(turn, "/runId"))
+        })
+        .or_else(|| json_path_string(thread, "/latest_run_id"))
+        .or_else(|| json_path_string(thread, "/latestRunId"))
+}
+
 fn workflow_node_ids(events: &[Value]) -> Vec<String> {
     let mut ids = BTreeSet::new();
     for event in events {
@@ -1112,6 +1437,14 @@ fn route_with_thread_and_snapshot(template: &str, thread_id: &str, snapshot_id: 
     route_with_thread(template, thread_id).replace("{snapshot_id}", snapshot_id)
 }
 
+fn route_with_job(template: &str, job_id: &str) -> String {
+    template.replace("{job_id}", job_id)
+}
+
+fn route_with_run(template: &str, run_id: &str) -> String {
+    template.replace("{run_id}", run_id)
+}
+
 fn safe_id(value: &str) -> String {
     value
         .chars()
@@ -1154,6 +1487,14 @@ mod tests {
                 "workspace_snapshot_live"
             ),
             "/v1/threads/thread_live/snapshots/workspace_snapshot_live/restore-preview"
+        );
+        assert_eq!(
+            route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, "job_run_live"),
+            "/v1/jobs/job_run_live/cancel"
+        );
+        assert_eq!(
+            route_with_run(TUI_RUN_REPLAY_ROUTE_TEMPLATE, "run_live"),
+            "/v1/runs/run_live/replay"
         );
     }
 
@@ -1285,6 +1626,7 @@ mod tests {
                 "turn_id": "turn_live",
                 "source_event_kind": "OperatorControl.Interrupt",
             })],
+            jobs: Vec::new(),
             since_seq: Some(0),
             last_event_id: None,
             follow: false,
@@ -1357,6 +1699,7 @@ mod tests {
                     }
                 }),
             ],
+            jobs: Vec::new(),
             since_seq: Some(0),
             last_event_id: None,
             follow: false,
@@ -1374,6 +1717,55 @@ mod tests {
         assert_eq!(
             state["approval_decisions"][0]["receipt_refs"],
             serde_json::json!(["receipt_approval"])
+        );
+    }
+
+    #[test]
+    fn tui_job_and_run_lifecycle_rows_preserve_daemon_routes() {
+        let jobs = vec![serde_json::json!({
+            "jobId": "job_run_live",
+            "taskId": "task_live",
+            "runId": "run_live",
+            "agentId": "agent_live",
+            "threadId": "thread_live",
+            "turnId": "turn_live",
+            "status": "running",
+            "lifecycle": ["queued", "started"],
+            "queueName": "local-agentgres",
+            "progress": { "percent": 50 },
+            "cancelable": true,
+            "workflowNodeId": "runtime.runtime-job",
+        })];
+        let job_rows = tui_job_rows(&jobs, Some("thread_live"));
+        let lifecycle_rows = tui_run_lifecycle_rows(&jobs, Some("thread_live"));
+
+        assert_eq!(
+            job_rows[0]["schema_version"],
+            TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION
+        );
+        assert_eq!(job_rows[0]["job_id"], "job_run_live");
+        assert_eq!(job_rows[0]["run_id"], "run_live");
+        assert_eq!(job_rows[0]["thread_id"], "thread_live");
+        assert_eq!(
+            job_rows[0]["cancel_endpoint"],
+            "/v1/jobs/job_run_live/cancel"
+        );
+        assert_eq!(
+            job_rows[0]["react_flow"]["workflow_node_id"],
+            "runtime.runtime-job"
+        );
+        assert_eq!(lifecycle_rows[0]["row_kind"], "run_lifecycle");
+        assert_eq!(
+            lifecycle_rows[0]["routes"]["replay"],
+            "/v1/runs/run_live/replay"
+        );
+        assert_eq!(
+            lifecycle_rows[0]["routes"]["trace"],
+            "/v1/runs/run_live/trace"
+        );
+        assert_eq!(
+            lifecycle_rows[0]["routes"]["cancel"],
+            "/v1/runs/run_live/cancel"
         );
     }
 }

@@ -656,6 +656,31 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         sequence: 6,
       },
     ],
+    job_rows: [
+      {
+        id: "job-row",
+        job_id: "job-run-test",
+        run_id: "run-test",
+        thread_id: "thread-test",
+        turn_id: "turn-test",
+        status: "completed",
+        progress_percent: "100",
+        queue_name: "local-agentgres",
+        workflow_node_id: "runtime.runtime-job",
+      },
+    ],
+    run_lifecycle_rows: [
+      {
+        id: "run-lifecycle-row",
+        job_id: "job-run-test",
+        run_id: "run-test",
+        thread_id: "thread-test",
+        turn_id: "turn-test",
+        status: "completed",
+        progress_percent: "100",
+        workflow_node_id: "runtime.runtime-job",
+      },
+    ],
     command_history: [
       {
         id: "tui-command-1",
@@ -698,7 +723,9 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.validationErrorCount, 1);
   assert.equal(projection.approvalCount, 1);
   assert.equal(projection.approvalDecisionCount, 1);
-  assert.equal(projection.rowCount, 7);
+  assert.equal(projection.jobCount, 1);
+  assert.equal(projection.runLifecycleCount, 1);
+  assert.equal(projection.rowCount, 9);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -706,6 +733,8 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["mode_status", null, "current"],
       ["approval", null, "pending"],
       ["approval_decision", "approve", "approved"],
+      ["job", "jobs", "completed"],
+      ["run_lifecycle", "run", "completed"],
       ["command", "events", "applied"],
       ["command", "steer", "applied"],
       ["validation_error", "steer", "validation_error"],
@@ -716,8 +745,10 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[5]?.reactFlowNodeId,
+    projection.rows[7]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
-  assert.equal(projection.rows[6]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[4]?.jobId, "job-run-test");
+  assert.equal(projection.rows[5]?.runId, "run-test");
+  assert.equal(projection.rows[8]?.message, "/steer requires guidance text");
 });

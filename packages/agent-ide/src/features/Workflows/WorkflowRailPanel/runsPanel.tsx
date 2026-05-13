@@ -457,6 +457,10 @@ export function WorkflowRunsPanel({
               data-approval-decision-count={
                 tuiControlStateProjection.approvalDecisionCount
               }
+              data-job-count={tuiControlStateProjection.jobCount}
+              data-run-lifecycle-count={
+                tuiControlStateProjection.runLifecycleCount
+              }
             >
               <h4>TUI control state</h4>
               <div
@@ -468,6 +472,10 @@ export function WorkflowRunsPanel({
                   {tuiControlStateProjection.validationErrorCount} validation
                 </span>
                 <span>{tuiControlStateProjection.approvalCount} approvals</span>
+                <span>{tuiControlStateProjection.jobCount} jobs</span>
+                <span>
+                  {tuiControlStateProjection.runLifecycleCount} run lifecycles
+                </span>
                 <span>
                   {tuiControlStateProjection.currentTurnId ?? "no active turn"}
                 </span>
@@ -486,6 +494,8 @@ export function WorkflowRunsPanel({
                     data-command={row.command ?? ""}
                     data-raw-input={row.rawInput ?? ""}
                     data-approval-id={row.approvalId ?? ""}
+                    data-job-id={row.jobId ?? ""}
+                    data-run-id={row.runId ?? ""}
                     data-thread-id={row.threadId ?? ""}
                     data-turn-id={row.turnId ?? ""}
                     data-cursor={row.cursor ?? ""}
