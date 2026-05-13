@@ -145,6 +145,7 @@ workstream was narrower.
 | 143 | 2026-05-13 | P1. Memory UX Parity | memory write-side TUI/workflow controls | /tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json |
 | 144 | 2026-05-13 | P1. MCP Manager Parity | live MCP stdio transport invocation | /tmp/ioi-autopilot-gui-harness-mcp-live-stdio/2026-05-13T14-11-08-493Z/result.json |
 | 145 | 2026-05-13 | P1. MCP Manager Parity | MCP resources/prompts discovery | /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json |
+| 146 | 2026-05-13 | P1. MCP Manager Parity | MCP import/add/remove registry writes | /tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6912,3 +6913,36 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json`.
+
+### Slice 146. 2026-05-13 - MCP import/add/remove registry writes
+
+Implementation slice completed 2026-05-13, mutable daemon MCP registry controls:
+
+- Added daemon-owned MCP import, add, and remove controls for the active thread
+  registry, with validation blocking before mutation and canonical
+  `OperatorControl.McpImport`, `OperatorControl.McpAdd`, and
+  `OperatorControl.McpRemove` events.
+- Exposed public and thread-scoped `/v1/mcp/import`, `/v1/mcp/servers`, and
+  `/v1/mcp/servers/{server_id}` routes while keeping mutation state in the
+  daemon registry rather than writing canvas-local config.
+- Extended SDK clients and `Thread` handles with import/add/remove helpers.
+- Extended TUI line mode with `/mcp import`, `/mcp add`, and `/mcp remove`,
+  preserving event-backed command output and MCP rows.
+- Added React Flow state-node operation metadata for `mcp_import`, `mcp_add`,
+  and `mcp_remove`, including server config JSON and import JSON fields.
+- Updated the master guide to mark MCP registry writes complete and move the
+  next tactical slice to live HTTP/SSE MCP transport.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-config-writes`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-config-writes/2026-05-13T14-48-32-036Z/result.json`.

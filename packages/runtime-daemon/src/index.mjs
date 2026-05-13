@@ -2620,6 +2620,9 @@ export class AgentgresRuntimeStateStore {
         resources: "/v1/mcp/resources",
         prompts: "/v1/mcp/prompts",
         validate: "/v1/mcp/validate",
+        importServers: "/v1/mcp/import",
+        addServer: "/v1/mcp/servers",
+        removeServer: "/v1/mcp/servers/{server_id}",
         enableServer: "/v1/mcp/servers/{server_id}/enable",
         disableServer: "/v1/mcp/servers/{server_id}/disable",
         invokeTool: "/v1/mcp/tools/{tool_id}/invoke",
@@ -2656,6 +2659,223 @@ export class AgentgresRuntimeStateStore {
       resources: mcpResourcesForServers(servers),
       prompts: mcpPromptsForServers(servers),
     };
+  }
+
+  importMcp(input = {}) {
+    const threadId = optionalString(input.thread_id ?? input.threadId);
+    if (!threadId) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_thread_required",
+        message: "MCP import requires a thread_id so the daemon can update the active runtime registry.",
+      });
+    }
+    return this.importThreadMcp(threadId, input);
+  }
+
+  addMcpServer(input = {}) {
+    const threadId = optionalString(input.thread_id ?? input.threadId);
+    if (!threadId) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_thread_required",
+        message: "MCP server add requires a thread_id so the daemon can update the active runtime registry.",
+      });
+    }
+    return this.addThreadMcpServer(threadId, input);
+  }
+
+  removeMcpServer(serverId, input = {}) {
+    const threadId = optionalString(input.thread_id ?? input.threadId);
+    if (!threadId) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_thread_required",
+        message: "MCP server removal requires a thread_id so the daemon can update the active runtime registry.",
+        details: { serverId },
+      });
+    }
+    return this.removeThreadMcpServer(threadId, serverId, input);
+  }
+
+  importThreadMcp(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const importedServers = mcpServerRecordsFromMutationInput(request, agent.cwd, "runtime_mcp_import");
+    return this.applyThreadMcpServerMutation({
+      threadId,
+      agent,
+      request,
+      mutationKind: "import",
+      sourceEventKind: "OperatorControl.McpImport",
+      eventKind: "mcp.servers_imported",
+      workflowNodeId: "runtime.mcp-manager.import",
+      serversToUpsert: importedServers,
+    });
+  }
+
+  addThreadMcpServer(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const server = mcpServerRecordFromAddRequest(request, agent.cwd);
+    return this.applyThreadMcpServerMutation({
+      threadId,
+      agent,
+      request,
+      mutationKind: "add",
+      sourceEventKind: "OperatorControl.McpAdd",
+      eventKind: "mcp.server_added",
+      workflowNodeId:
+        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+        `runtime.mcp-server.${safeId(server.id)}`,
+      serversToUpsert: [server],
+    });
+  }
+
+  removeThreadMcpServer(threadId, serverId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd);
+    const server = resolveMcpServerRecord(registry.servers, serverId ?? request.server_id ?? request.serverId);
+    if (!server) throw notFound(`MCP server not found: ${serverId}`, { threadId, serverId });
+    const remainingServers = normalizeArray(registry.servers).filter((candidate) => candidate.id !== server.id);
+    const updatedRegistry = mcpRegistryWithServers(registry, remainingServers);
+    const updatedAgent = {
+      ...agent,
+      mcpRegistry: updatedRegistry,
+      updatedAt: new Date().toISOString(),
+    };
+    this.agents.set(agent.id, updatedAgent);
+    const status = this.mcpStatus({ thread_id: threadId });
+    return this.appendThreadMcpControlEvent({
+      threadId,
+      agent: updatedAgent,
+      request,
+      controlKind: "mcp_remove",
+      sourceEventKind: "OperatorControl.McpRemove",
+      eventKind: "mcp.server_removed",
+      componentKind: "mcp_provider",
+      workflowNodeId:
+        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+        `runtime.mcp-server.${safeId(server.id)}`,
+      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+      status: "completed",
+      payload: {
+        ...status,
+        event_kind: "McpServerRemoved",
+        control_kind: "mcp_remove",
+        thread_id: threadId,
+        agent_id: updatedAgent.id,
+        server_id: server.id,
+        serverId: server.id,
+        server,
+        removed: [server],
+        removed_count: 1,
+        removedCount: 1,
+        policy_decision: "registry_write_allowed",
+        summary: `MCP server ${server.id} removed from the active runtime registry.`,
+      },
+    });
+  }
+
+  applyThreadMcpServerMutation({
+    threadId,
+    agent,
+    request,
+    mutationKind,
+    sourceEventKind,
+    eventKind,
+    workflowNodeId,
+    serversToUpsert,
+  }) {
+    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd);
+    const proposedServers = normalizeArray(serversToUpsert);
+    if (proposedServers.length === 0) {
+      throw runtimeError({
+        status: 400,
+        code: "mcp_servers_required",
+        message: `MCP ${mutationKind} requires at least one server definition.`,
+        details: { threadId, mutationKind },
+      });
+    }
+    const validation = validateMcpServerRecords(proposedServers);
+    if (!validation.ok) {
+      const status = this.mcpStatus({ thread_id: threadId });
+      return this.appendThreadMcpControlEvent({
+        threadId,
+        agent,
+        request,
+        controlKind: `mcp_${mutationKind}`,
+        sourceEventKind,
+        eventKind,
+        componentKind: "mcp_provider",
+        workflowNodeId,
+        payloadSchemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+        status: "blocked",
+        payload: {
+          ...status,
+          event_kind: mutationKind === "import" ? "McpServersImportBlocked" : "McpServerAddBlocked",
+          control_kind: `mcp_${mutationKind}`,
+          thread_id: threadId,
+          agent_id: agent.id,
+          proposed_servers: proposedServers,
+          proposedServers,
+          validation,
+          issues: validation.issues,
+          warnings: validation.warnings,
+          policy_decision: "registry_write_blocked",
+          summary: `MCP ${mutationKind} blocked by ${validation.issues.length} validation issue(s).`,
+        },
+      });
+    }
+    const byId = new Map(normalizeArray(registry.servers).map((server) => [server.id, server]));
+    for (const server of proposedServers) {
+      byId.set(server.id, {
+        ...server,
+        evidence_refs: uniqueStrings([
+          ...(server.evidence_refs ?? server.evidenceRefs ?? []),
+          mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
+        ]),
+        evidenceRefs: uniqueStrings([
+          ...(server.evidence_refs ?? server.evidenceRefs ?? []),
+          mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
+        ]),
+      });
+    }
+    const updatedRegistry = mcpRegistryWithServers(registry, [...byId.values()]);
+    const updatedAgent = {
+      ...agent,
+      mcpRegistry: updatedRegistry,
+      updatedAt: new Date().toISOString(),
+    };
+    this.agents.set(agent.id, updatedAgent);
+    const status = this.mcpStatus({ thread_id: threadId });
+    const eventLabel = mutationKind === "import" ? "McpServersImported" : "McpServerAdded";
+    return this.appendThreadMcpControlEvent({
+      threadId,
+      agent: updatedAgent,
+      request,
+      controlKind: `mcp_${mutationKind}`,
+      sourceEventKind,
+      eventKind,
+      componentKind: "mcp_provider",
+      workflowNodeId,
+      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+      status: "completed",
+      payload: {
+        ...status,
+        event_kind: eventLabel,
+        control_kind: `mcp_${mutationKind}`,
+        thread_id: threadId,
+        agent_id: updatedAgent.id,
+        servers: proposedServers,
+        [mutationKind === "import" ? "imported" : "added"]: proposedServers,
+        [`${mutationKind}_count`]: proposedServers.length,
+        [`${mutationKind}Count`]: proposedServers.length,
+        policy_decision: "registry_write_allowed",
+        summary:
+          mutationKind === "import"
+            ? `Imported ${proposedServers.length} MCP server(s) into the active runtime registry.`
+            : `MCP server ${proposedServers[0]?.id ?? "unknown"} added to the active runtime registry.`,
+      },
+    });
   }
 
   async mcpStatusWithLiveDiscovery(status, agent, request = {}) {
@@ -2781,16 +3001,7 @@ export class AgentgresRuntimeStateStore {
     const servers = normalizeArray(registry.servers).map((candidate) =>
       candidate.id === server.id ? updatedServer : candidate,
     );
-    const tools = mcpToolsForServers(servers);
-    const updatedRegistry = {
-      ...registry,
-      server_count: servers.length,
-      serverCount: servers.length,
-      tool_count: tools.length,
-      toolCount: tools.length,
-      servers,
-      tools,
-    };
+    const updatedRegistry = mcpRegistryWithServers(registry, servers);
     const updatedAgent = {
       ...agent,
       mcpRegistry: updatedRegistry,
@@ -5941,6 +6152,20 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.validateMcp(await readBody(request)));
       return;
     }
+    if (request.method === "POST" && url.pathname === "/v1/mcp/import") {
+      writeJsonResponse(response, store.importMcp({
+        ...Object.fromEntries(url.searchParams.entries()),
+        ...(await readBody(request)),
+      }));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/mcp/servers") {
+      writeJsonResponse(response, store.addMcpServer({
+        ...Object.fromEntries(url.searchParams.entries()),
+        ...(await readBody(request)),
+      }), 201);
+      return;
+    }
     if (
       request.method === "POST" &&
       segments[0] === "v1" &&
@@ -5958,6 +6183,20 @@ async function handleRequest({ request, response, store }) {
           ...body,
         }),
       );
+      return;
+    }
+    if (
+      (request.method === "DELETE" || request.method === "POST") &&
+      segments[0] === "v1" &&
+      segments[1] === "mcp" &&
+      segments[2] === "servers" &&
+      segments[3] &&
+      (request.method === "DELETE" ? !segments[4] : segments[4] === "remove" && !segments[5])
+    ) {
+      writeJsonResponse(response, store.removeMcpServer(decodeURIComponent(segments[3]), {
+        ...Object.fromEntries(url.searchParams.entries()),
+        ...(await readBody(request)),
+      }));
       return;
     }
     if (
@@ -7828,6 +8067,27 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "thinking" && !segments[4]) {
     writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "mcp" && segments[4] === "import" && !segments[5]) {
+    writeJsonResponse(response, store.importThreadMcp(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "mcp" && segments[4] === "servers" && !segments[5]) {
+    writeJsonResponse(response, store.addThreadMcpServer(threadId, await readBody(request)), 201);
+    return;
+  }
+  if (
+    (request.method === "DELETE" || request.method === "POST") &&
+    action === "mcp" &&
+    segments[4] === "servers" &&
+    segments[5] &&
+    (request.method === "DELETE" ? !segments[6] : segments[6] === "remove" && !segments[7])
+  ) {
+    writeJsonResponse(
+      response,
+      store.removeThreadMcpServer(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+    );
     return;
   }
   if (
@@ -11651,6 +11911,77 @@ function shouldInvokeMcpOverLiveStdio(server, request = {}) {
     return true;
   }
   return (server.transport ?? "stdio") === "stdio" && Boolean(optionalString(server.command));
+}
+
+function mcpRegistryWithServers(registry = {}, servers = []) {
+  const normalizedServers = normalizeArray(servers).sort((left, right) =>
+    String(left.id ?? "").localeCompare(String(right.id ?? "")),
+  );
+  const tools = mcpToolsForServers(normalizedServers);
+  const resources = mcpResourcesForServers(normalizedServers);
+  const prompts = mcpPromptsForServers(normalizedServers);
+  return {
+    ...registry,
+    server_count: normalizedServers.length,
+    serverCount: normalizedServers.length,
+    tool_count: tools.length,
+    toolCount: tools.length,
+    resource_count: resources.length,
+    resourceCount: resources.length,
+    prompt_count: prompts.length,
+    promptCount: prompts.length,
+    servers: normalizedServers,
+    tools,
+    resources,
+    prompts,
+  };
+}
+
+function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallbackSource) {
+  const raw = request.mcp_json ?? request.mcpJson ?? request;
+  const source =
+    optionalString(request.config_source ?? request.configSource ?? raw.source) ??
+    fallbackSource;
+  const servers = raw.mcpServers ?? raw.mcp_servers ?? raw.servers ?? request.servers;
+  if (Array.isArray(servers)) {
+    return servers.map((server, index) =>
+      normalizeMcpServerRecord(
+        server.label ?? server.name ?? server.id ?? `server_${index + 1}`,
+        server,
+        { workspaceRoot, source, status: server.status ?? "configured" },
+      ),
+    );
+  }
+  return Object.entries(servers ?? {}).map(([label, config]) =>
+    normalizeMcpServerRecord(label, config, {
+      workspaceRoot,
+      source,
+      status: config?.status ?? "configured",
+    }),
+  );
+}
+
+function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
+  const config =
+    request.server && typeof request.server === "object" && !Array.isArray(request.server)
+      ? request.server
+      : request.config && typeof request.config === "object" && !Array.isArray(request.config)
+        ? request.config
+        : request.mcpServer && typeof request.mcpServer === "object" && !Array.isArray(request.mcpServer)
+          ? request.mcpServer
+          : request;
+  const label =
+    optionalString(request.label ?? request.name ?? request.server_label ?? request.serverLabel) ??
+    optionalString(config.label ?? config.name ?? config.id) ??
+    "mcp";
+  const source =
+    optionalString(request.config_source ?? request.configSource ?? config.source) ??
+    "runtime_mcp_add";
+  return normalizeMcpServerRecord(label, config, {
+    workspaceRoot,
+    source,
+    status: config.status ?? "configured",
+  });
 }
 
 function mcpToolKey(tool = {}) {

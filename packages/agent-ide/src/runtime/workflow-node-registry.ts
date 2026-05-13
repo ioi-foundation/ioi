@@ -2892,6 +2892,9 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
             "append",
             "merge",
             "mcp_status",
+            "mcp_import",
+            "mcp_add",
+            "mcp_remove",
             "mcp_enable",
             "mcp_disable",
             "memory_status",
@@ -2903,6 +2906,10 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
             "memory_delete",
           ],
         },
+        mcpServerId: { type: "string" },
+        mcpServerLabel: { type: "string" },
+        mcpServerConfigJson: { type: "string" },
+        mcpImportJson: { type: "string" },
         memoryRecordId: { type: "string" },
         memoryText: { type: "string" },
         memoryKey: { type: "string" },
@@ -4127,6 +4134,44 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
     },
   });
+  const mcpImport = creatorDefinition("state", {
+    creatorId: "mcp.import",
+    label: "Import MCP config",
+    description: "Import MCP server definitions into the active runtime registry.",
+    metricValue: "import",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_import",
+      reducer: "replace",
+      mcpImportJson: "{\"mcpServers\":{}}",
+    },
+  });
+  const mcpServerAdd = creatorDefinition("state", {
+    creatorId: "mcp.server.add",
+    label: "Add MCP server",
+    description: "Add an MCP server to the active runtime registry.",
+    metricValue: "add",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_add",
+      reducer: "replace",
+      mcpServerId: "",
+      mcpServerLabel: "",
+      mcpServerConfigJson: "{}",
+    },
+  });
+  const mcpServerRemove = creatorDefinition("state", {
+    creatorId: "mcp.server.remove",
+    label: "Remove MCP server",
+    description: "Remove an MCP server from the active runtime registry.",
+    metricValue: "remove",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_remove",
+      reducer: "replace",
+      mcpServerId: "",
+    },
+  });
   const mcpServerEnable = creatorDefinition("state", {
     creatorId: "mcp.server.enable",
     label: "Enable MCP server",
@@ -4321,6 +4366,9 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelEvaluator,
     stateRead,
     mcpStatus,
+    mcpImport,
+    mcpServerAdd,
+    mcpServerRemove,
     mcpServerEnable,
     mcpServerDisable,
     memoryStatus,

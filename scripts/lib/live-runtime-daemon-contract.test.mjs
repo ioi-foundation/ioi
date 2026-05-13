@@ -1643,6 +1643,45 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal((await sdkThread.mcp()).tool_count, 2);
     assert.equal((await sdkThread.validateMcp()).ok, true);
 
+    const added = await sdkThread.addMcpServer({
+      label: "scratch",
+      server: {
+        command: "node",
+        args: [mcpStdioFixture],
+        allowedTools: ["query"],
+        resources: [{ uri: "ioi://fixture/scratch-context", name: "scratch-context" }],
+        prompts: [{ name: "scratch-brief" }],
+      },
+    });
+    assert.equal(added.event.source_event_kind, "OperatorControl.McpAdd");
+    assert.equal(added.added[0].id, "mcp.scratch");
+    assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 3);
+
+    const imported = await sdkClient.importMcp({
+      threadId: thread.thread_id,
+      mcpJson: {
+        mcpServers: {
+          imported: {
+            command: "node",
+            args: [mcpStdioFixture],
+            allowedTools: ["fetch"],
+          },
+        },
+      },
+    });
+    assert.equal(imported.event.source_event_kind, "OperatorControl.McpImport");
+    assert.equal(imported.imported[0].id, "mcp.imported");
+    assert.equal(imported.server_count, 3);
+
+    const removedScratch = await sdkThread.removeMcpServer("mcp.scratch");
+    assert.equal(removedScratch.event.source_event_kind, "OperatorControl.McpRemove");
+    assert.equal(removedScratch.removed[0].id, "mcp.scratch");
+    const removedImported = await sdkClient.removeMcpServer("mcp.imported", {
+      threadId: thread.thread_id,
+    });
+    assert.equal(removedImported.event.source_event_kind, "OperatorControl.McpRemove");
+    assert.equal(removedImported.server_count, 1);
+
     const disabled = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/servers/mcp.search/disable`, {
       method: "POST",
       body: JSON.stringify({ source: "cli_tui" }),
@@ -3991,7 +4030,10 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/mcp\/resources/);
   assert.match(source, /\/v1\/mcp\/prompts/);
   assert.match(source, /\/v1\/mcp\/validate/);
+  assert.match(source, /\/v1\/mcp\/import/);
+  assert.match(source, /\/v1\/mcp\/servers/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/status/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/import/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/servers\/\{server_id\}\/enable/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/servers\/\{server_id\}\/disable/);
@@ -4015,6 +4057,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /file\.inspect/);
   assert.match(source, /OperatorControl\.Mcp/);
   assert.match(source, /OperatorControl\.McpValidate/);
+  assert.match(source, /OperatorControl\.McpImport/);
+  assert.match(source, /OperatorControl\.McpAdd/);
+  assert.match(source, /OperatorControl\.McpRemove/);
   assert.match(source, /OperatorControl\.McpEnable/);
   assert.match(source, /OperatorControl\.McpDisable/);
   assert.match(source, /OperatorControl\.McpInvoke/);
@@ -6225,6 +6270,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
   let daemon;
   try {
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const scratchMcpConfig = JSON.stringify({
+      command: "node",
+      args: [mcpStdioFixture],
+      allowedTools: ["query"],
+    });
     const result = await execFileWithInput(
       cli,
       [
@@ -6248,7 +6298,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {\"q\":\"line-mode\"}\n/mcp validate\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
+      `/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
       { cwd: root, timeout: 30000 },
     );
     assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
@@ -6256,6 +6306,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /line_mode_command=model/);
     assert.match(result.stdout, /line_mode_command=thinking/);
     assert.match(result.stdout, /line_mode_command=mcp action=tools/);
+    assert.match(result.stdout, /line_mode_command=mcp action=add/);
+    assert.match(result.stdout, /line_mode_command=mcp action=remove/);
     assert.match(result.stdout, /line_mode_command=mcp action=disable/);
     assert.match(result.stdout, /line_mode_command=mcp action=enable/);
     assert.match(result.stdout, /line_mode_command=mcp action=invoke/);
@@ -6273,6 +6325,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /OperatorControl\.Interrupt/);
     assert.match(result.stdout, /OperatorControl\.Thinking/);
     assert.match(result.stdout, /OperatorControl\.Mcp/);
+    assert.match(result.stdout, /OperatorControl\.McpAdd/);
+    assert.match(result.stdout, /OperatorControl\.McpRemove/);
     assert.match(result.stdout, /OperatorControl\.McpDisable/);
     assert.match(result.stdout, /OperatorControl\.McpEnable/);
     assert.match(result.stdout, /OperatorControl\.McpInvoke/);
@@ -7517,6 +7571,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.import"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.server\.add"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.server\.remove"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.enable"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.disable"/);
   assert.match(nodeRegistry, /creatorId: "memory\.remember"/);
@@ -7524,12 +7581,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "memory\.delete"/);
   assert.match(nodeRegistry, /creatorId: "plugin_tool\.mcp"/);
   assert.match(graphTypes, /mcp_status/);
+  assert.match(graphTypes, /mcp_import/);
+  assert.match(graphTypes, /mcp_add/);
+  assert.match(graphTypes, /mcp_remove/);
   assert.match(graphTypes, /mcp_enable/);
   assert.match(graphTypes, /mcp_disable/);
   assert.match(graphTypes, /memory_remember/);
   assert.match(graphTypes, /memory_edit/);
   assert.match(graphTypes, /memory_delete/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-config/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-import-json/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-validate-before-invoke/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-record-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-text/);

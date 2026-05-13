@@ -443,6 +443,9 @@ export interface NodeLogic {
   // --- Dynamic MCP Tools ---
   tool_name?: string;
   mcpServerId?: string;
+  mcpServerLabel?: string;
+  mcpServerConfigJson?: string;
+  mcpImportJson?: string;
   mcpToolName?: string;
   arguments?: Record<string, unknown>;
   toolBinding?: WorkflowToolBinding;
@@ -513,6 +516,9 @@ export interface NodeLogic {
     | "append"
     | "merge"
     | "mcp_status"
+    | "mcp_import"
+    | "mcp_add"
+    | "mcp_remove"
     | "mcp_enable"
     | "mcp_disable"
     | "memory_status"

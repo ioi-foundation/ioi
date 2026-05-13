@@ -11,6 +11,7 @@ import {
   type RuntimeThreadMemoryInput,
   type RuntimeThreadMemoryWriteInput,
   type RuntimeThreadMcpInput,
+  type RuntimeMcpServerMutationInput,
   type RuntimeMcpToolInvokeInput,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
@@ -133,6 +134,21 @@ export class Thread {
 
   async validateMcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
     return this.client.validateThreadMcp(this.id, input);
+  }
+
+  async importMcp(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
+    return this.client.importThreadMcp(this.id, input);
+  }
+
+  async addMcpServer(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
+    return this.client.addThreadMcpServer(this.id, input);
+  }
+
+  async removeMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.client.removeThreadMcpServer(this.id, serverId, input);
   }
 
   async enableMcpServer(
