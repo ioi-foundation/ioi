@@ -155,6 +155,7 @@ the practical workstream when the source heading is broad.
 | 154 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow diagnostics repair action node | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json | rustfmt --check apps/autopilot/src-tauri/src/runtime_projection.rs apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds -- --nocapture<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow<br>git diff --check |
 | 155 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow run-inspector diagnostics repair actions | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json | node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>rustfmt --check apps/autopilot/src-tauri/src/kernel/artifacts/mod.rs apps/autopilot/src-tauri/src/lib.rs<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>npm run build --workspace=autopilot<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector<br>git diff --check |
 | 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json | node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "run-inspector diagnostics repair action" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop |
+| 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4813,6 +4814,42 @@ Validation evidence:
     `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
+
+## Slice 157. 2026-05-13 - React Flow MCP workflow authoring compiler
+
+Guide section: P1. MCP Manager Parity
+
+Evidence bundles:
+
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx
+- packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
+  - React Flow MCP search/fetch/invoke request compiler tests passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract syntax check passed.
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon index syntax check passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source-contract guard passed for MCP invoke node/editor/compiler fields.
+- `node --test --test-name-pattern "React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused live daemon proof passed for React Flow MCP search/fetch/invoke.
+- `node --test --test-name-pattern "daemon owns MCP discovery|React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broad MCP regression plus focused React Flow authoring proof passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json`.
 
 ## Slice 156. 2026-05-13 - Run-inspector diagnostics repair full recovery loop
 

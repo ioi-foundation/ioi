@@ -86,6 +86,15 @@ export {
   createRuntimeThreadForkControlRequest,
   createRuntimeThreadForkControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-control-nodes";
+export {
+  RUNTIME_MCP_TOOL_COMPONENT_KIND,
+  RUNTIME_MCP_TOOL_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_MCP_TOOL_SOURCE,
+  RUNTIME_MCP_TOOL_SOURCE_EVENT_KIND,
+  WORKFLOW_RUNTIME_MCP_TOOL_CONTROL_SCHEMA_VERSION,
+  createRuntimeMcpToolControlRequest,
+  createRuntimeMcpToolControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-mcp-control-nodes";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -369,6 +378,13 @@ export type {
   RuntimeThreadForkControlRequestInput,
   RuntimeThreadForkWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-control-nodes";
+export type {
+  RuntimeMcpToolControlRequest,
+  RuntimeMcpToolControlRequestBody,
+  RuntimeMcpToolControlRequestInput,
+  RuntimeMcpToolOperation,
+  RuntimeMcpToolWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-mcp-control-nodes";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";

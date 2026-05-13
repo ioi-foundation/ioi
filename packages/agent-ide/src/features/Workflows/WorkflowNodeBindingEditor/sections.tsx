@@ -1224,6 +1224,7 @@ export function WorkflowNodeBindingSections({
                     | "mcp_status"
                     | "mcp_tool_search"
                     | "mcp_tool_fetch"
+                    | "mcp_tool_invoke"
                     | "mcp_import"
                     | "mcp_add"
                     | "mcp_serve"
@@ -1253,6 +1254,7 @@ export function WorkflowNodeBindingSections({
               <option value="mcp_status">MCP status</option>
               <option value="mcp_tool_search">MCP tool search</option>
               <option value="mcp_tool_fetch">MCP tool fetch</option>
+              <option value="mcp_tool_invoke">MCP tool invoke</option>
               <option value="mcp_import">MCP import</option>
               <option value="mcp_add">MCP add</option>
               <option value="mcp_serve">MCP serve</option>
@@ -1271,6 +1273,7 @@ export function WorkflowNodeBindingSections({
           {logic.stateOperation === "mcp_status" ||
           logic.stateOperation === "mcp_tool_search" ||
           logic.stateOperation === "mcp_tool_fetch" ||
+          logic.stateOperation === "mcp_tool_invoke" ||
           logic.stateOperation === "mcp_import" ||
           logic.stateOperation === "mcp_add" ||
           logic.stateOperation === "mcp_serve" ||
@@ -1292,7 +1295,8 @@ export function WorkflowNodeBindingSections({
               ) : null}
               {logic.stateOperation === "mcp_status" ||
               logic.stateOperation === "mcp_tool_search" ||
-              logic.stateOperation === "mcp_tool_fetch" ? (
+              logic.stateOperation === "mcp_tool_fetch" ||
+              logic.stateOperation === "mcp_tool_invoke" ? (
                 <>
                   <label>
                     MCP config sources
@@ -1360,7 +1364,8 @@ export function WorkflowNodeBindingSections({
                   />
                 </label>
               ) : null}
-              {logic.stateOperation === "mcp_tool_fetch" ? (
+              {logic.stateOperation === "mcp_tool_fetch" ||
+              logic.stateOperation === "mcp_tool_invoke" ? (
                 <label>
                   MCP tool
                   <input
@@ -1374,6 +1379,70 @@ export function WorkflowNodeBindingSections({
                     }
                   />
                 </label>
+              ) : null}
+              {logic.stateOperation === "mcp_tool_invoke" ? (
+                <>
+                  <label>
+                    MCP tool input JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-tool-input"
+                      value={String(logic.mcpToolInputJson ?? "{}")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpToolInputJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP containment
+                    <select
+                      data-testid="workflow-state-mcp-containment-mode"
+                      value={String(logic.mcpContainmentMode ?? "sandboxed")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpContainmentMode: event.target.value as
+                            | "read_only"
+                            | "sandboxed"
+                            | "review_required",
+                        })
+                      }
+                    >
+                      <option value="read_only">Read only</option>
+                      <option value="sandboxed">Sandboxed</option>
+                      <option value="review_required">Review required</option>
+                    </select>
+                  </label>
+                  <label>
+                    MCP invoke vault header refs JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-vault-header-refs"
+                      value={String(logic.mcpVaultHeaderRefsJson ?? "{}")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpVaultHeaderRefsJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="workflow-config-checkbox-row">
+                    <input
+                      data-testid="workflow-state-mcp-allow-network-egress"
+                      type="checkbox"
+                      checked={logic.mcpAllowNetworkEgress === true}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpAllowNetworkEgress: event.target.checked,
+                        })
+                      }
+                    />
+                    Allow network egress for this invoke
+                  </label>
+                </>
               ) : null}
               {logic.stateOperation === "mcp_serve" ? (
                 <>

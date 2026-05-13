@@ -457,6 +457,10 @@ export interface NodeLogic {
   mcpServeEndpoint?: string;
   mcpServeAllowedToolsJson?: string;
   mcpToolName?: string;
+  mcpToolInputJson?: string;
+  mcpVaultHeaderRefsJson?: string;
+  mcpContainmentMode?: "read_only" | "sandboxed" | "review_required" | string;
+  mcpAllowNetworkEgress?: boolean;
   arguments?: Record<string, unknown>;
   toolBinding?: WorkflowToolBinding;
 
@@ -528,6 +532,7 @@ export interface NodeLogic {
     | "mcp_status"
     | "mcp_tool_search"
     | "mcp_tool_fetch"
+    | "mcp_tool_invoke"
     | "mcp_import"
     | "mcp_add"
     | "mcp_serve"

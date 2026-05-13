@@ -156,6 +156,7 @@ workstream was narrower.
 | 154 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow diagnostics repair action node | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json |
 | 155 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow run-inspector diagnostics repair actions | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json |
 | 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json |
+| 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -277,6 +278,40 @@ Validation evidence:
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
+
+### Slice 157. 2026-05-13 - React Flow MCP workflow authoring compiler
+
+Implementation slice completed 2026-05-13, React Flow MCP workflow authoring:
+
+- Added a first-class `mcp.tool.invoke` state-node creator and
+  `mcp_tool_invoke` logic operation so workflow authors can invoke a daemon MCP
+  tool without routing through the generic plugin-tool binding.
+- Extended MCP state-node editor fields for tool input JSON, containment mode,
+  vault header refs JSON, and network-egress intent while keeping MCP search
+  and fetch catalog controls shared.
+- Added `workflow-runtime-mcp-control-nodes.ts`, a focused React Flow compiler
+  that turns MCP search, fetch, and invoke state nodes into thread-scoped daemon
+  requests with graph/node identity, source metadata, containment, vault refs,
+  and egress metadata.
+- Added unit coverage for MCP search/fetch/invoke request generation and a
+  live daemon contract proving React Flow-authored MCP state nodes search,
+  fetch, and invoke the stdio MCP fixture through daemon routes, then project
+  the emitted invocation event back into React Flow.
+- Updated source-contract guards so MCP invoke authoring fields and compiler
+  routes cannot drift out of the workflow development environment.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "daemon owns MCP discovery|React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json`.
 
 ### Slice 156. 2026-05-13 - Run-inspector diagnostics repair full recovery loop
 
