@@ -33,6 +33,17 @@ export function subagentBudgetForRequest(request = {}) {
   return budget && typeof budget === "object" && !Array.isArray(budget) ? budget : null;
 }
 
+export function subagentCancellationPropagates(record = {}) {
+  return normalizeSubagentCancellationInheritance(
+    record.cancellation_inheritance ?? record.cancellationInheritance,
+  ) === "propagate";
+}
+
+export function normalizeSubagentCancellationInheritance(value) {
+  const mode = optionalString(value)?.toLowerCase();
+  return mode ?? "propagate";
+}
+
 export function normalizeSubagentOutputContract(value) {
   const raw = value?.sections ?? value?.requiredSections ?? value ?? RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT;
   const sections = normalizeArray(raw)
@@ -172,6 +183,14 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
     inputCount: record.inputCount ?? record.input_count ?? null,
     cancellation_reason: record.cancellation_reason ?? record.cancellationReason ?? record.cancellation?.reason ?? null,
     cancellationReason: record.cancellationReason ?? record.cancellation_reason ?? record.cancellation?.reason ?? null,
+    cancellation_inherited:
+      record.cancellation_inherited ?? record.cancellationInherited ?? record.cancellation?.inherited ?? null,
+    cancellationInherited:
+      record.cancellationInherited ?? record.cancellation_inherited ?? record.cancellation?.inherited ?? null,
+    propagated_from_thread_id:
+      record.propagated_from_thread_id ?? record.propagatedFromThreadId ?? record.cancellation?.propagated_from_thread_id ?? null,
+    propagatedFromThreadId:
+      record.propagatedFromThreadId ?? record.propagated_from_thread_id ?? record.cancellation?.propagatedFromThreadId ?? null,
     restart_status: record.restart_status ?? record.restartStatus ?? null,
     restartStatus: record.restartStatus ?? record.restart_status ?? null,
     restart_count: record.restart_count ?? record.restartCount ?? null,

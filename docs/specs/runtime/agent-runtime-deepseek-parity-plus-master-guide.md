@@ -753,11 +753,16 @@ Current implementation note, 2026-05-13:
   events, returns output-contract validation status, records input and
   assignment history, persists cancellation state, and tracks resume/restart
   status.
+- Parent-thread subagent cancellation propagation is live at
+  `/v1/threads/{thread_id}/subagents/cancel`: descendants with
+  `cancellationInheritance: "propagate"` are canceled with inherited
+  cancellation metadata and parent-thread lifecycle events, while isolated
+  descendants remain unchanged.
 - The pure subagent lifecycle contract helpers now live in
   `packages/runtime-daemon/src/subagent-manager.mjs`, keeping the daemon route
   and store wiring thin enough for the next lifecycle operations.
-- Remaining P1-A gap: implement cancellation propagation, SDK/TUI wrappers, and
-  live parallel fan-out evidence behind this React Flow contract.
+- Remaining P1-A gap: add SDK/TUI wrappers and broader live parallel fan-out
+  workflows behind this React Flow contract.
 
 Acceptance evidence:
 
@@ -1875,6 +1880,7 @@ Recent focused validation, 2026-05-13:
 
 - `node --check packages/runtime-daemon/src/subagent-manager.mjs`
 - `node --test --test-name-pattern "local daemon exposes SubagentManager spawn, list, input, cancel, resume, assign, wait, and result contracts" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "local daemon propagates parent subagent cancellation with fan-out policy evidence" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
 - `node --check packages/runtime-daemon/src/index.mjs`
@@ -1882,6 +1888,9 @@ Recent focused validation, 2026-05-13:
 - `npm run build --workspace=@ioi/agent-ide`
 - `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --test --test-name-pattern "daemon owns MCP discovery|React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-cancel-propagation`
+  passed and wrote
+  `/tmp/ioi-autopilot-gui-harness-subagent-cancel-propagation/2026-05-13T18-44-38-612Z/result.json`.
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-resume-assign`
   passed and wrote
   `/tmp/ioi-autopilot-gui-harness-subagent-resume-assign/2026-05-13T18-39-52-293Z/result.json`.
@@ -1898,10 +1907,10 @@ Recent focused validation, 2026-05-13:
 
 Next runtime implementation sequence:
 
-1. Add cancellation propagation and live parallel fan-out evidence for daemon
-   `SubagentManager` descendants.
-2. Add SDK and TUI wrappers over the same routes, including output-contract
+1. Add SDK and TUI wrappers over the same routes, including output-contract
    status and restart/cancellation visibility.
+2. Add a broader workflow-level live parallel fan-out proof that starts from a
+   React Flow-authored workflow and exercises propagation through the GUI.
 3. Keep MCP, diagnostics repair, and memory controls regression-green while
    subagent parity becomes the next primary workflow-authoring gap.
 

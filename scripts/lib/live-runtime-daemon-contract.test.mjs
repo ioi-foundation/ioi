@@ -4899,6 +4899,111 @@ test("local daemon exposes SubagentManager spawn, list, input, cancel, resume, a
   }
 });
 
+test("local daemon propagates parent subagent cancellation with fan-out policy evidence", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-propagation-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-propagation-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const explorer = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        role: "explore",
+        prompt: "Explore the parent cancellation propagation path.",
+        cancellationInheritance: "propagate",
+        workflowGraphId: "workflow.subagent.propagation",
+        workflowNodeId: "runtime.subagent.spawn.explore",
+      }),
+    });
+    const implementer = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        role: "implement",
+        prompt: "Implement independently and ignore inherited parent cancellation.",
+        cancellationInheritance: "isolate",
+        workflowGraphId: "workflow.subagent.propagation",
+        workflowNodeId: "runtime.subagent.spawn.implement",
+      }),
+    });
+
+    const propagation = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/cancel`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        actor: "workflow-author",
+        reason: "parent_workflow_cancel",
+        workflowGraphId: "workflow.subagent.propagation",
+        workflowNodeId: "runtime.subagent.cancel.parent",
+      }),
+    });
+    assert.equal(propagation.schema_version, "ioi.runtime.subagent-manager.v1");
+    assert.equal(propagation.object, "ioi.runtime_subagent_cancellation_propagation");
+    assert.equal(propagation.thread_id, thread.thread_id);
+    assert.equal(propagation.candidate_count, 2);
+    assert.equal(propagation.canceled_count, 1);
+    assert.equal(propagation.skipped_count, 1);
+    assert.equal(propagation.canceled_subagents[0].subagent_id, explorer.subagent_id);
+    assert.equal(propagation.canceled_subagents[0].lifecycle_status, "canceled");
+    assert.equal(propagation.canceled_subagents[0].cancellation_reason, "parent_workflow_cancel");
+    assert.equal(propagation.canceled_subagents[0].cancellation_inherited, true);
+    assert.equal(propagation.canceled_subagents[0].propagated_from_thread_id, thread.thread_id);
+    assert.equal(propagation.skipped_subagents[0].subagent_id, implementer.subagent_id);
+    assert.equal(propagation.skipped_subagents[0].skip_reason, "cancellation_inheritance_not_propagate");
+    assert.ok(propagation.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_cancel_")));
+
+    const listed = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`);
+    const listedExplorer = listed.subagents.find((subagent) => subagent.subagent_id === explorer.subagent_id);
+    const listedImplementer = listed.subagents.find((subagent) => subagent.subagent_id === implementer.subagent_id);
+    assert.equal(listedExplorer.lifecycle_status, "canceled");
+    assert.equal(listedExplorer.cancellation_inherited, true);
+    assert.equal(listedImplementer.lifecycle_status, "completed");
+    assert.equal(listedImplementer.cancellation_inheritance, "isolate");
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const propagatedCancelEvent = events.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.SubagentCancel" &&
+        event.payload_summary.subagent_id === explorer.subagent_id,
+    );
+    assert.equal(propagatedCancelEvent.component_kind, "subagent_lifecycle");
+    assert.equal(propagatedCancelEvent.payload_summary.lifecycle_status, "canceled");
+    assert.equal(propagatedCancelEvent.payload_summary.cancellation_reason, "parent_workflow_cancel");
+    assert.equal(propagatedCancelEvent.payload_summary.cancellation_inherited, true);
+    assert.equal(propagatedCancelEvent.payload_summary.propagated_from_thread_id, thread.thread_id);
+
+    await daemon.close();
+    const reloaded = await startRuntimeDaemonService({ cwd, stateDir });
+    try {
+      const reloadedList = await fetchJson(`${reloaded.endpoint}/v1/threads/${thread.thread_id}/subagents`);
+      const reloadedExplorer = reloadedList.subagents.find((subagent) => subagent.subagent_id === explorer.subagent_id);
+      const reloadedImplementer = reloadedList.subagents.find((subagent) => subagent.subagent_id === implementer.subagent_id);
+      assert.equal(reloadedExplorer.lifecycle_status, "canceled");
+      assert.equal(reloadedExplorer.cancellation_inherited, true);
+      assert.equal(reloadedExplorer.propagated_from_thread_id, thread.thread_id);
+      assert.equal(reloadedImplementer.lifecycle_status, "completed");
+      assert.equal(reloadedImplementer.cancellation_inheritance, "isolate");
+    } finally {
+      await reloaded.close();
+    }
+  } finally {
+    try {
+      await daemon.close();
+    } catch {
+      // The reload branch closes the first daemon before re-opening the same state.
+    }
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
