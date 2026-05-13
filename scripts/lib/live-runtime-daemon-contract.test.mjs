@@ -8001,10 +8001,24 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts"),
     "utf8",
   );
+  const workflowRuntimeSubagentControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+    ),
+    "utf8",
+  );
   const workflowNodeBindingEditorSections = fs.readFileSync(
     path.join(
       root,
       "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    ),
+    "utf8",
+  );
+  const workflowNodeBindingEditorSubagentFields = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/subagentFields.tsx",
     ),
     "utf8",
   );
@@ -8542,6 +8556,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowContracts, /memory\.policy/);
   assert.match(workflowContracts, /memory\.path/);
   assert.match(workflowContracts, /memory\.subagentInheritance/);
+  assert.match(workflowContracts, /subagent\.pool/);
+  assert.match(workflowContracts, /subagent\.role/);
+  assert.match(workflowContracts, /subagent\.spawn/);
+  assert.match(workflowContracts, /subagent\.join/);
+  assert.match(workflowContracts, /subagent\.result/);
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.tool\.search"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.tool\.fetch"/);
@@ -8554,6 +8573,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.remove"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.enable"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.disable"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.pool"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.role"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.spawn"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.join"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.result"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.send_input"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.cancel"/);
+  assert.match(nodeRegistry, /creatorId: "subagent\.resume"/);
   assert.match(nodeRegistry, /creatorId: "memory\.remember"/);
   assert.match(nodeRegistry, /creatorId: "memory\.edit"/);
   assert.match(nodeRegistry, /creatorId: "memory\.delete"/);
@@ -8570,6 +8597,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeMcpControlNodes, /createRuntimeMcpToolControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeMcpControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/mcp\/tools\/search/);
   assert.match(workflowRuntimeMcpControlNodes, /OperatorControl\.McpInvoke/);
+  assert.match(workflowRuntimeSubagentControlNodes, /createRuntimeSubagentControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeSubagentControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/subagents/);
+  assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentSpawn/);
+  assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentSendInput/);
+  assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentCancel/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
@@ -8583,6 +8615,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /memory_remember/);
   assert.match(graphTypes, /memory_edit/);
   assert.match(graphTypes, /memory_delete/);
+  assert.match(graphTypes, /subagent_spawn/);
+  assert.match(graphTypes, /subagent_wait/);
+  assert.match(graphTypes, /subagent_result/);
+  assert.match(graphTypes, /subagent_send_input/);
+  assert.match(graphTypes, /subagentCancellationInheritance/);
+  assert.match(graphTypes, /subagentOutputContractJson/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-transport/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-url/);
@@ -8598,6 +8636,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-vault-header-refs/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-allow-network-egress/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-validate-before-invoke/);
+  assert.match(workflowNodeBindingEditorSections, /WorkflowSubagentStateFields/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-role/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-id/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-prompt/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-fork-context/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-max-concurrency/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-output-contract-json/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-merge-policy/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-cancellation-inheritance/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-record-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-text/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_memory_lane/);
