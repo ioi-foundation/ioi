@@ -70,6 +70,7 @@ const DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION = "ioi.runtime.diagno
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
 const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
+const LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID = "runtime.lsp-diagnostics.repair.retry";
 const LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID = "runtime.lsp-diagnostics.repair.restore-preview";
 const LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID = "runtime.lsp-diagnostics.repair.restore-apply";
 const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
@@ -3294,7 +3295,7 @@ export class AgentgresRuntimeStateStore {
         details: { threadId, decisionRef: target },
       });
     }
-    if (!["restore_preview", "restore_apply"].includes(action)) {
+    if (!["repair_retry", "restore_preview", "restore_apply"].includes(action)) {
       throw runtimeError({
         status: 409,
         code: "diagnostics_repair_decision_action_unimplemented",
@@ -3303,7 +3304,7 @@ export class AgentgresRuntimeStateStore {
           threadId,
           decisionRef: target,
           action,
-          supportedActions: ["restore_preview", "restore_apply"],
+          supportedActions: ["repair_retry", "restore_preview", "restore_apply"],
         },
       });
     }
@@ -3322,7 +3323,7 @@ export class AgentgresRuntimeStateStore {
         ...normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
         ...normalizeArray(gateEvent.payload_summary?.workspace_snapshot_refs),
       ])[0];
-    if (!snapshotId) {
+    if (!snapshotId && action !== "repair_retry") {
       throw runtimeError({
         status: 409,
         code: "diagnostics_repair_snapshot_required",
@@ -3335,12 +3336,24 @@ export class AgentgresRuntimeStateStore {
     );
     const workflowNodeId =
       optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      (action === "restore_apply"
+      (action === "repair_retry"
+        ? LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID
+        : action === "restore_apply"
         ? LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID
         : LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID);
     const decisionId = decision.decision_id ?? decision.decisionId ?? target;
     const executionResult =
-      action === "restore_apply"
+      action === "repair_retry"
+        ? this.createDiagnosticsRepairRetryTurn(threadId, {
+            request,
+            gateEvent,
+            decision,
+            repairPolicy,
+            snapshotId,
+            workflowGraphId,
+            workflowNodeId,
+          })
+        : action === "restore_apply"
         ? this.applyWorkspaceSnapshotRestore(threadId, snapshotId, {
             source: request.source ?? "runtime_auto",
             workflow_graph_id: workflowGraphId,
@@ -3410,6 +3423,7 @@ export class AgentgresRuntimeStateStore {
       workflowNodeId,
       executionResult,
     });
+    const repairRetry = action === "repair_retry" ? executionResult : null;
     const restorePreview = action === "restore_preview" ? executionResult : null;
     const restoreApply = action === "restore_apply" ? executionResult : null;
     return {
@@ -3435,6 +3449,12 @@ export class AgentgresRuntimeStateStore {
       decision,
       repairPolicy,
       repair_policy: repairPolicy,
+      repairRetry,
+      repair_retry: repairRetry,
+      repairTurn: repairRetry?.repairTurn ?? null,
+      repair_turn: repairRetry?.repair_turn ?? null,
+      repairRetryEvent: repairRetry?.event ?? null,
+      repair_retry_event: repairRetry?.event ?? null,
       restorePreview,
       restoreApply,
       restore_preview: restorePreview,
@@ -3452,8 +3472,167 @@ export class AgentgresRuntimeStateStore {
       policy_decision_refs: event.policy_decision_refs,
       rollbackRefs: event.rollback_refs,
       rollback_refs: event.rollback_refs,
-      summary: `Executed diagnostics repair decision ${action} for ${snapshotId}.`,
+      summary: `Executed diagnostics repair decision ${action}${snapshotId ? ` for ${snapshotId}` : ""}.`,
     };
+  }
+
+  createDiagnosticsRepairRetryTurn(threadId, {
+    request = {},
+    gateEvent,
+    decision,
+    repairPolicy,
+    snapshotId = null,
+    workflowGraphId = null,
+    workflowNodeId = LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID,
+  } = {}) {
+    const agent = this.agentForThread(threadId);
+    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "repair_retry";
+    const idempotencyKey =
+      optionalString(request.repair_retry_idempotency_key ?? request.repairRetryIdempotencyKey) ??
+      `thread:${threadId}:diagnostics-repair-retry:${decisionId}:${gateEvent?.event_id ?? "gate"}:${snapshotId ?? "no-snapshot"}`;
+    const duplicate = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(idempotencyKey);
+    if (duplicate) {
+      return diagnosticsRepairRetryResultFromEvent({
+        threadId,
+        event: duplicate,
+        turn: this.turnForRepairRetryEvent(duplicate),
+      });
+    }
+
+    const diagnosticsFeedback = diagnosticsRepairRetryFeedback({
+      threadId,
+      request,
+      gateEvent,
+      decision,
+      repairPolicy,
+      snapshotId,
+    });
+    const prompt =
+      optionalString(request.prompt ?? request.message ?? request.input) ??
+      "Repair the blocking post-edit diagnostics and retry the turn.";
+    const run = this.createRun(agent.id, {
+      mode: request.mode ?? "send",
+      prompt,
+      options: {
+        ...(request.options ?? {}),
+        diagnosticsMode: "skip",
+        diagnostics_mode: "skip",
+      },
+      memory: request.memory,
+      remember: request.remember,
+      diagnosticsFeedback,
+    });
+    const turn = this.turnForRun(run);
+    const event = this.appendDiagnosticsRepairRetryTurnEvent({
+      threadId,
+      request,
+      gateEvent,
+      decision,
+      repairPolicy,
+      snapshotId,
+      workflowGraphId,
+      workflowNodeId,
+      run,
+      turn,
+      diagnosticsFeedback,
+      idempotencyKey,
+    });
+    return diagnosticsRepairRetryResultFromEvent({ threadId, event, turn, run });
+  }
+
+  turnForRepairRetryEvent(event = {}) {
+    const payload = event.payload_summary ?? event.payload ?? {};
+    const retryTurnId = optionalString(payload.retry_turn_id ?? payload.retryTurnId);
+    if (!retryTurnId) return null;
+    try {
+      return this.getTurn(event.thread_id, retryTurnId);
+    } catch {
+      return null;
+    }
+  }
+
+  appendDiagnosticsRepairRetryTurnEvent({
+    threadId,
+    request = {},
+    gateEvent,
+    decision,
+    repairPolicy,
+    snapshotId,
+    workflowGraphId,
+    workflowNodeId,
+    run,
+    turn,
+    diagnosticsFeedback,
+    idempotencyKey,
+  } = {}) {
+    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "repair_retry";
+    const receiptId = `receipt_lsp_diagnostics_repair_retry_${doctorHash(
+      `${threadId}:${decisionId}:${turn?.turn_id ?? run?.id ?? ""}`,
+    ).slice(0, 12)}`;
+    const rollbackRefs = uniqueStrings([
+      snapshotId,
+      ...normalizeArray(decision?.rollbackRefs ?? decision?.rollback_refs),
+      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
+      ...normalizeArray(gateEvent?.rollback_refs),
+      ...normalizeArray(diagnosticsFeedback?.rollbackRefs ?? diagnosticsFeedback?.rollback_refs),
+    ]);
+    const policyDecisionRefs = uniqueStrings([
+      decisionId,
+      repairPolicy?.policy_id ?? repairPolicy?.policyId,
+      ...normalizeArray(gateEvent?.policy_decision_refs),
+    ]);
+    const artifactRefs = uniqueStrings(
+      normalizeArray(run?.artifacts).map((artifactRecord) => artifactRecord?.id),
+    );
+    const payloadSummary = {
+      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      event_kind: "LspDiagnosticsRepairRetryTurnCreated",
+      thread_id: threadId,
+      decision_id: decisionId,
+      action: "repair_retry",
+      status: turn?.status ?? "completed",
+      gate_event_id: gateEvent?.event_id ?? null,
+      gate_id: gateEvent?.payload_summary?.gate_id ?? null,
+      policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
+      snapshot_id: snapshotId ?? null,
+      retry_turn_id: turn?.turn_id ?? null,
+      retry_request_id: turn?.request_id ?? run?.id ?? null,
+      repair_prompt_injected: true,
+      diagnostics_mode: diagnosticsFeedback?.mode ?? "repair_retry",
+      diagnostic_status: diagnosticsFeedback?.diagnosticStatus ?? null,
+      diagnostic_count: diagnosticsFeedback?.diagnosticCount ?? null,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      rollback_refs: rollbackRefs,
+      receipt_refs: [receiptId],
+      artifact_refs: artifactRefs,
+      policy_decision_refs: policyDecisionRefs,
+      decision,
+      summary: `Diagnostics repair retry created turn ${turn?.turn_id ?? "unknown"} for ${decisionId}.`,
+    };
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turn?.turn_id ?? "",
+      item_id: `${turn?.turn_id || threadId}:item:diagnostics-repair-retry:${safeId(String(decisionId))}`,
+      idempotency_key: idempotencyKey,
+      source: operatorControlSource(request.source),
+      source_event_kind: "LspDiagnostics.RepairRetryTurnCreated",
+      event_kind: "diagnostics.repair_retry.created",
+      status: "completed",
+      actor: optionalString(request.actor) ?? "operator",
+      workspace_root: gateEvent?.workspace_root ?? this.agentForThread(threadId).cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "lsp_diagnostics_repair_retry",
+      tool_call_id: snapshotId ?? null,
+      receipt_refs: [receiptId],
+      artifact_refs: artifactRefs,
+      policy_decision_refs: policyDecisionRefs,
+      rollback_refs: rollbackRefs,
+      payload_schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
   }
 
   resolveDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
@@ -3557,6 +3736,15 @@ export class AgentgresRuntimeStateStore {
         snapshot_id: snapshotId,
         workflow_graph_id: workflowGraphId,
         workflow_node_id: workflowNodeId,
+        repair_retry_event_id: action === "repair_retry" ? executionResult?.event?.event_id ?? null : null,
+        repair_retry_turn_id:
+          action === "repair_retry"
+            ? executionResult?.repair_turn?.turn_id ?? executionResult?.repairTurn?.turn_id ?? null
+            : null,
+        repair_retry_request_id:
+          action === "repair_retry"
+            ? executionResult?.repair_turn?.request_id ?? executionResult?.repairTurn?.request_id ?? null
+            : null,
         restore_preview_event_id: action === "restore_preview" ? executionResult?.event?.event_id ?? null : null,
         restore_preview_status: executionResult?.preview_status ?? executionResult?.previewStatus ?? null,
         restore_apply_event_id: action === "restore_apply" ? executionResult?.event?.event_id ?? null : null,
@@ -10279,12 +10467,112 @@ function diagnosticsRepairApplyApprovalKey(request = {}) {
 }
 
 function diagnosticsRepairExecutionStatus(result = {}) {
+  const status = optionalString(result.status);
+  if (["blocked", "failed", "completed"].includes(status)) return status;
   const applyStatus = optionalString(result.apply_status ?? result.applyStatus);
   if (applyStatus === "blocked") return "blocked";
   if (applyStatus === "failed") return "failed";
   const previewStatus = optionalString(result.preview_status ?? result.previewStatus);
   if (previewStatus === "blocked") return "blocked";
   return "completed";
+}
+
+function diagnosticsRepairRetryFeedback({
+  threadId,
+  request = {},
+  gateEvent,
+  repairPolicy,
+  snapshotId = null,
+} = {}) {
+  const payload = gateEvent?.payload_summary ?? gateEvent?.payload ?? {};
+  const findings = normalizeArray(payload.findings);
+  const diagnosticStatus = optionalString(payload.diagnostic_status ?? payload.diagnosticStatus) ?? "findings";
+  const diagnosticCount = Number(payload.diagnostic_count ?? payload.diagnosticCount ?? findings.length) || findings.length;
+  const injectedFindingCount =
+    Number(payload.injected_finding_count ?? payload.injectedFindingCount ?? findings.length) || findings.length;
+  const omittedFindingCount = Number(payload.omitted_finding_count ?? payload.omittedFindingCount ?? 0) || 0;
+  const rollbackRefs = uniqueStrings([
+    snapshotId,
+    ...normalizeArray(payload.rollback_refs ?? payload.rollbackRefs),
+    ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
+  ]);
+  const workspaceSnapshotRefs = uniqueStrings([
+    snapshotId,
+    ...normalizeArray(payload.workspace_snapshot_refs ?? payload.workspaceSnapshotRefs),
+    ...normalizeArray(repairPolicy?.workspaceSnapshotRefs ?? repairPolicy?.workspace_snapshot_refs),
+  ]);
+  const diagnosticEventIds = uniqueStrings(normalizeArray(payload.diagnostic_event_ids ?? payload.diagnosticEventIds));
+  const receiptId =
+    optionalString(request.repair_retry_receipt_id ?? request.repairRetryReceiptId) ??
+    `receipt_lsp_diagnostics_repair_retry_context_${doctorHash(
+      `${threadId}:${gateEvent?.event_id ?? ""}:${diagnosticEventIds.join(",")}`,
+    ).slice(0, 12)}`;
+  const promptText =
+    optionalString(request.repair_prompt_text ?? request.repairPromptText) ??
+    diagnosticsPromptText({
+      diagnosticStatus,
+      mode: "repair_retry",
+      visibleFindings: findings.slice(0, LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS),
+      omittedCount: omittedFindingCount,
+    });
+  return {
+    schemaVersion: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
+    object: "ioi.runtime_lsp_diagnostics_injection",
+    injectionId: `lsp_diagnostics_repair_retry_${doctorHash(
+      `${threadId}:${gateEvent?.event_id ?? ""}:${receiptId}`,
+    ).slice(0, 16)}`,
+    threadId,
+    mode: "repair_retry",
+    blocking: false,
+    diagnosticStatus,
+    diagnosticCount,
+    injectedFindingCount,
+    omittedFindingCount,
+    findings,
+    diagnosticEventIds,
+    rollbackRefs,
+    rollback_refs: rollbackRefs,
+    workspaceSnapshotRefs,
+    workspace_snapshot_refs: workspaceSnapshotRefs,
+    sourceToolCallIds: uniqueStrings(normalizeArray(payload.source_tool_call_ids ?? payload.sourceToolCallIds)),
+    source_tool_call_ids: uniqueStrings(normalizeArray(payload.source_tool_call_ids ?? payload.sourceToolCallIds)),
+    repairPolicy,
+    repair_policy: repairPolicy,
+    receiptRefs: uniqueStrings([receiptId, ...normalizeArray(payload.receipt_refs ?? payload.receiptRefs)]),
+    receiptId,
+    summary: `Repair retry injected ${injectedFindingCount} diagnostic finding(s) into a new turn.`,
+    promptText,
+  };
+}
+
+function diagnosticsRepairRetryResultFromEvent({ threadId, event, turn = null, run = null } = {}) {
+  const payload = event?.payload_summary ?? event?.payload ?? {};
+  const repairTurn = turn ?? null;
+  return {
+    schemaVersion: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+    schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+    object: "ioi.runtime_diagnostics_repair_retry",
+    threadId,
+    thread_id: threadId,
+    status: event?.status ?? "completed",
+    turnId: repairTurn?.turn_id ?? payload.retry_turn_id ?? null,
+    turn_id: repairTurn?.turn_id ?? payload.retry_turn_id ?? null,
+    requestId: repairTurn?.request_id ?? run?.id ?? payload.retry_request_id ?? null,
+    request_id: repairTurn?.request_id ?? run?.id ?? payload.retry_request_id ?? null,
+    repairTurn,
+    repair_turn: repairTurn,
+    event,
+    repair_retry_event: event,
+    receiptRefs: normalizeArray(event?.receipt_refs),
+    receipt_refs: normalizeArray(event?.receipt_refs),
+    artifactRefs: normalizeArray(event?.artifact_refs),
+    artifact_refs: normalizeArray(event?.artifact_refs),
+    policyDecisionRefs: normalizeArray(event?.policy_decision_refs),
+    policy_decision_refs: normalizeArray(event?.policy_decision_refs),
+    rollbackRefs: normalizeArray(event?.rollback_refs),
+    rollback_refs: normalizeArray(event?.rollback_refs),
+    summary: optionalString(payload.summary) ?? "Diagnostics repair retry turn created.",
+  };
 }
 
 function workspaceRestoreApplyAllowsConflicts(request = {}) {

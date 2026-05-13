@@ -568,6 +568,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "workspace_snapshot") return "quality_ledger";
   if (event.componentKind === "restore_gate") return "hook_policy";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
+  if (event.componentKind === "lsp_diagnostics_repair_retry") return "hook_policy";
   switch (event.type) {
     case "thread_started":
     case "turn_started":
@@ -767,6 +768,7 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
   if (event.componentKind === "lsp_diagnostics_gate") return "Diagnostics blocking gate";
   if (event.componentKind === "lsp_diagnostics_repair") return "Diagnostics repair decision";
+  if (event.componentKind === "lsp_diagnostics_repair_retry") return "Diagnostics repair retry";
   if (event.toolName) return `Tool: ${event.toolName}`;
   switch (event.type) {
     case "thread_started":
