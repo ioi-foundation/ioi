@@ -10,6 +10,7 @@ use serde_json::Value;
 use std::io::{self, Write};
 
 const DEFAULT_INTERRUPT_REASON: &str = "operator requested interrupt from TUI";
+const TUI_CONTROL_STATE_SCHEMA_VERSION: &str = "ioi.agent-cli.tui-control-state.v1";
 
 pub(crate) struct TuiInteractiveSession {
     pub(crate) endpoint: String,
@@ -32,6 +33,8 @@ pub(crate) enum TuiLineCommand {
 
 pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession) -> Result<()> {
     print_tui_help();
+    let mut control_state = TuiControlState::from_session(&session);
+    print_tui_control_state(&control_state)?;
     let stdin = io::stdin();
     loop {
         print!("ioi:tui> ");
@@ -43,25 +46,83 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
         }
         match parse_tui_line_command(&line) {
             Ok(TuiLineCommand::Noop) => {}
-            Ok(TuiLineCommand::Help) => print_tui_help(),
+            Ok(TuiLineCommand::Help) => {
+                print_tui_help();
+                control_state.record_command(
+                    "help",
+                    line.trim(),
+                    "accepted",
+                    Some("help displayed"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::Resume) => {
                 handle_resume_command(&mut session).await?;
+                control_state.record_command(
+                    "resume",
+                    line.trim(),
+                    "applied",
+                    Some("thread resumed"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
             }
             Ok(TuiLineCommand::Events { since_seq }) => {
-                handle_events_command(&mut session, since_seq).await?;
+                let events = handle_events_command(&mut session, since_seq).await?;
+                control_state.record_command(
+                    "events",
+                    line.trim(),
+                    "applied",
+                    Some("events replayed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
             }
             Ok(TuiLineCommand::Interrupt { reason }) => {
-                handle_interrupt_command(&mut session, reason).await?;
+                let events = handle_interrupt_command(&mut session, reason).await?;
+                control_state.record_command(
+                    "interrupt",
+                    line.trim(),
+                    "applied",
+                    Some("turn interrupted"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
             }
             Ok(TuiLineCommand::Steer { guidance }) => {
-                handle_steer_command(&mut session, &guidance).await?;
+                let events = handle_steer_command(&mut session, &guidance).await?;
+                control_state.record_command(
+                    "steer",
+                    line.trim(),
+                    "applied",
+                    Some("turn steered"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
             }
             Ok(TuiLineCommand::Quit) => {
                 println!("line_mode_command=quit");
+                control_state.record_command(
+                    "quit",
+                    line.trim(),
+                    "accepted",
+                    Some("session closed"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
                 break;
             }
             Err(error) => {
                 println!("line_mode_error={error}");
+                control_state.record_validation_error(line.trim(), &error.to_string(), &session);
+                print_tui_control_state(&control_state)?;
             }
         }
     }
@@ -124,7 +185,7 @@ async fn handle_resume_command(session: &mut TuiInteractiveSession) -> Result<()
 async fn handle_events_command(
     session: &mut TuiInteractiveSession,
     explicit_since_seq: Option<u64>,
-) -> Result<()> {
+) -> Result<Vec<Value>> {
     let thread_id = thread_id_from_value(&session.thread)?;
     let since_seq = explicit_since_seq.or(session.next_since_seq);
     let batch = fetch_tui_event_batch(
@@ -145,13 +206,13 @@ async fn handle_events_command(
         batch.events.len()
     );
     print_events(&batch.events);
-    Ok(())
+    Ok(batch.events)
 }
 
 async fn handle_interrupt_command(
     session: &mut TuiInteractiveSession,
     reason: Option<String>,
-) -> Result<()> {
+) -> Result<Vec<Value>> {
     let thread_id = thread_id_from_value(&session.thread)?;
     let turn_id = selected_turn_id_from_values(None, None, &session.thread)?;
     let reason = reason.unwrap_or_else(|| DEFAULT_INTERRUPT_REASON.to_string());
@@ -173,7 +234,10 @@ async fn handle_interrupt_command(
     handle_events_command(session, None).await
 }
 
-async fn handle_steer_command(session: &mut TuiInteractiveSession, guidance: &str) -> Result<()> {
+async fn handle_steer_command(
+    session: &mut TuiInteractiveSession,
+    guidance: &str,
+) -> Result<Vec<Value>> {
     let thread_id = thread_id_from_value(&session.thread)?;
     let turn_id = selected_turn_id_from_values(None, None, &session.thread)?;
     let control = steer_tui_turn(
@@ -210,6 +274,133 @@ fn non_empty_string(value: &str) -> Option<String> {
         None
     } else {
         Some(trimmed.to_string())
+    }
+}
+
+struct TuiControlState {
+    thread_id: Option<String>,
+    current_turn_id: Option<String>,
+    last_cursor: Option<String>,
+    last_event_id: Option<String>,
+    command_history: Vec<Value>,
+    validation_errors: Vec<Value>,
+    sequence: u64,
+}
+
+impl TuiControlState {
+    fn from_session(session: &TuiInteractiveSession) -> Self {
+        Self {
+            thread_id: thread_id_from_value(&session.thread).ok(),
+            current_turn_id: selected_turn_id_from_values(None, None, &session.thread).ok(),
+            last_cursor: None,
+            last_event_id: None,
+            command_history: Vec::new(),
+            validation_errors: Vec::new(),
+            sequence: 0,
+        }
+    }
+
+    fn record_command(
+        &mut self,
+        command: &str,
+        raw_input: &str,
+        status: &str,
+        message: Option<&str>,
+        session: &TuiInteractiveSession,
+        events: &[Value],
+    ) {
+        self.update_from_session(session);
+        self.update_from_events(events);
+        self.sequence += 1;
+        self.command_history.push(serde_json::json!({
+            "id": format!("tui-command-{}", self.sequence),
+            "sequence": self.sequence,
+            "command": command,
+            "raw_input": raw_input,
+            "status": status,
+            "message": message,
+            "thread_id": self.thread_id.clone(),
+            "turn_id": self.current_turn_id.clone(),
+            "cursor": self.last_cursor.clone(),
+            "event_id": self.last_event_id.clone(),
+        }));
+    }
+
+    fn record_validation_error(
+        &mut self,
+        raw_input: &str,
+        message: &str,
+        session: &TuiInteractiveSession,
+    ) {
+        self.update_from_session(session);
+        self.sequence += 1;
+        self.validation_errors.push(serde_json::json!({
+            "id": format!("tui-validation-error-{}", self.sequence),
+            "sequence": self.sequence,
+            "command": raw_command_name(raw_input),
+            "raw_input": raw_input,
+            "status": "validation_error",
+            "message": message,
+            "thread_id": self.thread_id.clone(),
+            "turn_id": self.current_turn_id.clone(),
+            "cursor": self.last_cursor.clone(),
+            "event_id": self.last_event_id.clone(),
+        }));
+    }
+
+    fn update_from_session(&mut self, session: &TuiInteractiveSession) {
+        self.thread_id = thread_id_from_value(&session.thread).ok();
+        self.current_turn_id = selected_turn_id_from_values(None, None, &session.thread).ok();
+    }
+
+    fn update_from_events(&mut self, events: &[Value]) {
+        if let Some(event) = events
+            .iter()
+            .max_by_key(|event| event.pointer("/seq").and_then(Value::as_u64).unwrap_or(0))
+        {
+            let seq = event.pointer("/seq").and_then(Value::as_u64);
+            self.last_event_id = json_path_string(event, "/event_id");
+            self.last_cursor = json_path_string(event, "/cursor").or_else(|| {
+                let stream = json_path_string(event, "/event_stream_id")?;
+                Some(format!("{stream}:{}", seq?))
+            });
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        serde_json::json!({
+            "schema_version": TUI_CONTROL_STATE_SCHEMA_VERSION,
+            "surface": "tui",
+            "thread_id": self.thread_id.clone(),
+            "current_turn_id": self.current_turn_id.clone(),
+            "last_cursor": self.last_cursor.clone(),
+            "last_event_id": self.last_event_id.clone(),
+            "command_history": self.command_history.clone(),
+            "validation_errors": self.validation_errors.clone(),
+        })
+    }
+}
+
+fn print_tui_control_state(control_state: &TuiControlState) -> Result<()> {
+    println!(
+        "tui_control_state={}",
+        serde_json::to_string(&control_state.to_json())?
+    );
+    Ok(())
+}
+
+fn raw_command_name(raw_input: &str) -> Option<String> {
+    let trimmed = raw_input.trim();
+    if !trimmed.starts_with('/') {
+        return None;
+    }
+    let body = &trimmed[1..];
+    let command_end = body.find(char::is_whitespace).unwrap_or(body.len());
+    let command = body[..command_end].trim();
+    if command.is_empty() {
+        None
+    } else {
+        Some(command.to_ascii_lowercase())
     }
 }
 
@@ -250,5 +441,45 @@ mod tests {
         assert!(parse_tui_line_command("/steer").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
         assert!(parse_tui_line_command("/unknown").is_err());
+    }
+
+    #[test]
+    fn line_mode_control_state_records_history_cursor_and_validation_errors() {
+        let session = TuiInteractiveSession {
+            endpoint: "http://127.0.0.1:8765".to_string(),
+            token: None,
+            thread: serde_json::json!({
+                "thread_id": "thread_live",
+                "latest_turn_id": "turn_live",
+            }),
+            next_since_seq: Some(0),
+            follow: false,
+        };
+        let mut state = TuiControlState::from_session(&session);
+        state.record_command(
+            "events",
+            "/events 0",
+            "applied",
+            Some("events replayed"),
+            &session,
+            &[serde_json::json!({
+                "event_id": "event_live",
+                "event_stream_id": "events_thread_live",
+                "seq": 8,
+            })],
+        );
+        state.record_validation_error("/steer", "/steer requires guidance text", &session);
+        let json = state.to_json();
+
+        assert_eq!(json["schema_version"], TUI_CONTROL_STATE_SCHEMA_VERSION);
+        assert_eq!(json["thread_id"], "thread_live");
+        assert_eq!(json["current_turn_id"], "turn_live");
+        assert_eq!(json["last_cursor"], "events_thread_live:8");
+        assert_eq!(json["last_event_id"], "event_live");
+        assert_eq!(json["command_history"][0]["command"], "events");
+        assert_eq!(
+            json["validation_errors"][0]["message"],
+            "/steer requires guidance text"
+        );
     }
 }

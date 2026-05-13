@@ -375,6 +375,65 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json`.
 
+### Slice 118. 2026-05-13 - TUI control-state projection and run-inspector rows
+
+Implementation slice completed 2026-05-13, TUI control-state projection and
+React Flow run-inspector rows:
+
+- Added a TUI control-state schema around command history, current turn id,
+  last event cursor/id, and slash-command validation errors.
+- Extended `ioi agent tui --json` with `tui_control_state` so non-interactive
+  TUI sessions expose the same current-turn/cursor state as the event rows.
+- Extended daemon-backed line mode to print `tui_control_state=...` after
+  help, resume, events, interrupt, steer, quit, and validation-error paths.
+- Added React Flow/agent-ide projection helpers that normalize the TUI
+  control-state envelope into run-inspector rows with stable React Flow node
+  ids for commands and validation errors.
+- Rendered those rows in the workflow run inspector beside the runtime event
+  graph, preserving `data-*` hooks for thread, turn, cursor, event id,
+  command, validation status, and React Flow node identity.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - React Flow TUI control-state projection and run-history model tests passed.
+- `cargo test --manifest-path crates/cli/Cargo.toml --bin cli agent_tui -- --nocapture`
+  - CLI TUI route, event-row, control-state, line-mode parser, and
+    validation-error tests passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `node --test --test-name-pattern "agent CLI exposes|agent TUI thin shell is daemon-backed|agent TUI thin shell starts|agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract passed: TUI JSON and line mode emitted control-state
+    envelopes, line mode recorded `/steer` validation errors, and React Flow
+    projection rows preserved command and validation identity.
+- `node --import tsx --test --test-name-pattern "projects TUI control state|workflow run history model projects TUI control state" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - focused TUI control-state projection tests passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live runtime daemon contract syntax check passed.
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - GUI harness validation core syntax check passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `cargo check --manifest-path crates/cli/Cargo.toml --bin cli`
+  - CLI binary type-check passed.
+- `git diff --check`
+  - whitespace check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-control-state-projection`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json`.
+
+Known validation note:
+
+- `cargo test --manifest-path crates/cli/Cargo.toml agent_tui -- --nocapture`
+  attempted to compile unrelated CLI integration tests and failed on existing
+  `StartAgentParams.runtime_route_frame` initializer debt before it could
+  isolate this slice. The targeted CLI binary test above covers the touched TUI
+  command modules.
+- `node --import tsx --test apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts`
+  currently fails before this slice's run-inspector assertions on an existing
+  readiness-label source-contract assertion. The slice-specific run-inspector
+  projection and frontend build checks passed.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:

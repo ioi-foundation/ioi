@@ -93,8 +93,9 @@ Strategic snapshot as of 2026-05-13:
   KernelEvent mapping, SDK `Thread`/`Turn` wrappers, CLI `agent stream`, React
   Flow read-only event projection, a thin daemon-backed `ioi agent tui` shell,
   TUI/workflow deep-link descriptors, a daemon-backed line-mode TUI loop,
-  React Flow/TUI operator-control equivalence, and the first live controls
-  (`interrupt`, `steer`, `compact`, `fork`) all have cross-surface proofs.
+  React Flow/TUI operator-control equivalence, durable TUI control-state
+  projection rows, and the first live controls (`interrupt`, `steer`,
+  `compact`, `fork`) all have cross-surface proofs.
 - React Flow workflow-authoring can now create those same runtime-control
   requests with preserved graph/node identity through daemon SSE, SDK events,
   CLI stream output, and the read-only React Flow projection.
@@ -107,9 +108,9 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: React Flow/TUI operator-control equivalence proof
+- 2026-05-13: TUI control-state projection and run-inspector rows
 - Evidence:
-  `/tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json`
+  `/tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json`
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -122,7 +123,7 @@ Completed-slice history belongs in the companion ledgers.
 
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
-| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/interrupt`, `/steer`, and `/quit`, and prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands. | Add durable TUI control-state projection, then expand toward approvals, jobs, restore, cost/context, MCP, memory, and subagent panels. | TUI control state should be addressable from React Flow run-inspector rows without taking runtime ownership from the daemon. |
+| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/interrupt`, `/steer`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error control-state rows that React Flow can inspect. | Add the next user-facing TUI parity panel: approvals and mode/status controls, with daemon receipts and React Flow rows. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
 | P0-B | Coding tool pack | Broad runtime tools exist, but a DeepSeek-style structured coding pack is not yet complete as one governed catalog. | Inspect, patch, git diff/status, test, artifact spillover, and retrieve output without shell-only fallbacks. | Tool-pack nodes can enable/disable git/test/shell/artifact capabilities independently. |
 | P0-C | Post-edit LSP diagnostics | Diagnostics are specified, but post-edit injection is not yet a live runtime feedback loop. | File edit emits LSP diagnostic events, injects compact findings before the next model call, and degrades cleanly when the LSP is missing. | `LspDiagnosticsNode` config changes runtime warning/error injection behavior. |
 | P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
@@ -133,12 +134,12 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Add the next TUI control panel slice over the same loop: visible command
-   history, last event cursor, current turn id, and slash-command validation
-   messages that can be mirrored in React Flow run-inspector rows.
-2. Add a React Flow run-inspector projection for TUI control-state rows so
-   operators can audit slash-command history beside runtime event nodes.
-3. If TUI work reveals a missing structured tool contract, pause and land the
+1. Add a TUI approvals/mode-status control panel over the same daemon-backed
+   loop: pending approvals, current mode/trust posture, and explicit accept or
+   reject actions with receipts.
+2. Mirror those approval/mode rows into the React Flow run inspector beside the
+   runtime event graph and TUI control-state rows.
+3. If approvals expose a missing structured tool contract, pause and land the
    smallest P0-B coding tool-pack contract needed for that TUI path.
 4. Continue settings harness cleanup only as maintenance, gated by a concrete
    parity slice dependency or a source-contract bloat guard failure.
@@ -1674,10 +1675,10 @@ adding more infrastructure by default.
 
 Next runtime implementation sequence:
 
-1. Add the first durable TUI control-state projection: command history, current
-   turn, last cursor, and validation/error rows addressable from React Flow.
-2. Add a React Flow run-inspector view of TUI control-state rows and prove it
-   stays consistent with the daemon event stream.
+1. Add TUI approvals and mode/status controls: pending approval rows, current
+   trust/mode posture, and accept/reject commands that emit daemon receipts.
+2. Add a React Flow run-inspector view of TUI approval/mode rows and prove it
+   stays consistent with the daemon event stream and control-state projection.
 3. Close any blocking P0-B coding tool-pack contract gaps discovered by the TUI
    path. Prefer one structured tool contract at a time over broad shell
    fallback behavior.

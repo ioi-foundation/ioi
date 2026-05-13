@@ -61,6 +61,7 @@ export function WorkflowRunsPanel({
     harnessComparisons,
     timelineEvents,
     runtimeEventProjection,
+    tuiControlStateProjection,
   } = model;
 
   return (
@@ -432,6 +433,77 @@ export function WorkflowRunsPanel({
                     ))}
                 </ol>
               ) : null}
+            </section>
+          ) : null}
+          {tuiControlStateProjection.rowCount > 0 ? (
+            <section
+              className="workflow-run-tui-control-state"
+              data-testid="workflow-run-tui-control-state"
+              data-schema-version={tuiControlStateProjection.schemaVersion}
+              data-source-schema-version={
+                tuiControlStateProjection.sourceSchemaVersion ?? ""
+              }
+              data-thread-id={tuiControlStateProjection.threadId ?? ""}
+              data-current-turn-id={
+                tuiControlStateProjection.currentTurnId ?? ""
+              }
+              data-last-cursor={tuiControlStateProjection.lastCursor ?? ""}
+              data-last-event-id={tuiControlStateProjection.lastEventId ?? ""}
+              data-command-count={tuiControlStateProjection.commandCount}
+              data-validation-error-count={
+                tuiControlStateProjection.validationErrorCount
+              }
+            >
+              <h4>TUI control state</h4>
+              <div
+                className="workflow-run-runtime-event-summary"
+                data-testid="workflow-run-tui-control-state-summary"
+              >
+                <span>{tuiControlStateProjection.commandCount} commands</span>
+                <span>
+                  {tuiControlStateProjection.validationErrorCount} validation
+                </span>
+                <span>
+                  {tuiControlStateProjection.currentTurnId ?? "no active turn"}
+                </span>
+              </div>
+              <ol
+                className="workflow-run-tui-control-state-rows"
+                data-testid="workflow-run-tui-control-state-rows"
+              >
+                {tuiControlStateProjection.rows.slice(-8).map((row) => (
+                  <li
+                    key={row.id}
+                    className={`workflow-run-tui-control-state-row is-${row.status}`}
+                    data-testid={`workflow-run-tui-control-state-row-${row.id}`}
+                    data-row-kind={row.rowKind}
+                    data-row-status={row.status}
+                    data-command={row.command ?? ""}
+                    data-raw-input={row.rawInput ?? ""}
+                    data-thread-id={row.threadId ?? ""}
+                    data-turn-id={row.turnId ?? ""}
+                    data-cursor={row.cursor ?? ""}
+                    data-event-id={row.eventId ?? ""}
+                    data-react-flow-node-id={row.reactFlowNodeId}
+                    data-sequence={row.sequence ?? ""}
+                    tabIndex={0}
+                    aria-label={`${row.label} ${accessibleStatusLabel(row.status)}`}
+                  >
+                    <strong>{row.label}</strong>
+                    <span>
+                      {row.message ??
+                        row.rawInput ??
+                        row.cursor ??
+                        row.threadId ??
+                        "state captured"}
+                    </span>
+                    <small>
+                      {row.cursor ?? "cursor pending"}
+                      {row.turnId ? ` · ${row.turnId}` : ""}
+                    </small>
+                  </li>
+                ))}
+              </ol>
             </section>
           ) : null}
           {harnessAttempts.length > 0 ? (
