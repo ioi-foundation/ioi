@@ -116,6 +116,17 @@ export {
   createRuntimeContextBudgetControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-context-budget-control-nodes";
 export {
+  RUNTIME_COMPACTION_POLICY_COMPONENT_KIND,
+  RUNTIME_COMPACTION_POLICY_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+  RUNTIME_COMPACTION_POLICY_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_COMPACTION_POLICY_SOURCE,
+  RUNTIME_COMPACTION_POLICY_SOURCE_EVENT_KIND,
+  RUNTIME_COMPACTION_POLICY_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_COMPACTION_POLICY_CONTROL_SCHEMA_VERSION,
+  createRuntimeCompactionPolicyControlRequest,
+  createRuntimeCompactionPolicyControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-compaction-policy-control-nodes";
+export {
   RUNTIME_USAGE_METER_COMPONENT_KIND,
   RUNTIME_USAGE_METER_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_USAGE_METER_SOURCE,
@@ -437,6 +448,13 @@ export type {
   RuntimeContextBudgetScope,
   RuntimeContextBudgetWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-context-budget-control-nodes";
+export type {
+  RuntimeCompactionPolicyAction,
+  RuntimeCompactionPolicyControlRequest,
+  RuntimeCompactionPolicyControlRequestBody,
+  RuntimeCompactionPolicyControlRequestInput,
+  RuntimeCompactionPolicyWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-compaction-policy-control-nodes";
 export type {
   RuntimeUsageMeterControlMetadata,
   RuntimeUsageMeterControlRequest,

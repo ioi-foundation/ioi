@@ -74,6 +74,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "runtime_usage_meter";
     case "runtime_context_budget":
       return "runtime_context_budget";
+    case "runtime_compaction_policy":
+      return "runtime_compaction_policy";
     case "runtime_rollback_snapshot":
       return "runtime_rollback_snapshot";
     case "runtime_restore_gate":

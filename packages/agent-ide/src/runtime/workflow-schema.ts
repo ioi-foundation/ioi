@@ -80,6 +80,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_context_compact" ||
       node.type === "runtime_usage_meter" ||
       node.type === "runtime_context_budget" ||
+      node.type === "runtime_compaction_policy" ||
       node.type === "runtime_rollback_snapshot" ||
       node.type === "runtime_restore_gate" ||
       node.type === "runtime_diagnostics_repair" ||
@@ -239,6 +240,28 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
       },
     };
   }
+  if (node.type === "runtime_compaction_policy") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        action: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        turnId: { type: ["string", "null"] },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeCompactionPolicy: { type: "object" },
+        receiptRefs: { type: "array", items: { type: "string" } },
+        policyDecisionRefs: { type: "array", items: { type: "string" } },
+      },
+    };
+  }
   if (node.type === "runtime_rollback_snapshot") {
     return {
       type: "object",
@@ -391,6 +414,21 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         maxTotalTokens: { type: "number" },
         maxCostUsd: { type: "number" },
         maxContextPressure: { type: "number" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_compaction_policy") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        turnId: { type: "string" },
+        runtimeContextBudget: { type: "object" },
+        compactionPolicyAction: { type: "string" },
+        approvalGranted: { type: "boolean" },
+        executeCompaction: { type: "boolean" },
+        compactReason: { type: "string" },
         workflowGraphId: { type: "string" },
       },
     };

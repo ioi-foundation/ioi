@@ -5897,6 +5897,177 @@ test("React Flow context budget workflow node evaluates daemon telemetry policy"
   }
 });
 
+test("React Flow compaction policy workflow node drives approved compaction", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeCompactionPolicyControlRequestFromWorkflowNode,
+    createRuntimeContextBudgetControlRequestFromWorkflowNode,
+    createRuntimeUsageMeterControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-compaction-policy-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-compaction-policy-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        prompt: "Produce compaction policy evidence for a workflow-authored actuator node.",
+        mode: "send",
+      }),
+    });
+    const workflowGraphId = "workflow.react-flow.compaction-policy";
+    const usageRequest = createRuntimeUsageMeterControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-usage-meter",
+        type: "runtime_usage_meter",
+        config: {
+          logic: {
+            runtimeUsageMeterScope: "thread",
+            runtimeUsageMeterThreadIdField: "threadId",
+            runtimeUsageMeterWorkflowNodeId: "runtime.usage-meter",
+          },
+        },
+      },
+      { threadId: thread.thread_id },
+      { workflowGraphId },
+    );
+    const usageTelemetry = await fetchJson(`${daemon.endpoint}${usageRequest.endpoint}`);
+    assert.ok(usageTelemetry.total_tokens >= turn.usage.total_tokens);
+
+    const budgetRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-context-budget",
+        type: "runtime_context_budget",
+        config: {
+          logic: {
+            runtimeContextBudgetScope: "thread",
+            runtimeContextBudgetThreadIdField: "threadId",
+            runtimeContextBudgetUsageField: "usageTelemetry",
+            runtimeContextBudgetMode: "block",
+            runtimeContextBudgetMaxTotalTokens: 1,
+            runtimeContextBudgetWorkflowNodeId: "runtime.context-budget",
+          },
+        },
+      },
+      { threadId: thread.thread_id, usageTelemetry },
+      { workflowGraphId },
+    );
+    const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
+      method: budgetRequest.method,
+      body: JSON.stringify(budgetRequest.body),
+    });
+    assert.equal(budgetResult.status, "blocked");
+
+    const policyRequest = createRuntimeCompactionPolicyControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-compaction-policy",
+        type: "runtime_compaction_policy",
+        config: {
+          logic: {
+            runtimeCompactionPolicyThreadIdField: "threadId",
+            runtimeCompactionPolicyTurnIdField: "turnId",
+            runtimeCompactionPolicyContextBudgetField: "runtimeContextBudget",
+            runtimeCompactionPolicyBlockedAction: "compact",
+            runtimeCompactionPolicyApprovalRequired: true,
+            runtimeCompactionPolicyApprovalGrantedField: "approvalGranted",
+            runtimeCompactionPolicyExecuteCompactionField: "executeCompaction",
+            runtimeCompactionPolicyCompactReason:
+              "approved context-budget policy requested compaction",
+            runtimeCompactionPolicyCompactWorkflowNodeId: "runtime.context-compact",
+            runtimeCompactionPolicyWorkflowNodeId: "runtime.compaction-policy",
+          },
+        },
+      },
+      {
+        threadId: thread.thread_id,
+        turnId: turn.turn_id,
+        runtimeContextBudget: budgetResult,
+        approvalGranted: true,
+        executeCompaction: true,
+      },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(policyRequest.nodeType, "runtime_compaction_policy");
+    assert.equal(policyRequest.body.policy.blockedAction, "compact");
+    assert.equal(policyRequest.body.policy.approvalRequired, true);
+    assert.equal(policyRequest.body.policy.approvalGranted, true);
+    assert.equal(policyRequest.body.policy.executeCompaction, true);
+    assert.equal(policyRequest.body.contextBudgetStatus, "blocked");
+
+    const policyResult = await fetchJson(`${daemon.endpoint}${policyRequest.endpoint}`, {
+      method: policyRequest.method,
+      body: JSON.stringify(policyRequest.body),
+    });
+    assert.equal(policyResult.schema_version, "ioi.runtime.compaction-policy.v1");
+    assert.equal(policyResult.status, "compacted");
+    assert.equal(policyResult.action, "compact");
+    assert.equal(policyResult.budget_status, "blocked");
+    assert.equal(policyResult.approval_required, true);
+    assert.equal(policyResult.approval_satisfied, true);
+    assert.equal(policyResult.execute_compaction, true);
+    assert.equal(policyResult.compaction_executed, true);
+    assert.equal(policyResult.workflow_graph_id, workflowGraphId);
+    assert.equal(policyResult.workflow_node_id, "runtime.compaction-policy");
+    assert.equal(policyResult.compact_workflow_node_id, "runtime.context-compact");
+    assert.ok(policyResult.compaction_event_id);
+    assert.ok(policyResult.receipt_refs[0].startsWith("receipt_compaction_policy_"));
+    assert.ok(policyResult.policy_decision_refs[0].startsWith("policy_compaction_"));
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const policyEvent = daemonEvents.find(
+      (event) => event.event_id === policyResult.event_id,
+    );
+    const compactEvent = daemonEvents.find(
+      (event) => event.event_id === policyResult.compaction_event_id,
+    );
+    assert.ok(policyEvent);
+    assert.ok(compactEvent);
+    assert.equal(policyEvent.event_kind, "compaction_policy.evaluated");
+    assert.equal(policyEvent.source_event_kind, "RuntimeCompactionPolicy.Evaluate");
+    assert.equal(policyEvent.component_kind, "compaction_policy");
+    assert.equal(policyEvent.workflow_node_id, "runtime.compaction-policy");
+    assert.equal(policyEvent.payload_summary.action, "compact");
+    assert.equal(policyEvent.payload_summary.compaction_executed, true);
+    assert.equal(compactEvent.event_kind, "context.compacted");
+    assert.equal(compactEvent.component_kind, "context_compaction");
+    assert.equal(compactEvent.workflow_node_id, "runtime.context-compact");
+    assert.equal(compactEvent.payload.reason, "approved context-budget policy requested compaction");
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkPolicyEvent = sdkEvents.find((event) => event.id === policyEvent.event_id);
+    assert.ok(sdkPolicyEvent);
+    assert.equal(sdkPolicyEvent.type, "compaction_policy_evaluated");
+    assert.equal(sdkPolicyEvent.componentKind, "compaction_policy");
+    assert.equal(sdkPolicyEvent.workflowNodeId, "runtime.compaction-policy");
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const policyNode = projection.nodes.find((node) =>
+      node.eventIds.includes(policyEvent.event_id),
+    );
+    const compactNode = projection.nodes.find((node) =>
+      node.eventIds.includes(compactEvent.event_id),
+    );
+    assert.equal(policyNode?.nodeKind, "runtime_compaction_policy");
+    assert.equal(policyNode?.componentKind, "compaction_policy");
+    assert.equal(compactNode?.nodeKind, "runtime_context_compact");
+    assert.equal(compactNode?.componentKind, "context_compaction");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
@@ -9337,6 +9508,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeCompactionPolicyControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
+    ),
+    "utf8",
+  );
   const runtimeDaemon = fs.readFileSync(
     path.join(root, "packages/runtime-daemon/src/index.mjs"),
     "utf8",
@@ -9952,22 +10130,33 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeContextBudgetControlNodes, /runtime_context_budget/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
+  assert.match(workflowRuntimeCompactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeCompactionPolicyControlNodes, /runtime_compaction_policy/);
+  assert.match(workflowRuntimeCompactionPolicyControlNodes, /RuntimeCompactionPolicy\.Evaluate/);
+  assert.match(workflowRuntimeCompactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);
   assert.match(nodeRegistry, /creatorId: "usage\.meter"/);
   assert.match(nodeRegistry, /creatorId: "context\.budget"/);
+  assert.match(nodeRegistry, /creatorId: "compaction\.policy"/);
   assert.match(nodeRegistry, /RuntimeUsageMeterNode/);
   assert.match(nodeRegistry, /RuntimeContextBudgetNode/);
+  assert.match(nodeRegistry, /RuntimeCompactionPolicyNode/);
   assert.match(nodeRegistry, /runtimeUsageMeterSimulationMode/);
   assert.match(nodeRegistry, /runtimeContextBudgetMaxContextPressure/);
+  assert.match(nodeRegistry, /runtimeCompactionPolicyBlockedAction/);
   assert.match(graphTypes, /runtime_usage_meter/);
   assert.match(graphTypes, /runtime_context_budget/);
+  assert.match(graphTypes, /runtime_compaction_policy/);
   assert.match(workflowRuntimeUiStrings, /runtime_usage_meter/);
   assert.match(workflowRuntimeUiStrings, /runtime_context_budget/);
+  assert.match(workflowRuntimeUiStrings, /runtime_compaction_policy/);
   assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
   assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
   assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);
   assert.match(runtimeDaemon, /\/v1\/usage/);
   assert.match(runtimeDaemon, /\/v1\/context-budget/);
   assert.match(runtimeDaemon, /evaluateContextBudget/);
+  assert.match(runtimeDaemon, /action === "compaction-policy"/);
+  assert.match(runtimeDaemon, /evaluateCompactionPolicy/);
   assert.match(runtimeDaemon, /usage_final/);
   assert.match(runtimeUsageTelemetry, /RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/);
   assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForRun/);

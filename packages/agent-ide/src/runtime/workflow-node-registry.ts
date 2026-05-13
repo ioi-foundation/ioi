@@ -1331,6 +1331,158 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: {},
   },
   {
+    type: "runtime_compaction_policy",
+    label: "Runtime Compaction Policy",
+    group: "Flow",
+    family: "flow_control",
+    token: "CP",
+    familyLabel: "Runtime",
+    metricLabel: "Compact",
+    metricValue: "policy",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["budget"],
+    outputs: ["action", "status"],
+    portDefinitions: [
+      port("budget", "Budget policy", "input", "state", "state", false, "state"),
+      port("action", "Compaction action", "output", "state", "output", false, "state"),
+      port("status", "Policy status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("budget", "Budget policy", "input", "state", "state", false, "state"),
+      port("action", "Compaction action", "output", "state", "output", false, "state"),
+      port("status", "Policy status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeCompactionPolicyEndpoint",
+        "runtimeCompactionPolicyThreadIdField",
+        "runtimeCompactionPolicyWorkflowNodeId",
+      ],
+      properties: {
+        runtimeCompactionPolicyEndpoint: { type: "string" },
+        runtimeCompactionPolicyField: { type: "string" },
+        runtimeCompactionPolicyActionField: { type: "string" },
+        runtimeCompactionPolicyEventField: { type: "string" },
+        runtimeCompactionPolicyStatusField: { type: "string" },
+        runtimeCompactionPolicyThreadId: { type: "string" },
+        runtimeCompactionPolicyThreadIdField: { type: "string" },
+        runtimeCompactionPolicyTurnId: { type: "string" },
+        runtimeCompactionPolicyTurnIdField: { type: "string" },
+        runtimeCompactionPolicyContextBudgetField: { type: "string" },
+        runtimeCompactionPolicyContextBudgetStatus: { type: "string" },
+        runtimeCompactionPolicyContextBudgetStatusField: { type: "string" },
+        runtimeCompactionPolicyOkAction: {
+          type: "string",
+          enum: ["noop", "warn", "compact", "stop", "approval_required"],
+        },
+        runtimeCompactionPolicyOkActionField: { type: "string" },
+        runtimeCompactionPolicyWarnAction: {
+          type: "string",
+          enum: ["noop", "warn", "compact", "stop", "approval_required"],
+        },
+        runtimeCompactionPolicyWarnActionField: { type: "string" },
+        runtimeCompactionPolicyBlockedAction: {
+          type: "string",
+          enum: ["noop", "warn", "compact", "stop", "approval_required"],
+        },
+        runtimeCompactionPolicyBlockedActionField: { type: "string" },
+        runtimeCompactionPolicyApprovalRequired: { type: "boolean" },
+        runtimeCompactionPolicyApprovalRequiredField: { type: "string" },
+        runtimeCompactionPolicyApprovalGranted: { type: "boolean" },
+        runtimeCompactionPolicyApprovalGrantedField: { type: "string" },
+        runtimeCompactionPolicyExecuteCompaction: { type: "boolean" },
+        runtimeCompactionPolicyExecuteCompactionField: { type: "string" },
+        runtimeCompactionPolicyCompactReason: { type: "string" },
+        runtimeCompactionPolicyCompactReasonField: { type: "string" },
+        runtimeCompactionPolicyCompactScope: { type: "string" },
+        runtimeCompactionPolicyCompactScopeField: { type: "string" },
+        runtimeCompactionPolicyCompactWorkflowNodeId: { type: "string" },
+        runtimeCompactionPolicyWorkflowNodeId: { type: "string" },
+        runtimeCompactionPolicySource: { type: "string" },
+        runtimeCompactionPolicyActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_compaction_policy"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_compaction_policy",
+      "runtimeCompactionPolicy.status",
+    ),
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_compaction_policy",
+      executorId: "workflow.runtime_compaction_policy",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_compaction_policy",
+        "runtimeCompactionPolicy.status",
+      ),
+      runtimeCompactionPolicyEndpoint:
+        "/v1/threads/{threadId}/compaction-policy",
+      runtimeCompactionPolicyField: "runtimeCompactionPolicy",
+      runtimeCompactionPolicyActionField: "runtimeCompactionPolicy.action",
+      runtimeCompactionPolicyEventField: "runtimeCompactionPolicy.event",
+      runtimeCompactionPolicyStatusField: "runtimeCompactionPolicy.status",
+      runtimeCompactionPolicyThreadIdField: "threadId",
+      runtimeCompactionPolicyTurnIdField: "turnId",
+      runtimeCompactionPolicyContextBudgetField: "runtimeContextBudget",
+      runtimeCompactionPolicyContextBudgetStatusField:
+        "runtimeContextBudget.status",
+      runtimeCompactionPolicyOkAction: "noop",
+      runtimeCompactionPolicyWarnAction: "warn",
+      runtimeCompactionPolicyBlockedAction: "compact",
+      runtimeCompactionPolicyApprovalRequired: false,
+      runtimeCompactionPolicyApprovalGranted: false,
+      runtimeCompactionPolicyExecuteCompaction: false,
+      runtimeCompactionPolicyCompactReason:
+        "Compact thread context from React Flow compaction policy.",
+      runtimeCompactionPolicyCompactScope: "thread",
+      runtimeCompactionPolicyCompactWorkflowNodeId: "runtime.context-compact",
+      runtimeCompactionPolicyWorkflowNodeId: "runtime.compaction-policy",
+      runtimeCompactionPolicySource: "react_flow",
+      runtimeCompactionPolicyActor: "operator",
+      readOnly: true,
+      dryRun: true,
+      mutationExecuted: false,
+      redactionProfile: "runtime_compaction_policy_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeCompactionPolicy: { type: "object" },
+          status: { type: "string" },
+          action: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: "string" },
+          turnId: { type: ["string", "null"] },
+          endpoint: { type: "string" },
+          request: { type: "object" },
+          receiptRefs: { type: "array", items: { type: "string" } },
+          policyDecisionRefs: { type: "array", items: { type: "string" } },
+        },
+      },
+      activationGate: {
+        consumesRuntimeCompactionPolicy: true,
+        runtimeCompactionPolicyField: "runtimeCompactionPolicy",
+        runtimeCompactionPolicyStatusField: "runtimeCompactionPolicy.status",
+      },
+      nodeTypeLabel: "RuntimeCompactionPolicyNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.context.compaction_policy"] },
+  },
+  {
     type: "runtime_rollback_snapshot",
     label: "Runtime Rollback Snapshot",
     group: "Flow",
@@ -4610,6 +4762,34 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       runtimeContextBudgetActor: "operator",
     },
   });
+  const compactionPolicy = creatorDefinition("runtime_compaction_policy", {
+    creatorId: "compaction.policy",
+    label: "Compaction policy",
+    description:
+      "Turn context-budget decisions into daemon-owned warn, compact, stop, or approval-required actions.",
+    metricValue: "policy",
+    defaultLogic: {
+      runtimeCompactionPolicyEndpoint:
+        "/v1/threads/{threadId}/compaction-policy",
+      runtimeCompactionPolicyThreadIdField: "threadId",
+      runtimeCompactionPolicyTurnIdField: "turnId",
+      runtimeCompactionPolicyContextBudgetField: "runtimeContextBudget",
+      runtimeCompactionPolicyContextBudgetStatusField:
+        "runtimeContextBudget.status",
+      runtimeCompactionPolicyOkAction: "noop",
+      runtimeCompactionPolicyWarnAction: "warn",
+      runtimeCompactionPolicyBlockedAction: "compact",
+      runtimeCompactionPolicyApprovalRequired: false,
+      runtimeCompactionPolicyApprovalGranted: false,
+      runtimeCompactionPolicyExecuteCompaction: false,
+      runtimeCompactionPolicyCompactReason:
+        "Compact thread context from React Flow compaction policy.",
+      runtimeCompactionPolicyCompactScope: "thread",
+      runtimeCompactionPolicyCompactWorkflowNodeId: "runtime.context-compact",
+      runtimeCompactionPolicyWorkflowNodeId: "runtime.compaction-policy",
+      runtimeCompactionPolicyActor: "operator",
+    },
+  });
   const mcpStatus = creatorDefinition("state", {
     creatorId: "mcp.status",
     label: "MCP status",
@@ -5102,6 +5282,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelEvaluator,
     usageMeter,
     contextBudget,
+    compactionPolicy,
     stateRead,
     mcpStatus,
     mcpToolSearch,
@@ -5148,6 +5329,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           "skill_context",
           "runtime_usage_meter",
           "runtime_context_budget",
+          "runtime_compaction_policy",
         ].includes(definition.type),
     ).map((definition) =>
       creatorDefinition(definition.type, {
@@ -5264,11 +5446,13 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
     case "runtime_context_compact":
       return ["runtime_operator_steer", "decision", "verifier", "output"];
     case "runtime_usage_meter":
-      return ["runtime_context_budget", "runtime_context_compact", "budget_gate", "decision", "output"];
+      return ["runtime_context_budget", "runtime_compaction_policy", "runtime_context_compact", "budget_gate", "decision", "output"];
     case "runtime_context_budget":
-      return ["runtime_context_compact", "decision", "output"];
+      return ["runtime_compaction_policy", "runtime_context_compact", "decision", "output"];
+    case "runtime_compaction_policy":
+      return ["runtime_context_compact", "human_gate", "decision", "output"];
     case "runtime_rollback_snapshot":
-      return ["runtime_context_compact", "runtime_usage_meter", "runtime_context_budget", "decision", "verifier", "output"];
+      return ["runtime_context_compact", "runtime_usage_meter", "runtime_context_budget", "runtime_compaction_policy", "decision", "verifier", "output"];
     case "runtime_restore_gate":
       return ["runtime_rollback_snapshot", "human_gate", "decision", "output"];
     case "runtime_diagnostics_repair":
@@ -5379,6 +5563,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_context_compact" ||
     type === "runtime_usage_meter" ||
     type === "runtime_context_budget" ||
+    type === "runtime_compaction_policy" ||
     type === "runtime_rollback_snapshot" ||
     type === "runtime_restore_gate" ||
     type === "runtime_diagnostics_repair" ||

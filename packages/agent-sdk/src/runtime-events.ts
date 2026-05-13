@@ -222,6 +222,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "turn_steered";
     case "context.compacted":
       return "context_compacted";
+    case "compaction_policy.evaluated":
+      return "compaction_policy_evaluated";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -275,6 +277,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "turn.steered";
     case "context_compacted":
       return "context.compacted";
+    case "compaction_policy_evaluated":
+      return "compaction_policy.evaluated";
     case "error":
       return "turn.failed";
     default:
@@ -294,6 +298,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "thread_forked") return "thread_fork";
   if (type === "interrupted" || type === "steered") return "operator_control";
   if (type === "context_compacted") return "context_compaction";
+  if (type === "compaction_policy_evaluated") return "compaction_policy";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -305,6 +310,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "runtime.operator-interrupt";
   if (type === "steered") return "runtime.operator-steer";
   if (type === "context_compacted") return "runtime.context-compact";
+  if (type === "compaction_policy_evaluated") return "runtime.compaction-policy";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
@@ -316,6 +322,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "OperatorControl.Interrupt";
   if (type === "steered") return "OperatorControl.Steer";
   if (type === "context_compacted") return "OperatorControl.Compact";
+  if (type === "compaction_policy_evaluated") return "RuntimeCompactionPolicy.Evaluate";
   return `run.${type}`;
 }
 
@@ -323,6 +330,7 @@ function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string 
   if (type === "thread_forked") return "ioi.runtime.thread-fork.v1";
   if (type === "interrupted" || type === "steered") return "ioi.runtime.operator-control.v1";
   if (type === "context_compacted") return "ioi.runtime.context-compaction.v1";
+  if (type === "compaction_policy_evaluated") return "ioi.runtime.compaction-policy.v1";
   return "ioi.agent-sdk.event.v1";
 }
 

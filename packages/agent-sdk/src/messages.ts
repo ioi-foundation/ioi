@@ -23,6 +23,7 @@ export type IOISDKMessageType =
   | "interrupted"
   | "steered"
   | "context_compacted"
+  | "compaction_policy_evaluated"
   | "error";
 
 export interface IOISDKMessage {
@@ -148,6 +149,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "turn_interrupted",
   "turn_steered",
   "context_compacted",
+  "compaction_policy_evaluated",
   "reasoning_delta",
   "tool_completed",
   "tool_failed",
