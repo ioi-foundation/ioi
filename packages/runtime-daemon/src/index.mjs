@@ -48,8 +48,10 @@ const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
+const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
 const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
+const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
 const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
 const LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS = 240;
 const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
@@ -75,6 +77,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   hook_invocation_ledger: "item.completed",
   memory_update: "item.completed",
   lsp_diagnostics_injected: "lsp.diagnostics.injected",
+  policy_blocked: "policy.blocked",
   task_state: "item.completed",
   uncertainty: "item.completed",
   probe: "item.completed",
@@ -1212,6 +1215,18 @@ export class AgentgresRuntimeStateStore {
   async createTurn(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
     const diagnosticsFeedback = this.pendingDiagnosticsFeedbackForNextTurn(threadId, request);
+    if (diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) {
+      const prompt = request.prompt ?? request.message ?? request.input ?? "";
+      const run = this.createRun(agent.id, {
+        mode: request.mode ?? "send",
+        prompt,
+        options: request.options ?? {},
+        memory: request.memory,
+        remember: request.remember,
+        diagnosticsFeedback,
+      });
+      return this.turnForRun(run);
+    }
     if (isRuntimeBackedAgent(agent)) {
       return this.createRuntimeBridgeTurn({
         agent,
@@ -5128,6 +5143,8 @@ function buildRun({
 }) {
   const runId = `run_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
+  const diagnosticsBlockingGate = diagnosticsBlockingGateForFeedback(diagnosticsFeedback);
+  const runStatus = diagnosticsBlockingGate ? "blocked" : "completed";
   const taskFamily = taskFamilyForMode(mode);
   const selectedStrategy = strategyForMode(mode);
   const toolSequence = capabilitySequenceForMode(mode, agent);
@@ -5169,23 +5186,23 @@ function buildRun({
     activeSkillHookManifest,
     createdAt,
     updatedAt: createdAt,
-    status: "completed",
+    status: runStatus,
   });
   let runtimeJob = runtimeJobRecord({
     runtimeTask,
     agent,
-    status: "completed",
+    status: runStatus,
     createdAt,
     updatedAt: createdAt,
     queuedAt: createdAt,
     startedAt: createdAt,
-    completedAt: createdAt,
-    lifecycle: ["queued", "started", "completed"],
+    completedAt: diagnosticsBlockingGate ? null : createdAt,
+    lifecycle: diagnosticsBlockingGate ? ["queued", "started", "blocked"] : ["queued", "started", "completed"],
   });
   const runtimeChecklist = runtimeChecklistRecord({
     runtimeTask,
     runtimeJob,
-    status: "completed",
+    status: runStatus,
     createdAt,
     updatedAt: createdAt,
   });
@@ -5284,12 +5301,22 @@ function buildRun({
             `Post-edit diagnostics: status=${diagnosticsFeedback.diagnosticStatus}, findings=${diagnosticsFeedback.diagnosticCount}, mode=${diagnosticsFeedback.mode}`,
           ]
         : []),
+      ...(diagnosticsBlockingGate
+        ? [
+            `Post-edit diagnostics blocking gate: id=${diagnosticsBlockingGate.gateId}, status=${diagnosticsBlockingGate.status}, decision=${diagnosticsBlockingGate.decision}`,
+          ]
+        : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
     assumptions: [],
-    constraints: ["No GUI internals", "No raw receipt dump", "No policy bypass"],
-    blockers: [],
+    constraints: [
+      "No GUI internals",
+      "No raw receipt dump",
+      "No policy bypass",
+      ...(diagnosticsBlockingGate ? ["No model continuation while blocking diagnostics have findings"] : []),
+    ],
+    blockers: diagnosticsBlockingGate ? [diagnosticsBlockingGate.summary] : [],
     changedObjects: mode === "send" ? [] : [`daemon:${mode}`],
     evidenceRefs: [
       "ioi_daemon_public_runtime_api",
@@ -5308,6 +5335,9 @@ function buildRun({
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
       diagnosticsFeedback?.injectionId,
+      diagnosticsBlockingGate?.gateId,
+      diagnosticsBlockingGate?.policyDecisionId,
+      diagnosticsBlockingGate?.receiptId,
       activeSkillHookManifest.activeSkillSetHash,
       activeSkillHookManifest.activeHookSetHash,
       ...agent.options.mcpServerNames,
@@ -5337,9 +5367,13 @@ function buildRun({
   const probes = [
     {
       probeId: `${runId}:probe:canonical-replay`,
-      hypothesis: "Agentgres canonical operation log can replay the terminal run event stream.",
+      hypothesis: diagnosticsBlockingGate
+        ? "Agentgres canonical operation log can replay the blocked diagnostics gate event stream."
+        : "Agentgres canonical operation log can replay the terminal run event stream.",
       cheapestValidationAction: "Read canonical run projection and replay events by cursor.",
-      expectedObservation: "Monotonic event stream with exactly one terminal event.",
+      expectedObservation: diagnosticsBlockingGate
+        ? "Monotonic event stream with a blocked diagnostics policy event and no model output delta."
+        : "Monotonic event stream with exactly one terminal event.",
       result: "confirmed",
       confidenceUpdate: "Canonical replay and daemon stream use the same event IDs.",
     },
@@ -5350,9 +5384,11 @@ function buildRun({
     riskClass: mode === "dry_run" ? "side_effect_preview" : "bounded_local",
     checks: [
       {
-        checkId: "daemon-event-stream-terminal",
-        description: "Daemon event stream contains exactly one terminal event.",
-        status: "passed",
+        checkId: diagnosticsBlockingGate ? "daemon-event-stream-blocked" : "daemon-event-stream-terminal",
+        description: diagnosticsBlockingGate
+          ? "Daemon event stream is open and blocked by diagnostics policy before model continuation."
+          : "Daemon event stream contains exactly one terminal event.",
+        status: diagnosticsBlockingGate ? "blocked" : "passed",
       },
       {
         checkId: "agentgres-operation-log",
@@ -5432,10 +5468,21 @@ function buildRun({
         ? [
             {
               checkId: "post-edit-diagnostics-injected",
-              description: "Compact post-edit diagnostics were injected before this model turn continued.",
+              description: diagnosticsBlockingGate
+                ? "Compact post-edit diagnostics were injected and stopped model continuation."
+                : "Compact post-edit diagnostics were injected before this model turn continued.",
               status: diagnosticsFeedback.blocking && diagnosticsFeedback.diagnosticStatus === "findings"
                 ? "blocked"
                 : "passed",
+            },
+          ]
+        : []),
+      ...(diagnosticsBlockingGate
+        ? [
+            {
+              checkId: "post-edit-diagnostics-blocking-gate",
+              description: "Blocking diagnostics findings produced a policy gate that requires repair, advisory override, or skip before continuing.",
+              status: "blocked",
             },
           ]
         : []),
@@ -5463,6 +5510,7 @@ function buildRun({
       "hook_invocation_ledger",
       "hook_escalation_receipt",
       ...(diagnosticsFeedback ? ["lsp_diagnostics_injection"] : []),
+      ...(diagnosticsBlockingGate ? ["lsp_diagnostics_blocking_gate"] : []),
     ],
   };
   const semanticImpact = {
@@ -5509,6 +5557,7 @@ function buildRun({
       "HookInvocationLedger",
       "HookInvocationRecord",
       "HookEscalationReceipt",
+      ...(diagnosticsBlockingGate ? ["LspDiagnosticsBlockingGate"] : []),
       "RuntimeEventEnvelope",
     ],
     changedPolicies: [
@@ -5543,16 +5592,18 @@ function buildRun({
       ...(diagnosticsFeedback
         ? [`lsp.diagnostics.${diagnosticsFeedback.mode}`]
         : []),
+      ...(diagnosticsBlockingGate ? ["lsp.diagnostics.blocking_gate"] : []),
     ],
     affectedTests: ["live-runtime-daemon-contract"],
     affectedDocs: ["docs/plans/architectural-improvements-broad-master-guide.md"],
     riskClass: postconditions.riskClass,
   };
   const stopCondition = {
-    reason: "evidence_sufficient",
-    evidenceSufficient: true,
-    rationale:
-      "Daemon stream, canonical Agentgres writeback, trace export, replay, and scorecard evidence were produced.",
+    reason: diagnosticsBlockingGate ? "blocked_by_post_edit_diagnostics" : "evidence_sufficient",
+    evidenceSufficient: !diagnosticsBlockingGate,
+    rationale: diagnosticsBlockingGate
+      ? "Blocking post-edit diagnostics findings paused model continuation until repair, advisory override, or skip."
+      : "Daemon stream, canonical Agentgres writeback, trace export, replay, and scorecard evidence were produced.",
   };
   const qualityLedger = {
     ledgerId: `quality_${runId}`,
@@ -5560,23 +5611,23 @@ function buildRun({
     selectedStrategy,
     toolSequence,
     scorecardMetrics: {
-      task_pass_rate: 100,
-      recovery_success: 100,
+      task_pass_rate: diagnosticsBlockingGate ? 0 : 100,
+      recovery_success: diagnosticsBlockingGate ? 0 : 100,
       memory_relevance: mode === "learn" ? 100 : 92,
       tool_quality: 96,
       strategy_roi: 93,
-      operator_interventions: 0,
+      operator_interventions: diagnosticsBlockingGate ? 1 : 0,
       verifier_independence: 100,
     },
-    failureOntologyLabels: [],
+    failureOntologyLabels: diagnosticsBlockingGate ? ["diagnostics_blocked_continuation"] : [],
   };
   const scorecard = {
-    taskPassRate: 1,
-    recoverySuccess: 1,
+    taskPassRate: diagnosticsBlockingGate ? 0 : 1,
+    recoverySuccess: diagnosticsBlockingGate ? 0 : 1,
     memoryRelevance: mode === "learn" ? 1 : 0.92,
     toolQuality: 0.96,
     strategyRoi: 0.93,
-    operatorInterventionRate: 0,
+    operatorInterventionRate: diagnosticsBlockingGate ? 1 : 0,
     verifierIndependence: 1,
   };
   const modelRouteReceipt = modelRouteDecision
@@ -5798,6 +5849,23 @@ function buildRun({
         ],
       }
     : null;
+  const diagnosticsBlockingGateReceipt = diagnosticsBlockingGate
+    ? {
+        id: diagnosticsBlockingGate.receiptId,
+        kind: "lsp_diagnostics_blocking_gate",
+        summary: diagnosticsBlockingGate.summary,
+        redaction: "redacted",
+        evidenceRefs: [
+          diagnosticsBlockingGate.gateId,
+          diagnosticsBlockingGate.policyDecisionId,
+          diagnosticsBlockingGate.injectionId,
+          diagnosticsBlockingGate.diagnosticsReceiptId,
+          ...diagnosticsBlockingGate.diagnosticEventIds,
+          "policy.blocked",
+          "LspDiagnosticsNode",
+        ].filter(Boolean),
+      }
+    : null;
   const agentgresReceipt = {
     id: `receipt_${runId}_agentgres`,
     kind: "agentgres_canonical_write",
@@ -5830,6 +5898,7 @@ function buildRun({
     hookPolicyReceipt,
     hookInvocationReceipt,
     diagnosticsInjectionReceipt,
+    diagnosticsBlockingGateReceipt,
     ...hookEscalationReceipts,
     ...memoryWriteReceipts,
     policyReceipt,
@@ -5837,7 +5906,9 @@ function buildRun({
     agentgresReceipt,
     traceReceipt,
   ].filter(Boolean);
-  const result = resultForMode(mode, agent, prompt, source, memory);
+  const result = diagnosticsBlockingGate
+    ? diagnosticsBlockingGate.message
+    : resultForMode(mode, agent, prompt, source, memory);
   const modelInput = promptWithDiagnosticsFeedback(prompt, diagnosticsFeedback);
   const events = [];
   const addEvent = (type, summary, data) => {
@@ -5974,21 +6045,32 @@ function buildRun({
       workflowNodeId: LSP_DIAGNOSTICS_INJECTION_NODE_ID,
     });
   }
+  const diagnosticsBlockingGateEvent = diagnosticsBlockingGate
+    ? addEvent("policy_blocked", diagnosticsBlockingGate.summary, {
+        ...diagnosticsBlockingGate,
+        eventKind: "LspDiagnosticsBlockingGate",
+        receiptId: diagnosticsBlockingGateReceipt?.id ?? diagnosticsBlockingGate.receiptId,
+        workflowNodeId: LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
+        componentKind: "lsp_diagnostics_gate",
+      })
+    : null;
   addEvent("task_state", "Task state written to Agentgres", taskState);
   addEvent("uncertainty", "Uncertainty assessed", uncertainty);
   addEvent("probe", "Canonical replay probe completed", probes[0]);
   addEvent("postcondition_synthesized", "Postconditions synthesized", postconditions);
   addEvent("semantic_impact", "Semantic impact classified", semanticImpact);
-  const deltaEvent = addEvent("delta", result, { text: result });
+  const deltaEvent = diagnosticsBlockingGate ? null : addEvent("delta", result, { text: result });
   addEvent("stop_condition", "Stop condition recorded", stopCondition);
   addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
-  addEvent("job_completed", "Runtime job completed", {
-    ...runtimeJob,
-    lifecycleStatus: "completed",
-    receiptId: runtimeJobReceipt.id,
-    eventKind: "JobCompleted",
-    workflowNodeId: "runtime.runtime-job",
-  });
+  if (!diagnosticsBlockingGate) {
+    addEvent("job_completed", "Runtime job completed", {
+      ...runtimeJob,
+      lifecycleStatus: "completed",
+      receiptId: runtimeJobReceipt.id,
+      eventKind: "JobCompleted",
+      workflowNodeId: "runtime.runtime-job",
+    });
+  }
   addEvent("artifact", "Trace and scorecard artifacts recorded", {
     artifactNames: [
       "trace.json",
@@ -6007,11 +6089,14 @@ function buildRun({
       "active-skill-hook-manifest.json",
       "hook-dry-run-plan.json",
       "hook-invocations.json",
+      ...(diagnosticsBlockingGate ? ["diagnostics-blocking-gate.json"] : []),
       "scorecard.json",
       "agentgres-projection.json",
     ],
   });
-  addEvent("completed", "Run completed", { stopReason: stopCondition.reason });
+  if (!diagnosticsBlockingGate) {
+    addEvent("completed", "Run completed", { stopReason: stopCondition.reason });
+  }
   const trace = {
     schemaVersion: "ioi.agent-sdk.trace.v1",
     traceBundleId: `trace_${runId}`,
@@ -6084,6 +6169,7 @@ function buildRun({
     memoryRecords,
     memoryWrites: memoryWriteRecords,
     diagnosticsFeedback,
+    diagnosticsBlockingGate,
     subagentMemoryInheritance,
     stopCondition,
     qualityLedger,
@@ -6211,6 +6297,18 @@ function buildRun({
       hookInvocationLedger,
       "redacted",
     ),
+    ...(diagnosticsBlockingGate
+      ? [
+          artifact(
+            runId,
+            "diagnostics-blocking-gate.json",
+            "application/json",
+            diagnosticsBlockingGateReceipt.id,
+            diagnosticsBlockingGate,
+            "redacted",
+          ),
+        ]
+      : []),
     artifact(runId, "scorecard.json", "application/json", traceReceipt.id, scorecard, "none"),
     artifact(
       runId,
@@ -6228,7 +6326,8 @@ function buildRun({
   return {
     id: runId,
     agentId: agent.id,
-    status: "completed",
+    status: runStatus,
+    turnStatus: diagnosticsBlockingGate ? "waiting_for_input" : undefined,
     objective: prompt,
     mode,
     createdAt,
@@ -6236,7 +6335,9 @@ function buildRun({
     events,
     conversation: [
       { role: "user", content: modelInput, eventId: startedEvent.id, createdAt },
-      { role: "assistant", content: result, eventId: deltaEvent.id, createdAt },
+      diagnosticsBlockingGate
+        ? { role: "system", content: result, eventId: diagnosticsBlockingGateEvent?.id, createdAt }
+        : { role: "assistant", content: result, eventId: deltaEvent.id, createdAt },
     ],
     receipts,
     artifacts,
@@ -6260,6 +6361,7 @@ function buildRun({
     memoryRecords,
     memoryWriteReceipts,
     diagnosticsFeedback,
+    diagnosticsBlockingGate,
     subagentMemoryInheritance,
     result,
   };
@@ -6518,18 +6620,24 @@ function runtimeChecklistRecord({
       ? "Job canceled event emitted"
       : checklistStatus === "failed"
         ? "Job failed event emitted"
+        : checklistStatus === "blocked"
+          ? "Job blocked by policy gate"
         : "Job completed event emitted";
   const terminalEventKind =
     checklistStatus === "canceled"
       ? "JobCanceled"
       : checklistStatus === "failed"
         ? "JobFailed"
+        : checklistStatus === "blocked"
+          ? "PolicyBlocked"
         : "JobCompleted";
   const terminalItemStatus =
     checklistStatus === "canceled"
       ? "canceled"
       : checklistStatus === "failed"
         ? "failed"
+        : checklistStatus === "blocked"
+          ? "blocked"
         : "passed";
   const item = (suffix, label, itemStatus, evidenceRefs) => ({
     itemId: `${checklistId}:${suffix}`,
@@ -6647,6 +6755,7 @@ function runtimeChecklistRecordForRun(run) {
 function jobStatusForRunStatus(status) {
   if (status === "canceled") return "canceled";
   if (status === "failed" || status === "error") return "failed";
+  if (status === "blocked") return "blocked";
   if (status === "running" || status === "active") return "running";
   if (status === "queued" || status === "pending") return "queued";
   return "completed";
@@ -6657,6 +6766,7 @@ function jobLifecycleForStatus(status) {
   if (status === "running") return ["queued", "started"];
   if (status === "failed") return ["queued", "started", "failed"];
   if (status === "canceled") return ["queued", "started", "canceled"];
+  if (status === "blocked") return ["queued", "started", "blocked"];
   return ["queued", "started", "completed"];
 }
 
@@ -8918,6 +9028,56 @@ function promptWithDiagnosticsFeedback(prompt, diagnosticsFeedback) {
   return `${diagnosticsFeedback.promptText}\n\nUser request:\n${prompt}`;
 }
 
+function diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback) {
+  return Boolean(
+    diagnosticsFeedback?.blocking &&
+      diagnosticsFeedback?.diagnosticStatus === "findings" &&
+      Number(diagnosticsFeedback?.diagnosticCount ?? 0) > 0,
+  );
+}
+
+function diagnosticsBlockingGateForFeedback(diagnosticsFeedback) {
+  if (!diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) return null;
+  const injectionId = diagnosticsFeedback.injectionId ?? `diagnostics_${doctorHash(JSON.stringify(diagnosticsFeedback)).slice(0, 16)}`;
+  const gateId = `lsp_diagnostics_gate_${doctorHash(injectionId).slice(0, 16)}`;
+  const diagnosticCount = Number(diagnosticsFeedback.diagnosticCount ?? 0) || 0;
+  const injectedFindingCount = Number(diagnosticsFeedback.injectedFindingCount ?? diagnosticCount) || 0;
+  const summary = `Blocking diagnostics gate paused model continuation after ${diagnosticCount} finding(s).`;
+  return {
+    schemaVersion: LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION,
+    object: "ioi.runtime_lsp_diagnostics_blocking_gate",
+    gateId,
+    policyDecisionId: `policy_${gateId}`,
+    receiptId: `receipt_${gateId}`,
+    status: "blocked",
+    decision: "block_model_continuation",
+    reason: "post_edit_diagnostics_findings",
+    mode: diagnosticsFeedback.mode ?? "blocking",
+    blocking: true,
+    requiresInput: true,
+    diagnosticStatus: diagnosticsFeedback.diagnosticStatus,
+    diagnosticCount,
+    injectedFindingCount,
+    omittedFindingCount: Number(diagnosticsFeedback.omittedFindingCount ?? 0) || 0,
+    injectionId,
+    diagnosticsReceiptId: diagnosticsFeedback.receiptId ?? null,
+    diagnosticEventIds: uniqueStrings(normalizeArray(diagnosticsFeedback.diagnosticEventIds)),
+    findings: normalizeArray(diagnosticsFeedback.findings).slice(0, LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS),
+    summary,
+    message:
+      `Blocking diagnostics mode found ${diagnosticCount} post-edit diagnostic finding(s). ` +
+      "Model continuation is paused until the findings are repaired, diagnosticsMode is changed to advisory, or diagnostics are explicitly skipped.",
+    recommendedNextActions: [
+      "repair_findings",
+      "resubmit_with_diagnosticsMode_advisory",
+      "resubmit_with_diagnosticsMode_skip",
+    ],
+    workflowNodeId: LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
+    componentKind: "lsp_diagnostics_gate",
+    redaction: "lsp_diagnostics_safe",
+  };
+}
+
 function requestWithDiagnosticsFeedback(request = {}, diagnosticsFeedback = null) {
   if (!diagnosticsFeedback) return request;
   return {
@@ -9302,6 +9462,8 @@ function lifecycleStatusForRun(status) {
     case "failed":
     case "error":
       return "failed";
+    case "blocked":
+      return "waiting_for_input";
     case "completed":
     default:
       return "completed";
@@ -9312,6 +9474,8 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
   const eventKind = RUN_EVENT_TO_TTI_EVENT[event.type] ?? `item.${event.type}`;
   const payload = payloadSummaryForRunEvent(event);
   const isDiagnosticsInjection = event.type === "lsp_diagnostics_injected";
+  const isDiagnosticsBlockingGate =
+    event.type === "policy_blocked" && event.data?.reason === "post_edit_diagnostics_findings";
   return {
     schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
     event_stream_id: eventStreamIdForThread(threadId),
@@ -9319,8 +9483,12 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
     turn_id: turnId,
     item_id: `${turnId}:item:${doctorHash(event.id).slice(0, 12)}`,
     idempotency_key: `run:${event.runId}:event:${event.id}`,
-    source: isDiagnosticsInjection ? "runtime_auto" : "daemon_bridge",
-    source_event_kind: isDiagnosticsInjection ? "LspDiagnostics.Injected" : `run.${event.type}`,
+    source: isDiagnosticsInjection || isDiagnosticsBlockingGate ? "runtime_auto" : "daemon_bridge",
+    source_event_kind: isDiagnosticsInjection
+      ? "LspDiagnostics.Injected"
+      : isDiagnosticsBlockingGate
+        ? "LspDiagnostics.BlockingGate"
+        : `run.${event.type}`,
     event_kind: eventKind,
     status: runtimeEventStatusForRunEvent(event),
     actor: event.type === "delta" ? "assistant" : "runtime",
@@ -9335,7 +9503,9 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
     rollback_refs: normalizeArray(event.data?.rollbackRefs ?? event.data?.rollback_refs),
     payload_schema_version: isDiagnosticsInjection
       ? LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION
-      : RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+      : isDiagnosticsBlockingGate
+        ? LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION
+        : RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
     payload,
     payload_ref: null,
     receipt_refs: receiptRefsForRunEvent(event),
@@ -9393,6 +9563,7 @@ function runtimeEventStatusForRunEvent(event) {
   if (event.type === "lsp_diagnostics_injected") {
     return event.data?.blocking && event.data?.diagnosticStatus === "findings" ? "blocked" : "completed";
   }
+  if (event.type === "policy_blocked") return "blocked";
   if (event.type === "canceled" || event.type === "job_canceled") return "canceled";
   if (event.type === "failed" || event.type === "error" || event.type === "job_failed") return "failed";
   return "completed";
@@ -9457,6 +9628,33 @@ function payloadSummaryForRunEvent(event) {
       findings: normalizeArray(event.data?.findings),
       workflow_node_id: event.data?.workflowNodeId ?? LSP_DIAGNOSTICS_INJECTION_NODE_ID,
       redaction: "lsp_diagnostics_safe",
+    };
+  }
+  if (event.type === "policy_blocked") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "PolicyBlocked",
+      gate_id: event.data?.gateId ?? null,
+      policy_decision_id: event.data?.policyDecisionId ?? null,
+      receipt_id: event.data?.receiptId ?? null,
+      decision: event.data?.decision ?? "blocked",
+      reason: event.data?.reason ?? null,
+      status: event.data?.status ?? "blocked",
+      diagnostic_status: event.data?.diagnosticStatus ?? null,
+      diagnostic_count: event.data?.diagnosticCount ?? 0,
+      injected_finding_count: event.data?.injectedFindingCount ?? 0,
+      omitted_finding_count: event.data?.omittedFindingCount ?? 0,
+      mode: event.data?.mode ?? null,
+      blocking: Boolean(event.data?.blocking),
+      requires_input: Boolean(event.data?.requiresInput),
+      injection_id: event.data?.injectionId ?? null,
+      diagnostics_receipt_id: event.data?.diagnosticsReceiptId ?? null,
+      diagnostic_event_ids: normalizeArray(event.data?.diagnosticEventIds),
+      recommended_next_actions: normalizeArray(event.data?.recommendedNextActions),
+      findings: normalizeArray(event.data?.findings),
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      component_kind: event.data?.componentKind ?? "policy_gate",
+      redaction: event.data?.redaction ?? "policy_safe",
     };
   }
   if (event.type === "repository_context") {
@@ -9831,6 +10029,11 @@ function componentKindForRunEvent(eventOrType) {
       return "memory_write";
     case "lsp_diagnostics_injected":
       return "lsp_diagnostics";
+    case "policy_blocked":
+      if (typeof eventOrType !== "string" && eventOrType?.data?.componentKind) {
+        return eventOrType.data.componentKind;
+      }
+      return "policy_gate";
     case "task_state":
       return "task_state";
     case "uncertainty":
@@ -9876,6 +10079,7 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "github_pr_create_plan" ||
       eventOrType?.type === "memory_update" ||
       eventOrType?.type === "lsp_diagnostics_injected" ||
+      eventOrType?.type === "policy_blocked" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
       eventOrType?.type === "hook_invocation_ledger") &&
@@ -9945,6 +10149,12 @@ function receiptRefsForRunEvent(event) {
       ...normalizeArray(event.data?.receiptRefs),
     ].filter(Boolean);
   }
+  if (event.type === "policy_blocked") {
+    return [
+      event.data?.receiptId ?? event.data?.receipt_id,
+      ...normalizeArray(event.data?.receiptRefs),
+    ].filter(Boolean);
+  }
   if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];
   return [];
 }
@@ -9963,6 +10173,7 @@ function artifactRefsForRunEvent(event) {
   if (event.type === "skill_hook_manifest") return ["active-skill-hook-manifest.json"];
   if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
   if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];
+  if (event.type === "policy_blocked" && event.data?.reason === "post_edit_diagnostics_findings") return ["diagnostics-blocking-gate.json"];
   if (event.type === "artifact") return event.data?.artifactNames ?? [];
   return [];
 }
