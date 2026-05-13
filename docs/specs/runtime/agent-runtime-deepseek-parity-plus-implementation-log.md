@@ -169,8 +169,43 @@ workstream was narrower.
 | 167 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | TUI cost/context telemetry controls | /tmp/ioi-autopilot-gui-harness-tui-cost-context/2026-05-13T21-42-24-199Z/result.json |
 | 168 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | streaming usage/context-pressure deltas | /tmp/ioi-autopilot-gui-harness-streaming-usage-context/2026-05-13T22-06-08-190Z/result.json |
 | 169 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | live React Flow telemetry hydration | /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json |
+| 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 170. 2026-05-13 - Context-pressure alert/action rows
+
+Implementation slice completed 2026-05-13, P1-D alert/action rows:
+
+- Added runtime `context.pressure_alert` events whenever streaming
+  context-pressure deltas cross elevated or high thresholds, including stable
+  workflow node identity, schema version, receipt refs, policy decision refs,
+  scope, pressure status, and recommended action descriptors for turn and
+  delegated subagent aggregate pressure.
+- Extended SDK message/runtime-event mappings so alert rows replay through the
+  same thread-event stream as `usage_delta` and `context_pressure_delta`.
+- Projected alert events into React Flow `hook_policy` nodes with typed
+  `contextPressureActions`, including compact, delegate-summary,
+  request-approval, and stop action descriptors.
+- Rendered context-pressure actions in the React Flow run inspector with
+  stable data attributes for action id, scope, pressure, source event, graph,
+  node, thread, turn, and executable state.
+- Wired executable compact alert rows to the existing daemon runtime-control
+  context-compaction request path, widening the workflow runtime-control union
+  so diagnostics repair and context compaction share the same control channel.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json`.
 
 ### Slice 169. 2026-05-13 - Live React Flow telemetry hydration
 

@@ -27,6 +27,7 @@ export type WorkflowRuntimeThreadEventType =
   | "compaction_policy_evaluated"
   | "usage_delta"
   | "context_pressure_delta"
+  | "context_pressure_alert"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -41,6 +42,7 @@ export type WorkflowRuntimeProjectedStatus =
   | "queued"
   | "running"
   | "waiting"
+  | "warning"
   | "completed"
   | "failed"
   | "blocked"
@@ -114,7 +116,34 @@ export interface WorkflowRuntimeReactFlowNodeData {
   agentStatus: string | null;
   summary: string | null;
   diagnosticsRepairActions: WorkflowRuntimeDiagnosticsRepairActionDescriptor[];
+  contextPressureActions: WorkflowRuntimeContextPressureActionDescriptor[];
   tuiDeepLink: WorkflowRuntimeTuiDeepLinkDescriptor;
+}
+
+export type WorkflowRuntimeContextPressureAction =
+  | "compact"
+  | "stop"
+  | "request_approval"
+  | "delegate_summary";
+
+export interface WorkflowRuntimeContextPressureActionDescriptor {
+  id: string;
+  action: WorkflowRuntimeContextPressureAction | string;
+  label: string;
+  summary: string | null;
+  status: string;
+  executable: boolean;
+  scope: string;
+  pressure: number | null;
+  pressureStatus: string | null;
+  threadId: string;
+  turnId: string | null;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventId: string;
+  sourceEventId: string | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
 }
 
 export interface WorkflowRuntimeTuiDeepLinkDescriptor {
@@ -1741,6 +1770,8 @@ export function workflowNodeIdForRuntimeThreadEvent(
       return "runtime.usage-telemetry";
     case "context_pressure_delta":
       return "runtime.context-budget";
+    case "context_pressure_alert":
+      return "runtime.context-pressure-alert";
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -1768,6 +1799,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "restore_gate") return "hook_policy";
   if (event.componentKind === "usage_telemetry") return "runtime_usage_meter";
   if (event.componentKind === "context_pressure") return "runtime_context_budget";
+  if (event.componentKind === "context_pressure_alert") return "hook_policy";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
@@ -1797,6 +1829,8 @@ export function workflowNodeKindForRuntimeThreadEvent(
       return "runtime_usage_meter";
     case "context_pressure_delta":
       return "runtime_context_budget";
+    case "context_pressure_alert":
+      return "hook_policy";
     case "reasoning_delta":
       return "task_state";
     case "tool_completed":
@@ -1861,6 +1895,7 @@ function projectedNodeForBucket(
       events,
       latestEvent,
     ),
+    contextPressureActions: contextPressureActionsForEvents(events, latestEvent),
     tuiDeepLink: tuiDeepLinkForRuntimeThreadEvent(latestEvent, bucket.nodeId),
   };
   const reactFlowNode: WorkflowRuntimeReactFlowNode = {
@@ -1934,6 +1969,129 @@ function projectedEdgesForEvents(
   });
 }
 
+function contextPressureActionsForEvents(
+  events: readonly WorkflowRuntimeThreadEventLike[],
+  latestEvent: WorkflowRuntimeThreadEventLike,
+): WorkflowRuntimeContextPressureActionDescriptor[] {
+  const alertEvent =
+    [...events]
+      .reverse()
+      .find(
+        (event) =>
+          event.type === "context_pressure_alert" ||
+          event.componentKind === "context_pressure_alert",
+      ) ?? null;
+  if (!alertEvent) return [];
+  const payload = alertEvent.payload ?? {};
+  const actionRecords = arrayField(payload, "actions", "recommendedActions");
+  const fallbackAction =
+    stringField(payload, "recommended_action", "recommendedAction") ?? "compact";
+  const records = actionRecords.length > 0
+    ? actionRecords
+    : [{ action: fallbackAction }];
+  const scope = stringField(payload, "scope") ?? "turn";
+  const pressure = numberField(payload, "pressure", "usage_context_pressure");
+  const pressureStatus =
+    stringField(payload, "pressure_status", "pressureStatus") ??
+    stringField(payload, "usage_context_pressure_status", "usageContextPressureStatus");
+  const sourceEventId = stringField(payload, "source_event_id", "sourceEventId");
+
+  return records.map((record, index) => {
+    const action = stringField(record, "action") ?? fallbackAction;
+    const workflowNodeId =
+      stringField(record, "workflowNodeId", "workflow_node_id") ??
+      workflowNodeIdForContextPressureAction(action);
+    const label =
+      stringField(record, "label") ?? labelForContextPressureAction(action);
+    const summary =
+      stringField(record, "summary", "message") ??
+      summaryForContextPressureAction(action, pressure, scope);
+    const executable =
+      booleanField(record, "executable") ?? action === "compact";
+    const status = stringField(record, "status") ?? (executable ? "available" : "advisory");
+    const decisionId =
+      stringField(record, "decisionId", "decision_id") ??
+      latestEvent.policyDecisionRefs[index] ??
+      latestEvent.policyDecisionRefs[0] ??
+      `context-pressure-${slug(action)}-${index + 1}`;
+    return {
+      id: `context-pressure:${latestEvent.threadId}:${decisionId}:${slug(action)}`,
+      action,
+      label,
+      summary,
+      status,
+      executable,
+      scope,
+      pressure,
+      pressureStatus,
+      threadId: alertEvent.threadId,
+      turnId: alertEvent.turnId,
+      workflowGraphId: alertEvent.workflowGraphId,
+      workflowNodeId,
+      eventId: alertEvent.id,
+      sourceEventId,
+      receiptRefs: uniqueStrings([
+        ...alertEvent.receiptRefs,
+        ...stringArrayField(record, "receiptRefs", "receipt_refs"),
+      ]),
+      policyDecisionRefs: uniqueStrings([
+        ...alertEvent.policyDecisionRefs,
+        ...stringArrayField(record, "policyDecisionRefs", "policy_decision_refs"),
+      ]),
+    };
+  });
+}
+
+function workflowNodeIdForContextPressureAction(action: string): string {
+  switch (action) {
+    case "compact":
+      return "runtime.context-compact";
+    case "stop":
+      return "runtime.turn-canceled";
+    case "request_approval":
+      return "runtime.approval.context-pressure";
+    case "delegate_summary":
+      return "runtime.subagent.delegate-summary";
+    default:
+      return `runtime.context-pressure-action.${slug(action)}`;
+  }
+}
+
+function labelForContextPressureAction(action: string): string {
+  switch (action) {
+    case "compact":
+      return "Compact context";
+    case "stop":
+      return "Stop turn";
+    case "request_approval":
+      return "Request approval";
+    case "delegate_summary":
+      return "Delegate summary";
+    default:
+      return action.replace(/[_-]+/g, " ");
+  }
+}
+
+function summaryForContextPressureAction(
+  action: string,
+  pressure: number | null,
+  scope: string,
+): string {
+  const pressureText = pressure === null ? "current pressure" : `pressure ${pressure}`;
+  switch (action) {
+    case "compact":
+      return `Compact ${scope.replace(/_/g, " ")} context at ${pressureText}.`;
+    case "stop":
+      return `Stop the turn before ${scope.replace(/_/g, " ")} context grows further.`;
+    case "request_approval":
+      return `Request operator approval to continue at ${pressureText}.`;
+    case "delegate_summary":
+      return `Delegate a summary for ${scope.replace(/_/g, " ")} context before continuing.`;
+    default:
+      return `Review ${scope.replace(/_/g, " ")} context at ${pressureText}.`;
+  }
+}
+
 function componentKindForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string {
@@ -1961,6 +2119,8 @@ function componentKindForRuntimeThreadEvent(
       return "usage_telemetry";
     case "context_pressure_delta":
       return "context_pressure";
+    case "context_pressure_alert":
+      return "context_pressure_alert";
     case "reasoning_delta":
       return "reasoning_delta";
     case "tool_completed":
@@ -1991,6 +2151,7 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
   }
   if (event.componentKind === "usage_telemetry") return "Usage telemetry";
   if (event.componentKind === "context_pressure") return "Context pressure";
+  if (event.componentKind === "context_pressure_alert") return "Context pressure alert";
   if (event.componentKind === "context_budget") return "Context budget";
   if (event.componentKind === "compaction_policy") return "Compaction policy";
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
@@ -2026,6 +2187,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Usage telemetry";
     case "context_pressure_delta":
       return "Context pressure";
+    case "context_pressure_alert":
+      return "Context pressure alert";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":
@@ -2052,6 +2215,11 @@ function projectedStatusForRuntimeThreadEvent(
 ): WorkflowRuntimeProjectedStatus {
   if (event.type === "approval_required") return "waiting";
   if (event.type === "policy_blocked") return "blocked";
+  if (event.type === "context_pressure_alert") {
+    return event.status.toLowerCase().includes("blocked")
+      ? "blocked"
+      : "warning";
+  }
   if (event.type === "tool_failed" || event.type === "turn_failed") return "failed";
   if (event.type === "turn_canceled") return "canceled";
   if (event.type === "turn_interrupted") return "interrupted";
@@ -2060,6 +2228,13 @@ function projectedStatusForRuntimeThreadEvent(
   if (normalizedStatus.includes("queued")) return "queued";
   if (normalizedStatus.includes("running")) return "running";
   if (normalizedStatus.includes("waiting")) return "waiting";
+  if (
+    normalizedStatus.includes("warning") ||
+    normalizedStatus.includes("warn") ||
+    normalizedStatus.includes("elevated")
+  ) {
+    return "warning";
+  }
   if (normalizedStatus.includes("blocked")) return "blocked";
   if (normalizedStatus.includes("failed") || normalizedStatus.includes("error")) {
     return "failed";

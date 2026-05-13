@@ -325,6 +325,35 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
         componentKind: "context_pressure",
         status: "running",
       }),
+      runtimeThreadEvent("context-alert-3", 3, {
+        threadId: "thread-live",
+        type: "context_pressure_alert",
+        eventKind: "context.pressure_alert",
+        sourceEventKind: "RuntimeContextPressure.Alert",
+        workflowNodeId: "runtime.context-pressure-alert",
+        componentKind: "context_pressure_alert",
+        status: "warning",
+        payload: {
+          alert_level: "warn",
+          scope: "turn",
+          pressure: 0.74,
+          pressure_status: "elevated",
+          actions: [
+            {
+              action: "delegate_summary",
+              label: "Delegate summary",
+              executable: false,
+              workflowNodeId: "runtime.subagent.delegate-summary",
+            },
+            {
+              action: "compact",
+              label: "Compact context",
+              executable: true,
+              workflowNodeId: "runtime.context-compact",
+            },
+          ],
+        },
+      }),
     ],
   );
 
@@ -343,7 +372,7 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
 
   assert.equal(model.selectedRun?.summary.status, "running");
   assert.equal(model.timelineEvents[0]?.threadId, "thread-live");
-  assert.equal(model.runtimeEventProjection.eventCount, 2);
+  assert.equal(model.runtimeEventProjection.eventCount, 3);
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowNodes.map((node) => [
       node.id,
@@ -353,6 +382,16 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
     [
       ["runtime.usage-telemetry", "runtime_usage_meter", "running"],
       ["runtime.context-budget", "runtime_context_budget", "running"],
+      ["runtime.context-pressure-alert", "hook_policy", "warning"],
+    ],
+  );
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowNodes[2]?.data.contextPressureActions.map(
+      (action) => [action.action, action.workflowNodeId, action.executable],
+    ),
+    [
+      ["delegate_summary", "runtime.subagent.delegate-summary", false],
+      ["compact", "runtime.context-compact", true],
     ],
   );
 });

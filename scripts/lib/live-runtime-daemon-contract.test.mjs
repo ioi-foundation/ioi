@@ -10461,6 +10461,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-diagnostics-repair-action-/);
   assert.match(workflowRunsPanel, /data-diagnostics-repair-action-count/);
   assert.match(workflowRunsPanel, /onExecuteRuntimeDiagnosticsRepair/);
+  assert.match(workflowRunsPanel, /workflow-run-context-pressure-actions/);
+  assert.match(workflowRunsPanel, /workflow-run-context-pressure-action-/);
+  assert.match(workflowRunsPanel, /data-context-pressure-action-count/);
+  assert.match(workflowRunsPanel, /onExecuteRuntimeContextPressureAction/);
   assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
   assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
   assert.match(workflowRunsPanel, /data-usage-row-count/);
@@ -10474,6 +10478,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEventProjection, /subagentChildSubflowReactFlowNodes/);
   assert.match(workflowRuntimeEventProjection, /runtimeSubagentSubflow/);
   assert.match(workflowRuntimeEventProjection, /diagnosticsRepairActionsForEvents/);
+  assert.match(workflowRuntimeEventProjection, /contextPressureActionsForEvents/);
+  assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeContextPressureActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /WorkflowRuntimeDiagnosticsRepairActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /repair_decisions/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /runtime\.run-inspector\.diagnostics-repair/);
@@ -10481,11 +10487,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /setRuntimeThreadEvents/);
   assert.match(workflowComposerController, /createRuntimeDiagnosticsRepairControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeDiagnosticsRepair/);
+  assert.match(workflowComposerController, /createRuntimeContextCompactControlRequest/);
+  assert.match(workflowComposerController, /handleExecuteRuntimeContextPressureAction/);
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
+  assert.match(workflowComposerView, /onExecuteRuntimeContextPressureAction/);
+  assert.match(runtimeDaemon, /context_pressure_alert/);
+  assert.match(runtimeDaemon, /context\.pressure_alert/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
+  assert.match(graphRuntimeTypes, /RuntimeContextCompactControlRequest/);
   assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);
   assert.match(tauriArtifacts, /execute_workflow_runtime_control_request/);
   assert.match(tauriLib, /execute_workflow_runtime_control_request/);

@@ -5,7 +5,10 @@ import type {
   WorkflowRunSummary,
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
-import type { WorkflowRuntimeDiagnosticsRepairActionDescriptor } from "../../../runtime/workflow-runtime-event-projection";
+import type {
+  WorkflowRuntimeContextPressureActionDescriptor,
+  WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+} from "../../../runtime/workflow-runtime-event-projection";
 import {
   workflowDurationLabel,
   workflowEventLabel,
@@ -33,6 +36,9 @@ type WorkflowRunsPanelProps = {
   onExecuteRuntimeDiagnosticsRepair?: (
     action: WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   ) => void | Promise<void>;
+  onExecuteRuntimeContextPressureAction?: (
+    action: WorkflowRuntimeContextPressureActionDescriptor,
+  ) => void | Promise<void>;
 };
 
 export function WorkflowRunsPanel({
@@ -50,6 +56,7 @@ export function WorkflowRunsPanel({
   onCompareRun,
   onInspectNode,
   onExecuteRuntimeDiagnosticsRepair,
+  onExecuteRuntimeContextPressureAction,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -352,6 +359,9 @@ export function WorkflowRunsPanel({
                     data-diagnostics-repair-action-count={
                       node.data.diagnosticsRepairActions.length
                     }
+                    data-context-pressure-action-count={
+                      node.data.contextPressureActions.length
+                    }
                     data-tool-name={node.data.toolName ?? ""}
                     data-approval-id={node.data.approvalId ?? ""}
                     data-tui-deep-link-schema-version={
@@ -443,6 +453,52 @@ export function WorkflowRunsPanel({
                               }
                               onClick={() => {
                                 void onExecuteRuntimeDiagnosticsRepair?.(action);
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {node.data.contextPressureActions.length > 0 ? (
+                        <div
+                          className="workflow-run-context-pressure-actions"
+                          data-testid={`workflow-run-context-pressure-actions-${node.id}`}
+                          data-action-count={
+                            node.data.contextPressureActions.length
+                          }
+                        >
+                          {node.data.contextPressureActions.map((action) => (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className="workflow-secondary-action"
+                              data-testid={`workflow-run-context-pressure-action-${action.action}`}
+                              data-action-id={action.id}
+                              data-action={action.action}
+                              data-action-status={action.status}
+                              data-scope={action.scope}
+                              data-pressure={action.pressure ?? ""}
+                              data-pressure-status={action.pressureStatus ?? ""}
+                              data-thread-id={action.threadId}
+                              data-turn-id={action.turnId ?? ""}
+                              data-workflow-graph-id={
+                                action.workflowGraphId ?? ""
+                              }
+                              data-workflow-node-id={action.workflowNodeId}
+                              data-source-event-id={action.sourceEventId ?? ""}
+                              data-event-id={action.eventId}
+                              data-executable={action.executable}
+                              title={action.summary ?? action.label}
+                              aria-label={`${action.label} context pressure action`}
+                              disabled={
+                                !action.executable ||
+                                !onExecuteRuntimeContextPressureAction
+                              }
+                              onClick={() => {
+                                void onExecuteRuntimeContextPressureAction?.(
+                                  action,
+                                );
                               }}
                             >
                               {action.label}
