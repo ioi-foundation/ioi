@@ -155,6 +155,7 @@ workstream was narrower.
 | 153 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | TUI diagnostics repair decision controls | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui/2026-05-13T16-45-07-095Z/result.json |
 | 154 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow diagnostics repair action node | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json |
 | 155 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow run-inspector diagnostics repair actions | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json |
+| 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -276,6 +277,46 @@ Validation evidence:
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
+
+### Slice 156. 2026-05-13 - Run-inspector diagnostics repair full recovery loop
+
+Implementation slice completed 2026-05-13, live diagnostics recovery proof:
+
+- Added a focused live runtime contract test with a clean workspace/thread so
+  the run-inspector recovery proof is not polluted by earlier broad
+  coding-pack diagnostics gates.
+- The fixture applies a syntax-breaking patch through the daemon coding-pack
+  tool, records a workspace snapshot, creates a blocking diagnostics turn, and
+  projects the blocking gate through the SDK into React Flow run-inspector
+  action descriptors.
+- The test simulates the row-action click by compiling the projected
+  `operator_override` action with
+  `createRuntimeDiagnosticsRepairControlRequest`, posting the relative daemon
+  repair endpoint, and proving the blocked turn becomes completed.
+- The proof validates emitted `diagnostics.operator_override.executed` and
+  `diagnostics.repair_decision.executed` events, refreshed SDK/React Flow
+  projection nodes, rollback refs, policy approval fields, and the projected
+  TUI deep link.
+- The same fixture runs `ioi agent tui --since-seq ... --json` to prove TUI
+  replay can reopen the repair decision event row with the same React Flow
+  workflow node identity.
+- The dynamic Agent IDE import helper now watches the diagnostics repair action
+  and runtime-control request modules, so this live test rebuilds the bundle
+  when those row-action contracts change.
+- The master guide now marks this P0-A/P0-C proof complete and moves the
+  immediate tactical queue back to MCP workflow-authoring parity.
+
+Validation evidence:
+
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "run-inspector diagnostics repair action" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json`.
 
 ### Slice 155. 2026-05-13 - React Flow run-inspector diagnostics repair actions
 

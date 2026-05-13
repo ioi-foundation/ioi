@@ -265,6 +265,8 @@ async function importAgentIde() {
   const sources = [
     "packages/agent-ide/src/index.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   ].map((file) => path.join(root, file));
   const bundleMtime = fs.existsSync(bundle) ? fs.statSync(bundle).mtimeMs : 0;
@@ -6559,6 +6561,245 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.ok(retrieveNode);
     assert.equal(retrieveNode.workflowNodeId, "workflow.coding.tool.retrieve_result");
     assert.equal(retrieveNode.label, "Coding tool: tool.retrieve_result");
+  } finally {
+    if (daemon) await daemon.close();
+  }
+});
+
+test("React Flow run-inspector diagnostics repair action recovers a blocked diagnostics turn through daemon and TUI replay", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeDiagnosticsRepairControlRequest,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-diagnostics-repair-row-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-diagnostics-repair-row-state-"));
+  const cli = cliBinary();
+  git(cwd, ["init"]);
+  git(cwd, ["config", "user.email", "runtime@example.test"]);
+  git(cwd, ["config", "user.name", "Runtime Test"]);
+  fs.writeFileSync(path.join(cwd, "run-inspector-target.mjs"), "export const runInspector = 1;\n");
+  git(cwd, ["add", "run-inspector-target.mjs"]);
+  git(cwd, ["commit", "-m", "seed run inspector diagnostics workspace"]);
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Prove a React Flow run-inspector diagnostics repair row can recover a blocked turn.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const diagnosticPatch = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-diagnostics-row-proof",
+          workflow_node_id: "workflow.coding.file.apply_patch.run-inspector-diagnostics",
+          toolPack: {
+            coding: {
+              restorePolicy: "preview_only",
+              restoreConflictPolicy: "require_approval",
+              diagnosticsRepairDefault: "operator_override",
+              operatorOverrideRequiresApproval: true,
+            },
+          },
+          input: {
+            path: "run-inspector-target.mjs",
+            oldText: "export const runInspector = 1;",
+            newText: "export const runInspector = ;",
+          },
+        }),
+      },
+    );
+    assert.equal(diagnosticPatch.status, "completed");
+    assert.equal(diagnosticPatch.auto_diagnostics?.result.diagnosticStatus, "findings");
+    assert.deepEqual(diagnosticPatch.auto_diagnostics?.rollback_refs, [
+      diagnosticPatch.workspace_snapshot?.snapshotId,
+    ]);
+    const blockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: "Continue after run-inspector diagnostics.",
+        diagnosticsMode: "blocking",
+      }),
+    });
+    assert.equal(blockedTurn.status, "waiting_for_input");
+    assert.equal(blockedTurn.stop_reason, "blocked_by_post_edit_diagnostics");
+    const blockedTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${blockedTurn.request_id}/trace`);
+    const traceOverrideDecision = blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find(
+      (decision) => decision.action === "operator_override",
+    );
+    assert.ok(traceOverrideDecision);
+    assert.equal(traceOverrideDecision.status, "requires_approval");
+    assert.deepEqual(blockedTrace.diagnosticsFeedback?.rollbackRefs, [
+      diagnosticPatch.workspace_snapshot?.snapshotId,
+    ]);
+
+    const sdkThreadBefore = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEventsBefore = await collect(sdkThreadBefore.events({ sinceSeq: 0 }));
+    const diagnosticsGateEvent = sdkEventsBefore.find(
+      (event) =>
+        event.type === "policy_blocked" &&
+        event.componentKind === "lsp_diagnostics_gate" &&
+        event.rollbackRefs.includes(diagnosticPatch.workspace_snapshot?.snapshotId),
+    );
+    assert.ok(diagnosticsGateEvent);
+    const projectionBefore = projectRuntimeThreadEventsToWorkflowProjection(sdkEventsBefore);
+    const diagnosticsGateNode = projectionBefore.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsGateEvent.id),
+    );
+    assert.ok(diagnosticsGateNode);
+    assert.equal(diagnosticsGateNode.workflowNodeId, "runtime.lsp-diagnostics.blocking-gate");
+    assert.equal(diagnosticsGateNode.componentKind, "lsp_diagnostics_gate");
+    assert.equal(diagnosticsGateNode.status, "blocked");
+    const overrideAction = diagnosticsGateNode.diagnosticsRepairActions.find(
+      (action) => action.action === "operator_override",
+    );
+    assert.ok(overrideAction);
+    assert.equal(overrideAction.executable, true);
+    assert.equal(overrideAction.requiresApproval, true);
+    assert.equal(overrideAction.threadId, thread.thread_id);
+    assert.equal(overrideAction.eventId, diagnosticsGateEvent.id);
+    assert.equal(overrideAction.decisionId, traceOverrideDecision.decisionId);
+    assert.equal(
+      overrideAction.workflowNodeId,
+      "runtime.run-inspector.diagnostics-repair.operator-override",
+    );
+    assert.ok(overrideAction.rollbackRefs.includes(diagnosticPatch.workspace_snapshot?.snapshotId));
+
+    const repairRequest = createRuntimeDiagnosticsRepairControlRequest({
+      nodeId: overrideAction.id,
+      threadId: overrideAction.threadId,
+      decisionId: overrideAction.decisionId,
+      action: overrideAction.action,
+      message: overrideAction.summary ?? "Run inspector diagnostics recovery proof.",
+      approvalGranted: overrideAction.approvalGranted,
+      allowConflicts: overrideAction.allowConflicts,
+      workflowGraphId: overrideAction.workflowGraphId ?? "workflow-diagnostics-row-proof",
+      workflowNodeId: overrideAction.workflowNodeId,
+      actor: "operator",
+    });
+    assert.equal(repairRequest.nodeType, "runtime_diagnostics_repair");
+    assert.equal(repairRequest.body.source, "react_flow");
+    assert.equal(repairRequest.body.action, "operator_override");
+    assert.equal(repairRequest.body.approvalGranted, true);
+    assert.equal(
+      repairRequest.body.workflowNodeId,
+      "runtime.run-inspector.diagnostics-repair.operator-override",
+    );
+    const repairExecution = await fetchJson(`${daemon.endpoint}${repairRequest.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(repairRequest.body),
+    });
+    assert.equal(repairExecution.action, "operator_override");
+    assert.equal(repairExecution.status, "completed");
+    assert.equal(repairExecution.snapshotId, diagnosticPatch.workspace_snapshot?.snapshotId);
+    assert.equal(repairExecution.operatorOverride?.approvalRequired, true);
+    assert.equal(repairExecution.operatorOverride?.approvalSatisfied, true);
+    assert.equal(repairExecution.operatorOverride?.continuationAllowed, true);
+    assert.equal(
+      repairExecution.operatorOverrideEvent?.workflow_node_id,
+      "runtime.run-inspector.diagnostics-repair.operator-override",
+    );
+    assert.equal(
+      repairExecution.event?.workflow_node_id,
+      "runtime.run-inspector.diagnostics-repair.operator-override.decision",
+    );
+    const unblockedTurn = await sdkClient.getTurn(thread.thread_id, blockedTurn.turn_id);
+    assert.equal(unblockedTurn.status, "completed");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const operatorOverrideEvent = daemonEvents.find(
+      (event) => event.event_id === repairExecution.operatorOverrideEvent?.event_id,
+    );
+    assert.ok(operatorOverrideEvent);
+    assert.equal(operatorOverrideEvent.source, "react_flow");
+    assert.equal(operatorOverrideEvent.event_kind, "diagnostics.operator_override.executed");
+    assert.equal(operatorOverrideEvent.component_kind, "lsp_diagnostics_operator_override");
+    assert.equal(
+      operatorOverrideEvent.workflow_node_id,
+      "runtime.run-inspector.diagnostics-repair.operator-override",
+    );
+    assert.equal(operatorOverrideEvent.payload_summary.approval_required, true);
+    assert.equal(operatorOverrideEvent.payload_summary.approval_satisfied, true);
+    assert.deepEqual(operatorOverrideEvent.rollback_refs, [diagnosticPatch.workspace_snapshot?.snapshotId]);
+    const decisionEvent = daemonEvents.find((event) => event.event_id === repairExecution.event?.event_id);
+    assert.ok(decisionEvent);
+    assert.equal(decisionEvent.source, "react_flow");
+    assert.equal(decisionEvent.event_kind, "diagnostics.repair_decision.executed");
+    assert.equal(decisionEvent.component_kind, "lsp_diagnostics_repair");
+    assert.equal(
+      decisionEvent.workflow_node_id,
+      "runtime.run-inspector.diagnostics-repair.operator-override.decision",
+    );
+    assert.equal(
+      decisionEvent.payload_summary.operator_override_event_id,
+      operatorOverrideEvent.event_id,
+    );
+
+    const sdkThreadAfter = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEventsAfter = await collect(sdkThreadAfter.events({ sinceSeq: 0 }));
+    const sdkDecisionEvent = sdkEventsAfter.find((event) => event.id === decisionEvent.event_id);
+    assert.ok(sdkDecisionEvent);
+    assert.equal(sdkDecisionEvent.componentKind, "lsp_diagnostics_repair");
+    assert.equal(sdkDecisionEvent.workflowNodeId, decisionEvent.workflow_node_id);
+    const projectionAfter = projectRuntimeThreadEventsToWorkflowProjection(sdkEventsAfter);
+    const decisionNode = projectionAfter.nodes.find((node) =>
+      node.eventIds.includes(decisionEvent.event_id),
+    );
+    assert.ok(decisionNode);
+    assert.equal(
+      decisionNode.workflowNodeId,
+      "runtime.run-inspector.diagnostics-repair.operator-override.decision",
+    );
+    assert.equal(decisionNode.componentKind, "lsp_diagnostics_repair");
+    assert.equal(decisionNode.status, "completed");
+    assert.deepEqual(decisionNode.rollbackRefs, decisionEvent.rollback_refs);
+    assert.equal(decisionNode.tuiDeepLink.threadId, thread.thread_id);
+    assert.equal(decisionNode.tuiDeepLink.eventId, decisionEvent.event_id);
+    assert.deepEqual(decisionNode.tuiDeepLink.args, [
+      "agent",
+      "tui",
+      "--thread-id",
+      thread.thread_id,
+      "--since-seq",
+      String(decisionEvent.seq),
+    ]);
+
+    const tuiReplay = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        String(Math.max(0, Number(decisionEvent.seq) - 1)),
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const tuiReplayPayload = JSON.parse(tuiReplay.stdout);
+    assert.equal(tuiReplayPayload.schema_version, "ioi.agent-cli.tui.v1");
+    assert.equal(tuiReplayPayload.thread.thread_id, thread.thread_id);
+    assert.ok(tuiReplayPayload.events.some((event) => event.event_id === decisionEvent.event_id));
+    assert.ok(
+      tuiReplayPayload.event_rows.some(
+        (row) =>
+          row.event_id === decisionEvent.event_id &&
+          row.react_flow?.workflow_node_id === decisionEvent.workflow_node_id,
+      ),
+    );
   } finally {
     if (daemon) await daemon.close();
   }
