@@ -10,6 +10,7 @@ pub const RUNTIME_ACTION_KINDS: &[&str] = &[
     "capability_sequence",
     "workflow_package_export",
     "workflow_package_import",
+    "runtime_thread_fork",
     "function",
     "model_binding",
     "model_call",
@@ -37,14 +38,9 @@ pub const RUNTIME_ACTION_KINDS: &[&str] = &[
     "unknown",
 ];
 
-pub const RUNTIME_ACTION_ENTRY_KINDS: &[&str] = &[
-    "source_input",
-    "trigger",
-];
+pub const RUNTIME_ACTION_ENTRY_KINDS: &[&str] = &["source_input", "trigger"];
 
-pub const RUNTIME_ACTION_TERMINAL_KINDS: &[&str] = &[
-    "output",
-];
+pub const RUNTIME_ACTION_TERMINAL_KINDS: &[&str] = &["output"];
 
 pub const RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS: &[&str] = &[
     "function",
@@ -64,4 +60,5 @@ pub const RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS: &[&str] = &[
     "gui_harness_validation",
     "workflow_package_export",
     "workflow_package_import",
+    "runtime_thread_fork",
 ];

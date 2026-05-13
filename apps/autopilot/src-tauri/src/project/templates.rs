@@ -533,6 +533,7 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
             "Tools",
             "Workflow Package Import",
         ),
+        ("runtime_thread_fork", "Runtime", "Thread Fork"),
         ("repository_context", "Context", "Repository Context"),
         ("branch_policy", "Policy", "Branch Policy"),
         ("github_context", "Context", "GitHub Context"),
@@ -627,6 +628,32 @@ pub(super) fn workflow_package_import_output_schema() -> Value {
             "workflowChromeLocalePreserved": { "type": "boolean" },
             "sourceWorkflowChromeLocale": { "type": ["string", "null"] },
             "importedWorkflowChromeLocale": { "type": ["string", "null"] }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_thread_fork_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "threadId": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeThreadFork": { "type": "object" }
         }
     })
 }
@@ -951,6 +978,40 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
             json!({ "requireHumanGate": true, "privilegedActions": ["message_sending"] }),
             Some(json!({ "sideEffectClass": "external_write", "requiresApproval": true })),
         ),
+        workflow_scaffold(
+            "workflow.runtime.thread_fork",
+            "runtime_thread_fork",
+            "Runtime",
+            "Thread fork control",
+            "Fork the active runtime thread from a React Flow workflow control.",
+            "Fork",
+            "control",
+            json!({
+                "runtimeThreadForkEndpoint": "/v1/threads/{threadId}/fork",
+                "runtimeThreadForkField": "runtimeThreadFork",
+                "runtimeThreadForkEventField": "runtimeThreadFork.event",
+                "runtimeThreadForkStatusField": "runtimeThreadFork.status",
+                "runtimeThreadForkReceiptField": "runtimeThreadFork.receiptRefs",
+                "runtimeThreadForkPolicyField": "runtimeThreadFork.policyDecisionRefs",
+                "runtimeThreadForkThreadIdField": "threadId",
+                "runtimeThreadForkReasonField": "reason",
+                "runtimeThreadForkReason": "Fork thread from React Flow workflow control.",
+                "runtimeThreadForkWorkflowNodeId": "runtime.thread-fork",
+                "runtimeThreadForkSource": "react_flow",
+                "runtimeThreadForkActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_thread_fork_safe",
+                "outputSchema": workflow_runtime_thread_fork_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.thread.fork"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control"]
+            })),
+        ),
     ];
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
@@ -960,6 +1021,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "adapter"
                 | "plugin_tool"
                 | "skill_context"
+                | "runtime_thread_fork"
                 | "workflow_package_export"
                 | "workflow_package_import"
                 | "output"
@@ -996,9 +1058,11 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
     let side_effect_class = match node_type {
         "adapter" | "plugin_tool" => "read",
         "github_pr_create" => "external_write",
-        "human_gate" | "proposal" | "workflow_package_export" | "workflow_package_import" => {
-            "write"
-        }
+        "human_gate"
+        | "proposal"
+        | "runtime_thread_fork"
+        | "workflow_package_export"
+        | "workflow_package_import" => "write",
         _ => "none",
     };
     let requires_approval = matches!(
@@ -1014,6 +1078,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "pr_attempt"
             | "review_gate"
             | "github_pr_create"
+            | "runtime_thread_fork"
             | "workflow_package_export"
             | "workflow_package_import"
     );
@@ -1036,6 +1101,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "pr_attempt"
             | "review_gate"
             | "github_pr_create"
+            | "runtime_thread_fork"
             | "workflow_package_export"
             | "workflow_package_import"
             | "subgraph"
@@ -1053,6 +1119,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "pr_attempt" => vec!["state", "approval", "data"],
         "review_gate" => vec!["state", "approval"],
         "github_pr_create" => vec!["state", "approval", "data"],
+        "runtime_thread_fork" => vec!["state", "data", "control"],
         "workflow_package_export" => vec!["data", "output_bundle"],
         "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],

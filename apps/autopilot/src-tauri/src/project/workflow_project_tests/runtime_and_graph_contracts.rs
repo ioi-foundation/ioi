@@ -426,7 +426,11 @@ fn workflow_package_export_and_import_nodes_execute_through_runtime() {
     workflow.global_config["workflowChromeLocale"] = json!("es-ES");
     workflow.nodes = vec![source, package_export, package_import, output];
     workflow.edges = vec![
-        workflow_edge("edge-package-source-export", "package-source", "package-export"),
+        workflow_edge(
+            "edge-package-source-export",
+            "package-source",
+            "package-export",
+        ),
         workflow_edge_ports(
             "edge-package-export-import",
             "package-export",
@@ -506,6 +510,119 @@ fn workflow_package_export_and_import_nodes_execute_through_runtime() {
 }
 
 #[test]
+fn runtime_thread_fork_node_builds_react_flow_control_request() {
+    let root = temp_root("runtime-thread-fork");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Runtime Thread Fork".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut fork = workflow_node(
+        "fork-control",
+        "runtime_thread_fork",
+        "Fork control",
+        120,
+        180,
+        "Fork",
+        "control",
+    );
+    logic_mut(&mut fork).insert(
+        "runtimeThreadForkEndpoint".to_string(),
+        json!("/v1/threads/{threadId}/fork"),
+    );
+    logic_mut(&mut fork).insert(
+        "runtimeThreadForkThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut fork).insert("runtimeThreadForkReasonField".to_string(), json!("reason"));
+    logic_mut(&mut fork).insert(
+        "runtimeThreadForkWorkflowNodeId".to_string(),
+        json!("runtime.thread-fork"),
+    );
+    logic_mut(&mut fork).insert("runtimeThreadForkActor".to_string(), json!("operator"));
+    logic_mut(&mut fork).insert(
+        "outputSchema".to_string(),
+        workflow_runtime_thread_fork_output_schema(),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    let workflow_graph_id = workflow.metadata.id.clone();
+    workflow.nodes = vec![fork];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_node(
+        bundle.workflow_path,
+        "fork-control".to_string(),
+        Some(json!({
+            "threadId": "thread_react_flow",
+            "reason": "branch from React Flow runtime control"
+        })),
+        None,
+    )
+    .expect("runtime thread fork node should run");
+    assert_eq!(run.summary.status, "passed");
+    let node_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "fork-control")
+        .expect("fork node should run");
+    let output = node_run.output.as_ref().expect("fork output should exist");
+    assert_eq!(
+        output.get("kind").and_then(Value::as_str),
+        Some("runtime_thread_fork")
+    );
+    assert_eq!(
+        output.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        output.get("componentKind").and_then(Value::as_str),
+        Some("thread_fork")
+    );
+    assert_eq!(
+        output.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        output.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.thread-fork")
+    );
+    assert_eq!(
+        output.get("threadId").and_then(Value::as_str),
+        Some("thread_react_flow")
+    );
+    assert_eq!(
+        output.get("endpoint").and_then(Value::as_str),
+        Some("/v1/threads/thread_react_flow/fork")
+    );
+    let request = output.get("request").expect("fork request should exist");
+    assert_eq!(
+        request.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        request.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        request.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.thread-fork")
+    );
+    assert_eq!(
+        request.get("eventKind").and_then(Value::as_str),
+        Some("OperatorControl.Fork")
+    );
+}
+
+#[test]
 fn github_pr_create_dry_run_node_executes_through_runtime() {
     let root = temp_root("github-pr-create-runtime");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {
@@ -527,10 +644,7 @@ fn github_pr_create_dry_run_node_executes_through_runtime() {
         "context",
     );
     logic_mut(&mut repository).insert("repoFullName".to_string(), json!("ioi-test/ioi"));
-    logic_mut(&mut repository).insert(
-        "branch".to_string(),
-        json!("feature/runtime-pr-plan"),
-    );
+    logic_mut(&mut repository).insert("branch".to_string(), json!("feature/runtime-pr-plan"));
     logic_mut(&mut repository).insert("defaultBranch".to_string(), json!("main"));
     logic_mut(&mut repository).insert("dirty".to_string(), json!(false));
 
@@ -577,15 +691,9 @@ fn github_pr_create_dry_run_node_executes_through_runtime() {
         "PR",
         "ready",
     );
-    logic_mut(&mut pr_attempt).insert(
-        "title".to_string(),
-        json!("Runtime dry-run PR plan"),
-    );
+    logic_mut(&mut pr_attempt).insert("title".to_string(), json!("Runtime dry-run PR plan"));
     logic_mut(&mut pr_attempt).insert("baseBranch".to_string(), json!("main"));
-    logic_mut(&mut pr_attempt).insert(
-        "headBranch".to_string(),
-        json!("feature/runtime-pr-plan"),
-    );
+    logic_mut(&mut pr_attempt).insert("headBranch".to_string(), json!("feature/runtime-pr-plan"));
     logic_mut(&mut pr_attempt).insert("diffArtifactAttached".to_string(), json!(true));
     logic_mut(&mut pr_attempt).insert("branchArtifactAttached".to_string(), json!(true));
 
@@ -786,7 +894,10 @@ fn github_pr_create_dry_run_node_executes_through_runtime() {
         .find(|node_run| node_run.node_id == "github-pr-create")
         .expect("github_pr_create should run");
     assert_eq!(pr_create_run.status, "success");
-    let plan = pr_create_run.output.as_ref().expect("github_pr_create output");
+    let plan = pr_create_run
+        .output
+        .as_ref()
+        .expect("github_pr_create output");
     assert_eq!(
         plan.get("schemaVersion").and_then(Value::as_str),
         Some("ioi.agent-runtime.github-pr-create-plan.v1")
@@ -796,14 +907,20 @@ fn github_pr_create_dry_run_node_executes_through_runtime() {
         Some("ioi.github_pr_create_plan")
     );
     assert_eq!(plan.get("status").and_then(Value::as_str), Some("blocked"));
-    assert_eq!(plan.get("decision").and_then(Value::as_str), Some("blocked"));
+    assert_eq!(
+        plan.get("decision").and_then(Value::as_str),
+        Some("blocked")
+    );
     assert_eq!(plan.get("dryRun").and_then(Value::as_bool), Some(true));
     assert_eq!(plan.get("previewOnly").and_then(Value::as_bool), Some(true));
     assert_eq!(
         plan.get("toolName").and_then(Value::as_str),
         Some("github__pr_create")
     );
-    assert_eq!(plan.get("action").and_then(Value::as_str), Some("pr_create"));
+    assert_eq!(
+        plan.get("action").and_then(Value::as_str),
+        Some("pr_create")
+    );
     assert_eq!(
         plan.get("repoFullName").and_then(Value::as_str),
         Some("ioi-test/ioi")
@@ -857,7 +974,9 @@ fn github_pr_create_dry_run_node_executes_through_runtime() {
         "missing_authority_scope:github.pr.create",
         "dry_run_only",
     ] {
-        assert!(blockers.iter().any(|blocker| blocker.as_str() == Some(expected)));
+        assert!(blockers
+            .iter()
+            .any(|blocker| blocker.as_str() == Some(expected)));
     }
     assert_eq!(
         plan.get("networkLookupPerformed").and_then(Value::as_bool),
@@ -905,15 +1024,7 @@ fn workflow_skill_context_discovery_attaches_model_context() {
     })
     .expect("workflow bundle should create");
 
-    let mut source = workflow_node(
-        "skill-source",
-        "source",
-        "Goal",
-        80,
-        160,
-        "Input",
-        "manual",
-    );
+    let mut source = workflow_node("skill-source", "source", "Goal", 80, 160, "Input", "manual");
     logic_mut(&mut source).insert(
         "payload".to_string(),
         json!({"request": "Build a frontend app user interface with polished workflow controls."}),
@@ -1208,8 +1319,7 @@ fn coding_route_promotion_loop_promotes_draft_skill_with_evidence() {
     assert!(summary
         .selected_skills
         .iter()
-        .any(|skill| skill.skill_hash == "draft-incremental"
-            && skill.lifecycle_state == "Draft"));
+        .any(|skill| skill.skill_hash == "draft-incremental" && skill.lifecycle_state == "Draft"));
     assert!(summary
         .gate_results
         .iter()
@@ -1246,11 +1356,20 @@ fn coding_route_promotion_loop_promotes_draft_skill_with_evidence() {
 #[test]
 fn coding_route_classifier_defaults_to_build_and_detects_debug_or_review() {
     for (name, expected_route) in [
-        ("Implement sidebar workflow controls", "coding.template.build"),
+        (
+            "Implement sidebar workflow controls",
+            "coding.template.build",
+        ),
         ("Debug failing route validation", "coding.template.debug"),
-        ("Review security sensitive workflow patch", "coding.template.review"),
+        (
+            "Review security sensitive workflow patch",
+            "coding.template.review",
+        ),
     ] {
-        let root = temp_root(&format!("route-classifier-{}", expected_route.replace('.', "-")));
+        let root = temp_root(&format!(
+            "route-classifier-{}",
+            expected_route.replace('.', "-")
+        ));
         let bundle = create_workflow_project(CreateWorkflowProjectRequest {
             project_root: root.display().to_string(),
             name: name.to_string(),
@@ -1280,8 +1399,13 @@ fn coding_route_classifier_defaults_to_build_and_detects_debug_or_review() {
         );
         let mut workflow = bundle.workflow.clone();
         workflow.nodes = vec![source, output];
-        workflow.edges = vec![workflow_edge("edge-route-source-output", "route-source", "route-output")];
-        save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+        workflow.edges = vec![workflow_edge(
+            "edge-route-source-output",
+            "route-source",
+            "route-output",
+        )];
+        save_workflow_project(bundle.workflow_path.clone(), workflow)
+            .expect("workflow should save");
 
         let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
         assert_eq!(run.summary.status, "passed");

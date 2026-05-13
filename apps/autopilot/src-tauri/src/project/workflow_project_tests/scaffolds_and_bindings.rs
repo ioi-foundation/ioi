@@ -122,6 +122,37 @@ fn workflow_scaffolds_include_action_metadata() {
             .and_then(Value::as_bool),
         Some(true)
     );
+    let thread_fork = scaffolds
+        .iter()
+        .find(|item| {
+            item.get("scaffoldId").and_then(Value::as_str) == Some("workflow.runtime.thread_fork")
+        })
+        .expect("runtime thread fork scaffold should exist");
+    let thread_fork_action = thread_fork
+        .get("action")
+        .expect("runtime thread fork action metadata should exist");
+    assert_eq!(
+        thread_fork.get("nodeType").and_then(Value::as_str),
+        Some("runtime_thread_fork")
+    );
+    assert_eq!(
+        thread_fork_action
+            .get("sideEffectClass")
+            .and_then(Value::as_str),
+        Some("write")
+    );
+    assert_eq!(
+        thread_fork_action
+            .get("supportsDryRun")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(thread_fork_action
+        .get("connectionClasses")
+        .and_then(Value::as_array)
+        .expect("thread fork connection classes")
+        .iter()
+        .any(|class| class.as_str() == Some("state")));
 }
 
 #[test]

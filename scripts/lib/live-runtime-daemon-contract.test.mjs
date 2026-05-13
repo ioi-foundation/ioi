@@ -2370,6 +2370,135 @@ test("thread fork keeps one canonical source event across SDK, CLI, and React Fl
   }
 });
 
+test("React Flow thread fork control preserves graph identity across daemon, SDK, and projection", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeThreadForkControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-fork-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-fork-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-fork-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const reason = "branch live context from React Flow control";
+  const workflowGraphId = "workflow.react-flow.thread-fork-proof";
+  const workflowNodeId = "runtime.thread-fork";
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-react-flow-fork";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove React Flow-originated thread fork control keeps graph identity.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a React Flow-originated fork control validation.",
+      }),
+    });
+
+    const workflowNode = {
+      id: "react-flow-thread-fork-control",
+      type: "runtime_thread_fork",
+      config: {
+        logic: {
+          runtimeThreadForkEndpoint: "/v1/threads/{threadId}/fork",
+          runtimeThreadForkThreadIdField: "threadId",
+          runtimeThreadForkReasonField: "reason",
+          runtimeThreadForkWorkflowNodeId: workflowNodeId,
+          runtimeThreadForkActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.thread.fork"] },
+      },
+    };
+    const control = createRuntimeThreadForkControlRequestFromWorkflowNode(
+      workflowNode,
+      { threadId: thread.thread_id, reason },
+      { workflowGraphId },
+    );
+    assert.equal(control.nodeType, "runtime_thread_fork");
+    assert.equal(control.body.source, "react_flow");
+    assert.equal(control.body.workflowGraphId, workflowGraphId);
+    assert.equal(control.body.workflowNodeId, workflowNodeId);
+    assert.equal(control.body.componentKind, "thread_fork");
+
+    const fork = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(control.body),
+    });
+    assert.equal(fork.source_thread_id, thread.thread_id);
+    assert.notEqual(fork.thread_id, thread.thread_id);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const forkEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Fork" && event.source === "react_flow",
+    );
+    assert.ok(forkEvent);
+    assert.equal(forkEvent.event_kind, "thread.forked");
+    assert.equal(forkEvent.status, "completed");
+    assert.equal(forkEvent.source, "react_flow");
+    assert.equal(forkEvent.actor, "user");
+    assert.equal(forkEvent.thread_id, thread.thread_id);
+    assert.equal(forkEvent.turn_id, turn.turn_id);
+    assert.equal(forkEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(forkEvent.workflow_node_id, workflowNodeId);
+    assert.equal(forkEvent.component_kind, "thread_fork");
+    assert.equal(forkEvent.payload_schema_version, "ioi.runtime.thread-fork.v1");
+    assert.equal(forkEvent.payload.reason, reason);
+    assert.equal(forkEvent.payload.requested_by, "operator");
+    assert.equal(forkEvent.payload.fork_thread_id, fork.thread_id);
+    assert.ok(forkEvent.receipt_refs.includes(`receipt_${thread.agent_id}_thread_fork_${fork.agent_id}`));
+    assert.ok(forkEvent.policy_decision_refs.includes(`policy_${thread.agent_id}_thread_fork_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkForkEvent = sdkEvents.find((event) => event.id === forkEvent.event_id);
+    assert.ok(sdkForkEvent);
+    assert.equal(sdkForkEvent.type, "thread_forked");
+    assert.equal(sdkForkEvent.sourceEventKind, "OperatorControl.Fork");
+    assert.equal(sdkForkEvent.componentKind, "thread_fork");
+    assert.equal(sdkForkEvent.workflowGraphId, workflowGraphId);
+    assert.equal(sdkForkEvent.workflowNodeId, workflowNodeId);
+    assert.deepEqual(sdkForkEvent.receiptRefs, forkEvent.receipt_refs);
+    assert.deepEqual(sdkForkEvent.policyDecisionRefs, forkEvent.policy_decision_refs);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(forkEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.ok(reactFlowProjection.workflowGraphIds.includes(workflowGraphId));
+    assert.equal(reactFlowNode.nodeKind, "runtime_thread_fork");
+    assert.equal(reactFlowNode.componentKind, "thread_fork");
+    assert.equal(reactFlowNode.workflowGraphId, workflowGraphId);
+    assert.equal(reactFlowNode.workflowNodeId, workflowNodeId);
+    assert.equal(reactFlowNode.status, "completed");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Fork"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("daemon runtime event store is append-only and idempotent per stream", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-event-store-state-"));
@@ -4300,9 +4429,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTemplates, /github_pr_create/);
   assert.match(tauriProjectTemplates, /workflow_package_export_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_package_import_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_thread_fork_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_github_pr_create_output_schema/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageExport/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageImport/);
+  assert.match(tauriRuntimeProjection, /RuntimeThreadFork/);
   assert.match(tauriRuntimeProjection, /GithubPrCreate/);
   assert.match(tauriRuntimeProjection, /output_bundle/);
   assert.match(workflowContracts, /repository\.context/);
@@ -4337,6 +4468,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeChecklistNode/);
   assert.match(nodeRegistry, /runtimeChecklistStatusField/);
   assert.match(nodeRegistry, /\/v1\/runs\/\{runId\}\/trace/);
+  assert.match(nodeRegistry, /runtime_thread_fork/);
+  assert.match(nodeRegistry, /RuntimeThreadForkNode/);
+  assert.match(nodeRegistry, /runtimeThreadForkWorkflowNodeId/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/fork/);
   assert.match(nodeRegistry, /workflow_package_export/);
   assert.match(nodeRegistry, /WorkflowPackageExportNode/);
   assert.match(nodeRegistry, /workflow\.package\.export/);
@@ -4623,6 +4758,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_task\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_job\.aria/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_checklist\.status/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_thread_fork\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
@@ -4633,6 +4769,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowHarnessTools, /packageEvidenceReady/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_export"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_export"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_thread_fork"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_thread_fork"/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
   assert.match(runtimeActionSchema, /"skill_context"/);

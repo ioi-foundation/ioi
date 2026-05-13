@@ -265,7 +265,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "turn_started":
       return "trigger";
     case "thread_forked":
-      return "state";
+      return "runtime_thread_fork";
     case "turn_completed":
     case "turn_failed":
     case "turn_canceled":

@@ -156,7 +156,7 @@ test("projects thread fork events into the runtime fork node", () => {
   const nodes = projectRuntimeThreadEventsToWorkflowNodes([fork]);
 
   assert.equal(workflowNodeIdForRuntimeThreadEvent(fork), "runtime.thread-fork");
-  assert.equal(nodes[0]?.nodeKind, "state");
+  assert.equal(nodes[0]?.nodeKind, "runtime_thread_fork");
   assert.equal(nodes[0]?.componentKind, "thread_fork");
   assert.equal(nodes[0]?.label, "Thread forked");
   assert.equal(nodes[0]?.status, "completed");

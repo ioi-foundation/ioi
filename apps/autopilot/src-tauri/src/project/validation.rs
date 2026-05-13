@@ -207,6 +207,25 @@ pub(super) fn validate_workflow_project_bundle(
                 message: "State nodes need a state key.".to_string(),
             });
         }
+        if action_kind == ActionKind::RuntimeThreadFork {
+            if workflow_json_string(&logic, "runtimeThreadForkEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_thread_fork_endpoint".to_string(),
+                    message: "Runtime thread fork nodes need a fork endpoint template.".to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeThreadForkThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeThreadForkThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_thread_fork_thread".to_string(),
+                    message: "Runtime thread fork nodes need a thread id field or fixed thread id."
+                        .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::Subgraph
             && logic
                 .get("subgraphRef")

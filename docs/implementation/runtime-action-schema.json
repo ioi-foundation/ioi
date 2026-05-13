@@ -10,6 +10,7 @@
     "capability_sequence",
     "workflow_package_export",
     "workflow_package_import",
+    "runtime_thread_fork",
     "function",
     "model_binding",
     "model_call",
@@ -59,6 +60,7 @@
     "verifier",
     "gui_harness_validation",
     "workflow_package_export",
-    "workflow_package_import"
+    "workflow_package_import",
+    "runtime_thread_fork"
   ]
 }
