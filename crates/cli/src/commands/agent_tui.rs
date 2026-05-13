@@ -33,6 +33,9 @@ const TUI_THREAD_MCP_SERVER_ENABLE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/mcp/servers/{server_id}/enable";
 const TUI_THREAD_MCP_SERVER_DISABLE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/mcp/servers/{server_id}/disable";
+const TUI_THREAD_MCP_TOOL_SEARCH_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/tools/search";
+const TUI_THREAD_MCP_TOOL_FETCH_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/mcp/tools/{tool_id}";
 const TUI_THREAD_MCP_TOOL_INVOKE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke";
 const TUI_THREAD_MEMORY_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/status";
@@ -748,6 +751,7 @@ pub(crate) async fn update_tui_thread_thinking(
 
 pub(crate) async fn inspect_tui_mcp_status(
     thread_id: &str,
+    source_mode: Option<&str>,
     endpoint: &str,
     token: Option<&str>,
 ) -> Result<Value> {
@@ -763,6 +767,7 @@ pub(crate) async fn inspect_tui_mcp_status(
             "component_kind": "mcp_provider",
             "workflow_node_id": "runtime.mcp-manager",
             "live_discovery": true,
+            "mcp_config_source_mode": source_mode,
         })),
     )
     .await
@@ -770,6 +775,7 @@ pub(crate) async fn inspect_tui_mcp_status(
 
 pub(crate) async fn validate_tui_mcp(
     thread_id: &str,
+    source_mode: Option<&str>,
     endpoint: &str,
     token: Option<&str>,
 ) -> Result<Value> {
@@ -784,7 +790,80 @@ pub(crate) async fn validate_tui_mcp(
             "event_kind": "OperatorControl.McpValidate",
             "component_kind": "mcp_validator",
             "workflow_node_id": "runtime.mcp-manager.validate",
+            "mcp_config_source_mode": source_mode,
         })),
+    )
+    .await
+}
+
+pub(crate) async fn search_tui_mcp_tools(
+    thread_id: &str,
+    query: &str,
+    server_id: Option<&str>,
+    source_mode: Option<&str>,
+    limit: Option<u64>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut params = vec![
+        ("q", query.to_string()),
+        ("query", query.to_string()),
+        ("live_discovery", "true".to_string()),
+        ("source", "cli_tui".to_string()),
+    ];
+    if let Some(server_id) = server_id.filter(|value| !value.trim().is_empty()) {
+        params.push(("server_id", server_id.to_string()));
+    }
+    if let Some(source_mode) = source_mode.filter(|value| !value.trim().is_empty()) {
+        params.push(("mcp_config_source_mode", source_mode.to_string()));
+    }
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_query(
+            route_with_thread(TUI_THREAD_MCP_TOOL_SEARCH_ROUTE_TEMPLATE, thread_id),
+            params,
+        ),
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn fetch_tui_mcp_tool(
+    thread_id: &str,
+    tool_id: &str,
+    server_id: Option<&str>,
+    source_mode: Option<&str>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut params = vec![
+        ("live_discovery", "true".to_string()),
+        ("source", "cli_tui".to_string()),
+    ];
+    if let Some(server_id) = server_id.filter(|value| !value.trim().is_empty()) {
+        params.push(("server_id", server_id.to_string()));
+    }
+    if let Some(source_mode) = source_mode.filter(|value| !value.trim().is_empty()) {
+        params.push(("mcp_config_source_mode", source_mode.to_string()));
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::GET,
+        &route_with_query(
+            route_with_thread_and_mcp_tool(
+                TUI_THREAD_MCP_TOOL_FETCH_ROUTE_TEMPLATE,
+                thread_id,
+                tool_id,
+            ),
+            params,
+        ),
+        None,
     )
     .await
 }
@@ -1576,6 +1655,21 @@ pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> 
         .pointer("/policy_decision_refs")
         .cloned()
         .unwrap_or_else(|| Value::Array(Vec::new()));
+    let object = json_path_string(status, "/object").unwrap_or_default();
+    let tool_raw_input = if object == "ioi.runtime_mcp_tool_fetch" {
+        "/mcp fetch"
+    } else if object == "ioi.runtime_mcp_tool_search" {
+        "/mcp search"
+    } else {
+        "/mcp tools"
+    };
+    let tool_operation = if object == "ioi.runtime_mcp_tool_fetch" {
+        "fetch"
+    } else if object == "ioi.runtime_mcp_tool_search" {
+        "search"
+    } else {
+        "catalog"
+    };
     let mut rows = Vec::new();
     if let Some(servers) = status.pointer("/servers").and_then(Value::as_array) {
         for server in servers {
@@ -1618,14 +1712,14 @@ pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> 
                 "status": json_path_string(tool, "/status").unwrap_or_else(|| "configured".to_string()),
                 "label": "MCP tool",
                 "command": "mcp",
-                "raw_input": "/mcp tools",
+                "raw_input": tool_raw_input,
                 "message": format!("{} · {}", server_id, tool_name),
                 "thread_id": thread_id.clone(),
                 "event_id": event_id.clone(),
                 "cursor": cursor.clone(),
                 "mcp_server_id": server_id,
                 "mcp_tool_name": tool_name,
-                "mcp_operation": "catalog",
+                "mcp_operation": tool_operation,
                 "workflow_node_id": json_path_string(tool, "/workflow_node_id")
                     .or_else(|| json_path_string(tool, "/workflowNodeId"))
                     .unwrap_or_else(|| "runtime.mcp-tool".to_string()),
@@ -2335,6 +2429,32 @@ fn route_with_thread_and_mcp_server(template: &str, thread_id: &str, server_id: 
 
 fn route_with_thread_and_mcp_tool(template: &str, thread_id: &str, tool_id: &str) -> String {
     route_with_thread(template, thread_id).replace("{tool_id}", tool_id)
+}
+
+fn route_with_query(route: String, params: Vec<(&str, String)>) -> String {
+    let query = params
+        .into_iter()
+        .filter(|(_, value)| !value.trim().is_empty())
+        .map(|(key, value)| format!("{}={}", key, encode_query_component(&value)))
+        .collect::<Vec<_>>()
+        .join("&");
+    if query.is_empty() {
+        route
+    } else {
+        format!("{route}?{query}")
+    }
+}
+
+fn encode_query_component(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                (byte as char).to_string()
+            }
+            _ => format!("%{byte:02X}"),
+        })
+        .collect()
 }
 
 fn route_with_thread_and_memory(template: &str, thread_id: &str, memory_id: &str) -> String {

@@ -3047,7 +3047,7 @@ export class AgentgresRuntimeStateStore {
       ...request,
       thread_id: threadId,
       threadId,
-      servers: this.listMcpServers({ thread_id: threadId }),
+      servers: this.listMcpServers({ ...request, thread_id: threadId }),
       agent,
     });
   }
@@ -3058,7 +3058,7 @@ export class AgentgresRuntimeStateStore {
       ...request,
       thread_id: threadId,
       threadId,
-      servers: this.listMcpServers({ thread_id: threadId }),
+      servers: this.listMcpServers({ ...request, thread_id: threadId }),
       agent,
     });
   }
@@ -3676,7 +3676,7 @@ export class AgentgresRuntimeStateStore {
     const validation = this.validateMcp(
       request.mcp_json || request.mcpJson || request.servers || request.mcpServers
         ? request
-        : { servers: this.listMcpServers({ thread_id: threadId }) },
+        : { servers: this.listMcpServers({ ...request, thread_id: threadId }) },
     );
     return this.appendThreadMcpControlEvent({
       threadId,

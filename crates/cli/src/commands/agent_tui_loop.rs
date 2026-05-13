@@ -4,16 +4,17 @@ use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     add_tui_mcp_server, apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run,
     decide_tui_approval, delete_tui_memory, edit_tui_memory, fetch_tui_event_batch, fetch_tui_job,
-    fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread, import_tui_mcp, inspect_tui_mcp_status,
-    inspect_tui_memory_path, inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run,
-    interrupt_tui_turn, invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq,
-    list_tui_jobs_for_thread, list_tui_memory_records, list_tui_workspace_snapshots,
-    preview_tui_workspace_restore, remember_tui_memory, remove_tui_mcp_server,
-    replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
-    selected_turn_id_from_values, set_tui_mcp_server_enabled, steer_tui_turn, thread_id_from_value,
-    tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows,
-    tui_mode_status, tui_run_lifecycle_rows, update_tui_memory_policy, update_tui_thread_mode,
-    update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
+    fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread, import_tui_mcp,
+    inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
+    inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
+    invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread, list_tui_memory_records,
+    list_tui_workspace_snapshots, preview_tui_workspace_restore, remember_tui_memory,
+    remove_tui_mcp_server, replay_tui_run_events, resume_tui_thread, search_tui_mcp_tools,
+    selected_run_id_from_thread, selected_turn_id_from_values, set_tui_mcp_server_enabled,
+    steer_tui_turn, thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_job_rows,
+    tui_mcp_rows, tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows,
+    update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
+    update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -1038,15 +1039,90 @@ async fn handle_mcp_command(
     let action_text = action.unwrap_or_else(|| "status".to_string());
     let mut parts = action_text.split_whitespace();
     let action = parts.next().unwrap_or("status").trim().to_ascii_lowercase();
+    let remaining = parts.collect::<Vec<_>>();
+    let mut source_mode_for_print = "workspace_and_global".to_string();
     let result = match action.as_str() {
         "status" | "list" | "servers" | "tools" => {
-            inspect_tui_mcp_status(&thread_id, &session.endpoint, session.token.as_deref()).await?
+            let (positionals, options) = parse_mcp_catalog_option_tokens(&remaining)?;
+            if !positionals.is_empty() {
+                return Err(anyhow!("/mcp {} accepts only source/catalog flags", action));
+            }
+            if let Some(source_mode) = options.source_mode.clone() {
+                source_mode_for_print = source_mode;
+            }
+            inspect_tui_mcp_status(
+                &thread_id,
+                options.source_mode.as_deref(),
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
         }
         "validate" | "doctor" => {
-            validate_tui_mcp(&thread_id, &session.endpoint, session.token.as_deref()).await?
+            let (positionals, options) = parse_mcp_catalog_option_tokens(&remaining)?;
+            if !positionals.is_empty() {
+                return Err(anyhow!("/mcp {} accepts only source/catalog flags", action));
+            }
+            if let Some(source_mode) = options.source_mode.clone() {
+                source_mode_for_print = source_mode;
+            }
+            validate_tui_mcp(
+                &thread_id,
+                options.source_mode.as_deref(),
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "search" | "find" => {
+            let (positionals, options) = parse_mcp_catalog_option_tokens(&remaining)?;
+            let query = positionals.join(" ");
+            if query.trim().is_empty() {
+                return Err(anyhow!("/mcp search requires <query>"));
+            }
+            if let Some(source_mode) = options.source_mode.clone() {
+                source_mode_for_print = source_mode;
+            }
+            search_tui_mcp_tools(
+                &thread_id,
+                &query,
+                options.server_id.as_deref(),
+                options.source_mode.as_deref(),
+                options.limit,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "fetch" | "get" => {
+            let (positionals, options) = parse_mcp_catalog_option_tokens(&remaining)?;
+            let raw_tool_id = positionals.first().ok_or_else(|| {
+                anyhow!("/mcp fetch requires <tool_id> or <server_id>/<tool_name>")
+            })?;
+            if positionals.len() > 1 {
+                return Err(anyhow!(
+                    "/mcp fetch accepts exactly one <tool_id> or <server_id>/<tool_name>"
+                ));
+            }
+            let (tool_id, inferred_server_id) = normalize_mcp_fetch_tool_id(raw_tool_id);
+            if let Some(source_mode) = options.source_mode.clone() {
+                source_mode_for_print = source_mode;
+            }
+            fetch_tui_mcp_tool(
+                &thread_id,
+                &tool_id,
+                options
+                    .server_id
+                    .as_deref()
+                    .or(inferred_server_id.as_deref()),
+                options.source_mode.as_deref(),
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
         }
         "import" => {
-            let json_tail = parts.collect::<Vec<_>>().join(" ");
+            let json_tail = remaining.join(" ");
             if json_tail.trim().is_empty() {
                 return Err(anyhow!("/mcp import requires <mcp_json>"));
             }
@@ -1061,6 +1137,7 @@ async fn handle_mcp_command(
             .await?
         }
         "add" => {
+            let mut parts = remaining.iter().copied();
             let label = parts
                 .next()
                 .ok_or_else(|| anyhow!("/mcp add requires <label> <json_config>"))?;
@@ -1080,6 +1157,7 @@ async fn handle_mcp_command(
             .await?
         }
         "remove" | "rm" => {
+            let mut parts = remaining.iter().copied();
             let server_id = parts
                 .next()
                 .ok_or_else(|| anyhow!("/mcp remove requires <server_id>"))?;
@@ -1092,6 +1170,7 @@ async fn handle_mcp_command(
             .await?
         }
         "enable" | "disable" => {
+            let mut parts = remaining.iter().copied();
             let server_id = parts
                 .next()
                 .ok_or_else(|| anyhow!("/mcp {} requires <server_id>", action))?;
@@ -1105,6 +1184,7 @@ async fn handle_mcp_command(
             .await?
         }
         "invoke" | "call" => {
+            let mut parts = remaining.iter().copied();
             let server_id = parts
                 .next()
                 .ok_or_else(|| anyhow!("/mcp invoke requires <server_id> <tool_name> [json]"))?;
@@ -1131,7 +1211,7 @@ async fn handle_mcp_command(
         }
         _ => {
             return Err(anyhow!(
-                "/mcp accepts status, tools, servers, validate, import, add, remove, enable, disable, or invoke"
+                "/mcp accepts status, tools, servers, search, fetch, validate, import, add, remove, enable, disable, or invoke"
             ));
         }
     };
@@ -1153,8 +1233,9 @@ async fn handle_mcp_command(
         .or_else(|| json_path_string(&result, "/issueCount"))
         .unwrap_or_else(|| "0".to_string());
     println!(
-        "line_mode_command=mcp action={} status={} servers={} tools={} resources={} prompts={} issues={} event={}",
+        "line_mode_command=mcp action={} source_mode={} status={} servers={} tools={} resources={} prompts={} issues={} event={}",
         action,
+        source_mode_for_print,
         json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
         server_count,
         tool_count,
@@ -1165,10 +1246,11 @@ async fn handle_mcp_command(
     );
     for row in tui_mcp_rows(&result, Some(&thread_id)) {
         println!(
-            "  mcp_row kind={} server={} tool={} status={} node={}",
+            "  mcp_row kind={} server={} tool={} operation={} status={} node={}",
             json_path_string(&row, "/row_kind").unwrap_or_else(|| "mcp".to_string()),
             json_path_string(&row, "/mcp_server_id").unwrap_or_else(|| "unknown".to_string()),
             json_path_string(&row, "/mcp_tool_name").unwrap_or_else(|| "n/a".to_string()),
+            json_path_string(&row, "/mcp_operation").unwrap_or_else(|| "status".to_string()),
             json_path_string(&row, "/status").unwrap_or_else(|| "unknown".to_string()),
             json_path_string(&row, "/workflow_node_id")
                 .unwrap_or_else(|| "runtime.mcp-manager".to_string())
@@ -1176,6 +1258,117 @@ async fn handle_mcp_command(
     }
     let events = handle_events_command(session, None).await?;
     Ok((events, result))
+}
+
+#[derive(Debug, Default)]
+struct McpCatalogCommandOptions {
+    source_mode: Option<String>,
+    server_id: Option<String>,
+    limit: Option<u64>,
+}
+
+fn parse_mcp_catalog_option_tokens(
+    tokens: &[&str],
+) -> Result<(Vec<String>, McpCatalogCommandOptions)> {
+    let mut positionals = Vec::new();
+    let mut options = McpCatalogCommandOptions::default();
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = tokens[index];
+        match token {
+            "--global" => options.source_mode = Some("global".to_string()),
+            "--workspace" | "--local" => options.source_mode = Some("workspace".to_string()),
+            "--all" | "--workspace-and-global" => {
+                options.source_mode = Some("workspace_and_global".to_string())
+            }
+            "--source-mode" | "--source" | "--config-source" => {
+                index += 1;
+                let value = tokens
+                    .get(index)
+                    .ok_or_else(|| anyhow!("{token} requires a value"))?;
+                options.source_mode = Some(normalize_mcp_source_mode_arg(value)?);
+            }
+            "--server" | "--server-id" => {
+                index += 1;
+                let value = tokens
+                    .get(index)
+                    .ok_or_else(|| anyhow!("{token} requires a value"))?;
+                options.server_id = Some((*value).to_string());
+            }
+            "--limit" => {
+                index += 1;
+                let value = tokens
+                    .get(index)
+                    .ok_or_else(|| anyhow!("{token} requires a numeric value"))?;
+                options.limit = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("{token} requires a numeric value"))?,
+                );
+            }
+            _ if token.starts_with("--source-mode=") => {
+                options.source_mode = Some(normalize_mcp_source_mode_arg(
+                    token.trim_start_matches("--source-mode="),
+                )?);
+            }
+            _ if token.starts_with("--source=") => {
+                options.source_mode = Some(normalize_mcp_source_mode_arg(
+                    token.trim_start_matches("--source="),
+                )?);
+            }
+            _ if token.starts_with("--config-source=") => {
+                options.source_mode = Some(normalize_mcp_source_mode_arg(
+                    token.trim_start_matches("--config-source="),
+                )?);
+            }
+            _ if token.starts_with("--server=") => {
+                options.server_id = Some(token.trim_start_matches("--server=").to_string());
+            }
+            _ if token.starts_with("--server-id=") => {
+                options.server_id = Some(token.trim_start_matches("--server-id=").to_string());
+            }
+            _ if token.starts_with("--limit=") => {
+                let value = token.trim_start_matches("--limit=");
+                options.limit = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("--limit requires a numeric value"))?,
+                );
+            }
+            _ if token.starts_with("--") => {
+                return Err(anyhow!("unknown /mcp catalog flag {token}"))
+            }
+            _ => positionals.push(token.to_string()),
+        }
+        index += 1;
+    }
+    Ok((positionals, options))
+}
+
+fn normalize_mcp_source_mode_arg(value: &str) -> Result<String> {
+    let normalized = value.trim().to_ascii_lowercase().replace(['-', ' '], "_");
+    match normalized.as_str() {
+        "global" | "global_only" | "global_ioi" | "ioi_global" => Ok("global".to_string()),
+        "workspace" | "workspace_only" | "local" | "local_only" => Ok("workspace".to_string()),
+        "all" | "workspace_and_global" | "workspace_global" | "workspace_plus_global" => {
+            Ok("workspace_and_global".to_string())
+        }
+        _ => Err(anyhow!(
+            "--source-mode accepts workspace, global, or workspace_and_global"
+        )),
+    }
+}
+
+fn normalize_mcp_fetch_tool_id(value: &str) -> (String, Option<String>) {
+    if let Some((server_id, tool_name)) = value.split_once('/') {
+        if !server_id.trim().is_empty() && !tool_name.trim().is_empty() {
+            return (
+                format!("{}.{}", server_id.trim(), tool_name.trim()),
+                Some(server_id.trim().to_string()),
+            );
+        }
+    }
+    (value.to_string(), None)
 }
 
 async fn handle_memory_command(
@@ -1713,7 +1906,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -2349,6 +2542,18 @@ mod tests {
             parse_tui_line_command("/mcp tools").unwrap(),
             TuiLineCommand::Mcp {
                 action: Some("tools".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/mcp search query --source-mode global").unwrap(),
+            TuiLineCommand::Mcp {
+                action: Some("search query --source-mode global".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/mcp fetch mcp.search/query --source-mode workspace").unwrap(),
+            TuiLineCommand::Mcp {
+                action: Some("fetch mcp.search/query --source-mode workspace".to_string())
             }
         );
         assert_eq!(

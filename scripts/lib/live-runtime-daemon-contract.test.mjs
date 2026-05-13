@@ -4527,6 +4527,13 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/mcp\/servers/);
   assert.match(source, /\/v1\/mcp\/tools/);
   assert.match(source, /\/v1\/mcp\/tools\/search/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/tools\/search/);
+  assert.match(source, /TUI_THREAD_MCP_TOOL_FETCH_ROUTE_TEMPLATE/);
+  assert.match(source, /search_tui_mcp_tools/);
+  assert.match(source, /fetch_tui_mcp_tool/);
+  assert.match(source, /mcp_config_source_mode/);
+  assert.match(source, /\/mcp search/);
+  assert.match(source, /\/mcp fetch/);
   assert.match(source, /global\.ioi\/mcp\.json/);
   assert.match(source, /sourceScope/);
   assert.match(source, /configCompatibility/);
@@ -6814,7 +6821,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      `/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
+      `/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp search query --server mcp.search --source-mode workspace --limit 2\n/mcp fetch mcp.search/query --source-mode workspace\n/mcp add scratch ${scratchMcpConfig}\n/mcp remove mcp.scratch\n/mcp disable mcp.search\n/mcp enable mcp.search\n/mcp invoke mcp.search query {"q":"line-mode"}\n/mcp validate\n/mcp servers --source-mode workspace\n/memory status\n/memory remember Line-mode memory write receipt.\n/memory validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n`,
       { cwd: root, timeout: 30000 },
     );
     assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/memory .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
@@ -6822,12 +6829,15 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /line_mode_command=model/);
     assert.match(result.stdout, /line_mode_command=thinking/);
     assert.match(result.stdout, /line_mode_command=mcp action=tools/);
+    assert.match(result.stdout, /line_mode_command=mcp action=search source_mode=workspace/);
+    assert.match(result.stdout, /line_mode_command=mcp action=fetch source_mode=workspace/);
     assert.match(result.stdout, /line_mode_command=mcp action=add/);
     assert.match(result.stdout, /line_mode_command=mcp action=remove/);
     assert.match(result.stdout, /line_mode_command=mcp action=disable/);
     assert.match(result.stdout, /line_mode_command=mcp action=enable/);
     assert.match(result.stdout, /line_mode_command=mcp action=invoke/);
     assert.match(result.stdout, /line_mode_command=mcp action=validate/);
+    assert.match(result.stdout, /line_mode_command=mcp action=servers source_mode=workspace/);
     assert.match(result.stdout, /line_mode_command=memory action=status/);
     assert.match(result.stdout, /line_mode_command=memory action=remember/);
     assert.match(result.stdout, /line_mode_command=memory action=validate/);
@@ -6848,7 +6858,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /OperatorControl\.McpInvoke/);
     assert.match(result.stdout, /OperatorControl\.Memory/);
     assert.match(result.stdout, /OperatorControl\.MemoryWrite/);
-    assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query/);
+    assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query operation=search/);
+    assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query operation=fetch/);
     assert.match(result.stdout, /mcp_row kind=mcp_resource server=mcp\.search/);
     assert.match(result.stdout, /mcp_row kind=mcp_prompt server=mcp\.search/);
     assert.match(result.stdout, /memory_row kind=memory_status/);
