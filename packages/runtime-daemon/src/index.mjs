@@ -49,6 +49,10 @@ const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
 const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
+const WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION = "ioi.runtime.workspace-restore-preview.v1";
+const WORKSPACE_RESTORE_PREVIEW_NODE_ID = "runtime.restore-gate";
+const WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES = 256 * 1024;
+const WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES = 32 * 1024;
 const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
 const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
 const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
@@ -2576,9 +2580,6 @@ export class AgentgresRuntimeStateStore {
         result,
         receiptId,
       });
-      result = codingToolResultWithoutDrafts(result, materializedArtifacts);
-      artifactRefs.push(...normalizeArray(result.artifactRefs));
-      receiptRefs.push(...normalizeArray(result.receiptRefs));
       if (normalizedToolId === "file.apply_patch") {
         workspaceSnapshot = this.prepareWorkspaceSnapshotForPatch({
           threadId,
@@ -2589,17 +2590,20 @@ export class AgentgresRuntimeStateStore {
           workflowNodeId,
           result,
         });
-        if (workspaceSnapshot) {
-          result = {
-            ...result,
-            workspaceSnapshot: workspaceSnapshot.record,
-            workspace_snapshot: workspaceSnapshot.record,
-            workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
-            workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
-          };
-          artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
-          receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
-        }
+      }
+      result = codingToolResultWithoutDrafts(result, materializedArtifacts);
+      artifactRefs.push(...normalizeArray(result.artifactRefs));
+      receiptRefs.push(...normalizeArray(result.receiptRefs));
+      if (workspaceSnapshot) {
+        result = {
+          ...result,
+          workspaceSnapshot: workspaceSnapshot.record,
+          workspace_snapshot: workspaceSnapshot.record,
+          workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
+          workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
+        };
+        artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
+        receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
       }
     } catch (caught) {
       status = "failed";
@@ -2722,10 +2726,22 @@ export class AgentgresRuntimeStateStore {
     result = {},
   } = {}) {
     if (!result?.applied) return null;
-    const files = normalizeArray(result.changedFiles)
+    const contentDraftsByPath = workspaceSnapshotContentDraftsByPath(
+      result.workspaceSnapshotDrafts ?? result.workspace_snapshot_drafts,
+    );
+    const captureRecords = normalizeArray(result.changedFiles)
       .filter((entry) => optionalString(entry?.path))
-      .map((entry) => workspaceSnapshotFileForPatch(entry));
+      .map((entry) =>
+        workspaceSnapshotFileForPatch(entry, contentDraftsByPath.get(optionalString(entry?.path) ?? ""), {
+          maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
+        }),
+      );
+    const files = captureRecords.map((capture) => capture.publicFile);
+    const contentFiles = captureRecords.map((capture) => capture.contentFile);
     if (!files.length) return null;
+    const capturedFileCount = captureRecords.filter((capture) => capture.contentCaptured).length;
+    const omittedFileCount = captureRecords.length - capturedFileCount;
+    const previewSupported = omittedFileCount === 0;
     const core = {
       schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_snapshot",
@@ -2744,23 +2760,30 @@ export class AgentgresRuntimeStateStore {
       createdFileCount: files.filter((file) => file.created).length,
       deletedFileCount: files.filter((file) => file.deleted).length,
       files,
+      capture: {
+        status: previewSupported ? "content_captured" : "partial_content",
+        maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
+        capturedFileCount,
+        omittedFileCount,
+      },
       restore: {
-        status: "metadata_only",
-        previewSupported: false,
+        status: previewSupported ? "content_captured" : "partial_content",
+        previewSupported,
         applySupported: false,
-        reason: "snapshot_content_capture_pending",
+        reason: previewSupported ? "restore_apply_pending" : "snapshot_content_capture_incomplete",
       },
       redaction: {
-        profile: "workspace_snapshot_metadata_only",
+        profile: "workspace_snapshot_content_artifact",
         contentIncluded: false,
+        contentArtifactIncluded: true,
         pathsIncluded: true,
       },
-      evidenceRefs: ["workspace_snapshot_metadata", "file.apply_patch", toolCallId].filter(Boolean),
+      evidenceRefs: ["workspace_snapshot_content", "file.apply_patch", toolCallId].filter(Boolean),
     };
     const snapshotHash = doctorHash(JSON.stringify(core));
     const snapshotId = `workspace_snapshot_${safeId(toolCallId)}_${snapshotHash.slice(0, 12)}`;
     const receiptId = `receipt_${snapshotId}`;
-    const artifactId = `artifact_${safeId(snapshotId)}_metadata`;
+    const artifactId = `artifact_${safeId(snapshotId)}_content`;
     const record = {
       ...core,
       snapshotId,
@@ -2771,13 +2794,35 @@ export class AgentgresRuntimeStateStore {
       receipt_refs: [receiptId],
       artifactRefs: [artifactId],
       artifact_refs: [artifactId],
+      contentArtifactRefs: [artifactId],
+      content_artifact_refs: [artifactId],
       summary: `Workspace snapshot recorded ${files.length} changed file(s) for ${toolCallId}.`,
+    };
+    const artifactPayload = {
+      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      object: "ioi.runtime_workspace_snapshot_content",
+      snapshotId,
+      snapshot_id: snapshotId,
+      snapshotHash,
+      snapshot_hash: snapshotHash,
+      threadId,
+      thread_id: threadId,
+      turnId: turnId || null,
+      turn_id: turnId || null,
+      workspaceRoot,
+      workspace_root: workspaceRoot,
+      trigger: record.trigger,
+      capture: record.capture,
+      restore: record.restore,
+      snapshot: record,
+      files: contentFiles,
     };
     const artifactRecord = this.materializeWorkspaceSnapshotArtifact({
       threadId,
       toolCallId,
       workspaceRoot,
       snapshot: record,
+      artifactPayload,
       artifactId,
       receiptId,
     });
@@ -2787,9 +2832,17 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
-  materializeWorkspaceSnapshotArtifact({ threadId, toolCallId, workspaceRoot, snapshot, artifactId, receiptId } = {}) {
+  materializeWorkspaceSnapshotArtifact({
+    threadId,
+    toolCallId,
+    workspaceRoot,
+    snapshot,
+    artifactPayload,
+    artifactId,
+    receiptId,
+  } = {}) {
     const createdAt = new Date().toISOString();
-    const content = JSON.stringify(snapshot, null, 2);
+    const content = JSON.stringify(artifactPayload ?? snapshot, null, 2);
     const artifactRecord = {
       schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
       schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
@@ -2802,11 +2855,11 @@ export class AgentgresRuntimeStateStore {
       toolCallId,
       workspace_root: workspaceRoot,
       workspaceRoot,
-      name: "workspace-snapshot.json",
+      name: "workspace-snapshot-content.json",
       channel: "workspace-snapshot",
       media_type: "application/json",
       mediaType: "application/json",
-      redaction: "metadata_only",
+      redaction: "workspace_snapshot_content_artifact",
       receipt_id: receiptId,
       receiptId,
       content,
@@ -2878,6 +2931,253 @@ export class AgentgresRuntimeStateStore {
       rollback_refs: [snapshot.snapshotId],
       payload_schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
       payload_summary: payloadSummary,
+    });
+  }
+
+  listWorkspaceSnapshots(threadId) {
+    this.agentForThread(threadId);
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const snapshots = stream.events
+      .filter((event) => event.event_kind === "workspace.snapshot.created")
+      .map((event) => event.payload_summary?.snapshot ?? event.payload_summary)
+      .filter((snapshot) => snapshot && typeof snapshot === "object" && !Array.isArray(snapshot));
+    return {
+      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      object: "ioi.runtime_workspace_snapshot_list",
+      threadId,
+      thread_id: threadId,
+      snapshotCount: snapshots.length,
+      snapshot_count: snapshots.length,
+      snapshots,
+    };
+  }
+
+  previewWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const normalizedSnapshotId = optionalString(snapshotId);
+    if (!normalizedSnapshotId) {
+      throw runtimeError({
+        status: 400,
+        code: "workspace_snapshot_id_required",
+        message: "Restore preview requires a workspace snapshot id.",
+        details: { threadId },
+      });
+    }
+    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
+    const snapshotPackage = this.workspaceSnapshotContentPackage(threadId, normalizedSnapshotId);
+    const operations = normalizeArray(snapshotPackage.files).map((file) =>
+      workspaceRestorePreviewOperation({
+        workspaceRoot: agent.cwd,
+        file,
+        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
+      }),
+    );
+    if (!operations.length) {
+      throw runtimeError({
+        status: 409,
+        code: "workspace_restore_preview_empty",
+        message: "Restore preview could not find content-backed files in the snapshot.",
+        details: { threadId, snapshotId: normalizedSnapshotId },
+      });
+    }
+    const readyCount = operations.filter((operation) => operation.status === "ready").length;
+    const noopCount = operations.filter((operation) => operation.status === "noop").length;
+    const conflictCount = operations.filter((operation) => operation.status === "conflict").length;
+    const blockedCount = operations.filter((operation) => operation.status === "blocked").length;
+    const previewStatus = conflictCount || blockedCount ? "blocked" : "ready";
+    const receiptId = `receipt_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(
+      JSON.stringify(operations.map((operation) => [operation.path, operation.status, operation.currentHash])),
+    ).slice(0, 12)}`;
+    const artifactId = `artifact_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
+    const result = {
+      schemaVersion: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
+      schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
+      object: "ioi.runtime_workspace_restore_preview",
+      threadId,
+      thread_id: threadId,
+      turnId: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
+      turn_id: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
+      workspaceRoot: agent.cwd,
+      workspace_root: agent.cwd,
+      snapshotId: normalizedSnapshotId,
+      snapshot_id: normalizedSnapshotId,
+      snapshotHash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
+      snapshot_hash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
+      previewStatus,
+      preview_status: previewStatus,
+      previewSupported: blockedCount === 0,
+      preview_supported: blockedCount === 0,
+      applySupported: false,
+      apply_supported: false,
+      restoreApplySupported: false,
+      restore_apply_supported: false,
+      fileCount: operations.length,
+      file_count: operations.length,
+      readyCount,
+      ready_count: readyCount,
+      noopCount,
+      noop_count: noopCount,
+      conflictCount,
+      conflict_count: conflictCount,
+      blockedCount,
+      blocked_count: blockedCount,
+      operations,
+      receiptRefs: [receiptId],
+      receipt_refs: [receiptId],
+      artifactRefs: [artifactId],
+      artifact_refs: [artifactId],
+      rollbackRefs: [normalizedSnapshotId],
+      rollback_refs: [normalizedSnapshotId],
+      summary:
+        previewStatus === "ready"
+          ? `Restore preview ready for ${operations.length} file(s) from ${normalizedSnapshotId}.`
+          : `Restore preview blocked for ${normalizedSnapshotId}: ${conflictCount} conflict(s), ${blockedCount} blocked file(s).`,
+    };
+    const artifactRecord = this.materializeWorkspaceRestorePreviewArtifact({
+      threadId,
+      workspaceRoot: agent.cwd,
+      snapshotId: normalizedSnapshotId,
+      artifactId,
+      receiptId,
+      preview: result,
+    });
+    const event = this.appendWorkspaceRestorePreviewEvent({
+      threadId,
+      turnId: result.turnId,
+      workspaceRoot: agent.cwd,
+      workflowGraphId,
+      workflowNodeId,
+      preview: {
+        ...result,
+        artifactRefs: [artifactRecord.id],
+        artifact_refs: [artifactRecord.id],
+      },
+    });
+    return {
+      ...result,
+      artifactRefs: [artifactRecord.id],
+      artifact_refs: [artifactRecord.id],
+      event,
+      restore_preview_event: event,
+      restorePreviewEvent: event,
+    };
+  }
+
+  workspaceSnapshotContentPackage(threadId, snapshotId) {
+    const matches = [...this.codingArtifacts.values()]
+      .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.channel === "workspace-snapshot")
+      .map((artifactRecord) => {
+        const parsed = parseJsonObject(artifactRecord.content);
+        const parsedSnapshotId =
+          parsed?.snapshotId ??
+          parsed?.snapshot_id ??
+          parsed?.snapshot?.snapshotId ??
+          parsed?.snapshot?.snapshot_id;
+        return parsedSnapshotId === snapshotId ? { artifactRecord, parsed } : null;
+      })
+      .filter(Boolean);
+    const match = matches[0];
+    if (!match) {
+      throw notFound(`Workspace snapshot not found: ${snapshotId}`, { threadId, snapshotId });
+    }
+    const snapshot = match.parsed.snapshot ?? match.parsed;
+    if (!snapshot?.restore?.previewSupported) {
+      throw runtimeError({
+        status: 409,
+        code: "workspace_restore_preview_unavailable",
+        message: "Workspace snapshot does not contain enough captured content for restore preview.",
+        details: {
+          threadId,
+          snapshotId,
+          restoreStatus: snapshot?.restore?.status ?? "unknown",
+        },
+      });
+    }
+    return {
+      artifactRecord: match.artifactRecord,
+      snapshot,
+      files: normalizeArray(match.parsed.files),
+    };
+  }
+
+  materializeWorkspaceRestorePreviewArtifact({
+    threadId,
+    workspaceRoot,
+    snapshotId,
+    artifactId,
+    receiptId,
+    preview,
+  } = {}) {
+    const createdAt = new Date().toISOString();
+    const content = JSON.stringify(preview, null, 2);
+    const artifactRecord = {
+      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      id: artifactId,
+      thread_id: threadId,
+      threadId,
+      tool_name: "workspace.restore_preview",
+      toolName: "workspace.restore_preview",
+      tool_call_id: snapshotId,
+      toolCallId: snapshotId,
+      workspace_root: workspaceRoot,
+      workspaceRoot,
+      name: "workspace-restore-preview.json",
+      channel: "restore-preview",
+      media_type: "application/json",
+      mediaType: "application/json",
+      redaction: "workspace_restore_preview",
+      receipt_id: receiptId,
+      receiptId,
+      content,
+      content_bytes: Buffer.byteLength(content, "utf8"),
+      contentBytes: Buffer.byteLength(content, "utf8"),
+      content_hash: doctorHash(content),
+      contentHash: doctorHash(content),
+      created_at: createdAt,
+      createdAt,
+    };
+    this.codingArtifacts.set(artifactRecord.id, artifactRecord);
+    writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+    return artifactRecord;
+  }
+
+  appendWorkspaceRestorePreviewEvent({
+    threadId,
+    turnId,
+    workspaceRoot,
+    workflowGraphId,
+    workflowNodeId,
+    preview,
+  } = {}) {
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId || "",
+      item_id: `${turnId || threadId}:item:workspace-restore-preview:${safeId(preview.snapshotId)}`,
+      idempotency_key: `thread:${threadId}:workspace-restore-preview:${preview.snapshotId}:${doctorHash(
+        JSON.stringify(preview.operations),
+      ).slice(0, 12)}`,
+      source: "runtime_auto",
+      source_event_kind: "WorkspaceRestore.Previewed",
+      event_kind: "workspace.restore.previewed",
+      status: preview.previewStatus === "ready" ? "completed" : "blocked",
+      actor: "runtime",
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "restore_gate",
+      tool_call_id: preview.snapshotId,
+      artifact_refs: preview.artifactRefs,
+      receipt_refs: preview.receiptRefs,
+      rollback_refs: preview.rollbackRefs,
+      payload_schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
+      payload_summary: {
+        ...preview,
+        event_kind: "WorkspaceRestorePreview",
+      },
     });
   }
 
@@ -5221,6 +5521,17 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "tools" && segments[4] && segments[5] === "invoke" && !segments[6]) {
     writeJsonResponse(response, store.invokeThreadTool(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && action === "snapshots" && !segments[4]) {
+    writeJsonResponse(response, store.listWorkspaceSnapshots(threadId));
+    return;
+  }
+  if (request.method === "POST" && action === "snapshots" && segments[4] && segments[5] === "restore-preview" && !segments[6]) {
+    writeJsonResponse(
+      response,
+      store.previewWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
+    );
     return;
   }
   if (request.method === "GET" && action === "turns" && !segments[4]) {
@@ -9144,7 +9455,17 @@ function postEditDiagnosticsConfig(request = {}, input = {}) {
   };
 }
 
-function workspaceSnapshotFileForPatch(entry = {}) {
+function workspaceSnapshotContentDraftsByPath(value) {
+  const drafts = new Map();
+  for (const draft of normalizeArray(value)) {
+    const relativePath = optionalString(draft?.path);
+    if (!relativePath) continue;
+    drafts.set(relativePath, draft);
+  }
+  return drafts;
+}
+
+function workspaceSnapshotFileForPatch(entry = {}, draft = {}, options = {}) {
   const pathValue = optionalString(entry.path) ?? "unknown";
   const beforeHash = optionalString(entry.beforeHash ?? entry.before_hash);
   const afterHash = optionalString(entry.afterHash ?? entry.after_hash);
@@ -9156,7 +9477,20 @@ function workspaceSnapshotFileForPatch(entry = {}) {
   const afterSizeBytes = Number(entry.afterSizeBytes ?? entry.after_size_bytes ?? 0) || 0;
   const beforeMtimeMs = nullableNumber(entry.beforeMtimeMs ?? entry.before_mtime_ms);
   const afterMtimeMs = nullableNumber(entry.afterMtimeMs ?? entry.after_mtime_ms);
-  return {
+  const maxContentBytes = Number(options.maxContentBytes ?? WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES) || WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES;
+  const beforeCapture = workspaceSnapshotCaptureSide({
+    exists: beforeExists,
+    contentHash: beforeHash,
+    content: Object.hasOwn(draft ?? {}, "beforeContent") ? draft.beforeContent : draft?.before_content,
+    maxContentBytes,
+  });
+  const afterCapture = workspaceSnapshotCaptureSide({
+    exists: afterExists,
+    contentHash: afterHash,
+    content: Object.hasOwn(draft ?? {}, "afterContent") ? draft.afterContent : draft?.after_content,
+    maxContentBytes,
+  });
+  const publicFile = {
     path: pathValue,
     created: Boolean(entry.created),
     deleted: beforeExists && !afterExists,
@@ -9166,15 +9500,79 @@ function workspaceSnapshotFileForPatch(entry = {}) {
       contentHash: beforeHash,
       sizeBytes: beforeExists ? beforeSizeBytes : 0,
       mtimeMs: beforeMtimeMs,
+      contentCaptured: beforeCapture.captured,
+      contentBytes: beforeCapture.contentBytes,
+      omittedReason: beforeCapture.omittedReason,
     },
     after: {
       exists: afterExists,
       contentHash: afterHash,
       sizeBytes: afterExists ? afterSizeBytes : 0,
       mtimeMs: afterMtimeMs,
+      contentCaptured: afterCapture.captured,
+      contentBytes: afterCapture.contentBytes,
+      omittedReason: afterCapture.omittedReason,
     },
     receiptRefs: [],
     artifactRefs: [],
+  };
+  return {
+    publicFile,
+    contentFile: {
+      ...publicFile,
+      before: {
+        ...publicFile.before,
+        content: beforeCapture.content,
+      },
+      after: {
+        ...publicFile.after,
+        content: afterCapture.content,
+      },
+      encoding: optionalString(draft?.encoding) ?? "utf8",
+    },
+    contentCaptured: beforeCapture.captured && afterCapture.captured,
+  };
+}
+
+function workspaceSnapshotCaptureSide({ exists, contentHash, content, maxContentBytes }) {
+  if (!exists) {
+    return {
+      captured: true,
+      content: null,
+      contentBytes: 0,
+      omittedReason: null,
+    };
+  }
+  if (typeof content !== "string") {
+    return {
+      captured: false,
+      content: null,
+      contentBytes: 0,
+      omittedReason: "snapshot_content_missing",
+    };
+  }
+  const contentBytes = Buffer.byteLength(content, "utf8");
+  if (contentBytes > maxContentBytes) {
+    return {
+      captured: false,
+      content: null,
+      contentBytes,
+      omittedReason: "snapshot_content_size_limit_exceeded",
+    };
+  }
+  if (contentHash && doctorHash(content) !== contentHash) {
+    return {
+      captured: false,
+      content: null,
+      contentBytes,
+      omittedReason: "snapshot_content_hash_mismatch",
+    };
+  }
+  return {
+    captured: true,
+    content,
+    contentBytes,
+    omittedReason: null,
   };
 }
 
@@ -9182,6 +9580,198 @@ function nullableNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function workspaceRestorePreviewOperation({ workspaceRoot, file = {}, maxDiffBytes }) {
+  const target = resolveWorkspaceSnapshotPath(workspaceRoot, file.path);
+  const before = file.before && typeof file.before === "object" ? file.before : {};
+  const after = file.after && typeof file.after === "object" ? file.after : {};
+  const current = readWorkspaceRestoreCurrent(target.absolutePath);
+  const beforeExists = Boolean(before.exists);
+  const afterExists = Boolean(after.exists);
+  const desiredContent = beforeExists && typeof before.content === "string" ? before.content : "";
+  const desiredHash = beforeExists ? optionalString(before.contentHash) : null;
+  const afterHash = afterExists ? optionalString(after.contentHash) : null;
+  const currentMatchesSnapshotPost =
+    current.exists === afterExists && (!afterExists || current.contentHash === afterHash);
+  const currentMatchesRestoreTarget =
+    current.exists === beforeExists && (!beforeExists || current.contentHash === desiredHash);
+  const contentAvailable = !beforeExists || typeof before.content === "string";
+  const operation = currentMatchesRestoreTarget
+    ? "noop"
+    : beforeExists
+      ? current.exists
+        ? "replace"
+        : "create"
+      : "delete";
+  const status = currentMatchesRestoreTarget
+    ? "noop"
+    : !contentAvailable || current.blocked
+      ? "blocked"
+      : currentMatchesSnapshotPost
+        ? "ready"
+        : "conflict";
+  const diff = status === "ready"
+    ? workspaceRestoreDiffPreview({
+        relativePath: target.relativePath,
+        before: current.exists ? current.content : "",
+        after: beforeExists ? desiredContent : "",
+        maxBytes: maxDiffBytes,
+      })
+    : { text: "", bytes: 0, truncated: false };
+  return {
+    path: target.relativePath,
+    operation,
+    status,
+    currentExists: current.exists,
+    current_exists: current.exists,
+    currentHash: current.contentHash,
+    current_hash: current.contentHash,
+    currentBytes: current.contentBytes,
+    current_bytes: current.contentBytes,
+    targetExists: beforeExists,
+    target_exists: beforeExists,
+    targetHash: desiredHash,
+    target_hash: desiredHash,
+    snapshotAfterExists: afterExists,
+    snapshot_after_exists: afterExists,
+    snapshotAfterHash: afterHash,
+    snapshot_after_hash: afterHash,
+    currentMatchesSnapshotPost,
+    current_matches_snapshot_post: currentMatchesSnapshotPost,
+    currentMatchesRestoreTarget,
+    current_matches_restore_target: currentMatchesRestoreTarget,
+    blockedReason: current.blockedReason ?? (!contentAvailable ? "snapshot_restore_target_content_missing" : null),
+    blocked_reason: current.blockedReason ?? (!contentAvailable ? "snapshot_restore_target_content_missing" : null),
+    diff: diff.text,
+    diffBytes: diff.bytes,
+    diff_bytes: diff.bytes,
+    diffHash: doctorHash(diff.text),
+    diff_hash: doctorHash(diff.text),
+    diffTruncated: diff.truncated,
+    diff_truncated: diff.truncated,
+  };
+}
+
+function readWorkspaceRestoreCurrent(absolutePath) {
+  if (!fs.existsSync(absolutePath)) {
+    return {
+      exists: false,
+      content: "",
+      contentHash: null,
+      contentBytes: 0,
+      blocked: false,
+      blockedReason: null,
+    };
+  }
+  const stat = fs.statSync(absolutePath);
+  if (!stat.isFile()) {
+    return {
+      exists: true,
+      content: "",
+      contentHash: null,
+      contentBytes: stat.size,
+      blocked: true,
+      blockedReason: "current_path_not_regular_file",
+    };
+  }
+  if (stat.size > WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES) {
+    return {
+      exists: true,
+      content: "",
+      contentHash: null,
+      contentBytes: stat.size,
+      blocked: true,
+      blockedReason: "current_content_size_limit_exceeded",
+    };
+  }
+  const content = fs.readFileSync(absolutePath, "utf8");
+  return {
+    exists: true,
+    content,
+    contentHash: doctorHash(content),
+    contentBytes: Buffer.byteLength(content, "utf8"),
+    blocked: false,
+    blockedReason: null,
+  };
+}
+
+function resolveWorkspaceSnapshotPath(workspaceRoot, selectedPath) {
+  const relativeInput = optionalString(selectedPath);
+  if (!relativeInput || path.isAbsolute(relativeInput) || relativeInput.includes("\0")) {
+    throw policyError("Workspace snapshot path must be a safe workspace-relative path.", {
+      workspaceRoot,
+      path: selectedPath ?? null,
+    });
+  }
+  const root = path.resolve(workspaceRoot);
+  const absolutePath = path.resolve(root, relativeInput);
+  if (!isPathInside(root, absolutePath)) {
+    throw policyError("Workspace snapshot path escaped the workspace root.", {
+      workspaceRoot,
+      path: selectedPath,
+    });
+  }
+  return {
+    absolutePath,
+    relativePath: (path.relative(root, absolutePath) || ".").replaceAll("\\", "/"),
+  };
+}
+
+function isPathInside(rootPath, candidatePath) {
+  const relativePath = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function workspaceRestoreDiffPreview({ relativePath, before, after, maxBytes }) {
+  if (before === after) return { text: "", bytes: 0, truncated: false };
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-workspace-restore-diff-"));
+  const beforePath = path.join(tmpRoot, "current");
+  const afterPath = path.join(tmpRoot, "restore");
+  try {
+    fs.writeFileSync(beforePath, before, "utf8");
+    fs.writeFileSync(afterPath, after, "utf8");
+    let raw = "";
+    try {
+      raw = execFileSync("git", [
+        "diff",
+        "--no-index",
+        "--no-color",
+        "--",
+        beforePath,
+        afterPath,
+      ], {
+        encoding: "utf8",
+        maxBuffer: 4 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      raw = String(error?.stdout ?? error?.stderr ?? "");
+    }
+    const labeled = raw
+      .replaceAll(beforePath, `a/${relativePath}`)
+      .replaceAll(afterPath, `b/${relativePath}`);
+    const buffer = Buffer.from(labeled, "utf8");
+    const limit = Math.max(1, Number(maxBytes) || WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES);
+    const text = buffer.byteLength > limit ? buffer.subarray(0, limit).toString("utf8") : labeled;
+    return {
+      text,
+      bytes: buffer.byteLength,
+      truncated: buffer.byteLength > limit,
+    };
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+function parseJsonObject(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value ?? ""));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeDiagnosticsMode(value) {
@@ -10434,6 +11024,8 @@ function codingToolResultWithoutDrafts(result = {}, artifacts = []) {
   const publicResult = { ...result };
   delete publicResult.artifactDrafts;
   delete publicResult.artifact_drafts;
+  delete publicResult.workspaceSnapshotDrafts;
+  delete publicResult.workspace_snapshot_drafts;
   if (artifacts.length) {
     publicResult.artifactRefs = uniqueStrings([
       ...normalizeArray(publicResult.artifactRefs),
