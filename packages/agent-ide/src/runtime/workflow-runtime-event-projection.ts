@@ -182,6 +182,8 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "thinking"
   | "mcp_server"
   | "mcp_tool"
+  | "mcp_resource"
+  | "mcp_prompt"
   | "memory_status"
   | "memory_policy"
   | "memory_record"
@@ -257,6 +259,8 @@ export interface WorkflowRuntimeTuiControlStateRow {
   mcpServerId?: string | null;
   mcpToolName?: string | null;
   mcpToolCallId?: string | null;
+  mcpResourceUri?: string | null;
+  mcpPromptName?: string | null;
   mcpOperation?: string | null;
   memoryRecordId?: string | null;
   memoryScope?: string | null;
@@ -503,29 +507,53 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
 
   mcpRows.forEach((entry, index) => {
     const declaredKind = stringField(entry, "rowKind", "row_kind");
-    const rowKind: "mcp_server" | "mcp_tool" =
-      declaredKind === "mcp_tool" ? "mcp_tool" : "mcp_server";
+    const rowKind: "mcp_server" | "mcp_tool" | "mcp_resource" | "mcp_prompt" =
+      declaredKind === "mcp_tool"
+        ? "mcp_tool"
+        : declaredKind === "mcp_resource"
+          ? "mcp_resource"
+          : declaredKind === "mcp_prompt"
+            ? "mcp_prompt"
+            : "mcp_server";
     const serverId = stringField(entry, "mcpServerId", "mcp_server_id");
     const toolName = stringField(entry, "mcpToolName", "mcp_tool_name");
     const toolCallId = stringField(entry, "mcpToolCallId", "mcp_tool_call_id");
+    const resourceUri = stringField(entry, "mcpResourceUri", "mcp_resource_uri");
+    const promptName = stringField(entry, "mcpPromptName", "mcp_prompt_name");
     const mcpOperation =
       stringField(entry, "mcpOperation", "mcp_operation") ??
-      (toolCallId ? "invoke" : rowKind === "mcp_tool" ? "catalog" : "status");
+      (toolCallId
+        ? "invoke"
+        : rowKind === "mcp_tool"
+          ? "catalog"
+          : rowKind === "mcp_resource"
+            ? "resource_catalog"
+            : rowKind === "mcp_prompt"
+              ? "prompt_catalog"
+              : "status");
     const status = tuiControlRowStatus(stringField(entry, "status"));
     const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
     const fallbackNodeId = rowKind === "mcp_tool" && serverId && toolName
       ? `runtime.mcp-tool.${slug(serverId)}.${slug(toolName)}`
-      : "runtime.mcp-manager";
+      : rowKind === "mcp_resource" && serverId && resourceUri
+        ? `runtime.mcp-resource.${slug(serverId)}.${slug(resourceUri)}`
+        : rowKind === "mcp_prompt" && serverId && promptName
+          ? `runtime.mcp-prompt.${slug(serverId)}.${slug(promptName)}`
+          : "runtime.mcp-manager";
     rows.push({
       id:
         stringField(entry, "id") ??
-        `tui-${rowKind}:${slug([serverId, toolName, sequence].filter(Boolean).join(":"))}`,
+        `tui-${rowKind}:${slug([serverId, toolName, resourceUri, promptName, sequence].filter(Boolean).join(":"))}`,
       rowKind,
       status,
       label:
         stringField(entry, "label") ??
         (rowKind === "mcp_tool"
           ? `MCP tool ${[serverId, toolName].filter(Boolean).join(".") || sequence}`
+          : rowKind === "mcp_resource"
+            ? `MCP resource ${[serverId, resourceUri].filter(Boolean).join(" · ") || sequence}`
+            : rowKind === "mcp_prompt"
+              ? `MCP prompt ${[serverId, promptName].filter(Boolean).join(".") || sequence}`
           : `MCP server ${serverId ?? sequence}`),
       command: stringField(entry, "command") ?? "mcp",
       rawInput: stringField(entry, "rawInput", "raw_input") ?? "/mcp",
@@ -539,6 +567,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       mcpServerId: serverId,
       mcpToolName: toolName,
       mcpToolCallId: toolCallId,
+      mcpResourceUri: resourceUri,
+      mcpPromptName: promptName,
       mcpOperation,
       routeId: null,
       reasoningEffort: null,

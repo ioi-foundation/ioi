@@ -47,8 +47,11 @@ import {
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+  discoverMcpStdioCatalog,
   invokeMcpStdioTool,
   mcpRegistryForWorkspace,
+  mcpPromptsForServers,
+  mcpResourcesForServers,
   mcpServerRecordsFromValidationInput,
   mcpToolsForServers,
   normalizeMcpServerRecord,
@@ -2569,9 +2572,27 @@ export class AgentgresRuntimeStateStore {
     );
   }
 
+  listMcpResources(options = {}) {
+    const servers = this.mcpServersForContext(options);
+    const serverFilter = optionalString(options.server_id ?? options.serverId);
+    return mcpResourcesForServers(
+      serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
+    );
+  }
+
+  listMcpPrompts(options = {}) {
+    const servers = this.mcpServersForContext(options);
+    const serverFilter = optionalString(options.server_id ?? options.serverId);
+    return mcpPromptsForServers(
+      serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
+    );
+  }
+
   mcpStatus(options = {}) {
     const servers = this.listMcpServers(options);
     const tools = this.listMcpTools(options);
+    const resources = this.listMcpResources(options);
+    const prompts = this.listMcpPrompts(options);
     const validation = validateMcpServerRecords(servers);
     return {
       schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
@@ -2582,14 +2603,22 @@ export class AgentgresRuntimeStateStore {
       serverCount: servers.length,
       tool_count: tools.length,
       toolCount: tools.length,
+      resource_count: resources.length,
+      resourceCount: resources.length,
+      prompt_count: prompts.length,
+      promptCount: prompts.length,
       enabled_server_count: servers.filter((server) => server.enabled !== false).length,
       enabledServerCount: servers.filter((server) => server.enabled !== false).length,
       servers,
       tools,
+      resources,
+      prompts,
       validation,
       routes: {
         servers: "/v1/mcp/servers",
         tools: "/v1/mcp/tools",
+        resources: "/v1/mcp/resources",
+        prompts: "/v1/mcp/prompts",
         validate: "/v1/mcp/validate",
         enableServer: "/v1/mcp/servers/{server_id}/enable",
         disableServer: "/v1/mcp/servers/{server_id}/disable",
@@ -2612,6 +2641,10 @@ export class AgentgresRuntimeStateStore {
       serverCount: servers.length,
       tool_count: mcpToolsForServers(servers).length,
       toolCount: mcpToolsForServers(servers).length,
+      resource_count: mcpResourcesForServers(servers).length,
+      resourceCount: mcpResourcesForServers(servers).length,
+      prompt_count: mcpPromptsForServers(servers).length,
+      promptCount: mcpPromptsForServers(servers).length,
       issue_count: validation.issues.length,
       issueCount: validation.issues.length,
       warning_count: validation.warnings.length,
@@ -2620,6 +2653,88 @@ export class AgentgresRuntimeStateStore {
       warnings: validation.warnings,
       servers,
       tools: mcpToolsForServers(servers),
+      resources: mcpResourcesForServers(servers),
+      prompts: mcpPromptsForServers(servers),
+    };
+  }
+
+  async mcpStatusWithLiveDiscovery(status, agent, request = {}) {
+    const toolMap = new Map((status.tools ?? []).map((tool) => [mcpToolKey(tool), tool]));
+    const resourceMap = new Map(
+      (status.resources ?? []).map((resource) => [mcpResourceKey(resource), resource]),
+    );
+    const promptMap = new Map((status.prompts ?? []).map((prompt) => [mcpPromptKey(prompt), prompt]));
+    const discoveries = [];
+    for (const server of status.servers ?? []) {
+      if (
+        server.enabled === false ||
+        (server.transport ?? "stdio") !== "stdio" ||
+        !optionalString(server.command)
+      ) {
+        continue;
+      }
+      try {
+        const catalog = await discoverMcpStdioCatalog(server, {
+          cwd: agent.cwd,
+          timeoutMs: request.timeout_ms ?? request.timeoutMs,
+        });
+        for (const tool of catalog.tools ?? catalog.listed_tools ?? []) {
+          toolMap.set(mcpToolKey(tool), tool);
+        }
+        for (const resource of catalog.resources ?? catalog.listed_resources ?? []) {
+          resourceMap.set(mcpResourceKey(resource), resource);
+        }
+        for (const prompt of catalog.prompts ?? catalog.listed_prompts ?? []) {
+          promptMap.set(mcpPromptKey(prompt), prompt);
+        }
+        discoveries.push({
+          server_id: server.id,
+          serverId: server.id,
+          status: "completed",
+          transport: "stdio",
+          tool_count: catalog.tool_count ?? 0,
+          resource_count: catalog.resource_count ?? 0,
+          prompt_count: catalog.prompt_count ?? 0,
+        });
+      } catch (error) {
+        discoveries.push({
+          server_id: server.id,
+          serverId: server.id,
+          status: "failed",
+          transport: "stdio",
+          error_code: optionalString(error?.code) ?? "mcp_stdio_discovery_failed",
+          message: String(error?.message ?? error),
+        });
+      }
+    }
+    const tools = [...toolMap.values()].sort((left, right) => mcpToolKey(left).localeCompare(mcpToolKey(right)));
+    const resources = [...resourceMap.values()].sort((left, right) =>
+      mcpResourceKey(left).localeCompare(mcpResourceKey(right)),
+    );
+    const prompts = [...promptMap.values()].sort((left, right) =>
+      mcpPromptKey(left).localeCompare(mcpPromptKey(right)),
+    );
+    return {
+      ...status,
+      tools,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      resources,
+      resource_count: resources.length,
+      resourceCount: resources.length,
+      prompts,
+      prompt_count: prompts.length,
+      promptCount: prompts.length,
+      live_discovery: {
+        status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
+        requested: true,
+        servers: discoveries,
+      },
+      liveDiscovery: {
+        status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
+        requested: true,
+        servers: discoveries,
+      },
     };
   }
 
@@ -2921,9 +3036,12 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  recordThreadMcpStatus(threadId, request = {}) {
+  async recordThreadMcpStatus(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
-    const status = this.mcpStatus({ ...request, thread_id: threadId });
+    let status = this.mcpStatus({ ...request, thread_id: threadId });
+    if (request.live_discovery === true || request.liveDiscovery === true) {
+      status = await this.mcpStatusWithLiveDiscovery(status, agent, request);
+    }
     return this.appendThreadMcpControlEvent({
       threadId,
       agent,
@@ -2941,7 +3059,7 @@ export class AgentgresRuntimeStateStore {
         control_kind: "mcp_status",
         thread_id: threadId,
         agent_id: agent.id,
-        summary: `MCP catalog has ${status.server_count} server(s) and ${status.tool_count} tool(s).`,
+        summary: `MCP catalog has ${status.server_count} server(s), ${status.tool_count} tool(s), ${status.resource_count ?? 0} resource(s), and ${status.prompt_count ?? 0} prompt(s).`,
       },
     });
   }
@@ -5811,6 +5929,14 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.listMcpTools(Object.fromEntries(url.searchParams.entries())));
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/mcp/resources") {
+      writeJsonResponse(response, store.listMcpResources(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/mcp/prompts") {
+      writeJsonResponse(response, store.listMcpPrompts(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/v1/mcp/validate") {
       writeJsonResponse(response, store.validateMcp(await readBody(request)));
       return;
@@ -7742,7 +7868,7 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
-    writeJsonResponse(response, store.recordThreadMcpStatus(threadId, await readBody(request)));
+    writeJsonResponse(response, await store.recordThreadMcpStatus(threadId, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "mcp" && segments[4] === "validate" && !segments[5]) {
@@ -11525,6 +11651,21 @@ function shouldInvokeMcpOverLiveStdio(server, request = {}) {
     return true;
   }
   return (server.transport ?? "stdio") === "stdio" && Boolean(optionalString(server.command));
+}
+
+function mcpToolKey(tool = {}) {
+  return optionalString(tool.stableToolId ?? tool.stable_tool_id) ??
+    `${optionalString(tool.serverId ?? tool.server_id) ?? "mcp.unknown"}:${optionalString(tool.toolName ?? tool.tool_name) ?? "tool"}`;
+}
+
+function mcpResourceKey(resource = {}) {
+  return optionalString(resource.stableResourceId ?? resource.stable_resource_id) ??
+    `${optionalString(resource.serverId ?? resource.server_id) ?? "mcp.unknown"}:${optionalString(resource.uri) ?? "resource"}`;
+}
+
+function mcpPromptKey(prompt = {}) {
+  return optionalString(prompt.stablePromptId ?? prompt.stable_prompt_id) ??
+    `${optionalString(prompt.serverId ?? prompt.server_id) ?? "mcp.unknown"}:${optionalString(prompt.name) ?? "prompt"}`;
 }
 
 function loadCursorCompatibilityConfig(cwd) {

@@ -743,6 +743,7 @@ pub(crate) async fn inspect_tui_mcp_status(
             "event_kind": "OperatorControl.Mcp",
             "component_kind": "mcp_provider",
             "workflow_node_id": "runtime.mcp-manager",
+            "live_discovery": true,
         })),
     )
     .await
@@ -1535,6 +1536,65 @@ pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> 
                 "workflow_node_id": json_path_string(tool, "/workflow_node_id")
                     .or_else(|| json_path_string(tool, "/workflowNodeId"))
                     .unwrap_or_else(|| "runtime.mcp-tool".to_string()),
+                "receipt_refs": receipt_refs.clone(),
+                "policy_decision_refs": policy_refs.clone(),
+            }));
+        }
+    }
+    if let Some(resources) = status.pointer("/resources").and_then(Value::as_array) {
+        for resource in resources {
+            let server_id = json_path_string(resource, "/server_id")
+                .or_else(|| json_path_string(resource, "/serverId"))
+                .unwrap_or_else(|| "mcp.unknown".to_string());
+            let uri = json_path_string(resource, "/uri").unwrap_or_else(|| "resource".to_string());
+            rows.push(serde_json::json!({
+                "id": format!("tui-mcp-resource-{}-{}", safe_id(&server_id), safe_id(&uri)),
+                "row_kind": "mcp_resource",
+                "status": json_path_string(resource, "/status").unwrap_or_else(|| "configured".to_string()),
+                "label": "MCP resource",
+                "command": "mcp",
+                "raw_input": "/mcp resources",
+                "message": format!("{} · {}", server_id, uri),
+                "thread_id": thread_id.clone(),
+                "event_id": event_id.clone(),
+                "cursor": cursor.clone(),
+                "mcp_server_id": server_id,
+                "mcp_tool_name": Value::Null,
+                "mcp_resource_uri": uri,
+                "mcp_operation": "resource_catalog",
+                "workflow_node_id": json_path_string(resource, "/workflow_node_id")
+                    .or_else(|| json_path_string(resource, "/workflowNodeId"))
+                    .unwrap_or_else(|| "runtime.mcp-resource".to_string()),
+                "receipt_refs": receipt_refs.clone(),
+                "policy_decision_refs": policy_refs.clone(),
+            }));
+        }
+    }
+    if let Some(prompts) = status.pointer("/prompts").and_then(Value::as_array) {
+        for prompt in prompts {
+            let server_id = json_path_string(prompt, "/server_id")
+                .or_else(|| json_path_string(prompt, "/serverId"))
+                .unwrap_or_else(|| "mcp.unknown".to_string());
+            let prompt_name =
+                json_path_string(prompt, "/name").unwrap_or_else(|| "prompt".to_string());
+            rows.push(serde_json::json!({
+                "id": format!("tui-mcp-prompt-{}-{}", safe_id(&server_id), safe_id(&prompt_name)),
+                "row_kind": "mcp_prompt",
+                "status": json_path_string(prompt, "/status").unwrap_or_else(|| "configured".to_string()),
+                "label": "MCP prompt",
+                "command": "mcp",
+                "raw_input": "/mcp prompts",
+                "message": format!("{} · {}", server_id, prompt_name),
+                "thread_id": thread_id.clone(),
+                "event_id": event_id.clone(),
+                "cursor": cursor.clone(),
+                "mcp_server_id": server_id,
+                "mcp_tool_name": Value::Null,
+                "mcp_prompt_name": prompt_name,
+                "mcp_operation": "prompt_catalog",
+                "workflow_node_id": json_path_string(prompt, "/workflow_node_id")
+                    .or_else(|| json_path_string(prompt, "/workflowNodeId"))
+                    .unwrap_or_else(|| "runtime.mcp-prompt".to_string()),
                 "receipt_refs": receipt_refs.clone(),
                 "policy_decision_refs": policy_refs.clone(),
             }));

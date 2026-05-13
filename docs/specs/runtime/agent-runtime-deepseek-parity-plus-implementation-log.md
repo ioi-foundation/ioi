@@ -144,6 +144,7 @@ workstream was narrower.
 | 142 | 2026-05-13 | P1. MCP Manager Parity | MCP enable/disable/invocation controls | /tmp/ioi-autopilot-gui-harness-mcp-controls/2026-05-13T13-37-14-190Z/result.json |
 | 143 | 2026-05-13 | P1. Memory UX Parity | memory write-side TUI/workflow controls | /tmp/ioi-autopilot-gui-harness-memory-write-controls/2026-05-13T14-00-24-781Z/result.json |
 | 144 | 2026-05-13 | P1. MCP Manager Parity | live MCP stdio transport invocation | /tmp/ioi-autopilot-gui-harness-mcp-live-stdio/2026-05-13T14-11-08-493Z/result.json |
+| 145 | 2026-05-13 | P1. MCP Manager Parity | MCP resources/prompts discovery | /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6875,3 +6876,39 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-live-stdio/2026-05-13T14-11-08-493Z/result.json`.
 - `git diff --check`
+
+### Slice 145. 2026-05-13 - MCP resources/prompts discovery
+
+Implementation slice completed 2026-05-13, read-only MCP resource and prompt
+catalog parity:
+
+- Extended the daemon MCP manager with stable MCP resource and prompt catalog
+  entries, counts, workflow node ids, and SDK-visible status/validation fields.
+- Added `/v1/mcp/resources` and `/v1/mcp/prompts` public catalog routes while
+  preserving thread MCP status as the event-backed control surface.
+- Extended the live stdio MCP JSON-RPC path to discover `resources/list` and
+  `prompts/list` alongside `tools/list` without making resource/prompt
+  discovery a mutable action.
+- Updated the deterministic MCP stdio fixture with one read-only resource and
+  one prompt so live discovery is covered without external services.
+- Exposed `listMcpResources` and `listMcpPrompts` in the SDK and projected MCP
+  resource/prompt rows through TUI control state and React Flow.
+- Updated the master guide to move MCP resources/prompts out of the pending
+  gap list and set mutable MCP import/add/remove writes as the next tactical
+  slice.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/fixtures/mcp-stdio-echo-server.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-resources-prompts`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-resources-prompts/2026-05-13T14-30-00-293Z/result.json`.

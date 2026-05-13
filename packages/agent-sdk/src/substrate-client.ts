@@ -36,8 +36,10 @@ import type {
   RuntimeReceipt,
   RuntimeAccountProfile,
   RuntimeEventEnvelope,
-  RuntimeMcpServerEntry,
   RuntimeMcpInvocationResult,
+  RuntimeMcpPromptEntry,
+  RuntimeMcpResourceEntry,
+  RuntimeMcpServerEntry,
   RuntimeMcpStatus,
   RuntimeMcpToolEntry,
   RuntimeMcpValidationResult,
@@ -811,6 +813,8 @@ export interface RuntimeSubstrateClient {
   getMcpStatus(options?: RuntimeMcpListOptions): Promise<RuntimeMcpStatus>;
   listMcpServers(options?: RuntimeMcpListOptions): Promise<RuntimeMcpServerEntry[]>;
   listMcpTools(options?: RuntimeMcpListOptions): Promise<RuntimeMcpToolEntry[]>;
+  listMcpResources(options?: RuntimeMcpListOptions): Promise<RuntimeMcpResourceEntry[]>;
+  listMcpPrompts(options?: RuntimeMcpListOptions): Promise<RuntimeMcpPromptEntry[]>;
   validateMcp(input?: RuntimeMcpValidationInput): Promise<RuntimeMcpValidationResult>;
   enableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   disableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
@@ -1224,6 +1228,14 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listMcpTools(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpToolEntry[]> {
     return this.request("listMcpTools", "GET", `/v1/mcp/tools${mcpListQuery(options)}`);
+  }
+
+  async listMcpResources(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpResourceEntry[]> {
+    return this.request("listMcpResources", "GET", `/v1/mcp/resources${mcpListQuery(options)}`);
+  }
+
+  async listMcpPrompts(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpPromptEntry[]> {
+    return this.request("listMcpPrompts", "GET", `/v1/mcp/prompts${mcpListQuery(options)}`);
   }
 
   async validateMcp(input: RuntimeMcpValidationInput = {}): Promise<RuntimeMcpValidationResult> {
@@ -2927,6 +2939,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async getMcpStatus(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpStatus> {
     const servers = await this.listMcpServers(options);
     const tools = await this.listMcpTools(options);
+    const resources = await this.listMcpResources(options);
+    const prompts = await this.listMcpPrompts(options);
     return {
       schema_version: "ioi.runtime.mcp-manager-status.v1",
       schemaVersion: "ioi.runtime.mcp-manager-status.v1",
@@ -2936,8 +2950,14 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       serverCount: servers.length,
       tool_count: tools.length,
       toolCount: tools.length,
+      resource_count: resources.length,
+      resourceCount: resources.length,
+      prompt_count: prompts.length,
+      promptCount: prompts.length,
       servers,
       tools,
+      resources,
+      prompts,
       validation: {
         schema_version: "ioi.runtime.mcp-manager-validation.v1",
         schemaVersion: "ioi.runtime.mcp-manager-validation.v1",
@@ -2947,6 +2967,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         warnings: [],
         servers,
         tools,
+        resources,
+        prompts,
       },
     };
   }
@@ -3003,6 +3025,20 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     );
   }
 
+  async listMcpResources(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpResourceEntry[]> {
+    const servers = await this.listMcpServers(options);
+    return servers.flatMap(
+      (server) => ((server as RuntimeMcpServerEntry & { resources?: RuntimeMcpResourceEntry[] }).resources ?? []),
+    );
+  }
+
+  async listMcpPrompts(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpPromptEntry[]> {
+    const servers = await this.listMcpServers(options);
+    return servers.flatMap(
+      (server) => ((server as RuntimeMcpServerEntry & { prompts?: RuntimeMcpPromptEntry[] }).prompts ?? []),
+    );
+  }
+
   async validateMcp(input: RuntimeMcpValidationInput = {}): Promise<RuntimeMcpValidationResult> {
     const status = await this.getMcpStatus();
     return {
@@ -3015,6 +3051,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       serverCount: status.server_count,
       tool_count: status.tool_count,
       toolCount: status.tool_count,
+      resource_count: status.resource_count ?? 0,
+      resourceCount: status.resource_count ?? 0,
+      prompt_count: status.prompt_count ?? 0,
+      promptCount: status.prompt_count ?? 0,
       issue_count: 0,
       issueCount: 0,
       warning_count: input ? 0 : 0,
@@ -3023,6 +3063,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       warnings: [],
       servers: status.servers,
       tools: status.tools,
+      resources: status.resources,
+      prompts: status.prompts,
     };
   }
 

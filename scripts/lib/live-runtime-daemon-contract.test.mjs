@@ -1542,6 +1542,8 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
             command: "node",
             args: [mcpStdioFixture],
             allowedTools: ["query", "fetch"],
+            resources: [{ uri: "ioi://fixture/search-context", name: "search-context" }],
+            prompts: [{ name: "search-brief", arguments: [{ name: "topic", required: true }] }],
             env: { SEARCH_TOKEN: "vault://mcp/search/token" },
             containment: { mode: "sandboxed", allowChildProcesses: true },
           },
@@ -1584,6 +1586,20 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(status.status, "ready");
     assert.equal(status.server_count, 1);
     assert.equal(status.tool_count, 2);
+    assert.equal(status.resource_count, 1);
+    assert.equal(status.prompt_count, 1);
+
+    const resources = await fetchJson(
+      `${daemon.endpoint}/v1/mcp/resources?thread_id=${thread.thread_id}`,
+    );
+    assert.equal(resources[0].uri, "ioi://fixture/search-context");
+    assert.ok(resources[0].workflowNodeId.startsWith("runtime.mcp-resource.search."));
+
+    const prompts = await fetchJson(
+      `${daemon.endpoint}/v1/mcp/prompts?thread_id=${thread.thread_id}`,
+    );
+    assert.equal(prompts[0].name, "search-brief");
+    assert.ok(prompts[0].workflowNodeId.startsWith("runtime.mcp-prompt.search."));
 
     const validation = await fetchJson(`${daemon.endpoint}/v1/mcp/validate`, {
       method: "POST",
@@ -1597,12 +1613,18 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
       body: JSON.stringify({
         source: "cli_tui",
         workflowGraphId: "mcp-control-graph",
+        live_discovery: true,
       }),
     });
     assert.equal(threadStatus.event.source_event_kind, "OperatorControl.Mcp");
     assert.equal(threadStatus.event.component_kind, "mcp_provider");
     assert.equal(threadStatus.event.workflow_node_id, "runtime.mcp-manager");
     assert.equal(threadStatus.receipt_refs.length, 1);
+    assert.equal(threadStatus.resource_count, 1);
+    assert.equal(threadStatus.prompt_count, 1);
+    assert.equal(threadStatus.resources[0].uri, "ioi://fixture/search-context");
+    assert.equal(threadStatus.prompts[0].name, "search-brief");
+    assert.equal(threadStatus.live_discovery.status, "completed");
 
     const threadValidation = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/validate`, {
       method: "POST",
@@ -1615,6 +1637,8 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     assert.equal((await sdkClient.getMcpStatus({ thread_id: thread.thread_id })).server_count, 1);
     assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 2);
+    assert.equal((await sdkClient.listMcpResources({ thread_id: thread.thread_id })).length, 1);
+    assert.equal((await sdkClient.listMcpPrompts({ thread_id: thread.thread_id })).length, 1);
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
     assert.equal((await sdkThread.mcp()).tool_count, 2);
     assert.equal((await sdkThread.validateMcp()).ok, true);
@@ -1710,6 +1734,26 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
           receipt_refs: threadStatus.receipt_refs,
         },
         {
+          row_kind: "mcp_resource",
+          status: "configured",
+          command: "mcp",
+          raw_input: "/mcp resources",
+          mcp_server_id: resources[0].serverId,
+          mcp_resource_uri: resources[0].uri,
+          workflow_node_id: resources[0].workflowNodeId,
+          receipt_refs: threadStatus.receipt_refs,
+        },
+        {
+          row_kind: "mcp_prompt",
+          status: "configured",
+          command: "mcp",
+          raw_input: "/mcp prompts",
+          mcp_server_id: prompts[0].serverId,
+          mcp_prompt_name: prompts[0].name,
+          workflow_node_id: prompts[0].workflowNodeId,
+          receipt_refs: threadStatus.receipt_refs,
+        },
+        {
           row_kind: "mcp_tool",
           status: "completed",
           command: "mcp",
@@ -1724,8 +1768,10 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
         },
       ],
     });
-    assert.equal(controlProjection.mcpRowCount, 3);
+    assert.equal(controlProjection.mcpRowCount, 5);
     assert.ok(controlProjection.rows.some((row) => row.rowKind === "mcp_server"));
+    assert.ok(controlProjection.rows.some((row) => row.rowKind === "mcp_resource"));
+    assert.ok(controlProjection.rows.some((row) => row.rowKind === "mcp_prompt"));
     assert.ok(
       controlProjection.rows.some(
         (row) =>
@@ -3942,6 +3988,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/thinking/);
   assert.match(source, /\/v1\/mcp\/servers/);
   assert.match(source, /\/v1\/mcp\/tools/);
+  assert.match(source, /\/v1\/mcp\/resources/);
+  assert.match(source, /\/v1\/mcp\/prompts/);
   assert.match(source, /\/v1\/mcp\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/status/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/validate/);
@@ -3970,8 +4018,11 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /OperatorControl\.McpEnable/);
   assert.match(source, /OperatorControl\.McpDisable/);
   assert.match(source, /OperatorControl\.McpInvoke/);
+  assert.match(source, /discoverMcpStdioCatalog/);
   assert.match(source, /invokeMcpStdioTool/);
   assert.match(source, /live_stdio/);
+  assert.match(source, /resources\/list/);
+  assert.match(source, /prompts\/list/);
   assert.match(source, /OperatorControl\.Memory/);
   assert.match(source, /OperatorControl\.MemoryValidate/);
   assert.match(source, /OperatorControl\.MemoryWrite/);
@@ -6228,6 +6279,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /OperatorControl\.Memory/);
     assert.match(result.stdout, /OperatorControl\.MemoryWrite/);
     assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query/);
+    assert.match(result.stdout, /mcp_row kind=mcp_resource server=mcp\.search/);
+    assert.match(result.stdout, /mcp_row kind=mcp_prompt server=mcp\.search/);
     assert.match(result.stdout, /memory_row kind=memory_status/);
     assert.match(result.stdout, /memory_row kind=memory_record/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
@@ -6324,6 +6377,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(finalControlState.run_lifecycle_rows.some((row) => row.run_id));
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_server_id === "mcp.search"));
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_tool_name === "query"));
+    assert.ok(finalControlState.mcp_rows.some((row) => row.row_kind === "mcp_resource"));
+    assert.ok(finalControlState.mcp_rows.some((row) => row.row_kind === "mcp_prompt"));
     assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_operation === "invoke"));
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_status"));
     assert.ok(finalControlState.memory_rows.some((row) => row.row_kind === "memory_policy"));

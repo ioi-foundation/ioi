@@ -1096,15 +1096,23 @@ async fn handle_mcp_command(
     let tool_count = json_path_string(&result, "/tool_count")
         .or_else(|| json_path_string(&result, "/toolCount"))
         .unwrap_or_else(|| "0".to_string());
+    let resource_count = json_path_string(&result, "/resource_count")
+        .or_else(|| json_path_string(&result, "/resourceCount"))
+        .unwrap_or_else(|| "0".to_string());
+    let prompt_count = json_path_string(&result, "/prompt_count")
+        .or_else(|| json_path_string(&result, "/promptCount"))
+        .unwrap_or_else(|| "0".to_string());
     let issue_count = json_path_string(&result, "/issue_count")
         .or_else(|| json_path_string(&result, "/issueCount"))
         .unwrap_or_else(|| "0".to_string());
     println!(
-        "line_mode_command=mcp action={} status={} servers={} tools={} issues={} event={}",
+        "line_mode_command=mcp action={} status={} servers={} tools={} resources={} prompts={} issues={} event={}",
         action,
         json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
         server_count,
         tool_count,
+        resource_count,
+        prompt_count,
         issue_count,
         json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
     );

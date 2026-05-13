@@ -713,6 +713,30 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         receipt_refs: ["receipt-mcp-status"],
       },
       {
+        id: "mcp-resource-row",
+        row_kind: "mcp_resource",
+        status: "completed",
+        label: "MCP resource search-context",
+        command: "mcp",
+        raw_input: "/mcp resources",
+        mcp_server_id: "search",
+        mcp_resource_uri: "ioi://fixture/search-context",
+        workflow_node_id: "runtime.mcp-resource.search.ioi_fixture_search-context",
+        receipt_refs: ["receipt-mcp-status"],
+      },
+      {
+        id: "mcp-prompt-row",
+        row_kind: "mcp_prompt",
+        status: "completed",
+        label: "MCP prompt search-brief",
+        command: "mcp",
+        raw_input: "/mcp prompts",
+        mcp_server_id: "search",
+        mcp_prompt_name: "search-brief",
+        workflow_node_id: "runtime.mcp-prompt.search.search-brief",
+        receipt_refs: ["receipt-mcp-status"],
+      },
+      {
         id: "mcp-invoke-row",
         row_kind: "mcp_tool",
         status: "completed",
@@ -824,9 +848,9 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.approvalDecisionCount, 1);
   assert.equal(projection.jobCount, 1);
   assert.equal(projection.runLifecycleCount, 1);
-  assert.equal(projection.mcpRowCount, 3);
+  assert.equal(projection.mcpRowCount, 5);
   assert.equal(projection.memoryRowCount, 4);
-  assert.equal(projection.rowCount, 18);
+  assert.equal(projection.rowCount, 20);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -836,6 +860,8 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["thinking", "thinking", "current"],
       ["mcp_server", "mcp", "completed"],
       ["mcp_tool", "mcp", "completed"],
+      ["mcp_resource", "mcp", "completed"],
+      ["mcp_prompt", "mcp", "completed"],
       ["mcp_tool", "mcp", "completed"],
       ["memory_status", "memory", "completed"],
       ["memory_policy", "memory", "completed"],
@@ -851,11 +877,11 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     ],
   );
   assert.equal(
-    projection.rows[12]?.receiptRefs[0],
+    projection.rows[14]?.receiptRefs[0],
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[16]?.reactFlowNodeId,
+    projection.rows[18]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
   assert.equal(projection.rows[2]?.modelId, "auto");
@@ -863,14 +889,16 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[4]?.mcpServerId, "search");
   assert.equal(projection.rows[5]?.mcpToolName, "query");
   assert.equal(projection.rows[5]?.reactFlowNodeId, "runtime.mcp-tool.search.query");
-  assert.equal(projection.rows[6]?.mcpOperation, "invoke");
-  assert.equal(projection.rows[6]?.mcpToolCallId, "mcp-call-search-query");
-  assert.equal(projection.rows[7]?.memoryOperation, "status");
-  assert.equal(projection.rows[9]?.memoryRecordId, "memory-123");
-  assert.equal(projection.rows[9]?.memoryKey, "conversation");
-  assert.equal(projection.rows[10]?.memoryOperation, "write");
-  assert.equal(projection.rows[10]?.reactFlowNodeId, "runtime.memory.write");
-  assert.equal(projection.rows[13]?.jobId, "job-run-test");
-  assert.equal(projection.rows[14]?.runId, "run-test");
-  assert.equal(projection.rows[17]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[6]?.mcpResourceUri, "ioi://fixture/search-context");
+  assert.equal(projection.rows[7]?.mcpPromptName, "search-brief");
+  assert.equal(projection.rows[8]?.mcpOperation, "invoke");
+  assert.equal(projection.rows[8]?.mcpToolCallId, "mcp-call-search-query");
+  assert.equal(projection.rows[9]?.memoryOperation, "status");
+  assert.equal(projection.rows[11]?.memoryRecordId, "memory-123");
+  assert.equal(projection.rows[11]?.memoryKey, "conversation");
+  assert.equal(projection.rows[12]?.memoryOperation, "write");
+  assert.equal(projection.rows[12]?.reactFlowNodeId, "runtime.memory.write");
+  assert.equal(projection.rows[15]?.jobId, "job-run-test");
+  assert.equal(projection.rows[16]?.runId, "run-test");
+  assert.equal(projection.rows[19]?.message, "/steer requires guidance text");
 });
