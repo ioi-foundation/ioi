@@ -10,15 +10,16 @@ use super::agent_tui::{
     fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp, inspect_tui_mcp_status,
     inspect_tui_memory_path, inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run,
     interrupt_tui_turn, invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq,
-    list_tui_jobs_for_thread, list_tui_memory_records, list_tui_subagents,
-    list_tui_workspace_snapshots, preview_tui_workspace_restore,
+    latest_usage_delta_status, list_tui_jobs_for_thread, list_tui_memory_records,
+    list_tui_subagents, list_tui_workspace_snapshots, preview_tui_workspace_restore,
     propagate_tui_subagent_cancellation, remember_tui_memory, remove_tui_mcp_server,
     replay_tui_run_events, resume_tui_subagent, resume_tui_thread, search_tui_mcp_tools,
     selected_run_id_from_thread, selected_turn_id_from_values, send_tui_subagent_input,
     set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn, thread_id_from_value,
-    tui_approval_decisions, tui_approval_rows, tui_context_rows, tui_cost_rows, tui_job_rows,
-    tui_mcp_rows, tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows,
-    tui_usage_status, update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
+    tui_approval_decisions, tui_approval_rows, tui_context_pressure_rows, tui_context_rows,
+    tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
+    tui_run_lifecycle_rows, tui_subagent_rows, tui_usage_delta_rows, tui_usage_status,
+    update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
     update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory, wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
@@ -927,7 +928,35 @@ async fn handle_events_command(
         batch.events.len()
     );
     print_events(&batch.events);
+    print_streaming_telemetry_rows(&batch.events, Some(&thread_id));
     Ok(batch.events)
+}
+
+fn print_streaming_telemetry_rows(events: &[Value], fallback_thread_id: Option<&str>) {
+    for row in tui_usage_delta_rows(events, fallback_thread_id) {
+        println!(
+            "usage_delta_row stage={} tokens={} cost_usd={} context={} status={} node={}",
+            json_path_string(&row, "/usage_delta_stage").unwrap_or_else(|| "delta".to_string()),
+            json_path_string(&row, "/usage_total_tokens").unwrap_or_else(|| "0".to_string()),
+            json_path_string(&row, "/usage_cost_estimate_usd").unwrap_or_else(|| "0".to_string()),
+            json_path_string(&row, "/usage_context_pressure").unwrap_or_else(|| "0".to_string()),
+            json_path_string(&row, "/usage_context_pressure_status")
+                .unwrap_or_else(|| "nominal".to_string()),
+            json_path_string(&row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.usage-telemetry".to_string())
+        );
+    }
+    for row in tui_context_pressure_rows(events, fallback_thread_id) {
+        println!(
+            "context_pressure_row pressure={} status={} node={} event={}",
+            json_path_string(&row, "/usage_context_pressure").unwrap_or_else(|| "0".to_string()),
+            json_path_string(&row, "/usage_context_pressure_status")
+                .unwrap_or_else(|| "nominal".to_string()),
+            json_path_string(&row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.context-budget".to_string()),
+            json_path_string(&row, "/event_id").unwrap_or_else(|| "none".to_string())
+        );
+    }
 }
 
 async fn handle_approvals_command(session: &mut TuiInteractiveSession) -> Result<Vec<Value>> {
@@ -3264,6 +3293,11 @@ impl TuiControlState {
         }
         self.merge_approval_rows(tui_approval_rows(events, self.thread_id.as_deref()));
         self.merge_approval_decisions(tui_approval_decisions(events, self.thread_id.as_deref()));
+        if let Some(usage_status) = latest_usage_delta_status(events, self.thread_id.as_deref()) {
+            self.usage_status = tui_usage_status(&usage_status, self.thread_id.as_deref());
+        }
+        self.merge_cost_rows(tui_usage_delta_rows(events, self.thread_id.as_deref()));
+        self.merge_context_rows(tui_context_pressure_rows(events, self.thread_id.as_deref()));
     }
 
     fn merge_approval_rows(&mut self, rows: Vec<Value>) {

@@ -167,8 +167,51 @@ workstream was narrower.
 | 165 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow ContextBudgetNode daemon policy evaluator | /tmp/ioi-autopilot-gui-harness-context-budget-node/2026-05-13T21-07-34-408Z/result.json |
 | 166 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow CompactionPolicyNode daemon actuator | /tmp/ioi-autopilot-gui-harness-compaction-policy-node/2026-05-13T21-26-21-995Z/result.json |
 | 167 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | TUI cost/context telemetry controls | /tmp/ioi-autopilot-gui-harness-tui-cost-context/2026-05-13T21-42-24-199Z/result.json |
+| 168 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | streaming usage/context-pressure deltas | /tmp/ioi-autopilot-gui-harness-streaming-usage-context/2026-05-13T22-06-08-190Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 168. 2026-05-13 - Streaming usage/context-pressure deltas
+
+Implementation slice completed 2026-05-13, P1-D streaming telemetry:
+
+- Added runtime `usage.delta` and `context.pressure_delta` events for fixture
+  turns and runtime-service bridge turns, with schema versions, staged
+  cumulative/delta token and cost payloads, context-pressure summaries, stable
+  workflow node ids, component kinds, and TTI event mappings.
+- Extended SDK message and thread-event typing so `usage_delta` and
+  `context_pressure_delta` round-trip through daemon streams, SDK `Thread`
+  replay, and React Flow event projection.
+- Projected streaming usage deltas to `runtime.usage-telemetry` /
+  `runtime_usage_meter` and context-pressure deltas to
+  `runtime.context-budget` / `runtime_context_budget`.
+- Extended TUI control-state and line-mode `/events` output with
+  stream-backed usage and context rows so live terminal controls and React Flow
+  workflow projections read the same daemon event stream.
+- Updated live daemon contracts to assert raw events, SDK event replay,
+  projected React Flow node identity, line-mode `/events` output, and the
+  existing workflow-addressable regression guard.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/agent-sdk/src/runtime-events.ts`
+- `node --check packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts`
+- `cargo fmt --check`
+- `cargo build -p ioi-cli --bin cli`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows`
+- `cargo test -p ioi-cli --bin cli tui_event_route_uses_canonical_thread_stream_cursor`
+- `cargo test -p ioi-cli --bin cli tui_streaming_usage_rows_preserve_runtime_node_identity`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands`
+- `node --import tsx --test --test-name-pattern "projects streaming usage" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts|agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-streaming-usage-context`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-streaming-usage-context/2026-05-13T22-06-08-190Z/result.json`.
 
 ### Slice 167. 2026-05-13 - TUI cost/context telemetry controls
 

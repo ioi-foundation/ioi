@@ -25,6 +25,8 @@ export type WorkflowRuntimeThreadEventType =
   | "context_compacted"
   | "context_budget_evaluated"
   | "compaction_policy_evaluated"
+  | "usage_delta"
+  | "context_pressure_delta"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -1735,6 +1737,10 @@ export function workflowNodeIdForRuntimeThreadEvent(
       return "runtime.context-budget";
     case "compaction_policy_evaluated":
       return "runtime.compaction-policy";
+    case "usage_delta":
+      return "runtime.usage-telemetry";
+    case "context_pressure_delta":
+      return "runtime.context-budget";
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -1760,6 +1766,8 @@ export function workflowNodeKindForRuntimeThreadEvent(
 ): WorkflowNodeKind {
   if (event.componentKind === "workspace_snapshot") return "quality_ledger";
   if (event.componentKind === "restore_gate") return "hook_policy";
+  if (event.componentKind === "usage_telemetry") return "runtime_usage_meter";
+  if (event.componentKind === "context_pressure") return "runtime_context_budget";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
@@ -1785,6 +1793,10 @@ export function workflowNodeKindForRuntimeThreadEvent(
       return "runtime_context_budget";
     case "compaction_policy_evaluated":
       return "runtime_compaction_policy";
+    case "usage_delta":
+      return "runtime_usage_meter";
+    case "context_pressure_delta":
+      return "runtime_context_budget";
     case "reasoning_delta":
       return "task_state";
     case "tool_completed":
@@ -1945,6 +1957,10 @@ function componentKindForRuntimeThreadEvent(
       return "context_budget";
     case "compaction_policy_evaluated":
       return "compaction_policy";
+    case "usage_delta":
+      return "usage_telemetry";
+    case "context_pressure_delta":
+      return "context_pressure";
     case "reasoning_delta":
       return "reasoning_delta";
     case "tool_completed":
@@ -1973,6 +1989,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       ? "Restore apply"
       : "Restore preview";
   }
+  if (event.componentKind === "usage_telemetry") return "Usage telemetry";
+  if (event.componentKind === "context_pressure") return "Context pressure";
   if (event.componentKind === "context_budget") return "Context budget";
   if (event.componentKind === "compaction_policy") return "Compaction policy";
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
@@ -2004,6 +2022,10 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Context budget";
     case "compaction_policy_evaluated":
       return "Compaction policy";
+    case "usage_delta":
+      return "Usage telemetry";
+    case "context_pressure_delta":
+      return "Context pressure";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":
