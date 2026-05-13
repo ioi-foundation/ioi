@@ -154,6 +154,7 @@ workstream was narrower.
 | 152 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1. MCP Manager Parity | TUI MCP search/fetch source-mode UX | /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch/2026-05-13T16-35-16-836Z/result.json |
 | 153 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | TUI diagnostics repair decision controls | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui/2026-05-13T16-45-07-095Z/result.json |
 | 154 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow diagnostics repair action node | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json |
+| 155 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow run-inspector diagnostics repair actions | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -274,6 +275,47 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 155. 2026-05-13 - React Flow run-inspector diagnostics repair actions
+
+Implementation slice completed 2026-05-13, React Flow diagnostics recovery
+operator parity:
+
+- Added a focused runtime diagnostics-repair action projection helper with
+  ordered descriptors parsed from blocking-gate `repair_policy` /
+  `repair_decisions` payloads, preserving decision ids, approval requirements,
+  conflict policy, rollback refs, workspace snapshot refs, policy refs, and
+  receipt refs.
+- Added run-inspector buttons for `repair_retry`, `restore_preview`,
+  `restore_apply`, and `operator_override` directly on projected diagnostics
+  gate rows, with stable test ids and data attributes for workflow/GUI proof.
+- Routed those buttons through the existing
+  `createRuntimeDiagnosticsRepairControlRequest` builder so row actions share
+  the same daemon request contract as TUI slash commands and
+  `runtime_diagnostics_repair` workflow nodes.
+- Added a Tauri runtime-control bridge command that posts relative daemon
+  control endpoints through `IOI_DAEMON_ENDPOINT` and refreshes runtime thread
+  events after execution.
+- Exported the diagnostics repair control types/builders through the public
+  agent-ide package surface and guarded the row-action contract with the live
+  runtime daemon source-contract test.
+- Updated the master guide so the next tactical focus is a live blocked
+  diagnostics fixture proof from row click through daemon event emission,
+  refreshed React Flow projection, and TUI replay.
+
+Validation evidence:
+
+- `node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `rustfmt --check apps/autopilot/src-tauri/src/kernel/artifacts/mod.rs apps/autopilot/src-tauri/src/lib.rs`
+- `node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `npm run build --workspace=autopilot`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json`.
 - `git diff --check`
 
 ### Slice 154. 2026-05-13 - React Flow diagnostics repair action node

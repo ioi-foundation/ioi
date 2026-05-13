@@ -1121,6 +1121,7 @@ pub fn run() {
             kernel::skill_sources::sync_skill_source,
             observability::get_local_benchmark_trace_feed,
             kernel::artifacts::get_thread_events,
+            kernel::artifacts::execute_workflow_runtime_control_request,
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,
             kernel::artifacts::save_artifact_content,

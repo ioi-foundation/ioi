@@ -5,6 +5,7 @@ import type {
   WorkflowRunSummary,
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
+import type { WorkflowRuntimeDiagnosticsRepairActionDescriptor } from "../../../runtime/workflow-runtime-event-projection";
 import {
   workflowDurationLabel,
   workflowEventLabel,
@@ -29,6 +30,9 @@ type WorkflowRunsPanelProps = {
   onSelectRun: (run: WorkflowRunSummary) => void;
   onCompareRun: (run: WorkflowRunSummary) => void;
   onInspectNode: (nodeId: string) => void;
+  onExecuteRuntimeDiagnosticsRepair?: (
+    action: WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  ) => void | Promise<void>;
 };
 
 export function WorkflowRunsPanel({
@@ -45,6 +49,7 @@ export function WorkflowRunsPanel({
   onSelectRun,
   onCompareRun,
   onInspectNode,
+  onExecuteRuntimeDiagnosticsRepair,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -344,6 +349,9 @@ export function WorkflowRunsPanel({
                     data-artifact-refs={node.data.artifactRefs.join("|")}
                     data-policy-decision-refs={node.data.policyDecisionRefs.join("|")}
                     data-rollback-refs={node.data.rollbackRefs.join("|")}
+                    data-diagnostics-repair-action-count={
+                      node.data.diagnosticsRepairActions.length
+                    }
                     data-tool-name={node.data.toolName ?? ""}
                     data-approval-id={node.data.approvalId ?? ""}
                     data-tui-deep-link-schema-version={
@@ -401,6 +409,47 @@ export function WorkflowRunsPanel({
                           </dd>
                         </div>
                       </dl>
+                      {node.data.diagnosticsRepairActions.length > 0 ? (
+                        <div
+                          className="workflow-run-diagnostics-repair-actions"
+                          data-testid={`workflow-run-diagnostics-repair-actions-${node.id}`}
+                          data-action-count={
+                            node.data.diagnosticsRepairActions.length
+                          }
+                        >
+                          {node.data.diagnosticsRepairActions.map((action) => (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className="workflow-secondary-action"
+                              data-testid={`workflow-run-diagnostics-repair-action-${action.action}`}
+                              data-action-id={action.id}
+                              data-action={action.action}
+                              data-decision-id={action.decisionId}
+                              data-thread-id={action.threadId}
+                              data-workflow-graph-id={
+                                action.workflowGraphId ?? ""
+                              }
+                              data-workflow-node-id={action.workflowNodeId}
+                              data-requires-approval={action.requiresApproval}
+                              data-approval-granted={action.approvalGranted}
+                              data-allow-conflicts={action.allowConflicts}
+                              data-executable={action.executable}
+                              title={action.summary ?? action.label}
+                              aria-label={`${action.label} diagnostics repair decision`}
+                              disabled={
+                                !action.executable ||
+                                !onExecuteRuntimeDiagnosticsRepair
+                              }
+                              onClick={() => {
+                                void onExecuteRuntimeDiagnosticsRepair?.(action);
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </details>
                   </li>
                 ))}

@@ -342,6 +342,20 @@
   white-space: nowrap;
 }
 
+.workflow-run-diagnostics-repair-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+
+.workflow-run-diagnostics-repair-actions .workflow-secondary-action {
+  min-width: 0;
+  width: 100%;
+  min-height: 28px;
+  font-size: 11px;
+}
+
 .workflow-run-runtime-event-edge {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

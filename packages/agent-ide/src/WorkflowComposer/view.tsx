@@ -74,6 +74,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleDryRunFunction,
     handleDryRunNodeFromFixture,
     handleApplyActiveRuntimeRollback,
+    handleExecuteRuntimeDiagnosticsRepair,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -1343,6 +1344,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onCompareRun={handleCompareRun}
                     onOpenExecutions={() => setActiveTab("executions")}
                     onInspectNode={(nodeId) => handleWorkflowNodeSelect(nodeId)}
+                    onExecuteRuntimeDiagnosticsRepair={(action) => {
+                      void handleExecuteRuntimeDiagnosticsRepair(action);
+                    }}
                     onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
                     onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}
                     onSelectHarnessReplayFixtureRef={handleSelectHarnessReplayFixtureRef}

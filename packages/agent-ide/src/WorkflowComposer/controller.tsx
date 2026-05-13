@@ -118,7 +118,13 @@ import {
   validateActionEdge,
   validateWorkflowConnection,
 } from "../runtime/runtime-projection-adapter";
-import type { WorkflowRuntimeThreadEventLike } from "../runtime/workflow-runtime-event-projection";
+import {
+  createRuntimeDiagnosticsRepairControlRequest,
+} from "../runtime/workflow-runtime-control-nodes";
+import type {
+  WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeThreadEventLike,
+} from "../runtime/workflow-runtime-event-projection";
 import {
   WORKFLOW_NODE_DEFINITIONS,
   type WorkflowNodeCreatorDefinition,
@@ -9311,24 +9317,27 @@ export function useWorkflowComposerController({
     setNodeFixturesById({});
   }, []);
 
+  const loadRuntimeThreadEvents = useCallback(
+    async (threadId: string): Promise<WorkflowRuntimeThreadEventLike[]> => {
+      if (!runtime.loadWorkflowRuntimeThreadEvents) return [];
+      try {
+        return await runtime.loadWorkflowRuntimeThreadEvents<WorkflowRuntimeThreadEventLike>(
+          threadId,
+          { limit: 500 },
+        );
+      } catch {
+        return [];
+      }
+    },
+    [runtime],
+  );
+
   const applyRunResult = useCallback(
     async (result: WorkflowRunResult) => {
       setLastRunResult(result);
       setSelectedRunId(result.summary.id);
       setRunEvents(result.events);
-      let loadedRuntimeThreadEvents: WorkflowRuntimeThreadEventLike[] = [];
-      if (runtime.loadWorkflowRuntimeThreadEvents) {
-        try {
-          loadedRuntimeThreadEvents =
-            await runtime.loadWorkflowRuntimeThreadEvents<WorkflowRuntimeThreadEventLike>(
-              result.thread.id,
-              { limit: 500 },
-            );
-        } catch {
-          loadedRuntimeThreadEvents = [];
-        }
-      }
-      setRuntimeThreadEvents(loadedRuntimeThreadEvents);
+      setRuntimeThreadEvents(await loadRuntimeThreadEvents(result.thread.id));
       setRuns((current) => [
         result.summary,
         ...current.filter((run) => run.id !== result.summary.id),
@@ -9363,7 +9372,48 @@ export function useWorkflowComposerController({
       );
       setStatusMessage(`Run ${result.summary.status}`);
     },
-    [nodes, rightPanel, runtime, workflowPath],
+    [loadRuntimeThreadEvents, nodes, rightPanel, runtime, workflowPath],
+  );
+
+  const handleExecuteRuntimeDiagnosticsRepair = useCallback(
+    async (action: WorkflowRuntimeDiagnosticsRepairActionDescriptor) => {
+      setRightPanel("runs");
+      setBottomPanel("run_output");
+      if (!action.executable) {
+        setStatusMessage(`Diagnostics repair ${action.label} is unavailable`);
+        return;
+      }
+      if (!runtime.executeWorkflowRuntimeControlRequest) {
+        setStatusMessage(
+          "Diagnostics repair actions require a daemon runtime control executor.",
+        );
+        return;
+      }
+      const request = createRuntimeDiagnosticsRepairControlRequest({
+        nodeId: action.id,
+        threadId: action.threadId,
+        decisionId: action.decisionId,
+        action: action.action,
+        message:
+          action.summary ??
+          `${action.label} diagnostics repair requested from React Flow run inspector.`,
+        approvalGranted: action.approvalGranted,
+        allowConflicts: action.allowConflicts,
+        workflowGraphId: action.workflowGraphId ?? currentProjectFile.metadata.id,
+        workflowNodeId: action.workflowNodeId,
+        actor: "operator",
+      });
+      try {
+        await runtime.executeWorkflowRuntimeControlRequest(request);
+        setRuntimeThreadEvents(await loadRuntimeThreadEvents(action.threadId));
+        setStatusMessage(`Diagnostics repair ${action.label} requested`);
+      } catch (error) {
+        setStatusMessage(
+          `Diagnostics repair ${action.label} blocked: ${errorMessage(error)}`,
+        );
+      }
+    },
+    [currentProjectFile.metadata.id, loadRuntimeThreadEvents, runtime],
   );
 
   const handleSelectRun = useCallback(
@@ -13278,6 +13328,7 @@ export function useWorkflowComposerController({
     handleDryRunFunction,
     handleDryRunNodeFromFixture,
     handleApplyActiveRuntimeRollback,
+    handleExecuteRuntimeDiagnosticsRepair,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,

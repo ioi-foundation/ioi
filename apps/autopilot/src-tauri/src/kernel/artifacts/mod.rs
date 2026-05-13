@@ -883,6 +883,82 @@ pub fn get_thread_events(
 }
 
 #[tauri::command]
+pub async fn execute_workflow_runtime_control_request(request: Value) -> Result<Value, String> {
+    let endpoint = runtime_control_endpoint(&request)?;
+    let body = request
+        .get("body")
+        .cloned()
+        .unwrap_or_else(|| request.clone());
+    let client = reqwest::Client::new();
+    let mut builder = client.post(&endpoint).json(&body);
+    if let Ok(token) = std::env::var("IOI_DAEMON_TOKEN") {
+        let token = token.trim();
+        if !token.is_empty() {
+            builder = builder.bearer_auth(token);
+        }
+    }
+    let response = builder
+        .send()
+        .await
+        .map_err(|error| format!("Failed to execute runtime control request: {}", error))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|error| format!("Failed to read runtime control response: {}", error))?;
+    let parsed = serde_json::from_str::<Value>(&text).unwrap_or_else(|_| json!({ "body": text }));
+    if !status.is_success() {
+        return Err(format!(
+            "Runtime control request failed ({}): {}",
+            status,
+            truncate_for_error(&parsed.to_string(), 512)
+        ));
+    }
+    Ok(parsed)
+}
+
+fn runtime_control_endpoint(request: &Value) -> Result<String, String> {
+    let endpoint = request
+        .get("endpoint")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "Runtime control request is missing endpoint.".to_string())?;
+    if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+        return Ok(endpoint.to_string());
+    }
+    let daemon_endpoint = request
+        .get("daemonEndpoint")
+        .or_else(|| request.get("daemon_endpoint"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| std::env::var("IOI_DAEMON_ENDPOINT").ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "Runtime control request requires IOI_DAEMON_ENDPOINT for relative endpoints."
+                .to_string()
+        })?;
+    Ok(format!(
+        "{}/{}",
+        daemon_endpoint.trim_end_matches('/'),
+        endpoint.trim_start_matches('/')
+    ))
+}
+
+fn truncate_for_error(value: &str, limit: usize) -> String {
+    let mut chars = value.chars();
+    let head: String = chars.by_ref().take(limit).collect();
+    if chars.next().is_some() {
+        format!("{}...", head)
+    } else {
+        head
+    }
+}
+
+#[tauri::command]
 pub fn get_thread_artifacts(
     state: State<'_, Mutex<AppState>>,
     thread_id: String,

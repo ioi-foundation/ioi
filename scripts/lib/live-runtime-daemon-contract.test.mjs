@@ -7831,6 +7831,29 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts"),
     "utf8",
   );
+  const workflowRuntimeDiagnosticsRepairActions = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+    ),
+    "utf8",
+  );
+  const graphRuntimeTypes = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/graph-runtime-types.ts"),
+    "utf8",
+  );
+  const tauriRuntime = fs.readFileSync(
+    path.join(root, "apps/autopilot/src/services/TauriRuntime.ts"),
+    "utf8",
+  );
+  const tauriArtifacts = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/kernel/artifacts/mod.rs"),
+    "utf8",
+  );
+  const tauriLib = fs.readFileSync(
+    path.join(root, "apps/autopilot/src-tauri/src/lib.rs"),
+    "utf8",
+  );
   const workflowRailModel = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-rail-model.ts"),
     "utf8",
@@ -8261,12 +8284,29 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-runtime-event-tui-reopen/);
   assert.match(workflowRunsPanel, /data-receipt-refs/);
   assert.match(workflowRunsPanel, /data-policy-decision-refs/);
+  assert.match(workflowRunsPanel, /workflow-run-diagnostics-repair-actions/);
+  assert.match(workflowRunsPanel, /workflow-run-diagnostics-repair-action-/);
+  assert.match(workflowRunsPanel, /data-diagnostics-repair-action-count/);
+  assert.match(workflowRunsPanel, /onExecuteRuntimeDiagnosticsRepair/);
   assert.match(workflowRuntimeEventProjection, /WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION/);
   assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeTuiDeepLinkDescriptor/);
   assert.match(workflowRuntimeEventProjection, /tuiDeepLinkForRuntimeThreadEvent/);
+  assert.match(workflowRuntimeEventProjection, /diagnosticsRepairActionsForEvents/);
+  assert.match(workflowRuntimeDiagnosticsRepairActions, /WorkflowRuntimeDiagnosticsRepairActionDescriptor/);
+  assert.match(workflowRuntimeDiagnosticsRepairActions, /repair_decisions/);
+  assert.match(workflowRuntimeDiagnosticsRepairActions, /runtime\.run-inspector\.diagnostics-repair/);
   assert.match(workflowComposerController, /loadWorkflowRuntimeThreadEvents/);
   assert.match(workflowComposerController, /setRuntimeThreadEvents/);
+  assert.match(workflowComposerController, /createRuntimeDiagnosticsRepairControlRequest/);
+  assert.match(workflowComposerController, /handleExecuteRuntimeDiagnosticsRepair/);
+  assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
+  assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
+  assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
+  assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
+  assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);
+  assert.match(tauriArtifacts, /execute_workflow_runtime_control_request/);
+  assert.match(tauriLib, /execute_workflow_runtime_control_request/);
   assert.match(workflowRunHistoryModel, /visibleRows/);
   assert.match(workflowRunHistoryModel, /timelineEvents/);
   assert.match(workflowRunHistoryModel, /comparison/);
