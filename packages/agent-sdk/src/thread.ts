@@ -6,6 +6,7 @@ import {
   type RuntimeThreadCompactInput,
   type RuntimeThreadCreateInput,
   type RuntimeThreadForkInput,
+  type RuntimeThreadMcpInput,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
   type RuntimeThreadThinkingInput,
@@ -13,7 +14,13 @@ import {
   type RuntimeTurnInterruptInput,
   type RuntimeTurnSteerInput,
 } from "./substrate-client.js";
-import type { RuntimeThreadEvent, RuntimeThreadRecord, RuntimeTurnRecord } from "./messages.js";
+import type {
+  RuntimeMcpStatus,
+  RuntimeMcpValidationResult,
+  RuntimeThreadEvent,
+  RuntimeThreadRecord,
+  RuntimeTurnRecord,
+} from "./messages.js";
 
 let defaultThreadClient: RuntimeSubstrateClient | undefined;
 
@@ -109,6 +116,14 @@ export class Thread {
 
   async thinking(input: RuntimeThreadThinkingInput): Promise<Thread> {
     return new Thread(this.client, await this.client.updateThreadThinking(this.id, input));
+  }
+
+  async mcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpStatus> {
+    return this.client.threadMcpStatus(this.id, input);
+  }
+
+  async validateMcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
+    return this.client.validateThreadMcp(this.id, input);
   }
 
   async submit(input: RuntimeTurnCreateInput): Promise<Turn> {

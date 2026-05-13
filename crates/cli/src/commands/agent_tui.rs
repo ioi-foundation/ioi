@@ -23,6 +23,12 @@ const TUI_THREAD_RESUME_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/resume";
 const TUI_THREAD_MODE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mode";
 const TUI_THREAD_MODEL_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/model";
 const TUI_THREAD_THINKING_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/thinking";
+const TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/status";
+const TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/validate";
+const TUI_MCP_STATUS_ROUTE: &str = "/v1/mcp";
+const TUI_MCP_SERVER_LIST_ROUTE: &str = "/v1/mcp/servers";
+const TUI_MCP_TOOL_LIST_ROUTE: &str = "/v1/mcp/tools";
+const TUI_MCP_VALIDATE_ROUTE: &str = "/v1/mcp/validate";
 const TUI_TURN_CREATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns";
 const TUI_EVENT_STREAM_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/events";
 const TUI_INTERRUPT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_id}/interrupt";
@@ -235,6 +241,12 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "thread_mode": TUI_THREAD_MODE_ROUTE_TEMPLATE,
         "thread_model": TUI_THREAD_MODEL_ROUTE_TEMPLATE,
         "thread_thinking": TUI_THREAD_THINKING_ROUTE_TEMPLATE,
+        "thread_mcp_status": TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE,
+        "thread_mcp_validate": TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE,
+        "mcp_status": TUI_MCP_STATUS_ROUTE,
+        "mcp_servers": TUI_MCP_SERVER_LIST_ROUTE,
+        "mcp_tools": TUI_MCP_TOOL_LIST_ROUTE,
+        "mcp_validate": TUI_MCP_VALIDATE_ROUTE,
         "turn_create": TUI_TURN_CREATE_ROUTE_TEMPLATE,
         "event_stream": TUI_EVENT_STREAM_ROUTE_TEMPLATE,
         "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
@@ -328,7 +340,7 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             .unwrap_or_else(|| "local_private".to_string())
     );
     println!(
-        "  controls=/mode /model /thinking /interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
+        "  controls=/mode /model /thinking /mcp /interrupt /steer /approvals /approve /reject /restore /jobs /job /run /resume via daemon endpoints"
     );
     println!(
         "  model={} route={} thinking={}",
@@ -688,6 +700,48 @@ pub(crate) async fn update_tui_thread_thinking(
             "event_kind": "OperatorControl.Thinking",
             "component_kind": "model_router",
             "workflow_node_id": "runtime.model-router",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn inspect_tui_mcp_status(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Mcp",
+            "component_kind": "mcp_provider",
+            "workflow_node_id": "runtime.mcp-manager",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn validate_tui_mcp(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.McpValidate",
+            "component_kind": "mcp_validator",
+            "workflow_node_id": "runtime.mcp-manager.validate",
         })),
     )
     .await
@@ -1142,6 +1196,82 @@ pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> 
             .unwrap_or_else(|| "runtime.model-router".to_string()),
         "source": "daemon_thread",
     })
+}
+
+pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> Vec<Value> {
+    let thread_id = json_path_string(status, "/thread_id")
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let event_id = json_path_string(status, "/event/event_id");
+    let cursor = status.pointer("/event").and_then(|event| {
+        let stream = json_path_string(event, "/event_stream_id")?;
+        let seq = event.pointer("/seq")?.as_u64()?;
+        Some(format!("{stream}:{seq}"))
+    });
+    let receipt_refs = status
+        .pointer("/receipt_refs")
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let policy_refs = status
+        .pointer("/policy_decision_refs")
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let mut rows = Vec::new();
+    if let Some(servers) = status.pointer("/servers").and_then(Value::as_array) {
+        for server in servers {
+            let server_id =
+                json_path_string(server, "/id").unwrap_or_else(|| "mcp.unknown".to_string());
+            let label = json_path_string(server, "/label")
+                .or_else(|| json_path_string(server, "/name"))
+                .unwrap_or_else(|| server_id.clone());
+            rows.push(serde_json::json!({
+                "id": format!("tui-mcp-server-{}", safe_id(&server_id)),
+                "row_kind": "mcp_server",
+                "status": json_path_string(server, "/status").unwrap_or_else(|| "configured".to_string()),
+                "label": "MCP server",
+                "command": "mcp",
+                "raw_input": "/mcp",
+                "message": format!("{} · {}", label, json_path_string(server, "/transport").unwrap_or_else(|| "stdio".to_string())),
+                "thread_id": thread_id.clone(),
+                "event_id": event_id.clone(),
+                "cursor": cursor.clone(),
+                "mcp_server_id": server_id,
+                "mcp_tool_name": Value::Null,
+                "workflow_node_id": "runtime.mcp-manager",
+                "receipt_refs": receipt_refs.clone(),
+                "policy_decision_refs": policy_refs.clone(),
+            }));
+        }
+    }
+    if let Some(tools) = status.pointer("/tools").and_then(Value::as_array) {
+        for tool in tools {
+            let server_id = json_path_string(tool, "/server_id")
+                .or_else(|| json_path_string(tool, "/serverId"))
+                .unwrap_or_else(|| "mcp.unknown".to_string());
+            let tool_name = json_path_string(tool, "/tool_name")
+                .or_else(|| json_path_string(tool, "/toolName"))
+                .unwrap_or_else(|| "unknown".to_string());
+            rows.push(serde_json::json!({
+                "id": format!("tui-mcp-tool-{}-{}", safe_id(&server_id), safe_id(&tool_name)),
+                "row_kind": "mcp_tool",
+                "status": json_path_string(tool, "/status").unwrap_or_else(|| "configured".to_string()),
+                "label": "MCP tool",
+                "command": "mcp",
+                "raw_input": "/mcp tools",
+                "message": format!("{} · {}", server_id, tool_name),
+                "thread_id": thread_id.clone(),
+                "event_id": event_id.clone(),
+                "cursor": cursor.clone(),
+                "mcp_server_id": server_id,
+                "mcp_tool_name": tool_name,
+                "workflow_node_id": json_path_string(tool, "/workflow_node_id")
+                    .or_else(|| json_path_string(tool, "/workflowNodeId"))
+                    .unwrap_or_else(|| "runtime.mcp-tool".to_string()),
+                "receipt_refs": receipt_refs.clone(),
+                "policy_decision_refs": policy_refs.clone(),
+            }));
+        }
+    }
+    rows
 }
 
 pub(crate) fn tui_approval_rows(events: &[Value], fallback_thread_id: Option<&str>) -> Vec<Value> {

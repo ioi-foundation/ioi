@@ -137,6 +137,8 @@ the practical workstream when the source heading is broad.
 | 136 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair restore-apply | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply/2026-05-13T07-56-56-734Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --import tsx --test --test-name-pattern "diagnostics repair decisions&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply |
 | 137 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair retry | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry/2026-05-13T08-20-57-956Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --import tsx --test --test-name-pattern "diagnostics repair decisions&#124;diagnostics repair retry&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry |
 | 138 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics operator override | /tmp/ioi-autopilot-gui-harness-diagnostics-operator-override/2026-05-13T08-53-15-768Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --import tsx --test --test-name-pattern "diagnostics repair decisions&#124;diagnostics repair retry&#124;diagnostics operator overrides&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-operator-override |
+| 139 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI jobs and run lifecycle parity view | /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json | cargo test -p ioi-cli --bin cli tui --quiet<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "local daemon public API&#124;agent TUI thin shell&#124;agent TUI line-mode slash" scripts/lib/live-runtime-daemon-contract.test.mjs |
+| 140 | 2026-05-13 | P1. MCP Manager Parity | daemon-owned MCP discovery/status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/mcp-manager.mjs<br>cargo test -p ioi-cli --bin cli tui --quiet<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "daemon owns MCP&#124;agent TUI line-mode slash commands&#124;agent CLI exposes model&#124;agent TUI thin shell" scripts/lib/live-runtime-daemon-contract.test.mjs |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4316,6 +4318,39 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle`
   - live GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json`.
+
+## Slice 140. 2026-05-13 - Daemon-owned MCP discovery/status/validation
+
+Guide section: P1. MCP Manager Parity
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/runtime-daemon/src/mcp-manager.mjs
+- packages/agent-sdk/src/messages.ts
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/src/thread.ts
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon MCP manager syntax check passed.
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+  - daemon MCP catalog helper syntax check passed.
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+  - Rust TUI command parser and TUI unit slice passed.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed.
+- `node --test --test-name-pattern "daemon owns MCP|agent TUI line-mode slash commands|agent CLI exposes model|agent TUI thin shell" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon/SDK/TUI/React Flow MCP discovery/status/validation proof and
+    source-contract guards passed.
 
 ## Slice 137. 2026-05-13 - Executable diagnostics repair retry
 

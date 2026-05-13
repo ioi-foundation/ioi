@@ -36,6 +36,10 @@ import type {
   RuntimeReceipt,
   RuntimeAccountProfile,
   RuntimeEventEnvelope,
+  RuntimeMcpServerEntry,
+  RuntimeMcpStatus,
+  RuntimeMcpToolEntry,
+  RuntimeMcpValidationResult,
   RuntimeNodeProfile,
   RuntimeScorecard,
   RuntimeThreadEvent,
@@ -274,6 +278,37 @@ export interface RuntimeThreadToolInvocationResult {
   workspaceSnapshotEvent?: RuntimeEventEnvelope | null;
   result?: Record<string, unknown> | null;
   error?: Record<string, unknown> | null;
+}
+
+export interface RuntimeMcpListOptions {
+  threadId?: string;
+  thread_id?: string;
+  agentId?: string;
+  agent_id?: string;
+  serverId?: string;
+  server_id?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeMcpValidationInput {
+  mcpJson?: Record<string, unknown>;
+  mcp_json?: Record<string, unknown>;
+  mcpServers?: Record<string, unknown>;
+  servers?: unknown[] | Record<string, unknown>;
+  cwd?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeThreadMcpInput extends RuntimeMcpValidationInput {
+  turnId?: string;
+  turn_id?: string;
+  idempotencyKey?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeWorkspaceSnapshotListResult {
@@ -712,6 +747,15 @@ export interface RuntimeSubstrateClient {
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
   listTools(options?: RuntimeToolListOptions): Promise<RuntimeToolCatalogEntry[]>;
+  getMcpStatus(options?: RuntimeMcpListOptions): Promise<RuntimeMcpStatus>;
+  listMcpServers(options?: RuntimeMcpListOptions): Promise<RuntimeMcpServerEntry[]>;
+  listMcpTools(options?: RuntimeMcpListOptions): Promise<RuntimeMcpToolEntry[]>;
+  validateMcp(input?: RuntimeMcpValidationInput): Promise<RuntimeMcpValidationResult>;
+  threadMcpStatus(threadId: string, input?: RuntimeThreadMcpInput): Promise<RuntimeMcpStatus>;
+  validateThreadMcp(
+    threadId: string,
+    input?: RuntimeThreadMcpInput,
+  ): Promise<RuntimeMcpValidationResult>;
   invokeThreadTool(
     threadId: string,
     toolId: string,
@@ -1074,6 +1118,55 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("listTools", "GET", `/v1/tools${toolListQuery(options)}`);
   }
 
+  async getMcpStatus(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpStatus> {
+    return this.request("getMcpStatus", "GET", `/v1/mcp${mcpListQuery(options)}`);
+  }
+
+  async listMcpServers(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpServerEntry[]> {
+    return this.request("listMcpServers", "GET", `/v1/mcp/servers${mcpListQuery(options)}`);
+  }
+
+  async listMcpTools(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpToolEntry[]> {
+    return this.request("listMcpTools", "GET", `/v1/mcp/tools${mcpListQuery(options)}`);
+  }
+
+  async validateMcp(input: RuntimeMcpValidationInput = {}): Promise<RuntimeMcpValidationResult> {
+    return this.request("validateMcp", "POST", "/v1/mcp/validate", {
+      source: "sdk_client",
+      ...input,
+    });
+  }
+
+  async threadMcpStatus(
+    threadId: string,
+    input: RuntimeThreadMcpInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "threadMcpStatus",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/status`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async validateThreadMcp(
+    threadId: string,
+    input: RuntimeThreadMcpInput = {},
+  ): Promise<RuntimeMcpValidationResult> {
+    return this.request(
+      "validateThreadMcp",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/validate`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
   async invokeThreadTool(
     threadId: string,
     toolId: string,
@@ -1422,6 +1515,16 @@ function memoryListQuery(options: MemoryListOptions = {}): string {
 function toolListQuery(options: RuntimeToolListOptions = {}): string {
   const params = new URLSearchParams();
   if (options.pack) params.set("pack", options.pack);
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+function mcpListQuery(options: RuntimeMcpListOptions = {}): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(options)) {
+    if (value === undefined || value === null || value === "") continue;
+    params.set(key, String(value));
+  }
   const text = params.toString();
   return text ? `?${text}` : "";
 }
@@ -2544,6 +2647,146 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       ...mockCodingToolContracts(),
     ];
     return options.pack ? tools.filter((tool) => tool.pack === options.pack) : tools;
+  }
+
+  async getMcpStatus(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpStatus> {
+    const servers = await this.listMcpServers(options);
+    const tools = await this.listMcpTools(options);
+    return {
+      schema_version: "ioi.runtime.mcp-manager-status.v1",
+      schemaVersion: "ioi.runtime.mcp-manager-status.v1",
+      object: "ioi.runtime_mcp_manager_status",
+      status: "ready",
+      server_count: servers.length,
+      serverCount: servers.length,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      servers,
+      tools,
+      validation: {
+        schema_version: "ioi.runtime.mcp-manager-validation.v1",
+        schemaVersion: "ioi.runtime.mcp-manager-validation.v1",
+        ok: true,
+        status: "pass",
+        issues: [],
+        warnings: [],
+        servers,
+        tools,
+      },
+    };
+  }
+
+  async listMcpServers(_options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpServerEntry[]> {
+    const names = new Set<string>();
+    for (const agent of this.agents.values()) {
+      for (const name of agent.options.mcpServerNames ?? []) names.add(name);
+    }
+    return [...names].sort().map((name) => ({
+      schema_version: "ioi.runtime.mcp-manager-status.v1",
+      schemaVersion: "ioi.runtime.mcp-manager-status.v1",
+      id: `mcp.${name.replace(/[^a-zA-Z0-9_.-]+/g, "_")}`,
+      label: name,
+      name,
+      enabled: true,
+      status: "configured",
+      transport: "stdio",
+      command: null,
+      args: [],
+      allowed_tools: [],
+      allowedTools: [],
+      tool_count: 0,
+      toolCount: 0,
+      containment: { mode: "sandboxed", allow_network_egress: false, allow_child_processes: false },
+      secret_refs: {},
+      secretRefs: {},
+      health: { status: "not_connected", live_probe: false },
+      evidence_refs: ["explicit_mock_runtime_substrate_projection"],
+      evidenceRefs: ["explicit_mock_runtime_substrate_projection"],
+    }));
+  }
+
+  async listMcpTools(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpToolEntry[]> {
+    const servers = await this.listMcpServers(options);
+    return servers.flatMap((server) =>
+      (server.allowedTools ?? server.allowed_tools ?? []).map((toolName) => ({
+        stableToolId: `mcp.${server.label}.${toolName}`,
+        displayName: `${server.label}.${toolName}`,
+        pack: "mcp",
+        primitiveCapabilities: ["prim:connector.invoke"],
+        authorityScopeRequirements: ["scope:mcp.invoke"],
+        effectClass: "connector_call",
+        riskDomain: "connector",
+        inputSchema: { type: "object" },
+        outputSchema: { type: "object" },
+        evidenceRequirements: ["mcp_containment_receipt"],
+        server_id: server.id,
+        serverId: server.id,
+        tool_name: toolName,
+        toolName,
+        status: server.status,
+      })),
+    );
+  }
+
+  async validateMcp(input: RuntimeMcpValidationInput = {}): Promise<RuntimeMcpValidationResult> {
+    const status = await this.getMcpStatus();
+    return {
+      schema_version: "ioi.runtime.mcp-manager-validation.v1",
+      schemaVersion: "ioi.runtime.mcp-manager-validation.v1",
+      object: "ioi.runtime_mcp_manager_validation",
+      ok: true,
+      status: "pass",
+      server_count: status.server_count,
+      serverCount: status.server_count,
+      tool_count: status.tool_count,
+      toolCount: status.tool_count,
+      issue_count: 0,
+      issueCount: 0,
+      warning_count: input ? 0 : 0,
+      warningCount: 0,
+      issues: [],
+      warnings: [],
+      servers: status.servers,
+      tools: status.tools,
+    };
+  }
+
+  async threadMcpStatus(threadId: string, input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpStatus> {
+    return {
+      ...(await this.getMcpStatus({ threadId })),
+      event: mockRuntimeEventEnvelope({
+        agent: await this.getAgent(agentIdForThread(threadId)),
+        threadId,
+        streamId: eventStreamIdForThread(threadId),
+        seq: this.threadRuntimeEvents(await this.getAgent(agentIdForThread(threadId))).length + 1,
+        eventKind: "mcp.catalog_status",
+        sourceEventKind: "OperatorControl.Mcp",
+        itemId: `${threadId}:item:mcp-status`,
+        payload: { event_kind: "McpCatalogStatus", source: input.source ?? "sdk_client" },
+        createdAt: new Date().toISOString(),
+        componentKind: "mcp_provider",
+        workflowNodeId: "runtime.mcp-manager",
+      }),
+    };
+  }
+
+  async validateThreadMcp(threadId: string, input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
+    return {
+      ...(await this.validateMcp(input)),
+      event: mockRuntimeEventEnvelope({
+        agent: await this.getAgent(agentIdForThread(threadId)),
+        threadId,
+        streamId: eventStreamIdForThread(threadId),
+        seq: this.threadRuntimeEvents(await this.getAgent(agentIdForThread(threadId))).length + 1,
+        eventKind: "mcp.validation",
+        sourceEventKind: "OperatorControl.McpValidate",
+        itemId: `${threadId}:item:mcp-validate`,
+        payload: { event_kind: "McpValidationReport", source: input.source ?? "sdk_client" },
+        createdAt: new Date().toISOString(),
+        componentKind: "mcp_validator",
+        workflowNodeId: "runtime.mcp-manager.validate",
+      }),
+    };
   }
 
   async invokeThreadTool(

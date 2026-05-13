@@ -461,6 +461,7 @@ export function WorkflowRunsPanel({
               data-run-lifecycle-count={
                 tuiControlStateProjection.runLifecycleCount
               }
+              data-mcp-row-count={tuiControlStateProjection.mcpRowCount}
             >
               <h4>TUI control state</h4>
               <div
@@ -476,6 +477,7 @@ export function WorkflowRunsPanel({
                 <span>
                   {tuiControlStateProjection.runLifecycleCount} run lifecycles
                 </span>
+                <span>{tuiControlStateProjection.mcpRowCount} MCP</span>
                 <span>
                   {tuiControlStateProjection.currentTurnId ?? "no active turn"}
                 </span>
@@ -497,6 +499,8 @@ export function WorkflowRunsPanel({
                     data-job-id={row.jobId ?? ""}
                     data-run-id={row.runId ?? ""}
                     data-model-id={row.modelId ?? ""}
+                    data-mcp-server-id={row.mcpServerId ?? ""}
+                    data-mcp-tool-name={row.mcpToolName ?? ""}
                     data-route-id={row.routeId ?? ""}
                     data-reasoning-effort={row.reasoningEffort ?? ""}
                     data-thread-id={row.threadId ?? ""}

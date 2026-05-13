@@ -4,12 +4,13 @@ use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run, decide_tui_approval,
     fetch_tui_event_batch, fetch_tui_job, fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread,
-    inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool, latest_event_seq,
-    list_tui_jobs_for_thread, list_tui_workspace_snapshots, preview_tui_workspace_restore,
-    replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
-    selected_turn_id_from_values, steer_tui_turn, thread_id_from_value, tui_approval_decisions,
-    tui_approval_rows, tui_job_rows, tui_mode_status, tui_run_lifecycle_rows,
-    update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking,
+    inspect_tui_mcp_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
+    latest_event_seq, list_tui_jobs_for_thread, list_tui_workspace_snapshots,
+    preview_tui_workspace_restore, replay_tui_run_events, resume_tui_thread,
+    selected_run_id_from_thread, selected_turn_id_from_values, steer_tui_turn,
+    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows,
+    tui_mode_status, tui_run_lifecycle_rows, update_tui_thread_mode, update_tui_thread_model,
+    update_tui_thread_thinking, validate_tui_mcp,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -58,6 +59,9 @@ pub(crate) enum TuiLineCommand {
     },
     Thinking {
         reasoning_effort: Option<String>,
+    },
+    Mcp {
+        action: Option<String>,
     },
     WorkspaceStatus,
     Diff {
@@ -279,6 +283,22 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("thinking effort inspected or updated"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Mcp { action }) => {
+                let (events, mcp_status) = handle_mcp_command(&mut session, action).await?;
+                control_state.merge_mcp_rows(tui_mcp_rows(
+                    &mcp_status,
+                    control_state.thread_id.as_deref(),
+                ));
+                control_state.record_command(
+                    "mcp",
+                    line.trim(),
+                    "applied",
+                    Some("MCP catalog inspected"),
                     &session,
                     &events,
                 );
@@ -666,6 +686,9 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
         "thinking" => Ok(TuiLineCommand::Thinking {
             reasoning_effort: non_empty_string(rest),
         }),
+        "mcp" => Ok(TuiLineCommand::Mcp {
+            action: non_empty_string(rest),
+        }),
         "status" | "workspace-status" => Ok(TuiLineCommand::WorkspaceStatus),
         "diff" => Ok(TuiLineCommand::Diff {
             path: non_empty_string(rest),
@@ -880,9 +903,13 @@ async fn handle_mode_command(
 ) -> Result<Vec<Value>> {
     let thread_id = thread_id_from_value(&session.thread)?;
     if let Some(mode) = mode.as_deref().filter(|value| !value.trim().is_empty()) {
-        let result =
-            update_tui_thread_mode(&thread_id, mode, &session.endpoint, session.token.as_deref())
-                .await?;
+        let result = update_tui_thread_mode(
+            &thread_id,
+            mode,
+            &session.endpoint,
+            session.token.as_deref(),
+        )
+        .await?;
         session.thread =
             fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
         println!(
@@ -947,8 +974,9 @@ async fn handle_thinking_command(
     reasoning_effort: Option<String>,
 ) -> Result<Vec<Value>> {
     let thread_id = thread_id_from_value(&session.thread)?;
-    if let Some(reasoning_effort) =
-        reasoning_effort.as_deref().filter(|value| !value.trim().is_empty())
+    if let Some(reasoning_effort) = reasoning_effort
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
     {
         let result = update_tui_thread_thinking(
             &thread_id,
@@ -975,6 +1003,60 @@ async fn handle_thinking_command(
         json_path_string(&status, "/reasoning_effort").unwrap_or_else(|| "default".to_string())
     );
     Ok(Vec::new())
+}
+
+async fn handle_mcp_command(
+    session: &mut TuiInteractiveSession,
+    action: Option<String>,
+) -> Result<(Vec<Value>, Value)> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let action = action
+        .unwrap_or_else(|| "status".to_string())
+        .to_ascii_lowercase();
+    let result = match action.as_str() {
+        "status" | "list" | "servers" | "tools" => {
+            inspect_tui_mcp_status(&thread_id, &session.endpoint, session.token.as_deref()).await?
+        }
+        "validate" | "doctor" => {
+            validate_tui_mcp(&thread_id, &session.endpoint, session.token.as_deref()).await?
+        }
+        _ => {
+            return Err(anyhow!("/mcp accepts status, tools, servers, or validate"));
+        }
+    };
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    let server_count = json_path_string(&result, "/server_count")
+        .or_else(|| json_path_string(&result, "/serverCount"))
+        .unwrap_or_else(|| "0".to_string());
+    let tool_count = json_path_string(&result, "/tool_count")
+        .or_else(|| json_path_string(&result, "/toolCount"))
+        .unwrap_or_else(|| "0".to_string());
+    let issue_count = json_path_string(&result, "/issue_count")
+        .or_else(|| json_path_string(&result, "/issueCount"))
+        .unwrap_or_else(|| "0".to_string());
+    println!(
+        "line_mode_command=mcp action={} status={} servers={} tools={} issues={} event={}",
+        action,
+        json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
+        server_count,
+        tool_count,
+        issue_count,
+        json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+    );
+    for row in tui_mcp_rows(&result, Some(&thread_id)) {
+        println!(
+            "  mcp_row kind={} server={} tool={} status={} node={}",
+            json_path_string(&row, "/row_kind").unwrap_or_else(|| "mcp".to_string()),
+            json_path_string(&row, "/mcp_server_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&row, "/mcp_tool_name").unwrap_or_else(|| "n/a".to_string()),
+            json_path_string(&row, "/status").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.mcp-manager".to_string())
+        );
+    }
+    let events = handle_events_command(session, None).await?;
+    Ok((events, result))
 }
 
 async fn handle_coding_tool_command(
@@ -1377,7 +1459,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /mcp [status|tools|servers|validate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -1644,6 +1726,7 @@ struct TuiControlState {
     approval_decisions: Vec<Value>,
     job_rows: Vec<Value>,
     run_lifecycle_rows: Vec<Value>,
+    mcp_rows: Vec<Value>,
     command_history: Vec<Value>,
     validation_errors: Vec<Value>,
     sequence: u64,
@@ -1662,6 +1745,7 @@ impl TuiControlState {
             approval_decisions: Vec::new(),
             job_rows: Vec::new(),
             run_lifecycle_rows: Vec::new(),
+            mcp_rows: Vec::new(),
             command_history: Vec::new(),
             validation_errors: Vec::new(),
             sequence: 0,
@@ -1822,6 +1906,28 @@ impl TuiControlState {
         }
     }
 
+    fn merge_mcp_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/id")
+                .or_else(|| json_path_string(&row, "/mcp_server_id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.mcp_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.mcp_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/id")
+                    .or_else(|| json_path_string(existing, "/mcp_server_id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.mcp_rows.push(row);
+            }
+        }
+    }
+
     fn default_pending_approval_id(&self) -> Option<String> {
         self.approval_rows.iter().find_map(|row| {
             let status = json_path_string(row, "/status")
@@ -1868,6 +1974,7 @@ impl TuiControlState {
             "approval_decisions": self.approval_decisions.clone(),
             "job_rows": self.job_rows.clone(),
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
+            "mcp_rows": self.mcp_rows.clone(),
             "command_history": self.command_history.clone(),
             "validation_errors": self.validation_errors.clone(),
         })
@@ -1957,6 +2064,12 @@ mod tests {
             parse_tui_line_command("/thinking high").unwrap(),
             TuiLineCommand::Thinking {
                 reasoning_effort: Some("high".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/mcp tools").unwrap(),
+            TuiLineCommand::Mcp {
+                action: Some("tools".to_string())
             }
         );
         assert_eq!(

@@ -180,6 +180,8 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "mode_status"
   | "model_route"
   | "thinking"
+  | "mcp_server"
+  | "mcp_tool"
   | "approval"
   | "approval_decision"
   | "job"
@@ -227,6 +229,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   job_rows?: unknown[];
   runLifecycleRows?: unknown[];
   run_lifecycle_rows?: unknown[];
+  mcpRows?: unknown[];
+  mcp_rows?: unknown[];
   commandHistory?: unknown[];
   command_history?: unknown[];
   validationErrors?: unknown[];
@@ -245,6 +249,8 @@ export interface WorkflowRuntimeTuiControlStateRow {
   jobId: string | null;
   runId: string | null;
   modelId: string | null;
+  mcpServerId?: string | null;
+  mcpToolName?: string | null;
   routeId: string | null;
   reasoningEffort: string | null;
   threadId: string | null;
@@ -271,6 +277,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   approvalDecisionCount: number;
   jobCount: number;
   runLifecycleCount: number;
+  mcpRowCount: number;
   rowCount: number;
   rows: WorkflowRuntimeTuiControlStateRow[];
 }
@@ -363,6 +370,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     "runLifecycleRows",
     "run_lifecycle_rows",
   );
+  const mcpRows = arrayField(state, "mcpRows", "mcp_rows");
   const rows: WorkflowRuntimeTuiControlStateRow[] = [];
 
   if (threadId || currentTurnId || lastCursor || lastEventId) {
@@ -479,6 +487,58 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       });
     }
   }
+
+  mcpRows.forEach((entry, index) => {
+    const declaredKind = stringField(entry, "rowKind", "row_kind");
+    const rowKind: "mcp_server" | "mcp_tool" =
+      declaredKind === "mcp_tool" ? "mcp_tool" : "mcp_server";
+    const serverId = stringField(entry, "mcpServerId", "mcp_server_id");
+    const toolName = stringField(entry, "mcpToolName", "mcp_tool_name");
+    const status = tuiControlRowStatus(stringField(entry, "status"));
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    const fallbackNodeId = rowKind === "mcp_tool" && serverId && toolName
+      ? `runtime.mcp-tool.${slug(serverId)}.${slug(toolName)}`
+      : "runtime.mcp-manager";
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-${rowKind}:${slug([serverId, toolName, sequence].filter(Boolean).join(":"))}`,
+      rowKind,
+      status,
+      label:
+        stringField(entry, "label") ??
+        (rowKind === "mcp_tool"
+          ? `MCP tool ${[serverId, toolName].filter(Boolean).join(".") || sequence}`
+          : `MCP server ${serverId ?? sequence}`),
+      command: stringField(entry, "command") ?? "mcp",
+      rawInput: stringField(entry, "rawInput", "raw_input") ?? "/mcp",
+      message:
+        stringField(entry, "message", "summary") ??
+        ([serverId, toolName, status].filter(Boolean).join(" · ") || null),
+      approvalId: null,
+      jobId: null,
+      runId: null,
+      modelId: null,
+      mcpServerId: serverId,
+      mcpToolName: toolName,
+      routeId: null,
+      reasoningEffort: null,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        fallbackNodeId,
+    });
+  });
 
   approvalRows.forEach((entry, index) => {
     const approvalId = stringField(entry, "approvalId", "approval_id");
@@ -711,6 +771,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     approvalDecisionCount: approvalDecisions.length,
     jobCount: jobRows.length,
     runLifecycleCount: runLifecycleRows.length,
+    mcpRowCount: mcpRows.length,
     rowCount: rows.length,
     rows,
   };
@@ -1188,6 +1249,9 @@ function tuiControlRowStatus(
   const normalizedStatus = status?.toLowerCase() ?? null;
   if (normalizedStatus === "approve") return "approved";
   if (normalizedStatus === "reject") return "rejected";
+  if (normalizedStatus === "ready" || normalizedStatus === "configured") {
+    return "completed";
+  }
   if (normalizedStatus?.includes("waiting")) return "pending";
   if (normalizedStatus?.includes("approved")) return "approved";
   if (normalizedStatus?.includes("rejected") || normalizedStatus?.includes("denied")) {

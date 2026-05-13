@@ -3681,14 +3681,21 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     metricValue: "mcp",
     defaultLogic: {
       toolBinding: {
-        toolRef: "",
+        toolRef: "mcp.tool.catalog.read",
         bindingKind: "mcp_tool",
         mockBinding: true,
         credentialReady: false,
-        capabilityScope: ["read"],
+        capabilityScope: ["mcp.provider.read", "mcp.tool.catalog.read"],
         sideEffectClass: "read",
         requiresApproval: false,
         arguments: {},
+        mcp: {
+          serverId: "",
+          toolName: "",
+          catalogRef: "mcp.tool.catalog.read",
+          validateBeforeInvoke: true,
+          containmentMode: "read_only",
+        },
       },
     },
   });
