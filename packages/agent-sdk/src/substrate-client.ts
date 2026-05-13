@@ -177,6 +177,7 @@ export type RuntimeSubagentLifecycleStatus =
   | "running"
   | "waiting_for_input"
   | "interrupted"
+  | "blocked"
   | "completed"
   | "failed"
   | "canceled"
@@ -194,6 +195,47 @@ export interface RuntimeSubagentOutputContractStatus {
   missingSections?: string[];
   validated_at?: string;
   validatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentUsageTelemetry {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_subagent_usage_telemetry" | string;
+  estimated?: boolean;
+  input_tokens?: number;
+  inputTokens?: number;
+  output_tokens?: number;
+  outputTokens?: number;
+  total_tokens?: number;
+  totalTokens?: number;
+  cumulative_input_tokens?: number;
+  cumulativeInputTokens?: number;
+  cumulative_output_tokens?: number;
+  cumulativeOutputTokens?: number;
+  cumulative_total_tokens?: number;
+  cumulativeTotalTokens?: number;
+  cost_estimate_usd?: number;
+  costEstimateUsd?: number;
+  cumulative_cost_estimate_usd?: number;
+  cumulativeCostEstimateUsd?: number;
+  model_route_id?: string | null;
+  modelRouteId?: string | null;
+  [key: string]: unknown;
+}
+
+export interface RuntimeSubagentBudgetStatus {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_subagent_budget_status" | string;
+  status?: "not_configured" | "within_budget" | "exceeded" | string;
+  budget?: Record<string, unknown> | null;
+  usage?: RuntimeSubagentUsageTelemetry | null;
+  violations?: Record<string, unknown>[];
+  policy_decision?: Record<string, unknown> | null;
+  policyDecision?: Record<string, unknown> | null;
+  checked_at?: string;
+  checkedAt?: string;
   [key: string]: unknown;
 }
 
@@ -308,6 +350,14 @@ export interface RuntimeSubagentRecord {
   propagatedFromThreadId?: string | null;
   output_contract_status?: string | null;
   outputContractStatus?: RuntimeSubagentOutputContractStatus | string | null;
+  budget_status?: string | null;
+  budgetStatus?: RuntimeSubagentBudgetStatus | string | null;
+  usage_telemetry?: RuntimeSubagentUsageTelemetry | null;
+  usageTelemetry?: RuntimeSubagentUsageTelemetry | null;
+  cost_estimate_usd?: number | null;
+  costEstimateUsd?: number | null;
+  token_estimate?: number | null;
+  tokenEstimate?: number | null;
   result?: RuntimeSubagentResult | null;
   event?: RuntimeEventEnvelope | null;
   receipt_refs?: string[];
@@ -354,6 +404,14 @@ export interface RuntimeSubagentResult {
   output?: Record<string, unknown> | null;
   output_contract_status?: string | null;
   outputContractStatus?: RuntimeSubagentOutputContractStatus | string | null;
+  budget_status?: string | null;
+  budgetStatus?: RuntimeSubagentBudgetStatus | string | null;
+  usage_telemetry?: RuntimeSubagentUsageTelemetry | null;
+  usageTelemetry?: RuntimeSubagentUsageTelemetry | null;
+  cost_estimate_usd?: number | null;
+  costEstimateUsd?: number | null;
+  token_estimate?: number | null;
+  tokenEstimate?: number | null;
   receipt_refs?: string[];
   receiptRefs?: string[];
   subagent?: RuntimeSubagentRecord;
@@ -2410,7 +2468,7 @@ function runtimeSubagentStatusForRun(
     case "failed":
       return "failed";
     case "blocked":
-      return "waiting_for_input";
+      return "blocked";
     case "completed":
     default:
       return status ?? "completed";
@@ -3754,6 +3812,17 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       },
       output_contract_status: outputContractStatus.status ?? null,
       outputContractStatus: outputContractStatus,
+      budget_status:
+        record.budget_status ??
+        (typeof record.budgetStatus === "object" ? record.budgetStatus?.status : record.budgetStatus) ??
+        null,
+      budgetStatus: record.budgetStatus ?? record.budget_status ?? null,
+      usage_telemetry: record.usage_telemetry ?? record.usageTelemetry ?? null,
+      usageTelemetry: record.usageTelemetry ?? record.usage_telemetry ?? null,
+      cost_estimate_usd: record.cost_estimate_usd ?? record.costEstimateUsd ?? null,
+      costEstimateUsd: record.costEstimateUsd ?? record.cost_estimate_usd ?? null,
+      token_estimate: record.token_estimate ?? record.tokenEstimate ?? null,
+      tokenEstimate: record.tokenEstimate ?? record.token_estimate ?? null,
       receipt_refs: receiptRefs,
       receiptRefs,
       subagent: {

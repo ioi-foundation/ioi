@@ -2,6 +2,8 @@ export const RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION =
   "ioi.runtime.subagent-manager.v1";
 export const RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION =
   "ioi.runtime.subagent-result.v1";
+export const RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION =
+  "ioi.runtime.subagent-budget-status.v1";
 export const RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT = [
   "SUMMARY",
   "CHANGES",
@@ -22,6 +24,12 @@ export function optionalPositiveInteger(value) {
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : null;
 }
 
+export function optionalPositiveNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
 export function subagentIsActive(record = {}) {
   return ["queued", "running", "waiting_for_input", "interrupted"].includes(
     record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
@@ -31,6 +39,162 @@ export function subagentIsActive(record = {}) {
 export function subagentBudgetForRequest(request = {}) {
   const budget = request.budget ?? request.subagentBudget ?? request.options?.budget ?? null;
   return budget && typeof budget === "object" && !Array.isArray(budget) ? budget : null;
+}
+
+export function normalizeSubagentBudget(budget = null) {
+  if (!budget || typeof budget !== "object" || Array.isArray(budget)) return null;
+  const maxTokens = optionalPositiveInteger(
+    budget.maxTokens ??
+      budget.max_tokens ??
+      budget.maxTotalTokens ??
+      budget.max_total_tokens ??
+      budget.tokenLimit ??
+      budget.token_limit,
+  );
+  const maxInputTokens = optionalPositiveInteger(
+    budget.maxInputTokens ?? budget.max_input_tokens,
+  );
+  const maxOutputTokens = optionalPositiveInteger(
+    budget.maxOutputTokens ?? budget.max_output_tokens,
+  );
+  const maxCostUsd = optionalPositiveNumber(
+    budget.maxCostUsd ?? budget.max_cost_usd ?? budget.costLimitUsd ?? budget.cost_limit_usd,
+  );
+  const hasCap = Boolean(maxTokens || maxInputTokens || maxOutputTokens || maxCostUsd);
+  return {
+    schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    object: "ioi.runtime_subagent_budget",
+    configured: hasCap,
+    max_tokens: maxTokens,
+    maxTokens,
+    max_input_tokens: maxInputTokens,
+    maxInputTokens,
+    max_output_tokens: maxOutputTokens,
+    maxOutputTokens,
+    max_cost_usd: maxCostUsd,
+    maxCostUsd,
+    currency: optionalString(budget.currency) ?? "USD",
+    raw_keys: Object.keys(budget).sort(),
+    rawKeys: Object.keys(budget).sort(),
+  };
+}
+
+export function subagentUsageTelemetryForRun(run = {}, prompt = "", previousUsage = {}) {
+  const inputTokens = estimatedTokenCount(prompt);
+  const outputTokens = estimatedTokenCount(run.result ?? "");
+  const totalTokens = inputTokens + outputTokens;
+  const previousInputTokens = optionalPositiveInteger(
+    previousUsage.cumulative_input_tokens ?? previousUsage.cumulativeInputTokens,
+  ) ?? 0;
+  const previousOutputTokens = optionalPositiveInteger(
+    previousUsage.cumulative_output_tokens ?? previousUsage.cumulativeOutputTokens,
+  ) ?? 0;
+  const previousTotalTokens = optionalPositiveInteger(
+    previousUsage.cumulative_total_tokens ??
+      previousUsage.cumulativeTotalTokens ??
+      previousUsage.total_tokens ??
+      previousUsage.totalTokens,
+  ) ?? 0;
+  const costEstimateUsd = costEstimateUsdForRun(run, totalTokens);
+  const previousCostEstimateUsd = optionalPositiveNumber(
+    previousUsage.cumulative_cost_estimate_usd ??
+      previousUsage.cumulativeCostEstimateUsd ??
+      previousUsage.cost_estimate_usd ??
+      previousUsage.costEstimateUsd,
+  ) ?? 0;
+  return {
+    schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    object: "ioi.runtime_subagent_usage_telemetry",
+    run_id: run.id ?? null,
+    runId: run.id ?? null,
+    estimated: true,
+    input_tokens: inputTokens,
+    inputTokens,
+    output_tokens: outputTokens,
+    outputTokens,
+    total_tokens: totalTokens,
+    totalTokens,
+    cumulative_input_tokens: previousInputTokens + inputTokens,
+    cumulativeInputTokens: previousInputTokens + inputTokens,
+    cumulative_output_tokens: previousOutputTokens + outputTokens,
+    cumulativeOutputTokens: previousOutputTokens + outputTokens,
+    cumulative_total_tokens: previousTotalTokens + totalTokens,
+    cumulativeTotalTokens: previousTotalTokens + totalTokens,
+    cost_estimate_usd: costEstimateUsd,
+    costEstimateUsd,
+    cumulative_cost_estimate_usd: roundUsd(previousCostEstimateUsd + costEstimateUsd),
+    cumulativeCostEstimateUsd: roundUsd(previousCostEstimateUsd + costEstimateUsd),
+    model_route_id: run.modelRouteDecision?.routeId ?? run.modelRouteDecision?.route_id ?? null,
+    modelRouteId: run.modelRouteDecision?.routeId ?? run.modelRouteDecision?.route_id ?? null,
+  };
+}
+
+export function subagentBudgetStatusForRun({
+  budget = null,
+  run = {},
+  prompt = "",
+  previousUsage = {},
+} = {}) {
+  const normalizedBudget = normalizeSubagentBudget(budget);
+  const usage = subagentUsageTelemetryForRun(run, prompt, previousUsage);
+  const violations = [];
+  if (normalizedBudget?.max_tokens && usage.cumulative_total_tokens > normalizedBudget.max_tokens) {
+    violations.push(budgetViolation("max_tokens", normalizedBudget.max_tokens, usage.cumulative_total_tokens));
+  }
+  if (
+    normalizedBudget?.max_input_tokens &&
+    usage.cumulative_input_tokens > normalizedBudget.max_input_tokens
+  ) {
+    violations.push(budgetViolation("max_input_tokens", normalizedBudget.max_input_tokens, usage.cumulative_input_tokens));
+  }
+  if (
+    normalizedBudget?.max_output_tokens &&
+    usage.cumulative_output_tokens > normalizedBudget.max_output_tokens
+  ) {
+    violations.push(budgetViolation("max_output_tokens", normalizedBudget.max_output_tokens, usage.cumulative_output_tokens));
+  }
+  if (
+    normalizedBudget?.max_cost_usd &&
+    usage.cumulative_cost_estimate_usd > normalizedBudget.max_cost_usd
+  ) {
+    violations.push(
+      budgetViolation(
+        "max_cost_usd",
+        normalizedBudget.max_cost_usd,
+        usage.cumulative_cost_estimate_usd,
+      ),
+    );
+  }
+  const status = !normalizedBudget?.configured
+    ? "not_configured"
+    : violations.length
+      ? "exceeded"
+      : "within_budget";
+  const checkedAt = new Date().toISOString();
+  const policyDecision = {
+    schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    id: `policy_subagent_budget_${safePolicyId(run.id ?? "runless")}_${status}`,
+    status: status === "exceeded" ? "blocked" : "allow",
+    reason: status === "exceeded" ? "subagent_budget_exceeded" : "subagent_budget_within_limit",
+    violated_caps: violations.map((violation) => violation.cap),
+    violatedCaps: violations.map((violation) => violation.cap),
+  };
+  return {
+    schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
+    object: "ioi.runtime_subagent_budget_status",
+    status,
+    budget: normalizedBudget,
+    usage,
+    violations,
+    policy_decision: policyDecision,
+    policyDecision,
+    checked_at: checkedAt,
+    checkedAt,
+  };
 }
 
 export function subagentCancellationPropagates(record = {}) {
@@ -106,6 +270,9 @@ export function validateSubagentOutputContract(
 
 export function subagentResultForRun({ record, run = {}, output, outputContractStatus } = {}) {
   const subagentId = record?.subagent_id ?? record?.subagentId ?? record?.agent_id ?? record?.agentId ?? null;
+  const lifecycleStatus = lifecycleStatusForRun(
+    record?.lifecycle_status ?? record?.lifecycleStatus ?? record?.status ?? run.status,
+  );
   return {
     schema_version: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
     schemaVersion: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
@@ -116,13 +283,17 @@ export function subagentResultForRun({ record, run = {}, output, outputContractS
     agentId: record?.agentId ?? record?.agent_id ?? run.agentId ?? null,
     run_id: run.id ?? record?.run_id ?? record?.runId ?? null,
     runId: run.id ?? record?.runId ?? record?.run_id ?? null,
-    status: lifecycleStatusForRun(run.status ?? record?.status),
-    lifecycle_status: lifecycleStatusForRun(run.status ?? record?.status),
-    lifecycleStatus: lifecycleStatusForRun(run.status ?? record?.status),
+    status: lifecycleStatus,
+    lifecycle_status: lifecycleStatus,
+    lifecycleStatus,
     result: run.result ?? "",
     output,
     output_contract_status: outputContractStatus?.status ?? null,
     outputContractStatus: outputContractStatus ?? null,
+    budget_status: record?.budget_status ?? record?.budgetStatus?.status ?? null,
+    budgetStatus: record?.budgetStatus ?? record?.budget_status ?? null,
+    usage_telemetry: record?.usage_telemetry ?? record?.usageTelemetry ?? null,
+    usageTelemetry: record?.usageTelemetry ?? record?.usage_telemetry ?? null,
     receipt_refs: uniqueStrings([
       ...normalizeArray(record?.receipt_refs ?? record?.receiptRefs),
       ...normalizeArray(run.receipts).map((receipt) => receipt.id),
@@ -173,6 +344,26 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
       null,
     max_concurrency: record.max_concurrency ?? record.maxConcurrency ?? null,
     maxConcurrency: record.maxConcurrency ?? record.max_concurrency ?? null,
+    budget_status: record.budget_status ?? record.budgetStatus?.status ?? null,
+    budgetStatus: record.budgetStatus ?? record.budget_status ?? null,
+    usage_telemetry: record.usage_telemetry ?? record.usageTelemetry ?? null,
+    usageTelemetry: record.usageTelemetry ?? record.usage_telemetry ?? null,
+    cost_estimate_usd:
+      record.usage_telemetry?.cumulative_cost_estimate_usd ??
+      record.usageTelemetry?.cumulativeCostEstimateUsd ??
+      null,
+    costEstimateUsd:
+      record.usageTelemetry?.cumulativeCostEstimateUsd ??
+      record.usage_telemetry?.cumulative_cost_estimate_usd ??
+      null,
+    token_estimate:
+      record.usage_telemetry?.cumulative_total_tokens ??
+      record.usageTelemetry?.cumulativeTotalTokens ??
+      null,
+    tokenEstimate:
+      record.usageTelemetry?.cumulativeTotalTokens ??
+      record.usage_telemetry?.cumulative_total_tokens ??
+      null,
     merge_policy: record.merge_policy ?? record.mergePolicy ?? null,
     mergePolicy: record.mergePolicy ?? record.merge_policy ?? null,
     cancellation_inheritance: record.cancellation_inheritance ?? record.cancellationInheritance ?? null,
@@ -262,6 +453,41 @@ function optionalString(value) {
   return text ? text : undefined;
 }
 
+function estimatedTokenCount(value) {
+  const text = String(value ?? "").trim();
+  return text ? Math.max(1, Math.ceil(text.length / 4)) : 0;
+}
+
+function costEstimateUsdForRun(run = {}, totalTokens = 0) {
+  const decisionCost = optionalPositiveNumber(
+    run.modelRouteDecision?.costEstimateUsd ?? run.modelRouteDecision?.cost_estimate_usd,
+  );
+  if (decisionCost !== null) return roundUsd(decisionCost);
+  return roundUsd(totalTokens * 0.000001);
+}
+
+function roundUsd(value) {
+  return Math.round((Number(value) || 0) * 1_000_000) / 1_000_000;
+}
+
+function budgetViolation(cap, limit, observed) {
+  return {
+    cap,
+    limit,
+    observed,
+    amount_over: roundUsd(observed - limit),
+    amountOver: roundUsd(observed - limit),
+  };
+}
+
+function safePolicyId(value) {
+  return String(value ?? "subagent")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "subagent";
+}
+
 function lifecycleStatusForRun(status) {
   switch (status) {
     case "queued":
@@ -274,7 +500,7 @@ function lifecycleStatusForRun(status) {
     case "error":
       return "failed";
     case "blocked":
-      return "waiting_for_input";
+      return "blocked";
     case "completed":
     default:
       return "completed";

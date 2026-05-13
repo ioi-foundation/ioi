@@ -160,6 +160,8 @@ workstream was narrower.
 | 158 | 2026-05-13 | P1. Subagent Runtime Parity | SDK SubagentManager route wrappers | /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json |
 | 159 | 2026-05-13 | P1. Subagent Runtime Parity / P0. Terminal Coding-Agent TUI | TUI SubagentManager route controls | /tmp/ioi-autopilot-gui-harness-subagent-tui-controls/2026-05-13T19-24-15-419Z/result.json |
 | 160 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent fan-out workflow proof | /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout/2026-05-13T19-37-08-337Z/result.json |
+| 161 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent child-subflow projection | /tmp/ioi-autopilot-gui-harness-subagent-child-subflows/2026-05-13T19-50-06-418Z/result.json |
+| 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -281,6 +283,46 @@ Validation evidence:
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
 - `git diff --check`
+
+### Slice 162. 2026-05-13 - Subagent budget/cost enforcement and projection
+
+Implementation slice completed 2026-05-13, P1-A delegated worker budget
+enforcement:
+
+- Added daemon-side subagent budget normalization and usage telemetry helpers
+  for token and cost estimates, with explicit budget status objects and policy
+  decision refs.
+- Enforced delegated subagent budget caps during spawn. Over-budget children
+  are persisted as `blocked` subagent records, emit parent-thread lifecycle
+  events with `budget_status: "exceeded"`, and return a policy error carrying
+  the blocked subagent, receipt refs, and policy decision refs.
+- Preserved blocked lifecycle status through wait/result flows so an
+  over-budget child cannot be reinterpreted as a completed run after the fact.
+- Projected budget status, token estimates, and cost estimates through TUI
+  subagent rows, React Flow control-state rows, child-subflow descriptors, and
+  run-inspector data attributes/details.
+- Extended SDK subagent result/record types with budget status and usage
+  telemetry fields.
+- Refactored the Rust TUI subagent row builder after the new fields pushed the
+  large `serde_json::json!` macro over its recursion limit.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/subagent-manager.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli agent_tui -- --nocapture`
+- `node --test --test-name-pattern "React Flow subagent budget and cost caps|React Flow subagent fan-out workflow compiles nodes into live daemon controls|local daemon exposes SubagentManager" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-budget-cost`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json`.
 
 ### Slice 161. 2026-05-13 - React Flow subagent child-subflow projection
 

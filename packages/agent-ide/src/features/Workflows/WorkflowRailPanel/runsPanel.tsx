@@ -587,6 +587,15 @@ export function WorkflowRunsPanel({
                     }
                     data-subagent-merge-policy={row.subagentMergePolicy ?? ""}
                     data-subagent-tool-pack={row.subagentToolPack ?? ""}
+                    data-subagent-budget-status={
+                      row.subagentBudgetStatus ?? ""
+                    }
+                    data-subagent-cost-estimate-usd={
+                      row.subagentCostEstimateUsd ?? ""
+                    }
+                    data-subagent-token-estimate={
+                      row.subagentTokenEstimate ?? ""
+                    }
                     data-subagent-run-id={row.subagentRunId ?? ""}
                     data-subagent-child-thread-id={
                       row.subagentChildThreadId ?? ""
@@ -647,6 +656,15 @@ export function WorkflowRunsPanel({
                         data-subagent-operation={
                           subflow.subagentOperation ?? ""
                         }
+                        data-subagent-budget-status={
+                          subflow.subagentBudgetStatus ?? ""
+                        }
+                        data-subagent-cost-estimate-usd={
+                          subflow.subagentCostEstimateUsd ?? ""
+                        }
+                        data-subagent-token-estimate={
+                          subflow.subagentTokenEstimate ?? ""
+                        }
                         data-child-thread-id={subflow.childThreadId}
                         data-child-run-id={subflow.childRunId ?? ""}
                         data-react-flow-edge-count={
@@ -674,6 +692,22 @@ export function WorkflowRunsPanel({
                               <dt>Lifecycle</dt>
                               <dd>
                                 {subflow.subagentLifecycleStatus ?? "unknown"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Budget</dt>
+                              <dd>{subflow.subagentBudgetStatus ?? "untracked"}</dd>
+                            </div>
+                            <div>
+                              <dt>Tokens</dt>
+                              <dd>{subflow.subagentTokenEstimate ?? "unknown"}</dd>
+                            </div>
+                            <div>
+                              <dt>Cost</dt>
+                              <dd>
+                                {subflow.subagentCostEstimateUsd == null
+                                  ? "unknown"
+                                  : `$${subflow.subagentCostEstimateUsd.toFixed(6)}`}
                               </dd>
                             </div>
                             <div>

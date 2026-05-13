@@ -2513,10 +2513,21 @@ fn tui_subagent_row(
         .or_else(|| json_path_string(record, "/outputContractStatus/status"))
         .or_else(|| json_path_string(record, "/output_contract_validation/status"))
         .unwrap_or_else(|| "unknown".to_string());
+    let budget_status = json_path_string(record, "/budget_status")
+        .or_else(|| json_path_string(record, "/budgetStatus/status"))
+        .unwrap_or_else(|| "untracked".to_string());
+    let cost_estimate_usd = json_path_string(record, "/cost_estimate_usd")
+        .or_else(|| json_path_string(record, "/costEstimateUsd"))
+        .or_else(|| json_path_string(record, "/usage_telemetry/cumulative_cost_estimate_usd"))
+        .or_else(|| json_path_string(record, "/usageTelemetry/cumulativeCostEstimateUsd"));
+    let token_estimate = json_path_string(record, "/token_estimate")
+        .or_else(|| json_path_string(record, "/tokenEstimate"))
+        .or_else(|| json_path_string(record, "/usage_telemetry/cumulative_total_tokens"))
+        .or_else(|| json_path_string(record, "/usageTelemetry/cumulativeTotalTokens"));
     let workflow_node_id = json_path_string(record, "/workflow_node_id")
         .or_else(|| json_path_string(record, "/workflowNodeId"))
         .unwrap_or_else(|| format!("runtime.subagent.{}.{}", operation, safe_id(&role)));
-    serde_json::json!({
+    let mut row = serde_json::json!({
         "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
         "surface": "tui",
         "id": format!("tui-subagent-{}", safe_id(&subagent_id)),
@@ -2576,7 +2587,22 @@ fn tui_subagent_row(
             .or_else(|| record.pointer("/policyDecisionRefs"))
             .cloned()
             .unwrap_or_else(|| policy_refs.clone()),
-    })
+    });
+    if let Some(object) = row.as_object_mut() {
+        object.insert(
+            "subagent_budget_status".to_string(),
+            Value::String(budget_status.clone()),
+        );
+        object.insert(
+            "subagent_cost_estimate_usd".to_string(),
+            cost_estimate_usd.map(Value::String).unwrap_or(Value::Null),
+        );
+        object.insert(
+            "subagent_token_estimate".to_string(),
+            token_estimate.map(Value::String).unwrap_or(Value::Null),
+        );
+    }
+    row
 }
 
 pub(crate) fn tui_approval_rows(events: &[Value], fallback_thread_id: Option<&str>) -> Vec<Value> {
