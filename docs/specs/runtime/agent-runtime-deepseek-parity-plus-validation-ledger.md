@@ -148,6 +148,7 @@ the practical workstream when the source heading is broad.
 | 147 | 2026-05-13 | P1. MCP Manager Parity | live MCP HTTP/SSE transport | /tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json | node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-http-sse |
 | 148 | 2026-05-13 | P1. MCP Manager Parity | self-hosted MCP serve mode | /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>git diff --check<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-serve |
 | 149 | 2026-05-13 | P1. MCP Manager Parity | remote MCP auth/vault header hardening | /tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json | node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-auth-vault |
+| 150 | 2026-05-13 | P1. MCP Manager Parity | large MCP catalog deferred search/fetch | /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;agent CLI exposes model&#124;agent TUI line-mode&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>git diff --check<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4756,6 +4757,55 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-auth-vault`
   - GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json`.
+
+## Slice 150. 2026-05-13 - Large MCP catalog deferred search/fetch
+
+Guide section: P1. MCP Manager Parity
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/messages.ts
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/src/thread.ts
+- packages/agent-sdk/src/index.ts
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon route/control syntax check passed with MCP catalog search/fetch
+    routes and bounded live catalog status exposure.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract syntax check passed with the 80-tool MCP fixture.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed with MCP search/fetch helpers and
+    catalog summary types.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed with MCP search/fetch workflow
+    node metadata and binding controls.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow runtime event projection tests remained green.
+- `node --test --test-name-pattern "daemon owns MCP discovery" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused live MCP proof passed with large-catalog summaries, preview limits,
+    exact tool search, exact tool fetch, and root status payload bounding.
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused daemon/SDK/TUI/React Flow source-contract proof remained green.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+  - Rust TUI parser/control tests remained green.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
 
 ## Slice 137. 2026-05-13 - Executable diagnostics repair retry
 

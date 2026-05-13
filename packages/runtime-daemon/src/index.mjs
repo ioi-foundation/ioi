@@ -91,6 +91,9 @@ const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
   "git.diff",
   "file.inspect",
 ];
+const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
+const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
+const MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT = 200;
 const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
 const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
 const WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION = "ioi.runtime.workspace-restore-preview.v1";
@@ -2581,6 +2584,26 @@ export class AgentgresRuntimeStateStore {
     );
   }
 
+  async searchMcpTools(options = {}) {
+    const threadId = optionalString(options.thread_id ?? options.threadId);
+    if (threadId) return this.searchThreadMcpTools(threadId, options);
+    return this.searchMcpToolCatalog({
+      ...options,
+      servers: this.mcpServersForContext(options),
+      agent: { cwd: this.defaultCwd },
+    });
+  }
+
+  async getMcpTool(toolId, options = {}) {
+    const threadId = optionalString(options.thread_id ?? options.threadId);
+    if (threadId) return this.getThreadMcpTool(threadId, toolId, options);
+    return this.getMcpToolFromCatalog(toolId, {
+      ...options,
+      servers: this.mcpServersForContext(options),
+      agent: { cwd: this.defaultCwd },
+    });
+  }
+
   listMcpResources(options = {}) {
     const servers = this.mcpServersForContext(options);
     const serverFilter = optionalString(options.server_id ?? options.serverId);
@@ -2626,6 +2649,8 @@ export class AgentgresRuntimeStateStore {
       routes: {
         servers: "/v1/mcp/servers",
         tools: "/v1/mcp/tools",
+        searchTools: "/v1/mcp/tools/search",
+        getTool: "/v1/mcp/tools/{tool_id}",
         resources: "/v1/mcp/resources",
         prompts: "/v1/mcp/prompts",
         validate: "/v1/mcp/validate",
@@ -2895,6 +2920,9 @@ export class AgentgresRuntimeStateStore {
       (status.resources ?? []).map((resource) => [mcpResourceKey(resource), resource]),
     );
     const promptMap = new Map((status.prompts ?? []).map((prompt) => [mcpPromptKey(prompt), prompt]));
+    const catalogSummaries = [];
+    const previewLimit = mcpCatalogPreviewLimit(request);
+    const forceFullCatalog = mcpCatalogFullRequested(request);
     const discoveries = [];
     for (const server of status.servers ?? []) {
       const liveMode = mcpLiveExecutionModeForServer(server, request);
@@ -2913,13 +2941,18 @@ export class AgentgresRuntimeStateStore {
                 timeoutMs: request.timeout_ms ?? request.timeoutMs,
                 vault: this.modelMounting.vault,
               });
-        for (const tool of catalog.tools ?? catalog.listed_tools ?? []) {
+        const exposure = mcpCatalogExposureForStatus(server, catalog, {
+          previewLimit,
+          forceFullCatalog,
+        });
+        catalogSummaries.push(exposure.summary);
+        for (const tool of exposure.tools) {
           toolMap.set(mcpToolKey(tool), tool);
         }
-        for (const resource of catalog.resources ?? catalog.listed_resources ?? []) {
+        for (const resource of exposure.resources) {
           resourceMap.set(mcpResourceKey(resource), resource);
         }
-        for (const prompt of catalog.prompts ?? catalog.listed_prompts ?? []) {
+        for (const prompt of exposure.prompts) {
           promptMap.set(mcpPromptKey(prompt), prompt);
         }
         discoveries.push({
@@ -2934,6 +2967,12 @@ export class AgentgresRuntimeStateStore {
           tool_count: catalog.tool_count ?? 0,
           resource_count: catalog.resource_count ?? 0,
           prompt_count: catalog.prompt_count ?? 0,
+          returned_tool_count: exposure.tools.length,
+          returnedToolCount: exposure.tools.length,
+          catalog_summary: exposure.summary,
+          catalogSummary: exposure.summary,
+          catalog_exposure: exposure.exposure,
+          catalogExposure: exposure.exposure,
         });
       } catch (error) {
         discoveries.push({
@@ -2966,6 +3005,12 @@ export class AgentgresRuntimeStateStore {
       prompts,
       prompt_count: prompts.length,
       promptCount: prompts.length,
+      catalog_summaries: catalogSummaries,
+      catalogSummaries,
+      catalog_tool_count: catalogSummaries.reduce((sum, entry) => sum + (entry.tool_count ?? 0), 0),
+      catalogToolCount: catalogSummaries.reduce((sum, entry) => sum + (entry.tool_count ?? 0), 0),
+      returned_tool_count: tools.length,
+      returnedToolCount: tools.length,
       live_discovery: {
         status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
         requested: true,
@@ -2975,6 +3020,162 @@ export class AgentgresRuntimeStateStore {
         status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
         requested: true,
         servers: discoveries,
+      },
+    };
+  }
+
+  async searchThreadMcpTools(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    return this.searchMcpToolCatalog({
+      ...request,
+      thread_id: threadId,
+      threadId,
+      servers: this.listMcpServers({ thread_id: threadId }),
+      agent,
+    });
+  }
+
+  async getThreadMcpTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    return this.getMcpToolFromCatalog(toolId, {
+      ...request,
+      thread_id: threadId,
+      threadId,
+      servers: this.listMcpServers({ thread_id: threadId }),
+      agent,
+    });
+  }
+
+  async getMcpToolFromCatalog(toolId, request = {}) {
+    const result = await this.searchMcpToolCatalog({
+      ...request,
+      tool_id: toolId,
+      toolId,
+      exact: true,
+      limit: Math.max(Number(request.limit ?? 0), MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT),
+    });
+    const requested = optionalString(toolId ?? request.tool_id ?? request.toolId);
+    const tool = result.tools.find((candidate) => mcpToolIdentityMatches(candidate, requested)) ?? null;
+    if (!tool) {
+      throw notFound("MCP tool not found.", {
+        toolId: requested ?? null,
+        serverId: request.server_id ?? request.serverId ?? null,
+      });
+    }
+    return {
+      ...result,
+      object: "ioi.runtime_mcp_tool_fetch",
+      status: "completed",
+      tool_id: requested ?? tool.stableToolId ?? tool.stable_tool_id ?? null,
+      toolId: requested ?? tool.stableToolId ?? tool.stable_tool_id ?? null,
+      server_id: tool.serverId ?? tool.server_id ?? null,
+      serverId: tool.serverId ?? tool.server_id ?? null,
+      tool_name: tool.toolName ?? tool.tool_name ?? null,
+      toolName: tool.toolName ?? tool.tool_name ?? null,
+      tool,
+      tools: [tool],
+      returned_count: 1,
+      returnedCount: 1,
+    };
+  }
+
+  async searchMcpToolCatalog(request = {}) {
+    const query = optionalString(request.q ?? request.query ?? request.search) ?? "";
+    const requestedToolId = optionalString(request.tool_id ?? request.toolId);
+    const exact = request.exact === true || request.exact === "true";
+    const serverFilter = optionalString(request.server_id ?? request.serverId);
+    const liveDiscovery = request.live_discovery !== false && request.liveDiscovery !== false;
+    const limit = mcpToolSearchLimit(request);
+    const servers = normalizeArray(request.servers).filter((server) =>
+      serverFilter ? resolveMcpServerRecord([server], serverFilter) : true,
+    );
+    const agent = request.agent ?? { cwd: this.defaultCwd };
+    const catalogSummaries = [];
+    const failures = [];
+    const candidateTools = [];
+    for (const server of servers) {
+      let tools = mcpToolsForServers([server]);
+      let resources = mcpResourcesForServers([server]);
+      let prompts = mcpPromptsForServers([server]);
+      const liveMode = liveDiscovery ? mcpLiveExecutionModeForServer(server, request) : null;
+      if (server.enabled !== false && liveMode) {
+        try {
+          const catalog =
+            liveMode === "live_stdio"
+              ? await discoverMcpStdioCatalog(server, {
+                  cwd: agent.cwd,
+                  timeoutMs: request.timeout_ms ?? request.timeoutMs,
+                })
+              : await discoverMcpHttpCatalog(server, {
+                  cwd: agent.cwd,
+                  timeoutMs: request.timeout_ms ?? request.timeoutMs,
+                  vault: this.modelMounting.vault,
+                });
+          tools = normalizeArray(catalog.tools ?? catalog.listed_tools);
+          resources = normalizeArray(catalog.resources ?? catalog.listed_resources);
+          prompts = normalizeArray(catalog.prompts ?? catalog.listed_prompts);
+          catalogSummaries.push(mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
+            liveMode,
+            deferred: tools.length > mcpCatalogPreviewLimit(request),
+            previewLimit: mcpCatalogPreviewLimit(request),
+          }));
+        } catch (error) {
+          failures.push({
+            server_id: server.id,
+            serverId: server.id,
+            status: "failed",
+            error_code: optionalString(error?.code) ?? "mcp_tool_search_discovery_failed",
+            message: String(error?.message ?? error),
+          });
+          catalogSummaries.push(mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
+            liveMode,
+            status: "failed",
+            errorCode: optionalString(error?.code) ?? "mcp_tool_search_discovery_failed",
+          }));
+        }
+      } else {
+        catalogSummaries.push(mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
+          liveMode: liveMode ?? "declared_catalog",
+          deferred: false,
+          previewLimit: mcpCatalogPreviewLimit(request),
+        }));
+      }
+      candidateTools.push(...tools);
+    }
+    const filtered = candidateTools
+      .filter((tool) =>
+        requestedToolId
+          ? mcpToolIdentityMatches(tool, requestedToolId) || (!exact && mcpToolMatchesQuery(tool, requestedToolId))
+          : mcpToolMatchesQuery(tool, query),
+      )
+      .sort((left, right) => mcpToolKey(left).localeCompare(mcpToolKey(right)));
+    const returned = filtered.slice(0, limit);
+    return {
+      schema_version: RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
+      object: "ioi.runtime_mcp_tool_search",
+      status: failures.length > 0 ? "partial" : "completed",
+      query,
+      q: query,
+      exact,
+      live_discovery: liveDiscovery,
+      liveDiscovery,
+      server_count: servers.length,
+      serverCount: servers.length,
+      tool_count: filtered.length,
+      toolCount: filtered.length,
+      returned_count: returned.length,
+      returnedCount: returned.length,
+      limit,
+      deferred: filtered.length > returned.length,
+      tools: returned,
+      catalog_summaries: catalogSummaries,
+      catalogSummaries,
+      failures,
+      routes: {
+        search: "/v1/mcp/tools/search",
+        getTool: "/v1/mcp/tools/{tool_id}",
+        invokeTool: "/v1/mcp/tools/{tool_id}/invoke",
       },
     };
   }
@@ -6339,6 +6540,24 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.listMcpTools(Object.fromEntries(url.searchParams.entries())));
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/mcp/tools/search") {
+      writeJsonResponse(response, await store.searchMcpTools(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (
+      request.method === "GET" &&
+      segments[0] === "v1" &&
+      segments[1] === "mcp" &&
+      segments[2] === "tools" &&
+      segments[3] &&
+      !segments[4]
+    ) {
+      writeJsonResponse(
+        response,
+        await store.getMcpTool(decodeURIComponent(segments[3]), Object.fromEntries(url.searchParams.entries())),
+      );
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/v1/mcp/resources") {
       writeJsonResponse(response, store.listMcpResources(Object.fromEntries(url.searchParams.entries())));
       return;
@@ -8305,6 +8524,38 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
         segments[6] === "enable",
         await readBody(request),
       ),
+    );
+    return;
+  }
+  if (
+    request.method === "GET" &&
+    action === "mcp" &&
+    segments[4] === "tools" &&
+    segments[5] === "search" &&
+    !segments[6]
+  ) {
+    writeJsonResponse(
+      response,
+      await store.searchThreadMcpTools(threadId, {
+        ...Object.fromEntries(url.searchParams.entries()),
+        source: "sdk_client",
+      }),
+    );
+    return;
+  }
+  if (
+    request.method === "GET" &&
+    action === "mcp" &&
+    segments[4] === "tools" &&
+    segments[5] &&
+    !segments[6]
+  ) {
+    writeJsonResponse(
+      response,
+      await store.getThreadMcpTool(threadId, decodeURIComponent(segments[5]), {
+        ...Object.fromEntries(url.searchParams.entries()),
+        source: "sdk_client",
+      }),
     );
     return;
   }
@@ -12327,6 +12578,210 @@ function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
 function mcpToolKey(tool = {}) {
   return optionalString(tool.stableToolId ?? tool.stable_tool_id) ??
     `${optionalString(tool.serverId ?? tool.server_id) ?? "mcp.unknown"}:${optionalString(tool.toolName ?? tool.tool_name) ?? "tool"}`;
+}
+
+function mcpToolIdentityMatches(tool = {}, value) {
+  const requested = optionalString(value)?.toLowerCase();
+  if (!requested) return false;
+  const serverId = optionalString(tool.serverId ?? tool.server_id);
+  const toolName = optionalString(tool.toolName ?? tool.tool_name);
+  const candidates = [
+    tool.stableToolId,
+    tool.stable_tool_id,
+    tool.workflowNodeId,
+    tool.workflow_node_id,
+    tool.displayName,
+    tool.display_name,
+    toolName,
+    serverId && toolName ? `${serverId}.${toolName}` : null,
+    serverId && toolName ? `${serverId}:${toolName}` : null,
+  ]
+    .map((candidate) => optionalString(candidate)?.toLowerCase())
+    .filter(Boolean);
+  return candidates.includes(requested);
+}
+
+function mcpToolMatchesQuery(tool = {}, query) {
+  const needle = optionalString(query)?.toLowerCase();
+  if (!needle) return true;
+  return [
+    tool.stableToolId,
+    tool.stable_tool_id,
+    tool.workflowNodeId,
+    tool.workflow_node_id,
+    tool.displayName,
+    tool.display_name,
+    tool.serverId,
+    tool.server_id,
+    tool.serverLabel,
+    tool.server_label,
+    tool.toolName,
+    tool.tool_name,
+    tool.description,
+  ]
+    .map((candidate) => optionalString(candidate)?.toLowerCase())
+    .filter(Boolean)
+    .some((candidate) => candidate.includes(needle));
+}
+
+function mcpCatalogPreviewLimit(request = {}) {
+  return boundedPositiveInteger(
+    request.catalog_preview_limit ??
+      request.catalogPreviewLimit ??
+      request.mcp_catalog_preview_limit ??
+      request.mcpCatalogPreviewLimit ??
+      request.preview_limit ??
+      request.previewLimit,
+    MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
+    MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
+  );
+}
+
+function mcpToolSearchLimit(request = {}) {
+  return boundedPositiveInteger(request.limit ?? request.max_results ?? request.maxResults, 25, 100);
+}
+
+function boundedPositiveInteger(value, fallback, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return fallback;
+  return Math.min(Math.floor(number), max);
+}
+
+function mcpCatalogFullRequested(request = {}) {
+  const mode = optionalString(
+    request.catalog_mode ?? request.catalogMode ?? request.mcp_catalog_mode ?? request.mcpCatalogMode,
+  )?.toLowerCase();
+  return (
+    mode === "full" ||
+    request.include_full_catalog === true ||
+    request.includeFullCatalog === true
+  );
+}
+
+function mcpCatalogExposureForStatus(server, catalog = {}, options = {}) {
+  const tools = normalizeArray(catalog.tools ?? catalog.listed_tools);
+  const resources = normalizeArray(catalog.resources ?? catalog.listed_resources);
+  const prompts = normalizeArray(catalog.prompts ?? catalog.listed_prompts);
+  const previewLimit = boundedPositiveInteger(
+    options.previewLimit,
+    MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
+    MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
+  );
+  const fullCatalogIncluded = options.forceFullCatalog === true || tools.length <= previewLimit;
+  const summary = mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
+    liveMode: catalog.executionMode ?? catalog.execution_mode ?? server.transport ?? "stdio",
+    deferred: !fullCatalogIncluded,
+    previewLimit,
+    catalog,
+  });
+  const exposedTools = fullCatalogIncluded ? tools : tools.slice(0, previewLimit);
+  const exposedResources = fullCatalogIncluded ? resources : resources.slice(0, previewLimit);
+  const exposedPrompts = fullCatalogIncluded ? prompts : prompts.slice(0, previewLimit);
+  return {
+    tools: exposedTools,
+    resources: exposedResources,
+    prompts: exposedPrompts,
+    summary,
+    exposure: {
+      mode: fullCatalogIncluded ? "full" : "deferred",
+      deferred: !fullCatalogIncluded,
+      preview_limit: previewLimit,
+      previewLimit,
+      full_catalog_included: fullCatalogIncluded,
+      fullCatalogIncluded,
+      returned_tool_count: exposedTools.length,
+      returnedToolCount: exposedTools.length,
+      returned_resource_count: exposedResources.length,
+      returnedResourceCount: exposedResources.length,
+      returned_prompt_count: exposedPrompts.length,
+      returnedPromptCount: exposedPrompts.length,
+      search_route: "/v1/mcp/tools/search",
+      searchRoute: "/v1/mcp/tools/search",
+      fetch_route: "/v1/mcp/tools/{tool_id}",
+      fetchRoute: "/v1/mcp/tools/{tool_id}",
+    },
+  };
+}
+
+function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = {}) {
+  const tools = normalizeArray(catalog.tools);
+  const resources = normalizeArray(catalog.resources);
+  const prompts = normalizeArray(catalog.prompts);
+  const toolNames = tools.map((tool) => optionalString(tool.toolName ?? tool.tool_name)).filter(Boolean).sort();
+  const namespaces = mcpToolNamespaces(toolNames);
+  const hashPayload = {
+    serverId: server.id ?? null,
+    tools: tools.map((tool) => ({
+      id: tool.stableToolId ?? tool.stable_tool_id ?? null,
+      name: tool.toolName ?? tool.tool_name ?? null,
+      description: tool.description ?? null,
+      inputSchema: tool.inputSchema ?? tool.input_schema ?? null,
+    })),
+    resources: resources.map((resource) => ({
+      id: resource.stableResourceId ?? resource.stable_resource_id ?? null,
+      uri: resource.uri ?? null,
+      name: resource.name ?? null,
+    })),
+    prompts: prompts.map((prompt) => ({
+      id: prompt.stablePromptId ?? prompt.stable_prompt_id ?? null,
+      name: prompt.name ?? null,
+    })),
+  };
+  const catalogHash = doctorHash(JSON.stringify(hashPayload));
+  const previewLimit = boundedPositiveInteger(
+    options.previewLimit,
+    MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
+    MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
+  );
+  const deferred = Boolean(options.deferred ?? tools.length > previewLimit);
+  return {
+    schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+    object: "ioi.runtime_mcp_catalog_summary",
+    status: options.status ?? "completed",
+    server_id: server.id ?? null,
+    serverId: server.id ?? null,
+    server_label: server.label ?? server.name ?? server.id ?? null,
+    serverLabel: server.label ?? server.name ?? server.id ?? null,
+    transport: server.transport ?? null,
+    execution_mode: options.liveMode ?? null,
+    executionMode: options.liveMode ?? null,
+    catalog_hash: catalogHash,
+    catalogHash,
+    tool_count: tools.length,
+    toolCount: tools.length,
+    resource_count: resources.length,
+    resourceCount: resources.length,
+    prompt_count: prompts.length,
+    promptCount: prompts.length,
+    namespace_count: namespaces.length,
+    namespaceCount: namespaces.length,
+    namespaces,
+    preview_limit: previewLimit,
+    previewLimit,
+    preview_tool_names: toolNames.slice(0, Math.min(previewLimit, 20)),
+    previewToolNames: toolNames.slice(0, Math.min(previewLimit, 20)),
+    deferred,
+    full_catalog_included: !deferred,
+    fullCatalogIncluded: !deferred,
+    error_code: options.errorCode ?? null,
+    errorCode: options.errorCode ?? null,
+    search_route: "/v1/mcp/tools/search",
+    searchRoute: "/v1/mcp/tools/search",
+    fetch_route: "/v1/mcp/tools/{tool_id}",
+    fetchRoute: "/v1/mcp/tools/{tool_id}",
+  };
+}
+
+function mcpToolNamespaces(toolNames = []) {
+  return uniqueStrings(
+    normalizeArray(toolNames).map((name) => {
+      const text = String(name);
+      return text.split(/__|[.:/-]/)[0] || text;
+    }),
+  )
+    .sort()
+    .slice(0, 25);
 }
 
 function mcpResourceKey(resource = {}) {

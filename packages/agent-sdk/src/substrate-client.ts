@@ -42,6 +42,7 @@ import type {
   RuntimeMcpServerEntry,
   RuntimeMcpStatus,
   RuntimeMcpToolEntry,
+  RuntimeMcpToolSearchResult,
   RuntimeMcpValidationResult,
   RuntimeMemoryStatus,
   RuntimeMemoryValidationResult,
@@ -293,6 +294,22 @@ export interface RuntimeMcpListOptions {
   serverId?: string;
   server_id?: string;
   [key: string]: unknown;
+}
+
+export interface RuntimeMcpToolSearchInput extends RuntimeMcpListOptions {
+  query?: string;
+  q?: string;
+  search?: string;
+  toolId?: string;
+  tool_id?: string;
+  toolName?: string;
+  tool_name?: string;
+  exact?: boolean;
+  liveDiscovery?: boolean;
+  live_discovery?: boolean;
+  catalogPreviewLimit?: number;
+  catalog_preview_limit?: number;
+  limit?: number;
 }
 
 export interface RuntimeMcpValidationInput {
@@ -862,6 +879,8 @@ export interface RuntimeSubstrateClient {
   getMcpStatus(options?: RuntimeMcpListOptions): Promise<RuntimeMcpStatus>;
   listMcpServers(options?: RuntimeMcpListOptions): Promise<RuntimeMcpServerEntry[]>;
   listMcpTools(options?: RuntimeMcpListOptions): Promise<RuntimeMcpToolEntry[]>;
+  searchMcpTools(input?: RuntimeMcpToolSearchInput): Promise<RuntimeMcpToolSearchResult>;
+  getMcpTool(toolId: string, input?: RuntimeMcpToolSearchInput): Promise<RuntimeMcpToolSearchResult>;
   listMcpResources(options?: RuntimeMcpListOptions): Promise<RuntimeMcpResourceEntry[]>;
   listMcpPrompts(options?: RuntimeMcpListOptions): Promise<RuntimeMcpPromptEntry[]>;
   validateMcp(input?: RuntimeMcpValidationInput): Promise<RuntimeMcpValidationResult>;
@@ -886,6 +905,15 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input?: RuntimeThreadMcpInput,
   ): Promise<RuntimeMcpValidationResult>;
+  searchThreadMcpTools(
+    threadId: string,
+    input?: RuntimeMcpToolSearchInput,
+  ): Promise<RuntimeMcpToolSearchResult>;
+  getThreadMcpTool(
+    threadId: string,
+    toolId: string,
+    input?: RuntimeMcpToolSearchInput,
+  ): Promise<RuntimeMcpToolSearchResult>;
   enableThreadMcpServer(
     threadId: string,
     serverId: string,
@@ -1297,6 +1325,17 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("listMcpTools", "GET", `/v1/mcp/tools${mcpListQuery(options)}`);
   }
 
+  async searchMcpTools(input: RuntimeMcpToolSearchInput = {}): Promise<RuntimeMcpToolSearchResult> {
+    return this.request("searchMcpTools", "GET", `/v1/mcp/tools/search${mcpListQuery(input)}`);
+  }
+
+  async getMcpTool(
+    toolId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    return this.request("getMcpTool", "GET", `/v1/mcp/tools/${encodePath(toolId)}${mcpListQuery(input)}`);
+  }
+
   async listMcpResources(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpResourceEntry[]> {
     return this.request("listMcpResources", "GET", `/v1/mcp/resources${mcpListQuery(options)}`);
   }
@@ -1464,6 +1503,29 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
         source: "sdk_client",
         ...input,
       },
+    );
+  }
+
+  async searchThreadMcpTools(
+    threadId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    return this.request(
+      "searchThreadMcpTools",
+      "GET",
+      `/v1/threads/${encodePath(threadId)}/mcp/tools/search${mcpListQuery(input)}`,
+    );
+  }
+
+  async getThreadMcpTool(
+    threadId: string,
+    toolId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    return this.request(
+      "getThreadMcpTool",
+      "GET",
+      `/v1/threads/${encodePath(threadId)}/mcp/tools/${encodePath(toolId)}${mcpListQuery(input)}`,
     );
   }
 
@@ -3187,6 +3249,83 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     );
   }
 
+  async searchMcpTools(input: RuntimeMcpToolSearchInput = {}): Promise<RuntimeMcpToolSearchResult> {
+    const query = String(input.query ?? input.q ?? input.search ?? input.toolId ?? input.tool_id ?? "").toLowerCase();
+    const tools = (await this.listMcpTools(input)).filter((tool) => {
+      if (!query) return true;
+      return [
+        tool.stableToolId,
+        tool.stable_tool_id,
+        tool.displayName,
+        tool.display_name,
+        tool.serverId,
+        tool.server_id,
+        tool.toolName,
+        tool.tool_name,
+        tool.description,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+    const limit = Number(input.limit ?? 25);
+    const returned = tools.slice(0, Number.isFinite(limit) && limit > 0 ? limit : 25);
+    const serverCount = (await this.listMcpServers(input)).length;
+    return {
+      schema_version: "ioi.runtime.mcp-tool-search.v1",
+      schemaVersion: "ioi.runtime.mcp-tool-search.v1",
+      object: "ioi.runtime_mcp_tool_search",
+      status: "completed",
+      query,
+      q: query,
+      live_discovery: Boolean(input.liveDiscovery ?? input.live_discovery),
+      liveDiscovery: Boolean(input.liveDiscovery ?? input.live_discovery),
+      server_count: serverCount,
+      serverCount,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      returned_count: returned.length,
+      returnedCount: returned.length,
+      limit: returned.length,
+      deferred: tools.length > returned.length,
+      tools: returned,
+      catalog_summaries: [],
+      catalogSummaries: [],
+      failures: [],
+    };
+  }
+
+  async getMcpTool(
+    toolId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    const result = await this.searchMcpTools({ ...input, toolId, tool_id: toolId, exact: true, limit: 100 });
+    const normalized = toolId.toLowerCase();
+    const tool = result.tools.find((candidate) =>
+      [
+        candidate.stableToolId,
+        candidate.stable_tool_id,
+        candidate.displayName,
+        candidate.display_name,
+        candidate.toolName,
+        candidate.tool_name,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .includes(normalized),
+    ) ?? result.tools[0];
+    if (!tool) throw new IoiAgentError({ code: "not_found", message: `MCP tool not found: ${toolId}` });
+    return {
+      ...result,
+      object: "ioi.runtime_mcp_tool_fetch",
+      tool_id: toolId,
+      toolId,
+      tool,
+      tools: [tool],
+      returned_count: 1,
+      returnedCount: 1,
+    };
+  }
+
   async listMcpResources(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpResourceEntry[]> {
     const servers = await this.listMcpServers(options);
     return servers.flatMap(
@@ -3348,6 +3487,21 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         workflowNodeId: "runtime.mcp-manager",
       }),
     };
+  }
+
+  async searchThreadMcpTools(
+    _threadId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    return this.searchMcpTools(input);
+  }
+
+  async getThreadMcpTool(
+    _threadId: string,
+    toolId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    return this.getMcpTool(toolId, input);
   }
 
   async enableThreadMcpServer(

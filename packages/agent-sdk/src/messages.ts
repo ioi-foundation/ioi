@@ -386,8 +386,12 @@ export interface RuntimeNodeProfile {
 
 export interface RuntimeToolCatalogEntry {
   schemaVersion?: string;
+  schema_version?: string;
   stableToolId: string;
+  stable_tool_id?: string;
   displayName: string;
+  display_name?: string;
+  description?: string | null;
   pack?: string;
   primitiveCapabilities: string[];
   authorityScopeRequirements: string[];
@@ -588,6 +592,74 @@ export interface RuntimeMcpInvocationResult extends RuntimeMcpInvocationRecord {
   event?: RuntimeEventEnvelope;
 }
 
+export interface RuntimeMcpCatalogSummary {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_mcp_catalog_summary" | string;
+  status?: string;
+  server_id?: string | null;
+  serverId?: string | null;
+  server_label?: string | null;
+  serverLabel?: string | null;
+  transport?: string | null;
+  execution_mode?: string | null;
+  executionMode?: string | null;
+  catalog_hash?: string;
+  catalogHash?: string;
+  tool_count?: number;
+  toolCount?: number;
+  resource_count?: number;
+  resourceCount?: number;
+  prompt_count?: number;
+  promptCount?: number;
+  namespace_count?: number;
+  namespaceCount?: number;
+  namespaces?: string[];
+  preview_limit?: number;
+  previewLimit?: number;
+  preview_tool_names?: string[];
+  previewToolNames?: string[];
+  deferred?: boolean;
+  full_catalog_included?: boolean;
+  fullCatalogIncluded?: boolean;
+  search_route?: string;
+  searchRoute?: string;
+  fetch_route?: string;
+  fetchRoute?: string;
+}
+
+export interface RuntimeMcpToolSearchResult {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_mcp_tool_search" | "ioi.runtime_mcp_tool_fetch" | string;
+  status: string;
+  query?: string;
+  q?: string;
+  exact?: boolean;
+  live_discovery?: boolean;
+  liveDiscovery?: boolean;
+  server_count?: number;
+  serverCount?: number;
+  tool_count?: number;
+  toolCount?: number;
+  returned_count?: number;
+  returnedCount?: number;
+  limit?: number;
+  deferred?: boolean;
+  tool_id?: string | null;
+  toolId?: string | null;
+  server_id?: string | null;
+  serverId?: string | null;
+  tool_name?: string | null;
+  toolName?: string | null;
+  tool?: RuntimeMcpToolEntry;
+  tools: RuntimeMcpToolEntry[];
+  catalog_summaries?: RuntimeMcpCatalogSummary[];
+  catalogSummaries?: RuntimeMcpCatalogSummary[];
+  failures?: Array<Record<string, unknown>>;
+  routes?: Record<string, string>;
+}
+
 export interface RuntimeMcpStatus {
   schema_version?: string;
   schemaVersion?: string;
@@ -613,6 +685,12 @@ export interface RuntimeMcpStatus {
   tools: RuntimeMcpToolEntry[];
   resources?: RuntimeMcpResourceEntry[];
   prompts?: RuntimeMcpPromptEntry[];
+  catalog_summaries?: RuntimeMcpCatalogSummary[];
+  catalogSummaries?: RuntimeMcpCatalogSummary[];
+  catalog_tool_count?: number;
+  catalogToolCount?: number;
+  returned_tool_count?: number;
+  returnedToolCount?: number;
   validation?: RuntimeMcpValidationResult;
   routes?: Record<string, string>;
   live_discovery?: Record<string, unknown>;

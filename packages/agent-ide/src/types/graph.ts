@@ -450,6 +450,9 @@ export interface NodeLogic {
   mcpServerHeadersJson?: string;
   mcpServerConfigJson?: string;
   mcpImportJson?: string;
+  mcpCatalogMode?: "summary" | "full" | string;
+  mcpToolSearchQuery?: string;
+  mcpToolCatalogPreviewLimit?: number;
   mcpServeEndpoint?: string;
   mcpServeAllowedToolsJson?: string;
   mcpToolName?: string;
@@ -522,6 +525,8 @@ export interface NodeLogic {
     | "append"
     | "merge"
     | "mcp_status"
+    | "mcp_tool_search"
+    | "mcp_tool_fetch"
     | "mcp_import"
     | "mcp_add"
     | "mcp_serve"
@@ -943,6 +948,8 @@ export interface WorkflowToolBinding {
     serverId?: string;
     toolName?: string;
     catalogRef?: string;
+    catalogMode?: "deferred" | "full" | string;
+    catalogSearchQuery?: string;
     validateBeforeInvoke?: boolean;
     containmentMode?: "read_only" | "sandboxed" | "review_required";
   };
