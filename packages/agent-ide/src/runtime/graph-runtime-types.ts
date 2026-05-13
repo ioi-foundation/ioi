@@ -42,11 +42,13 @@ import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-pr
 import type {
   RuntimeContextCompactControlRequest,
   RuntimeDiagnosticsRepairControlRequest,
+  RuntimeOperatorInterruptControlRequest,
 } from "./workflow-runtime-control-nodes";
 
 export type WorkflowRuntimeControlRequest =
   | RuntimeContextCompactControlRequest
-  | RuntimeDiagnosticsRepairControlRequest;
+  | RuntimeDiagnosticsRepairControlRequest
+  | RuntimeOperatorInterruptControlRequest;
 
 // Wire-format payload for graph execution requests.
 export interface GraphPayload {

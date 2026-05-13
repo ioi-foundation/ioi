@@ -121,6 +121,7 @@ import {
 import {
   createRuntimeContextCompactControlRequest,
   createRuntimeDiagnosticsRepairControlRequest,
+  createRuntimeOperatorInterruptControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
 import type {
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -9509,10 +9510,14 @@ export function useWorkflowComposerController({
         setStatusMessage(`Context pressure action ${action.label} is advisory`);
         return;
       }
-      if (action.action !== "compact") {
+      if (action.action !== "compact" && action.action !== "stop") {
         setStatusMessage(
           `Context pressure action ${action.label} is not executable yet`,
         );
+        return;
+      }
+      if (action.action === "stop" && !action.turnId) {
+        setStatusMessage("Context pressure stop action requires an active turn.");
         return;
       }
       if (!runtime.executeWorkflowRuntimeControlRequest) {
@@ -9521,18 +9526,32 @@ export function useWorkflowComposerController({
         );
         return;
       }
-      const request = createRuntimeContextCompactControlRequest({
-        nodeId: action.id,
-        threadId: action.threadId,
-        turnId: action.turnId,
-        reason:
-          action.summary ??
-          `${action.label} requested from React Flow run inspector.`,
-        scope: action.scope,
-        workflowGraphId: action.workflowGraphId ?? currentProjectFile.metadata.id,
-        workflowNodeId: action.workflowNodeId,
-        actor: "operator",
-      });
+      const reason =
+        action.summary ??
+        `${action.label} requested from React Flow run inspector.`;
+      const workflowGraphId =
+        action.workflowGraphId ?? currentProjectFile.metadata.id;
+      const request =
+        action.action === "compact"
+          ? createRuntimeContextCompactControlRequest({
+              nodeId: action.id,
+              threadId: action.threadId,
+              turnId: action.turnId,
+              reason,
+              scope: action.scope,
+              workflowGraphId,
+              workflowNodeId: action.workflowNodeId,
+              actor: "operator",
+            })
+          : createRuntimeOperatorInterruptControlRequest({
+              nodeId: action.id,
+              threadId: action.threadId,
+              turnId: action.turnId,
+              reason,
+              workflowGraphId,
+              workflowNodeId: action.workflowNodeId,
+              actor: "operator",
+            });
       try {
         await runtime.executeWorkflowRuntimeControlRequest(request);
         setRuntimeThreadEvents(await loadRuntimeThreadEvents(action.threadId));

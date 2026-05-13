@@ -2007,7 +2007,8 @@ function contextPressureActionsForEvents(
       stringField(record, "summary", "message") ??
       summaryForContextPressureAction(action, pressure, scope);
     const executable =
-      booleanField(record, "executable") ?? action === "compact";
+      booleanField(record, "executable") ??
+      (action === "compact" || (action === "stop" && Boolean(alertEvent.turnId)));
     const status = stringField(record, "status") ?? (executable ? "available" : "advisory");
     const decisionId =
       stringField(record, "decisionId", "decision_id") ??
@@ -2047,7 +2048,7 @@ function workflowNodeIdForContextPressureAction(action: string): string {
     case "compact":
       return "runtime.context-compact";
     case "stop":
-      return "runtime.turn-canceled";
+      return "runtime.operator-interrupt";
     case "request_approval":
       return "runtime.approval.context-pressure";
     case "delegate_summary":

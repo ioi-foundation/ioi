@@ -17303,6 +17303,7 @@ function contextPressureAlertPayload(usageDelta = {}) {
   const primaryAction = pressureStatus === "high" ? "compact" : "delegate_summary";
   const policyDecisionId = `policy_${alertId}_${primaryAction}`;
   const receiptId = `receipt_${alertId}`;
+  const stopExecutable = Boolean(turnId);
   const actionBase = {
     pressure,
     pressure_status: pressureStatus,
@@ -17353,11 +17354,11 @@ function contextPressureAlertPayload(usageDelta = {}) {
         ...actionBase,
         action: "stop",
         label: "Stop turn",
-        status: "available",
-        executable: false,
-        workflow_node_id: "runtime.turn-canceled",
-        workflowNodeId: "runtime.turn-canceled",
-        summary: "Stop the turn before additional context is consumed.",
+        status: stopExecutable ? "available" : "missing_turn",
+        executable: stopExecutable,
+        workflow_node_id: "runtime.operator-interrupt",
+        workflowNodeId: "runtime.operator-interrupt",
+        summary: "Stop the turn through the runtime operator interrupt control.",
       },
     );
   }
