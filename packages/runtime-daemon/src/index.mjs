@@ -7611,7 +7611,13 @@ async function handleRequest({ request, response, store }) {
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/usage") {
-      writeJsonResponse(response, store.listUsage(Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(
+        response,
+        usageTelemetryWithRequestMetadata(
+          store.listUsage(Object.fromEntries(url.searchParams.entries())),
+          usageRequestMetadataFromUrl(url),
+        ),
+      );
       return;
     }
     if (segments[0] === "v1" && segments[1] === "threads" && segments[2]) {
@@ -9643,7 +9649,13 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "GET" && action === "usage" && !segments[4]) {
-    writeJsonResponse(response, store.usageForThread(threadId));
+    writeJsonResponse(
+      response,
+      usageTelemetryWithRequestMetadata(
+        store.usageForThread(threadId),
+        usageRequestMetadataFromUrl(url, { defaultScope: "thread" }),
+      ),
+    );
     return;
   }
   if (request.method === "POST" && action === "resume") {
@@ -9932,6 +9944,73 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   throw notFound("Thread route not found.", { threadId, action, method: request.method });
 }
 
+function usageRequestMetadataFromUrl(url, { defaultScope = "workflow" } = {}) {
+  const params = url?.searchParams;
+  if (!params) return null;
+  const workflowNodeId = stringFromSearchParams(params, "workflow_node_id");
+  const workflowGraphId = stringFromSearchParams(params, "workflow_graph_id");
+  const source = stringFromSearchParams(params, "source");
+  const usageMeterScope =
+    stringFromSearchParams(params, "usage_meter_scope") ??
+    stringFromSearchParams(params, "scope") ??
+    defaultScope;
+  if (!workflowNodeId && !workflowGraphId && !source) return null;
+  const simulationMode = booleanFromSearchParams(params, "simulation_mode", true);
+  return {
+    source: source ?? "react_flow",
+    actor: stringFromSearchParams(params, "actor") ?? "operator",
+    event_kind:
+      stringFromSearchParams(params, "event_kind") ??
+      "RuntimeUsageTelemetry.Read",
+    eventKind:
+      stringFromSearchParams(params, "event_kind") ??
+      "RuntimeUsageTelemetry.Read",
+    component_kind:
+      stringFromSearchParams(params, "component_kind") ?? "usage_telemetry",
+    componentKind:
+      stringFromSearchParams(params, "component_kind") ?? "usage_telemetry",
+    payload_schema_version:
+      stringFromSearchParams(params, "payload_schema_version") ??
+      RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+    payloadSchemaVersion:
+      stringFromSearchParams(params, "payload_schema_version") ??
+      RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+    workflow_graph_id: workflowGraphId,
+    workflowGraphId,
+    workflow_node_id: workflowNodeId ?? "runtime.usage-meter",
+    workflowNodeId: workflowNodeId ?? "runtime.usage-meter",
+    usage_meter_scope: usageMeterScope,
+    usageMeterScope,
+    simulation_mode: simulationMode,
+    simulationMode,
+  };
+}
+
+function usageTelemetryWithRequestMetadata(record, metadata) {
+  if (!record || !metadata) return record;
+  if (Array.isArray(record.usage)) {
+    return {
+      ...record,
+      ...metadata,
+      usage: record.usage.map((entry) => ({ ...entry, ...metadata })),
+    };
+  }
+  return { ...record, ...metadata };
+}
+
+function stringFromSearchParams(params, key) {
+  const value = params.get(key);
+  if (typeof value !== "string") return null;
+  const clean = value.trim();
+  return clean ? clean : null;
+}
+
+function booleanFromSearchParams(params, key, fallback = false) {
+  const value = stringFromSearchParams(params, key);
+  if (value === null) return fallback;
+  return value !== "false" && value !== "0";
+}
+
 async function handleRunRoute({ request, response, store, url, segments }) {
   const runId = decodeURIComponent(segments[2]);
   const action = segments[3];
@@ -9940,7 +10019,13 @@ async function handleRunRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "GET" && action === "usage" && !segments[4]) {
-    writeJsonResponse(response, store.usageForRun(runId));
+    writeJsonResponse(
+      response,
+      usageTelemetryWithRequestMetadata(
+        store.usageForRun(runId),
+        usageRequestMetadataFromUrl(url, { defaultScope: "run" }),
+      ),
+    );
     return;
   }
   if (request.method === "POST" && action === "cancel") {

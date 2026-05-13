@@ -598,7 +598,8 @@ export interface NodeLogic {
     | "subagent_cancel"
     | "subagent_cancel_propagation"
     | "subagent_resume"
-    | "subagent_assign";
+    | "subagent_assign"
+    | "usage_meter";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
   memoryRecordId?: string;
@@ -761,6 +762,21 @@ export interface NodeLogic {
   runtimeDiagnosticsRepairWorkflowNodeId?: string;
   runtimeDiagnosticsRepairSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeDiagnosticsRepairActor?: string;
+  runtimeUsageMeterEndpoint?: string;
+  runtimeUsageMeter?: unknown;
+  runtimeUsageMeterField?: string;
+  runtimeUsageMeterStatusField?: string;
+  runtimeUsageMeterThreadId?: string;
+  runtimeUsageMeterThreadIdField?: string;
+  runtimeUsageMeterRunId?: string;
+  runtimeUsageMeterRunIdField?: string;
+  runtimeUsageMeterScope?: "run" | "thread" | "workflow" | string;
+  runtimeUsageMeterScopeField?: string;
+  runtimeUsageMeterGroupBy?: "run" | "thread" | string;
+  runtimeUsageMeterSimulationMode?: boolean;
+  runtimeUsageMeterWorkflowNodeId?: string;
+  runtimeUsageMeterSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeUsageMeterActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -852,6 +868,7 @@ export interface NodeLogic {
     consumesRuntimeOperatorInterrupt?: boolean;
     consumesRuntimeOperatorSteer?: boolean;
     consumesRuntimeContextCompact?: boolean;
+    consumesRuntimeUsageMeter?: boolean;
     consumesRuntimeRollbackSnapshot?: boolean;
     consumesRuntimeRestoreGate?: boolean;
     consumesRuntimeDiagnosticsRepair?: boolean;
@@ -881,6 +898,8 @@ export interface NodeLogic {
     runtimeOperatorSteerStatusField?: string;
     runtimeContextCompactField?: string;
     runtimeContextCompactStatusField?: string;
+    runtimeUsageMeterField?: string;
+    runtimeUsageMeterStatusField?: string;
     runtimeRollbackSnapshotField?: string;
     runtimeRollbackSnapshotStatusField?: string;
     runtimeRestoreGateField?: string;
@@ -1409,6 +1428,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_operator_interrupt">
   | WorkflowNodeConfigBase<"runtime_operator_steer">
   | WorkflowNodeConfigBase<"runtime_context_compact">
+  | WorkflowNodeConfigBase<"runtime_usage_meter">
   | WorkflowNodeConfigBase<"runtime_rollback_snapshot">
   | WorkflowNodeConfigBase<"runtime_restore_gate">
   | WorkflowNodeConfigBase<"runtime_diagnostics_repair">
@@ -4107,6 +4127,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_context_compact"
+  | "runtime_usage_meter"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"
@@ -4668,6 +4689,7 @@ export type WorkflowNodeKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_context_compact"
+  | "runtime_usage_meter"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"

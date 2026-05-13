@@ -5690,6 +5690,109 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
   }
 });
 
+test("React Flow usage meter workflow node reads daemon telemetry with graph identity", async () => {
+  const {
+    createRuntimeUsageMeterControlRequestFromWorkflowNode,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-meter-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-meter-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        prompt: "Produce usage meter evidence for a workflow-authored telemetry node.",
+        mode: "send",
+      }),
+    });
+    const runId = `run_${turn.turn_id.slice("turn_".length)}`;
+    const workflowGraphId = "workflow.react-flow.usage-meter";
+    const usageNode = {
+      id: "react-flow-usage-meter",
+      type: "runtime_usage_meter",
+      config: {
+        logic: {
+          runtimeUsageMeterScope: "thread",
+          runtimeUsageMeterThreadIdField: "threadId",
+          runtimeUsageMeterWorkflowNodeId: "runtime.usage-meter",
+          runtimeUsageMeterSimulationMode: true,
+        },
+      },
+    };
+
+    const threadRequest = createRuntimeUsageMeterControlRequestFromWorkflowNode(
+      usageNode,
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(threadRequest.nodeType, "runtime_usage_meter");
+    assert.equal(threadRequest.method, "GET");
+    assert.equal(threadRequest.body, null);
+    assert.equal(threadRequest.scope, "thread");
+    assert.match(threadRequest.endpoint, /\/v1\/threads\/.+\/usage\?/);
+    assert.match(threadRequest.endpoint, /usage_meter_scope=thread/);
+    assert.match(threadRequest.endpoint, /workflow_node_id=runtime\.usage-meter/);
+    const threadUsage = await fetchJson(`${daemon.endpoint}${threadRequest.endpoint}`);
+    assert.equal(threadUsage.schema_version, "ioi.runtime.usage-telemetry.v1");
+    assert.equal(threadUsage.scope, "thread");
+    assert.equal(threadUsage.source, "react_flow");
+    assert.equal(threadUsage.actor, "workflow-author");
+    assert.equal(threadUsage.workflow_graph_id, workflowGraphId);
+    assert.equal(threadUsage.workflow_node_id, "runtime.usage-meter");
+    assert.equal(threadUsage.usage_meter_scope, "thread");
+    assert.equal(threadUsage.simulation_mode, true);
+    assert.ok(threadUsage.total_tokens >= turn.usage.total_tokens);
+
+    const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      usage_status: threadUsage,
+    });
+    const usageRow = projection.rows.find(
+      (row) =>
+        row.rowKind === "usage_status" &&
+        row.reactFlowNodeId === "runtime.usage-meter",
+    );
+    assert.ok(usageRow);
+    assert.equal(usageRow.usageTotalTokens, threadUsage.total_tokens);
+    assert.equal(usageRow.usageScope, "thread");
+
+    const runNode = {
+      ...usageNode,
+      config: {
+        logic: {
+          runtimeUsageMeterScope: "run",
+          runtimeUsageMeterRunIdField: "runId",
+          runtimeUsageMeterWorkflowNodeId: "runtime.usage-meter.run",
+        },
+      },
+    };
+    const runRequest = createRuntimeUsageMeterControlRequestFromWorkflowNode(
+      runNode,
+      { runId },
+      { workflowGraphId },
+    );
+    assert.equal(runRequest.scope, "run");
+    assert.equal(runRequest.runId, runId);
+    assert.match(runRequest.endpoint, new RegExp(`/v1/runs/${runId}/usage\\?`));
+    const runUsage = await fetchJson(`${daemon.endpoint}${runRequest.endpoint}`);
+    assert.equal(runUsage.run_id, runId);
+    assert.equal(runUsage.workflow_node_id, "runtime.usage-meter.run");
+    assert.equal(runUsage.usage_meter_scope, "run");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
@@ -9116,6 +9219,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeUsageControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
+    ),
+    "utf8",
+  );
   const runtimeDaemon = fs.readFileSync(
     path.join(root, "packages/runtime-daemon/src/index.mjs"),
     "utf8",
@@ -9723,6 +9833,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeSubagentControlNodes, /subagent_cancel_propagation/);
   assert.match(workflowRuntimeSubagentControlNodes, /propagate_cancel/);
   assert.match(workflowRuntimeSubagentControlNodes, /subagentBudgetJson/);
+  assert.match(workflowRuntimeUsageControlNodes, /createRuntimeUsageMeterControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeUsageControlNodes, /runtime_usage_meter/);
+  assert.match(workflowRuntimeUsageControlNodes, /RuntimeUsageTelemetry\.Read/);
+  assert.match(workflowRuntimeUsageControlNodes, /usage_meter_scope/);
+  assert.match(nodeRegistry, /creatorId: "usage\.meter"/);
+  assert.match(nodeRegistry, /RuntimeUsageMeterNode/);
+  assert.match(nodeRegistry, /runtimeUsageMeterSimulationMode/);
+  assert.match(graphTypes, /runtime_usage_meter/);
+  assert.match(workflowRuntimeUiStrings, /runtime_usage_meter/);
   assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
   assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
   assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);

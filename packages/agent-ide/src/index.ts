@@ -105,6 +105,16 @@ export {
   createRuntimeSubagentControlRequest,
   createRuntimeSubagentControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-subagent-control-nodes";
+export {
+  RUNTIME_USAGE_METER_COMPONENT_KIND,
+  RUNTIME_USAGE_METER_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_USAGE_METER_SOURCE,
+  RUNTIME_USAGE_METER_SOURCE_EVENT_KIND,
+  RUNTIME_USAGE_METER_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_USAGE_METER_CONTROL_SCHEMA_VERSION,
+  createRuntimeUsageMeterControlRequest,
+  createRuntimeUsageMeterControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-usage-control-nodes";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -409,6 +419,13 @@ export type {
   RuntimeSubagentOperation,
   RuntimeSubagentWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-subagent-control-nodes";
+export type {
+  RuntimeUsageMeterControlMetadata,
+  RuntimeUsageMeterControlRequest,
+  RuntimeUsageMeterControlRequestInput,
+  RuntimeUsageMeterScope,
+  RuntimeUsageMeterWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-usage-control-nodes";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";
