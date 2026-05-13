@@ -131,6 +131,7 @@ the practical workstream when the source heading is broad.
 | 130 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | policy-gated workspace restore apply | /tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json | node --check packages/runtime-daemon/src/workspace-restore.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "projects coding tool&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent CLI exposes model&#124;agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-restore-apply |
 | 131 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | diagnostics rollback/repair policy | /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "projects coding tool&#124;diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent CLI exposes model&#124;agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy |
 | 132 | 2026-05-13 | P0-B/P0-C/P0-D. Workflow Restore/Repair Controls | workflow restore and diagnostics repair binding controls | /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/coding-tools.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "RUNTIME_EVENT_SOURCES&#124;runtime event&#124;TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls |
+| 133 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | restore workflow nodes and request builders | /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_projection --lib<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_thread_fork_node_builds_react_flow_control_request --lib<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata --lib<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4651,6 +4652,58 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls`
   - live GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json`.
+
+## Slice 133. 2026-05-13 - Restore workflow nodes and request builders
+
+Guide section: P0-D. Workspace Rollback Snapshots
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/runtime/workflow-schema.ts
+- packages/agent-ide/src/runtime/runtime-projection-adapter.ts
+- packages/agent-ide/src/types/graph.ts
+- apps/autopilot/src-tauri/src/runtime_projection.rs
+- apps/autopilot/src-tauri/src/project/templates.rs
+- apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs
+- apps/autopilot/src-tauri/src/project/validation.rs
+- docs/implementation/runtime-action-schema.json
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts`
+  - React Flow request-builder tests passed for thread fork, interrupt, steer,
+    context compact, rollback snapshot list, and restore gate preview/apply.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_projection --lib`
+  - Tauri runtime projection enum and edge-rule tests passed.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_thread_fork_node_builds_react_flow_control_request --lib`
+  - existing local runtime-control execution lane contract passed after adding
+    restore node action kinds.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata --lib`
+  - project scaffold action metadata contract passed.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow runtime event/control source contract passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - workflow-addressability source contract passed for the new restore node
+    registry, UI chrome, generated schemas, Tauri templates, and execution lane.
+- `git diff --check`
+  - whitespace check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json`.
+
+Known validation note:
+
+- Full `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml --check`
+  still reports unrelated formatting drift in existing orchestrator store files;
+  this slice's changed Rust files were formatted directly with `rustfmt`.
 
 ## Slice 121. 2026-05-13 - Coding tool-pack governed apply-patch contract
 

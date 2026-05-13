@@ -7146,6 +7146,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::WorkflowPackageExport/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::WorkflowPackageImport/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::GithubPrCreate/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeRollbackSnapshot/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeRestoreGate/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_rollback_snapshot_output/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_restore_gate_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_package_lane/);
   assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_export_node/);
   assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_import_node/);
@@ -7169,6 +7173,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTemplates, /workflow_runtime_operator_interrupt_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_operator_steer_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_context_compact_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_rollback_snapshot_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_restore_gate_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_github_pr_create_output_schema/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageExport/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageImport/);
@@ -7176,6 +7182,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriRuntimeProjection, /RuntimeOperatorInterrupt/);
   assert.match(tauriRuntimeProjection, /RuntimeOperatorSteer/);
   assert.match(tauriRuntimeProjection, /RuntimeContextCompact/);
+  assert.match(tauriRuntimeProjection, /RuntimeRollbackSnapshot/);
+  assert.match(tauriRuntimeProjection, /RuntimeRestoreGate/);
   assert.match(tauriRuntimeProjection, /GithubPrCreate/);
   assert.match(tauriRuntimeProjection, /output_bundle/);
   assert.match(workflowContracts, /repository\.context/);
@@ -7226,6 +7234,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeContextCompactNode/);
   assert.match(nodeRegistry, /runtimeContextCompactWorkflowNodeId/);
   assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/compact/);
+  assert.match(nodeRegistry, /runtime_rollback_snapshot/);
+  assert.match(nodeRegistry, /RuntimeRollbackSnapshotNode/);
+  assert.match(nodeRegistry, /runtimeRollbackSnapshotWorkflowNodeId/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/snapshots/);
+  assert.match(nodeRegistry, /runtime_restore_gate/);
+  assert.match(nodeRegistry, /RuntimeRestoreGateNode/);
+  assert.match(nodeRegistry, /runtimeRestoreGateSnapshotIdField/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/snapshots\/\{snapshotId\}\/restore-\{mode\}/);
   assert.match(nodeRegistry, /workflow_package_export/);
   assert.match(nodeRegistry, /WorkflowPackageExportNode/);
   assert.match(nodeRegistry, /workflow\.package\.export/);
@@ -7516,6 +7532,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_operator_interrupt\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_operator_steer\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_context_compact\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_rollback_snapshot\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_restore_gate\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
@@ -7534,6 +7552,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeProjectionAdapter, /return "runtime_operator_steer"/);
   assert.match(runtimeProjectionAdapter, /case "runtime_context_compact"/);
   assert.match(runtimeProjectionAdapter, /return "runtime_context_compact"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_rollback_snapshot"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_rollback_snapshot"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_restore_gate"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_restore_gate"/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
   assert.match(runtimeActionSchema, /"skill_context"/);
@@ -7541,16 +7563,22 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeActionSchema, /"workflow_package_import"/);
   assert.match(runtimeActionSchema, /"runtime_operator_steer"/);
   assert.match(runtimeActionSchema, /"runtime_context_compact"/);
+  assert.match(runtimeActionSchema, /"runtime_rollback_snapshot"/);
+  assert.match(runtimeActionSchema, /"runtime_restore_gate"/);
   assert.match(generatedActionSchema, /"skill_context"/);
   assert.match(generatedActionSchema, /"workflow_package_export"/);
   assert.match(generatedActionSchema, /"workflow_package_import"/);
   assert.match(generatedActionSchema, /"runtime_operator_steer"/);
   assert.match(generatedActionSchema, /"runtime_context_compact"/);
+  assert.match(generatedActionSchema, /"runtime_rollback_snapshot"/);
+  assert.match(generatedActionSchema, /"runtime_restore_gate"/);
   assert.match(generatedRustActionSchema, /"skill_context"/);
   assert.match(generatedRustActionSchema, /"workflow_package_export"/);
   assert.match(generatedRustActionSchema, /"workflow_package_import"/);
   assert.match(generatedRustActionSchema, /"runtime_operator_steer"/);
   assert.match(generatedRustActionSchema, /"runtime_context_compact"/);
+  assert.match(generatedRustActionSchema, /"runtime_rollback_snapshot"/);
+  assert.match(generatedRustActionSchema, /"runtime_restore_gate"/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

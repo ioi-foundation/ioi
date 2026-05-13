@@ -12,6 +12,8 @@ export const AGENT_ACTION_KINDS = [
   "runtime_operator_interrupt",
   "runtime_operator_steer",
   "runtime_context_compact",
+  "runtime_rollback_snapshot",
+  "runtime_restore_gate",
   "function",
   "model_binding",
   "model_call",
@@ -72,4 +74,6 @@ export const AGENT_ACTION_COMPLETION_VERIFICATION_KINDS = [
   "runtime_operator_interrupt",
   "runtime_operator_steer",
   "runtime_context_compact",
+  "runtime_rollback_snapshot",
+  "runtime_restore_gate",
 ] as const;

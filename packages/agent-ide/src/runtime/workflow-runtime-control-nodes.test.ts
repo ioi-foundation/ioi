@@ -5,12 +5,18 @@ import {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
   RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+  RUNTIME_RESTORE_GATE_COMPONENT_KIND,
+  RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND,
+  RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID,
   RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
   RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND,
   RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
   RUNTIME_OPERATOR_STEER_COMPONENT_KIND,
   RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND,
   RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID,
+  RUNTIME_ROLLBACK_SNAPSHOT_COMPONENT_KIND,
+  RUNTIME_ROLLBACK_SNAPSHOT_SOURCE_EVENT_KIND,
+  RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID,
   RUNTIME_THREAD_FORK_COMPONENT_KIND,
   RUNTIME_THREAD_FORK_SOURCE,
   RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
@@ -18,10 +24,14 @@ import {
   WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
   createRuntimeContextCompactControlRequestFromWorkflowNode,
   createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
   createRuntimeOperatorSteerControlRequestFromWorkflowNode,
+  createRuntimeRestoreGateControlRequestFromWorkflowNode,
+  createRuntimeRollbackSnapshotControlRequestFromWorkflowNode,
   createRuntimeThreadForkControlRequestFromWorkflowNode,
 } from "./workflow-runtime-control-nodes";
 
@@ -122,6 +132,22 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
       { threadId: "thread-shared", turnId: "turn-shared" },
       { workflowGraphId: graphId, actor },
     ),
+    createRuntimeRollbackSnapshotControlRequestFromWorkflowNode(
+      makeWorkflowNode(
+        "snapshot-shared",
+        "runtime_rollback_snapshot",
+        "Snapshot",
+        0,
+        0,
+      ),
+      { threadId: "thread-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
+    createRuntimeRestoreGateControlRequestFromWorkflowNode(
+      makeWorkflowNode("restore-shared", "runtime_restore_gate", "Restore", 0, 0),
+      { threadId: "thread-shared", snapshotId: "snapshot-shared" },
+      { workflowGraphId: graphId, actor },
+    ),
   ];
 
   assert.deepEqual(
@@ -159,6 +185,20 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
         actor,
         graphId,
         nodeId: RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID,
         threadId: "thread-shared",
       },
     ],
@@ -240,6 +280,163 @@ test("runtime_context_compact helper supports configurable fields from node logi
   );
   assert.equal(request.body.reason, "summarize stale context");
   assert.equal(request.body.scope, "thread");
+  assert.equal(request.body.actor, "workflow-author");
+  assert.equal(request.body.source, "react_flow");
+});
+
+test("runtime_rollback_snapshot workflow node builds a React Flow daemon request", () => {
+  const node = makeWorkflowNode(
+    "snapshot-control",
+    "runtime_rollback_snapshot",
+    "Snapshot control",
+    100,
+    120,
+  );
+  const request = createRuntimeRollbackSnapshotControlRequestFromWorkflowNode(
+    node,
+    { threadId: "thread-react-flow-1" },
+    { workflowGraphId: "workflow.react-flow.rollback-snapshot-proof" },
+  );
+
+  assert.equal(
+    request.schemaVersion,
+    WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION,
+  );
+  assert.equal(request.nodeType, "runtime_rollback_snapshot");
+  assert.equal(request.nodeId, "snapshot-control");
+  assert.equal(request.threadId, "thread-react-flow-1");
+  assert.equal(request.endpoint, "/v1/threads/thread-react-flow-1/snapshots");
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.actor, "operator");
+  assert.equal(
+    request.body.workflowGraphId,
+    "workflow.react-flow.rollback-snapshot-proof",
+  );
+  assert.equal(
+    request.body.workflowNodeId,
+    RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID,
+  );
+  assert.equal(
+    request.body.eventKind,
+    RUNTIME_ROLLBACK_SNAPSHOT_SOURCE_EVENT_KIND,
+  );
+  assert.equal(request.body.componentKind, RUNTIME_ROLLBACK_SNAPSHOT_COMPONENT_KIND);
+});
+
+test("runtime_rollback_snapshot helper supports configurable fields from node logic", () => {
+  const node = makeWorkflowNode(
+    "snapshot-control-configured",
+    "runtime_rollback_snapshot",
+    "Snapshot control",
+    100,
+    120,
+    {
+      runtimeRollbackSnapshotEndpoint: "/runtime/{threadId}/snapshots",
+      runtimeRollbackSnapshotThreadIdField: "runtime.threadId",
+      runtimeRollbackSnapshotWorkflowNodeId: "runtime.rollback-snapshot",
+      runtimeRollbackSnapshotActor: "workflow-author",
+    },
+  );
+  const request = createRuntimeRollbackSnapshotControlRequestFromWorkflowNode(
+    node,
+    { runtime: { threadId: "thread with space" } },
+  );
+
+  assert.equal(request.threadId, "thread with space");
+  assert.equal(request.endpoint, "/runtime/thread%20with%20space/snapshots");
+  assert.equal(request.body.actor, "workflow-author");
+  assert.equal(request.body.source, "react_flow");
+});
+
+test("runtime_restore_gate workflow node builds a React Flow preview daemon request", () => {
+  const node = makeWorkflowNode(
+    "restore-control",
+    "runtime_restore_gate",
+    "Restore control",
+    100,
+    120,
+  );
+  const request = createRuntimeRestoreGateControlRequestFromWorkflowNode(
+    node,
+    {
+      threadId: "thread-react-flow-1",
+      snapshotId: "snapshot-react-flow-1",
+    },
+    { workflowGraphId: "workflow.react-flow.restore-gate-proof" },
+  );
+
+  assert.equal(
+    request.schemaVersion,
+    WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION,
+  );
+  assert.equal(request.nodeType, "runtime_restore_gate");
+  assert.equal(request.nodeId, "restore-control");
+  assert.equal(request.threadId, "thread-react-flow-1");
+  assert.equal(request.snapshotId, "snapshot-react-flow-1");
+  assert.equal(request.mode, "preview");
+  assert.equal(
+    request.endpoint,
+    "/v1/threads/thread-react-flow-1/snapshots/snapshot-react-flow-1/restore-preview",
+  );
+  assert.equal(request.body.snapshot_id, "snapshot-react-flow-1");
+  assert.equal(request.body.conflictPolicy, "block");
+  assert.equal(request.body.approvalGranted, false);
+  assert.equal(request.body.allowConflicts, false);
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.actor, "operator");
+  assert.equal(
+    request.body.workflowGraphId,
+    "workflow.react-flow.restore-gate-proof",
+  );
+  assert.equal(request.body.workflowNodeId, RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID);
+  assert.equal(request.body.eventKind, RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND);
+  assert.equal(request.body.componentKind, RUNTIME_RESTORE_GATE_COMPONENT_KIND);
+});
+
+test("runtime_restore_gate helper supports apply mode, approval, and configurable fields", () => {
+  const node = makeWorkflowNode(
+    "restore-control-configured",
+    "runtime_restore_gate",
+    "Restore control",
+    100,
+    120,
+    {
+      runtimeRestoreGateEndpoint:
+        "/runtime/{threadId}/snapshots/{snapshotId}/{mode}",
+      runtimeRestoreGateThreadIdField: "runtime.threadId",
+      runtimeRestoreGateSnapshotIdField: "runtime.snapshot.id",
+      runtimeRestoreGateModeField: "restore.mode",
+      runtimeRestoreGateConflictPolicyField: "restore.conflictPolicy",
+      runtimeRestoreGateApprovalGrantedField: "restore.approved",
+      runtimeRestoreGateWorkflowNodeId: "runtime.restore-gate",
+      runtimeRestoreGateActor: "workflow-author",
+    },
+  );
+  const request = createRuntimeRestoreGateControlRequestFromWorkflowNode(
+    node,
+    {
+      runtime: {
+        threadId: "thread with space",
+        snapshot: { id: "snapshot/with/slash" },
+      },
+      restore: {
+        mode: "apply",
+        conflictPolicy: "allow_override",
+        approved: true,
+      },
+    },
+  );
+
+  assert.equal(request.threadId, "thread with space");
+  assert.equal(request.snapshotId, "snapshot/with/slash");
+  assert.equal(request.mode, "apply");
+  assert.equal(
+    request.endpoint,
+    "/runtime/thread%20with%20space/snapshots/snapshot%2Fwith%2Fslash/apply",
+  );
+  assert.equal(request.body.conflict_policy, "allow_override");
+  assert.equal(request.body.approval_granted, true);
+  assert.equal(request.body.allow_conflicts, true);
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.source, "react_flow");
 });

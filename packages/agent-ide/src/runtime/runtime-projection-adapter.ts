@@ -70,6 +70,10 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "runtime_operator_steer";
     case "runtime_context_compact":
       return "runtime_context_compact";
+    case "runtime_rollback_snapshot":
+      return "runtime_rollback_snapshot";
+    case "runtime_restore_gate":
+      return "runtime_restore_gate";
     case "workflow_package_export":
       return "workflow_package_export";
     case "workflow_package_import":

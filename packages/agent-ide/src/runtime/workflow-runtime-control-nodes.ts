@@ -38,6 +38,26 @@ export const RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND =
   "OperatorControl.Compact" as const;
 export const RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.context-compaction.v1" as const;
+export const WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-rollback-snapshot-control.v1" as const;
+export const RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID =
+  "runtime.rollback-snapshot" as const;
+export const RUNTIME_ROLLBACK_SNAPSHOT_COMPONENT_KIND =
+  "workspace_snapshot" as const;
+export const RUNTIME_ROLLBACK_SNAPSHOT_SOURCE = "react_flow" as const;
+export const RUNTIME_ROLLBACK_SNAPSHOT_SOURCE_EVENT_KIND =
+  "WorkspaceSnapshot.List" as const;
+export const RUNTIME_ROLLBACK_SNAPSHOT_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.workspace-snapshot.v1" as const;
+export const WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-restore-gate-control.v1" as const;
+export const RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID = "runtime.restore-gate" as const;
+export const RUNTIME_RESTORE_GATE_COMPONENT_KIND = "restore_gate" as const;
+export const RUNTIME_RESTORE_GATE_SOURCE = "react_flow" as const;
+export const RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND =
+  "WorkspaceRestore.Gate" as const;
+export const RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.workspace-restore-gate.v1" as const;
 
 export interface RuntimeThreadForkControlRequestBody {
   reason: string;
@@ -200,6 +220,98 @@ export interface RuntimeContextCompactControlRequestInput {
 }
 
 export interface RuntimeContextCompactWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeRollbackSnapshotControlRequestBody {
+  source: typeof RUNTIME_ROLLBACK_SNAPSHOT_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_ROLLBACK_SNAPSHOT_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_ROLLBACK_SNAPSHOT_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_ROLLBACK_SNAPSHOT_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeRollbackSnapshotControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_rollback_snapshot";
+  nodeId: string | null;
+  threadId: string;
+  endpoint: string;
+  body: RuntimeRollbackSnapshotControlRequestBody;
+}
+
+export interface RuntimeRollbackSnapshotControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  input?: unknown;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeRollbackSnapshotWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export type RuntimeRestoreGateMode = "preview" | "apply";
+export type RuntimeRestoreGateConflictPolicy = "block" | "allow_override";
+
+export interface RuntimeRestoreGateControlRequestBody {
+  snapshotId: string;
+  snapshot_id: string;
+  mode: RuntimeRestoreGateMode;
+  conflictPolicy: RuntimeRestoreGateConflictPolicy;
+  conflict_policy: RuntimeRestoreGateConflictPolicy;
+  approvalGranted: boolean;
+  approval_granted: boolean;
+  allowConflicts: boolean;
+  allow_conflicts: boolean;
+  source: typeof RUNTIME_RESTORE_GATE_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_RESTORE_GATE_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeRestoreGateControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_restore_gate";
+  nodeId: string | null;
+  threadId: string;
+  snapshotId: string;
+  mode: RuntimeRestoreGateMode;
+  endpoint: string;
+  body: RuntimeRestoreGateControlRequestBody;
+}
+
+export interface RuntimeRestoreGateControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  snapshotId?: string | null;
+  snapshotIdField?: string | null;
+  input?: unknown;
+  mode?: string | null;
+  modeField?: string | null;
+  conflictPolicy?: string | null;
+  conflictPolicyField?: string | null;
+  approvalGranted?: boolean | null;
+  approvalGrantedField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeRestoreGateWorkflowNodeOptions {
   workflowGraphId?: string | null;
   actor?: string | null;
 }
@@ -412,6 +524,108 @@ export function createRuntimeContextCompactControlRequest(
   };
 }
 
+export function createRuntimeRollbackSnapshotControlRequest(
+  params: RuntimeRollbackSnapshotControlRequestInput,
+): RuntimeRollbackSnapshotControlRequest {
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_rollback_snapshot",
+      source: RUNTIME_ROLLBACK_SNAPSHOT_SOURCE,
+      eventKind: RUNTIME_ROLLBACK_SNAPSHOT_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_ROLLBACK_SNAPSHOT_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_ROLLBACK_SNAPSHOT_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/snapshots",
+      turnIdMode: "none",
+    },
+    params,
+  );
+
+  return {
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    endpoint: envelope.endpoint,
+    body: {
+      ...envelope.metadata,
+    },
+  };
+}
+
+export function createRuntimeRestoreGateControlRequest(
+  params: RuntimeRestoreGateControlRequestInput,
+): RuntimeRestoreGateControlRequest {
+  const mode = runtimeRestoreGateMode(
+    stringAtPath(params.input, params.modeField ?? "") ?? cleanString(params.mode),
+  );
+  const endpointTemplate =
+    cleanString(params.endpoint) ??
+    "/v1/threads/{threadId}/snapshots/{snapshotId}/restore-{mode}";
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_restore_gate",
+      source: RUNTIME_RESTORE_GATE_SOURCE,
+      eventKind: RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_RESTORE_GATE_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID,
+      defaultEndpoint: endpointTemplate,
+      turnIdMode: "none",
+    },
+    {
+      ...params,
+      endpoint: endpointTemplate,
+    },
+  );
+  const snapshotId =
+    cleanString(params.snapshotId) ??
+    stringAtPath(params.input, params.snapshotIdField ?? "snapshotId") ??
+    stringAtPath(params.input, "snapshot_id");
+  if (!snapshotId) {
+    throw new Error(
+      "runtime_restore_gate nodes need a snapshotId input before dispatch.",
+    );
+  }
+  const conflictPolicy = runtimeRestoreGateConflictPolicy(
+    stringAtPath(params.input, params.conflictPolicyField ?? "") ??
+      cleanString(params.conflictPolicy),
+  );
+  const approvalGranted =
+    booleanAtPath(params.input, params.approvalGrantedField ?? "") ??
+    params.approvalGranted ??
+    false;
+  const allowConflicts = conflictPolicy === "allow_override";
+
+  return {
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    snapshotId,
+    mode,
+    endpoint: endpointFromTemplate(endpointTemplate, {
+      threadId: envelope.threadId,
+      snapshotId,
+      mode,
+    }),
+    body: {
+      snapshotId,
+      snapshot_id: snapshotId,
+      mode,
+      conflictPolicy,
+      conflict_policy: conflictPolicy,
+      approvalGranted,
+      approval_granted: approvalGranted,
+      allowConflicts,
+      allow_conflicts: allowConflicts,
+      ...envelope.metadata,
+    },
+  };
+}
+
 export function createRuntimeThreadForkControlRequestFromWorkflowNode(
   node: Pick<Node, "id" | "type" | "config">,
   input: unknown = {},
@@ -514,6 +728,63 @@ export function createRuntimeContextCompactControlRequestFromWorkflowNode(
       logic,
       "runtimeContextCompactActor",
     ),
+  });
+}
+
+export function createRuntimeRollbackSnapshotControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeRollbackSnapshotWorkflowNodeOptions = {},
+): RuntimeRollbackSnapshotControlRequest {
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_rollback_snapshot");
+  return createRuntimeRollbackSnapshotControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeRollbackSnapshotThreadId),
+    threadIdField:
+      cleanString(logic.runtimeRollbackSnapshotThreadIdField) ?? "threadId",
+    endpoint: cleanString(logic.runtimeRollbackSnapshotEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeRollbackSnapshotWorkflowNodeId) ??
+      RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID,
+    actor: runtimeControlWorkflowActor(
+      options,
+      logic,
+      "runtimeRollbackSnapshotActor",
+    ),
+  });
+}
+
+export function createRuntimeRestoreGateControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeRestoreGateWorkflowNodeOptions = {},
+): RuntimeRestoreGateControlRequest {
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_restore_gate");
+  return createRuntimeRestoreGateControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeRestoreGateThreadId),
+    threadIdField: cleanString(logic.runtimeRestoreGateThreadIdField) ?? "threadId",
+    snapshotId: cleanString(logic.runtimeRestoreGateSnapshotId),
+    snapshotIdField:
+      cleanString(logic.runtimeRestoreGateSnapshotIdField) ?? "snapshotId",
+    mode: cleanString(logic.runtimeRestoreGateMode),
+    modeField: cleanString(logic.runtimeRestoreGateModeField),
+    conflictPolicy: cleanString(logic.runtimeRestoreGateConflictPolicy),
+    conflictPolicyField: cleanString(logic.runtimeRestoreGateConflictPolicyField),
+    approvalGranted:
+      typeof logic.runtimeRestoreGateApprovalGranted === "boolean"
+        ? logic.runtimeRestoreGateApprovalGranted
+        : null,
+    approvalGrantedField: cleanString(logic.runtimeRestoreGateApprovalGrantedField),
+    endpoint: cleanString(logic.runtimeRestoreGateEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeRestoreGateWorkflowNodeId) ??
+      RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID,
+    actor: runtimeControlWorkflowActor(options, logic, "runtimeRestoreGateActor"),
   });
 }
 
@@ -631,6 +902,28 @@ function stringAtPath(value: unknown, path: string | null | undefined): string |
   if (!normalizedPath) return null;
   const found = valueAtPath(value, normalizedPath);
   return cleanString(found);
+}
+
+function booleanAtPath(
+  value: unknown,
+  path: string | null | undefined,
+): boolean | null {
+  const normalizedPath = cleanString(path);
+  if (!normalizedPath) return null;
+  const found = valueAtPath(value, normalizedPath);
+  return typeof found === "boolean" ? found : null;
+}
+
+function runtimeRestoreGateMode(
+  value: string | null,
+): RuntimeRestoreGateMode {
+  return value === "apply" ? "apply" : "preview";
+}
+
+function runtimeRestoreGateConflictPolicy(
+  value: string | null,
+): RuntimeRestoreGateConflictPolicy {
+  return value === "allow_override" ? "allow_override" : "block";
 }
 
 function endpointFromTemplate(

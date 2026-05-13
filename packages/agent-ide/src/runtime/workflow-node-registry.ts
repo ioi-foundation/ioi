@@ -1075,6 +1075,245 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.context.compact"] },
   },
   {
+    type: "runtime_rollback_snapshot",
+    label: "Runtime Rollback Snapshot",
+    group: "Flow",
+    family: "flow_control",
+    token: "RS",
+    familyLabel: "Runtime",
+    metricLabel: "Snapshot",
+    metricValue: "list",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["thread"],
+    outputs: ["snapshots", "event", "status"],
+    portDefinitions: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("snapshots", "Snapshot list request", "output", "state", "output", false, "state"),
+      port("event", "Snapshot event", "output", "state", "output", false, "state"),
+      port("status", "Snapshot status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("snapshots", "Snapshot list request", "output", "state", "output", false, "state"),
+      port("event", "Snapshot event", "output", "state", "output", false, "state"),
+      port("status", "Snapshot status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeRollbackSnapshotEndpoint",
+        "runtimeRollbackSnapshotThreadIdField",
+        "runtimeRollbackSnapshotWorkflowNodeId",
+      ],
+      properties: {
+        runtimeRollbackSnapshotEndpoint: { type: "string" },
+        runtimeRollbackSnapshotField: { type: "string" },
+        runtimeRollbackSnapshotEventField: { type: "string" },
+        runtimeRollbackSnapshotStatusField: { type: "string" },
+        runtimeRollbackSnapshotReceiptField: { type: "string" },
+        runtimeRollbackSnapshotPolicyField: { type: "string" },
+        runtimeRollbackSnapshotThreadId: { type: "string" },
+        runtimeRollbackSnapshotThreadIdField: { type: "string" },
+        runtimeRollbackSnapshotWorkflowNodeId: { type: "string" },
+        runtimeRollbackSnapshotSource: { type: "string" },
+        runtimeRollbackSnapshotActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_rollback_snapshot"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_rollback_snapshot",
+      "runtimeRollbackSnapshot.status",
+    ),
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_rollback_snapshot",
+      executorId: "workflow.runtime_rollback_snapshot",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_rollback_snapshot",
+        "runtimeRollbackSnapshot.status",
+      ),
+      runtimeRollbackSnapshotEndpoint: "/v1/threads/{threadId}/snapshots",
+      runtimeRollbackSnapshotField: "runtimeRollbackSnapshot",
+      runtimeRollbackSnapshotEventField: "runtimeRollbackSnapshot.event",
+      runtimeRollbackSnapshotStatusField: "runtimeRollbackSnapshot.status",
+      runtimeRollbackSnapshotReceiptField:
+        "runtimeRollbackSnapshot.receiptRefs",
+      runtimeRollbackSnapshotPolicyField:
+        "runtimeRollbackSnapshot.policyDecisionRefs",
+      runtimeRollbackSnapshotThreadIdField: "threadId",
+      runtimeRollbackSnapshotWorkflowNodeId: "runtime.rollback-snapshot",
+      runtimeRollbackSnapshotSource: "react_flow",
+      runtimeRollbackSnapshotActor: "operator",
+      readOnly: true,
+      dryRun: false,
+      mutationExecuted: false,
+      redactionProfile: "runtime_rollback_snapshot_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeRollbackSnapshot: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeRollbackSnapshot: true,
+        runtimeRollbackSnapshotField: "runtimeRollbackSnapshot",
+        runtimeRollbackSnapshotStatusField: "runtimeRollbackSnapshot.status",
+      },
+      nodeTypeLabel: "RuntimeRollbackSnapshotNode",
+    },
+    defaultLaw: {},
+  },
+  {
+    type: "runtime_restore_gate",
+    label: "Runtime Restore Gate",
+    group: "Flow",
+    family: "flow_control",
+    token: "RG",
+    familyLabel: "Runtime",
+    metricLabel: "Restore",
+    metricValue: "gated",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["snapshot"],
+    outputs: ["restore", "event", "status"],
+    portDefinitions: [
+      port("snapshot", "Snapshot selection", "input", "state", "state", false, "state"),
+      port("restore", "Restore request", "output", "state", "output", false, "state"),
+      port("event", "Restore event", "output", "state", "output", false, "state"),
+      port("status", "Restore status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("snapshot", "Snapshot selection", "input", "state", "state", false, "state"),
+      port("restore", "Restore request", "output", "state", "output", false, "state"),
+      port("event", "Restore event", "output", "state", "output", false, "state"),
+      port("status", "Restore status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeRestoreGateEndpoint",
+        "runtimeRestoreGateThreadIdField",
+        "runtimeRestoreGateSnapshotIdField",
+        "runtimeRestoreGateWorkflowNodeId",
+      ],
+      properties: {
+        runtimeRestoreGateEndpoint: { type: "string" },
+        runtimeRestoreGateField: { type: "string" },
+        runtimeRestoreGateEventField: { type: "string" },
+        runtimeRestoreGateStatusField: { type: "string" },
+        runtimeRestoreGateReceiptField: { type: "string" },
+        runtimeRestoreGatePolicyField: { type: "string" },
+        runtimeRestoreGateThreadId: { type: "string" },
+        runtimeRestoreGateThreadIdField: { type: "string" },
+        runtimeRestoreGateSnapshotId: { type: "string" },
+        runtimeRestoreGateSnapshotIdField: { type: "string" },
+        runtimeRestoreGateMode: {
+          type: "string",
+          enum: ["preview", "apply"],
+        },
+        runtimeRestoreGateModeField: { type: "string" },
+        runtimeRestoreGateConflictPolicy: {
+          type: "string",
+          enum: ["block", "allow_override"],
+        },
+        runtimeRestoreGateConflictPolicyField: { type: "string" },
+        runtimeRestoreGateApprovalGranted: { type: "boolean" },
+        runtimeRestoreGateApprovalGrantedField: { type: "string" },
+        runtimeRestoreGateWorkflowNodeId: { type: "string" },
+        runtimeRestoreGateSource: { type: "string" },
+        runtimeRestoreGateActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_restore_gate"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_restore_gate",
+      "runtimeRestoreGate.status",
+    ),
+    policyProfile: policyProfile("write", true),
+    evidenceProfile: evidenceProfile(
+      ["execution", "approval", "verification"],
+      ["execution", "approval", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_restore_gate",
+      executorId: "workflow.runtime_restore_gate",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_restore_gate",
+        "runtimeRestoreGate.status",
+      ),
+      runtimeRestoreGateEndpoint:
+        "/v1/threads/{threadId}/snapshots/{snapshotId}/restore-{mode}",
+      runtimeRestoreGateField: "runtimeRestoreGate",
+      runtimeRestoreGateEventField: "runtimeRestoreGate.event",
+      runtimeRestoreGateStatusField: "runtimeRestoreGate.status",
+      runtimeRestoreGateReceiptField: "runtimeRestoreGate.receiptRefs",
+      runtimeRestoreGatePolicyField: "runtimeRestoreGate.policyDecisionRefs",
+      runtimeRestoreGateThreadIdField: "threadId",
+      runtimeRestoreGateSnapshotIdField: "snapshotId",
+      runtimeRestoreGateMode: "preview",
+      runtimeRestoreGateModeField: "mode",
+      runtimeRestoreGateConflictPolicy: "block",
+      runtimeRestoreGateConflictPolicyField: "conflictPolicy",
+      runtimeRestoreGateApprovalGranted: false,
+      runtimeRestoreGateApprovalGrantedField: "approvalGranted",
+      runtimeRestoreGateWorkflowNodeId: "runtime.restore-gate",
+      runtimeRestoreGateSource: "react_flow",
+      runtimeRestoreGateActor: "operator",
+      readOnly: false,
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_restore_gate_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "snapshotId", "mode", "request"],
+        properties: {
+          runtimeRestoreGate: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: "string" },
+          snapshotId: { type: "string" },
+          mode: { type: "string" },
+          conflictPolicy: { type: "string" },
+          approvalGranted: { type: "boolean" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeRestoreGate: true,
+        runtimeRestoreGateField: "runtimeRestoreGate",
+        runtimeRestoreGateStatusField: "runtimeRestoreGate.status",
+      },
+      nodeTypeLabel: "RuntimeRestoreGateNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.workspace.restore"] },
+  },
+  {
     type: "workflow_package_export",
     label: "Workflow Package Export",
     group: "Tools",
@@ -4074,6 +4313,10 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_operator_interrupt", "decision", "verifier", "output"];
     case "runtime_context_compact":
       return ["runtime_operator_steer", "decision", "verifier", "output"];
+    case "runtime_rollback_snapshot":
+      return ["runtime_context_compact", "decision", "verifier", "output"];
+    case "runtime_restore_gate":
+      return ["runtime_rollback_snapshot", "human_gate", "decision", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -4178,6 +4421,8 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_operator_interrupt" ||
     type === "runtime_operator_steer" ||
     type === "runtime_context_compact" ||
+    type === "runtime_rollback_snapshot" ||
+    type === "runtime_restore_gate" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

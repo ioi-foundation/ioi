@@ -35,6 +35,8 @@ pub enum ActionKind {
     RuntimeOperatorInterrupt,
     RuntimeOperatorSteer,
     RuntimeContextCompact,
+    RuntimeRollbackSnapshot,
+    RuntimeRestoreGate,
     Function,
     ModelBinding,
     ModelCall,
@@ -85,6 +87,8 @@ impl ActionKind {
             "runtime_operator_interrupt" => Self::RuntimeOperatorInterrupt,
             "runtime_operator_steer" => Self::RuntimeOperatorSteer,
             "runtime_context_compact" => Self::RuntimeContextCompact,
+            "runtime_rollback_snapshot" => Self::RuntimeRollbackSnapshot,
+            "runtime_restore_gate" => Self::RuntimeRestoreGate,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -135,6 +139,8 @@ impl ActionKind {
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
             Self::RuntimeContextCompact => "runtime_context_compact",
+            Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
+            Self::RuntimeRestoreGate => "runtime_restore_gate",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -185,6 +191,8 @@ impl ActionKind {
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
             Self::RuntimeContextCompact => "runtime_context_compact",
+            Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
+            Self::RuntimeRestoreGate => "runtime_restore_gate",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -252,6 +260,8 @@ impl ActionKind {
                 | Self::RuntimeOperatorInterrupt
                 | Self::RuntimeOperatorSteer
                 | Self::RuntimeContextCompact
+                | Self::RuntimeRollbackSnapshot
+                | Self::RuntimeRestoreGate
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -480,6 +490,14 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_context_compact"),
             ActionKind::RuntimeContextCompact
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_rollback_snapshot"),
+            ActionKind::RuntimeRollbackSnapshot
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_restore_gate"),
+            ActionKind::RuntimeRestoreGate
         );
         assert_eq!(
             ActionKind::from_node_type("repository_context"),

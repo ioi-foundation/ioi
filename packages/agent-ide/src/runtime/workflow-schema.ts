@@ -78,6 +78,8 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_operator_interrupt" ||
       node.type === "runtime_operator_steer" ||
       node.type === "runtime_context_compact" ||
+      node.type === "runtime_rollback_snapshot" ||
+      node.type === "runtime_restore_gate" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
       node.type === "skill_context" ||
@@ -191,6 +193,46 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
       },
     };
   }
+  if (node.type === "runtime_rollback_snapshot") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeRollbackSnapshot: { type: "object" },
+      },
+    };
+  }
+  if (node.type === "runtime_restore_gate") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "snapshotId", "mode", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        snapshotId: { type: "string" },
+        mode: { type: "string" },
+        conflictPolicy: { type: "string" },
+        approvalGranted: { type: "boolean" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeRestoreGate: { type: "object" },
+      },
+    };
+  }
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
   if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;
@@ -254,6 +296,28 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         turnId: { type: "string" },
         reason: { type: "string" },
         scope: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_rollback_snapshot") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_restore_gate") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        snapshotId: { type: "string" },
+        mode: { type: "string" },
+        conflictPolicy: { type: "string" },
+        approvalGranted: { type: "boolean" },
         workflowGraphId: { type: "string" },
       },
     };
