@@ -80,6 +80,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_context_compact" ||
       node.type === "runtime_rollback_snapshot" ||
       node.type === "runtime_restore_gate" ||
+      node.type === "runtime_diagnostics_repair" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
       node.type === "skill_context" ||
@@ -233,6 +234,28 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
       },
     };
   }
+  if (node.type === "runtime_diagnostics_repair") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "decisionId", "action", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        decisionId: { type: "string" },
+        action: { type: "string" },
+        approvalGranted: { type: "boolean" },
+        allowConflicts: { type: "boolean" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeDiagnosticsRepair: { type: "object" },
+      },
+    };
+  }
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
   if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;
@@ -318,6 +341,20 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         mode: { type: "string" },
         conflictPolicy: { type: "string" },
         approvalGranted: { type: "boolean" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_diagnostics_repair") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        decisionId: { type: "string" },
+        action: { type: "string" },
+        message: { type: "string" },
+        approvalGranted: { type: "boolean" },
+        allowConflicts: { type: "boolean" },
         workflowGraphId: { type: "string" },
       },
     };

@@ -5,6 +5,9 @@ import {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
   RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+  RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND,
+  RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND,
+  RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
   RUNTIME_RESTORE_GATE_COMPONENT_KIND,
   RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND,
   RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID,
@@ -22,12 +25,14 @@ import {
   RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
   RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
   WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
   createRuntimeContextCompactControlRequestFromWorkflowNode,
+  createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode,
   createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
   createRuntimeOperatorSteerControlRequestFromWorkflowNode,
   createRuntimeRestoreGateControlRequestFromWorkflowNode,
@@ -148,6 +153,21 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
       { threadId: "thread-shared", snapshotId: "snapshot-shared" },
       { workflowGraphId: graphId, actor },
     ),
+    createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode(
+      makeWorkflowNode(
+        "repair-shared",
+        "runtime_diagnostics_repair",
+        "Repair",
+        0,
+        0,
+      ),
+      {
+        threadId: "thread-shared",
+        decisionId: "repair_retry",
+        action: "repair_retry",
+      },
+      { workflowGraphId: graphId, actor },
+    ),
   ];
 
   assert.deepEqual(
@@ -199,6 +219,13 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
         actor,
         graphId,
         nodeId: RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
+        nodeId: RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
         threadId: "thread-shared",
       },
     ],
@@ -437,6 +464,113 @@ test("runtime_restore_gate helper supports apply mode, approval, and configurabl
   assert.equal(request.body.conflict_policy, "allow_override");
   assert.equal(request.body.approval_granted, true);
   assert.equal(request.body.allow_conflicts, true);
+  assert.equal(request.body.actor, "workflow-author");
+  assert.equal(request.body.source, "react_flow");
+});
+
+test("runtime_diagnostics_repair workflow node builds a React Flow daemon request", () => {
+  const node = makeWorkflowNode(
+    "repair-control",
+    "runtime_diagnostics_repair",
+    "Repair control",
+    100,
+    120,
+  );
+  const request = createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode(
+    node,
+    {
+      threadId: "thread-react-flow-1",
+      decisionId: "restore_preview",
+      action: "restore_preview",
+      message: "Preview rollback from diagnostics repair.",
+    },
+    { workflowGraphId: "workflow.react-flow.diagnostics-repair-proof" },
+  );
+
+  assert.equal(
+    request.schemaVersion,
+    WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION,
+  );
+  assert.equal(request.nodeType, "runtime_diagnostics_repair");
+  assert.equal(request.nodeId, "repair-control");
+  assert.equal(request.threadId, "thread-react-flow-1");
+  assert.equal(request.decisionId, "restore_preview");
+  assert.equal(request.action, "restore_preview");
+  assert.equal(
+    request.endpoint,
+    "/v1/threads/thread-react-flow-1/diagnostics/repair-decisions/restore_preview/execute",
+  );
+  assert.equal(request.body.decision_id, "restore_preview");
+  assert.equal(request.body.action, "restore_preview");
+  assert.equal(request.body.message, "Preview rollback from diagnostics repair.");
+  assert.equal(request.body.approvalGranted, false);
+  assert.equal(request.body.operatorOverrideApproved, false);
+  assert.equal(request.body.allowConflicts, false);
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.actor, "operator");
+  assert.equal(
+    request.body.workflowGraphId,
+    "workflow.react-flow.diagnostics-repair-proof",
+  );
+  assert.equal(
+    request.body.workflowNodeId,
+    RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
+  );
+  assert.equal(
+    request.body.eventKind,
+    RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND,
+  );
+  assert.equal(
+    request.body.componentKind,
+    RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND,
+  );
+});
+
+test("runtime_diagnostics_repair helper supports approval, conflicts, and configurable fields", () => {
+  const node = makeWorkflowNode(
+    "repair-control-configured",
+    "runtime_diagnostics_repair",
+    "Repair control",
+    100,
+    120,
+    {
+      runtimeDiagnosticsRepairEndpoint:
+        "/runtime/{threadId}/diagnostics/{decisionId}/execute",
+      runtimeDiagnosticsRepairThreadIdField: "runtime.threadId",
+      runtimeDiagnosticsRepairDecisionIdField: "diagnostics.decision.id",
+      runtimeDiagnosticsRepairActionField: "diagnostics.decision.action",
+      runtimeDiagnosticsRepairMessageField: "diagnostics.message",
+      runtimeDiagnosticsRepairApprovalGrantedField: "diagnostics.approved",
+      runtimeDiagnosticsRepairAllowConflictsField: "diagnostics.allowConflicts",
+      runtimeDiagnosticsRepairWorkflowNodeId: "runtime.diagnostics-repair",
+      runtimeDiagnosticsRepairActor: "workflow-author",
+    },
+  );
+  const request = createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode(
+    node,
+    {
+      runtime: { threadId: "thread with space" },
+      diagnostics: {
+        decision: { id: "operator/override", action: "override" },
+        message: "Continue after review.",
+        approved: true,
+        allowConflicts: true,
+      },
+    },
+  );
+
+  assert.equal(request.threadId, "thread with space");
+  assert.equal(request.decisionId, "operator/override");
+  assert.equal(request.action, "operator_override");
+  assert.equal(
+    request.endpoint,
+    "/runtime/thread%20with%20space/diagnostics/operator%2Foverride/execute",
+  );
+  assert.equal(request.body.approval_granted, true);
+  assert.equal(request.body.operator_override_approved, true);
+  assert.equal(request.body.allow_conflicts, true);
+  assert.equal(request.body.override_conflicts, true);
+  assert.equal(request.body.message, "Continue after review.");
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.source, "react_flow");
 });

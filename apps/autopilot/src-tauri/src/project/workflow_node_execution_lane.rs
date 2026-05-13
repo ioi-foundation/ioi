@@ -438,6 +438,15 @@ fn workflow_runtime_restore_conflict_policy(value: String) -> String {
     }
 }
 
+fn workflow_runtime_diagnostics_repair_action(value: String) -> String {
+    match value.replace(['-', '.'], "_").as_str() {
+        "restore_preview" | "preview" | "preview_restore" => "restore_preview".to_string(),
+        "restore_apply" | "apply" | "apply_restore" => "restore_apply".to_string(),
+        "operator_override" | "override" => "operator_override".to_string(),
+        _ => "repair_retry".to_string(),
+    }
+}
+
 fn workflow_runtime_control_envelope(
     workflow: Option<&WorkflowProject>,
     logic: &Value,
@@ -968,6 +977,127 @@ fn workflow_runtime_restore_gate_output(
     output
 }
 
+fn workflow_runtime_diagnostics_repair_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let mut envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeDiagnosticsRepairThreadId",
+            thread_id_field_key: "runtimeDiagnosticsRepairThreadIdField",
+            turn_id_logic_key: None,
+            turn_id_field_key: None,
+            workflow_node_id_logic_key: "runtimeDiagnosticsRepairWorkflowNodeId",
+            actor_logic_key: "runtimeDiagnosticsRepairActor",
+            endpoint_logic_key: "runtimeDiagnosticsRepairEndpoint",
+            default_workflow_node_id: "runtime.diagnostics-repair",
+            default_endpoint:
+                "/v1/threads/{threadId}/diagnostics/repair-decisions/{decisionId}/execute",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-diagnostics-repair-control.v1",
+        source: "react_flow",
+        component_kind: "lsp_diagnostics_repair",
+        event_kind: "LspDiagnostics.RepairDecisionExecuted",
+        payload_schema_version: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+        nested_key: "runtimeDiagnosticsRepair",
+    };
+    let action =
+        workflow_runtime_diagnostics_repair_action(workflow_runtime_control_input_field_or_logic(
+            logic,
+            input,
+            "runtimeDiagnosticsRepairActionField",
+            "action",
+            "runtimeDiagnosticsRepairAction",
+            "repair_retry",
+        ));
+    let decision_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeDiagnosticsRepairDecisionIdField",
+        "decisionId",
+        "runtimeDiagnosticsRepairDecisionId",
+        &action,
+    );
+    let message = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeDiagnosticsRepairMessageField",
+        "message",
+        "runtimeDiagnosticsRepairMessage",
+        "",
+    );
+    let approval_granted = workflow_runtime_control_bool_field_or_logic(
+        logic,
+        input,
+        "runtimeDiagnosticsRepairApprovalGrantedField",
+        "approvalGranted",
+        "runtimeDiagnosticsRepairApprovalGranted",
+        false,
+    );
+    let allow_conflicts = workflow_runtime_control_bool_field_or_logic(
+        logic,
+        input,
+        "runtimeDiagnosticsRepairAllowConflictsField",
+        "allowConflicts",
+        "runtimeDiagnosticsRepairAllowConflicts",
+        false,
+    );
+    envelope.endpoint = envelope.endpoint.replace("{decisionId}", &decision_id);
+    let mutation_executed =
+        action == "repair_retry" || action == "restore_apply" || action == "operator_override";
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![
+            ("decisionId", json!(decision_id.clone())),
+            ("decision_id", json!(decision_id.clone())),
+            ("action", json!(action.clone())),
+            ("message", json!(message.clone())),
+            ("approvalGranted", json!(approval_granted)),
+            ("approval_granted", json!(approval_granted)),
+            ("approved", json!(approval_granted)),
+            ("confirm", json!(approval_granted)),
+            ("operatorOverrideApproved", json!(approval_granted)),
+            ("operator_override_approved", json!(approval_granted)),
+            ("allowConflicts", json!(allow_conflicts)),
+            ("allow_conflicts", json!(allow_conflicts)),
+            ("overrideConflicts", json!(allow_conflicts)),
+            ("override_conflicts", json!(allow_conflicts)),
+        ],
+    );
+    let mut output = workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        None,
+        request,
+    );
+    output["decisionId"] = json!(decision_id.clone());
+    output["action"] = json!(action.clone());
+    output["message"] = json!(message.clone());
+    output["approvalGranted"] = json!(approval_granted);
+    output["allowConflicts"] = json!(allow_conflicts);
+    output["mutationExecuted"] = json!(mutation_executed);
+    output["runtimeDiagnosticsRepair"]["decisionId"] = json!(decision_id);
+    output["runtimeDiagnosticsRepair"]["action"] = json!(action);
+    output["runtimeDiagnosticsRepair"]["message"] = json!(message);
+    output["runtimeDiagnosticsRepair"]["approvalGranted"] = json!(approval_granted);
+    output["runtimeDiagnosticsRepair"]["allowConflicts"] = json!(allow_conflicts);
+    output["runtimeDiagnosticsRepair"]["mutationExecuted"] = json!(mutation_executed);
+    output
+}
+
 pub(super) fn execute_workflow_node(
     workflow_path: &Path,
     workflow: Option<&WorkflowProject>,
@@ -1149,6 +1279,13 @@ pub(super) fn execute_workflow_node(
         ActionKind::RuntimeRestoreGate => {
             workflow_runtime_restore_gate_output(workflow, &node_id, &logic, &input, evidence_kind)
         }
+        ActionKind::RuntimeDiagnosticsRepair => workflow_runtime_diagnostics_repair_output(
+            workflow,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        ),
         ActionKind::DryRun => {
             json!({
                 "nodeId": node_id,

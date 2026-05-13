@@ -74,6 +74,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "runtime_rollback_snapshot";
     case "runtime_restore_gate":
       return "runtime_restore_gate";
+    case "runtime_diagnostics_repair":
+      return "runtime_diagnostics_repair";
     case "workflow_package_export":
       return "workflow_package_export";
     case "workflow_package_import":
