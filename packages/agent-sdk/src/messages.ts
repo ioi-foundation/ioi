@@ -350,8 +350,10 @@ export interface RuntimeNodeProfile {
 }
 
 export interface RuntimeToolCatalogEntry {
+  schemaVersion?: string;
   stableToolId: string;
   displayName: string;
+  pack?: string;
   primitiveCapabilities: string[];
   authorityScopeRequirements: string[];
   effectClass: string;
@@ -359,6 +361,8 @@ export interface RuntimeToolCatalogEntry {
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
   evidenceRequirements: string[];
+  workflowNodeType?: string;
+  workflowConfigFields?: string[];
 }
 
 export interface RuntimeReceipt {

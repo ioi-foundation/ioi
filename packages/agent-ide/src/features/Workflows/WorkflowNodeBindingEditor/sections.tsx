@@ -2023,26 +2023,31 @@ export function WorkflowNodeBindingSections({
                 const bindingKind = event.target.value as
                   | "plugin_tool"
                   | "mcp_tool"
-                  | "workflow_tool";
+                  | "workflow_tool"
+                  | "coding_tool_pack";
                 updateLogic({
                   ...logic,
                   toolBinding: {
                     toolRef:
                       bindingKind === "workflow_tool"
                         ? "workflow_tool"
+                        : bindingKind === "coding_tool_pack"
+                          ? "workspace.status"
                         : (logic.toolBinding?.toolRef ?? ""),
                     bindingKind,
                     mockBinding:
-                      bindingKind === "workflow_tool"
+                      bindingKind === "workflow_tool" || bindingKind === "coding_tool_pack"
                         ? false
                         : (logic.toolBinding?.mockBinding ?? true),
                     credentialReady:
-                      bindingKind === "workflow_tool"
+                      bindingKind === "workflow_tool" || bindingKind === "coding_tool_pack"
                         ? true
                         : (logic.toolBinding?.credentialReady ?? false),
                     capabilityScope:
                       bindingKind === "workflow_tool"
                         ? ["invoke"]
+                        : bindingKind === "coding_tool_pack"
+                          ? ["workspace.status", "git.diff", "file.inspect"]
                         : (logic.toolBinding?.capabilityScope ?? ["read"]),
                     sideEffectClass:
                       logic.toolBinding?.sideEffectClass ?? "read",
@@ -2059,6 +2064,16 @@ export function WorkflowNodeBindingSections({
                             maxAttempts: 1,
                           })
                         : undefined,
+                    toolPack:
+                      bindingKind === "coding_tool_pack"
+                        ? (logic.toolBinding?.toolPack ?? {
+                            pack: "coding",
+                            workspaceStatusEnabled: true,
+                            gitEnabled: true,
+                            filesystemEnabled: true,
+                            allowedPaths: [],
+                          })
+                        : undefined,
                   },
                 });
               }}
@@ -2066,6 +2081,7 @@ export function WorkflowNodeBindingSections({
               <option value="plugin_tool">Plugin tool</option>
               <option value="mcp_tool">MCP tool</option>
               <option value="workflow_tool">Workflow tool</option>
+              <option value="coding_tool_pack">Coding tool pack</option>
             </select>
           </label>
           <label>

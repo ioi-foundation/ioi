@@ -3,8 +3,9 @@
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     decide_tui_approval, fetch_tui_event_batch, fetch_tui_thread, interrupt_tui_turn,
-    latest_event_seq, resume_tui_thread, selected_turn_id_from_values, steer_tui_turn,
-    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_mode_status,
+    invoke_tui_coding_tool, latest_event_seq, resume_tui_thread, selected_turn_id_from_values,
+    steer_tui_turn, thread_id_from_value, tui_approval_decisions, tui_approval_rows,
+    tui_mode_status,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -43,6 +44,13 @@ pub(crate) enum TuiLineCommand {
     },
     Steer {
         guidance: String,
+    },
+    WorkspaceStatus,
+    Diff {
+        path: Option<String>,
+    },
+    Inspect {
+        path: String,
     },
     Quit,
 }
@@ -178,6 +186,44 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::WorkspaceStatus) => {
+                let events =
+                    handle_coding_tool_command(&mut session, "workspace.status", None).await?;
+                control_state.record_command(
+                    "status",
+                    line.trim(),
+                    "applied",
+                    Some("workspace status inspected"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Diff { path }) => {
+                let events = handle_coding_tool_command(&mut session, "git.diff", path).await?;
+                control_state.record_command(
+                    "diff",
+                    line.trim(),
+                    "applied",
+                    Some("git diff inspected"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Inspect { path }) => {
+                let events =
+                    handle_coding_tool_command(&mut session, "file.inspect", Some(path)).await?;
+                control_state.record_command(
+                    "inspect",
+                    line.trim(),
+                    "applied",
+                    Some("file inspected"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::Quit) => {
                 println!("line_mode_command=quit");
                 control_state.record_command(
@@ -251,6 +297,15 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
             let guidance =
                 non_empty_string(rest).ok_or_else(|| anyhow!("/steer requires guidance text"))?;
             Ok(TuiLineCommand::Steer { guidance })
+        }
+        "status" | "workspace-status" => Ok(TuiLineCommand::WorkspaceStatus),
+        "diff" => Ok(TuiLineCommand::Diff {
+            path: non_empty_string(rest),
+        }),
+        "inspect" => {
+            let path = non_empty_string(rest)
+                .ok_or_else(|| anyhow!("/inspect requires a workspace-relative path"))?;
+            Ok(TuiLineCommand::Inspect { path })
         }
         "quit" | "exit" | "q" => Ok(TuiLineCommand::Quit),
         _ => Err(anyhow!("unknown TUI command /{command}; use /help")),
@@ -406,8 +461,51 @@ async fn handle_steer_command(
     handle_events_command(session, None).await
 }
 
+async fn handle_coding_tool_command(
+    session: &mut TuiInteractiveSession,
+    tool_id: &str,
+    path: Option<String>,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let mut input = serde_json::Map::new();
+    if let Some(path) = path.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert("path".to_string(), Value::String(path.to_string()));
+    }
+    let result = invoke_tui_coding_tool(
+        &thread_id,
+        tool_id,
+        Value::Object(input),
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command={} tool={} status={} receipts={}",
+        coding_tool_line_command(tool_id),
+        tool_id,
+        json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
+        result
+            .pointer("/receipt_refs")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    handle_events_command(session, None).await
+}
+
+fn coding_tool_line_command(tool_id: &str) -> &'static str {
+    match tool_id {
+        "workspace.status" => "status",
+        "git.diff" => "diff",
+        "file.inspect" => "inspect",
+        _ => "tool",
+    }
+}
+
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -680,6 +778,22 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/status").unwrap(),
+            TuiLineCommand::WorkspaceStatus
+        );
+        assert_eq!(
+            parse_tui_line_command("/diff README.md").unwrap(),
+            TuiLineCommand::Diff {
+                path: Some("README.md".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/inspect README.md").unwrap(),
+            TuiLineCommand::Inspect {
+                path: "README.md".to_string()
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/quit").unwrap(),
             TuiLineCommand::Quit
         );
@@ -689,6 +803,7 @@ mod tests {
     fn rejects_unknown_or_incomplete_line_mode_commands() {
         assert!(parse_tui_line_command("hello").is_err());
         assert!(parse_tui_line_command("/steer").is_err());
+        assert!(parse_tui_line_command("/inspect").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
         assert!(parse_tui_line_command("/unknown").is_err());
     }

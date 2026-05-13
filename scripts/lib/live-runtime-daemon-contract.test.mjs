@@ -28,6 +28,24 @@ async function execFileWithInput(file, args, input, options = {}) {
 }
 
 async function importSdk() {
+  const bundle = path.join(root, "packages/agent-sdk/dist/index.js");
+  const sources = [
+    "packages/agent-sdk/src/index.ts",
+    "packages/agent-sdk/src/messages.ts",
+    "packages/agent-sdk/src/runtime-events.ts",
+    "packages/agent-sdk/src/substrate-client.ts",
+  ].map((file) => path.join(root, file));
+  const bundleMtime = fs.existsSync(bundle) ? fs.statSync(bundle).mtimeMs : 0;
+  const sourceIsNewer = sources.some(
+    (source) => fs.existsSync(source) && fs.statSync(source).mtimeMs > bundleMtime,
+  );
+  if (!fs.existsSync(bundle) || sourceIsNewer) {
+    execFileSync("npm", ["run", "build", "--workspace=@ioi/agent-sdk"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  }
   return import("../../packages/agent-sdk/dist/index.js");
 }
 
@@ -3479,8 +3497,13 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/approvals\/\{approval_id\}\/decision/);
+  assert.match(source, /\/v1\/tools\?pack=coding/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/tools\/\{tool_id\}\/invoke/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/compact/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/fork/);
+  assert.match(source, /workspace\.status/);
+  assert.match(source, /git\.diff/);
+  assert.match(source, /file\.inspect/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /OperatorApproval\.Approve/);
@@ -3509,7 +3532,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3546,6 +3569,176 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.doesNotMatch(source, /submit_runtime_call/);
   assert.doesNotMatch(source, /StartAgentParams/);
   assert.doesNotMatch(source, /StepAgentParams/);
+});
+
+test("coding tool pack invokes status, diff, and inspect across daemon, SDK, CLI, TUI, and React Flow", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-state-"));
+  const cli = cliBinary();
+  git(cwd, ["init"]);
+  git(cwd, ["config", "user.email", "runtime@example.test"]);
+  git(cwd, ["config", "user.name", "Runtime Test"]);
+  fs.writeFileSync(path.join(cwd, "README.md"), "# Runtime coding tools\n\nInitial line.\n");
+  git(cwd, ["add", "README.md"]);
+  git(cwd, ["commit", "-m", "seed workspace"]);
+  fs.appendFileSync(path.join(cwd, "README.md"), "\nChanged line for diff proof.\n");
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Prove structured coding tools without shell-only fallback.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+
+    const catalog = await fetchJson(`${daemon.endpoint}/v1/tools?pack=coding`);
+    assert.deepEqual(
+      catalog.map((tool) => tool.stableToolId).sort(),
+      ["file.inspect", "git.diff", "workspace.status"],
+    );
+    assert.ok(catalog.every((tool) => tool.pack === "coding"));
+    assert.ok(catalog.every((tool) => tool.workflowNodeType));
+
+    const statusResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/workspace.status/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.workspace.status",
+          input: {},
+        }),
+      },
+    );
+    const diffResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/git.diff/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({ input: { path: "README.md" } }),
+      },
+    );
+    const inspectResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.inspect/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({ input: { path: "README.md" } }),
+      },
+    );
+    assert.equal(statusResult.status, "completed");
+    assert.equal(statusResult.shell_fallback_used, false);
+    assert.equal(diffResult.result.paths[0], "README.md");
+    assert.match(diffResult.result.diff, /Changed line for diff proof/);
+    assert.equal(inspectResult.result.kind, "file");
+    assert.match(inspectResult.result.preview, /Runtime coding tools/);
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkCatalog = await sdkClient.listTools({ pack: "coding" });
+    assert.deepEqual(
+      sdkCatalog.map((tool) => tool.stableToolId).sort(),
+      ["file.inspect", "git.diff", "workspace.status"],
+    );
+    const sdkInvoke = await sdkClient.invokeThreadTool(thread.thread_id, "file.inspect", {
+      input: { path: "README.md" },
+      workflowNodeId: "runtime.coding-tool.sdk-file-inspect",
+    });
+    assert.equal(sdkInvoke.status, "completed");
+    assert.equal(sdkInvoke.tool_name, "file.inspect");
+
+    const cliCatalog = JSON.parse(
+      (await execFileAsync(cli, ["agent", "tools", "coding", "--endpoint", daemon.endpoint, "--json"], {
+        cwd: root,
+      })).stdout,
+    );
+    assert.equal(cliCatalog.schema_version, "ioi.agent-cli.coding-tool-pack.v1");
+    assert.deepEqual(
+      cliCatalog.tools.map((tool) => tool.stableToolId).sort(),
+      ["file.inspect", "git.diff", "workspace.status"],
+    );
+    const cliInvoke = JSON.parse(
+      (await execFileAsync(
+        cli,
+        [
+          "agent",
+          "tools",
+          "run",
+          "file.inspect",
+          "--thread-id",
+          thread.thread_id,
+          "--path",
+          "README.md",
+          "--endpoint",
+          daemon.endpoint,
+          "--json",
+        ],
+        { cwd: root },
+      )).stdout,
+    );
+    assert.equal(cliInvoke.status, "completed");
+    assert.equal(cliInvoke.tool_name, "file.inspect");
+
+    const tuiResult = await execFileWithInput(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--endpoint",
+        daemon.endpoint,
+        "--interactive",
+      ],
+      "/status\n/diff README.md\n/inspect README.md\n/quit\n",
+      { cwd: root, timeout: 30000 },
+    );
+    assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/quit/);
+    assert.match(tuiResult.stdout, /line_mode_command=status tool=workspace\.status status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=diff tool=git\.diff status=completed/);
+    assert.match(tuiResult.stdout, /line_mode_command=inspect tool=file\.inspect status=completed/);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const codingEvents = daemonEvents.filter((event) => event.component_kind === "coding_tool");
+    assert.ok(codingEvents.length >= 7);
+    assert.ok(codingEvents.every((event) => event.payload_schema_version === "ioi.runtime.coding-tool-result.v1"));
+    assert.ok(codingEvents.every((event) => event.event_kind === "tool.completed"));
+    assert.ok(codingEvents.every((event) => event.payload.shell_fallback_used === "false"));
+    assert.ok(codingEvents.every((event) => event.receipt_refs.length >= 1));
+    const reactFlowStatus = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "workspace.status" &&
+        event.source === "react_flow",
+    );
+    assert.ok(reactFlowStatus);
+    assert.equal(reactFlowStatus.workflow_graph_id, "workflow-coding-tools");
+    assert.equal(reactFlowStatus.workflow_node_id, "workflow.coding.workspace.status");
+
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkStatusEvent = sdkEvents.find((event) => event.id === reactFlowStatus.event_id);
+    assert.ok(sdkStatusEvent);
+    assert.equal(sdkStatusEvent.toolName, "workspace.status");
+    assert.equal(sdkStatusEvent.componentKind, "coding_tool");
+    assert.equal(sdkStatusEvent.payloadSchemaVersion, "ioi.runtime.coding-tool-result.v1");
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const statusNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(reactFlowStatus.event_id),
+    );
+    assert.ok(statusNode);
+    assert.equal(statusNode.workflowNodeId, "workflow.coding.workspace.status");
+    assert.equal(statusNode.componentKind, "coding_tool");
+    assert.equal(statusNode.label, "Coding tool: workspace.status");
+    assert.deepEqual(statusNode.receiptRefs, reactFlowStatus.receipt_refs);
+  } finally {
+    if (daemon) await daemon.close();
+  }
 });
 
 test("agent TUI thin shell starts a live thread, replays by cursor, and controls through daemon endpoints", async () => {

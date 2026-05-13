@@ -3491,6 +3491,77 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       },
     },
   });
+  const codingToolPack = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.coding_pack",
+    label: "Coding tool pack",
+    description: "Invoke daemon-owned workspace status, git diff, and file inspection tools.",
+    metricValue: "coding",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "workspace.status",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["workspace.status", "git.diff", "file.inspect"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: {},
+        toolPack: {
+          pack: "coding",
+          workspaceStatusEnabled: true,
+          gitEnabled: true,
+          filesystemEnabled: true,
+          allowedPaths: [],
+        },
+      },
+    },
+  });
+  const gitDiffTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.git_diff",
+    label: "Git diff",
+    description: "Inspect a daemon-backed git diff without shell-only fallback.",
+    metricValue: "git",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "git.diff",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["git.diff"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: {},
+        toolPack: {
+          pack: "coding",
+          gitEnabled: true,
+          allowedPaths: [],
+        },
+      },
+    },
+  });
+  const fileInspectTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.file_inspect",
+    label: "File inspect",
+    description: "Inspect a workspace file through the daemon coding tool contract.",
+    metricValue: "file",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "file.inspect",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["file.inspect"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: {},
+        toolPack: {
+          pack: "coding",
+          filesystemEnabled: true,
+          allowedPaths: [],
+        },
+      },
+    },
+  });
   const outputInline = creatorDefinition("output", {
     creatorId: "output.inline",
     label: "Inline output",
@@ -3747,6 +3818,9 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     mcpTool,
     browserTool,
     workflowTool,
+    codingToolPack,
+    gitDiffTool,
+    fileInspectTool,
     outputInline,
     outputFile,
     outputMedia,

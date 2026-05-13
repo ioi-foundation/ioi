@@ -93,6 +93,36 @@ test("projects Thread.events runtime events into stable React Flow nodes and edg
   assert.equal(projection.latestCursor, "events_thread:test:3");
 });
 
+test("projects coding tool events as receipt-backed React Flow rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-coding-status", 1, {
+      type: "tool_completed",
+      eventKind: "tool.completed",
+      sourceEventKind: "CodingTool.WorkspaceStatus",
+      workflowNodeId: "runtime.coding-tool.workspace.status",
+      componentKind: "coding_tool",
+      toolName: "workspace.status",
+      payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
+      receiptRefs: ["receipt-coding-status"],
+      payload: {
+        tool_pack: "coding",
+        shell_fallback_used: false,
+        summary: "Workspace status inspected 1 changed file(s).",
+      },
+    }),
+  ]);
+
+  const node = projection.nodes[0];
+  assert.equal(node?.workflowNodeId, "runtime.coding-tool.workspace.status");
+  assert.equal(node?.nodeKind, "plugin_tool");
+  assert.equal(node?.componentKind, "coding_tool");
+  assert.equal(node?.label, "Coding tool: workspace.status");
+  assert.equal(node?.toolName, "workspace.status");
+  assert.equal(node?.latestPayloadSchemaVersion, "ioi.runtime.coding-tool-result.v1");
+  assert.deepEqual(node?.receiptRefs, ["receipt-coding-status"]);
+  assert.equal(node?.summary, "Workspace status inspected 1 changed file(s).");
+});
+
 test("projects approval and policy events without workflow node ids", () => {
   const approval = event("event-approval", 1, {
     type: "approval_required",
