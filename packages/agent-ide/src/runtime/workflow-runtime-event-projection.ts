@@ -182,6 +182,9 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "thinking"
   | "mcp_server"
   | "mcp_tool"
+  | "memory_status"
+  | "memory_policy"
+  | "memory_record"
   | "approval"
   | "approval_decision"
   | "job"
@@ -231,6 +234,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   run_lifecycle_rows?: unknown[];
   mcpRows?: unknown[];
   mcp_rows?: unknown[];
+  memoryRows?: unknown[];
+  memory_rows?: unknown[];
   commandHistory?: unknown[];
   command_history?: unknown[];
   validationErrors?: unknown[];
@@ -251,6 +256,10 @@ export interface WorkflowRuntimeTuiControlStateRow {
   modelId: string | null;
   mcpServerId?: string | null;
   mcpToolName?: string | null;
+  memoryRecordId?: string | null;
+  memoryScope?: string | null;
+  memoryKey?: string | null;
+  memoryOperation?: string | null;
   routeId: string | null;
   reasoningEffort: string | null;
   threadId: string | null;
@@ -278,6 +287,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   jobCount: number;
   runLifecycleCount: number;
   mcpRowCount: number;
+  memoryRowCount: number;
   rowCount: number;
   rows: WorkflowRuntimeTuiControlStateRow[];
 }
@@ -371,6 +381,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     "run_lifecycle_rows",
   );
   const mcpRows = arrayField(state, "mcpRows", "mcp_rows");
+  const memoryRows = arrayField(state, "memoryRows", "memory_rows");
   const rows: WorkflowRuntimeTuiControlStateRow[] = [];
 
   if (threadId || currentTurnId || lastCursor || lastEventId) {
@@ -521,6 +532,74 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       modelId: null,
       mcpServerId: serverId,
       mcpToolName: toolName,
+      routeId: null,
+      reasoningEffort: null,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        fallbackNodeId,
+    });
+  });
+
+  memoryRows.forEach((entry, index) => {
+    const declaredKind = stringField(entry, "rowKind", "row_kind");
+    const rowKind: "memory_status" | "memory_policy" | "memory_record" =
+      declaredKind === "memory_record"
+        ? "memory_record"
+        : declaredKind === "memory_policy"
+          ? "memory_policy"
+          : "memory_status";
+    const memoryRecordId = stringField(entry, "memoryRecordId", "memory_record_id");
+    const memoryScope = stringField(entry, "memoryScope", "memory_scope");
+    const memoryKey = stringField(entry, "memoryKey", "memory_key");
+    const memoryOperation =
+      stringField(entry, "memoryOperation", "memory_operation") ??
+      (rowKind === "memory_record" ? "read" : rowKind === "memory_policy" ? "policy" : "status");
+    const status = tuiControlRowStatus(stringField(entry, "status"));
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    const fallbackNodeId = rowKind === "memory_record" && memoryRecordId
+      ? `runtime.memory.${slug(memoryRecordId)}`
+      : rowKind === "memory_policy"
+        ? "runtime.memory-manager.policy"
+        : "runtime.memory-manager";
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-${rowKind}:${slug([memoryRecordId, memoryScope, memoryKey, sequence].filter(Boolean).join(":"))}`,
+      rowKind,
+      status,
+      label:
+        stringField(entry, "label") ??
+        (rowKind === "memory_record"
+          ? `Memory record ${memoryRecordId ?? sequence}`
+          : rowKind === "memory_policy"
+            ? "Memory policy"
+            : "Memory status"),
+      command: stringField(entry, "command") ?? "memory",
+      rawInput: stringField(entry, "rawInput", "raw_input") ?? "/memory status",
+      message:
+        stringField(entry, "message", "summary") ??
+        ([memoryOperation, memoryScope, memoryKey, status].filter(Boolean).join(" · ") || null),
+      approvalId: null,
+      jobId: null,
+      runId: null,
+      modelId: null,
+      mcpServerId: null,
+      mcpToolName: null,
+      memoryRecordId,
+      memoryScope,
+      memoryKey,
+      memoryOperation,
       routeId: null,
       reasoningEffort: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
@@ -772,6 +851,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     jobCount: jobRows.length,
     runLifecycleCount: runLifecycleRows.length,
     mcpRowCount: mcpRows.length,
+    memoryRowCount: memoryRows.length,
     rowCount: rows.length,
     rows,
   };

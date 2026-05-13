@@ -6,6 +6,7 @@ import {
   type RuntimeThreadCompactInput,
   type RuntimeThreadCreateInput,
   type RuntimeThreadForkInput,
+  type RuntimeThreadMemoryInput,
   type RuntimeThreadMcpInput,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
@@ -15,6 +16,8 @@ import {
   type RuntimeTurnSteerInput,
 } from "./substrate-client.js";
 import type {
+  RuntimeMemoryStatus,
+  RuntimeMemoryValidationResult,
   RuntimeMcpStatus,
   RuntimeMcpValidationResult,
   RuntimeThreadEvent,
@@ -124,6 +127,14 @@ export class Thread {
 
   async validateMcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
     return this.client.validateThreadMcp(this.id, input);
+  }
+
+  async memory(input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryStatus> {
+    return this.client.threadMemoryStatus(this.id, input);
+  }
+
+  async validateMemory(input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryValidationResult> {
+    return this.client.validateThreadMemory(this.id, input);
   }
 
   async submit(input: RuntimeTurnCreateInput): Promise<Turn> {

@@ -140,6 +140,7 @@ workstream was narrower.
 | 138 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics operator override | /tmp/ioi-autopilot-gui-harness-diagnostics-operator-override/2026-05-13T08-53-15-768Z/result.json |
 | 139 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI jobs and run lifecycle parity view | /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json |
 | 140 | 2026-05-13 | P1. MCP Manager Parity | daemon-owned MCP discovery/status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
+| 141 | 2026-05-13 | P1. Memory UX Parity | daemon-owned memory manager status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6725,3 +6726,38 @@ Validation evidence:
 - `npm run build --workspace=@ioi/agent-sdk`
 - `npm run build --workspace=@ioi/agent-ide`
 - `node --test --test-name-pattern "daemon owns MCP|agent TUI line-mode slash commands|agent CLI exposes model|agent TUI thin shell" scripts/lib/live-runtime-daemon-contract.test.mjs`
+
+### Slice 141. 2026-05-13 - Daemon-owned memory manager status/validation
+
+Implementation slice completed 2026-05-13, memory manager parity:
+
+- Added `packages/runtime-daemon/src/memory-manager.mjs` with memory
+  status/validation schemas, effective-policy validation, storage path checks,
+  memory record validation, and memory status/policy/record row builders.
+- Added daemon public memory manager endpoints:
+  `/v1/memory`, `/v1/memory/records`, `/v1/memory/policy`,
+  `/v1/memory/path`, and `/v1/memory/validate`.
+- Added thread-scoped memory status and validation controls at
+  `/v1/threads/{thread_id}/memory/status` and
+  `/v1/threads/{thread_id}/memory/validate`, emitting
+  `OperatorControl.Memory` and `OperatorControl.MemoryValidate` runtime events
+  with receipts, policy refs, workflow node identity, and replayable payloads.
+- Exposed memory status/validation through SDK client helpers and
+  `Thread.memory` / `Thread.validateMemory` while preserving existing
+  remember/list/edit/delete/policy/path helpers.
+- Added TUI `/memory [status|show|policy|path|validate|enable|disable]`,
+  `memory_rows`, and React Flow control-state projection for memory
+  status/policy/record rows.
+- Added React Flow state-node operations for `memory_status` and
+  `memory_policy` beside existing memory search/list controls, so workflow
+  authors can configure memory visibility from the graph.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/memory-manager.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "memory writes|agent CLI exposes model|agent TUI thin shell|agent TUI line-mode" scripts/lib/live-runtime-daemon-contract.test.mjs`

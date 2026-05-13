@@ -1169,6 +1169,8 @@ export function WorkflowNodeBindingSections({
                     | "write"
                     | "append"
                     | "merge"
+                    | "memory_status"
+                    | "memory_policy"
                     | "memory_search"
                     | "memory_list",
                   reducer:
@@ -1184,11 +1186,15 @@ export function WorkflowNodeBindingSections({
               <option value="write">Write</option>
               <option value="append">Append</option>
               <option value="merge">Merge</option>
+              <option value="memory_status">Memory status</option>
+              <option value="memory_policy">Memory policy</option>
               <option value="memory_search">Memory search</option>
               <option value="memory_list">Memory list</option>
             </select>
           </label>
-          {logic.stateOperation === "memory_search" ||
+          {logic.stateOperation === "memory_status" ||
+          logic.stateOperation === "memory_policy" ||
+          logic.stateOperation === "memory_search" ||
           logic.stateOperation === "memory_list" ? (
             <>
               <label>

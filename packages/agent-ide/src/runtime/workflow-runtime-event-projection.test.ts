@@ -713,6 +713,45 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         receipt_refs: ["receipt-mcp-status"],
       },
     ],
+    memory_rows: [
+      {
+        id: "memory-status-row",
+        row_kind: "memory_status",
+        status: "completed",
+        label: "Memory status",
+        command: "memory",
+        raw_input: "/memory status",
+        memory_scope: "thread",
+        memory_operation: "status",
+        workflow_node_id: "runtime.memory-manager",
+        receipt_refs: ["receipt-memory-status"],
+      },
+      {
+        id: "memory-policy-row",
+        row_kind: "memory_policy",
+        status: "completed",
+        label: "Memory policy",
+        command: "memory",
+        raw_input: "/memory policy",
+        memory_scope: "thread",
+        memory_operation: "policy",
+        workflow_node_id: "runtime.memory-manager.policy",
+        policy_decision_refs: ["policy-memory-read"],
+      },
+      {
+        id: "memory-record-row",
+        row_kind: "memory_record",
+        status: "completed",
+        label: "Memory record",
+        command: "memory",
+        raw_input: "/memory show",
+        memory_record_id: "memory-123",
+        memory_scope: "thread",
+        memory_key: "conversation",
+        memory_operation: "read",
+        workflow_node_id: "runtime.memory",
+      },
+    ],
     command_history: [
       {
         id: "tui-command-1",
@@ -758,7 +797,8 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.jobCount, 1);
   assert.equal(projection.runLifecycleCount, 1);
   assert.equal(projection.mcpRowCount, 2);
-  assert.equal(projection.rowCount, 13);
+  assert.equal(projection.memoryRowCount, 3);
+  assert.equal(projection.rowCount, 16);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -768,6 +808,9 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["thinking", "thinking", "current"],
       ["mcp_server", "mcp", "completed"],
       ["mcp_tool", "mcp", "completed"],
+      ["memory_status", "memory", "completed"],
+      ["memory_policy", "memory", "completed"],
+      ["memory_record", "memory", "completed"],
       ["approval", null, "pending"],
       ["approval_decision", "approve", "approved"],
       ["job", "jobs", "completed"],
@@ -778,11 +821,11 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     ],
   );
   assert.equal(
-    projection.rows[7]?.receiptRefs[0],
+    projection.rows[10]?.receiptRefs[0],
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[11]?.reactFlowNodeId,
+    projection.rows[14]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
   assert.equal(projection.rows[2]?.modelId, "auto");
@@ -790,7 +833,10 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[4]?.mcpServerId, "search");
   assert.equal(projection.rows[5]?.mcpToolName, "query");
   assert.equal(projection.rows[5]?.reactFlowNodeId, "runtime.mcp-tool.search.query");
-  assert.equal(projection.rows[8]?.jobId, "job-run-test");
-  assert.equal(projection.rows[9]?.runId, "run-test");
-  assert.equal(projection.rows[12]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[6]?.memoryOperation, "status");
+  assert.equal(projection.rows[8]?.memoryRecordId, "memory-123");
+  assert.equal(projection.rows[8]?.memoryKey, "conversation");
+  assert.equal(projection.rows[11]?.jobId, "job-run-test");
+  assert.equal(projection.rows[12]?.runId, "run-test");
+  assert.equal(projection.rows[15]?.message, "/steer requires guidance text");
 });

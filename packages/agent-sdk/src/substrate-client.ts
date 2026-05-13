@@ -40,6 +40,8 @@ import type {
   RuntimeMcpStatus,
   RuntimeMcpToolEntry,
   RuntimeMcpValidationResult,
+  RuntimeMemoryStatus,
+  RuntimeMemoryValidationResult,
   RuntimeNodeProfile,
   RuntimeScorecard,
   RuntimeThreadEvent,
@@ -305,6 +307,31 @@ export interface RuntimeMcpValidationInput {
 }
 
 export interface RuntimeThreadMcpInput extends RuntimeMcpValidationInput {
+  turnId?: string;
+  turn_id?: string;
+  idempotencyKey?: string;
+  idempotency_key?: string;
+}
+
+export interface RuntimeMemoryStatusOptions extends MemoryListOptions {
+  threadId?: string;
+  thread_id?: string;
+  agentId?: string;
+  agent_id?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeMemoryValidationInput extends RuntimeMemoryStatusOptions {
+  projection?: AgentMemoryProjection;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeThreadMemoryInput extends RuntimeMemoryValidationInput {
   turnId?: string;
   turn_id?: string;
   idempotencyKey?: string;
@@ -756,6 +783,13 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input?: RuntimeThreadMcpInput,
   ): Promise<RuntimeMcpValidationResult>;
+  getMemoryStatus(options?: RuntimeMemoryStatusOptions): Promise<RuntimeMemoryStatus>;
+  validateMemory(input?: RuntimeMemoryValidationInput): Promise<RuntimeMemoryValidationResult>;
+  threadMemoryStatus(threadId: string, input?: RuntimeThreadMemoryInput): Promise<RuntimeMemoryStatus>;
+  validateThreadMemory(
+    threadId: string,
+    input?: RuntimeThreadMemoryInput,
+  ): Promise<RuntimeMemoryValidationResult>;
   invokeThreadTool(
     threadId: string,
     toolId: string,
@@ -1160,6 +1194,47 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "validateThreadMcp",
       "POST",
       `/v1/threads/${encodePath(threadId)}/mcp/validate`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async getMemoryStatus(options: RuntimeMemoryStatusOptions = {}): Promise<RuntimeMemoryStatus> {
+    return this.request("getMemoryStatus", "GET", `/v1/memory${memoryListQuery(options)}`);
+  }
+
+  async validateMemory(input: RuntimeMemoryValidationInput = {}): Promise<RuntimeMemoryValidationResult> {
+    return this.request("validateMemory", "POST", "/v1/memory/validate", {
+      source: "sdk_client",
+      ...input,
+    });
+  }
+
+  async threadMemoryStatus(
+    threadId: string,
+    input: RuntimeThreadMemoryInput = {},
+  ): Promise<RuntimeMemoryStatus> {
+    return this.request(
+      "threadMemoryStatus",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/memory/status`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async validateThreadMemory(
+    threadId: string,
+    input: RuntimeThreadMemoryInput = {},
+  ): Promise<RuntimeMemoryValidationResult> {
+    return this.request(
+      "validateThreadMemory",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/memory/validate`,
       {
         source: "sdk_client",
         ...input,
@@ -2785,6 +2860,65 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         createdAt: new Date().toISOString(),
         componentKind: "mcp_validator",
         workflowNodeId: "runtime.mcp-manager.validate",
+      }),
+    };
+  }
+
+  async getMemoryStatus(options: RuntimeMemoryStatusOptions = {}): Promise<RuntimeMemoryStatus> {
+    const threadId = options.threadId ?? options.thread_id;
+    const agentId =
+      options.agentId ??
+      options.agent_id ??
+      (threadId ? agentIdForThread(threadId) : this.agents.values().next().value?.id);
+    if (!agentId) return mockMemoryStatusForProjection(mockEmptyMemoryProjection());
+    const projection = await this.listMemory(agentId, {
+      ...options,
+      ...(threadId ? { threadId } : {}),
+    });
+    return mockMemoryStatusForProjection(projection);
+  }
+
+  async validateMemory(input: RuntimeMemoryValidationInput = {}): Promise<RuntimeMemoryValidationResult> {
+    const projection = input.projection ?? (await this.getMemoryStatus(input));
+    return mockMemoryValidationForProjection(projection);
+  }
+
+  async threadMemoryStatus(threadId: string, input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryStatus> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    return {
+      ...(await this.getMemoryStatus({ ...input, threadId })),
+      event: mockRuntimeEventEnvelope({
+        agent,
+        threadId,
+        streamId: eventStreamIdForThread(threadId),
+        seq: this.threadRuntimeEvents(agent).length + 1,
+        eventKind: "memory.status",
+        sourceEventKind: "OperatorControl.Memory",
+        itemId: `${threadId}:item:memory-status`,
+        payload: { event_kind: "MemoryStatus", source: input.source ?? "sdk_client" },
+        createdAt: new Date().toISOString(),
+        componentKind: "memory_policy",
+        workflowNodeId: "runtime.memory-manager",
+      }),
+    };
+  }
+
+  async validateThreadMemory(threadId: string, input: RuntimeThreadMemoryInput = {}): Promise<RuntimeMemoryValidationResult> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    return {
+      ...(await this.validateMemory({ ...input, threadId })),
+      event: mockRuntimeEventEnvelope({
+        agent,
+        threadId,
+        streamId: eventStreamIdForThread(threadId),
+        seq: this.threadRuntimeEvents(agent).length + 1,
+        eventKind: "memory.validation",
+        sourceEventKind: "OperatorControl.MemoryValidate",
+        itemId: `${threadId}:item:memory-validate`,
+        payload: { event_kind: "MemoryValidationReport", source: input.source ?? "sdk_client" },
+        createdAt: new Date().toISOString(),
+        componentKind: "memory_policy",
+        workflowNodeId: "runtime.memory-manager.validate",
       }),
     };
   }
@@ -4464,6 +4598,115 @@ function mockMemoryPath(agent: RuntimeAgentRecord, threadId: string, checkpointD
     recordsPath: path.join(checkpointDir, "memory"),
     policiesPath: path.join(checkpointDir, "memory-policies"),
     effectivePolicyId: mockMemoryPolicyId("thread", threadId),
+  };
+}
+
+function mockEmptyMemoryProjection(): AgentMemoryProjection {
+  return {
+    schemaVersion: "ioi.agent-runtime.memory.v1",
+    object: "ioi.agent_memory_projection",
+    threadId: null,
+    agentId: null,
+    workspace: null,
+    records: [],
+    totalMatches: 0,
+  };
+}
+
+function mockMemoryStatusForProjection(projection: {
+  threadId?: string | null;
+  agentId?: string | null;
+  workspace?: string | null;
+  policy?: AgentMemoryPolicy;
+  paths?: unknown;
+  filters?: unknown;
+  records?: AgentMemoryRecord[];
+}): RuntimeMemoryStatus {
+  const records = projection.records ?? [];
+  const policy = projection.policy;
+  const disabled = Boolean(policy?.disabled);
+  const validation = mockMemoryValidationForProjection(projection);
+  return {
+    schema_version: "ioi.runtime.memory-manager-status.v1",
+    schemaVersion: "ioi.runtime.memory-manager-status.v1",
+    object: "ioi.runtime_memory_manager_status",
+    status: validation.ok ? (disabled ? "disabled" : "ready") : "needs_review",
+    disabled,
+    injection_enabled: policy?.injectionEnabled !== false,
+    injectionEnabled: policy?.injectionEnabled !== false,
+    read_only: Boolean(policy?.readOnly),
+    readOnly: Boolean(policy?.readOnly),
+    write_requires_approval: Boolean(policy?.writeRequiresApproval),
+    writeRequiresApproval: Boolean(policy?.writeRequiresApproval),
+    write_blocked_reason: disabled
+      ? "memory_disabled"
+      : policy?.readOnly
+        ? "memory_read_only"
+        : policy?.writeRequiresApproval
+          ? "memory_write_requires_approval"
+          : null,
+    record_count: records.length,
+    recordCount: records.length,
+    thread_id: projection.threadId ?? null,
+    threadId: projection.threadId ?? null,
+    agent_id: projection.agentId ?? null,
+    agentId: projection.agentId ?? null,
+    workspace: projection.workspace ?? null,
+    policy,
+    paths: projection.paths,
+    filters: projection.filters,
+    records,
+    validation,
+    routes: {
+      records: "/v1/threads/{thread_id}/memory",
+      status: "/v1/threads/{thread_id}/memory/status",
+      validate: "/v1/threads/{thread_id}/memory/validate",
+    },
+  };
+}
+
+function mockMemoryValidationForProjection(projection: {
+  threadId?: string | null;
+  agentId?: string | null;
+  workspace?: string | null;
+  policy?: AgentMemoryPolicy;
+  paths?: unknown;
+  filters?: unknown;
+  records?: AgentMemoryRecord[];
+}): RuntimeMemoryValidationResult {
+  const records = projection.records ?? [];
+  const issues = records
+    .filter((record) => !record.id || !record.fact)
+    .map((record) => ({
+      code: "memory_record_invalid",
+      severity: "error" as const,
+      message: "Memory record must have id and fact text.",
+      memoryRecordId: record.id ?? null,
+      memory_record_id: record.id ?? null,
+    }));
+  return {
+    schema_version: "ioi.runtime.memory-manager-validation.v1",
+    schemaVersion: "ioi.runtime.memory-manager-validation.v1",
+    object: "ioi.runtime_memory_manager_validation",
+    ok: issues.length === 0,
+    status: issues.length === 0 ? "pass" : "blocked",
+    issue_count: issues.length,
+    issueCount: issues.length,
+    warning_count: 0,
+    warningCount: 0,
+    record_count: records.length,
+    recordCount: records.length,
+    thread_id: projection.threadId ?? null,
+    threadId: projection.threadId ?? null,
+    agent_id: projection.agentId ?? null,
+    agentId: projection.agentId ?? null,
+    workspace: projection.workspace ?? null,
+    issues,
+    warnings: [],
+    policy: projection.policy,
+    paths: projection.paths,
+    filters: projection.filters,
+    records,
   };
 }
 
