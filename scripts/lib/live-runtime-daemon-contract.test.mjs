@@ -4262,6 +4262,34 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkRestoreApply.applyStatus, "noop");
     assert.equal(sdkRestoreApply.operations[0]?.applyStatus, "noop");
     assert.deepEqual(sdkRestoreApply.rollbackRefs, [restorePatchResult.workspace_snapshot?.snapshotId]);
+    const restorePreviewDecision = blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find(
+      (decision) => decision.action === "restore_preview",
+    );
+    assert.ok(restorePreviewDecision);
+    const preRepairPlainPreview = await sdkClient.previewThreadWorkspaceRestore(
+      thread.thread_id,
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+      { workflowNodeId: "workflow.restore.preview.pre-repair" },
+    );
+    assert.equal(preRepairPlainPreview.restorePreviewEvent?.workflow_node_id, "workflow.restore.preview.pre-repair");
+    const sdkRepairPreview = await sdkClient.executeThreadDiagnosticsRepairDecision(
+      thread.thread_id,
+      restorePreviewDecision.decisionId,
+      {
+        source: "react_flow",
+        workflowGraphId: "workflow-coding-tools",
+        workflowNodeId: "workflow.diagnostics.repair.restore-preview",
+      },
+    );
+    assert.equal(sdkRepairPreview.schema_version, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.equal(sdkRepairPreview.action, "restore_preview");
+    assert.equal(sdkRepairPreview.status, "completed");
+    assert.equal(sdkRepairPreview.snapshotId, blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId);
+    assert.equal(sdkRepairPreview.restorePreview?.previewStatus, "ready");
+    assert.equal(sdkRepairPreview.restorePreviewEvent?.workflow_node_id, "workflow.diagnostics.repair.restore-preview");
+    assert.notEqual(sdkRepairPreview.restorePreviewEvent?.event_id, preRepairPlainPreview.restorePreviewEvent?.event_id);
+    assert.equal(sdkRepairPreview.event?.workflow_node_id, "workflow.diagnostics.repair.restore-preview.decision");
+    assert.deepEqual(sdkRepairPreview.rollbackRefs, [blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId]);
     const sdkTest = await sdkClient.invokeThreadTool(thread.thread_id, "test.run", {
       input: { commandId: "node.test", path: "sample.test.mjs" },
       workflowNodeId: "runtime.coding-tool.sdk-test-run",
@@ -4427,7 +4455,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
         daemon.endpoint,
         "--interactive",
       ],
-      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/diagnostics diagnostic-target.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/restore\n/restore preview ${blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId}\n/restore apply ${blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId} --approve\n/quit\n`,
+      `/status\n/diff README.md\n/inspect README.md\n/patch README.md SDK patched line. => TUI patched line.\n/patch-dry-run README.md TUI patched line. => TUI dry-run line.\n/test sample.test.mjs\n/diagnostics diagnostic-target.mjs\n/artifact ${spilloverArtifactId}\n/retrieve ${testResult.tool_call_id}\n/restore\n/restore preview ${skippedDiagnosticPatchResult.workspace_snapshot?.snapshotId}\n/restore apply ${skippedDiagnosticPatchResult.workspace_snapshot?.snapshotId} --approve\n/quit\n`,
       { cwd: root, timeout: 45000 },
     );
     assert.match(tuiResult.stdout, /Line-mode commands: .*\/status .*\/diff \[path\] .*\/inspect <path> .*\/patch <path> <old> => <new> .*\/test \[path\] .*\/diagnostics <path> .*\/artifact <artifact_id> .*\/retrieve <tool_call_id_or_artifact_id> .*\/restore \[list\|preview <snapshot_id>\|apply <snapshot_id> --approve\] .*\/quit/);
@@ -4445,7 +4473,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.match(tuiResult.stdout, /"command":"restore"/);
     assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI patched line\./);
     assert.doesNotMatch(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI dry-run line/);
-    assert.match(fs.readFileSync(path.join(cwd, "blocking-target.mjs"), "utf8"), /export const blocked = 1;/);
+    assert.match(fs.readFileSync(path.join(cwd, "skip-diagnostics.mjs"), "utf8"), /export const skip = 1;/);
 
     const daemonEvents = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
@@ -4578,25 +4606,50 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(restoreApplyEvent.rollback_refs, [restorePatchResult.workspace_snapshot.snapshotId]);
     assert.deepEqual(restoreApplyEvent.receipt_refs, restoreApplyResult.receipt_refs);
     assert.deepEqual(restoreApplyEvent.artifact_refs, restoreApplyResult.artifact_refs);
+    const diagnosticsRepairRestorePreviewEvent = daemonEvents.find(
+      (event) => event.event_id === sdkRepairPreview.restorePreviewEvent?.event_id,
+    );
+    assert.ok(diagnosticsRepairRestorePreviewEvent);
+    assert.equal(diagnosticsRepairRestorePreviewEvent.source, "runtime_auto");
+    assert.equal(diagnosticsRepairRestorePreviewEvent.event_kind, "workspace.restore.previewed");
+    assert.equal(diagnosticsRepairRestorePreviewEvent.component_kind, "restore_gate");
+    assert.equal(diagnosticsRepairRestorePreviewEvent.workflow_node_id, "workflow.diagnostics.repair.restore-preview");
+    assert.equal(diagnosticsRepairRestorePreviewEvent.payload_summary.snapshot_id, blockingDiagnosticPatchResult.workspace_snapshot.snapshotId);
+    assert.equal(diagnosticsRepairRestorePreviewEvent.payload_summary.preview_status, "ready");
+    assert.deepEqual(diagnosticsRepairRestorePreviewEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    const diagnosticsRepairDecisionEvent = daemonEvents.find(
+      (event) => event.event_id === sdkRepairPreview.event?.event_id,
+    );
+    assert.ok(diagnosticsRepairDecisionEvent);
+    assert.equal(diagnosticsRepairDecisionEvent.source, "react_flow");
+    assert.equal(diagnosticsRepairDecisionEvent.source_event_kind, "LspDiagnostics.RepairDecisionExecuted");
+    assert.equal(diagnosticsRepairDecisionEvent.event_kind, "diagnostics.repair_decision.executed");
+    assert.equal(diagnosticsRepairDecisionEvent.component_kind, "lsp_diagnostics_repair");
+    assert.equal(diagnosticsRepairDecisionEvent.workflow_node_id, "workflow.diagnostics.repair.restore-preview.decision");
+    assert.equal(diagnosticsRepairDecisionEvent.payload_schema_version, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.equal(diagnosticsRepairDecisionEvent.payload_summary.action, "restore_preview");
+    assert.equal(diagnosticsRepairDecisionEvent.payload_summary.restore_preview_event_id, diagnosticsRepairRestorePreviewEvent.event_id);
+    assert.deepEqual(diagnosticsRepairDecisionEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    assert.ok(diagnosticsRepairDecisionEvent.policy_decision_refs.some((ref) => ref.includes("restore_preview")));
     const tuiRestorePreviewEvent = daemonEvents.find(
       (event) =>
         event.source === "runtime_auto" &&
         event.source_event_kind === "WorkspaceRestore.Previewed" &&
         event.workflow_node_id === "runtime.restore-gate.tui-preview" &&
-        event.payload_summary.snapshot_id === blockingDiagnosticPatchResult.workspace_snapshot.snapshotId,
+        event.payload_summary.snapshot_id === skippedDiagnosticPatchResult.workspace_snapshot.snapshotId,
     );
     assert.ok(tuiRestorePreviewEvent);
     assert.equal(tuiRestorePreviewEvent.event_kind, "workspace.restore.previewed");
     assert.equal(tuiRestorePreviewEvent.component_kind, "restore_gate");
     assert.equal(tuiRestorePreviewEvent.payload_schema_version, "ioi.runtime.workspace-restore-preview.v1");
     assert.equal(tuiRestorePreviewEvent.payload_summary.preview_status, "ready");
-    assert.deepEqual(tuiRestorePreviewEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    assert.deepEqual(tuiRestorePreviewEvent.rollback_refs, [skippedDiagnosticPatchResult.workspace_snapshot.snapshotId]);
     const tuiRestoreApplyEvent = daemonEvents.find(
       (event) =>
         event.source === "runtime_auto" &&
         event.source_event_kind === "WorkspaceRestore.Applied" &&
         event.workflow_node_id === "runtime.restore-gate.tui-apply" &&
-        event.payload_summary.snapshot_id === blockingDiagnosticPatchResult.workspace_snapshot.snapshotId,
+        event.payload_summary.snapshot_id === skippedDiagnosticPatchResult.workspace_snapshot.snapshotId,
     );
     assert.ok(tuiRestoreApplyEvent);
     assert.equal(tuiRestoreApplyEvent.event_kind, "workspace.restore.applied");
@@ -4604,7 +4657,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(tuiRestoreApplyEvent.payload_schema_version, "ioi.runtime.workspace-restore-apply.v1");
     assert.equal(tuiRestoreApplyEvent.payload_summary.apply_status, "applied");
     assert.equal(tuiRestoreApplyEvent.payload_summary.approval_satisfied, true);
-    assert.deepEqual(tuiRestoreApplyEvent.rollback_refs, [blockingDiagnosticPatchResult.workspace_snapshot.snapshotId]);
+    assert.deepEqual(tuiRestoreApplyEvent.rollback_refs, [skippedDiagnosticPatchResult.workspace_snapshot.snapshotId]);
     const reactFlowArtifactRead = codingEvents.find(
       (event) =>
         event.payload.tool_name === "artifact.read" &&
@@ -4771,6 +4824,23 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(sdkRestoreApplyEvent.rollbackRefs, restoreApplyEvent.rollback_refs);
     assert.deepEqual(sdkRestoreApplyEvent.artifactRefs, restoreApplyEvent.artifact_refs);
     assert.deepEqual(sdkRestoreApplyEvent.policyDecisionRefs, restoreApplyEvent.policy_decision_refs);
+    const sdkDiagnosticsRepairRestorePreviewEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsRepairRestorePreviewEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsRepairRestorePreviewEvent);
+    assert.equal(sdkDiagnosticsRepairRestorePreviewEvent.componentKind, "restore_gate");
+    assert.equal(sdkDiagnosticsRepairRestorePreviewEvent.sourceEventKind, "WorkspaceRestore.Previewed");
+    assert.deepEqual(sdkDiagnosticsRepairRestorePreviewEvent.rollbackRefs, diagnosticsRepairRestorePreviewEvent.rollback_refs);
+    const sdkDiagnosticsRepairDecisionEvent = sdkEvents.find(
+      (event) => event.id === diagnosticsRepairDecisionEvent.event_id,
+    );
+    assert.ok(sdkDiagnosticsRepairDecisionEvent);
+    assert.equal(sdkDiagnosticsRepairDecisionEvent.source, "react_flow");
+    assert.equal(sdkDiagnosticsRepairDecisionEvent.type, "runtime_step");
+    assert.equal(sdkDiagnosticsRepairDecisionEvent.componentKind, "lsp_diagnostics_repair");
+    assert.equal(sdkDiagnosticsRepairDecisionEvent.sourceEventKind, "LspDiagnostics.RepairDecisionExecuted");
+    assert.equal(sdkDiagnosticsRepairDecisionEvent.payloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+    assert.deepEqual(sdkDiagnosticsRepairDecisionEvent.rollbackRefs, diagnosticsRepairDecisionEvent.rollback_refs);
     const sdkTuiRestorePreviewEvent = sdkEvents.find((event) => event.id === tuiRestorePreviewEvent.event_id);
     assert.ok(sdkTuiRestorePreviewEvent);
     assert.equal(sdkTuiRestorePreviewEvent.source, "runtime_auto");
@@ -4880,6 +4950,30 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(restorePreviewNode.rollbackRefs, restorePreviewEvent.rollback_refs);
     assert.deepEqual(restorePreviewNode.receiptRefs, restorePreviewEvent.receipt_refs);
     assert.deepEqual(restorePreviewNode.artifactRefs, restorePreviewEvent.artifact_refs);
+    const diagnosticsRepairRestorePreviewNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsRepairRestorePreviewEvent.event_id),
+    );
+    assert.ok(diagnosticsRepairRestorePreviewNode);
+    assert.equal(diagnosticsRepairRestorePreviewNode.workflowNodeId, "workflow.diagnostics.repair.restore-preview");
+    assert.equal(diagnosticsRepairRestorePreviewNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsRepairRestorePreviewNode.componentKind, "restore_gate");
+    assert.equal(diagnosticsRepairRestorePreviewNode.label, "Restore preview");
+    assert.equal(diagnosticsRepairRestorePreviewNode.status, "completed");
+    assert.deepEqual(diagnosticsRepairRestorePreviewNode.rollbackRefs, diagnosticsRepairRestorePreviewEvent.rollback_refs);
+    assert.deepEqual(diagnosticsRepairRestorePreviewNode.receiptRefs, diagnosticsRepairRestorePreviewEvent.receipt_refs);
+    assert.deepEqual(diagnosticsRepairRestorePreviewNode.artifactRefs, diagnosticsRepairRestorePreviewEvent.artifact_refs);
+    const diagnosticsRepairDecisionNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(diagnosticsRepairDecisionEvent.event_id),
+    );
+    assert.ok(diagnosticsRepairDecisionNode);
+    assert.equal(diagnosticsRepairDecisionNode.workflowNodeId, "workflow.diagnostics.repair.restore-preview.decision");
+    assert.equal(diagnosticsRepairDecisionNode.nodeKind, "hook_policy");
+    assert.equal(diagnosticsRepairDecisionNode.componentKind, "lsp_diagnostics_repair");
+    assert.equal(diagnosticsRepairDecisionNode.label, "Diagnostics repair decision");
+    assert.equal(diagnosticsRepairDecisionNode.status, "completed");
+    assert.deepEqual(diagnosticsRepairDecisionNode.rollbackRefs, diagnosticsRepairDecisionEvent.rollback_refs);
+    assert.deepEqual(diagnosticsRepairDecisionNode.receiptRefs, diagnosticsRepairDecisionEvent.receipt_refs);
+    assert.deepEqual(diagnosticsRepairDecisionNode.policyDecisionRefs, diagnosticsRepairDecisionEvent.policy_decision_refs);
     const restoreApplyNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(restoreApplyEvent.event_id),
     );

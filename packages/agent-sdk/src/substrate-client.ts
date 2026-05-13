@@ -340,6 +340,62 @@ export interface RuntimeWorkspaceRestoreApplyResult {
   summary?: string;
 }
 
+export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  action?: "repair_retry" | "restore_preview" | "restore_apply" | "operator_override" | string;
+  gateId?: string;
+  gate_id?: string;
+  snapshotId?: string;
+  snapshot_id?: string;
+  actor?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  idempotencyKey?: string;
+  idempotency_key?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeDiagnosticsRepairDecisionExecutionResult {
+  schemaVersion: string;
+  schema_version?: string;
+  object: "ioi.runtime_diagnostics_repair_decision_execution" | string;
+  threadId: string;
+  thread_id?: string;
+  decisionId: string;
+  decision_id?: string;
+  action: string;
+  status: string;
+  gateEventId?: string | null;
+  gate_event_id?: string | null;
+  policyId?: string | null;
+  policy_id?: string | null;
+  snapshotId?: string | null;
+  snapshot_id?: string | null;
+  workflowGraphId?: string | null;
+  workflow_graph_id?: string | null;
+  workflowNodeId?: string | null;
+  workflow_node_id?: string | null;
+  decision?: Record<string, unknown>;
+  repairPolicy?: Record<string, unknown>;
+  repair_policy?: Record<string, unknown>;
+  restorePreview?: RuntimeWorkspaceRestorePreviewResult;
+  restore_preview?: RuntimeWorkspaceRestorePreviewResult;
+  restorePreviewEvent?: RuntimeEventEnvelope | null;
+  restore_preview_event?: RuntimeEventEnvelope | null;
+  event?: RuntimeEventEnvelope | null;
+  receiptRefs: string[];
+  receipt_refs?: string[];
+  artifactRefs: string[];
+  artifact_refs?: string[];
+  policyDecisionRefs: string[];
+  policy_decision_refs?: string[];
+  rollbackRefs: string[];
+  rollback_refs?: string[];
+  summary?: string;
+}
+
 export interface AgentMemoryPathProjection {
   schemaVersion: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_path_projection";
@@ -476,6 +532,11 @@ export interface RuntimeSubstrateClient {
     snapshotId: string,
     input?: RuntimeWorkspaceRestoreApplyInput,
   ): Promise<RuntimeWorkspaceRestoreApplyResult>;
+  executeThreadDiagnosticsRepairDecision(
+    threadId: string,
+    decisionId: string,
+    input?: RuntimeDiagnosticsRepairDecisionExecuteInput,
+  ): Promise<RuntimeDiagnosticsRepairDecisionExecutionResult>;
   rememberMemory(agentId: string, input: RememberMemoryInput): Promise<RememberMemoryResult>;
   listMemory(agentId: string, options?: MemoryListOptions): Promise<AgentMemoryProjection>;
   updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
@@ -804,6 +865,22 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "applyThreadWorkspaceRestore",
       "POST",
       `/v1/threads/${encodePath(threadId)}/snapshots/${encodePath(snapshotId)}/restore-apply`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async executeThreadDiagnosticsRepairDecision(
+    threadId: string,
+    decisionId: string,
+    input: RuntimeDiagnosticsRepairDecisionExecuteInput = {},
+  ): Promise<RuntimeDiagnosticsRepairDecisionExecutionResult> {
+    return this.request(
+      "executeThreadDiagnosticsRepairDecision",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/diagnostics/repair-decisions/${encodePath(decisionId)}/execute`,
       {
         source: "sdk_client",
         ...input,
@@ -2344,6 +2421,74 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       restore_apply_event: applyEvent,
       restoreApplyEvent: applyEvent,
       summary: String(applyEvent.payload?.summary ?? ""),
+    };
+  }
+
+  async executeThreadDiagnosticsRepairDecision(
+    threadId: string,
+    decisionId: string,
+    input: RuntimeDiagnosticsRepairDecisionExecuteInput = {},
+  ): Promise<RuntimeDiagnosticsRepairDecisionExecutionResult> {
+    const snapshotId = input.snapshotId ?? input.snapshot_id ?? `workspace_snapshot_mock_${threadId}`;
+    const restorePreview = await this.previewThreadWorkspaceRestore(threadId, snapshotId, {
+      source: input.source ?? "sdk_client",
+      workflowGraphId: input.workflowGraphId,
+      workflow_graph_id: input.workflow_graph_id,
+      workflowNodeId: input.workflowNodeId ?? "runtime.lsp-diagnostics.repair.restore-preview",
+      workflow_node_id: input.workflow_node_id,
+    });
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "diagnostics.repair_decision.executed",
+      sourceEventKind: "LspDiagnostics.RepairDecisionExecuted",
+      itemId: `${threadId}:item:diagnostics-repair:${decisionId}`,
+      payload: {
+        event_kind: "LspDiagnosticsRepairDecisionExecuted",
+        decision_id: decisionId,
+        action: input.action ?? "restore_preview",
+        snapshot_id: snapshotId,
+        restore_preview_event_id: restorePreview.event?.event_id ?? null,
+      },
+      createdAt: new Date().toISOString(),
+      componentKind: "lsp_diagnostics_repair",
+      workflowNodeId: `${String(input.workflowNodeId ?? input.workflow_node_id ?? "runtime.lsp-diagnostics.repair.restore-preview")}.decision`,
+      receiptRefs: [`receipt_lsp_diagnostics_repair_${decisionId}`],
+      rollbackRefs: [snapshotId],
+    });
+    return {
+      schemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      schema_version: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      object: "ioi.runtime_diagnostics_repair_decision_execution",
+      threadId,
+      thread_id: threadId,
+      decisionId,
+      decision_id: decisionId,
+      action: String(input.action ?? "restore_preview"),
+      status: "completed",
+      snapshotId,
+      snapshot_id: snapshotId,
+      workflowGraphId: input.workflowGraphId ?? input.workflow_graph_id ?? null,
+      workflow_graph_id: input.workflow_graph_id ?? input.workflowGraphId ?? null,
+      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? "runtime.lsp-diagnostics.repair.restore-preview"),
+      workflow_node_id: String(input.workflow_node_id ?? input.workflowNodeId ?? "runtime.lsp-diagnostics.repair.restore-preview"),
+      restorePreview,
+      restore_preview: restorePreview,
+      restorePreviewEvent: restorePreview.event ?? null,
+      restore_preview_event: restorePreview.event ?? null,
+      event,
+      receiptRefs: event.receipt_refs,
+      receipt_refs: event.receipt_refs,
+      artifactRefs: restorePreview.artifactRefs,
+      artifact_refs: restorePreview.artifact_refs,
+      policyDecisionRefs: [decisionId],
+      policy_decision_refs: [decisionId],
+      rollbackRefs: [snapshotId],
+      rollback_refs: [snapshotId],
+      summary: `Executed diagnostics repair decision restore_preview for ${snapshotId}.`,
     };
   }
 
