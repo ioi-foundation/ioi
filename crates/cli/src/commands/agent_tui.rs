@@ -25,6 +25,12 @@ const TUI_THREAD_MODEL_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/model";
 const TUI_THREAD_THINKING_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/thinking";
 const TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/status";
 const TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/validate";
+const TUI_THREAD_MCP_SERVER_ENABLE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/mcp/servers/{server_id}/enable";
+const TUI_THREAD_MCP_SERVER_DISABLE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/mcp/servers/{server_id}/disable";
+const TUI_THREAD_MCP_TOOL_INVOKE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke";
 const TUI_THREAD_MEMORY_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/status";
 const TUI_THREAD_MEMORY_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/validate";
 const TUI_THREAD_MEMORY_POLICY_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/policy";
@@ -761,6 +767,63 @@ pub(crate) async fn validate_tui_mcp(
     .await
 }
 
+pub(crate) async fn set_tui_mcp_server_enabled(
+    thread_id: &str,
+    server_id: &str,
+    enabled: bool,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let template = if enabled {
+        TUI_THREAD_MCP_SERVER_ENABLE_ROUTE_TEMPLATE
+    } else {
+        TUI_THREAD_MCP_SERVER_DISABLE_ROUTE_TEMPLATE
+    };
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_mcp_server(template, thread_id, server_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": if enabled { "OperatorControl.McpEnable" } else { "OperatorControl.McpDisable" },
+            "component_kind": "mcp_provider",
+            "workflow_node_id": format!("runtime.mcp-server.{}", safe_id(server_id)),
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn invoke_tui_mcp_tool(
+    thread_id: &str,
+    server_id: &str,
+    tool_name: &str,
+    input: Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let tool_id = format!("{server_id}.{tool_name}");
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_mcp_tool(TUI_THREAD_MCP_TOOL_INVOKE_ROUTE_TEMPLATE, thread_id, &tool_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.McpInvoke",
+            "component_kind": "mcp_tool_call",
+            "workflow_node_id": format!("runtime.mcp-tool.{}.{}", safe_id(server_id), safe_id(tool_name)),
+            "server_id": server_id,
+            "tool_name": tool_name,
+            "input": input,
+            "side_effect_class": "read",
+        })),
+    )
+    .await
+}
+
 pub(crate) async fn inspect_tui_memory_status(
     thread_id: &str,
     endpoint: &str,
@@ -1357,6 +1420,7 @@ pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> 
                 "cursor": cursor.clone(),
                 "mcp_server_id": server_id,
                 "mcp_tool_name": Value::Null,
+                "mcp_operation": if json_path_string(server, "/status").unwrap_or_else(|| "configured".to_string()) == "disabled" { "disable" } else { "status" },
                 "workflow_node_id": "runtime.mcp-manager",
                 "receipt_refs": receipt_refs.clone(),
                 "policy_decision_refs": policy_refs.clone(),
@@ -1384,6 +1448,7 @@ pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> 
                 "cursor": cursor.clone(),
                 "mcp_server_id": server_id,
                 "mcp_tool_name": tool_name,
+                "mcp_operation": "catalog",
                 "workflow_node_id": json_path_string(tool, "/workflow_node_id")
                     .or_else(|| json_path_string(tool, "/workflowNodeId"))
                     .unwrap_or_else(|| "runtime.mcp-tool".to_string()),
@@ -1391,6 +1456,44 @@ pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> 
                 "policy_decision_refs": policy_refs.clone(),
             }));
         }
+    }
+    if let Some(invocation) = status.pointer("/invocation").or_else(|| {
+        if json_path_string(status, "/tool_call_id").is_some() {
+            Some(status)
+        } else {
+            None
+        }
+    }) {
+        let server_id = json_path_string(invocation, "/server_id")
+            .or_else(|| json_path_string(invocation, "/serverId"))
+            .unwrap_or_else(|| "mcp.unknown".to_string());
+        let tool_name = json_path_string(invocation, "/tool_name")
+            .or_else(|| json_path_string(invocation, "/toolName"))
+            .unwrap_or_else(|| "unknown".to_string());
+        let tool_call_id = json_path_string(invocation, "/tool_call_id")
+            .or_else(|| json_path_string(invocation, "/toolCallId"))
+            .unwrap_or_else(|| format!("{}:{}", server_id, tool_name));
+        rows.push(serde_json::json!({
+            "id": format!("tui-mcp-invoke-{}", safe_id(&tool_call_id)),
+            "row_kind": "mcp_tool",
+            "status": json_path_string(invocation, "/status").unwrap_or_else(|| "completed".to_string()),
+            "label": "MCP invocation",
+            "command": "mcp",
+            "raw_input": "/mcp invoke",
+            "message": json_path_string(status, "/summary")
+                .unwrap_or_else(|| format!("{} · {}", server_id, tool_name)),
+            "thread_id": thread_id.clone(),
+            "event_id": event_id.clone(),
+            "cursor": cursor.clone(),
+            "mcp_server_id": server_id,
+            "mcp_tool_name": tool_name,
+            "mcp_tool_call_id": tool_call_id,
+            "mcp_operation": "invoke",
+            "workflow_node_id": json_path_string(status, "/event/workflow_node_id")
+                .unwrap_or_else(|| "runtime.mcp-tool".to_string()),
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_refs.clone(),
+        }));
     }
     rows
 }
@@ -1909,6 +2012,14 @@ fn route_with_thread_and_turn(template: &str, thread_id: &str, turn_id: &str) ->
 
 fn route_with_thread_and_approval(template: &str, thread_id: &str, approval_id: &str) -> String {
     route_with_thread(template, thread_id).replace("{approval_id}", approval_id)
+}
+
+fn route_with_thread_and_mcp_server(template: &str, thread_id: &str, server_id: &str) -> String {
+    route_with_thread(template, thread_id).replace("{server_id}", server_id)
+}
+
+fn route_with_thread_and_mcp_tool(template: &str, thread_id: &str, tool_id: &str) -> String {
+    route_with_thread(template, thread_id).replace("{tool_id}", tool_id)
 }
 
 fn route_with_thread_and_snapshot(template: &str, thread_id: &str, snapshot_id: &str) -> String {

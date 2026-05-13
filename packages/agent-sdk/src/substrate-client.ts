@@ -37,6 +37,7 @@ import type {
   RuntimeAccountProfile,
   RuntimeEventEnvelope,
   RuntimeMcpServerEntry,
+  RuntimeMcpInvocationResult,
   RuntimeMcpStatus,
   RuntimeMcpToolEntry,
   RuntimeMcpValidationResult,
@@ -306,7 +307,34 @@ export interface RuntimeMcpValidationInput {
   [key: string]: unknown;
 }
 
-export interface RuntimeThreadMcpInput extends RuntimeMcpValidationInput {
+export interface RuntimeMcpServerControlInput extends RuntimeMcpValidationInput {
+  threadId?: string;
+  thread_id?: string;
+  serverId?: string;
+  server_id?: string;
+  enabled?: boolean;
+}
+
+export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
+  threadId?: string;
+  thread_id?: string;
+  serverId?: string;
+  server_id?: string;
+  toolId?: string;
+  tool_id?: string;
+  toolName?: string;
+  tool_name?: string;
+  tool?: string;
+  input?: Record<string, unknown>;
+  arguments?: Record<string, unknown>;
+  sideEffectClass?: string;
+  side_effect_class?: string;
+  requiresApproval?: boolean;
+  requires_approval?: boolean;
+  approved?: boolean;
+}
+
+export interface RuntimeThreadMcpInput extends RuntimeMcpServerControlInput {
   turnId?: string;
   turn_id?: string;
   idempotencyKey?: string;
@@ -778,11 +806,28 @@ export interface RuntimeSubstrateClient {
   listMcpServers(options?: RuntimeMcpListOptions): Promise<RuntimeMcpServerEntry[]>;
   listMcpTools(options?: RuntimeMcpListOptions): Promise<RuntimeMcpToolEntry[]>;
   validateMcp(input?: RuntimeMcpValidationInput): Promise<RuntimeMcpValidationResult>;
+  enableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
+  disableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
+  invokeMcpTool(input?: RuntimeMcpToolInvokeInput): Promise<RuntimeMcpInvocationResult>;
   threadMcpStatus(threadId: string, input?: RuntimeThreadMcpInput): Promise<RuntimeMcpStatus>;
   validateThreadMcp(
     threadId: string,
     input?: RuntimeThreadMcpInput,
   ): Promise<RuntimeMcpValidationResult>;
+  enableThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input?: RuntimeMcpServerControlInput,
+  ): Promise<RuntimeMcpStatus>;
+  disableThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input?: RuntimeMcpServerControlInput,
+  ): Promise<RuntimeMcpStatus>;
+  invokeThreadMcpTool(
+    threadId: string,
+    input?: RuntimeMcpToolInvokeInput,
+  ): Promise<RuntimeMcpInvocationResult>;
   getMemoryStatus(options?: RuntimeMemoryStatusOptions): Promise<RuntimeMemoryStatus>;
   validateMemory(input?: RuntimeMemoryValidationInput): Promise<RuntimeMemoryValidationResult>;
   threadMemoryStatus(threadId: string, input?: RuntimeThreadMemoryInput): Promise<RuntimeMemoryStatus>;
@@ -1171,6 +1216,49 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     });
   }
 
+  async enableMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "enableMcpServer",
+      "POST",
+      `/v1/mcp/servers/${encodePath(serverId)}/enable`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async disableMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "disableMcpServer",
+      "POST",
+      `/v1/mcp/servers/${encodePath(serverId)}/disable`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async invokeMcpTool(input: RuntimeMcpToolInvokeInput = {}): Promise<RuntimeMcpInvocationResult> {
+    const toolId = input.toolId ?? input.tool_id ?? `${input.serverId ?? input.server_id ?? "mcp"}.${input.toolName ?? input.tool_name ?? input.tool ?? "tool"}`;
+    return this.request(
+      "invokeMcpTool",
+      "POST",
+      `/v1/mcp/tools/${encodePath(toolId)}/invoke`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
   async threadMcpStatus(
     threadId: string,
     input: RuntimeThreadMcpInput = {},
@@ -1194,6 +1282,54 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "validateThreadMcp",
       "POST",
       `/v1/threads/${encodePath(threadId)}/mcp/validate`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async enableThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "enableThreadMcpServer",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/servers/${encodePath(serverId)}/enable`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async disableThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "disableThreadMcpServer",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/servers/${encodePath(serverId)}/disable`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async invokeThreadMcpTool(
+    threadId: string,
+    input: RuntimeMcpToolInvokeInput = {},
+  ): Promise<RuntimeMcpInvocationResult> {
+    const toolId = input.toolId ?? input.tool_id ?? `${input.serverId ?? input.server_id ?? "mcp"}.${input.toolName ?? input.tool_name ?? input.tool ?? "tool"}`;
+    return this.request(
+      "invokeThreadMcpTool",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/tools/${encodePath(toolId)}/invoke`,
       {
         source: "sdk_client",
         ...input,
@@ -2826,6 +2962,33 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     };
   }
 
+  async enableMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.threadMcpStatus(input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id), {
+      ...input,
+      serverId,
+      enabled: true,
+    });
+  }
+
+  async disableMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.threadMcpStatus(input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id), {
+      ...input,
+      serverId,
+      enabled: false,
+    });
+  }
+
+  async invokeMcpTool(input: RuntimeMcpToolInvokeInput = {}): Promise<RuntimeMcpInvocationResult> {
+    const threadId = input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id);
+    return this.invokeThreadMcpTool(threadId, input);
+  }
+
   async threadMcpStatus(threadId: string, input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpStatus> {
     return {
       ...(await this.getMcpStatus({ threadId })),
@@ -2841,6 +3004,93 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         createdAt: new Date().toISOString(),
         componentKind: "mcp_provider",
         workflowNodeId: "runtime.mcp-manager",
+      }),
+    };
+  }
+
+  async enableThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return {
+      ...(await this.threadMcpStatus(threadId, input)),
+      status: "ready",
+      servers: (await this.listMcpServers({ threadId })).map((server) =>
+        server.id === serverId || server.label === serverId
+          ? { ...server, enabled: true, status: "configured" }
+          : server,
+      ),
+    };
+  }
+
+  async disableThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input: RuntimeMcpServerControlInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return {
+      ...(await this.threadMcpStatus(threadId, input)),
+      servers: (await this.listMcpServers({ threadId })).map((server) =>
+        server.id === serverId || server.label === serverId
+          ? { ...server, enabled: false, status: "disabled" }
+          : server,
+      ),
+    };
+  }
+
+  async invokeThreadMcpTool(
+    threadId: string,
+    input: RuntimeMcpToolInvokeInput = {},
+  ): Promise<RuntimeMcpInvocationResult> {
+    const serverId = input.serverId ?? input.server_id ?? "mcp.mock";
+    const toolName = input.toolName ?? input.tool_name ?? input.tool ?? "query";
+    const toolCallId = `mcp_call_${String(serverId).replace(/[^a-zA-Z0-9_.-]+/g, "_")}_${String(toolName).replace(/[^a-zA-Z0-9_.-]+/g, "_")}`;
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    return {
+      schema_version: "ioi.runtime.mcp-manager-invocation.v1",
+      schemaVersion: "ioi.runtime.mcp-manager-invocation.v1",
+      object: "ioi.runtime_mcp_tool_invocation",
+      event_kind: "McpToolInvocation",
+      control_kind: "mcp_invoke",
+      tool_call_id: toolCallId,
+      toolCallId,
+      thread_id: threadId,
+      threadId,
+      agent_id: agent.id,
+      agentId: agent.id,
+      server_id: serverId,
+      serverId,
+      tool_name: toolName,
+      toolName,
+      status: input.requiresApproval && !input.approved ? "blocked" : "completed",
+      input_hash: "mock-input",
+      inputHash: "mock-input",
+      output_hash: "mock-output",
+      outputHash: "mock-output",
+      side_effect_class: input.sideEffectClass ?? input.side_effect_class ?? "read",
+      sideEffectClass: input.sideEffectClass ?? input.side_effect_class ?? "read",
+      requires_approval: Boolean(input.requiresApproval ?? input.requires_approval),
+      requiresApproval: Boolean(input.requiresApproval ?? input.requires_approval),
+      approved: Boolean(input.approved),
+      blockers: input.requiresApproval && !input.approved ? ["approval_required"] : [],
+      result: { ok: true, fixture: true, serverId, toolName },
+      receipt_refs: [`receipt_${toolCallId}`],
+      receiptRefs: [`receipt_${toolCallId}`],
+      policy_decision_refs: [`policy_${toolCallId}`],
+      policyDecisionRefs: [`policy_${toolCallId}`],
+      event: mockRuntimeEventEnvelope({
+        agent,
+        threadId,
+        streamId: eventStreamIdForThread(threadId),
+        seq: this.threadRuntimeEvents(agent).length + 1,
+        eventKind: "mcp.tool_invocation",
+        sourceEventKind: "OperatorControl.McpInvoke",
+        itemId: `${threadId}:item:mcp-invoke`,
+        payload: { event_kind: "McpToolInvocation", source: input.source ?? "sdk_client" },
+        createdAt: new Date().toISOString(),
+        componentKind: "mcp_tool_call",
+        workflowNodeId: `runtime.mcp-tool.${serverId}.${toolName}`,
       }),
     };
   }

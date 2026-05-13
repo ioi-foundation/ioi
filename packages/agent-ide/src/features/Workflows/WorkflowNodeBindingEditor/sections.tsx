@@ -1169,6 +1169,9 @@ export function WorkflowNodeBindingSections({
                     | "write"
                     | "append"
                     | "merge"
+                    | "mcp_status"
+                    | "mcp_enable"
+                    | "mcp_disable"
                     | "memory_status"
                     | "memory_policy"
                     | "memory_search"
@@ -1186,12 +1189,31 @@ export function WorkflowNodeBindingSections({
               <option value="write">Write</option>
               <option value="append">Append</option>
               <option value="merge">Merge</option>
+              <option value="mcp_status">MCP status</option>
+              <option value="mcp_enable">MCP enable</option>
+              <option value="mcp_disable">MCP disable</option>
               <option value="memory_status">Memory status</option>
               <option value="memory_policy">Memory policy</option>
               <option value="memory_search">Memory search</option>
               <option value="memory_list">Memory list</option>
             </select>
           </label>
+          {logic.stateOperation === "mcp_status" ||
+          logic.stateOperation === "mcp_enable" ||
+          logic.stateOperation === "mcp_disable" ? (
+            <>
+              <label>
+                MCP server
+                <input
+                  data-testid="workflow-state-mcp-server-id"
+                  value={String(logic.mcpServerId ?? "")}
+                  onChange={(event) =>
+                    updateLogic({ ...logic, mcpServerId: event.target.value })
+                  }
+                />
+              </label>
+            </>
+          ) : null}
           {logic.stateOperation === "memory_status" ||
           logic.stateOperation === "memory_policy" ||
           logic.stateOperation === "memory_search" ||

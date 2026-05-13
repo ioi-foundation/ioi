@@ -2891,6 +2891,9 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
             "write",
             "append",
             "merge",
+            "mcp_status",
+            "mcp_enable",
+            "mcp_disable",
             "memory_status",
             "memory_policy",
             "memory_search",
@@ -4108,6 +4111,41 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
     },
   });
+  const mcpStatus = creatorDefinition("state", {
+    creatorId: "mcp.status",
+    label: "MCP status",
+    description: "Inspect daemon-owned MCP server and tool status.",
+    metricValue: "mcp",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_status",
+      reducer: "replace",
+    },
+  });
+  const mcpServerEnable = creatorDefinition("state", {
+    creatorId: "mcp.server.enable",
+    label: "Enable MCP server",
+    description: "Enable an MCP server in the active runtime registry.",
+    metricValue: "enable",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_enable",
+      reducer: "replace",
+      mcpServerId: "",
+    },
+  });
+  const mcpServerDisable = creatorDefinition("state", {
+    creatorId: "mcp.server.disable",
+    label: "Disable MCP server",
+    description: "Disable an MCP server in the active runtime registry.",
+    metricValue: "disable",
+    defaultLogic: {
+      stateKey: "mcp",
+      stateOperation: "mcp_disable",
+      reducer: "replace",
+      mcpServerId: "",
+    },
+  });
   const memoryStatus = creatorDefinition("state", {
     creatorId: "memory.status",
     label: "Memory status",
@@ -4234,6 +4272,9 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelEmbedding,
     modelEvaluator,
     stateRead,
+    mcpStatus,
+    mcpServerEnable,
+    mcpServerDisable,
     memoryStatus,
     memoryPolicy,
     memorySearch,

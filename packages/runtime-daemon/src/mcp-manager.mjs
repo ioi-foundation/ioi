@@ -6,6 +6,8 @@ export const RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status.v1";
 export const RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-validation.v1";
+export const RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION =
+  "ioi.runtime.mcp-manager-invocation.v1";
 
 export function mcpRegistryForWorkspace(cwd, options = {}) {
   const workspaceRoot = path.resolve(options.local?.cwd ?? cwd ?? process.cwd());
