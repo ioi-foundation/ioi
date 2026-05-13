@@ -124,14 +124,14 @@ fn agent_event_stream_target(args: &AgentEventStreamArgs) -> Result<AgentEventSt
     }
 }
 
-fn resolve_daemon_endpoint(endpoint: Option<&str>) -> String {
+pub(crate) fn resolve_daemon_endpoint(endpoint: Option<&str>) -> String {
     endpoint
         .map(ToOwned::to_owned)
         .or_else(|| std::env::var("IOI_DAEMON_ENDPOINT").ok())
         .unwrap_or_else(|| DEFAULT_DAEMON_ENDPOINT.to_string())
 }
 
-fn resolve_daemon_token(token: Option<&str>) -> Option<String> {
+pub(crate) fn resolve_daemon_token(token: Option<&str>) -> Option<String> {
     token
         .map(ToOwned::to_owned)
         .or_else(|| std::env::var("IOI_DAEMON_TOKEN").ok())
@@ -158,7 +158,7 @@ fn runtime_event_route_with_cursor(
     route
 }
 
-fn runtime_event_url(endpoint: &str, route: &str) -> String {
+pub(crate) fn runtime_event_url(endpoint: &str, route: &str) -> String {
     format!(
         "{}/{}",
         endpoint.trim_end_matches('/'),
@@ -166,7 +166,7 @@ fn runtime_event_url(endpoint: &str, route: &str) -> String {
     )
 }
 
-async fn fetch_runtime_event_stream(
+pub(crate) async fn fetch_runtime_event_stream(
     url: &str,
     token: Option<&str>,
     last_event_id: Option<&str>,
@@ -259,7 +259,7 @@ fn parse_runtime_event_sse_blocks(text: &str) -> Result<Vec<serde_json::Value>> 
         .collect()
 }
 
-fn json_scalar_string(value: &serde_json::Value) -> Option<String> {
+pub(crate) fn json_scalar_string(value: &serde_json::Value) -> Option<String> {
     match value {
         serde_json::Value::String(value) => Some(value.clone()),
         serde_json::Value::Number(value) => Some(value.to_string()),
@@ -268,7 +268,7 @@ fn json_scalar_string(value: &serde_json::Value) -> Option<String> {
     }
 }
 
-fn json_path_string(value: &serde_json::Value, path: &str) -> Option<String> {
+pub(crate) fn json_path_string(value: &serde_json::Value, path: &str) -> Option<String> {
     value.pointer(path).and_then(json_scalar_string)
 }
 
@@ -296,7 +296,7 @@ fn append_runtime_event_refs(fields: &mut Vec<String>, label: &str, refs: Vec<St
     }
 }
 
-fn format_runtime_event_line(event: &serde_json::Value) -> String {
+pub(crate) fn format_runtime_event_line(event: &serde_json::Value) -> String {
     let seq = json_path_string(event, "/seq").unwrap_or_else(|| "?".to_string());
     let stream = json_path_string(event, "/event_stream_id").unwrap_or_else(|| "?".to_string());
     let cursor = if seq == "?" || stream == "?" {

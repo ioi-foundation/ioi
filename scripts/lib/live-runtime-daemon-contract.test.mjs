@@ -3335,12 +3335,14 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
     "crates/cli/src/commands/agent_event_stream.rs",
+    "crates/cli/src/commands/agent_tui.rs",
   ].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
   assert.match(source, /AgentCommands::Model/);
   assert.match(source, /AgentCommands::Thinking/);
   assert.match(source, /AgentCommands::Memory/);
   assert.match(source, /AgentCommands::Doctor/);
   assert.match(source, /AgentCommands::Stream/);
+  assert.match(source, /AgentCommands::Tui/);
   assert.match(source, /AgentCommands::Interrupt/);
   assert.match(source, /AgentCommands::Steer/);
   assert.match(source, /AgentCommands::Compact/);
@@ -3361,6 +3363,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{id\}\/events/);
   assert.match(source, /\/v1\/threads\/\{id\}\/events\/stream/);
   assert.match(source, /\/v1\/runs\/\{id\}\/events/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/compact/);
@@ -3376,6 +3380,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /Last-Event-ID/);
   assert.match(source, /parse_runtime_event_sse_blocks/);
   assert.match(source, /format_runtime_event_line/);
+  assert.match(source, /TUI_PRIVATE_RUNTIME_LOOP: bool = false/);
+  assert.match(source, /ioi\.agent-cli\.tui\.v1/);
   assert.match(source, /event_kind/);
   assert.match(source, /component_kind/);
   assert.match(source, /workflow_node_id/);
@@ -3385,6 +3391,114 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /ioi\.agent-runtime\.skills\.v1/);
   assert.match(source, /ioi\.agent-runtime\.hooks\.v1/);
   assert.match(source, /reactflow_workflow_node/);
+});
+
+test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", () => {
+  const source = fs.readFileSync(path.join(root, "crates/cli/src/commands/agent_tui.rs"), "utf8");
+  assert.match(source, /TUI_PRIVATE_RUNTIME_LOOP: bool = false/);
+  assert.match(source, /TUI_THREAD_CREATE_ROUTE/);
+  assert.match(source, /TUI_EVENT_STREAM_ROUTE_TEMPLATE/);
+  assert.match(source, /fetch_runtime_event_stream/);
+  assert.match(source, /daemon_request/);
+  assert.match(source, /OperatorControl\.Interrupt/);
+  assert.match(source, /OperatorControl\.Steer/);
+  assert.match(source, /workflow_node_ids/);
+  assert.doesNotMatch(source, /CliAgentRuntimeClient/);
+  assert.doesNotMatch(source, /submit_runtime_call/);
+  assert.doesNotMatch(source, /StartAgentParams/);
+  assert.doesNotMatch(source, /StepAgentParams/);
+});
+
+test("agent TUI thin shell starts a live thread, replays by cursor, and controls through daemon endpoints", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const cli = cliBinary();
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-tui";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const result = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--goal",
+        "Prove the thin terminal UI uses the live daemon runtime.",
+        "--message",
+        "Render canonical events and then accept an operator interrupt.",
+        "--runtime-profile",
+        "runtime_service",
+        "--model",
+        "auto",
+        "--route-id",
+        "route.native-local",
+        "--cwd",
+        cwd,
+        "--interrupt",
+        "--reason",
+        "tui validation interrupt",
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.schema_version, "ioi.agent-cli.tui.v1");
+    assert.equal(payload.surface, "tui");
+    assert.equal(payload.private_runtime_loop, false);
+    assert.ok(payload.thread.thread_id);
+    assert.ok(payload.submitted_turn.turn_id);
+    assert.equal(payload.control.status, "interrupted");
+    assert.equal(payload.control.stop_reason, "operator_interrupt");
+    assert.match(payload.event_route, new RegExp(`/v1/threads/${payload.thread.thread_id}/events\\?since_seq=0`));
+    assert.ok(payload.event_count >= 3);
+    assert.ok(payload.workflow_node_ids.includes("runtime.operator-interrupt"));
+    const interruptEvent = payload.events.find(
+      (event) => event.source_event_kind === "OperatorControl.Interrupt",
+    );
+    assert.ok(interruptEvent);
+    assert.equal(interruptEvent.source, "cli_tui");
+    assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
+
+    const replay = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        payload.thread.thread_id,
+        "--last-event-id",
+        interruptEvent.event_id,
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const replayPayload = JSON.parse(replay.stdout);
+    assert.equal(replayPayload.schema_version, "ioi.agent-cli.tui.v1");
+    assert.equal(replayPayload.thread.thread_id, payload.thread.thread_id);
+    assert.equal(replayPayload.last_event_id, interruptEvent.event_id);
+    assert.equal(replayPayload.event_count, 0);
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
 });
 
 test("React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable", () => {

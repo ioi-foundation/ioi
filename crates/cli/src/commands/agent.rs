@@ -1,6 +1,7 @@
 // Path: crates/cli/src/commands/agent.rs
 
 use super::agent_event_stream::{stream_agent_events, AgentEventStreamArgs};
+use super::agent_tui::{run_agent_tui, AgentTuiArgs};
 use super::model_mount_http::daemon_request;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
@@ -224,6 +225,8 @@ pub enum AgentCommands {
     Events(SnapshotArgs),
     /// Stream canonical thread/run events for CLI and TUI inspectors.
     Stream(AgentEventStreamArgs),
+    /// Open the thin daemon-backed terminal agent UI over canonical thread events.
+    Tui(AgentTuiArgs),
     /// Fork a canonical runtime thread through the daemon control endpoint.
     Fork {
         /// Runtime thread id to fork.
@@ -507,6 +510,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         } => print_status(session_id, step, rpc, json).await,
         AgentCommands::Events(args) => print_events(args).await,
         AgentCommands::Stream(args) => stream_agent_events(args).await,
+        AgentCommands::Tui(args) => run_agent_tui(args).await,
         AgentCommands::Fork {
             thread_id,
             reason,
@@ -1828,6 +1832,49 @@ mod tests {
                 ..
             }))
         ));
+
+        let tui = AgentArgs::try_parse_from([
+            "agent",
+            "tui",
+            "--goal",
+            "Validate the thin terminal UI",
+            "--message",
+            "stream canonical thread events",
+            "--runtime-profile",
+            "runtime_service",
+            "--model",
+            "auto",
+            "--route-id",
+            "route.native-local",
+            "--cwd",
+            "/tmp/ioi-workspace",
+            "--interrupt",
+            "--reason",
+            "operator validation",
+            "--since-seq",
+            "0",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--json",
+        ])
+        .expect("tui command should parse");
+        match tui.command {
+            Some(AgentCommands::Tui(args)) => {
+                assert_eq!(args.goal.as_deref(), Some("Validate the thin terminal UI"));
+                assert_eq!(
+                    args.message.as_deref(),
+                    Some("stream canonical thread events")
+                );
+                assert_eq!(args.runtime_profile.as_deref(), Some("runtime_service"));
+                assert_eq!(args.model.as_deref(), Some("auto"));
+                assert_eq!(args.route_id.as_deref(), Some("route.native-local"));
+                assert_eq!(args.cwd.as_deref(), Some("/tmp/ioi-workspace"));
+                assert!(args.interrupt);
+                assert_eq!(args.since_seq, Some(0));
+                assert!(args.json);
+            }
+            other => panic!("expected tui command, got {other:?}"),
+        }
 
         let fork = AgentArgs::try_parse_from([
             "agent",
