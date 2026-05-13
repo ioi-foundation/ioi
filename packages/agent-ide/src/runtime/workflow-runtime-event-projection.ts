@@ -177,11 +177,18 @@ export interface WorkflowRuntimeEventProjection {
 
 export type WorkflowRuntimeTuiControlRowKind =
   | "summary"
+  | "mode_status"
+  | "approval"
+  | "approval_decision"
   | "command"
   | "validation_error";
 
 export type WorkflowRuntimeTuiControlRowStatus =
   | "current"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "blocked"
   | "accepted"
   | "applied"
   | "failed"
@@ -200,6 +207,12 @@ export interface WorkflowRuntimeTuiControlStateInput {
   last_cursor?: string | null;
   lastEventId?: string | null;
   last_event_id?: string | null;
+  modeStatus?: unknown;
+  mode_status?: unknown;
+  approvalRows?: unknown[];
+  approval_rows?: unknown[];
+  approvalDecisions?: unknown[];
+  approval_decisions?: unknown[];
   commandHistory?: unknown[];
   command_history?: unknown[];
   validationErrors?: unknown[];
@@ -214,11 +227,14 @@ export interface WorkflowRuntimeTuiControlStateRow {
   command: string | null;
   rawInput: string | null;
   message: string | null;
+  approvalId: string | null;
   threadId: string | null;
   turnId: string | null;
   cursor: string | null;
   eventId: string | null;
   sequence: number | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
   reactFlowNodeId: string;
 }
 
@@ -232,6 +248,8 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   lastEventId: string | null;
   commandCount: number;
   validationErrorCount: number;
+  approvalCount: number;
+  approvalDecisionCount: number;
   rowCount: number;
   rows: WorkflowRuntimeTuiControlStateRow[];
 }
@@ -311,6 +329,13 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     "validationErrors",
     "validation_errors",
   );
+  const modeStatus = recordField(state, "modeStatus", "mode_status");
+  const approvalRows = arrayField(state, "approvalRows", "approval_rows");
+  const approvalDecisions = arrayField(
+    state,
+    "approvalDecisions",
+    "approval_decisions",
+  );
   const rows: WorkflowRuntimeTuiControlStateRow[] = [];
 
   if (threadId || currentTurnId || lastCursor || lastEventId) {
@@ -322,14 +347,107 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       command: null,
       rawInput: null,
       message: currentTurnId ? `Current turn ${currentTurnId}` : "No active turn",
+      approvalId: null,
       threadId,
       turnId: currentTurnId,
       cursor: lastCursor,
       eventId: lastEventId,
       sequence: null,
+      receiptRefs: [],
+      policyDecisionRefs: [],
       reactFlowNodeId: "runtime.tui-control-state",
     });
   }
+
+  if (modeStatus) {
+    const mode = stringField(modeStatus, "mode") ?? "agent";
+    const approvalMode =
+      stringField(modeStatus, "approvalMode", "approval_mode") ?? "suggest";
+    const trustProfile =
+      stringField(modeStatus, "trustProfile", "trust_profile") ??
+      "local_private";
+    rows.push({
+      id: `tui-mode-status:${slug(threadId ?? "detached")}`,
+      rowKind: "mode_status",
+      status: "current",
+      label: "Mode status",
+      command: null,
+      rawInput: null,
+      message: `${mode} · ${approvalMode} · ${trustProfile}`,
+      approvalId: null,
+      threadId,
+      turnId: currentTurnId,
+      cursor: lastCursor,
+      eventId: lastEventId,
+      sequence: null,
+      receiptRefs: [],
+      policyDecisionRefs: [],
+      reactFlowNodeId: "runtime.tui-control-state.mode-status",
+    });
+  }
+
+  approvalRows.forEach((entry, index) => {
+    const approvalId = stringField(entry, "approvalId", "approval_id");
+    const status = tuiControlRowStatus(stringField(entry, "status"));
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    rows.push({
+      id: stringField(entry, "id") ?? `tui-approval:${approvalId ?? sequence}`,
+      rowKind: "approval",
+      status,
+      label: approvalId ? `Approval ${approvalId}` : "Approval required",
+      command: null,
+      rawInput: null,
+      message: stringField(entry, "message", "summary") ?? "Waiting for operator decision",
+      approvalId,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        `runtime.approval.${slug(approvalId ?? String(sequence))}`,
+    });
+  });
+
+  approvalDecisions.forEach((entry, index) => {
+    const approvalId = stringField(entry, "approvalId", "approval_id");
+    const decision = stringField(entry, "decision");
+    const status = tuiControlRowStatus(stringField(entry, "status") ?? decision);
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-approval-decision:${approvalId ?? sequence}`,
+      rowKind: "approval_decision",
+      status,
+      label: decision ? `Approval ${decision}` : "Approval decision",
+      command: decision,
+      rawInput: null,
+      message: stringField(entry, "message", "reason") ?? approvalId,
+      approvalId,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        `runtime.approval.${slug(approvalId ?? String(sequence))}`,
+    });
+  });
 
   commandHistory.forEach((entry, index) => {
     const command = stringField(entry, "command");
@@ -344,11 +462,18 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       command,
       rawInput,
       message: stringField(entry, "message"),
+      approvalId: stringField(entry, "approvalId", "approval_id"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
       eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
       sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
       reactFlowNodeId: `runtime.tui-control-state.command.${slug(command ?? String(sequence))}`,
     });
   });
@@ -365,11 +490,14 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       command,
       rawInput,
       message: stringField(entry, "message", "error") ?? "Invalid TUI command",
+      approvalId: stringField(entry, "approvalId", "approval_id"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
       eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
       sequence,
+      receiptRefs: [],
+      policyDecisionRefs: [],
       reactFlowNodeId: `runtime.tui-control-state.validation.${slug(command ?? String(sequence))}`,
     });
   });
@@ -384,6 +512,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     lastEventId,
     commandCount: commandHistory.length,
     validationErrorCount: validationErrors.length,
+    approvalCount: approvalRows.length,
+    approvalDecisionCount: approvalDecisions.length,
     rowCount: rows.length,
     rows,
   };
@@ -682,11 +812,18 @@ function projectedStatusForRuntimeThreadEvent(
   if (normalizedStatus.includes("failed") || normalizedStatus.includes("error")) {
     return "failed";
   }
+  if (normalizedStatus.includes("rejected") || normalizedStatus.includes("denied")) {
+    return "blocked";
+  }
   if (normalizedStatus.includes("canceled") || normalizedStatus.includes("cancelled")) {
     return "canceled";
   }
   if (normalizedStatus.includes("interrupted")) return "interrupted";
-  if (normalizedStatus.includes("completed") || normalizedStatus.includes("succeeded")) {
+  if (
+    normalizedStatus.includes("completed") ||
+    normalizedStatus.includes("succeeded") ||
+    normalizedStatus.includes("approved")
+  ) {
     return "completed";
   }
   return "unknown";
@@ -808,16 +945,51 @@ function arrayField(
   return Array.isArray(candidate) ? candidate : [];
 }
 
+function recordField(
+  value: unknown,
+  camelKey: string,
+  snakeKey?: string,
+): Record<string, unknown> | null {
+  const objectValue = objectField(value);
+  if (!objectValue) return null;
+  const candidate =
+    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  return objectField(candidate);
+}
+
+function stringArrayField(
+  value: unknown,
+  camelKey: string,
+  snakeKey?: string,
+): string[] {
+  return arrayField(value, camelKey, snakeKey).filter(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && Boolean(candidate.trim()),
+  );
+}
+
 function tuiControlRowStatus(
   status: string | null,
 ): WorkflowRuntimeTuiControlRowStatus {
-  switch (status) {
+  const normalizedStatus = status?.toLowerCase() ?? null;
+  if (normalizedStatus === "approve") return "approved";
+  if (normalizedStatus === "reject") return "rejected";
+  if (normalizedStatus?.includes("waiting")) return "pending";
+  if (normalizedStatus?.includes("approved")) return "approved";
+  if (normalizedStatus?.includes("rejected") || normalizedStatus?.includes("denied")) {
+    return "rejected";
+  }
+  switch (normalizedStatus) {
     case "current":
+    case "pending":
+    case "approved":
+    case "rejected":
+    case "blocked":
     case "accepted":
     case "applied":
     case "failed":
     case "validation_error":
-      return status;
+      return normalizedStatus;
     default:
       return "unknown";
   }

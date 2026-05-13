@@ -287,6 +287,27 @@ test("workflow run history model projects TUI control state for run inspector", 
       thread_id: "thread",
       current_turn_id: "turn-a",
       last_cursor: "events_thread:9",
+      mode_status: {
+        mode: "agent",
+        approval_mode: "suggest",
+        trust_profile: "local_private",
+      },
+      approval_rows: [
+        {
+          approval_id: "approval-a",
+          status: "pending",
+          workflow_node_id: "runtime.approval.approval-a",
+        },
+      ],
+      approval_decisions: [
+        {
+          approval_id: "approval-a",
+          decision: "reject",
+          status: "rejected",
+          receipt_refs: ["receipt-approval-rejected"],
+          policy_decision_refs: ["policy-approval-allow"],
+        },
+      ],
       command_history: [
         {
           id: "command-events",
@@ -324,6 +345,8 @@ test("workflow run history model projects TUI control state for run inspector", 
   assert.equal(model.tuiControlStateProjection.currentTurnId, "turn-a");
   assert.equal(model.tuiControlStateProjection.commandCount, 1);
   assert.equal(model.tuiControlStateProjection.validationErrorCount, 1);
+  assert.equal(model.tuiControlStateProjection.approvalCount, 1);
+  assert.equal(model.tuiControlStateProjection.approvalDecisionCount, 1);
   assert.deepEqual(
     model.tuiControlStateProjection.rows.map((row) => [
       row.rowKind,
@@ -332,9 +355,16 @@ test("workflow run history model projects TUI control state for run inspector", 
     ]),
     [
       ["summary", null, "current"],
+      ["mode_status", null, "current"],
+      ["approval", null, "pending"],
+      ["approval_decision", "reject", "rejected"],
       ["command", "events", "applied"],
       ["validation_error", "steer", "validation_error"],
     ],
+  );
+  assert.deepEqual(
+    model.tuiControlStateProjection.rows[3]?.receiptRefs,
+    ["receipt-approval-rejected"],
   );
 });
 

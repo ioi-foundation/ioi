@@ -1713,6 +1713,143 @@ export class AgentgresRuntimeStateStore {
     return this.turnForRun(updated);
   }
 
+  decideThreadApproval(threadId, approvalId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const normalizedApprovalId =
+      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
+      (() => {
+        throw runtimeError({
+          status: 400,
+          code: "approval_id_required",
+          message: "Approval decisions require an approval id.",
+          details: { threadId },
+        });
+      })();
+    const decision = approvalDecisionForRequest(request.decision ?? request.action ?? request.status);
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason = optionalString(request.reason ?? request.message ?? request.input) ?? null;
+    const runs = this.listRuns(agent.id);
+    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
+    let turnId = requestedTurnId ?? "";
+    let run = null;
+    if (turnId) {
+      run = this.getRun(runIdForTurn(turnId));
+      if (run.agentId !== agent.id) {
+        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
+      }
+    } else {
+      run = runs.at(-1) ?? null;
+      turnId = run ? turnIdForRun(run.id) : "";
+    }
+
+    const now = new Date().toISOString();
+    const status = decision === "approve" ? "approved" : "rejected";
+    const decisionVerb = decision === "approve" ? "Approve" : "Reject";
+    const decisionHash = crypto
+      .createHash("sha256")
+      .update(`${normalizedApprovalId}:${decision}:${reason ?? ""}:${requestedBy}`)
+      .digest("hex")
+      .slice(0, 16);
+    const workflowNodeId =
+      request.workflow_node_id ??
+      request.workflowNodeId ??
+      `runtime.approval.${safeId(normalizedApprovalId)}`;
+    const runOrAgentId = run?.id ?? agent.id;
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:approval-${decision}:${safeId(normalizedApprovalId)}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:approval.${decision}:${normalizedApprovalId}:${decisionHash}`,
+      source,
+      source_event_kind: `OperatorApproval.${decisionVerb}`,
+      event_kind: `approval.${status}`,
+      status,
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId,
+      component_kind: "approval_gate",
+      approval_id: normalizedApprovalId,
+      payload_schema_version: "ioi.runtime.approval-decision.v1",
+      payload: {
+        event_kind: `OperatorApproval.${decisionVerb}`,
+        approval_id: normalizedApprovalId,
+        decision,
+        status,
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: run?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [`receipt_${runOrAgentId}_approval_${decision}_${safeId(normalizedApprovalId)}_${decisionHash}`],
+      policy_decision_refs: [`policy_${runOrAgentId}_approval_${decision}_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "approval_decision",
+      approvalId: normalizedApprovalId,
+      decision,
+      status,
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    if (run) {
+      const updated = {
+        ...run,
+        updatedAt: event.created_at,
+        turnStatus: decision === "reject" ? "waiting_for_input" : run.turnStatus,
+        trace: {
+          ...run.trace,
+          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+          approvalDecisions: appendOperatorControl(run.trace?.approvalDecisions, control),
+        },
+        operatorControls: appendOperatorControl(run.operatorControls, control),
+        approvalDecisions: appendOperatorControl(run.approvalDecisions, control),
+      };
+      this.runs.set(run.id, updated);
+      this.writeRun(updated, `approval.${decision}`);
+      return {
+        ...this.turnForRun(updated),
+        approval_id: normalizedApprovalId,
+        decision,
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      };
+    }
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, `approval.${decision}`);
+    return {
+      ...this.threadForAgent(updatedAgent),
+      approval_id: normalizedApprovalId,
+      decision,
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+  }
+
   compactThread(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
     const runs = this.listRuns(agent.id);
@@ -4496,6 +4633,18 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "steer" && !segments[6]) {
     writeJsonResponse(response, store.steerTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "decision" && !segments[6]) {
+    writeJsonResponse(response, store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "approvals" && segments[4] && ["approve", "reject"].includes(segments[5]) && !segments[6]) {
+    const body = await readBody(request);
+    writeJsonResponse(response, store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), {
+      ...body,
+      decision: segments[5],
+    }));
     return;
   }
   if (request.method === "GET" && action === "turns" && !segments[4]) {
@@ -8268,6 +8417,22 @@ function optionalString(value) {
 function operatorControlSource(value) {
   const source = optionalString(value);
   return ["cli_tui", "react_flow", "sdk_client"].includes(source) ? source : "sdk_client";
+}
+
+function approvalDecisionForRequest(value) {
+  const decision = optionalString(value)?.toLowerCase();
+  if (["approve", "approved", "accept", "accepted", "allow", "allowed"].includes(decision)) {
+    return "approve";
+  }
+  if (["reject", "rejected", "deny", "denied", "block", "blocked"].includes(decision)) {
+    return "reject";
+  }
+  throw runtimeError({
+    status: 400,
+    code: "approval_decision_invalid",
+    message: "Approval decisions must be approve or reject.",
+    details: { decision: value ?? null },
+  });
 }
 
 function appendOperatorControl(controls, control) {

@@ -94,8 +94,9 @@ Strategic snapshot as of 2026-05-13:
   Flow read-only event projection, a thin daemon-backed `ioi agent tui` shell,
   TUI/workflow deep-link descriptors, a daemon-backed line-mode TUI loop,
   React Flow/TUI operator-control equivalence, durable TUI control-state
-  projection rows, and the first live controls (`interrupt`, `steer`,
-  `compact`, `fork`) all have cross-surface proofs.
+  projection rows, approval/mode-status rows, and the first live controls
+  (`interrupt`, `steer`, `compact`, `fork`, approval accept/reject) all have
+  cross-surface proofs.
 - React Flow workflow-authoring can now create those same runtime-control
   requests with preserved graph/node identity through daemon SSE, SDK events,
   CLI stream output, and the read-only React Flow projection.
@@ -108,9 +109,9 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: TUI control-state projection and run-inspector rows
+- 2026-05-13: TUI approval and mode-status control rows
 - Evidence:
-  `/tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json`
+  `/tmp/ioi-autopilot-gui-harness-tui-approval-mode-status/2026-05-13T02-46-20-811Z/result.json`
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -123,7 +124,7 @@ Completed-slice history belongs in the companion ledgers.
 
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
-| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/interrupt`, `/steer`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error control-state rows that React Flow can inspect. | Add the next user-facing TUI parity panel: approvals and mode/status controls, with daemon receipts and React Flow rows. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
+| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/approval control-state rows that React Flow can inspect. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract; otherwise move to P0-B coding tool pack. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
 | P0-B | Coding tool pack | Broad runtime tools exist, but a DeepSeek-style structured coding pack is not yet complete as one governed catalog. | Inspect, patch, git diff/status, test, artifact spillover, and retrieve output without shell-only fallbacks. | Tool-pack nodes can enable/disable git/test/shell/artifact capabilities independently. |
 | P0-C | Post-edit LSP diagnostics | Diagnostics are specified, but post-edit injection is not yet a live runtime feedback loop. | File edit emits LSP diagnostic events, injects compact findings before the next model call, and degrades cleanly when the LSP is missing. | `LspDiagnosticsNode` config changes runtime warning/error injection behavior. |
 | P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
@@ -134,13 +135,14 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Add a TUI approvals/mode-status control panel over the same daemon-backed
-   loop: pending approvals, current mode/trust posture, and explicit accept or
-   reject actions with receipts.
-2. Mirror those approval/mode rows into the React Flow run inspector beside the
-   runtime event graph and TUI control-state rows.
-3. If approvals expose a missing structured tool contract, pause and land the
-   smallest P0-B coding tool-pack contract needed for that TUI path.
+1. Start P0-B coding tool-pack parity with a structured inspect/diff/status
+   contract that works without shell-only fallbacks and can be configured from
+   React Flow.
+2. Map each new tool-pack capability to a workflow node setting, daemon receipt
+   field, SDK surface, CLI/TUI command, and run-inspector row before adding the
+   next tool.
+3. If a keyboard-first TUI gap appears while wiring the tool pack, keep it
+   daemon-owned and event-backed like the approval/mode-status panel.
 4. Continue settings harness cleanup only as maintenance, gated by a concrete
    parity slice dependency or a source-contract bloat guard failure.
 5. Keep this guide strategic. Put completed slice narratives in the
@@ -208,6 +210,7 @@ Daemon/API work:
   `/v1/threads/{id}/fork`, `/v1/threads/{id}/turns`,
   `/v1/threads/{id}/turns/{turn_id}/steer`,
   `/v1/threads/{id}/turns/{turn_id}/interrupt`,
+  `/v1/threads/{id}/approvals/{approval_id}/decision`,
   `/v1/threads/{id}/compact`, and
   `/v1/threads/{id}/events?since_seq=N`.
 - Keep `/v1/agents` and `/v1/runs` as compatibility aliases over the same

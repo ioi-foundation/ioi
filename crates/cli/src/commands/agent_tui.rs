@@ -24,6 +24,8 @@ const TUI_TURN_CREATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns";
 const TUI_EVENT_STREAM_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/events";
 const TUI_INTERRUPT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_id}/interrupt";
 const TUI_STEER_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_id}/steer";
+const TUI_APPROVAL_DECISION_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/approvals/{approval_id}/decision";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -227,6 +229,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
                 "event_stream": TUI_EVENT_STREAM_ROUTE_TEMPLATE,
                 "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
                 "steer": TUI_STEER_ROUTE_TEMPLATE,
+                "approval_decision": TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
             }
         }))?
     );
@@ -266,7 +269,38 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
         json_path_string(&control_state, "/current_turn_id").unwrap_or_else(|| "none".to_string()),
         json_path_string(&control_state, "/last_cursor").unwrap_or_else(|| "none".to_string())
     );
-    println!("  controls=/interrupt /steer /resume via daemon thread endpoints");
+    let approval_rows = tui_approval_rows(&render.events, Some(&thread_id));
+    println!(
+        "  mode={} approval_mode={} trust={}",
+        json_path_string(&control_state, "/mode_status/mode")
+            .unwrap_or_else(|| "agent".to_string()),
+        json_path_string(&control_state, "/mode_status/approval_mode")
+            .unwrap_or_else(|| "suggest".to_string()),
+        json_path_string(&control_state, "/mode_status/trust_profile")
+            .unwrap_or_else(|| "local_private".to_string())
+    );
+    println!(
+        "  controls=/interrupt /steer /approvals /approve /reject /resume via daemon thread endpoints"
+    );
+    if !approval_rows.is_empty() {
+        println!("Approvals: count={}", approval_rows.len());
+        for row in approval_rows {
+            println!(
+                "  approval={} status={} node={} receipt_refs={} policy_refs={}",
+                json_path_string(&row, "/approval_id").unwrap_or_else(|| "unknown".to_string()),
+                json_path_string(&row, "/status").unwrap_or_else(|| "pending".to_string()),
+                json_path_string(&row, "/workflow_node_id").unwrap_or_else(|| "none".to_string()),
+                row.pointer("/receipt_refs")
+                    .and_then(Value::as_array)
+                    .map(Vec::len)
+                    .unwrap_or(0),
+                row.pointer("/policy_decision_refs")
+                    .and_then(Value::as_array)
+                    .map(Vec::len)
+                    .unwrap_or(0)
+            );
+        }
+    }
     println!("Events: count={}", render.events.len());
     for event in &render.events {
         println!("  {}", format_runtime_event_line(event));
@@ -512,6 +546,56 @@ pub(crate) async fn steer_tui_turn(
     .await
 }
 
+pub(crate) async fn decide_tui_approval(
+    thread_id: &str,
+    turn_id: Option<&str>,
+    approval_id: &str,
+    decision: &str,
+    reason: Option<&str>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut body = Map::new();
+    let event_kind = if decision == "approve" {
+        "OperatorApproval.Approve"
+    } else {
+        "OperatorApproval.Reject"
+    };
+    body.insert("decision".to_string(), Value::String(decision.to_string()));
+    body.insert("source".to_string(), Value::String("cli_tui".to_string()));
+    body.insert("actor".to_string(), Value::String("operator".to_string()));
+    body.insert(
+        "event_kind".to_string(),
+        Value::String(event_kind.to_string()),
+    );
+    body.insert(
+        "component_kind".to_string(),
+        Value::String("approval_gate".to_string()),
+    );
+    body.insert(
+        "workflow_node_id".to_string(),
+        Value::String(format!("runtime.approval.{}", safe_id(approval_id))),
+    );
+    if let Some(turn_id) = turn_id.filter(|value| !value.trim().is_empty()) {
+        body.insert("turn_id".to_string(), Value::String(turn_id.to_string()));
+    }
+    if let Some(reason) = reason.filter(|value| !value.trim().is_empty()) {
+        body.insert("reason".to_string(), Value::String(reason.to_string()));
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_approval(
+            TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
+            thread_id,
+            approval_id,
+        ),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
 fn selected_turn_id(
     args: &AgentTuiArgs,
     submitted_turn: Option<&Value>,
@@ -586,6 +670,8 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
     let last_cursor = latest_event.and_then(|event| tui_event_cursor(event, last_seq));
     let last_event_id = latest_event.and_then(|event| json_path_string(event, "/event_id"));
     let mut command_history = Vec::new();
+    let approval_rows = tui_approval_rows(&render.events, thread_id.as_deref());
+    let approval_decisions = tui_approval_decisions(&render.events, thread_id.as_deref());
 
     if let Some(turn) = render.submitted_turn.as_ref() {
         command_history.push(serde_json::json!({
@@ -631,9 +717,185 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
         "current_turn_id": current_turn_id,
         "last_cursor": last_cursor,
         "last_event_id": last_event_id,
+        "mode_status": tui_mode_status(&render.thread, current_turn_id.as_deref()),
+        "approval_rows": approval_rows,
+        "approval_decisions": approval_decisions,
         "command_history": command_history,
         "validation_errors": [],
     })
+}
+
+pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> Value {
+    let turn = selected_turn_value(thread, current_turn_id);
+    serde_json::json!({
+        "mode": json_path_string(turn.unwrap_or(thread), "/mode")
+            .or_else(|| json_path_string(thread, "/mode"))
+            .unwrap_or_else(|| "agent".to_string()),
+        "approval_mode": json_path_string(turn.unwrap_or(thread), "/approval_mode")
+            .or_else(|| json_path_string(thread, "/approval_mode"))
+            .unwrap_or_else(|| "suggest".to_string()),
+        "trust_profile": json_path_string(thread, "/trust_profile")
+            .unwrap_or_else(|| "local_private".to_string()),
+        "thread_status": json_path_string(thread, "/status"),
+        "current_turn_status": turn.and_then(|value| json_path_string(value, "/status")),
+        "current_turn_id": current_turn_id,
+        "source": "daemon_thread",
+    })
+}
+
+pub(crate) fn tui_approval_rows(events: &[Value], fallback_thread_id: Option<&str>) -> Vec<Value> {
+    events
+        .iter()
+        .filter(|event| is_pending_approval_event(event))
+        .map(|event| tui_approval_row(event, fallback_thread_id))
+        .collect()
+}
+
+pub(crate) fn tui_approval_decisions(
+    events: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    events
+        .iter()
+        .filter(|event| is_approval_decision_event(event))
+        .map(|event| tui_approval_row(event, fallback_thread_id))
+        .collect()
+}
+
+fn tui_approval_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    let approval_id = approval_id_from_event(event)
+        .or_else(|| json_path_string(event, "/event_id"))
+        .unwrap_or_else(|| "approval".to_string());
+    let status = approval_status_for_event(event);
+    let workflow_node_id = json_path_string(event, "/workflow_node_id")
+        .unwrap_or_else(|| format!("runtime.approval.{}", safe_id(&approval_id)));
+    serde_json::json!({
+        "id": format!("tui-approval-{approval_id}-{}", seq.unwrap_or(0)),
+        "approval_id": approval_id.clone(),
+        "status": status,
+        "label": if is_approval_decision_event(event) {
+            "Approval decision"
+        } else {
+            "Approval required"
+        },
+        "message": approval_message_for_event(event),
+        "thread_id": json_path_string(event, "/thread_id").or_else(|| fallback_thread_id.map(ToOwned::to_owned)),
+        "turn_id": json_path_string(event, "/turn_id"),
+        "cursor": tui_event_cursor(event, seq),
+        "event_id": json_path_string(event, "/event_id"),
+        "sequence": seq,
+        "workflow_node_id": workflow_node_id,
+        "receipt_refs": event.pointer("/receipt_refs").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "policy_decision_refs": event.pointer("/policy_decision_refs").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "decision": json_path_string(event, "/payload/decision")
+            .or_else(|| json_path_string(event, "/payload_summary/decision")),
+    })
+}
+
+fn selected_turn_value<'a>(thread: &'a Value, current_turn_id: Option<&str>) -> Option<&'a Value> {
+    let turns = thread.get("turns")?.as_array()?;
+    if let Some(current_turn_id) = current_turn_id {
+        if let Some(turn) = turns
+            .iter()
+            .find(|turn| json_path_string(turn, "/turn_id").as_deref() == Some(current_turn_id))
+        {
+            return Some(turn);
+        }
+    }
+    turns.last()
+}
+
+pub(crate) fn approval_id_from_event(event: &Value) -> Option<String> {
+    json_path_string(event, "/approval_id")
+        .or_else(|| json_path_string(event, "/payload/approval_id"))
+        .or_else(|| json_path_string(event, "/payload/approvalId"))
+        .or_else(|| json_path_string(event, "/payload_summary/approval_id"))
+        .or_else(|| json_path_string(event, "/payload_summary/approvalId"))
+}
+
+fn is_approval_event(event: &Value) -> bool {
+    if approval_id_from_event(event).is_some() {
+        return true;
+    }
+    let haystack = [
+        json_path_string(event, "/event_kind"),
+        json_path_string(event, "/source_event_kind"),
+        json_path_string(event, "/component_kind"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_ascii_lowercase();
+    haystack.contains("approval")
+        || event
+            .pointer("/payload_summary/approval_required")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        || event
+            .pointer("/payload/approval_required")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+}
+
+fn is_pending_approval_event(event: &Value) -> bool {
+    is_approval_event(event)
+        && !is_approval_decision_event(event)
+        && approval_status_for_event(event) == "pending"
+}
+
+fn is_approval_decision_event(event: &Value) -> bool {
+    let event_kind = json_path_string(event, "/event_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let source_event_kind = json_path_string(event, "/source_event_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let component_kind = json_path_string(event, "/component_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let approval_shaped = approval_id_from_event(event).is_some()
+        || event_kind.contains("approval")
+        || source_event_kind.contains("approval")
+        || component_kind.contains("approval");
+    if !approval_shaped {
+        return false;
+    }
+    event_kind == "approval.approved"
+        || event_kind == "approval.rejected"
+        || source_event_kind.contains("operatorapproval.")
+        || json_path_string(event, "/payload/decision").is_some()
+        || json_path_string(event, "/payload_summary/decision").is_some()
+}
+
+fn approval_status_for_event(event: &Value) -> String {
+    let status = json_path_string(event, "/status")
+        .unwrap_or_else(|| "pending".to_string())
+        .to_ascii_lowercase();
+    let decision = json_path_string(event, "/payload/decision")
+        .or_else(|| json_path_string(event, "/payload_summary/decision"))
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if status.contains("approved") || matches!(decision.as_str(), "approve" | "approved") {
+        return "approved".to_string();
+    }
+    if status.contains("rejected") || matches!(decision.as_str(), "reject" | "rejected") {
+        return "rejected".to_string();
+    }
+    if status.contains("waiting") || status.contains("pending") {
+        return "pending".to_string();
+    }
+    status
+}
+
+fn approval_message_for_event(event: &Value) -> Option<String> {
+    json_path_string(event, "/payload/message")
+        .or_else(|| json_path_string(event, "/payload_summary/message"))
+        .or_else(|| json_path_string(event, "/payload/reason"))
+        .or_else(|| json_path_string(event, "/payload_summary/reason"))
+        .or_else(|| json_path_string(event, "/payload/summary"))
+        .or_else(|| json_path_string(event, "/payload_summary/summary"))
 }
 
 fn workflow_node_ids(events: &[Value]) -> Vec<String> {
@@ -743,6 +1005,23 @@ fn route_with_thread_and_turn(template: &str, thread_id: &str, turn_id: &str) ->
     route_with_thread(template, thread_id).replace("{turn_id}", turn_id)
 }
 
+fn route_with_thread_and_approval(template: &str, thread_id: &str, approval_id: &str) -> String {
+    route_with_thread(template, thread_id).replace("{approval_id}", approval_id)
+}
+
+fn safe_id(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -756,6 +1035,14 @@ mod tests {
         assert_eq!(
             thread_event_route("thread_live", true, None),
             "/v1/threads/thread_live/events/stream"
+        );
+        assert_eq!(
+            route_with_thread_and_approval(
+                TUI_APPROVAL_DECISION_ROUTE_TEMPLATE,
+                "thread_live",
+                "approval_live"
+            ),
+            "/v1/threads/thread_live/approvals/approval_live/decision"
         );
     }
 
@@ -900,5 +1187,82 @@ mod tests {
         assert_eq!(state["last_event_id"], "event_live");
         assert_eq!(state["command_history"][0]["command"], "message");
         assert_eq!(state["command_history"][1]["command"], "interrupt");
+    }
+
+    #[test]
+    fn tui_control_state_projects_mode_status_and_approval_rows() {
+        let render = TuiRender {
+            endpoint: "http://127.0.0.1:8765".to_string(),
+            event_route: "/v1/threads/thread_live/events?since_seq=0".to_string(),
+            thread: serde_json::json!({
+                "thread_id": "thread_live",
+                "latest_turn_id": "turn_live",
+                "mode": "agent",
+                "approval_mode": "suggest",
+                "trust_profile": "local_private",
+                "status": "active",
+                "turns": [{
+                    "turn_id": "turn_live",
+                    "status": "waiting_for_approval",
+                    "mode": "agent",
+                    "approval_mode": "suggest"
+                }],
+            }),
+            submitted_turn: None,
+            control: None,
+            events: vec![
+                serde_json::json!({
+                    "event_id": "event_approval_required",
+                    "event_stream_id": "events_thread_live",
+                    "seq": 10,
+                    "thread_id": "thread_live",
+                    "turn_id": "turn_live",
+                    "event_kind": "approval.required",
+                    "source_event_kind": "KernelEvent::ApprovalRequired",
+                    "status": "waiting_for_approval",
+                    "approval_id": "approval_live",
+                    "component_kind": "approval_gate",
+                    "workflow_node_id": "runtime.approval.approval_live",
+                    "payload": {
+                        "message": "Approve shell execution"
+                    }
+                }),
+                serde_json::json!({
+                    "event_id": "event_approval_approved",
+                    "event_stream_id": "events_thread_live",
+                    "seq": 11,
+                    "thread_id": "thread_live",
+                    "turn_id": "turn_live",
+                    "event_kind": "approval.approved",
+                    "source_event_kind": "OperatorApproval.Approve",
+                    "status": "approved",
+                    "approval_id": "approval_live",
+                    "component_kind": "approval_gate",
+                    "workflow_node_id": "runtime.approval.approval_live",
+                    "receipt_refs": ["receipt_approval"],
+                    "policy_decision_refs": ["policy_approval_allow"],
+                    "payload": {
+                        "decision": "approve"
+                    }
+                }),
+            ],
+            since_seq: Some(0),
+            last_event_id: None,
+            follow: false,
+        };
+
+        let state = tui_control_state_for_render(&render, Some("thread_live"));
+        assert_eq!(state["mode_status"]["approval_mode"], "suggest");
+        assert_eq!(
+            state["mode_status"]["current_turn_status"],
+            "waiting_for_approval"
+        );
+        assert_eq!(state["approval_rows"][0]["approval_id"], "approval_live");
+        assert_eq!(state["approval_rows"][0]["status"], "pending");
+        assert_eq!(state["approval_decisions"][0]["decision"], "approve");
+        assert_eq!(
+            state["approval_decisions"][0]["receipt_refs"],
+            serde_json::json!(["receipt_approval"])
+        );
     }
 }
