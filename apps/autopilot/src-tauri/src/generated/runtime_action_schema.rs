@@ -13,6 +13,7 @@ pub const RUNTIME_ACTION_KINDS: &[&str] = &[
     "runtime_thread_fork",
     "runtime_operator_interrupt",
     "runtime_operator_steer",
+    "runtime_context_compact",
     "function",
     "model_binding",
     "model_call",
@@ -65,4 +66,5 @@ pub const RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS: &[&str] = &[
     "runtime_thread_fork",
     "runtime_operator_interrupt",
     "runtime_operator_steer",
+    "runtime_context_compact",
 ];

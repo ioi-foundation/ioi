@@ -885,6 +885,144 @@ fn runtime_operator_steer_node_builds_react_flow_control_request() {
 }
 
 #[test]
+fn runtime_context_compact_node_builds_react_flow_control_request() {
+    let root = temp_root("runtime-context-compact");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Runtime Context Compact".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut compact = workflow_node(
+        "compact-control",
+        "runtime_context_compact",
+        "Compact control",
+        120,
+        180,
+        "Compact",
+        "control",
+    );
+    logic_mut(&mut compact).insert(
+        "runtimeContextCompactEndpoint".to_string(),
+        json!("/v1/threads/{threadId}/compact"),
+    );
+    logic_mut(&mut compact).insert(
+        "runtimeContextCompactThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut compact).insert(
+        "runtimeContextCompactTurnIdField".to_string(),
+        json!("turnId"),
+    );
+    logic_mut(&mut compact).insert(
+        "runtimeContextCompactReasonField".to_string(),
+        json!("reason"),
+    );
+    logic_mut(&mut compact).insert(
+        "runtimeContextCompactScopeField".to_string(),
+        json!("scope"),
+    );
+    logic_mut(&mut compact).insert(
+        "runtimeContextCompactWorkflowNodeId".to_string(),
+        json!("runtime.context-compact"),
+    );
+    logic_mut(&mut compact).insert("runtimeContextCompactActor".to_string(), json!("operator"));
+    logic_mut(&mut compact).insert(
+        "outputSchema".to_string(),
+        workflow_runtime_context_compact_output_schema(),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    let workflow_graph_id = workflow.metadata.id.clone();
+    workflow.nodes = vec![compact];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_node(
+        bundle.workflow_path,
+        "compact-control".to_string(),
+        Some(json!({
+            "threadId": "thread_react_flow",
+            "turnId": "turn_react_flow",
+            "reason": "compact from React Flow runtime control",
+            "scope": "thread"
+        })),
+        None,
+    )
+    .expect("runtime context compact node should run");
+    assert_eq!(run.summary.status, "passed");
+    let node_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "compact-control")
+        .expect("compact node should run");
+    let output = node_run
+        .output
+        .as_ref()
+        .expect("compact output should exist");
+    assert_eq!(
+        output.get("kind").and_then(Value::as_str),
+        Some("runtime_context_compact")
+    );
+    assert_eq!(
+        output.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        output.get("componentKind").and_then(Value::as_str),
+        Some("context_compaction")
+    );
+    assert_eq!(
+        output.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        output.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.context-compact")
+    );
+    assert_eq!(
+        output.get("threadId").and_then(Value::as_str),
+        Some("thread_react_flow")
+    );
+    assert_eq!(
+        output.get("turnId").and_then(Value::as_str),
+        Some("turn_react_flow")
+    );
+    assert_eq!(
+        output.get("endpoint").and_then(Value::as_str),
+        Some("/v1/threads/thread_react_flow/compact")
+    );
+    let request = output.get("request").expect("compact request should exist");
+    assert_eq!(
+        request.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        request.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        request.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.context-compact")
+    );
+    assert_eq!(
+        request.get("eventKind").and_then(Value::as_str),
+        Some("OperatorControl.Compact")
+    );
+    assert_eq!(
+        request.get("reason").and_then(Value::as_str),
+        Some("compact from React Flow runtime control")
+    );
+    assert_eq!(request.get("scope").and_then(Value::as_str), Some("thread"));
+}
+
+#[test]
 fn github_pr_create_dry_run_node_executes_through_runtime() {
     let root = temp_root("github-pr-create-runtime");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

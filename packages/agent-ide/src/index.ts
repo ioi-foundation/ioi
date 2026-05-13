@@ -42,6 +42,11 @@ export {
   workflowNodeKindForRuntimeThreadEvent,
 } from "./runtime/workflow-runtime-event-projection";
 export {
+  RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
+  RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_CONTEXT_COMPACT_SOURCE,
+  RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
+  RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
   RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
   RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_OPERATOR_INTERRUPT_SOURCE,
@@ -57,9 +62,12 @@ export {
   RUNTIME_THREAD_FORK_SOURCE,
   RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
   RUNTIME_THREAD_FORK_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+  createRuntimeContextCompactControlRequest,
+  createRuntimeContextCompactControlRequestFromWorkflowNode,
   createRuntimeOperatorInterruptControlRequest,
   createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
   createRuntimeOperatorSteerControlRequest,
@@ -324,6 +332,10 @@ export type {
   WorkflowRuntimeThreadEventType,
 } from "./runtime/workflow-runtime-event-projection";
 export type {
+  RuntimeContextCompactControlRequest,
+  RuntimeContextCompactControlRequestBody,
+  RuntimeContextCompactControlRequestInput,
+  RuntimeContextCompactWorkflowNodeOptions,
   RuntimeOperatorInterruptControlRequest,
   RuntimeOperatorInterruptControlRequestBody,
   RuntimeOperatorInterruptControlRequestInput,

@@ -34,6 +34,7 @@ pub enum ActionKind {
     RuntimeThreadFork,
     RuntimeOperatorInterrupt,
     RuntimeOperatorSteer,
+    RuntimeContextCompact,
     Function,
     ModelBinding,
     ModelCall,
@@ -83,6 +84,7 @@ impl ActionKind {
             "runtime_thread_fork" => Self::RuntimeThreadFork,
             "runtime_operator_interrupt" => Self::RuntimeOperatorInterrupt,
             "runtime_operator_steer" => Self::RuntimeOperatorSteer,
+            "runtime_context_compact" => Self::RuntimeContextCompact,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -132,6 +134,7 @@ impl ActionKind {
             Self::RuntimeThreadFork => "runtime_thread_fork",
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
+            Self::RuntimeContextCompact => "runtime_context_compact",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -181,6 +184,7 @@ impl ActionKind {
             Self::RuntimeThreadFork => "runtime_thread_fork",
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
+            Self::RuntimeContextCompact => "runtime_context_compact",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -247,6 +251,7 @@ impl ActionKind {
                 | Self::RuntimeThreadFork
                 | Self::RuntimeOperatorInterrupt
                 | Self::RuntimeOperatorSteer
+                | Self::RuntimeContextCompact
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -471,6 +476,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_operator_steer"),
             ActionKind::RuntimeOperatorSteer
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_context_compact"),
+            ActionKind::RuntimeContextCompact
         );
         assert_eq!(
             ActionKind::from_node_type("repository_context"),

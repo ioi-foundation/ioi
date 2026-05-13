@@ -107,6 +107,7 @@ workstream was narrower.
 | 105 | 2026-05-12 | P0. Live Runtime API Bridge | React Flow runtime thread fork control node | /tmp/ioi-autopilot-gui-harness-react-flow-thread-fork-control/2026-05-12T23-57-36-129Z/result.json |
 | 106 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator interrupt control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json |
 | 107 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime operator steer control node | /tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control/2026-05-13T00-24-15-404Z/result.json |
+| 108 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime context compact control node | /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5399,6 +5400,59 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-react-flow-operator-steer-control/2026-05-13T00-24-15-404Z/result.json`.
+
+Known validation note:
+
+- Repo-wide `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml --check`
+  still reports pre-existing formatting diffs in unrelated orchestrator store
+  modules. The scoped `rustfmt --check` over this slice's touched Rust files
+  passed.
+
+### Slice 108. 2026-05-13 - React Flow runtime context compact control node
+
+Implementation slice completed 2026-05-13, React Flow runtime context compact
+control node:
+
+- Added `runtime_context_compact` to the React Flow workflow-authoring node
+  registry with configurable compact endpoint, thread id field, optional turn
+  id field, reason/scope fields, graph/node metadata, receipt/policy output
+  fields, runtime chrome strings, schema metadata, and a
+  `runtime.context.compact` privileged action declaration.
+- Extended `workflow-runtime-control-nodes.ts` with an exported
+  `runtime_context_compact` request builder. It produces the daemon compact
+  request body with `source=react_flow`, `workflowGraphId`,
+  `workflowNodeId=runtime.context-compact`,
+  `componentKind=context_compaction`, and
+  `payloadSchemaVersion=ioi.runtime.context-compaction.v1`.
+- Promoted `runtime_context_compact` into the shared runtime action schema,
+  Rust `ActionKind`, Tauri scaffold catalog, action metadata, validation
+  checks, and local workflow-node execution lane. Local execution produces a
+  non-mutating React Flow compact control request descriptor instead of calling
+  the daemon directly.
+- Updated React Flow runtime event projection so `context_compacted` events
+  project as `runtime_context_compact` nodes rather than generic state nodes.
+- Added a live runtime-service proof where the request is built from a React
+  Flow workflow node, sent to `/v1/threads/{thread_id}/compact`, and then
+  verified across daemon SSE, SDK `Thread.events()`, and the React Flow
+  projection with graph id, node id, source, receipt refs, and policy refs
+  intact.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run generate:runtime-action-contracts -- --check`
+- `npm run build --workspace=@ioi/agent-ide`
+- `rustfmt --check apps/autopilot/src-tauri/src/runtime_projection.rs apps/autopilot/src-tauri/src/project/templates.rs apps/autopilot/src-tauri/src/project/validation.rs apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/scaffolds_and_bindings.rs apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_context_compact_node_builds_react_flow_control_request`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_scaffolds_include_action_metadata`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds`
+- `node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "context compact keeps one canonical compaction event" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json`.
 
 Known validation note:
 

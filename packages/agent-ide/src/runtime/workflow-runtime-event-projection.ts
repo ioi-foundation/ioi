@@ -275,7 +275,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "turn_steered":
       return "runtime_operator_steer";
     case "context_compacted":
-      return "state";
+      return "runtime_context_compact";
     case "reasoning_delta":
       return "task_state";
     case "tool_completed":

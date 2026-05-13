@@ -204,7 +204,7 @@ test("projects context compact events into the runtime compaction node", () => {
   const nodes = projectRuntimeThreadEventsToWorkflowNodes([compact]);
 
   assert.equal(workflowNodeIdForRuntimeThreadEvent(compact), "runtime.context-compact");
-  assert.equal(nodes[0]?.nodeKind, "state");
+  assert.equal(nodes[0]?.nodeKind, "runtime_context_compact");
   assert.equal(nodes[0]?.componentKind, "context_compaction");
   assert.equal(nodes[0]?.label, "Context compacted");
   assert.equal(nodes[0]?.status, "completed");

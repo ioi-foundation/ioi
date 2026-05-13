@@ -217,6 +217,38 @@ fn workflow_scaffolds_include_action_metadata() {
         .expect("operator steer connection classes")
         .iter()
         .any(|class| class.as_str() == Some("control")));
+    let context_compact = scaffolds
+        .iter()
+        .find(|item| {
+            item.get("scaffoldId").and_then(Value::as_str)
+                == Some("workflow.runtime.context_compact")
+        })
+        .expect("runtime context compact scaffold should exist");
+    let context_compact_action = context_compact
+        .get("action")
+        .expect("runtime context compact action metadata should exist");
+    assert_eq!(
+        context_compact.get("nodeType").and_then(Value::as_str),
+        Some("runtime_context_compact")
+    );
+    assert_eq!(
+        context_compact_action
+            .get("sideEffectClass")
+            .and_then(Value::as_str),
+        Some("write")
+    );
+    assert_eq!(
+        context_compact_action
+            .get("supportsDryRun")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(context_compact_action
+        .get("connectionClasses")
+        .and_then(Value::as_array)
+        .expect("context compact connection classes")
+        .iter()
+        .any(|class| class.as_str() == Some("control")));
 }
 
 #[test]

@@ -596,6 +596,98 @@ fn workflow_runtime_operator_steer_output(
     })
 }
 
+fn workflow_runtime_context_compact_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let thread_id_field =
+        workflow_runtime_control_logic_string(logic, "runtimeContextCompactThreadIdField")
+            .unwrap_or_else(|| "threadId".to_string());
+    let turn_id_field =
+        workflow_runtime_control_logic_string(logic, "runtimeContextCompactTurnIdField")
+            .unwrap_or_else(|| "turnId".to_string());
+    let reason_field =
+        workflow_runtime_control_logic_string(logic, "runtimeContextCompactReasonField")
+            .unwrap_or_else(|| "reason".to_string());
+    let scope_field =
+        workflow_runtime_control_logic_string(logic, "runtimeContextCompactScopeField")
+            .unwrap_or_else(|| "scope".to_string());
+    let thread_id = workflow_runtime_control_logic_string(logic, "runtimeContextCompactThreadId")
+        .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
+        .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
+        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
+    let turn_id = workflow_runtime_control_logic_string(logic, "runtimeContextCompactTurnId")
+        .or_else(|| workflow_runtime_control_input_string(input, &turn_id_field))
+        .or_else(|| workflow_runtime_control_input_string(input, "turn_id"));
+    let reason = workflow_runtime_control_input_string(input, &reason_field)
+        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeContextCompactReason"))
+        .unwrap_or_else(|| "Compact thread context from React Flow workflow control.".to_string());
+    let scope = workflow_runtime_control_input_string(input, &scope_field)
+        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeContextCompactScope"))
+        .unwrap_or_else(|| "thread".to_string());
+    let workflow_graph_id = workflow
+        .map(|project| project.metadata.id.clone())
+        .filter(|value| !value.trim().is_empty());
+    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
+    let workflow_node_id =
+        workflow_runtime_control_logic_string(logic, "runtimeContextCompactWorkflowNodeId")
+            .unwrap_or_else(|| "runtime.context-compact".to_string());
+    let actor = workflow_runtime_control_logic_string(logic, "runtimeContextCompactActor")
+        .unwrap_or_else(|| "operator".to_string());
+    let endpoint_template =
+        workflow_runtime_control_logic_string(logic, "runtimeContextCompactEndpoint")
+            .unwrap_or_else(|| "/v1/threads/{threadId}/compact".to_string());
+    let endpoint = endpoint_template
+        .replace("{threadId}", &thread_id)
+        .replace("{turnId}", turn_id.as_deref().unwrap_or(""));
+    let turn_id_value = turn_id.map(Value::String).unwrap_or(Value::Null);
+    let request = json!({
+        "reason": reason,
+        "scope": scope,
+        "turnId": turn_id_value.clone(),
+        "source": "react_flow",
+        "actor": actor,
+        "workflowGraphId": workflow_graph_id_value.clone(),
+        "workflowNodeId": workflow_node_id.clone(),
+        "eventKind": "OperatorControl.Compact",
+        "componentKind": "context_compaction",
+        "payloadSchemaVersion": "ioi.runtime.context-compaction.v1"
+    });
+    let runtime_context_compact = json!({
+        "schemaVersion": "ioi.workflow.runtime-context-compact-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "context_compaction",
+        "workflowGraphId": workflow_graph_id_value,
+        "workflowNodeId": workflow_node_id,
+        "threadId": thread_id,
+        "turnId": turn_id_value,
+        "endpoint": endpoint,
+        "request": request,
+        "mutationExecuted": false
+    });
+    json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "schemaVersion": "ioi.workflow.runtime-context-compact-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "context_compaction",
+        "workflowGraphId": runtime_context_compact.get("workflowGraphId").cloned().unwrap_or(Value::Null),
+        "workflowNodeId": runtime_context_compact.get("workflowNodeId").cloned().unwrap_or(Value::Null),
+        "threadId": runtime_context_compact.get("threadId").cloned().unwrap_or(Value::Null),
+        "turnId": runtime_context_compact.get("turnId").cloned().unwrap_or(Value::Null),
+        "endpoint": runtime_context_compact.get("endpoint").cloned().unwrap_or(Value::Null),
+        "request": runtime_context_compact.get("request").cloned().unwrap_or(Value::Null),
+        "runtimeContextCompact": runtime_context_compact,
+        "mutationExecuted": false,
+        "input": input
+    })
+}
+
 pub(super) fn execute_workflow_node(
     workflow_path: &Path,
     workflow: Option<&WorkflowProject>,
@@ -754,6 +846,13 @@ pub(super) fn execute_workflow_node(
             evidence_kind,
         ),
         ActionKind::RuntimeOperatorSteer => workflow_runtime_operator_steer_output(
+            workflow,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        ),
+        ActionKind::RuntimeContextCompact => workflow_runtime_context_compact_output(
             workflow,
             &node_id,
             &logic,
