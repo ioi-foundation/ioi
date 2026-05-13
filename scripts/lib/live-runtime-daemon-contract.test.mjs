@@ -4648,7 +4648,7 @@ test("local daemon projects subagent memory inheritance modes with receipts", as
   }
 });
 
-test("local daemon exposes SubagentManager spawn, list, wait, and result contracts", async () => {
+test("local daemon exposes SubagentManager spawn, list, input, cancel, wait, and result contracts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-manager-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-manager-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
@@ -4736,16 +4736,76 @@ test("local daemon exposes SubagentManager spawn, list, wait, and result contrac
     assert.equal(result.subagent.subagent_id, spawn.subagent_id);
     assert.ok(result.output.sections.RECEIPTS.length > 0);
 
+    const input = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/input`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          actor: "workflow-author",
+          message: "Follow up with the route evidence for the send-input contract.",
+          workflowGraphId: "workflow.subagent.manager",
+          workflowNodeId: "runtime.subagent.input.explore",
+        }),
+      },
+    );
+    assert.equal(input.schema_version, "ioi.runtime.subagent-manager.v1");
+    assert.equal(input.lifecycle_status, "completed");
+    assert.equal(input.input_count, 1);
+    assert.match(input.input.input_id, /^subagent_input_/);
+    assert.equal(input.input.message, "Follow up with the route evidence for the send-input contract.");
+    assert.equal(input.input.previous_run_id, spawn.run_id);
+    assert.notEqual(input.run_id, spawn.run_id);
+    assert.equal(input.result.output_contract_status, "passed");
+    assert.equal(input.event.source_event_kind, "OperatorControl.SubagentSendInput");
+    assert.equal(input.event.payload_summary.input_count, 1);
+    assert.ok(input.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_send_input_")));
+
+    const canceled = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/cancel`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          actor: "workflow-author",
+          reason: "workflow_cancel",
+          workflowGraphId: "workflow.subagent.manager",
+          workflowNodeId: "runtime.subagent.cancel.explore",
+        }),
+      },
+    );
+    assert.equal(canceled.schema_version, "ioi.runtime.subagent-result.v1");
+    assert.equal(canceled.lifecycle_status, "canceled");
+    assert.equal(canceled.subagent.lifecycle_status, "canceled");
+    assert.equal(canceled.subagent.cancellation_reason, "workflow_cancel");
+    assert.equal(canceled.cancellation.reason, "workflow_cancel");
+    assert.equal(canceled.event.source_event_kind, "OperatorControl.SubagentCancel");
+    assert.equal(canceled.event.payload_summary.cancellation_reason, "workflow_cancel");
+    assert.ok(canceled.receipt_refs.some((receipt) => receipt.startsWith("receipt_subagent_cancel_")));
+
+    const canceledResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents/${spawn.subagent_id}/result`,
+    );
+    assert.equal(canceledResult.lifecycle_status, "canceled");
+    assert.equal(canceledResult.subagent.input_count, 1);
+    assert.equal(canceledResult.subagent.cancellation_reason, "workflow_cancel");
+    assert.match(canceledResult.result, /Run canceled/);
+
     const events = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
     );
     const spawnEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentSpawn");
     const waitEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentWait");
+    const inputEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentSendInput");
+    const cancelEvent = events.find((event) => event.source_event_kind === "OperatorControl.SubagentCancel");
     assert.equal(spawnEvent.component_kind, "subagent_lifecycle");
     assert.equal(spawnEvent.payload_summary.role, "explore");
     assert.equal(spawnEvent.payload_summary.subagent_id, spawn.subagent_id);
     assert.equal(spawnEvent.payload_summary.output_contract_status, "passed");
     assert.equal(waitEvent.payload_summary.lifecycle_status, "completed");
+    assert.equal(inputEvent.payload_summary.input_count, 1);
+    assert.equal(cancelEvent.payload_summary.lifecycle_status, "canceled");
+    assert.equal(cancelEvent.payload_summary.cancellation_reason, "workflow_cancel");
 
     await daemon.close();
     const reloaded = await startRuntimeDaemonService({ cwd, stateDir });
@@ -4753,6 +4813,9 @@ test("local daemon exposes SubagentManager spawn, list, wait, and result contrac
       const reloadedList = await fetchJson(`${reloaded.endpoint}/v1/threads/${thread.thread_id}/subagents`);
       assert.equal(reloadedList.count, 1);
       assert.equal(reloadedList.subagents[0].subagent_id, spawn.subagent_id);
+      assert.equal(reloadedList.subagents[0].lifecycle_status, "canceled");
+      assert.equal(reloadedList.subagents[0].input_count, 1);
+      assert.equal(reloadedList.subagents[0].cancellation_reason, "workflow_cancel");
     } finally {
       await reloaded.close();
     }
