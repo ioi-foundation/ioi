@@ -36,7 +36,9 @@ export {
 } from "./runtime/runtime-projection-adapter";
 export {
   WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+  projectRuntimeTuiControlStateToWorkflowProjection,
   projectRuntimeThreadEventsToWorkflowNodes,
   projectRuntimeThreadEventsToWorkflowProjection,
   workflowNodeIdForRuntimeThreadEvent,

@@ -116,6 +116,7 @@ the practical workstream when the source heading is broad.
 | 115 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI runtime-event deep-link contract | /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json | cargo test -p ioi-cli --bin cli<br>cargo check -p ioi-cli --bin cli<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model&#124;React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks |
 | 116 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Daemon-backed line-mode `ioi agent tui` loop | /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json | cargo test -p ioi-cli --bin cli agent_tui<br>cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands<br>cargo test -p ioi-cli --bin cli<br>cargo check -p ioi-cli --bin cli<br>node --test --test-name-pattern "agent TUI line-mode slash commands&#124;agent TUI thin shell starts a live thread&#124;agent TUI thin shell is daemon-backed&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode |
 | 117 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI operator-control equivalence proof | /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json | node --test --test-name-pattern "React Flow and line-mode TUI .* controls share" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow and line-mode TUI .* controls share&#124;agent TUI line-mode slash commands&#124;React Flow operator interrupt control preserves graph identity&#124;React Flow operator steer control preserves graph identity&#124;agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence |
+| 118 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI control-state projection and run-inspector rows | /tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>cargo test --manifest-path crates/cli/Cargo.toml --bin cli agent_tui -- --nocapture<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent CLI exposes&#124;agent TUI thin shell is daemon-backed&#124;agent TUI thin shell starts&#124;agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo check --manifest-path crates/cli/Cargo.toml --bin cli<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-control-state-projection |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4152,3 +4153,55 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence`
   - live GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json`.
+
+## Slice 118. 2026-05-13 - TUI control-state projection and run-inspector rows
+
+Guide section: P0. Terminal Coding-Agent TUI
+
+Evidence bundles:
+
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-run-history-model.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - React Flow TUI control-state projection and run-history model tests passed.
+- `cargo test --manifest-path crates/cli/Cargo.toml --bin cli agent_tui -- --nocapture`
+  - CLI TUI route, event-row, control-state, line-mode parser, and
+    validation-error tests passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `node --test --test-name-pattern "agent CLI exposes|agent TUI thin shell is daemon-backed|agent TUI thin shell starts|agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract passed for JSON and line-mode TUI control-state
+    projection.
+- `node --import tsx --test --test-name-pattern "projects TUI control state|workflow run history model projects TUI control state" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - focused TUI control-state projection tests passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live runtime daemon contract syntax check passed.
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - GUI harness validation core syntax check passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `cargo check --manifest-path crates/cli/Cargo.toml --bin cli`
+  - CLI binary type-check passed.
+- `git diff --check`
+  - whitespace check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-control-state-projection`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json`.
+
+Known validation note:
+
+- Broad `cargo test --manifest-path crates/cli/Cargo.toml agent_tui -- --nocapture`
+  remains blocked by unrelated CLI integration tests that need
+  `StartAgentParams.runtime_route_frame` initializers.
+- Broad
+  `node --import tsx --test apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts`
+  remains blocked by an existing readiness-label source-contract assertion
+  before it reaches this slice's run-inspector additions.

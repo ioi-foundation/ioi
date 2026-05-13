@@ -4,6 +4,8 @@ export const WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION =
   "ioi.workflow.runtime-event-projection.v1" as const;
 export const WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION =
   "ioi.workflow.runtime-tui-deeplink.v1" as const;
+export const WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION =
+  "ioi.workflow.runtime-tui-control-state.v1" as const;
 
 export type WorkflowRuntimeThreadEventType =
   | "thread_started"
@@ -173,6 +175,67 @@ export interface WorkflowRuntimeEventProjection {
   reactFlowEdges: WorkflowRuntimeReactFlowEdge[];
 }
 
+export type WorkflowRuntimeTuiControlRowKind =
+  | "summary"
+  | "command"
+  | "validation_error";
+
+export type WorkflowRuntimeTuiControlRowStatus =
+  | "current"
+  | "accepted"
+  | "applied"
+  | "failed"
+  | "validation_error"
+  | "unknown";
+
+export interface WorkflowRuntimeTuiControlStateInput {
+  schemaVersion?: string;
+  schema_version?: string;
+  surface?: string;
+  threadId?: string | null;
+  thread_id?: string | null;
+  currentTurnId?: string | null;
+  current_turn_id?: string | null;
+  lastCursor?: string | null;
+  last_cursor?: string | null;
+  lastEventId?: string | null;
+  last_event_id?: string | null;
+  commandHistory?: unknown[];
+  command_history?: unknown[];
+  validationErrors?: unknown[];
+  validation_errors?: unknown[];
+}
+
+export interface WorkflowRuntimeTuiControlStateRow {
+  id: string;
+  rowKind: WorkflowRuntimeTuiControlRowKind;
+  status: WorkflowRuntimeTuiControlRowStatus;
+  label: string;
+  command: string | null;
+  rawInput: string | null;
+  message: string | null;
+  threadId: string | null;
+  turnId: string | null;
+  cursor: string | null;
+  eventId: string | null;
+  sequence: number | null;
+  reactFlowNodeId: string;
+}
+
+export interface WorkflowRuntimeTuiControlStateProjection {
+  schemaVersion: typeof WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION;
+  sourceSchemaVersion: string | null;
+  surface: string;
+  threadId: string | null;
+  currentTurnId: string | null;
+  lastCursor: string | null;
+  lastEventId: string | null;
+  commandCount: number;
+  validationErrorCount: number;
+  rowCount: number;
+  rows: WorkflowRuntimeTuiControlStateRow[];
+}
+
 interface MutableProjectedNode {
   events: WorkflowRuntimeThreadEventLike[];
   nodeId: string;
@@ -233,6 +296,97 @@ export function projectRuntimeThreadEventsToWorkflowNodes(
   options: WorkflowRuntimeProjectionOptions = {},
 ): WorkflowRuntimeProjectedNode[] {
   return projectRuntimeThreadEventsToWorkflowProjection(events, options).nodes;
+}
+
+export function projectRuntimeTuiControlStateToWorkflowProjection(
+  state: WorkflowRuntimeTuiControlStateInput | null | undefined,
+): WorkflowRuntimeTuiControlStateProjection {
+  const threadId = stringField(state, "threadId", "thread_id");
+  const currentTurnId = stringField(state, "currentTurnId", "current_turn_id");
+  const lastCursor = stringField(state, "lastCursor", "last_cursor");
+  const lastEventId = stringField(state, "lastEventId", "last_event_id");
+  const commandHistory = arrayField(state, "commandHistory", "command_history");
+  const validationErrors = arrayField(
+    state,
+    "validationErrors",
+    "validation_errors",
+  );
+  const rows: WorkflowRuntimeTuiControlStateRow[] = [];
+
+  if (threadId || currentTurnId || lastCursor || lastEventId) {
+    rows.push({
+      id: `tui-control-summary:${slug(threadId ?? "detached")}`,
+      rowKind: "summary",
+      status: "current",
+      label: "TUI control state",
+      command: null,
+      rawInput: null,
+      message: currentTurnId ? `Current turn ${currentTurnId}` : "No active turn",
+      threadId,
+      turnId: currentTurnId,
+      cursor: lastCursor,
+      eventId: lastEventId,
+      sequence: null,
+      reactFlowNodeId: "runtime.tui-control-state",
+    });
+  }
+
+  commandHistory.forEach((entry, index) => {
+    const command = stringField(entry, "command");
+    const rawInput = stringField(entry, "rawInput", "raw_input") ?? command;
+    const status = tuiControlRowStatus(stringField(entry, "status"));
+    const sequence = numberField(entry, "sequence", "index") ?? index + 1;
+    rows.push({
+      id: stringField(entry, "id") ?? `tui-command:${sequence}`,
+      rowKind: "command",
+      status,
+      label: command ? `/${command}` : "TUI command",
+      command,
+      rawInput,
+      message: stringField(entry, "message"),
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      reactFlowNodeId: `runtime.tui-control-state.command.${slug(command ?? String(sequence))}`,
+    });
+  });
+
+  validationErrors.forEach((entry, index) => {
+    const command = stringField(entry, "command");
+    const rawInput = stringField(entry, "rawInput", "raw_input") ?? command;
+    const sequence = numberField(entry, "sequence", "index") ?? index + 1;
+    rows.push({
+      id: stringField(entry, "id") ?? `tui-validation-error:${sequence}`,
+      rowKind: "validation_error",
+      status: "validation_error",
+      label: command ? `/${command} validation` : "TUI validation",
+      command,
+      rawInput,
+      message: stringField(entry, "message", "error") ?? "Invalid TUI command",
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      reactFlowNodeId: `runtime.tui-control-state.validation.${slug(command ?? String(sequence))}`,
+    });
+  });
+
+  return {
+    schemaVersion: WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+    sourceSchemaVersion: stringField(state, "schemaVersion", "schema_version"),
+    surface: stringField(state, "surface") ?? "tui",
+    threadId,
+    currentTurnId,
+    lastCursor,
+    lastEventId,
+    commandCount: commandHistory.length,
+    validationErrorCount: validationErrors.length,
+    rowCount: rows.length,
+    rows,
+  };
 }
 
 export function workflowNodeIdForRuntimeThreadEvent(
@@ -606,6 +760,67 @@ function positionForIndex(
 
 function uniqueStrings(values: readonly string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function objectField(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringField(
+  value: unknown,
+  camelKey: string,
+  snakeKey?: string,
+): string | null {
+  const objectValue = objectField(value);
+  if (!objectValue) return null;
+  const candidate =
+    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  return typeof candidate === "string" && candidate.trim()
+    ? candidate
+    : null;
+}
+
+function numberField(
+  value: unknown,
+  camelKey: string,
+  snakeKey?: string,
+): number | null {
+  const objectValue = objectField(value);
+  if (!objectValue) return null;
+  const candidate =
+    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  return typeof candidate === "number" && Number.isFinite(candidate)
+    ? candidate
+    : null;
+}
+
+function arrayField(
+  value: unknown,
+  camelKey: string,
+  snakeKey?: string,
+): unknown[] {
+  const objectValue = objectField(value);
+  if (!objectValue) return [];
+  const candidate =
+    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  return Array.isArray(candidate) ? candidate : [];
+}
+
+function tuiControlRowStatus(
+  status: string | null,
+): WorkflowRuntimeTuiControlRowStatus {
+  switch (status) {
+    case "current":
+    case "accepted":
+    case "applied":
+    case "failed":
+    case "validation_error":
+      return status;
+    default:
+      return "unknown";
+  }
 }
 
 function slug(value: string): string {

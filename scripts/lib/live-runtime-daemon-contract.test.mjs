@@ -3493,7 +3493,11 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /format_runtime_event_line/);
   assert.match(source, /TUI_PRIVATE_RUNTIME_LOOP: bool = false/);
   assert.match(source, /ioi\.agent-cli\.tui\.v1/);
+  assert.match(source, /ioi\.agent-cli\.tui-control-state\.v1/);
   assert.match(source, /ioi\.workflow\.runtime-tui-deeplink\.v1/);
+  assert.match(source, /tui_control_state/);
+  assert.match(source, /command_history/);
+  assert.match(source, /validation_errors/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
@@ -3526,9 +3530,11 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /workflow_node_ids/);
   assert.match(source, /tui_event_rows/);
+  assert.match(source, /tui_control_state/);
   assert.match(source, /tui_reopen_args/);
   assert.match(source, /line_mode_command=interrupt/);
   assert.match(source, /line_mode_command=events/);
+  assert.match(source, /line_mode_error/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
   assert.doesNotMatch(source, /submit_runtime_call/);
   assert.doesNotMatch(source, /StartAgentParams/);
@@ -3538,7 +3544,9 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
 test("agent TUI thin shell starts a live thread, replays by cursor, and controls through daemon endpoints", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
+    WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
     WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    projectRuntimeTuiControlStateToWorkflowProjection,
     projectRuntimeThreadEventsToWorkflowProjection,
   } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-workspace-"));
@@ -3597,6 +3605,35 @@ test("agent TUI thin shell starts a live thread, replays by cursor, and controls
     assert.match(payload.event_route, new RegExp(`/v1/threads/${payload.thread.thread_id}/events\\?since_seq=0`));
     assert.ok(payload.event_count >= 3);
     assert.ok(payload.workflow_node_ids.includes("runtime.operator-interrupt"));
+    assert.equal(
+      payload.tui_control_state.schema_version,
+      "ioi.agent-cli.tui-control-state.v1",
+    );
+    assert.equal(payload.tui_control_state.thread_id, payload.thread.thread_id);
+    assert.equal(payload.tui_control_state.current_turn_id, payload.submitted_turn.turn_id);
+    assert.ok(payload.tui_control_state.last_cursor);
+    assert.equal(payload.tui_control_state.validation_errors.length, 0);
+    assert.deepEqual(
+      payload.tui_control_state.command_history.map((entry) => entry.command),
+      ["message", "interrupt"],
+    );
+    const tuiControlStateProjection =
+      projectRuntimeTuiControlStateToWorkflowProjection(payload.tui_control_state);
+    assert.equal(
+      tuiControlStateProjection.schemaVersion,
+      WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+    );
+    assert.equal(tuiControlStateProjection.currentTurnId, payload.submitted_turn.turn_id);
+    assert.equal(tuiControlStateProjection.commandCount, 2);
+    assert.equal(tuiControlStateProjection.validationErrorCount, 0);
+    assert.ok(
+      tuiControlStateProjection.rows.some(
+        (row) =>
+          row.rowKind === "command" &&
+          row.command === "interrupt" &&
+          row.reactFlowNodeId === "runtime.tui-control-state.command.interrupt",
+      ),
+    );
     const interruptEvent = payload.events.find(
       (event) => event.source_event_kind === "OperatorControl.Interrupt",
     );
@@ -3684,7 +3721,9 @@ test("agent TUI thin shell starts a live thread, replays by cursor, and controls
 test("agent TUI line-mode slash commands control daemon turns and keep React Flow identity", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
+    WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
     WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+    projectRuntimeTuiControlStateToWorkflowProjection,
     projectRuntimeThreadEventsToWorkflowProjection,
   } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-line-workspace-"));
@@ -3727,12 +3766,13 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/interrupt line-mode validation interrupt\n/events 0\n/quit\n",
+      "/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
     assert.match(result.stdout, /Line-mode commands: \/resume \/events \[since_seq\] \/interrupt \[reason\] \/steer <guidance> \/quit/);
     assert.match(result.stdout, /line_mode_command=interrupt/);
     assert.match(result.stdout, /line_mode_command=events/);
+    assert.match(result.stdout, /line_mode_error=\/steer requires guidance text/);
     assert.match(result.stdout, /line_mode_command=quit/);
     assert.match(result.stdout, /OperatorControl\.Interrupt/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
@@ -3781,6 +3821,52 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
       "--since-seq",
       String(interruptEvent.seq),
     ]);
+
+    const controlStates = result.stdout
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("tui_control_state="))
+      .map((line) => JSON.parse(line.replace(/^tui_control_state=/, "")));
+    assert.ok(controlStates.length >= 4);
+    const finalControlState = controlStates[controlStates.length - 1];
+    assert.equal(
+      finalControlState.schema_version,
+      "ioi.agent-cli.tui-control-state.v1",
+    );
+    assert.equal(finalControlState.thread_id, threadId);
+    assert.ok(finalControlState.current_turn_id);
+    assert.ok(finalControlState.last_cursor);
+    assert.ok(
+      finalControlState.command_history.some(
+        (entry) => entry.command === "interrupt" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
+        (entry) => entry.command === "events" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.validation_errors.some(
+        (entry) =>
+          entry.command === "steer" &&
+          entry.message === "/steer requires guidance text",
+      ),
+    );
+    const lineModeControlProjection =
+      projectRuntimeTuiControlStateToWorkflowProjection(finalControlState);
+    assert.equal(
+      lineModeControlProjection.schemaVersion,
+      WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+    );
+    assert.equal(lineModeControlProjection.threadId, threadId);
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) =>
+          row.rowKind === "validation_error" &&
+          row.command === "steer" &&
+          row.reactFlowNodeId === "runtime.tui-control-state.validation.steer",
+      ),
+    );
   } finally {
     if (daemon) await daemon.close();
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);

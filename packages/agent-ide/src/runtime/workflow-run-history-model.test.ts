@@ -278,6 +278,66 @@ test("workflow run history model projects canonical runtime thread events", () =
   assert.equal(model.timelineEvents[0]?.runId, "run-a");
 });
 
+test("workflow run history model projects TUI control state for run inspector", () => {
+  const target = {
+    ...runResult("run-a", "passed", { answer: "new" }),
+    tuiControlState: {
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: "thread",
+      current_turn_id: "turn-a",
+      last_cursor: "events_thread:9",
+      command_history: [
+        {
+          id: "command-events",
+          command: "events",
+          raw_input: "/events 0",
+          status: "applied",
+          sequence: 1,
+        },
+      ],
+      validation_errors: [
+        {
+          id: "error-steer",
+          command: "steer",
+          raw_input: "/steer",
+          message: "/steer requires guidance text",
+          sequence: 2,
+        },
+      ],
+    },
+  } as unknown as WorkflowRunResult;
+
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.tuiControlStateProjection.threadId, "thread");
+  assert.equal(model.tuiControlStateProjection.currentTurnId, "turn-a");
+  assert.equal(model.tuiControlStateProjection.commandCount, 1);
+  assert.equal(model.tuiControlStateProjection.validationErrorCount, 1);
+  assert.deepEqual(
+    model.tuiControlStateProjection.rows.map((row) => [
+      row.rowKind,
+      row.command,
+      row.status,
+    ]),
+    [
+      ["summary", null, "current"],
+      ["command", "events", "applied"],
+      ["validation_error", "steer", "validation_error"],
+    ],
+  );
+});
+
 test("workflow run history model falls back to ambient events without selected run", () => {
   const fallbackEvents = [event("fallback")];
   const model = workflowRunHistoryModel({

@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
+  projectRuntimeTuiControlStateToWorkflowProjection,
   projectRuntimeThreadEventsToWorkflowNodes,
   projectRuntimeThreadEventsToWorkflowProjection,
   workflowNodeIdForRuntimeThreadEvent,
@@ -239,4 +241,69 @@ test("projects context compact events into the runtime compaction node", () => {
   assert.equal(nodes[0]?.status, "completed");
   assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-compact"]);
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-compact-allow"]);
+});
+
+test("projects TUI control state into React Flow run-inspector rows", () => {
+  const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+    schema_version: "ioi.agent-cli.tui-control-state.v1",
+    surface: "tui",
+    thread_id: "thread-test",
+    current_turn_id: "turn-test",
+    last_cursor: "events_thread:test:8",
+    last_event_id: "event-steer",
+    command_history: [
+      {
+        id: "tui-command-1",
+        command: "events",
+        raw_input: "/events 0",
+        status: "applied",
+        sequence: 1,
+        cursor: "events_thread:test:4",
+      },
+      {
+        id: "tui-command-2",
+        command: "steer",
+        raw_input: "/steer keep it focused",
+        status: "applied",
+        sequence: 2,
+        turn_id: "turn-test",
+        event_id: "event-steer",
+      },
+    ],
+    validation_errors: [
+      {
+        id: "tui-error-1",
+        command: "steer",
+        raw_input: "/steer",
+        message: "/steer requires guidance text",
+        sequence: 3,
+      },
+    ],
+  });
+
+  assert.equal(
+    projection.schemaVersion,
+    WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+  );
+  assert.equal(projection.sourceSchemaVersion, "ioi.agent-cli.tui-control-state.v1");
+  assert.equal(projection.threadId, "thread-test");
+  assert.equal(projection.currentTurnId, "turn-test");
+  assert.equal(projection.lastCursor, "events_thread:test:8");
+  assert.equal(projection.commandCount, 2);
+  assert.equal(projection.validationErrorCount, 1);
+  assert.equal(projection.rowCount, 4);
+  assert.deepEqual(
+    projection.rows.map((row) => [row.rowKind, row.command, row.status]),
+    [
+      ["summary", null, "current"],
+      ["command", "events", "applied"],
+      ["command", "steer", "applied"],
+      ["validation_error", "steer", "validation_error"],
+    ],
+  );
+  assert.equal(
+    projection.rows[2]?.reactFlowNodeId,
+    "runtime.tui-control-state.command.steer",
+  );
+  assert.equal(projection.rows[3]?.message, "/steer requires guidance text");
 });

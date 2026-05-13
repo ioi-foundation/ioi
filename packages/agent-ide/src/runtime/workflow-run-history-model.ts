@@ -16,7 +16,10 @@ import {
   type WorkflowInterruptPreview,
 } from "./workflow-bottom-panel-model";
 import {
+  projectRuntimeTuiControlStateToWorkflowProjection,
   projectRuntimeThreadEventsToWorkflowProjection,
+  type WorkflowRuntimeTuiControlStateInput,
+  type WorkflowRuntimeTuiControlStateProjection,
   type WorkflowRuntimeEventProjection,
   type WorkflowRuntimeThreadEventLike,
 } from "./workflow-runtime-event-projection";
@@ -40,6 +43,7 @@ export type WorkflowRunHistoryModelInput = {
   compareRunId: string | null;
   runEvents: WorkflowStreamEvent[];
   runtimeThreadEvents?: WorkflowRuntimeThreadEventLike[];
+  tuiControlState?: WorkflowRuntimeTuiControlStateInput;
   searchQuery: string;
   statusFilter: string;
 };
@@ -54,6 +58,7 @@ export type WorkflowRunHistoryModel = {
   selectedRun: WorkflowRunResult | null;
   comparison: WorkflowRunComparison | null;
   runtimeEventProjection: WorkflowRuntimeEventProjection;
+  tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   defaultCompareRun: WorkflowRunSummary | null;
   timelineEvents: WorkflowStreamEvent[];
   interruptPreview: WorkflowInterruptPreview | undefined;
@@ -82,6 +87,7 @@ export function workflowRunHistoryModel({
   compareRunId,
   runEvents,
   runtimeThreadEvents,
+  tuiControlState,
   searchQuery,
   statusFilter,
 }: WorkflowRunHistoryModelInput): WorkflowRunHistoryModel {
@@ -102,6 +108,9 @@ export function workflowRunHistoryModel({
   const runtimeEventProjection = projectRuntimeThreadEventsToWorkflowProjection(
     canonicalRuntimeThreadEvents,
     { columns: 2 },
+  );
+  const tuiControlStateProjection = projectRuntimeTuiControlStateToWorkflowProjection(
+    tuiControlState ?? tuiControlStateForRunResult(selectedRun),
   );
   const runStatuses = Array.from(new Set(runs.map((run) => run.status))).sort();
   const statusCounts = runs.reduce<WorkflowRunHistoryStatusCounts>(
@@ -133,6 +142,7 @@ export function workflowRunHistoryModel({
     selectedRun,
     comparison,
     runtimeEventProjection,
+    tuiControlStateProjection,
     defaultCompareRun,
     timelineEvents,
     interruptPreview: workflowInterruptPreview(lastRunResult),
@@ -140,6 +150,14 @@ export function workflowRunHistoryModel({
     harnessAttempts: selectedRun?.harnessAttempts ?? [],
     harnessComparisons: selectedRun?.harnessShadowComparisons ?? [],
   };
+}
+
+function tuiControlStateForRunResult(
+  run: WorkflowRunResult | null,
+): WorkflowRuntimeTuiControlStateInput | undefined {
+  const state = (run as { tuiControlState?: unknown } | null)?.tuiControlState;
+  if (!state || typeof state !== "object" || Array.isArray(state)) return undefined;
+  return state as WorkflowRuntimeTuiControlStateInput;
 }
 
 function runtimeThreadEventsForRunResult(

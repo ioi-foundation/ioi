@@ -13,6 +13,7 @@ use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 
 const TUI_SCHEMA_VERSION: &str = "ioi.agent-cli.tui.v1";
+const TUI_CONTROL_STATE_SCHEMA_VERSION: &str = "ioi.agent-cli.tui-control-state.v1";
 const TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION: &str = "ioi.workflow.runtime-tui-deeplink.v1";
 const TUI_PRIVATE_RUNTIME_LOOP: bool = false;
 const TUI_THREAD_CREATE_ROUTE: &str = "/v1/threads";
@@ -191,6 +192,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
     let workflow_node_ids = workflow_node_ids(&render.events);
     let thread_id = json_path_string(&render.thread, "/thread_id");
     let event_rows = tui_event_rows(&render.events, thread_id.as_deref());
+    let tui_control_state = tui_control_state_for_render(render, thread_id.as_deref());
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -207,6 +209,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
             "follow": render.follow,
             "event_count": render.events.len(),
             "workflow_node_ids": workflow_node_ids,
+            "tui_control_state": tui_control_state,
             "event_rows": event_rows,
             "events": render.events,
             "deep_links": {
@@ -255,6 +258,14 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
             json_path_string(control, "/stop_reason").unwrap_or_else(|| "n/a".to_string())
         );
     }
+    let control_state = tui_control_state_for_render(render, Some(&thread_id));
+    println!(
+        "  control_state schema={} current_turn={} last_cursor={}",
+        json_path_string(&control_state, "/schema_version")
+            .unwrap_or_else(|| TUI_CONTROL_STATE_SCHEMA_VERSION.to_string()),
+        json_path_string(&control_state, "/current_turn_id").unwrap_or_else(|| "none".to_string()),
+        json_path_string(&control_state, "/last_cursor").unwrap_or_else(|| "none".to_string())
+    );
     println!("  controls=/interrupt /steer /resume via daemon thread endpoints");
     println!("Events: count={}", render.events.len());
     for event in &render.events {
@@ -559,6 +570,72 @@ pub(crate) fn latest_event_seq(events: &[Value]) -> Option<u64> {
         .max()
 }
 
+fn latest_tui_event(events: &[Value]) -> Option<&Value> {
+    events
+        .iter()
+        .max_by_key(|event| event.pointer("/seq").and_then(Value::as_u64).unwrap_or(0))
+}
+
+fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&str>) -> Value {
+    let thread_id = json_path_string(&render.thread, "/thread_id")
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let current_turn_id =
+        selected_turn_id_from_values(None, render.submitted_turn.as_ref(), &render.thread).ok();
+    let latest_event = latest_tui_event(&render.events);
+    let last_seq = latest_event.and_then(|event| event.pointer("/seq").and_then(Value::as_u64));
+    let last_cursor = latest_event.and_then(|event| tui_event_cursor(event, last_seq));
+    let last_event_id = latest_event.and_then(|event| json_path_string(event, "/event_id"));
+    let mut command_history = Vec::new();
+
+    if let Some(turn) = render.submitted_turn.as_ref() {
+        command_history.push(serde_json::json!({
+            "id": "tui-command-message",
+            "sequence": command_history.len() + 1,
+            "command": "message",
+            "raw_input": "--message",
+            "status": "applied",
+            "message": "submitted turn through daemon",
+            "thread_id": thread_id.clone(),
+            "turn_id": json_path_string(turn, "/turn_id"),
+            "cursor": last_cursor.clone(),
+            "event_id": last_event_id.clone(),
+        }));
+    }
+    if let Some(control) = render.control.as_ref() {
+        let source_event_kind = latest_event
+            .and_then(|event| json_path_string(event, "/source_event_kind"))
+            .unwrap_or_default();
+        let command = if source_event_kind.contains("Steer") {
+            "steer"
+        } else {
+            "interrupt"
+        };
+        command_history.push(serde_json::json!({
+            "id": format!("tui-command-{command}"),
+            "sequence": command_history.len() + 1,
+            "command": command,
+            "raw_input": format!("--{command}"),
+            "status": "applied",
+            "message": json_path_string(control, "/status"),
+            "thread_id": thread_id.clone(),
+            "turn_id": current_turn_id.clone(),
+            "cursor": last_cursor.clone(),
+            "event_id": last_event_id.clone(),
+        }));
+    }
+
+    serde_json::json!({
+        "schema_version": TUI_CONTROL_STATE_SCHEMA_VERSION,
+        "surface": "tui",
+        "thread_id": thread_id,
+        "current_turn_id": current_turn_id,
+        "last_cursor": last_cursor,
+        "last_event_id": last_event_id,
+        "command_history": command_history,
+        "validation_errors": [],
+    })
+}
+
 fn workflow_node_ids(events: &[Value]) -> Vec<String> {
     let mut ids = BTreeSet::new();
     for event in events {
@@ -786,5 +863,42 @@ mod tests {
             rows[0]["react_flow"]["workflow_node_id"],
             "runtime.operator-interrupt"
         );
+    }
+
+    #[test]
+    fn tui_control_state_preserves_turn_cursor_and_command_history() {
+        let render = TuiRender {
+            endpoint: "http://127.0.0.1:8765".to_string(),
+            event_route: "/v1/threads/thread_live/events?since_seq=0".to_string(),
+            thread: serde_json::json!({
+                "thread_id": "thread_live",
+                "latest_turn_id": "turn_live",
+            }),
+            submitted_turn: Some(serde_json::json!({ "turn_id": "turn_live" })),
+            control: Some(serde_json::json!({
+                "status": "interrupted",
+                "stop_reason": "operator_interrupt",
+            })),
+            events: vec![serde_json::json!({
+                "event_id": "event_live",
+                "event_stream_id": "events_thread_live",
+                "seq": 9,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "source_event_kind": "OperatorControl.Interrupt",
+            })],
+            since_seq: Some(0),
+            last_event_id: None,
+            follow: false,
+        };
+
+        let state = tui_control_state_for_render(&render, Some("thread_live"));
+        assert_eq!(state["schema_version"], TUI_CONTROL_STATE_SCHEMA_VERSION);
+        assert_eq!(state["thread_id"], "thread_live");
+        assert_eq!(state["current_turn_id"], "turn_live");
+        assert_eq!(state["last_cursor"], "events_thread_live:9");
+        assert_eq!(state["last_event_id"], "event_live");
+        assert_eq!(state["command_history"][0]["command"], "message");
+        assert_eq!(state["command_history"][1]["command"], "interrupt");
     }
 }
