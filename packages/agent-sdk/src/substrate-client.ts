@@ -75,6 +75,7 @@ export interface RuntimeAgentRecord {
   modelRouteProviderId?: string | null;
   modelRouteReceiptId?: string | null;
   modelRouteDecision?: ModelRouteDecision | null;
+  runtimeControls?: RuntimeThreadRecord["runtime_controls"] | null;
   createdAt: string;
   updatedAt: string;
   options: AgentOptionsSummary;
@@ -611,6 +612,50 @@ export interface RuntimeThreadCompactInput {
   [key: string]: unknown;
 }
 
+export interface RuntimeThreadModeInput {
+  mode: RuntimeThreadRecord["mode"] | string;
+  approvalMode?: RuntimeThreadRecord["approval_mode"] | string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeThreadModelInput {
+  model?: string | {
+    id?: string;
+    modelId?: string;
+    routeId?: string;
+    reasoningEffort?: string;
+    thinking?: string;
+    privacy?: string;
+    maxCostUsd?: number;
+    allowHostedFallback?: boolean;
+    workflowGraphId?: string;
+    workflowNodeId?: string;
+    [key: string]: unknown;
+  };
+  modelId?: string;
+  routeId?: string;
+  reasoningEffort?: string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeThreadThinkingInput {
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | string;
+  thinking?: "low" | "medium" | "high" | "xhigh" | string;
+  actor?: string;
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  workflowGraphId?: string;
+  workflowNodeId?: string;
+  [key: string]: unknown;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -624,6 +669,9 @@ export interface RuntimeSubstrateClient {
   resumeThread(threadId: string): Promise<RuntimeThreadRecord>;
   forkThread(threadId: string, input?: RuntimeThreadForkInput): Promise<RuntimeThreadRecord>;
   compactThread(threadId: string, input?: RuntimeThreadCompactInput): Promise<RuntimeThreadRecord>;
+  updateThreadMode(threadId: string, input: RuntimeThreadModeInput): Promise<RuntimeThreadRecord>;
+  updateThreadModel(threadId: string, input: RuntimeThreadModelInput): Promise<RuntimeThreadRecord>;
+  updateThreadThinking(threadId: string, input: RuntimeThreadThinkingInput): Promise<RuntimeThreadRecord>;
   submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
@@ -756,6 +804,51 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "compactThread",
       "POST",
       `/v1/threads/${encodePath(threadId)}/compact`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async updateThreadMode(
+    threadId: string,
+    input: RuntimeThreadModeInput,
+  ): Promise<RuntimeThreadRecord> {
+    return this.request(
+      "updateThreadMode",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mode`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async updateThreadModel(
+    threadId: string,
+    input: RuntimeThreadModelInput,
+  ): Promise<RuntimeThreadRecord> {
+    return this.request(
+      "updateThreadModel",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/model`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async updateThreadThinking(
+    threadId: string,
+    input: RuntimeThreadThinkingInput,
+  ): Promise<RuntimeThreadRecord> {
+    return this.request(
+      "updateThreadThinking",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/thinking`,
       {
         source: "sdk_client",
         ...input,
@@ -1884,6 +1977,79 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     };
     this.persistRun(compacted);
     return this.threadRecordForAgent(agent);
+  }
+
+  async updateThreadMode(
+    threadId: string,
+    input: RuntimeThreadModeInput,
+  ): Promise<RuntimeThreadRecord> {
+    const agent = await this.agentForThread(threadId);
+    const mode = String(input.mode ?? "agent").trim() || "agent";
+    const approvalMode = String(input.approvalMode ?? (mode === "yolo" ? "never_prompt" : mode === "plan" ? "human_required" : "suggest"));
+    const updated = {
+      ...agent,
+      updatedAt: new Date().toISOString(),
+      runtimeControls: {
+        ...(agent as RuntimeAgentRecord & { runtimeControls?: Record<string, unknown> }).runtimeControls,
+        mode,
+        approvalMode,
+        approval_mode: approvalMode,
+      },
+    } as RuntimeAgentRecord;
+    this.persistAgent(updated);
+    return this.threadRecordForAgent(updated);
+  }
+
+  async updateThreadModel(
+    threadId: string,
+    input: RuntimeThreadModelInput,
+  ): Promise<RuntimeThreadRecord> {
+    const agent = await this.agentForThread(threadId);
+    const modelInput =
+      input.model && typeof input.model === "object" && !Array.isArray(input.model)
+        ? input.model
+        : {};
+    const requestedModel =
+      (typeof input.model === "string" ? input.model : undefined) ??
+      input.modelId ??
+      modelInput.id ??
+      modelInput.modelId ??
+      agent.requestedModelId ??
+      agent.modelId;
+    const routeId = input.routeId ?? modelInput.routeId ?? agent.modelRouteId ?? "route.local-first";
+    const reasoningEffort = input.reasoningEffort ?? modelInput.reasoningEffort;
+    const updated = {
+      ...agent,
+      modelId: requestedModel,
+      requestedModelId: requestedModel,
+      modelRouteId: routeId,
+      updatedAt: new Date().toISOString(),
+      runtimeControls: {
+        ...(agent as RuntimeAgentRecord & { runtimeControls?: Record<string, unknown> }).runtimeControls,
+        model: {
+          id: requestedModel,
+          routeId,
+          selectedModel: requestedModel,
+          reasoningEffort,
+          workflowNodeId: input.workflowNodeId ?? modelInput.workflowNodeId ?? "runtime.model-router",
+        },
+      },
+    } as RuntimeAgentRecord;
+    this.persistAgent(updated);
+    return this.threadRecordForAgent(updated);
+  }
+
+  async updateThreadThinking(
+    threadId: string,
+    input: RuntimeThreadThinkingInput,
+  ): Promise<RuntimeThreadRecord> {
+    return this.updateThreadModel(threadId, {
+      reasoningEffort: input.reasoningEffort ?? input.thinking,
+      source: input.source,
+      actor: input.actor,
+      workflowGraphId: input.workflowGraphId,
+      workflowNodeId: input.workflowNodeId,
+    });
   }
 
   async submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord> {
@@ -3430,6 +3596,13 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const latestRun = runs.at(-1);
     const threadId = threadIdForAgent(agent.id);
     const events = this.threadRuntimeEvents(agent);
+    const runtimeControls =
+      (agent as RuntimeAgentRecord & { runtimeControls?: RuntimeThreadRecord["runtime_controls"] })
+        .runtimeControls ?? null;
+    const mode = runtimeControls?.mode ?? "agent";
+    const approvalMode =
+      runtimeControls?.approvalMode ?? runtimeControls?.approval_mode ?? "suggest";
+    const modelControls = runtimeControls?.model;
     return {
       schema_version: "ioi.runtime.thread.v1",
       thread_id: threadId,
@@ -3437,8 +3610,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       agent_id: agent.id,
       workspace_root: agent.cwd,
       title: latestRun?.objective ?? agent.cwd,
-      mode: "agent",
-      approval_mode: "suggest",
+      mode,
+      approval_mode: approvalMode,
       trust_profile: "local_private",
       model_route: agent.modelId,
       status: this.threadRecordStatus(agent),
@@ -3452,6 +3625,17 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       updated_at: agent.updatedAt,
       archived_at: agent.status === "archived" ? agent.updatedAt : null,
       fixture_profile: "agent_sdk_mock",
+      requested_model: agent.requestedModelId ?? agent.modelId,
+      selected_model: agent.modelId,
+      model_route_id: agent.modelRouteId ?? null,
+      model_route_receipt_id: agent.modelRouteReceiptId ?? null,
+      model_route_decision: agent.modelRouteDecision ?? null,
+      reasoning_effort:
+        agent.modelRouteDecision?.reasoningEffort ??
+        modelControls?.reasoningEffort ??
+        modelControls?.reasoning_effort ??
+        null,
+      runtime_controls: runtimeControls,
     };
   }
 

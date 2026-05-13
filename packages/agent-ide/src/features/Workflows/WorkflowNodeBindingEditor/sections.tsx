@@ -93,6 +93,30 @@ export function WorkflowNodeBindingSections({
       },
     });
   };
+  const modelBindingFor = (
+    overrides: Partial<NonNullable<NodeLogic["modelBinding"]>> = {},
+  ): NonNullable<NodeLogic["modelBinding"]> => ({
+    modelRef: String(
+      logic.modelBinding?.modelRef ?? logic.modelRef ?? "reasoning",
+    ),
+    modelId: logic.modelBinding?.modelId ?? logic.modelId,
+    routeId: logic.modelBinding?.routeId ?? logic.routeId,
+    reasoningEffort:
+      logic.modelBinding?.reasoningEffort ??
+      logic.reasoningEffort ??
+      "medium",
+    mockBinding: logic.modelBinding?.mockBinding ?? true,
+    capabilityScope: logic.modelBinding?.capabilityScope ?? ["reasoning"],
+    argumentSchema: logic.modelBinding?.argumentSchema ??
+      logic.inputSchema ?? { type: "object" },
+    resultSchema: logic.modelBinding?.resultSchema ??
+      logic.outputSchema ?? { type: "object" },
+    sideEffectClass: logic.modelBinding?.sideEffectClass ?? "none",
+    requiresApproval: logic.modelBinding?.requiresApproval ?? false,
+    credentialReady: logic.modelBinding?.credentialReady ?? false,
+    toolUseMode: logic.modelBinding?.toolUseMode ?? logic.toolUseMode ?? "none",
+    ...overrides,
+  });
 
   return (
     <>
@@ -512,32 +536,84 @@ export function WorkflowNodeBindingSections({
                     logic: {
                       ...logic,
                       modelRef: event.target.value,
-                      modelBinding: {
+                      modelBinding: modelBindingFor({
                         modelRef: event.target.value,
-                        mockBinding: logic.modelBinding?.mockBinding ?? true,
-                        capabilityScope: logic.modelBinding
-                          ?.capabilityScope ?? ["reasoning"],
-                        argumentSchema: logic.modelBinding?.argumentSchema ??
-                          logic.inputSchema ?? { type: "object" },
-                        resultSchema: logic.modelBinding?.resultSchema ??
-                          logic.outputSchema ?? { type: "object" },
-                        sideEffectClass:
-                          logic.modelBinding?.sideEffectClass ?? "none",
-                        requiresApproval:
-                          logic.modelBinding?.requiresApproval ?? false,
-                        credentialReady:
-                          logic.modelBinding?.credentialReady ?? false,
-                        toolUseMode:
-                          logic.modelBinding?.toolUseMode ??
-                          logic.toolUseMode ??
-                          "none",
-                      },
+                      }),
                     },
                     law: node.config?.law ?? {},
                   },
                 })
               }
             />
+          </label>
+          <label>
+            Model id
+            <input
+              data-testid="workflow-model-id"
+              value={String(logic.modelBinding?.modelId ?? logic.modelId ?? "")}
+              placeholder="auto"
+              onChange={(event) => {
+                const modelId = event.target.value || null;
+                updateLogic({
+                  ...logic,
+                  modelId,
+                  modelBinding: modelBindingFor({
+                    modelRef: String(logic.modelRef ?? "reasoning"),
+                    modelId,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <label>
+            Route
+            <input
+              data-testid="workflow-model-route-id"
+              value={String(logic.modelBinding?.routeId ?? logic.routeId ?? "")}
+              placeholder="route.local-first"
+              onChange={(event) => {
+                const routeId = event.target.value;
+                updateLogic({
+                  ...logic,
+                  routeId,
+                  modelBinding: modelBindingFor({
+                    modelRef: String(logic.modelRef ?? "reasoning"),
+                    routeId,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <label>
+            Thinking
+            <select
+              data-testid="workflow-model-thinking"
+              value={String(
+                logic.modelBinding?.reasoningEffort ??
+                  logic.reasoningEffort ??
+                  "medium",
+              )}
+              onChange={(event) => {
+                const reasoningEffort = event.target.value as
+                  | "low"
+                  | "medium"
+                  | "high"
+                  | "xhigh";
+                updateLogic({
+                  ...logic,
+                  reasoningEffort,
+                  modelBinding: modelBindingFor({
+                    modelRef: String(logic.modelRef ?? "reasoning"),
+                    reasoningEffort,
+                  }),
+                });
+              }}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="xhigh">XHigh</option>
+            </select>
           </label>
           <label>
             Tool-use mode
@@ -554,24 +630,10 @@ export function WorkflowNodeBindingSections({
                 updateLogic({
                   ...logic,
                   toolUseMode,
-                  modelBinding: {
+                  modelBinding: modelBindingFor({
                     modelRef: String(logic.modelRef ?? "reasoning"),
-                    mockBinding: logic.modelBinding?.mockBinding ?? true,
-                    capabilityScope: logic.modelBinding?.capabilityScope ?? [
-                      "reasoning",
-                    ],
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
-                    resultSchema: logic.modelBinding?.resultSchema ??
-                      logic.outputSchema ?? { type: "object" },
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
-                    credentialReady:
-                      logic.modelBinding?.credentialReady ?? false,
                     toolUseMode,
-                  },
+                  }),
                 });
               }}
             >
@@ -602,26 +664,10 @@ export function WorkflowNodeBindingSections({
                 updateLogic({
                   ...logic,
                   outputSchema: resultSchema,
-                  modelBinding: {
+                  modelBinding: modelBindingFor({
                     modelRef: String(logic.modelRef ?? "reasoning"),
-                    mockBinding: logic.modelBinding?.mockBinding ?? true,
-                    capabilityScope: logic.modelBinding?.capabilityScope ?? [
-                      "reasoning",
-                    ],
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
                     resultSchema,
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
-                    credentialReady:
-                      logic.modelBinding?.credentialReady ?? false,
-                    toolUseMode:
-                      logic.modelBinding?.toolUseMode ??
-                      logic.toolUseMode ??
-                      "none",
-                  },
+                  }),
                 });
               }}
             />
@@ -779,27 +825,72 @@ export function WorkflowNodeBindingSections({
                 updateLogic({
                   ...logic,
                   modelRef,
-                  modelBinding: {
+                  modelBinding: modelBindingFor({
                     modelRef,
-                    mockBinding: logic.modelBinding?.mockBinding ?? true,
-                    capabilityScope: logic.modelBinding?.capabilityScope ?? [
-                      "reasoning",
-                    ],
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
-                    resultSchema: logic.modelBinding?.resultSchema ??
-                      logic.outputSchema ?? { type: "object" },
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
-                    credentialReady:
-                      logic.modelBinding?.credentialReady ?? false,
-                    toolUseMode: logic.modelBinding?.toolUseMode ?? "none",
-                  },
+                  }),
                 });
               }}
             />
+          </label>
+          <label>
+            Model id
+            <input
+              data-testid="workflow-model-binding-model-id"
+              value={String(logic.modelBinding?.modelId ?? logic.modelId ?? "")}
+              placeholder="auto"
+              onChange={(event) => {
+                const modelId = event.target.value || null;
+                updateLogic({
+                  ...logic,
+                  modelId,
+                  modelBinding: modelBindingFor({ modelId }),
+                });
+              }}
+            />
+          </label>
+          <label>
+            Route
+            <input
+              data-testid="workflow-model-binding-route-id"
+              value={String(logic.modelBinding?.routeId ?? logic.routeId ?? "")}
+              placeholder="route.local-first"
+              onChange={(event) => {
+                const routeId = event.target.value;
+                updateLogic({
+                  ...logic,
+                  routeId,
+                  modelBinding: modelBindingFor({ routeId }),
+                });
+              }}
+            />
+          </label>
+          <label>
+            Thinking
+            <select
+              data-testid="workflow-model-binding-thinking"
+              value={String(
+                logic.modelBinding?.reasoningEffort ??
+                  logic.reasoningEffort ??
+                  "medium",
+              )}
+              onChange={(event) => {
+                const reasoningEffort = event.target.value as
+                  | "low"
+                  | "medium"
+                  | "high"
+                  | "xhigh";
+                updateLogic({
+                  ...logic,
+                  reasoningEffort,
+                  modelBinding: modelBindingFor({ reasoningEffort }),
+                });
+              }}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="xhigh">XHigh</option>
+            </select>
           </label>
           <label>
             Capability scope
@@ -816,26 +907,9 @@ export function WorkflowNodeBindingSections({
                   .filter(Boolean);
                 updateLogic({
                   ...logic,
-                  modelBinding: {
-                    modelRef: String(
-                      logic.modelBinding?.modelRef ??
-                        logic.modelRef ??
-                        "reasoning",
-                    ),
-                    mockBinding: logic.modelBinding?.mockBinding ?? true,
+                  modelBinding: modelBindingFor({
                     capabilityScope,
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
-                    resultSchema: logic.modelBinding?.resultSchema ??
-                      logic.outputSchema ?? { type: "object" },
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
-                    credentialReady:
-                      logic.modelBinding?.credentialReady ?? false,
-                    toolUseMode: logic.modelBinding?.toolUseMode ?? "none",
-                  },
+                  }),
                 });
               }}
             />
@@ -859,27 +933,9 @@ export function WorkflowNodeBindingSections({
                 updateLogic({
                   ...logic,
                   outputSchema: resultSchema,
-                  modelBinding: {
-                    modelRef: String(
-                      logic.modelBinding?.modelRef ??
-                        logic.modelRef ??
-                        "reasoning",
-                    ),
-                    mockBinding: logic.modelBinding?.mockBinding ?? true,
-                    capabilityScope: logic.modelBinding?.capabilityScope ?? [
-                      "reasoning",
-                    ],
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
+                  modelBinding: modelBindingFor({
                     resultSchema,
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
-                    credentialReady:
-                      logic.modelBinding?.credentialReady ?? false,
-                    toolUseMode: logic.modelBinding?.toolUseMode ?? "none",
-                  },
+                  }),
                 });
               }}
             />
@@ -892,28 +948,9 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  modelBinding: {
-                    modelRef: String(
-                      logic.modelBinding?.modelRef ??
-                        logic.modelRef ??
-                        "reasoning",
-                    ),
+                  modelBinding: modelBindingFor({
                     mockBinding: event.target.checked,
-                    capabilityScope: logic.modelBinding?.capabilityScope ?? [
-                      "reasoning",
-                    ],
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
-                    resultSchema: logic.modelBinding?.resultSchema ??
-                      logic.outputSchema ?? { type: "object" },
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
-                    credentialReady:
-                      logic.modelBinding?.credentialReady ?? false,
-                    toolUseMode: logic.modelBinding?.toolUseMode ?? "none",
-                  },
+                  }),
                 })
               }
             />
@@ -927,27 +964,9 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  modelBinding: {
-                    modelRef: String(
-                      logic.modelBinding?.modelRef ??
-                        logic.modelRef ??
-                        "reasoning",
-                    ),
-                    mockBinding: logic.modelBinding?.mockBinding ?? true,
-                    capabilityScope: logic.modelBinding?.capabilityScope ?? [
-                      "reasoning",
-                    ],
-                    argumentSchema: logic.modelBinding?.argumentSchema ??
-                      logic.inputSchema ?? { type: "object" },
-                    resultSchema: logic.modelBinding?.resultSchema ??
-                      logic.outputSchema ?? { type: "object" },
-                    sideEffectClass:
-                      logic.modelBinding?.sideEffectClass ?? "none",
-                    requiresApproval:
-                      logic.modelBinding?.requiresApproval ?? false,
+                  modelBinding: modelBindingFor({
                     credentialReady: event.target.checked,
-                    toolUseMode: logic.modelBinding?.toolUseMode ?? "none",
-                  },
+                  }),
                 })
               }
             />

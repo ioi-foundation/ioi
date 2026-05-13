@@ -396,6 +396,7 @@ export interface NodeLogic {
   model?: string;
   modelId?: string | null;
   routeId?: string;
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | string;
   modelPolicy?: Record<string, unknown>;
   capability?:
     | "chat"
@@ -1102,6 +1103,7 @@ export interface WorkflowModelBinding {
   modelRef: string;
   modelId?: string | null;
   routeId?: string;
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | string;
   modelPolicy?: Record<string, unknown>;
   capability?:
     | "chat"

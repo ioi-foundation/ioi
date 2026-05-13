@@ -9,6 +9,7 @@ use super::agent_tui::{
     replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
     selected_turn_id_from_values, steer_tui_turn, thread_id_from_value, tui_approval_decisions,
     tui_approval_rows, tui_job_rows, tui_mode_status, tui_run_lifecycle_rows,
+    update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -47,6 +48,16 @@ pub(crate) enum TuiLineCommand {
     },
     Steer {
         guidance: String,
+    },
+    Mode {
+        mode: Option<String>,
+    },
+    Model {
+        model_id: Option<String>,
+        route_id: Option<String>,
+    },
+    Thinking {
+        reasoning_effort: Option<String>,
     },
     WorkspaceStatus,
     Diff {
@@ -232,6 +243,42 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("turn steered"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Mode { mode }) => {
+                let events = handle_mode_command(&mut session, mode).await?;
+                control_state.record_command(
+                    "mode",
+                    line.trim(),
+                    "applied",
+                    Some("mode inspected or updated"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Model { model_id, route_id }) => {
+                let events = handle_model_command(&mut session, model_id, route_id).await?;
+                control_state.record_command(
+                    "model",
+                    line.trim(),
+                    "applied",
+                    Some("model route inspected or updated"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Thinking { reasoning_effort }) => {
+                let events = handle_thinking_command(&mut session, reasoning_effort).await?;
+                control_state.record_command(
+                    "thinking",
+                    line.trim(),
+                    "applied",
+                    Some("thinking effort inspected or updated"),
                     &session,
                     &events,
                 );
@@ -612,6 +659,13 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 non_empty_string(rest).ok_or_else(|| anyhow!("/steer requires guidance text"))?;
             Ok(TuiLineCommand::Steer { guidance })
         }
+        "mode" => Ok(TuiLineCommand::Mode {
+            mode: non_empty_string(rest),
+        }),
+        "model" => parse_model_args(rest),
+        "thinking" => Ok(TuiLineCommand::Thinking {
+            reasoning_effort: non_empty_string(rest),
+        }),
         "status" | "workspace-status" => Ok(TuiLineCommand::WorkspaceStatus),
         "diff" => Ok(TuiLineCommand::Diff {
             path: non_empty_string(rest),
@@ -818,6 +872,109 @@ async fn handle_steer_command(
         json_path_string(&control, "/stop_reason").unwrap_or_else(|| "n/a".to_string())
     );
     handle_events_command(session, None).await
+}
+
+async fn handle_mode_command(
+    session: &mut TuiInteractiveSession,
+    mode: Option<String>,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    if let Some(mode) = mode.as_deref().filter(|value| !value.trim().is_empty()) {
+        let result =
+            update_tui_thread_mode(&thread_id, mode, &session.endpoint, session.token.as_deref())
+                .await?;
+        session.thread =
+            fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+        println!(
+            "line_mode_command=mode thread={thread_id} mode={} approval_mode={} event={}",
+            json_path_string(&result, "/mode").unwrap_or_else(|| mode.to_string()),
+            json_path_string(&result, "/approval_mode")
+                .or_else(|| json_path_string(&result, "/control/approval_mode"))
+                .unwrap_or_else(|| "suggest".to_string()),
+            json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+        );
+        return handle_events_command(session, None).await;
+    }
+    let status = tui_mode_status(&session.thread, None);
+    println!(
+        "line_mode_command=mode thread={thread_id} mode={} approval_mode={}",
+        json_path_string(&status, "/mode").unwrap_or_else(|| "agent".to_string()),
+        json_path_string(&status, "/approval_mode").unwrap_or_else(|| "suggest".to_string())
+    );
+    Ok(Vec::new())
+}
+
+async fn handle_model_command(
+    session: &mut TuiInteractiveSession,
+    model_id: Option<String>,
+    route_id: Option<String>,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    if let Some(model_id) = model_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        let result = update_tui_thread_model(
+            &thread_id,
+            model_id,
+            route_id.as_deref(),
+            &session.endpoint,
+            session.token.as_deref(),
+        )
+        .await?;
+        session.thread =
+            fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+        println!(
+            "line_mode_command=model thread={thread_id} requested_model={} selected_model={} route={} event={}",
+            json_path_string(&result, "/requested_model").unwrap_or_else(|| model_id.to_string()),
+            json_path_string(&result, "/selected_model")
+                .or_else(|| json_path_string(&result, "/model_route"))
+                .unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&result, "/model_route_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+        );
+        return handle_events_command(session, None).await;
+    }
+    let status = tui_mode_status(&session.thread, None);
+    println!(
+        "line_mode_command=model thread={thread_id} requested_model={} selected_model={} route={}",
+        json_path_string(&status, "/requested_model").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&status, "/selected_model").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&status, "/model_route_id").unwrap_or_else(|| "unknown".to_string())
+    );
+    Ok(Vec::new())
+}
+
+async fn handle_thinking_command(
+    session: &mut TuiInteractiveSession,
+    reasoning_effort: Option<String>,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    if let Some(reasoning_effort) =
+        reasoning_effort.as_deref().filter(|value| !value.trim().is_empty())
+    {
+        let result = update_tui_thread_thinking(
+            &thread_id,
+            reasoning_effort,
+            &session.endpoint,
+            session.token.as_deref(),
+        )
+        .await?;
+        session.thread =
+            fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+        println!(
+            "line_mode_command=thinking thread={thread_id} reasoning_effort={} route={} event={}",
+            json_path_string(&result, "/reasoning_effort")
+                .or_else(|| json_path_string(&result, "/control/model/reasoningEffort"))
+                .unwrap_or_else(|| reasoning_effort.to_string()),
+            json_path_string(&result, "/model_route_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(&result, "/event/event_id").unwrap_or_else(|| "none".to_string())
+        );
+        return handle_events_command(session, None).await;
+    }
+    let status = tui_mode_status(&session.thread, None);
+    println!(
+        "line_mode_command=thinking thread={thread_id} reasoning_effort={}",
+        json_path_string(&status, "/reasoning_effort").unwrap_or_else(|| "default".to_string())
+    );
+    Ok(Vec::new())
 }
 
 async fn handle_coding_tool_command(
@@ -1220,7 +1377,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -1257,6 +1414,43 @@ fn parse_patch_args(rest: &str) -> Result<(String, String, String)> {
         return Err(anyhow!("/patch requires a path and non-empty old text"));
     }
     Ok((path, old_text, new_text))
+}
+
+fn parse_model_args(rest: &str) -> Result<TuiLineCommand> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return Ok(TuiLineCommand::Model {
+            model_id: None,
+            route_id: None,
+        });
+    }
+    let mut parts = trimmed.split_whitespace();
+    let model_id = parts
+        .next()
+        .ok_or_else(|| anyhow!("/model accepts [model_id] [route_id|--route route_id]"))?;
+    let mut route_id = None;
+    while let Some(part) = parts.next() {
+        match part {
+            "--route" | "--route-id" | "--route_id" => {
+                let value = parts
+                    .next()
+                    .ok_or_else(|| anyhow!("/model --route requires a route id"))?;
+                route_id = Some(value.to_string());
+            }
+            value if route_id.is_none() => {
+                route_id = Some(value.to_string());
+            }
+            _ => {
+                return Err(anyhow!(
+                    "/model accepts [model_id] [route_id|--route route_id]"
+                ));
+            }
+        }
+    }
+    Ok(TuiLineCommand::Model {
+        model_id: Some(model_id.to_string()),
+        route_id,
+    })
 }
 
 fn parse_restore_args(rest: &str) -> Result<TuiLineCommand> {
@@ -1747,6 +1941,25 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/mode yolo").unwrap(),
+            TuiLineCommand::Mode {
+                mode: Some("yolo".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/model auto --route route.native-local").unwrap(),
+            TuiLineCommand::Model {
+                model_id: Some("auto".to_string()),
+                route_id: Some("route.native-local".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/thinking high").unwrap(),
+            TuiLineCommand::Thinking {
+                reasoning_effort: Some("high".to_string())
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/status").unwrap(),
             TuiLineCommand::WorkspaceStatus
         );
@@ -1900,6 +2113,7 @@ mod tests {
         assert!(parse_tui_line_command("/inspect").is_err());
         assert!(parse_tui_line_command("/patch README.md before after").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
+        assert!(parse_tui_line_command("/model auto --route").is_err());
         assert!(parse_tui_line_command("/jobs extra").is_err());
         assert!(parse_tui_line_command("/job cancel").is_err());
         assert!(parse_tui_line_command("/job cancel job extra").is_err());

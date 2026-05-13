@@ -195,6 +195,40 @@ export interface RuntimeThreadRecord {
   updated_at: string;
   archived_at: string | null;
   fixture_profile: string | null;
+  requested_model?: string | null;
+  selected_model?: string | null;
+  model_route_id?: string | null;
+  model_route_receipt_id?: string | null;
+  model_route_decision?: ModelRouteDecision | null;
+  reasoning_effort?: string | null;
+  runtime_controls?: RuntimeThreadControls | null;
+}
+
+export interface RuntimeThreadControls {
+  schemaVersion?: string;
+  schema_version?: string;
+  mode: RuntimeThreadMode;
+  approvalMode?: RuntimeApprovalMode;
+  approval_mode?: RuntimeApprovalMode;
+  model?: {
+    id?: string | null;
+    routeId?: string | null;
+    route_id?: string | null;
+    selectedModel?: string | null;
+    selected_model?: string | null;
+    endpointId?: string | null;
+    providerId?: string | null;
+    receiptId?: string | null;
+    reasoningEffort?: string | null;
+    reasoning_effort?: string | null;
+    privacy?: string | null;
+    maxCostUsd?: number | null;
+    allowHostedFallback?: boolean | null;
+    workflowGraphId?: string | null;
+    workflowNodeId?: string | null;
+    updatedAt?: string | null;
+  };
+  updatedAt?: string | null;
 }
 
 export interface RuntimeTurnRecord {
