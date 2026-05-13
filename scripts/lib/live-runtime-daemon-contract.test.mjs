@@ -266,6 +266,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/index.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   ].map((file) => path.join(root, file));
@@ -2330,6 +2331,170 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     await daemon.close();
     await remoteFixture.close();
     await largeRemoteFixture.close();
+  }
+});
+
+test("React Flow MCP workflow authoring compiles state nodes into live daemon MCP controls", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeMcpToolControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-react-flow-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-react-flow-state-"));
+  fs.mkdirSync(path.join(cwd, ".cursor"), { recursive: true });
+  fs.writeFileSync(
+    path.join(cwd, ".cursor", "mcp.json"),
+    JSON.stringify(
+      {
+        mcpServers: {
+          search: {
+            command: "node",
+            args: [mcpStdioFixture],
+            allowedTools: ["query"],
+            containment: { mode: "sandboxed", allowChildProcesses: true },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        options: { local: { cwd }, mcpServers: {} },
+      }),
+    });
+    const workflowGraphId = "workflow.react-flow.mcp-authoring";
+    const searchNode = {
+      id: "react-flow-mcp-search",
+      type: "state",
+      config: {
+        logic: {
+          stateKey: "mcp",
+          stateOperation: "mcp_tool_search",
+          reducer: "replace",
+          mcpServerId: "mcp.search",
+          mcpToolSearchQuery: "query",
+          mcpConfigSourceMode: "workspace",
+          mcpCatalogMode: "summary",
+          mcpToolCatalogPreviewLimit: 2,
+        },
+      },
+    };
+    const fetchNode = {
+      id: "react-flow-mcp-fetch",
+      type: "state",
+      config: {
+        logic: {
+          stateKey: "mcp",
+          stateOperation: "mcp_tool_fetch",
+          reducer: "replace",
+          mcpServerId: "mcp.search",
+          mcpToolName: "query",
+          mcpConfigSourceMode: "workspace",
+          mcpCatalogMode: "summary",
+        },
+      },
+    };
+    const invokeNode = {
+      id: "react-flow-mcp-invoke",
+      type: "state",
+      config: {
+        logic: {
+          stateKey: "mcp",
+          stateOperation: "mcp_tool_invoke",
+          reducer: "replace",
+          mcpServerId: "mcp.search",
+          mcpToolName: "query",
+          mcpToolInputJson: "{\"q\":\"workflow-authored\"}",
+          mcpConfigSourceMode: "workspace",
+          mcpCatalogMode: "summary",
+          mcpContainmentMode: "sandboxed",
+          mcpAllowNetworkEgress: false,
+          mcpVaultHeaderRefsJson: "{}",
+        },
+      },
+    };
+
+    const searchRequest = createRuntimeMcpToolControlRequestFromWorkflowNode(
+      searchNode,
+      { threadId: thread.thread_id },
+      { workflowGraphId },
+    );
+    assert.equal(searchRequest.method, "GET");
+    assert.match(searchRequest.endpoint, /\/mcp\/tools\/search\?/);
+    assert.match(searchRequest.endpoint, /source=react_flow/);
+    const searchResult = await fetchJson(`${daemon.endpoint}${searchRequest.endpoint}`);
+    assert.equal(searchResult.object, "ioi.runtime_mcp_tool_search");
+    assert.equal(searchResult.status, "completed");
+    assert.equal(searchResult.tools[0].stableToolId, "mcp.search.query");
+
+    const fetchRequest = createRuntimeMcpToolControlRequestFromWorkflowNode(
+      fetchNode,
+      { threadId: thread.thread_id },
+      { workflowGraphId },
+    );
+    assert.equal(fetchRequest.method, "GET");
+    assert.equal(fetchRequest.toolId, "mcp.search.query");
+    const fetchResult = await fetchJson(`${daemon.endpoint}${fetchRequest.endpoint}`);
+    assert.equal(fetchResult.object, "ioi.runtime_mcp_tool_fetch");
+    assert.equal(fetchResult.toolName, "query");
+    assert.equal(fetchResult.tool.stableToolId, "mcp.search.query");
+
+    const invokeRequest = createRuntimeMcpToolControlRequestFromWorkflowNode(
+      invokeNode,
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(invokeRequest.method, "POST");
+    assert.equal(
+      invokeRequest.endpoint,
+      `/v1/threads/${thread.thread_id}/mcp/tools/mcp.search.query/invoke`,
+    );
+    assert.equal(invokeRequest.body.workflowGraphId, workflowGraphId);
+    assert.equal(invokeRequest.body.workflowNodeId, "runtime.mcp-tool.mcp.search.query");
+    assert.equal(invokeRequest.body.containmentMode, "sandboxed");
+    assert.equal(invokeRequest.body.allowNetworkEgress, false);
+    const invoked = await fetchJson(`${daemon.endpoint}${invokeRequest.endpoint}`, {
+      method: invokeRequest.method,
+      body: JSON.stringify(invokeRequest.body),
+    });
+    assert.equal(invoked.status, "completed");
+    assert.equal(invoked.event.source, "react_flow");
+    assert.equal(invoked.event.source_event_kind, "OperatorControl.McpInvoke");
+    assert.equal(invoked.event.workflow_graph_id, workflowGraphId);
+    assert.equal(invoked.event.workflow_node_id, "runtime.mcp-tool.mcp.search.query");
+    assert.equal(invoked.result.structuredContent.arguments.q, "workflow-authored");
+    assert.equal(invoked.containment.executionMode, "live_stdio");
+
+    const events = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    assert.ok(
+      events.some(
+        (event) =>
+          event.source === "react_flow" &&
+          event.source_event_kind === "OperatorControl.McpInvoke" &&
+          event.workflow_graph_id === workflowGraphId,
+      ),
+    );
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    assert.ok(
+      projection.nodes.some(
+        (node) => node.workflowNodeId === "runtime.mcp-tool.mcp.search.query",
+      ),
+    );
+  } finally {
+    await daemon.close();
   }
 });
 
@@ -7832,6 +7997,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts"),
     "utf8",
   );
+  const workflowRuntimeMcpControlNodes = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts"),
+    "utf8",
+  );
   const workflowNodeBindingEditorSections = fs.readFileSync(
     path.join(
       root,
@@ -8376,6 +8545,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "mcp\.status"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.tool\.search"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.tool\.fetch"/);
+  assert.match(nodeRegistry, /creatorId: "mcp\.tool\.invoke"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.import"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add"/);
   assert.match(nodeRegistry, /creatorId: "mcp\.server\.add\.http"/);
@@ -8391,7 +8561,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /mcp_status/);
   assert.match(graphTypes, /mcp_tool_search/);
   assert.match(graphTypes, /mcp_tool_fetch/);
+  assert.match(graphTypes, /mcp_tool_invoke/);
+  assert.match(graphTypes, /mcpToolInputJson/);
+  assert.match(graphTypes, /mcpVaultHeaderRefsJson/);
+  assert.match(graphTypes, /mcpContainmentMode/);
+  assert.match(graphTypes, /mcpAllowNetworkEgress/);
   assert.match(graphTypes, /mcpConfigSourceMode/);
+  assert.match(workflowRuntimeMcpControlNodes, /createRuntimeMcpToolControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeMcpControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/mcp\/tools\/search/);
+  assert.match(workflowRuntimeMcpControlNodes, /OperatorControl\.McpInvoke/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
@@ -8415,6 +8593,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-endpoint/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-allowed-tools/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-import-json/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-tool-input/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-containment-mode/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-vault-header-refs/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-allow-network-egress/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-validate-before-invoke/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-record-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-memory-text/);
