@@ -119,9 +119,11 @@ import {
   validateWorkflowConnection,
 } from "../runtime/runtime-projection-adapter";
 import {
+  createRuntimeContextCompactControlRequest,
   createRuntimeDiagnosticsRepairControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
 import type {
+  WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeThreadEventLike,
 } from "../runtime/workflow-runtime-event-projection";
@@ -9499,6 +9501,51 @@ export function useWorkflowComposerController({
     [currentProjectFile.metadata.id, loadRuntimeThreadEvents, runtime],
   );
 
+  const handleExecuteRuntimeContextPressureAction = useCallback(
+    async (action: WorkflowRuntimeContextPressureActionDescriptor) => {
+      setRightPanel("runs");
+      setBottomPanel("run_output");
+      if (!action.executable) {
+        setStatusMessage(`Context pressure action ${action.label} is advisory`);
+        return;
+      }
+      if (action.action !== "compact") {
+        setStatusMessage(
+          `Context pressure action ${action.label} is not executable yet`,
+        );
+        return;
+      }
+      if (!runtime.executeWorkflowRuntimeControlRequest) {
+        setStatusMessage(
+          "Context pressure actions require a daemon runtime control executor.",
+        );
+        return;
+      }
+      const request = createRuntimeContextCompactControlRequest({
+        nodeId: action.id,
+        threadId: action.threadId,
+        turnId: action.turnId,
+        reason:
+          action.summary ??
+          `${action.label} requested from React Flow run inspector.`,
+        scope: action.scope,
+        workflowGraphId: action.workflowGraphId ?? currentProjectFile.metadata.id,
+        workflowNodeId: action.workflowNodeId,
+        actor: "operator",
+      });
+      try {
+        await runtime.executeWorkflowRuntimeControlRequest(request);
+        setRuntimeThreadEvents(await loadRuntimeThreadEvents(action.threadId));
+        setStatusMessage(`Context pressure action ${action.label} requested`);
+      } catch (error) {
+        setStatusMessage(
+          `Context pressure action ${action.label} blocked: ${errorMessage(error)}`,
+        );
+      }
+    },
+    [currentProjectFile.metadata.id, loadRuntimeThreadEvents, runtime],
+  );
+
   const handleSelectRun = useCallback(
     async (run: WorkflowRunSummary) => {
       setSelectedRunId(run.id);
@@ -13445,6 +13492,7 @@ export function useWorkflowComposerController({
     handleDryRunNodeFromFixture,
     handleApplyActiveRuntimeRollback,
     handleExecuteRuntimeDiagnosticsRepair,
+    handleExecuteRuntimeContextPressureAction,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,

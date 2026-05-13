@@ -39,10 +39,14 @@ import type {
   WorkflowWorkbenchBundle,
 } from "../types/graph";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
-import type { RuntimeDiagnosticsRepairControlRequest } from "./workflow-runtime-control-nodes";
+import type {
+  RuntimeContextCompactControlRequest,
+  RuntimeDiagnosticsRepairControlRequest,
+} from "./workflow-runtime-control-nodes";
 
 export type WorkflowRuntimeControlRequest =
-  RuntimeDiagnosticsRepairControlRequest;
+  | RuntimeContextCompactControlRequest
+  | RuntimeDiagnosticsRepairControlRequest;
 
 // Wire-format payload for graph execution requests.
 export interface GraphPayload {

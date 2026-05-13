@@ -57,6 +57,7 @@ import { workflowFileBundleModel } from "../../../runtime/workflow-file-bundle-m
 import { workflowSettingsModel } from "../../../runtime/workflow-settings-model";
 import { workflowSettingsHarnessModel } from "../../../runtime/workflow-settings-harness-model";
 import type {
+  WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeThreadEventLike,
 } from "../../../runtime/workflow-runtime-event-projection";
@@ -341,6 +342,7 @@ export function WorkflowRailPanel({
   onOpenExecutions,
   onInspectNode,
   onExecuteRuntimeDiagnosticsRepair,
+  onExecuteRuntimeContextPressureAction,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -420,6 +422,9 @@ export function WorkflowRailPanel({
   onInspectNode: (nodeId: string) => void;
   onExecuteRuntimeDiagnosticsRepair?: (
     action: WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  ) => void | Promise<void>;
+  onExecuteRuntimeContextPressureAction?: (
+    action: WorkflowRuntimeContextPressureActionDescriptor,
   ) => void | Promise<void>;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
@@ -3313,6 +3318,9 @@ export function WorkflowRailPanel({
         onCompareRun={onCompareRun}
         onInspectNode={onInspectNode}
         onExecuteRuntimeDiagnosticsRepair={onExecuteRuntimeDiagnosticsRepair}
+        onExecuteRuntimeContextPressureAction={
+          onExecuteRuntimeContextPressureAction
+        }
       />
     );
   }

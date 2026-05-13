@@ -117,6 +117,7 @@ const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
 const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
 const RUNTIME_USAGE_DELTA_SCHEMA_VERSION = "ioi.runtime.usage-delta.v1";
 const RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION = "ioi.runtime.context-pressure-delta.v1";
+const RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION = "ioi.runtime.context-pressure-alert.v1";
 const RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION = "ioi.runtime.context-budget-policy.v1";
 const RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION = "ioi.runtime.compaction-policy.v1";
 const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
@@ -172,6 +173,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   delta: "item.delta",
   usage_delta: "usage.delta",
   context_pressure_delta: "context.pressure_delta",
+  context_pressure_alert: "context.pressure_alert",
   usage_final: "item.completed",
   stop_condition: "item.completed",
   quality_ledger: "item.completed",
@@ -11790,6 +11792,14 @@ function buildRun({
       usageDeltas[0].contextPressureSummary,
       contextPressureDeltaPayload(usageDeltas[0]),
     );
+    const contextPressureAlert = contextPressureAlertPayload(usageDeltas[0]);
+    if (contextPressureAlert) {
+      addEvent(
+        "context_pressure_alert",
+        contextPressureAlert.summary,
+        contextPressureAlert,
+      );
+    }
   }
   const deltaEvent = diagnosticsBlockingGate ? null : addEvent("delta", result, { text: result });
   if (usageDeltas[1]) {
@@ -11799,6 +11809,14 @@ function buildRun({
       usageDeltas[1].contextPressureSummary,
       contextPressureDeltaPayload(usageDeltas[1]),
     );
+    const contextPressureAlert = contextPressureAlertPayload(usageDeltas[1]);
+    if (contextPressureAlert) {
+      addEvent(
+        "context_pressure_alert",
+        contextPressureAlert.summary,
+        contextPressureAlert,
+      );
+    }
   }
   addEvent("usage_final", "Usage telemetry recorded", {
     ...usageTelemetry,
@@ -16489,52 +16507,81 @@ function insertRuntimeBridgeUsageDeltaEvents({ projection, agent, threadId }) {
   });
   if (!deltas.length) return normalizeArray(projection.events);
 
-  const deltaEvents = deltas.flatMap((delta) => [
-    {
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: projection.turnId,
-      item_id: `${projection.turnId}:item:usage-delta:${safeId(delta.stage)}`,
-      idempotency_key: `turn:${projection.turnId}:usage-delta:${safeId(delta.stage)}`,
-      source: "runtime_auto",
-      source_event_kind: "RuntimeUsageTelemetry.Delta",
-      event_kind: "usage.delta",
-      status: "running",
-      actor: "runtime",
-      created_at: projection.updatedAt ?? projection.createdAt,
-      workspace_root: agent.cwd,
-      workflow_node_id: "runtime.usage-telemetry",
-      component_kind: "usage_telemetry",
-      payload_schema_version: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
-      payload: delta,
-      receipt_refs: [],
-      artifact_refs: [],
-      policy_decision_refs: [],
-      rollback_refs: [],
-    },
-    {
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: projection.turnId,
-      item_id: `${projection.turnId}:item:context-pressure:${safeId(delta.stage)}`,
-      idempotency_key: `turn:${projection.turnId}:context-pressure:${safeId(delta.stage)}`,
-      source: "runtime_auto",
-      source_event_kind: "RuntimeContextPressure.Delta",
-      event_kind: "context.pressure_delta",
-      status: delta.context_pressure_status === "high" ? "blocked" : "running",
-      actor: "runtime",
-      created_at: projection.updatedAt ?? projection.createdAt,
-      workspace_root: agent.cwd,
-      workflow_node_id: "runtime.context-budget",
-      component_kind: "context_pressure",
-      payload_schema_version: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
-      payload: contextPressureDeltaPayload(delta),
-      receipt_refs: [],
-      artifact_refs: [],
-      policy_decision_refs: [],
-      rollback_refs: [],
-    },
-  ]);
+  const deltaEvents = deltas.flatMap((delta) => {
+    const alert = contextPressureAlertPayload(delta);
+    return [
+      {
+        event_stream_id: eventStreamIdForThread(threadId),
+        thread_id: threadId,
+        turn_id: projection.turnId,
+        item_id: `${projection.turnId}:item:usage-delta:${safeId(delta.stage)}`,
+        idempotency_key: `turn:${projection.turnId}:usage-delta:${safeId(delta.stage)}`,
+        source: "runtime_auto",
+        source_event_kind: "RuntimeUsageTelemetry.Delta",
+        event_kind: "usage.delta",
+        status: "running",
+        actor: "runtime",
+        created_at: projection.updatedAt ?? projection.createdAt,
+        workspace_root: agent.cwd,
+        workflow_node_id: "runtime.usage-telemetry",
+        component_kind: "usage_telemetry",
+        payload_schema_version: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
+        payload: delta,
+        receipt_refs: [],
+        artifact_refs: [],
+        policy_decision_refs: [],
+        rollback_refs: [],
+      },
+      {
+        event_stream_id: eventStreamIdForThread(threadId),
+        thread_id: threadId,
+        turn_id: projection.turnId,
+        item_id: `${projection.turnId}:item:context-pressure:${safeId(delta.stage)}`,
+        idempotency_key: `turn:${projection.turnId}:context-pressure:${safeId(delta.stage)}`,
+        source: "runtime_auto",
+        source_event_kind: "RuntimeContextPressure.Delta",
+        event_kind: "context.pressure_delta",
+        status: delta.context_pressure_status === "high" ? "blocked" : "running",
+        actor: "runtime",
+        created_at: projection.updatedAt ?? projection.createdAt,
+        workspace_root: agent.cwd,
+        workflow_node_id: "runtime.context-budget",
+        component_kind: "context_pressure",
+        payload_schema_version: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
+        payload: contextPressureDeltaPayload(delta),
+        receipt_refs: [],
+        artifact_refs: [],
+        policy_decision_refs: [],
+        rollback_refs: [],
+      },
+      ...(alert
+        ? [
+            {
+              event_stream_id: eventStreamIdForThread(threadId),
+              thread_id: threadId,
+              turn_id: projection.turnId,
+              item_id: `${projection.turnId}:item:context-pressure-alert:${safeId(delta.stage)}`,
+              idempotency_key: `turn:${projection.turnId}:context-pressure-alert:${safeId(delta.stage)}`,
+              source: "runtime_auto",
+              source_event_kind: "RuntimeContextPressure.Alert",
+              event_kind: "context.pressure_alert",
+              status: alert.alert_level === "blocked" ? "blocked" : "warning",
+              actor: "runtime",
+              created_at: projection.updatedAt ?? projection.createdAt,
+              workspace_root: agent.cwd,
+              workflow_node_id: "runtime.context-pressure-alert",
+              component_kind: "context_pressure_alert",
+              payload_schema_version: RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
+              payload: alert,
+              receipt_refs: alert.receipt_refs,
+              artifact_refs: [],
+              policy_decision_refs: alert.policy_decision_refs,
+              rollback_refs: [],
+            },
+          ]
+        : []),
+    ];
+  });
   const events = [...normalizeArray(projection.events)];
   const turnStartedIndex = events.findIndex((candidate) => candidate?.event_kind === "turn.started");
   if (turnStartedIndex >= 0) {
@@ -17237,6 +17284,132 @@ function contextPressureDeltaPayload(usageDelta = {}) {
   };
 }
 
+function contextPressureAlertPayload(usageDelta = {}) {
+  const pressureStatus =
+    usageDelta.context_pressure_status ??
+    usageDelta.contextPressureStatus ??
+    "nominal";
+  if (pressureStatus !== "elevated" && pressureStatus !== "high") return null;
+  const pressure = usageDelta.context_pressure ?? usageDelta.contextPressure ?? 0;
+  const threadId = usageDelta.thread_id ?? usageDelta.threadId ?? null;
+  const turnId = usageDelta.turn_id ?? usageDelta.turnId ?? null;
+  const runId = usageDelta.run_id ?? usageDelta.runId ?? null;
+  const scope =
+    Number(usageDelta.usage_subagent_count ?? usageDelta.usageSubagentCount ?? 0) > 0
+      ? "subagent_aggregate"
+      : "turn";
+  const alertLevel = pressureStatus === "high" ? "blocked" : "warn";
+  const alertId = `context_pressure_${safeId(scope)}_${safeId(runId ?? turnId ?? threadId ?? "detached")}_${safeId(usageDelta.stage ?? "delta")}`;
+  const primaryAction = pressureStatus === "high" ? "compact" : "delegate_summary";
+  const policyDecisionId = `policy_${alertId}_${primaryAction}`;
+  const receiptId = `receipt_${alertId}`;
+  const actionBase = {
+    pressure,
+    pressure_status: pressureStatus,
+    pressureStatus,
+    scope,
+    thread_id: threadId,
+    threadId,
+    turn_id: turnId,
+    turnId,
+    run_id: runId,
+    runId,
+  };
+  const actions = [
+    {
+      ...actionBase,
+      action: "compact",
+      label: "Compact context",
+      status: "available",
+      executable: true,
+      workflow_node_id: "runtime.context-compact",
+      workflowNodeId: "runtime.context-compact",
+      summary: `Compact ${scope.replace(/_/g, " ")} context at pressure ${pressure}.`,
+    },
+    {
+      ...actionBase,
+      action: "delegate_summary",
+      label: "Delegate summary",
+      status: pressureStatus === "high" ? "recommended" : "available",
+      executable: false,
+      workflow_node_id: "runtime.subagent.delegate-summary",
+      workflowNodeId: "runtime.subagent.delegate-summary",
+      summary: "Create a summarization delegate before continuing the long-running turn.",
+    },
+  ];
+  if (pressureStatus === "high") {
+    actions.push(
+      {
+        ...actionBase,
+        action: "request_approval",
+        label: "Request approval",
+        status: "available",
+        executable: false,
+        workflow_node_id: "runtime.approval.context-pressure",
+        workflowNodeId: "runtime.approval.context-pressure",
+        summary: "Ask the operator to approve continuing despite high context pressure.",
+      },
+      {
+        ...actionBase,
+        action: "stop",
+        label: "Stop turn",
+        status: "available",
+        executable: false,
+        workflow_node_id: "runtime.turn-canceled",
+        workflowNodeId: "runtime.turn-canceled",
+        summary: "Stop the turn before additional context is consumed.",
+      },
+    );
+  }
+  const summary =
+    pressureStatus === "high"
+      ? `Context pressure blocked ${scope.replace(/_/g, " ")} at ${pressure}; compact or stop before continuing.`
+      : `Context pressure warning for ${scope.replace(/_/g, " ")} at ${pressure}; compact or delegate a summary.`;
+  return {
+    schema_version: RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
+    object: "ioi.runtime_context_pressure_alert",
+    eventKind: "RuntimeContextPressure.Alert",
+    workflowNodeId: "runtime.context-pressure-alert",
+    componentKind: "context_pressure_alert",
+    alert_id: alertId,
+    alertId,
+    alert_level: alertLevel,
+    alertLevel,
+    status: alertLevel === "blocked" ? "blocked" : "warning",
+    scope,
+    pressure,
+    pressure_status: pressureStatus,
+    pressureStatus,
+    recommended_action: primaryAction,
+    recommendedAction: primaryAction,
+    actions,
+    source_usage_delta_ref: `${runId ?? "run"}:${usageDelta.stage ?? "delta"}`,
+    sourceUsageDeltaRef: `${runId ?? "run"}:${usageDelta.stage ?? "delta"}`,
+    stage: usageDelta.stage ?? null,
+    delta_index: usageDelta.delta_index ?? null,
+    delta_total: usageDelta.delta_total ?? null,
+    usage_total_tokens: usageDelta.total_tokens ?? usageDelta.totalTokens ?? 0,
+    usageTotalTokens: usageDelta.totalTokens ?? usageDelta.total_tokens ?? 0,
+    usage_cost_estimate_usd:
+      usageDelta.estimated_cost_usd ?? usageDelta.estimatedCostUsd ?? 0,
+    usageCostEstimateUsd:
+      usageDelta.estimatedCostUsd ?? usageDelta.estimated_cost_usd ?? 0,
+    thread_id: threadId,
+    threadId,
+    turn_id: turnId,
+    turnId,
+    run_id: runId,
+    runId,
+    summary,
+    receipt_refs: [receiptId],
+    receiptRefs: [receiptId],
+    policy_decision_refs: [policyDecisionId],
+    policyDecisionRefs: [policyDecisionId],
+    generated_at: new Date().toISOString(),
+  };
+}
+
 function roundRuntimeRatio(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return 0;
@@ -17264,6 +17437,9 @@ function runtimeEventStatusForRunEvent(event) {
     event.type === "usage_delta" ||
     event.type === "context_pressure_delta"
   ) return "running";
+  if (event.type === "context_pressure_alert") {
+    return event.data?.alert_level === "blocked" ? "blocked" : "warning";
+  }
   if (event.type === "lsp_diagnostics_injected") {
     return event.data?.blocking && event.data?.diagnosticStatus === "findings" ? "blocked" : "completed";
   }
@@ -17757,6 +17933,33 @@ function payloadSummaryForRunEvent(event) {
       redaction: "usage_telemetry_safe",
     };
   }
+  if (event.type === "context_pressure_alert") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeContextPressure.Alert",
+      eventKind: event.data?.eventKind ?? "RuntimeContextPressure.Alert",
+      schema_version:
+        event.data?.schema_version ??
+        event.data?.schemaVersion ??
+        RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
+      alert_id: event.data?.alert_id ?? event.data?.alertId ?? null,
+      alert_level: event.data?.alert_level ?? event.data?.alertLevel ?? null,
+      scope: event.data?.scope ?? "turn",
+      pressure: event.data?.pressure ?? null,
+      pressure_status:
+        event.data?.pressure_status ?? event.data?.pressureStatus ?? null,
+      recommended_action:
+        event.data?.recommended_action ?? event.data?.recommendedAction ?? null,
+      actions: normalizeArray(event.data?.actions),
+      run_id: event.data?.run_id ?? event.data?.runId ?? null,
+      thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
+      turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
+      workflow_node_id:
+        event.data?.workflowNodeId ?? "runtime.context-pressure-alert",
+      component_kind: event.data?.componentKind ?? "context_pressure_alert",
+      redaction: "usage_telemetry_safe",
+    };
+  }
   if (event.type === "usage_final") {
     return {
       ...summary,
@@ -17873,6 +18076,8 @@ function componentKindForRunEvent(eventOrType) {
       return "usage_telemetry";
     case "context_pressure_delta":
       return "context_pressure";
+    case "context_pressure_alert":
+      return "context_pressure_alert";
     case "quality_ledger":
       return "quality_ledger";
     case "artifact":
@@ -17914,6 +18119,7 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "hook_invocation_ledger" ||
       eventOrType?.type === "usage_delta" ||
       eventOrType?.type === "context_pressure_delta" ||
+      eventOrType?.type === "context_pressure_alert" ||
       eventOrType?.type === "usage_final") &&
     eventOrType.data?.workflowNodeId
   ) {
@@ -17985,6 +18191,12 @@ function receiptRefsForRunEvent(event) {
     return [
       event.data?.receiptId ?? event.data?.receipt_id,
       ...normalizeArray(event.data?.receiptRefs),
+    ].filter(Boolean);
+  }
+  if (event.type === "context_pressure_alert") {
+    return [
+      event.data?.receiptId ?? event.data?.receipt_id,
+      ...normalizeArray(event.data?.receiptRefs ?? event.data?.receipt_refs),
     ].filter(Boolean);
   }
   if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];

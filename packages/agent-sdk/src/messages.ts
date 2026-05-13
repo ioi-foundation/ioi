@@ -16,6 +16,7 @@ export type IOISDKMessageType =
   | "semantic_impact"
   | "usage_delta"
   | "context_pressure_delta"
+  | "context_pressure_alert"
   | "usage_final"
   | "stop_condition"
   | "quality_ledger"
@@ -156,6 +157,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "compaction_policy_evaluated",
   "usage_delta",
   "context_pressure_delta",
+  "context_pressure_alert",
   "reasoning_delta",
   "tool_completed",
   "tool_failed",

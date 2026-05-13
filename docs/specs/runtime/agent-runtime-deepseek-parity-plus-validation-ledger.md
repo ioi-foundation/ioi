@@ -168,6 +168,51 @@ the practical workstream when the source heading is broad.
 | 167 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | TUI cost/context telemetry controls | /tmp/ioi-autopilot-gui-harness-tui-cost-context/2026-05-13T21-42-24-199Z/result.json | cargo fmt --check<br>cargo build -p ioi-cli --bin cli<br>cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands<br>node --import tsx --test --test-name-pattern "projects TUI cost" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts&#124;agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-tui-cost-context |
 | 168 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1-D. Usage, Cost, Context Telemetry | streaming usage/context-pressure deltas | /tmp/ioi-autopilot-gui-harness-streaming-usage-context/2026-05-13T22-06-08-190Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/agent-sdk/src/runtime-events.ts<br>node --check packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts<br>cargo fmt --check<br>cargo build -p ioi-cli --bin cli<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows<br>cargo test -p ioi-cli --bin cli tui_event_route_uses_canonical_thread_stream_cursor<br>cargo test -p ioi-cli --bin cli tui_streaming_usage_rows_preserve_runtime_node_identity<br>cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands<br>node --import tsx --test --test-name-pattern "projects streaming usage" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts&#124;agent TUI line-mode slash commands control daemon turns and keep React Flow identity" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-streaming-usage-context |
 | 169 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | live React Flow telemetry hydration | /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry/2026-05-13T22-22-16-378Z/result.json | node --check packages/agent-ide/src/runtime/workflow-runtime-live-telemetry.ts<br>node --import tsx --test --test-name-pattern "live telemetry" packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>rustfmt --check apps/autopilot/src-tauri/src/project/commands.rs apps/autopilot/src-tauri/src/project/workflow_project_tests/test_harness_and_runs.rs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml workflow_run_project_reuses_prebound_thread_for_live_telemetry_hydration -- --nocapture<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-live-react-flow-telemetry |
+| 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions |
+
+## Slice 170. 2026-05-13 - Context-pressure alert/action rows
+
+Guide section: P1-D. Usage, Cost, Context Telemetry
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/messages.ts
+- packages/agent-sdk/src/runtime-events.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/graph-runtime-types.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx
+- packages/agent-ide/src/WorkflowComposer/controller.tsx
+- packages/agent-ide/src/WorkflowComposer/view.tsx
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/runtime/workflow-run-history-model.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - runtime daemon syntax passed with `context.pressure_alert` fixture and
+    runtime-service bridge event emission.
+- `node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - focused React Flow projection test passed for blocked alert rows,
+    `hook_policy` identity, subagent aggregate scope, and action descriptors.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - run-history model suite passed with live telemetry hydration including a
+    context-pressure alert action row.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - workflow-addressable source-contract guard passed with context-pressure
+    action rows and compact control execution wiring.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - full runtime event projection suite passed.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json`.
 
 ## Slice 169. 2026-05-13 - Live React Flow telemetry hydration
 

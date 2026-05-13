@@ -763,6 +763,99 @@ test("projects streaming usage and context-pressure deltas into runtime telemetr
   assert.equal(nodes[1]?.status, "running");
 });
 
+test("projects context-pressure alerts into action rows", () => {
+  const alert = event("event-context-alert", 10, {
+    type: "context_pressure_alert",
+    eventKind: "context.pressure_alert",
+    sourceEventKind: "RuntimeContextPressure.Alert",
+    status: "blocked",
+    componentKind: "context_pressure_alert",
+    workflowNodeId: "runtime.context-pressure-alert",
+    payloadSchemaVersion: "ioi.runtime.context-pressure-alert.v1",
+    receiptRefs: ["receipt-context-alert"],
+    policyDecisionRefs: ["policy-context-alert-compact"],
+    payload: {
+      alert_id: "alert-context-pressure-high",
+      alert_level: "blocked",
+      scope: "subagent_aggregate",
+      pressure: 0.91,
+      pressure_status: "high",
+      source_event_id: "event-context-pressure",
+      summary: "Context pressure blocked subagent aggregate at 0.91.",
+      actions: [
+        {
+          action: "compact",
+          label: "Compact context",
+          status: "available",
+          executable: true,
+          workflowNodeId: "runtime.context-compact",
+          summary: "Compact aggregate context.",
+        },
+        {
+          action: "request_approval",
+          label: "Request approval",
+          status: "available",
+          executable: false,
+          workflowNodeId: "runtime.approval.context-pressure",
+        },
+        {
+          action: "stop",
+          label: "Stop turn",
+          status: "available",
+          executable: false,
+          workflowNodeId: "runtime.turn-canceled",
+        },
+      ],
+    },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([alert]);
+
+  assert.equal(
+    workflowNodeIdForRuntimeThreadEvent(alert),
+    "runtime.context-pressure-alert",
+  );
+  assert.equal(nodes[0]?.nodeKind, "hook_policy");
+  assert.equal(nodes[0]?.componentKind, "context_pressure_alert");
+  assert.equal(nodes[0]?.label, "Context pressure alert");
+  assert.equal(nodes[0]?.status, "blocked");
+  assert.deepEqual(
+    nodes[0]?.contextPressureActions.map((action) => [
+      action.action,
+      action.workflowNodeId,
+      action.executable,
+      action.scope,
+      action.pressureStatus,
+      action.sourceEventId,
+    ]),
+    [
+      [
+        "compact",
+        "runtime.context-compact",
+        true,
+        "subagent_aggregate",
+        "high",
+        "event-context-pressure",
+      ],
+      [
+        "request_approval",
+        "runtime.approval.context-pressure",
+        false,
+        "subagent_aggregate",
+        "high",
+        "event-context-pressure",
+      ],
+      [
+        "stop",
+        "runtime.turn-canceled",
+        false,
+        "subagent_aggregate",
+        "high",
+        "event-context-pressure",
+      ],
+    ],
+  );
+});
+
 test("projects TUI control state into React Flow run-inspector rows", () => {
   const projection = projectRuntimeTuiControlStateToWorkflowProjection({
     schema_version: "ioi.agent-cli.tui-control-state.v1",
