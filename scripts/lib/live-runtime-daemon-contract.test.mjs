@@ -1523,6 +1523,153 @@ test("daemon owns thread mode, model, and thinking controls for TUI and React Fl
   }
 });
 
+test("daemon owns MCP discovery, validation, and React Flow workflow rows", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-mcp-state-"));
+  fs.mkdirSync(path.join(cwd, ".cursor"), { recursive: true });
+  fs.writeFileSync(
+    path.join(cwd, ".cursor", "mcp.json"),
+    JSON.stringify(
+      {
+        mcpServers: {
+          search: {
+            command: "node",
+            args: ["server.mjs"],
+            allowedTools: ["query", "fetch"],
+            env: { SEARCH_TOKEN: "vault://mcp/search/token" },
+            containment: { mode: "sandboxed", allowChildProcesses: true },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "cli_tui",
+        options: { local: { cwd }, mcpServers: {} },
+      }),
+    });
+
+    const servers = await fetchJson(
+      `${daemon.endpoint}/v1/mcp/servers?thread_id=${thread.thread_id}`,
+    );
+    assert.equal(servers.length, 1);
+    assert.equal(servers[0].id, "mcp.search");
+    assert.equal(servers[0].source, ".cursor/mcp.json");
+    assert.equal(servers[0].secretRefs.SEARCH_TOKEN.redacted, true);
+
+    const tools = await fetchJson(
+      `${daemon.endpoint}/v1/mcp/tools?thread_id=${thread.thread_id}`,
+    );
+    assert.deepEqual(
+      tools.map((tool) => tool.toolName).sort(),
+      ["fetch", "query"],
+    );
+    assert.ok(tools.every((tool) => tool.workflowNodeId.startsWith("runtime.mcp-tool.search.")));
+
+    const status = await fetchJson(
+      `${daemon.endpoint}/v1/mcp?thread_id=${thread.thread_id}`,
+    );
+    assert.equal(status.status, "ready");
+    assert.equal(status.server_count, 1);
+    assert.equal(status.tool_count, 2);
+
+    const validation = await fetchJson(`${daemon.endpoint}/v1/mcp/validate`, {
+      method: "POST",
+      body: JSON.stringify({ mcpServers: { search: servers[0] } }),
+    });
+    assert.equal(validation.ok, true);
+    assert.equal(validation.status, "pass");
+
+    const threadStatus = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "cli_tui",
+        workflowGraphId: "mcp-control-graph",
+      }),
+    });
+    assert.equal(threadStatus.event.source_event_kind, "OperatorControl.Mcp");
+    assert.equal(threadStatus.event.component_kind, "mcp_provider");
+    assert.equal(threadStatus.event.workflow_node_id, "runtime.mcp-manager");
+    assert.equal(threadStatus.receipt_refs.length, 1);
+
+    const threadValidation = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/validate`, {
+      method: "POST",
+      body: JSON.stringify({ source: "react_flow" }),
+    });
+    assert.equal(threadValidation.event.source_event_kind, "OperatorControl.McpValidate");
+    assert.equal(threadValidation.event.component_kind, "mcp_validator");
+    assert.equal(threadValidation.ok, true);
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    assert.equal((await sdkClient.getMcpStatus({ thread_id: thread.thread_id })).server_count, 1);
+    assert.equal((await sdkClient.listMcpTools({ thread_id: thread.thread_id })).length, 2);
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    assert.equal((await sdkThread.mcp()).tool_count, 2);
+    assert.equal((await sdkThread.validateMcp()).ok, true);
+
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    assert.ok(
+      reactFlowProjection.nodes.some((node) => node.workflowNodeId === "runtime.mcp-manager"),
+    );
+    assert.ok(
+      reactFlowProjection.nodes.some((node) => node.workflowNodeId === "runtime.mcp-manager.validate"),
+    );
+
+    const controlProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: thread.thread_id,
+      last_cursor: `${threadStatus.event.event_stream_id}:${threadStatus.event.seq}`,
+      mcp_rows: [
+        {
+          row_kind: "mcp_server",
+          status: "configured",
+          command: "mcp",
+          raw_input: "/mcp status",
+          mcp_server_id: servers[0].id,
+          workflow_node_id: "runtime.mcp-manager",
+          receipt_refs: threadStatus.receipt_refs,
+          policy_decision_refs: threadStatus.policy_decision_refs,
+        },
+        {
+          row_kind: "mcp_tool",
+          status: "configured",
+          command: "mcp",
+          raw_input: "/mcp tools",
+          mcp_server_id: tools[0].serverId,
+          mcp_tool_name: tools[0].toolName,
+          workflow_node_id: tools[0].workflowNodeId,
+          receipt_refs: threadStatus.receipt_refs,
+        },
+      ],
+    });
+    assert.equal(controlProjection.mcpRowCount, 2);
+    assert.ok(controlProjection.rows.some((row) => row.rowKind === "mcp_server"));
+    assert.ok(
+      controlProjection.rows.some(
+        (row) =>
+          row.rowKind === "mcp_tool" &&
+          row.mcpServerId === "mcp.search" &&
+          row.reactFlowNodeId.startsWith("runtime.mcp-tool.search."),
+      ),
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime_service thread creation requires RuntimeApiBridge and preserves bridge events", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-state-"));
@@ -3608,6 +3755,7 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /AgentEventStreamArgs/);
   assert.match(source, /\/model/);
   assert.match(source, /\/thinking/);
+  assert.match(source, /\/mcp/);
   assert.match(source, /# remember/);
   assert.match(source, /\/memory show/);
   assert.match(source, /\/memory disable/);
@@ -3625,6 +3773,11 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/mode/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/model/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/thinking/);
+  assert.match(source, /\/v1\/mcp\/servers/);
+  assert.match(source, /\/v1\/mcp\/tools/);
+  assert.match(source, /\/v1\/mcp\/validate/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/status/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/mcp\/validate/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
@@ -3636,6 +3789,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /workspace\.status/);
   assert.match(source, /git\.diff/);
   assert.match(source, /file\.inspect/);
+  assert.match(source, /OperatorControl\.Mcp/);
+  assert.match(source, /OperatorControl\.McpValidate/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
   assert.match(source, /OperatorApproval\.Approve/);
@@ -3658,13 +3813,14 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /command_history/);
   assert.match(source, /validation_errors/);
   assert.match(source, /mode_status/);
+  assert.match(source, /mcp_rows/);
   assert.match(source, /approval_rows/);
   assert.match(source, /approval_decisions/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/mode", "/model", "/thinking", "/mcp", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/status", "/diff", "/inspect", "/patch", "/patch-dry-run", "/test", "/restore", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3693,6 +3849,9 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /OperatorControl\.Mode/);
   assert.match(source, /OperatorControl\.Model/);
   assert.match(source, /OperatorControl\.Thinking/);
+  assert.match(source, /OperatorControl\.Mcp/);
+  assert.match(source, /TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_SNAPSHOT_LIST_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
@@ -3702,6 +3861,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /tui_reopen_args/);
   assert.match(source, /line_mode_command=interrupt/);
   assert.match(source, /line_mode_command=events/);
+  assert.match(source, /line_mode_command=mcp/);
   assert.match(source, /line_mode_command=restore/);
   assert.match(source, /line_mode_error/);
   assert.doesNotMatch(source, /CliAgentRuntimeClient/);
@@ -5786,6 +5946,24 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
   const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-line-data-"));
   const bridgeBinary = rustRuntimeBridgeBinary();
   const cli = cliBinary();
+  fs.mkdirSync(path.join(cwd, ".cursor"), { recursive: true });
+  fs.writeFileSync(
+    path.join(cwd, ".cursor", "mcp.json"),
+    JSON.stringify(
+      {
+        mcpServers: {
+          search: {
+            command: "node",
+            args: ["server.mjs"],
+            allowedTools: ["query"],
+            env: { SEARCH_TOKEN: "vault://mcp/search/token" },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
   const previousEnv = {
     command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
     args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
@@ -5821,13 +5999,15 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/mode yolo\n/model auto route.native-local\n/thinking high\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
+      "/mode yolo\n/model auto route.native-local\n/thinking high\n/mcp tools\n/mcp validate\n/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
-    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/mode .*\/model .*\/thinking .*\/mcp .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
     assert.match(result.stdout, /line_mode_command=mode/);
     assert.match(result.stdout, /line_mode_command=model/);
     assert.match(result.stdout, /line_mode_command=thinking/);
+    assert.match(result.stdout, /line_mode_command=mcp action=tools/);
+    assert.match(result.stdout, /line_mode_command=mcp action=validate/);
     assert.match(result.stdout, /line_mode_command=jobs count=\d+/);
     assert.match(result.stdout, /line_mode_command=job action=inspect/);
     assert.match(result.stdout, /line_mode_command=run action=replay/);
@@ -5837,6 +6017,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /line_mode_command=quit/);
     assert.match(result.stdout, /OperatorControl\.Interrupt/);
     assert.match(result.stdout, /OperatorControl\.Thinking/);
+    assert.match(result.stdout, /OperatorControl\.Mcp/);
+    assert.match(result.stdout, /mcp_row kind=mcp_tool server=mcp\.search tool=query/);
     assert.match(result.stdout, /node=runtime\.operator-interrupt/);
     const threadId = result.stdout.match(/thread=(thread_[^\s]+)/)?.[1];
     assert.ok(threadId);
@@ -5909,6 +6091,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     );
     assert.ok(
       finalControlState.command_history.some(
+        (entry) => entry.command === "mcp" && entry.status === "applied",
+      ),
+    );
+    assert.ok(
+      finalControlState.command_history.some(
         (entry) => entry.command === "interrupt" && entry.status === "applied",
       ),
     );
@@ -5919,6 +6106,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     );
     assert.ok(finalControlState.job_rows.some((row) => row.job_id));
     assert.ok(finalControlState.run_lifecycle_rows.some((row) => row.run_id));
+    assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_server_id === "mcp.search"));
+    assert.ok(finalControlState.mcp_rows.some((row) => row.mcp_tool_name === "query"));
     assert.ok(
       finalControlState.validation_errors.some(
         (entry) =>
@@ -5935,6 +6124,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.equal(lineModeControlProjection.threadId, threadId);
     assert.ok(lineModeControlProjection.jobCount >= 1);
     assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
+    assert.ok(lineModeControlProjection.mcpRowCount >= 2);
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "model_route" && row.reactFlowNodeId === "runtime.model-router",
@@ -5943,6 +6133,11 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) => row.rowKind === "thinking" && row.reasoningEffort === "high",
+      ),
+    );
+    assert.ok(
+      lineModeControlProjection.rows.some(
+        (row) => row.rowKind === "mcp_tool" && row.mcpToolName === "query",
       ),
     );
     assert.ok(

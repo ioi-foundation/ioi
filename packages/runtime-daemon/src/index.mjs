@@ -43,6 +43,15 @@ import {
   workspaceSnapshotContentDraftsByPath,
   workspaceSnapshotFileForPatch,
 } from "./workspace-restore.mjs";
+import {
+  RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+  RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+  mcpRegistryForWorkspace,
+  mcpServerRecordsFromValidationInput,
+  mcpToolsForServers,
+  normalizeMcpServerRecord,
+  validateMcpServerRecords,
+} from "./mcp-manager.mjs";
 
 export {
   RuntimeAgentServiceCommandAdapter,
@@ -234,6 +243,7 @@ export class AgentgresRuntimeStateStore {
       modelRouteReceiptId: modelRoute.receiptId,
       modelRouteDecision: modelRoute.decision,
       runtimeControls: initialThreadRuntimeControls(options, modelRoute, now),
+      mcpRegistry: mcpRegistryForWorkspace(cwd, options),
       createdAt: now,
       updatedAt: now,
       options: summarizeAgentOptions(cwd, options),
@@ -2284,6 +2294,220 @@ export class AgentgresRuntimeStateStore {
     const job = this.getJob(jobId);
     const canceledRun = this.cancelRun(job.runId);
     return runtimeJobRecordForRun(canceledRun);
+  }
+
+  listMcpServers(options = {}) {
+    return this.mcpServersForContext(options);
+  }
+
+  listMcpTools(options = {}) {
+    const servers = this.mcpServersForContext(options);
+    const serverFilter = optionalString(options.server_id ?? options.serverId);
+    return mcpToolsForServers(
+      serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
+    );
+  }
+
+  mcpStatus(options = {}) {
+    const servers = this.listMcpServers(options);
+    const tools = this.listMcpTools(options);
+    const validation = validateMcpServerRecords(servers);
+    return {
+      schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+      object: "ioi.runtime_mcp_manager_status",
+      status: validation.ok ? "ready" : "needs_review",
+      server_count: servers.length,
+      serverCount: servers.length,
+      tool_count: tools.length,
+      toolCount: tools.length,
+      enabled_server_count: servers.filter((server) => server.enabled !== false).length,
+      enabledServerCount: servers.filter((server) => server.enabled !== false).length,
+      servers,
+      tools,
+      validation,
+      routes: {
+        servers: "/v1/mcp/servers",
+        tools: "/v1/mcp/tools",
+        validate: "/v1/mcp/validate",
+      },
+    };
+  }
+
+  validateMcp(input = {}) {
+    const workspaceRoot = path.resolve(input.cwd ?? input.workspace_root ?? input.workspaceRoot ?? this.defaultCwd);
+    const servers = mcpServerRecordsFromValidationInput(input, workspaceRoot);
+    const validation = validateMcpServerRecords(servers);
+    return {
+      schema_version: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+      object: "ioi.runtime_mcp_manager_validation",
+      ok: validation.ok,
+      status: validation.ok ? "pass" : "blocked",
+      server_count: servers.length,
+      serverCount: servers.length,
+      tool_count: mcpToolsForServers(servers).length,
+      toolCount: mcpToolsForServers(servers).length,
+      issue_count: validation.issues.length,
+      issueCount: validation.issues.length,
+      warning_count: validation.warnings.length,
+      warningCount: validation.warnings.length,
+      issues: validation.issues,
+      warnings: validation.warnings,
+      servers,
+      tools: mcpToolsForServers(servers),
+    };
+  }
+
+  recordThreadMcpStatus(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const status = this.mcpStatus({ ...request, thread_id: threadId });
+    return this.appendThreadMcpControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "mcp_status",
+      sourceEventKind: "OperatorControl.Mcp",
+      eventKind: "mcp.catalog_status",
+      componentKind: "mcp_provider",
+      workflowNodeId: "runtime.mcp-manager",
+      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
+      status: status.status === "ready" ? "completed" : "blocked",
+      payload: {
+        ...status,
+        event_kind: "McpCatalogStatus",
+        control_kind: "mcp_status",
+        thread_id: threadId,
+        agent_id: agent.id,
+        summary: `MCP catalog has ${status.server_count} server(s) and ${status.tool_count} tool(s).`,
+      },
+    });
+  }
+
+  validateThreadMcp(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const validation = this.validateMcp(
+      request.mcp_json || request.mcpJson || request.servers || request.mcpServers
+        ? request
+        : { servers: this.listMcpServers({ thread_id: threadId }) },
+    );
+    return this.appendThreadMcpControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "mcp_validate",
+      sourceEventKind: "OperatorControl.McpValidate",
+      eventKind: "mcp.validation",
+      componentKind: "mcp_validator",
+      workflowNodeId: "runtime.mcp-manager.validate",
+      payloadSchemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+      status: validation.ok ? "completed" : "blocked",
+      payload: {
+        ...validation,
+        event_kind: "McpValidationReport",
+        control_kind: "mcp_validate",
+        thread_id: threadId,
+        agent_id: agent.id,
+        summary: validation.ok
+          ? `MCP validation passed for ${validation.server_count} server(s).`
+          : `MCP validation found ${validation.issue_count} issue(s).`,
+      },
+    });
+  }
+
+  appendThreadMcpControlEvent({
+    threadId,
+    agent,
+    request,
+    controlKind,
+    sourceEventKind,
+    eventKind,
+    componentKind,
+    workflowNodeId,
+    payloadSchemaVersion,
+    status,
+    payload,
+  }) {
+    const thread = this.threadForAgent(agent);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(thread.latest_turn_id) ??
+      "";
+    const source = operatorControlSource(request.source);
+    const graphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const nodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      workflowNodeId;
+    const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
+    const receiptId = `receipt_mcp_${safeId(controlKind)}_${eventHash}`;
+    const policyId = `policy_mcp_${safeId(controlKind)}_read_${eventHash}`;
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:mcp:${safeId(controlKind)}:${eventHash}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:mcp:${controlKind}:${eventHash}`,
+      source,
+      source_event_kind: sourceEventKind,
+      event_kind: eventKind,
+      status,
+      actor: "operator",
+      workspace_root: agent.cwd,
+      workflow_graph_id: graphId,
+      workflow_node_id: nodeId,
+      component_kind: componentKind,
+      payload_schema_version: payloadSchemaVersion,
+      payload_summary: payload,
+      receipt_refs: [receiptId],
+      policy_decision_refs: [policyId],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const result = {
+      ...payload,
+      event,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, `thread.${controlKind}`);
+    return result;
+  }
+
+  mcpServersForContext(options = {}) {
+    const threadId = optionalString(options.thread_id ?? options.threadId);
+    const agentId =
+      optionalString(options.agent_id ?? options.agentId) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    const servers = [];
+    if (agentId && this.agents.has(agentId)) {
+      const agent = this.getAgent(agentId);
+      servers.push(...normalizeArray(agent.mcpRegistry?.servers));
+    } else {
+      servers.push(...mcpRegistryForWorkspace(this.defaultCwd).servers);
+      for (const agent of this.agents.values()) {
+        servers.push(...normalizeArray(agent.mcpRegistry?.servers));
+      }
+    }
+    servers.push(
+      ...this.modelMounting.listMcpServers().map((server) =>
+        normalizeMcpServerRecord(server.label ?? server.id, server, {
+          workspaceRoot: this.defaultCwd,
+          source: server.source ?? "model_mounting",
+          status: server.status ?? "registered",
+        }),
+      ),
+    );
+    const byId = new Map();
+    for (const server of servers) {
+      byId.set(server.id, server);
+    }
+    return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id));
   }
 
   agentForThread(threadId) {
@@ -4988,6 +5212,22 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.listTools(Object.fromEntries(url.searchParams.entries())));
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/mcp") {
+      writeJsonResponse(response, store.mcpStatus(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/mcp/servers") {
+      writeJsonResponse(response, store.listMcpServers(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/mcp/tools") {
+      writeJsonResponse(response, store.listMcpTools(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/mcp/validate") {
+      writeJsonResponse(response, store.validateMcp(await readBody(request)));
+      return;
+    }
     throw notFound("Public daemon route not found.", {
       method: request.method,
       path: url.pathname,
@@ -6836,6 +7076,14 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "thinking" && !segments[4]) {
     writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
+    writeJsonResponse(response, store.recordThreadMcpStatus(threadId, await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "mcp" && segments[4] === "validate" && !segments[5]) {
+    writeJsonResponse(response, store.validateThreadMcp(threadId, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "turns" && !segments[4]) {

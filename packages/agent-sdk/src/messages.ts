@@ -400,6 +400,97 @@ export interface RuntimeToolCatalogEntry {
   workflowConfigFields?: string[];
 }
 
+export interface RuntimeMcpServerEntry {
+  schema_version?: string;
+  schemaVersion?: string;
+  id: string;
+  label?: string;
+  name?: string;
+  enabled?: boolean;
+  status: string;
+  transport: string;
+  command?: string | null;
+  args?: string[];
+  server_url?: string | null;
+  serverUrl?: string | null;
+  source?: string;
+  source_path?: string | null;
+  sourcePath?: string | null;
+  workspace_root?: string | null;
+  workspaceRoot?: string | null;
+  allowed_tools?: string[];
+  allowedTools?: string[];
+  tool_count?: number;
+  toolCount?: number;
+  containment?: Record<string, unknown>;
+  secret_refs?: Record<string, unknown>;
+  secretRefs?: Record<string, unknown>;
+  health?: Record<string, unknown>;
+  evidence_refs?: string[];
+  evidenceRefs?: string[];
+}
+
+export interface RuntimeMcpToolEntry extends RuntimeToolCatalogEntry {
+  server_id?: string;
+  serverId?: string;
+  server_label?: string;
+  serverLabel?: string;
+  tool_name?: string;
+  toolName?: string;
+  status?: string;
+  transport?: string;
+  workflow_node_id?: string;
+  workflowNodeId?: string;
+}
+
+export interface RuntimeMcpValidationIssue {
+  code: string;
+  severity: "error" | "warning" | string;
+  server_id?: string;
+  serverId?: string;
+  key?: string;
+  message: string;
+}
+
+export interface RuntimeMcpValidationResult {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_mcp_manager_validation" | string;
+  ok: boolean;
+  status?: string;
+  server_count?: number;
+  serverCount?: number;
+  tool_count?: number;
+  toolCount?: number;
+  issue_count?: number;
+  issueCount?: number;
+  warning_count?: number;
+  warningCount?: number;
+  issues: RuntimeMcpValidationIssue[];
+  warnings: RuntimeMcpValidationIssue[];
+  servers?: RuntimeMcpServerEntry[];
+  tools?: RuntimeMcpToolEntry[];
+  event?: RuntimeEventEnvelope;
+}
+
+export interface RuntimeMcpStatus {
+  schema_version?: string;
+  schemaVersion?: string;
+  object?: "ioi.runtime_mcp_manager_status" | string;
+  status: string;
+  server_count: number;
+  serverCount?: number;
+  tool_count: number;
+  toolCount?: number;
+  enabled_server_count?: number;
+  enabledServerCount?: number;
+  servers: RuntimeMcpServerEntry[];
+  tools: RuntimeMcpToolEntry[];
+  validation?: RuntimeMcpValidationResult;
+  routes?: Record<string, string>;
+  event?: RuntimeEventEnvelope;
+}
+
 export interface RuntimeReceipt {
   id: string;
   kind: string;

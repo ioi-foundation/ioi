@@ -138,6 +138,8 @@ workstream was narrower.
 | 136 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair restore-apply | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply/2026-05-13T07-56-56-734Z/result.json |
 | 137 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair retry | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry/2026-05-13T08-20-57-956Z/result.json |
 | 138 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics operator override | /tmp/ioi-autopilot-gui-harness-diagnostics-operator-override/2026-05-13T08-53-15-768Z/result.json |
+| 139 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI jobs and run lifecycle parity view | /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json |
+| 140 | 2026-05-13 | P1. MCP Manager Parity | daemon-owned MCP discovery/status/validation | scripts/lib/live-runtime-daemon-contract.test.mjs |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -6695,3 +6697,31 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json`.
+
+### Slice 140. 2026-05-13 - Daemon-owned MCP discovery/status/validation
+
+Implementation slice completed 2026-05-13, read-only MCP manager parity:
+
+- Added daemon-owned MCP catalog/status/validation endpoints for workspace
+  `.cursor/mcp.json`, `.agents/mcp.json`, inline options, and model-mounting
+  provider entries, with pure catalog resolver logic isolated in
+  `packages/runtime-daemon/src/mcp-manager.mjs`.
+- Added thread-scoped MCP status and validation controls that emit
+  `OperatorControl.Mcp` and `OperatorControl.McpValidate` runtime events with
+  receipts, policy refs, payload schemas, and workflow node identity.
+- Exposed MCP status, server listing, tool listing, validation, and thread
+  controls through the SDK and `Thread` helper methods.
+- Added TUI `/mcp [status|tools|servers|validate]` line-mode controls and
+  `mcp_rows` so React Flow can inspect MCP server/tool status from the run
+  inspector.
+- Added React Flow projection support for MCP rows and `mcp_tool` binding
+  metadata for server id, tool name, containment mode, and validate-before-invoke.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "daemon owns MCP|agent TUI line-mode slash commands|agent CLI exposes model|agent TUI thin shell" scripts/lib/live-runtime-daemon-contract.test.mjs`

@@ -67,6 +67,18 @@ export function WorkflowNodeBindingSections({
     ...codingToolPackDefaults,
     ...(logic.toolBinding?.toolPack ?? {}),
   };
+  const mcpBinding = {
+    serverId: "",
+    toolName: "",
+    catalogRef: "mcp.tool.catalog.read",
+    validateBeforeInvoke: true,
+    containmentMode: "read_only" as const,
+    ...(logic.toolBinding?.mcp ?? {}),
+  };
+  const mcpToolRefFor = (serverId: string, toolName: string) =>
+    serverId.trim() && toolName.trim()
+      ? `mcp.${serverId.trim()}.${toolName.trim()}`
+      : (logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read");
   const updateCodingToolPack = (nextPack: typeof codingToolPack) => {
     const capabilityScope = [
       nextPack.workspaceStatusEnabled ? "workspace.status" : null,
@@ -2104,21 +2116,35 @@ export function WorkflowNodeBindingSections({
                         ? "workflow_tool"
                         : bindingKind === "coding_tool_pack"
                           ? "workspace.status"
+                          : bindingKind === "mcp_tool"
+                            ? logic.toolBinding?.bindingKind === "mcp_tool"
+                              ? (logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read")
+                              : "mcp.tool.catalog.read"
                         : (logic.toolBinding?.toolRef ?? ""),
                     bindingKind,
                     mockBinding:
                       bindingKind === "workflow_tool" || bindingKind === "coding_tool_pack"
                         ? false
+                        : bindingKind === "mcp_tool"
+                          ? logic.toolBinding?.bindingKind === "mcp_tool"
+                            ? (logic.toolBinding?.mockBinding ?? true)
+                            : true
                         : (logic.toolBinding?.mockBinding ?? true),
                     credentialReady:
                       bindingKind === "workflow_tool" || bindingKind === "coding_tool_pack"
                         ? true
+                        : bindingKind === "mcp_tool"
+                          ? logic.toolBinding?.bindingKind === "mcp_tool"
+                            ? (logic.toolBinding?.credentialReady ?? false)
+                            : false
                         : (logic.toolBinding?.credentialReady ?? false),
                     capabilityScope:
                       bindingKind === "workflow_tool"
                         ? ["invoke"]
                         : bindingKind === "coding_tool_pack"
                           ? ["workspace.status", "git.diff", "file.inspect", "file.apply_patch", "test.run"]
+                          : bindingKind === "mcp_tool"
+                            ? ["mcp.provider.read", "mcp.tool.catalog.read"]
                         : (logic.toolBinding?.capabilityScope ?? ["read"]),
                     sideEffectClass:
                       bindingKind === "coding_tool_pack"
@@ -2142,6 +2168,10 @@ export function WorkflowNodeBindingSections({
                     toolPack:
                       bindingKind === "coding_tool_pack"
                         ? (logic.toolBinding?.toolPack ?? codingToolPackDefaults)
+                        : undefined,
+                    mcp:
+                      bindingKind === "mcp_tool"
+                        ? (logic.toolBinding?.mcp ?? mcpBinding)
                         : undefined,
                   },
                 });
@@ -2178,11 +2208,163 @@ export function WorkflowNodeBindingSections({
                     arguments: logic.toolBinding?.arguments ?? {},
                     workflowTool: logic.toolBinding?.workflowTool,
                     toolPack: logic.toolBinding?.toolPack,
+                    mcp: logic.toolBinding?.mcp,
                   },
                 })
               }
             />
           </label>
+          {logic.toolBinding?.bindingKind === "mcp_tool" ? (
+            <section
+              className="workflow-tool-contract"
+              data-testid="workflow-mcp-tool-contract"
+            >
+              <div className="workflow-tool-contract-grid">
+                <label>
+                  MCP server
+                  <input
+                    data-testid="workflow-mcp-server-id"
+                    value={String(mcpBinding.serverId ?? "")}
+                    onChange={(event) => {
+                      const serverId = event.target.value;
+                      updateLogic({
+                        ...logic,
+                        toolBinding: {
+                          toolRef: mcpToolRefFor(serverId, String(mcpBinding.toolName ?? "")),
+                          bindingKind: "mcp_tool",
+                          mockBinding: logic.toolBinding?.mockBinding ?? true,
+                          credentialReady:
+                            logic.toolBinding?.credentialReady ?? false,
+                          capabilityScope:
+                            logic.toolBinding?.capabilityScope ?? [
+                              "mcp.provider.read",
+                              "mcp.tool.catalog.read",
+                            ],
+                          sideEffectClass:
+                            logic.toolBinding?.sideEffectClass ?? "read",
+                          requiresApproval:
+                            logic.toolBinding?.requiresApproval ?? false,
+                          arguments: logic.toolBinding?.arguments ?? {},
+                          mcp: {
+                            ...mcpBinding,
+                            serverId,
+                          },
+                        },
+                      });
+                    }}
+                  />
+                </label>
+                <label>
+                  MCP tool
+                  <input
+                    data-testid="workflow-mcp-tool-name"
+                    value={String(mcpBinding.toolName ?? "")}
+                    onChange={(event) => {
+                      const toolName = event.target.value;
+                      updateLogic({
+                        ...logic,
+                        toolBinding: {
+                          toolRef: mcpToolRefFor(String(mcpBinding.serverId ?? ""), toolName),
+                          bindingKind: "mcp_tool",
+                          mockBinding: logic.toolBinding?.mockBinding ?? true,
+                          credentialReady:
+                            logic.toolBinding?.credentialReady ?? false,
+                          capabilityScope:
+                            logic.toolBinding?.capabilityScope ?? [
+                              "mcp.provider.read",
+                              "mcp.tool.catalog.read",
+                            ],
+                          sideEffectClass:
+                            logic.toolBinding?.sideEffectClass ?? "read",
+                          requiresApproval:
+                            logic.toolBinding?.requiresApproval ?? false,
+                          arguments: logic.toolBinding?.arguments ?? {},
+                          mcp: {
+                            ...mcpBinding,
+                            toolName,
+                          },
+                        },
+                      });
+                    }}
+                  />
+                </label>
+                <label>
+                  Containment
+                  <select
+                    data-testid="workflow-mcp-containment-mode"
+                    value={String(mcpBinding.containmentMode ?? "read_only")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        toolBinding: {
+                          toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
+                          bindingKind: "mcp_tool",
+                          mockBinding: logic.toolBinding?.mockBinding ?? true,
+                          credentialReady:
+                            logic.toolBinding?.credentialReady ?? false,
+                          capabilityScope:
+                            logic.toolBinding?.capabilityScope ?? [
+                              "mcp.provider.read",
+                              "mcp.tool.catalog.read",
+                            ],
+                          sideEffectClass:
+                            logic.toolBinding?.sideEffectClass ?? "read",
+                          requiresApproval:
+                            logic.toolBinding?.requiresApproval ?? false,
+                          arguments: logic.toolBinding?.arguments ?? {},
+                          mcp: {
+                            ...mcpBinding,
+                            containmentMode: event.target.value as
+                              | "read_only"
+                              | "sandboxed"
+                              | "review_required",
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <option value="read_only">Read only</option>
+                    <option value="sandboxed">Sandboxed</option>
+                    <option value="review_required">Review required</option>
+                  </select>
+                </label>
+              </div>
+              <label className="workflow-config-checkbox-row">
+                <input
+                  data-testid="workflow-mcp-validate-before-invoke"
+                  type="checkbox"
+                  checked={mcpBinding.validateBeforeInvoke !== false}
+                  onChange={(event) =>
+                    updateLogic({
+                      ...logic,
+                      toolBinding: {
+                        toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
+                        bindingKind: "mcp_tool",
+                        mockBinding: logic.toolBinding?.mockBinding ?? true,
+                        credentialReady:
+                          logic.toolBinding?.credentialReady ?? false,
+                        capabilityScope:
+                          logic.toolBinding?.capabilityScope ?? [
+                            "mcp.provider.read",
+                            "mcp.tool.catalog.read",
+                          ],
+                        sideEffectClass:
+                          logic.toolBinding?.sideEffectClass ?? "read",
+                        requiresApproval:
+                          logic.toolBinding?.requiresApproval ?? false,
+                        arguments: logic.toolBinding?.arguments ?? {},
+                        mcp: {
+                          ...mcpBinding,
+                          validateBeforeInvoke: event.target.checked,
+                        },
+                      },
+                    })
+                  }
+                />
+                Validate before invoke
+              </label>
+            </section>
+          ) : null}
           {logic.toolBinding?.bindingKind === "workflow_tool" ? (
             <section
               className="workflow-tool-contract"
@@ -2667,6 +2849,7 @@ export function WorkflowNodeBindingSections({
                         arguments: logic.toolBinding?.arguments ?? {},
                         workflowTool: undefined,
                         toolPack: logic.toolBinding?.toolPack,
+                        mcp: logic.toolBinding?.mcp,
                       },
                     })
                   }
@@ -2700,6 +2883,7 @@ export function WorkflowNodeBindingSections({
                         arguments: logic.toolBinding?.arguments ?? {},
                         workflowTool: undefined,
                         toolPack: logic.toolBinding?.toolPack,
+                        mcp: logic.toolBinding?.mcp,
                       },
                     })
                   }
@@ -2743,6 +2927,7 @@ export function WorkflowNodeBindingSections({
                     arguments: args,
                     workflowTool: logic.toolBinding?.workflowTool,
                     toolPack: logic.toolBinding?.toolPack,
+                    mcp: logic.toolBinding?.mcp,
                   },
                 });
               }}

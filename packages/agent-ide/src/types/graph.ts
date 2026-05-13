@@ -908,6 +908,13 @@ export interface WorkflowToolBinding {
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;
   arguments?: Record<string, unknown>;
+  mcp?: {
+    serverId?: string;
+    toolName?: string;
+    catalogRef?: string;
+    validateBeforeInvoke?: boolean;
+    containmentMode?: "read_only" | "sandboxed" | "review_required";
+  };
   toolPack?: {
     pack: string;
     workspaceStatusEnabled?: boolean;
