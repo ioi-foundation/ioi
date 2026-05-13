@@ -500,6 +500,9 @@ export interface RuntimeMcpInvocationRecord {
   approvalMode?: string;
   approved?: boolean;
   blockers?: string[];
+  transport?: string;
+  transport_execution?: Record<string, unknown> | null;
+  transportExecution?: Record<string, unknown> | null;
   containment?: Record<string, unknown>;
   result?: Record<string, unknown> | null;
   evidence_refs?: string[];

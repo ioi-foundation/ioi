@@ -11,6 +11,7 @@ import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/ind
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const execFileAsync = promisify(execFile);
+const mcpStdioFixture = path.join(root, "scripts/fixtures/mcp-stdio-echo-server.mjs");
 
 async function execFileWithInput(file, args, input, options = {}) {
   return new Promise((resolve, reject) => {
@@ -1539,7 +1540,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
         mcpServers: {
           search: {
             command: "node",
-            args: ["server.mjs"],
+            args: [mcpStdioFixture],
             allowedTools: ["query", "fetch"],
             env: { SEARCH_TOKEN: "vault://mcp/search/token" },
             containment: { mode: "sandboxed", allowChildProcesses: true },
@@ -1654,6 +1655,9 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(invoked.server_id, "mcp.search");
     assert.equal(invoked.tool_name, "query");
     assert.equal(invoked.event.source_event_kind, "OperatorControl.McpInvoke");
+    assert.equal(invoked.containment.executionMode, "live_stdio");
+    assert.equal(invoked.transport_execution.executionMode, "live_stdio");
+    assert.equal(invoked.result.structuredContent.arguments.q, "parity");
     assert.ok(invoked.receipt_refs[0].startsWith("receipt_mcp_mcp_invoke"));
 
     const publicDisabled = await sdkClient.disableMcpServer("mcp.search", {
@@ -3899,6 +3903,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
     "crates/cli/src/commands/agent_event_stream.rs",
     "crates/cli/src/commands/agent_tui.rs",
     "crates/cli/src/commands/agent_tui_loop.rs",
+    "packages/runtime-daemon/src/index.mjs",
+    "packages/runtime-daemon/src/mcp-manager.mjs",
   ].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
   assert.match(source, /AgentCommands::Model/);
   assert.match(source, /AgentCommands::Thinking/);
@@ -3964,6 +3970,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /OperatorControl\.McpEnable/);
   assert.match(source, /OperatorControl\.McpDisable/);
   assert.match(source, /OperatorControl\.McpInvoke/);
+  assert.match(source, /invokeMcpStdioTool/);
+  assert.match(source, /live_stdio/);
   assert.match(source, /OperatorControl\.Memory/);
   assert.match(source, /OperatorControl\.MemoryValidate/);
   assert.match(source, /OperatorControl\.MemoryWrite/);
@@ -6144,7 +6152,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         mcpServers: {
           search: {
             command: "node",
-            args: ["server.mjs"],
+            args: [mcpStdioFixture],
             allowedTools: ["query"],
             env: { SEARCH_TOKEN: "vault://mcp/search/token" },
           },

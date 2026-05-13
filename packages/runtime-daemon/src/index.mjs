@@ -47,6 +47,7 @@ import {
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+  invokeMcpStdioTool,
   mcpRegistryForWorkspace,
   mcpServerRecordsFromValidationInput,
   mcpToolsForServers,
@@ -2713,7 +2714,7 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  invokeMcpTool(request = {}) {
+  async invokeMcpTool(request = {}) {
     const threadId = optionalString(request.thread_id ?? request.threadId);
     if (!threadId) {
       throw runtimeError({
@@ -2726,7 +2727,7 @@ export class AgentgresRuntimeStateStore {
     return this.invokeThreadMcpTool(threadId, request.tool_id ?? request.toolId, request);
   }
 
-  invokeThreadMcpTool(threadId, toolId, request = {}) {
+  async invokeThreadMcpTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const servers = this.listMcpServers({ thread_id: threadId });
     const target = resolveMcpToolRecord(servers, toolId, request);
@@ -2781,12 +2782,49 @@ export class AgentgresRuntimeStateStore {
       ...(!validation.ok ? validation.issues.map((issue) => issue.code) : []),
       ...(requiresApproval && !approved ? ["approval_required"] : []),
     ];
-    const status = blockers.length > 0 ? "blocked" : "completed";
     const inputHash = doctorHash(JSON.stringify(input));
-    const output = status === "completed"
-      ? { ok: true, fixture: true, serverId: server.id, toolName }
-      : null;
-    const outputHash = doctorHash(JSON.stringify(output ?? { blocked: blockers }));
+    let status = blockers.length > 0 ? "blocked" : "completed";
+    let output = null;
+    let transportExecution = null;
+    if (status === "completed") {
+      if (shouldInvokeMcpOverLiveStdio(server, request)) {
+        try {
+          transportExecution = await invokeMcpStdioTool(server, toolName, input, {
+            cwd: agent.cwd,
+            timeoutMs: request.timeout_ms ?? request.timeoutMs,
+            mcpMode: request.mcp_mode ?? request.mcpMode,
+          });
+          output = transportExecution.result ?? {};
+        } catch (error) {
+          status = "blocked";
+          blockers.push("stdio_transport_failed");
+          transportExecution = {
+            ok: false,
+            status: "failed",
+            transport: "stdio",
+            execution_mode: "live_stdio",
+            executionMode: "live_stdio",
+            error: {
+              code: optionalString(error?.code) ?? "mcp_stdio_transport_error",
+              message: String(error?.message ?? error),
+              details: error?.details ?? {},
+            },
+          };
+        }
+      } else {
+        output = { ok: true, fixture: true, serverId: server.id, toolName };
+        transportExecution = {
+          ok: true,
+          status: "completed",
+          transport: server.transport ?? "unknown",
+          execution_mode: "simulated_manager_receipt",
+          executionMode: "simulated_manager_receipt",
+        };
+      }
+    }
+    const outputHash = doctorHash(
+      JSON.stringify(output ?? { blocked: blockers, transport_execution: transportExecution }),
+    );
     const callHash = doctorHash(
       `${threadId}:${server.id}:${toolName}:${inputHash}:${Date.now()}`,
     ).slice(0, 16);
@@ -2818,21 +2856,33 @@ export class AgentgresRuntimeStateStore {
       approvalMode,
       approved,
       blockers,
+      transport: server.transport ?? "stdio",
+      transport_execution: transportExecution,
+      transportExecution,
       containment: {
         ...(server.containment ?? {}),
         receiptRequired: true,
-        executionMode: "simulated_manager_receipt",
+        executionMode: transportExecution?.executionMode ?? transportExecution?.execution_mode ?? "blocked",
+        execution_mode: transportExecution?.execution_mode ?? transportExecution?.executionMode ?? "blocked",
       },
       result: output,
       evidence_refs: [
         "mcp.manager.tool.invoke",
         "mcp_containment_receipt",
+        transportExecution?.executionMode === "live_stdio" ||
+        transportExecution?.execution_mode === "live_stdio"
+          ? "mcp.transport.stdio.live"
+          : "mcp.manager.simulated_receipt",
         server.id,
         `tool:${toolName}`,
       ],
       evidenceRefs: [
         "mcp.manager.tool.invoke",
         "mcp_containment_receipt",
+        transportExecution?.executionMode === "live_stdio" ||
+        transportExecution?.execution_mode === "live_stdio"
+          ? "mcp.transport.stdio.live"
+          : "mcp.manager.simulated_receipt",
         server.id,
         `tool:${toolName}`,
       ],
@@ -2863,7 +2913,7 @@ export class AgentgresRuntimeStateStore {
         invocation,
         summary:
           status === "completed"
-            ? `MCP tool ${server.id}.${toolName} invoked with containment receipt.`
+            ? `MCP tool ${server.id}.${toolName} invoked with ${transportExecution?.executionMode === "live_stdio" || transportExecution?.execution_mode === "live_stdio" ? "live stdio transport" : "containment receipt"}.`
             : `MCP tool ${server.id}.${toolName} blocked: ${blockers.join(", ")}.`,
         policy_decision: status === "completed" ? "invoke_allowed" : "invoke_blocked",
         result: output,
@@ -5796,7 +5846,7 @@ async function handleRequest({ request, response, store }) {
       const body = await readBody(request);
       writeJsonResponse(
         response,
-        store.invokeMcpTool({
+        await store.invokeMcpTool({
           ...Object.fromEntries(url.searchParams.entries()),
           ...body,
           tool_id: decodeURIComponent(segments[3]),
@@ -7683,12 +7733,12 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   ) {
     writeJsonResponse(
       response,
-      store.invokeThreadMcpTool(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+      await store.invokeThreadMcpTool(threadId, decodeURIComponent(segments[5]), await readBody(request)),
     );
     return;
   }
   if (request.method === "POST" && action === "mcp" && segments[4] === "invoke" && !segments[5]) {
-    writeJsonResponse(response, store.invokeThreadMcpTool(threadId, null, await readBody(request)));
+    writeJsonResponse(response, await store.invokeThreadMcpTool(threadId, null, await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
@@ -11460,6 +11510,21 @@ function resolveMcpToolRecord(servers = [], toolId, request = {}) {
     }
   }
   return { server, toolName: requestedToolName };
+}
+
+function shouldInvokeMcpOverLiveStdio(server, request = {}) {
+  const executionMode = optionalString(request.execution_mode ?? request.executionMode);
+  if (
+    request.simulated === true ||
+    request.simulate === true ||
+    executionMode === "simulated_manager_receipt"
+  ) {
+    return false;
+  }
+  if (request.live_transport === true || request.liveTransport === true || executionMode === "live_stdio") {
+    return true;
+  }
+  return (server.transport ?? "stdio") === "stdio" && Boolean(optionalString(server.command));
 }
 
 function loadCursorCompatibilityConfig(cwd) {
