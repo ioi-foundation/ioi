@@ -166,6 +166,12 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
     mergePolicy: record.mergePolicy ?? record.merge_policy ?? null,
     cancellation_inheritance: record.cancellation_inheritance ?? record.cancellationInheritance ?? null,
     cancellationInheritance: record.cancellationInheritance ?? record.cancellation_inheritance ?? null,
+    input_id: record.input_id ?? record.inputId ?? null,
+    inputId: record.inputId ?? record.input_id ?? null,
+    input_count: record.input_count ?? record.inputCount ?? null,
+    inputCount: record.inputCount ?? record.input_count ?? null,
+    cancellation_reason: record.cancellation_reason ?? record.cancellationReason ?? record.cancellation?.reason ?? null,
+    cancellationReason: record.cancellationReason ?? record.cancellation_reason ?? record.cancellation?.reason ?? null,
   };
 }
 
