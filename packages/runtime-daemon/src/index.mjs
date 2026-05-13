@@ -1879,6 +1879,300 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  resumeSubagent(threadId, subagentId, request = {}) {
+    const record = this.getSubagent(threadId, subagentId);
+    const previousRunId = record.run_id ?? record.runId;
+    const previousStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
+    const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
+    const role = normalizeSubagentRole(request.role ?? request.subagentRole ?? request.subagent_role ?? record.role);
+    const modelRouteId =
+      optionalString(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
+      record.model_route_id ??
+      record.modelRouteId ??
+      "route.local-first";
+    const prompt =
+      optionalString(
+        request.prompt ??
+          request.message ??
+          request.input ??
+          request.resume_prompt ??
+          request.resumePrompt,
+      ) ?? `Resume subagent ${role}.`;
+    const resumeId = `subagent_resume_${doctorHash(`${threadId}:${subagentId}:${Date.now()}`).slice(0, 12)}`;
+    const run = this.createRun(childAgentId, {
+      mode: "send",
+      prompt,
+      options: {
+        receiver: role,
+        memory: request.memory ?? request.options?.memory ?? {},
+        model: { id: "auto", routeId: modelRouteId },
+      },
+    });
+    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
+    const outputContractStatus = validateSubagentOutputContract(
+      output,
+      record.output_contract ?? record.outputContract,
+    );
+    const now = new Date().toISOString();
+    const restartCount = Number(record.restart_count ?? record.restartCount ?? 0) + 1;
+    const resumeRecord = {
+      schema_version: "ioi.runtime.subagent-resume.v1",
+      schemaVersion: "ioi.runtime.subagent-resume.v1",
+      resume_id: resumeId,
+      resumeId,
+      run_id: run.id,
+      runId: run.id,
+      previous_run_id: previousRunId ?? null,
+      previousRunId: previousRunId ?? null,
+      previous_status: previousStatus,
+      previousStatus,
+      prompt,
+      role,
+      model_route_id: modelRouteId,
+      modelRouteId,
+      restart_count: restartCount,
+      restartCount,
+      created_at: now,
+      createdAt: now,
+      actor: optionalString(request.actor) ?? "operator",
+      source: operatorControlSource(request.source),
+      workflow_graph_id: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
+      workflowGraphId: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
+      workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+      workflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+    };
+    const resumeHistory = [...normalizeArray(record.resume_history ?? record.resumeHistory), resumeRecord];
+    const cancellationHistory = [
+      ...normalizeArray(record.cancellation_history ?? record.cancellationHistory),
+      ...(record.cancellation ? [record.cancellation] : []),
+    ];
+    const updated = {
+      ...record,
+      role,
+      run_id: run.id,
+      runId: run.id,
+      previous_run_ids: uniqueStrings([
+        ...normalizeArray(record.previous_run_ids ?? record.previousRunIds),
+        previousRunId,
+      ]),
+      previousRunIds: uniqueStrings([
+        ...normalizeArray(record.previousRunIds ?? record.previous_run_ids),
+        previousRunId,
+      ]),
+      model_route_id: modelRouteId,
+      modelRouteId,
+      lifecycle_status: lifecycleStatusForRun(run.status),
+      lifecycleStatus: lifecycleStatusForRun(run.status),
+      status: lifecycleStatusForRun(run.status),
+      restart_status: "restarted",
+      restartStatus: "restarted",
+      restart_count: restartCount,
+      restartCount,
+      resume_id: resumeId,
+      resumeId,
+      resumed_at: now,
+      resumedAt: now,
+      resume_history: resumeHistory,
+      resumeHistory,
+      cancellation: null,
+      cancellation_reason: null,
+      cancellationReason: null,
+      cancellation_cleared_at: now,
+      cancellationClearedAt: now,
+      cancellation_history: cancellationHistory,
+      cancellationHistory,
+      output_contract_status: outputContractStatus.status,
+      outputContractStatus,
+      output_contract_validation: outputContractStatus,
+      outputContractValidation: outputContractStatus,
+      updated_at: now,
+      updatedAt: now,
+    };
+    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
+    const event = this.appendThreadSubagentControlEvent({
+      threadId,
+      parentAgent: this.agentForThread(threadId),
+      record: updated,
+      request,
+      operation: "resume",
+      status: updated.status,
+    });
+    const saved = {
+      ...updated,
+      resume_event_id: event.event_id,
+      resumeEventId: event.event_id,
+      receipt_refs: uniqueStrings([
+        ...normalizeArray(updated.receipt_refs),
+        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
+        ...event.receipt_refs,
+      ]),
+      receiptRefs: uniqueStrings([
+        ...normalizeArray(updated.receiptRefs),
+        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
+        ...event.receipt_refs,
+      ]),
+      evidence_refs: uniqueStrings([
+        ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
+        "runtime.subagent.resume",
+        run.id,
+      ]),
+      evidenceRefs: uniqueStrings([
+        ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
+        "runtime.subagent.resume",
+        run.id,
+      ]),
+      updated_at: event.created_at,
+      updatedAt: event.created_at,
+    };
+    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
+    this.writeSubagent(saved, "subagent.resume");
+    return {
+      ...saved.result,
+      subagent: this.subagentProjection(saved),
+      resume: resumeRecord,
+      event,
+      receipt_refs: event.receipt_refs,
+      receiptRefs: event.receipt_refs,
+    };
+  }
+
+  assignSubagent(threadId, subagentId, request = {}) {
+    const record = this.getSubagent(threadId, subagentId);
+    const previousRole = record.role ?? "general";
+    const role = normalizeSubagentRole(request.role ?? request.subagentRole ?? request.subagent_role ?? previousRole);
+    const toolPack =
+      optionalString(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ??
+      record.tool_pack ??
+      record.toolPack ??
+      null;
+    const modelRouteId =
+      optionalString(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
+      record.model_route_id ??
+      record.modelRouteId ??
+      null;
+    const mergePolicy =
+      optionalString(request.merge_policy ?? request.mergePolicy) ??
+      record.merge_policy ??
+      record.mergePolicy ??
+      "manual";
+    const cancellationInheritance =
+      optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ??
+      record.cancellation_inheritance ??
+      record.cancellationInheritance ??
+      "propagate";
+    const targetAgentId =
+      optionalString(request.target_agent_id ?? request.targetAgentId) ??
+      record.agent_id ??
+      record.agentId ??
+      subagentId;
+    const assignmentId = `subagent_assignment_${doctorHash(`${threadId}:${subagentId}:${Date.now()}`).slice(0, 12)}`;
+    const now = new Date().toISOString();
+    const assignmentCount = Number(record.assignment_count ?? record.assignmentCount ?? 0) + 1;
+    const assignmentRecord = {
+      schema_version: "ioi.runtime.subagent-assignment.v1",
+      schemaVersion: "ioi.runtime.subagent-assignment.v1",
+      assignment_id: assignmentId,
+      assignmentId,
+      previous_role: previousRole,
+      previousRole,
+      role,
+      target_agent_id: targetAgentId,
+      targetAgentId,
+      tool_pack: toolPack,
+      toolPack,
+      model_route_id: modelRouteId,
+      modelRouteId,
+      merge_policy: mergePolicy,
+      mergePolicy,
+      cancellation_inheritance: cancellationInheritance,
+      cancellationInheritance,
+      assignment_count: assignmentCount,
+      assignmentCount,
+      created_at: now,
+      createdAt: now,
+      actor: optionalString(request.actor) ?? "operator",
+      source: operatorControlSource(request.source),
+      workflow_graph_id: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
+      workflowGraphId: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
+      workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+      workflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+    };
+    const assignmentHistory = [
+      ...normalizeArray(record.assignment_history ?? record.assignmentHistory),
+      assignmentRecord,
+    ];
+    const run = this.getRun(record.run_id ?? record.runId);
+    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
+    const outputContractStatus = validateSubagentOutputContract(
+      output,
+      record.output_contract ?? record.outputContract,
+    );
+    const updated = {
+      ...record,
+      role,
+      target_agent_id: targetAgentId,
+      targetAgentId,
+      tool_pack: toolPack,
+      toolPack,
+      model_route_id: modelRouteId,
+      modelRouteId,
+      merge_policy: mergePolicy,
+      mergePolicy,
+      cancellation_inheritance: cancellationInheritance,
+      cancellationInheritance,
+      assignment_id: assignmentId,
+      assignmentId,
+      assignment_count: assignmentCount,
+      assignmentCount,
+      assignment_history: assignmentHistory,
+      assignmentHistory,
+      assigned_at: now,
+      assignedAt: now,
+      output_contract_status: outputContractStatus.status,
+      outputContractStatus,
+      output_contract_validation: outputContractStatus,
+      outputContractValidation: outputContractStatus,
+      updated_at: now,
+      updatedAt: now,
+    };
+    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
+    const event = this.appendThreadSubagentControlEvent({
+      threadId,
+      parentAgent: this.agentForThread(threadId),
+      record: updated,
+      request,
+      operation: "assign",
+      status: updated.status,
+    });
+    const saved = {
+      ...updated,
+      assign_event_id: event.event_id,
+      assignEventId: event.event_id,
+      receipt_refs: uniqueStrings([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
+      receiptRefs: uniqueStrings([...normalizeArray(updated.receiptRefs), ...event.receipt_refs]),
+      evidence_refs: uniqueStrings([
+        ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
+        "runtime.subagent.assign",
+        assignmentId,
+      ]),
+      evidenceRefs: uniqueStrings([
+        ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
+        "runtime.subagent.assign",
+        assignmentId,
+      ]),
+      updated_at: event.created_at,
+      updatedAt: event.created_at,
+    };
+    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
+    this.writeSubagent(saved, "subagent.assign");
+    return {
+      ...this.subagentProjection(saved),
+      assignment: assignmentRecord,
+      result: saved.result,
+      event,
+    };
+  }
+
   getSubagentResult(threadId, subagentId) {
     const record = this.getSubagent(threadId, subagentId);
     const run = this.getRun(record.run_id ?? record.runId);
@@ -9151,6 +9445,14 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "cancel" && !segments[6]) {
     writeJsonResponse(response, store.cancelSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "resume" && !segments[6]) {
+    writeJsonResponse(response, store.resumeSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "assign" && !segments[6]) {
+    writeJsonResponse(response, store.assignSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "GET" && action === "subagents" && segments[4] && segments[5] === "result" && !segments[6]) {

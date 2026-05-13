@@ -172,6 +172,18 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
     inputCount: record.inputCount ?? record.input_count ?? null,
     cancellation_reason: record.cancellation_reason ?? record.cancellationReason ?? record.cancellation?.reason ?? null,
     cancellationReason: record.cancellationReason ?? record.cancellation_reason ?? record.cancellation?.reason ?? null,
+    restart_status: record.restart_status ?? record.restartStatus ?? null,
+    restartStatus: record.restartStatus ?? record.restart_status ?? null,
+    restart_count: record.restart_count ?? record.restartCount ?? null,
+    restartCount: record.restartCount ?? record.restart_count ?? null,
+    resume_id: record.resume_id ?? record.resumeId ?? null,
+    resumeId: record.resumeId ?? record.resume_id ?? null,
+    assignment_id: record.assignment_id ?? record.assignmentId ?? null,
+    assignmentId: record.assignmentId ?? record.assignment_id ?? null,
+    assignment_count: record.assignment_count ?? record.assignmentCount ?? null,
+    assignmentCount: record.assignmentCount ?? record.assignment_count ?? null,
+    target_agent_id: record.target_agent_id ?? record.targetAgentId ?? null,
+    targetAgentId: record.targetAgentId ?? record.target_agent_id ?? null,
   };
 }
 
