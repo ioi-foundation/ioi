@@ -936,6 +936,26 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
         "toolPack.coding.dryRun",
       ],
     },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "test.run",
+      displayName: "Run tests",
+      pack: "coding",
+      primitiveCapabilities: ["prim:test.run", "prim:process.exec_file"],
+      authorityScopeRequirements: ["scope:workspace.test"],
+      effectClass: "local_command",
+      riskDomain: "test",
+      inputSchema: { type: "object" },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["test_run_receipt", "coding_tool_receipt"],
+      workflowNodeType: "TestRunNode",
+      workflowConfigFields: [
+        "toolPack.coding.testEnabled",
+        "toolPack.coding.allowedTestCommandIds",
+        "toolPack.coding.allowedPaths",
+        "toolPack.coding.timeoutMs",
+      ],
+    },
   ];
 }
 

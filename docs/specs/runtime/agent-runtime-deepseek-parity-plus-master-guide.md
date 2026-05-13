@@ -109,9 +109,9 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: P0-B coding tool-pack governed apply-patch contract
+- 2026-05-13: P0-B coding tool-pack structured test-run contract
 - Evidence:
-  `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch/2026-05-13T03-24-26-739Z/result.json`
+  `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-test-run/2026-05-13T03-36-24-435Z/result.json`
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -124,8 +124,8 @@ Completed-slice history belongs in the companion ledgers.
 
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
-| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, `/status`, `/diff`, `/inspect`, `/patch`, `/patch-dry-run`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/approval/coding-tool rows that React Flow can inspect. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
-| P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, and `file.apply_patch` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run`, receipt-backed `tool.completed` events, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, and allowed paths. | Add test execution, artifact spillover, retrieve-result, and post-edit diagnostics without shell-only fallbacks. | Tool-pack nodes can enable/disable git/test/shell/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests. |
+| P0-A | Terminal coding-agent TUI | `ioi agent tui` can start/select/resume a daemon thread, submit one message, render canonical events, replay by cursor, expose event-row deep links that match React Flow run-inspector reopen descriptors, run an opt-in line-mode loop for `/resume`, `/events`, `/approvals`, `/approve`, `/reject`, `/interrupt`, `/steer`, `/status`, `/diff`, `/inspect`, `/patch`, `/patch-dry-run`, `/test`, and `/quit`, prove React Flow-authored interrupt/steer nodes share the same operator-control event contract as TUI slash commands, and emit command history/current-turn/last-cursor/validation-error/mode-status/approval/coding-tool rows that React Flow can inspect. | Add the next keyboard-first TUI surface only when it is backed by a named runtime contract. | TUI panels should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
+| P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, and `test.run` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test`, receipt-backed `tool.completed` events, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, allowed paths, test command ids, and test timeouts. | Add artifact spillover, retrieve-result, and post-edit diagnostics without shell-only fallbacks. | Tool-pack nodes can enable/disable git/test/shell/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests. |
 | P0-C | Post-edit LSP diagnostics | Diagnostics are specified, but post-edit injection is not yet a live runtime feedback loop. | File edit emits LSP diagnostic events, injects compact findings before the next model call, and degrades cleanly when the LSP is missing. | `LspDiagnosticsNode` config changes runtime warning/error injection behavior. |
 | P0-D | Workspace rollback snapshots | Rollback receipts and restore proof surfaces exist, but per-turn workspace snapshots are not yet first-class coding runtime records. | Mutating turn creates pre/post snapshots; restore preview/apply emits events and receipts without touching user `.git`. | `RollbackSnapshotNode` and `RestoreGateNode` block or allow restore according to graph policy. |
 | P1-A | Subagent runtime parity | Delegation patterns exist, but the full role-aware lifecycle and output contract are not productized. | Spawn, wait, send input, cancel, resume, and validate output contract for parallel child agents. | Subagent pool/role/join nodes enforce concurrency, budget, and merge policy. |
@@ -135,13 +135,12 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Continue P0-B with a governed `test.run` coding-pack contract that captures
-   command, exit status, bounded output, artifact spillover, and receipt refs
-   without making shell execution the public interface.
-2. Add `artifact.read` or `tool.retrieve_result` immediately after test output
-   can exceed inline limits, and project both tools through SDK, CLI/TUI, and
-   React Flow run-inspector rows.
-3. If a keyboard-first TUI gap appears while wiring test/artifact tools, keep it
+1. Continue P0-B with `tool.retrieve_result` and/or `artifact.read` so large
+   `test.run` and coding-tool outputs can spill into retrievable, range-aware
+   daemon artifacts instead of remaining inline-only previews.
+2. Project artifact retrieval through SDK, CLI/TUI, and React Flow run-inspector
+   rows with receipt refs and cursor-stable artifact ids.
+3. If a keyboard-first TUI gap appears while wiring artifact tools, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
 4. Continue settings harness cleanup only as maintenance, gated by a concrete
    parity slice dependency or a source-contract bloat guard failure.
@@ -453,6 +452,7 @@ Current live P0-B tool ids:
 - `git.diff`;
 - `file.inspect`;
 - `file.apply_patch`.
+- `test.run`.
 
 Runtime componentization:
 
@@ -1599,7 +1599,7 @@ Validation:
 | Threads/turns/items | `AgentState` projection plus TTI records | `/v1/threads/*` | `Thread`, `Turn`, `Run` | `/threads`, `/events` | thread/turn/event nodes |
 | Live events | event writer | SSE by `seq` | async iterators | stream/replay | replay animation |
 | Modes | runtime mode/profile | thread/turn mode fields | options | Plan/Agent/YOLO | graph mode selector |
-| Coding tools | coding tool pack | `/v1/tools?pack=coding`, `/v1/threads/{thread_id}/tools/{tool_id}/invoke` | `listTools({ pack })`, `invokeThreadTool` | `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` | `coding_tool_pack` binding and projected coding-tool rows |
+| Coding tools | coding tool pack | `/v1/tools?pack=coding`, `/v1/threads/{thread_id}/tools/{tool_id}/invoke` | `listTools({ pack })`, `invokeThreadTool` | `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` | `coding_tool_pack` binding and projected coding-tool rows |
 | Jobs | job manager | `/v1/jobs` | job handles | `/jobs` | job nodes |
 | LSP | LSP runtime | diagnostic events | diagnostic items | diagnostics panel | LSP node/overlay |
 | Rollback | snapshot service | snapshot API | restore helpers | `/restore` | rollback nodes |
@@ -1685,12 +1685,10 @@ adding more infrastructure by default.
 
 Next runtime implementation sequence:
 
-1. Add coding-pack test execution as a structured runtime tool, with command
-   allowlisting/config, bounded inline output, exit status, receipts, and React
-   Flow-configurable test authority.
-2. Add artifact spillover and `tool.retrieve_result`/`artifact.read` for large
-   test and tool outputs, then expose retrieval from SDK, CLI/TUI, and React
-   Flow.
+1. Add artifact spillover and `tool.retrieve_result`/`artifact.read` for large
+   test and tool outputs, with range-aware retrieval and cursor-stable artifact
+   ids.
+2. Project retrieval through SDK, CLI/TUI, and React Flow run-inspector rows.
 3. Add post-edit LSP diagnostics once patch events can provide stable changed
    file lists and receipt refs.
 4. Move from the thin TUI shell toward the full terminal coding-agent surface:

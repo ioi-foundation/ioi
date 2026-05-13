@@ -3494,7 +3494,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
   const codingToolPack = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.coding_pack",
     label: "Coding tool pack",
-    description: "Invoke daemon-owned workspace status, git diff, file inspection, and governed patch tools.",
+    description: "Invoke daemon-owned workspace status, git diff, file inspection, governed patch, and test tools.",
     metricValue: "coding",
     defaultLogic: {
       toolBinding: {
@@ -3502,7 +3502,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         bindingKind: "coding_tool_pack",
         mockBinding: false,
         credentialReady: true,
-        capabilityScope: ["workspace.status", "git.diff", "file.inspect", "file.apply_patch"],
+        capabilityScope: ["workspace.status", "git.diff", "file.inspect", "file.apply_patch", "test.run"],
         sideEffectClass: "write",
         requiresApproval: true,
         arguments: {},
@@ -3512,6 +3512,9 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           gitEnabled: true,
           filesystemEnabled: true,
           writeEnabled: true,
+          testEnabled: true,
+          allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+          timeoutMs: 60000,
           dryRun: false,
           allowedPaths: [],
         },
@@ -3584,6 +3587,31 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           filesystemEnabled: true,
           writeEnabled: true,
           dryRun: true,
+          allowedPaths: [],
+        },
+      },
+    },
+  });
+  const testRunTool = creatorDefinition("plugin_tool", {
+    creatorId: "plugin_tool.test_run",
+    label: "Test run",
+    description: "Run a structured workspace test command through the daemon coding tool contract.",
+    metricValue: "test",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "test.run",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: ["test.run"],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: { commandId: "node.test" },
+        toolPack: {
+          pack: "coding",
+          testEnabled: true,
+          allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+          timeoutMs: 60000,
           allowedPaths: [],
         },
       },
@@ -3849,6 +3877,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     gitDiffTool,
     fileInspectTool,
     fileApplyPatchTool,
+    testRunTool,
     outputInline,
     outputFile,
     outputMedia,

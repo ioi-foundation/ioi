@@ -372,14 +372,29 @@ pub enum ToolCommands {
     },
     /// Invoke a daemon-backed coding tool for a runtime thread.
     Run {
-        /// Coding tool id, for example workspace.status, git.diff, file.inspect, or file.apply_patch.
+        /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, or test.run.
         tool: String,
         /// Runtime thread id that owns the tool event stream.
         #[clap(long = "thread-id")]
         thread_id: String,
-        /// Workspace-relative path for file.inspect, git.diff, or file.apply_patch.
+        /// Workspace-relative path for file.inspect, git.diff, file.apply_patch, or test.run.
         #[clap(long)]
         path: Option<String>,
+        /// Structured test command id for test.run, for example node.test.
+        #[clap(long = "command-id")]
+        command_id: Option<String>,
+        /// Workspace-relative cwd for test.run.
+        #[clap(long)]
+        cwd: Option<String>,
+        /// Extra structured argument for test.run. Repeat for multiple args.
+        #[clap(long = "test-arg")]
+        test_args: Vec<String>,
+        /// Timeout in milliseconds for test.run.
+        #[clap(long = "timeout-ms")]
+        timeout_ms: Option<u64>,
+        /// Maximum stdout/stderr preview bytes for test.run.
+        #[clap(long = "max-output-bytes")]
+        max_output_bytes: Option<u64>,
         /// Exact text to replace for file.apply_patch.
         #[clap(long = "old-text")]
         old_text: Option<String>,
@@ -1201,6 +1216,11 @@ async fn run_tool_command(
             tool,
             thread_id,
             path,
+            command_id,
+            cwd,
+            test_args,
+            timeout_ms,
+            max_output_bytes,
             old_text,
             new_text,
             append_text,
@@ -1218,6 +1238,11 @@ async fn run_tool_command(
                 tool,
                 thread_id,
                 path,
+                command_id,
+                cwd,
+                test_args,
+                timeout_ms,
+                max_output_bytes,
                 old_text,
                 new_text,
                 append_text,
@@ -1287,6 +1312,11 @@ async fn invoke_coding_tool(
     tool: String,
     thread_id: String,
     path: Option<String>,
+    command_id: Option<String>,
+    cwd: Option<String>,
+    test_args: Vec<String>,
+    timeout_ms: Option<u64>,
+    max_output_bytes: Option<u64>,
     old_text: Option<String>,
     new_text: Option<String>,
     append_text: Option<String>,
@@ -1323,6 +1353,46 @@ async fn invoke_coding_tool(
             "path".to_string(),
             serde_json::Value::String(path.to_string()),
         );
+    }
+    if tool == "test.run" {
+        if let Some(command_id) = command_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            input.insert(
+                "commandId".to_string(),
+                serde_json::Value::String(command_id.to_string()),
+            );
+        }
+        if let Some(cwd) = cwd.as_deref().filter(|value| !value.trim().is_empty()) {
+            input.insert(
+                "cwd".to_string(),
+                serde_json::Value::String(cwd.to_string()),
+            );
+        }
+        if !test_args.is_empty() {
+            input.insert(
+                "args".to_string(),
+                serde_json::Value::Array(
+                    test_args
+                        .iter()
+                        .map(|value| serde_json::Value::String(value.to_string()))
+                        .collect(),
+                ),
+            );
+        }
+        if let Some(timeout_ms) = timeout_ms {
+            input.insert(
+                "timeoutMs".to_string(),
+                serde_json::Value::Number(timeout_ms.into()),
+            );
+        }
+        if let Some(max_output_bytes) = max_output_bytes {
+            input.insert(
+                "maxOutputBytes".to_string(),
+                serde_json::Value::Number(max_output_bytes.into()),
+            );
+        }
     }
     if let Some(old_text) = old_text
         .as_deref()
@@ -2386,6 +2456,35 @@ mod tests {
             Some(AgentCommands::Tools {
                 command: Some(ToolCommands::Run {
                     dry_run: true,
+                    json: true,
+                    ..
+                }),
+                ..
+            })
+        ));
+        let coding_test_run = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "run",
+            "test.run",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--command-id",
+            "node.test",
+            "--path",
+            "sample.test.mjs",
+            "--test-arg=--test-reporter=spec",
+            "--timeout-ms",
+            "30000",
+            "--json",
+        ])
+        .expect("coding test command should parse");
+        assert!(matches!(
+            coding_test_run.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Run {
+                    command_id: Some(_),
+                    timeout_ms: Some(30000),
                     json: true,
                     ..
                 }),

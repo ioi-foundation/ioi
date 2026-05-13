@@ -875,6 +875,9 @@ export interface WorkflowToolBinding {
     gitEnabled?: boolean;
     filesystemEnabled?: boolean;
     writeEnabled?: boolean;
+    testEnabled?: boolean;
+    allowedTestCommandIds?: string[];
+    timeoutMs?: number;
     dryRun?: boolean;
     allowedPaths?: string[];
     [key: string]: unknown;

@@ -58,6 +58,9 @@ pub(crate) enum TuiLineCommand {
         new_text: String,
         dry_run: bool,
     },
+    Test {
+        path: Option<String>,
+    },
     Quit,
 }
 
@@ -260,6 +263,27 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::Test { path }) => {
+                let mut input = serde_json::Map::new();
+                input.insert(
+                    "commandId".to_string(),
+                    Value::String("node.test".to_string()),
+                );
+                if let Some(path) = path.as_deref().filter(|value| !value.trim().is_empty()) {
+                    input.insert("path".to_string(), Value::String(path.to_string()));
+                }
+                let events =
+                    handle_coding_tool_input_command(&mut session, "test.run", input).await?;
+                control_state.record_command(
+                    "test",
+                    line.trim(),
+                    "applied",
+                    Some("tests run"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::Quit) => {
                 println!("line_mode_command=quit");
                 control_state.record_command(
@@ -361,6 +385,9 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 dry_run: true,
             })
         }
+        "test" | "test-run" => Ok(TuiLineCommand::Test {
+            path: non_empty_string(rest),
+        }),
         "quit" | "exit" | "q" => Ok(TuiLineCommand::Quit),
         _ => Err(anyhow!("unknown TUI command /{command}; use /help")),
     }
@@ -563,12 +590,13 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "git.diff" => "diff",
         "file.inspect" => "inspect",
         "file.apply_patch" => "patch",
+        "test.run" => "test",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -893,6 +921,12 @@ mod tests {
                 old_text: "before".to_string(),
                 new_text: "after".to_string(),
                 dry_run: true,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/test sample.test.mjs").unwrap(),
+            TuiLineCommand::Test {
+                path: Some("sample.test.mjs".to_string())
             }
         );
         assert_eq!(
