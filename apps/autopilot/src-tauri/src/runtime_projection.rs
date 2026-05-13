@@ -37,6 +37,7 @@ pub enum ActionKind {
     RuntimeContextCompact,
     RuntimeRollbackSnapshot,
     RuntimeRestoreGate,
+    RuntimeDiagnosticsRepair,
     Function,
     ModelBinding,
     ModelCall,
@@ -89,6 +90,7 @@ impl ActionKind {
             "runtime_context_compact" => Self::RuntimeContextCompact,
             "runtime_rollback_snapshot" => Self::RuntimeRollbackSnapshot,
             "runtime_restore_gate" => Self::RuntimeRestoreGate,
+            "runtime_diagnostics_repair" => Self::RuntimeDiagnosticsRepair,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -141,6 +143,7 @@ impl ActionKind {
             Self::RuntimeContextCompact => "runtime_context_compact",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
             Self::RuntimeRestoreGate => "runtime_restore_gate",
+            Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -193,6 +196,7 @@ impl ActionKind {
             Self::RuntimeContextCompact => "runtime_context_compact",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
             Self::RuntimeRestoreGate => "runtime_restore_gate",
+            Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -262,6 +266,7 @@ impl ActionKind {
                 | Self::RuntimeContextCompact
                 | Self::RuntimeRollbackSnapshot
                 | Self::RuntimeRestoreGate
+                | Self::RuntimeDiagnosticsRepair
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -498,6 +503,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_restore_gate"),
             ActionKind::RuntimeRestoreGate
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_diagnostics_repair"),
+            ActionKind::RuntimeDiagnosticsRepair
         );
         assert_eq!(
             ActionKind::from_node_type("repository_context"),

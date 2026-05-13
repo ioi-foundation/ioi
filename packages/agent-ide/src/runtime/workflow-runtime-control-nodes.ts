@@ -58,6 +58,17 @@ export const RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND =
   "WorkspaceRestore.Gate" as const;
 export const RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.workspace-restore-gate.v1" as const;
+export const WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-diagnostics-repair-control.v1" as const;
+export const RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID =
+  "runtime.diagnostics-repair" as const;
+export const RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND =
+  "lsp_diagnostics_repair" as const;
+export const RUNTIME_DIAGNOSTICS_REPAIR_SOURCE = "react_flow" as const;
+export const RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND =
+  "LspDiagnostics.RepairDecisionExecuted" as const;
+export const RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.diagnostics-repair-decision-execution.v1" as const;
 
 export interface RuntimeThreadForkControlRequestBody {
   reason: string;
@@ -312,6 +323,73 @@ export interface RuntimeRestoreGateControlRequestInput {
 }
 
 export interface RuntimeRestoreGateWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export type RuntimeDiagnosticsRepairAction =
+  | "repair_retry"
+  | "restore_preview"
+  | "restore_apply"
+  | "operator_override";
+
+export interface RuntimeDiagnosticsRepairControlRequestBody {
+  decisionId: string;
+  decision_id: string;
+  action: RuntimeDiagnosticsRepairAction;
+  message: string | null;
+  approvalGranted: boolean;
+  approval_granted: boolean;
+  approved: boolean;
+  confirm: boolean;
+  operatorOverrideApproved: boolean;
+  operator_override_approved: boolean;
+  allowConflicts: boolean;
+  allow_conflicts: boolean;
+  overrideConflicts: boolean;
+  override_conflicts: boolean;
+  source: typeof RUNTIME_DIAGNOSTICS_REPAIR_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeDiagnosticsRepairControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_diagnostics_repair";
+  nodeId: string | null;
+  threadId: string;
+  decisionId: string;
+  action: RuntimeDiagnosticsRepairAction;
+  endpoint: string;
+  body: RuntimeDiagnosticsRepairControlRequestBody;
+}
+
+export interface RuntimeDiagnosticsRepairControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  decisionId?: string | null;
+  decisionIdField?: string | null;
+  input?: unknown;
+  action?: string | null;
+  actionField?: string | null;
+  message?: string | null;
+  messageField?: string | null;
+  approvalGranted?: boolean | null;
+  approvalGrantedField?: string | null;
+  allowConflicts?: boolean | null;
+  allowConflictsField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeDiagnosticsRepairWorkflowNodeOptions {
   workflowGraphId?: string | null;
   actor?: string | null;
 }
@@ -626,6 +704,81 @@ export function createRuntimeRestoreGateControlRequest(
   };
 }
 
+export function createRuntimeDiagnosticsRepairControlRequest(
+  params: RuntimeDiagnosticsRepairControlRequestInput,
+): RuntimeDiagnosticsRepairControlRequest {
+  const action = runtimeDiagnosticsRepairAction(
+    stringAtPath(params.input, params.actionField ?? "") ??
+      cleanString(params.action),
+  );
+  const decisionId =
+    cleanString(params.decisionId) ??
+    stringAtPath(params.input, params.decisionIdField ?? "decisionId") ??
+    stringAtPath(params.input, "decision_id") ??
+    action;
+  const endpointTemplate =
+    cleanString(params.endpoint) ??
+    "/v1/threads/{threadId}/diagnostics/repair-decisions/{decisionId}/execute";
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_diagnostics_repair",
+      source: RUNTIME_DIAGNOSTICS_REPAIR_SOURCE,
+      eventKind: RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
+      defaultEndpoint: endpointTemplate,
+      turnIdMode: "none",
+    },
+    {
+      ...params,
+      endpoint: endpointTemplate,
+    },
+  );
+  const message =
+    stringAtPath(params.input, params.messageField ?? "") ??
+    cleanString(params.message);
+  const approvalGranted =
+    booleanAtPath(params.input, params.approvalGrantedField ?? "") ??
+    params.approvalGranted ??
+    false;
+  const allowConflicts =
+    booleanAtPath(params.input, params.allowConflictsField ?? "") ??
+    params.allowConflicts ??
+    false;
+
+  return {
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    decisionId,
+    action,
+    endpoint: endpointFromTemplate(endpointTemplate, {
+      threadId: envelope.threadId,
+      decisionId,
+    }),
+    body: {
+      decisionId,
+      decision_id: decisionId,
+      action,
+      message,
+      approvalGranted,
+      approval_granted: approvalGranted,
+      approved: approvalGranted,
+      confirm: approvalGranted,
+      operatorOverrideApproved: approvalGranted,
+      operator_override_approved: approvalGranted,
+      allowConflicts,
+      allow_conflicts: allowConflicts,
+      overrideConflicts: allowConflicts,
+      override_conflicts: allowConflicts,
+      ...envelope.metadata,
+    },
+  };
+}
+
 export function createRuntimeThreadForkControlRequestFromWorkflowNode(
   node: Pick<Node, "id" | "type" | "config">,
   input: unknown = {},
@@ -788,6 +941,52 @@ export function createRuntimeRestoreGateControlRequestFromWorkflowNode(
   });
 }
 
+export function createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeDiagnosticsRepairWorkflowNodeOptions = {},
+): RuntimeDiagnosticsRepairControlRequest {
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_diagnostics_repair");
+  return createRuntimeDiagnosticsRepairControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeDiagnosticsRepairThreadId),
+    threadIdField:
+      cleanString(logic.runtimeDiagnosticsRepairThreadIdField) ?? "threadId",
+    decisionId: cleanString(logic.runtimeDiagnosticsRepairDecisionId),
+    decisionIdField:
+      cleanString(logic.runtimeDiagnosticsRepairDecisionIdField) ?? "decisionId",
+    action: cleanString(logic.runtimeDiagnosticsRepairAction),
+    actionField: cleanString(logic.runtimeDiagnosticsRepairActionField),
+    message: cleanString(logic.runtimeDiagnosticsRepairMessage),
+    messageField: cleanString(logic.runtimeDiagnosticsRepairMessageField),
+    approvalGranted:
+      typeof logic.runtimeDiagnosticsRepairApprovalGranted === "boolean"
+        ? logic.runtimeDiagnosticsRepairApprovalGranted
+        : null,
+    approvalGrantedField: cleanString(
+      logic.runtimeDiagnosticsRepairApprovalGrantedField,
+    ),
+    allowConflicts:
+      typeof logic.runtimeDiagnosticsRepairAllowConflicts === "boolean"
+        ? logic.runtimeDiagnosticsRepairAllowConflicts
+        : null,
+    allowConflictsField: cleanString(
+      logic.runtimeDiagnosticsRepairAllowConflictsField,
+    ),
+    endpoint: cleanString(logic.runtimeDiagnosticsRepairEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeDiagnosticsRepairWorkflowNodeId) ??
+      RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
+    actor: runtimeControlWorkflowActor(
+      options,
+      logic,
+      "runtimeDiagnosticsRepairActor",
+    ),
+  });
+}
+
 function runtimeControlWorkflowNodeLogic(
   node: Pick<Node, "type" | "config">,
   expectedType: string,
@@ -924,6 +1123,30 @@ function runtimeRestoreGateConflictPolicy(
   value: string | null,
 ): RuntimeRestoreGateConflictPolicy {
   return value === "allow_override" ? "allow_override" : "block";
+}
+
+function runtimeDiagnosticsRepairAction(
+  value: string | null,
+): RuntimeDiagnosticsRepairAction {
+  const normalized = (value ?? "repair_retry")
+    .trim()
+    .toLowerCase()
+    .replace(/[-.]/g, "_");
+  switch (normalized) {
+    case "restore_preview":
+    case "preview":
+    case "preview_restore":
+      return "restore_preview";
+    case "restore_apply":
+    case "apply":
+    case "apply_restore":
+      return "restore_apply";
+    case "operator_override":
+    case "override":
+      return "operator_override";
+    default:
+      return "repair_retry";
+  }
 }
 
 function endpointFromTemplate(

@@ -153,6 +153,7 @@ workstream was narrower.
 | 151 | 2026-05-13 | P1. MCP Manager Parity | global IOI MCP config discovery | /tmp/ioi-autopilot-gui-harness-mcp-global-config/2026-05-13T16-20-04-651Z/result.json |
 | 152 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1. MCP Manager Parity | TUI MCP search/fetch source-mode UX | /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch/2026-05-13T16-35-16-836Z/result.json |
 | 153 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | TUI diagnostics repair decision controls | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui/2026-05-13T16-45-07-095Z/result.json |
+| 154 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow diagnostics repair action node | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -273,6 +274,42 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 154. 2026-05-13 - React Flow diagnostics repair action node
+
+Implementation slice completed 2026-05-13, React Flow diagnostics recovery parity:
+
+- Added a first-class `runtime_diagnostics_repair` React Flow workflow action
+  node that targets the daemon-owned
+  `/v1/threads/{threadId}/diagnostics/repair-decisions/{decisionId}/execute`
+  endpoint.
+- Added request-builder helpers for `repair_retry`, `restore_preview`,
+  `restore_apply`, and `operator_override`, including configurable thread id,
+  decision id, action, message, approval, conflict, actor, endpoint, and
+  workflow-node identity fields.
+- Registered the node across graph types, workflow schema declarations,
+  action-schema outputs, runtime projection mapping, canvas display metadata,
+  localization strings, and source-contract guards.
+- Added the Tauri local workflow execution lane for diagnostics repair actions
+  so workflow-authored recovery requests preserve graph/node identity and emit
+  the same event/envelope metadata as daemon-backed runtime controls.
+- Kept the implementation modular by extending the shared runtime-control
+  request helpers and existing workflow-node registry patterns rather than
+  creating a canvas-local recovery path.
+- Updated the master guide so the next tactical focus is run-inspector action
+  buttons over diagnostics repair rows.
+
+Validation evidence:
+
+- `rustfmt --check apps/autopilot/src-tauri/src/runtime_projection.rs apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds -- --nocapture`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json`.
 - `git diff --check`
 
 ### Slice 153. 2026-05-13 - TUI diagnostics repair decision controls

@@ -676,6 +676,33 @@ export interface NodeLogic {
   runtimeRestoreGateWorkflowNodeId?: string;
   runtimeRestoreGateSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeRestoreGateActor?: string;
+  runtimeDiagnosticsRepairEndpoint?: string;
+  runtimeDiagnosticsRepair?: unknown;
+  runtimeDiagnosticsRepairField?: string;
+  runtimeDiagnosticsRepairEventField?: string;
+  runtimeDiagnosticsRepairStatusField?: string;
+  runtimeDiagnosticsRepairReceiptField?: string;
+  runtimeDiagnosticsRepairPolicyField?: string;
+  runtimeDiagnosticsRepairThreadId?: string;
+  runtimeDiagnosticsRepairThreadIdField?: string;
+  runtimeDiagnosticsRepairDecisionId?: string;
+  runtimeDiagnosticsRepairDecisionIdField?: string;
+  runtimeDiagnosticsRepairAction?:
+    | "repair_retry"
+    | "restore_preview"
+    | "restore_apply"
+    | "operator_override"
+    | string;
+  runtimeDiagnosticsRepairActionField?: string;
+  runtimeDiagnosticsRepairMessage?: string;
+  runtimeDiagnosticsRepairMessageField?: string;
+  runtimeDiagnosticsRepairApprovalGranted?: boolean;
+  runtimeDiagnosticsRepairApprovalGrantedField?: string;
+  runtimeDiagnosticsRepairAllowConflicts?: boolean;
+  runtimeDiagnosticsRepairAllowConflictsField?: string;
+  runtimeDiagnosticsRepairWorkflowNodeId?: string;
+  runtimeDiagnosticsRepairSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeDiagnosticsRepairActor?: string;
   workflowPackageExportEndpoint?: string;
   workflowPackageExport?: unknown;
   workflowPackageExportField?: string;
@@ -769,6 +796,7 @@ export interface NodeLogic {
     consumesRuntimeContextCompact?: boolean;
     consumesRuntimeRollbackSnapshot?: boolean;
     consumesRuntimeRestoreGate?: boolean;
+    consumesRuntimeDiagnosticsRepair?: boolean;
     consumesWorkflowPackageExport?: boolean;
     consumesWorkflowPackageImportReview?: boolean;
     consumesRepositoryContext?: boolean;
@@ -799,6 +827,8 @@ export interface NodeLogic {
     runtimeRollbackSnapshotStatusField?: string;
     runtimeRestoreGateField?: string;
     runtimeRestoreGateStatusField?: string;
+    runtimeDiagnosticsRepairField?: string;
+    runtimeDiagnosticsRepairStatusField?: string;
     workflowPackageExportField?: string;
     workflowPackageReadinessStatusField?: string;
     workflowPackagePortableField?: string;
@@ -1323,6 +1353,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_context_compact">
   | WorkflowNodeConfigBase<"runtime_rollback_snapshot">
   | WorkflowNodeConfigBase<"runtime_restore_gate">
+  | WorkflowNodeConfigBase<"runtime_diagnostics_repair">
   | WorkflowNodeConfigBase<"workflow_package_export">
   | WorkflowNodeConfigBase<"workflow_package_import">
   | WorkflowNodeConfigBase<"repository_context">
@@ -4020,6 +4051,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_context_compact"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
+  | "runtime_diagnostics_repair"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"
@@ -4580,6 +4612,7 @@ export type WorkflowNodeKind =
   | "runtime_context_compact"
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
+  | "runtime_diagnostics_repair"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"

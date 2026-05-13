@@ -327,7 +327,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     label: "Runtime Doctor",
     group: "Tests",
     family: "tests",
-    token: "DR",
+    token: "RX",
     familyLabel: "Doctor",
     metricLabel: "Readiness",
     metricValue: "preflight",
@@ -1312,6 +1312,145 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       nodeTypeLabel: "RuntimeRestoreGateNode",
     },
     defaultLaw: { privilegedActions: ["runtime.workspace.restore"] },
+  },
+  {
+    type: "runtime_diagnostics_repair",
+    label: "Runtime Diagnostics Repair",
+    group: "Flow",
+    family: "flow_control",
+    token: "DR",
+    familyLabel: "Runtime",
+    metricLabel: "Repair",
+    metricValue: "decision",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["decision"],
+    outputs: ["repair", "event", "status"],
+    portDefinitions: [
+      port("decision", "Repair decision", "input", "state", "state", false, "state"),
+      port("repair", "Repair request", "output", "state", "output", false, "state"),
+      port("event", "Repair event", "output", "state", "output", false, "state"),
+      port("status", "Repair status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("decision", "Repair decision", "input", "state", "state", false, "state"),
+      port("repair", "Repair request", "output", "state", "output", false, "state"),
+      port("event", "Repair event", "output", "state", "output", false, "state"),
+      port("status", "Repair status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeDiagnosticsRepairEndpoint",
+        "runtimeDiagnosticsRepairThreadIdField",
+        "runtimeDiagnosticsRepairDecisionIdField",
+        "runtimeDiagnosticsRepairWorkflowNodeId",
+      ],
+      properties: {
+        runtimeDiagnosticsRepairEndpoint: { type: "string" },
+        runtimeDiagnosticsRepairField: { type: "string" },
+        runtimeDiagnosticsRepairEventField: { type: "string" },
+        runtimeDiagnosticsRepairStatusField: { type: "string" },
+        runtimeDiagnosticsRepairReceiptField: { type: "string" },
+        runtimeDiagnosticsRepairPolicyField: { type: "string" },
+        runtimeDiagnosticsRepairThreadId: { type: "string" },
+        runtimeDiagnosticsRepairThreadIdField: { type: "string" },
+        runtimeDiagnosticsRepairDecisionId: { type: "string" },
+        runtimeDiagnosticsRepairDecisionIdField: { type: "string" },
+        runtimeDiagnosticsRepairAction: {
+          type: "string",
+          enum: [
+            "repair_retry",
+            "restore_preview",
+            "restore_apply",
+            "operator_override",
+          ],
+        },
+        runtimeDiagnosticsRepairActionField: { type: "string" },
+        runtimeDiagnosticsRepairMessage: { type: "string" },
+        runtimeDiagnosticsRepairMessageField: { type: "string" },
+        runtimeDiagnosticsRepairApprovalGranted: { type: "boolean" },
+        runtimeDiagnosticsRepairApprovalGrantedField: { type: "string" },
+        runtimeDiagnosticsRepairAllowConflicts: { type: "boolean" },
+        runtimeDiagnosticsRepairAllowConflictsField: { type: "string" },
+        runtimeDiagnosticsRepairWorkflowNodeId: { type: "string" },
+        runtimeDiagnosticsRepairSource: { type: "string" },
+        runtimeDiagnosticsRepairActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_diagnostics_repair"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_diagnostics_repair",
+      "runtimeDiagnosticsRepair.status",
+    ),
+    policyProfile: policyProfile("write", true),
+    evidenceProfile: evidenceProfile(
+      ["execution", "approval", "verification"],
+      ["execution", "approval", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_diagnostics_repair",
+      executorId: "workflow.runtime_diagnostics_repair",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_diagnostics_repair",
+        "runtimeDiagnosticsRepair.status",
+      ),
+      runtimeDiagnosticsRepairEndpoint:
+        "/v1/threads/{threadId}/diagnostics/repair-decisions/{decisionId}/execute",
+      runtimeDiagnosticsRepairField: "runtimeDiagnosticsRepair",
+      runtimeDiagnosticsRepairEventField: "runtimeDiagnosticsRepair.event",
+      runtimeDiagnosticsRepairStatusField: "runtimeDiagnosticsRepair.status",
+      runtimeDiagnosticsRepairReceiptField:
+        "runtimeDiagnosticsRepair.receiptRefs",
+      runtimeDiagnosticsRepairPolicyField:
+        "runtimeDiagnosticsRepair.policyDecisionRefs",
+      runtimeDiagnosticsRepairThreadIdField: "threadId",
+      runtimeDiagnosticsRepairDecisionIdField: "decisionId",
+      runtimeDiagnosticsRepairAction: "repair_retry",
+      runtimeDiagnosticsRepairActionField: "action",
+      runtimeDiagnosticsRepairMessageField: "message",
+      runtimeDiagnosticsRepairApprovalGranted: false,
+      runtimeDiagnosticsRepairApprovalGrantedField: "approvalGranted",
+      runtimeDiagnosticsRepairAllowConflicts: false,
+      runtimeDiagnosticsRepairAllowConflictsField: "allowConflicts",
+      runtimeDiagnosticsRepairWorkflowNodeId: "runtime.diagnostics-repair",
+      runtimeDiagnosticsRepairSource: "react_flow",
+      runtimeDiagnosticsRepairActor: "operator",
+      readOnly: false,
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_diagnostics_repair_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "decisionId", "action", "request"],
+        properties: {
+          runtimeDiagnosticsRepair: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: "string" },
+          decisionId: { type: "string" },
+          action: { type: "string" },
+          approvalGranted: { type: "boolean" },
+          allowConflicts: { type: "boolean" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeDiagnosticsRepair: true,
+        runtimeDiagnosticsRepairField: "runtimeDiagnosticsRepair",
+        runtimeDiagnosticsRepairStatusField: "runtimeDiagnosticsRepair.status",
+      },
+      nodeTypeLabel: "RuntimeDiagnosticsRepairNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.diagnostics.repair"] },
   },
   {
     type: "workflow_package_export",
@@ -4621,6 +4760,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_context_compact", "decision", "verifier", "output"];
     case "runtime_restore_gate":
       return ["runtime_rollback_snapshot", "human_gate", "decision", "output"];
+    case "runtime_diagnostics_repair":
+      return ["runtime_restore_gate", "human_gate", "decision", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -4727,6 +4868,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_context_compact" ||
     type === "runtime_rollback_snapshot" ||
     type === "runtime_restore_gate" ||
+    type === "runtime_diagnostics_repair" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

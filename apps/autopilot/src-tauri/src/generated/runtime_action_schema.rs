@@ -16,6 +16,7 @@ pub const RUNTIME_ACTION_KINDS: &[&str] = &[
     "runtime_context_compact",
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
+    "runtime_diagnostics_repair",
     "function",
     "model_binding",
     "model_call",
@@ -71,4 +72,5 @@ pub const RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS: &[&str] = &[
     "runtime_context_compact",
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
+    "runtime_diagnostics_repair",
 ];

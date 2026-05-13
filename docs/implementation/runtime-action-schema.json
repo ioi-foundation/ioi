@@ -16,6 +16,7 @@
     "runtime_context_compact",
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
+    "runtime_diagnostics_repair",
     "function",
     "model_binding",
     "model_call",
@@ -71,6 +72,7 @@
     "runtime_operator_steer",
     "runtime_context_compact",
     "runtime_rollback_snapshot",
-    "runtime_restore_gate"
+    "runtime_restore_gate",
+    "runtime_diagnostics_repair"
   ]
 }

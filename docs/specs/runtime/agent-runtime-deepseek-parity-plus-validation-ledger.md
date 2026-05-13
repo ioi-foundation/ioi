@@ -152,6 +152,7 @@ the practical workstream when the source heading is broad.
 | 151 | 2026-05-13 | P1. MCP Manager Parity | global IOI MCP config discovery | /tmp/ioi-autopilot-gui-harness-mcp-global-config/2026-05-13T16-20-04-651Z/result.json | node --check packages/runtime-daemon/src/mcp-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon owns MCP discovery" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model&#124;React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-global-config<br>git diff --check |
 | 152 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P1. MCP Manager Parity | TUI MCP search/fetch source-mode UX | /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch/2026-05-13T16-35-16-836Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node --test --test-name-pattern "agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-tui-search-fetch<br>git diff --check |
 | 153 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | TUI diagnostics repair decision controls | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui/2026-05-13T16-45-07-095Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt -p ioi-cli<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli tui --quiet<br>node --test --test-name-pattern "agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-tui<br>git diff --check |
+| 154 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow diagnostics repair action node | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json | rustfmt --check apps/autopilot/src-tauri/src/runtime_projection.rs apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds -- --nocapture<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow<br>git diff --check |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4807,6 +4808,49 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search`
   - GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
+
+## Slice 154. 2026-05-13 - React Flow diagnostics repair action node
+
+Guide section: P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/runtime/workflow-schema.ts
+- packages/agent-ide/src/types/graph.ts
+- apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs
+- apps/autopilot/src-tauri/src/runtime_projection.rs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json
+
+Validation evidence:
+
+- `rustfmt --check apps/autopilot/src-tauri/src/runtime_projection.rs apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs`
+  - Rust formatting check passed for the touched Tauri projection/generated
+    files.
+- `cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml substrate_classifies_workflow_node_kinds -- --nocapture`
+  - focused Rust substrate classification proof passed with the new
+    `RuntimeDiagnosticsRepair` action kind.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts`
+  - runtime-control request-builder tests passed, including diagnostics repair
+    graph identity, action normalization, approval, and conflict fields.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed with the new workflow node,
+    schema, localization, and canvas metadata.
+- `node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused source-contract proof passed for the workflow node registry, graph
+    types, request builder, runtime projection adapter, and generated action
+    schema additions.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-react-flow/2026-05-13T16-59-53-289Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
 

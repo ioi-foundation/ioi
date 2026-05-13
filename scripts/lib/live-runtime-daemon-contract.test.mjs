@@ -7587,6 +7587,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-node-registry.ts"),
     "utf8",
   );
+  const workflowRuntimeControlNodes = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts"),
+    "utf8",
+  );
   const workflowNodeBindingEditorSections = fs.readFileSync(
     path.join(
       root,
@@ -8999,6 +9003,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /workflowChromeLocale\?: string \| null/);
   assert.match(graphTypes, /workflowPackageExportEndpoint\?: string/);
   assert.match(graphTypes, /workflowPackageImportEndpoint\?: string/);
+  assert.match(graphTypes, /runtimeDiagnosticsRepairEndpoint\?: string/);
+  assert.match(graphTypes, /runtimeDiagnosticsRepairDecisionIdField\?: string/);
+  assert.match(graphTypes, /consumesRuntimeDiagnosticsRepair\?: boolean/);
   assert.match(graphTypes, /consumesWorkflowPackageExport\?: boolean/);
   assert.match(graphTypes, /consumesWorkflowPackageImportReview\?: boolean/);
   assert.match(graphTypes, /\| "workflow_package_export"/);
@@ -9145,6 +9152,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeRestoreGateNode/);
   assert.match(nodeRegistry, /runtimeRestoreGateSnapshotIdField/);
   assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/snapshots\/\{snapshotId\}\/restore-\{mode\}/);
+  assert.match(nodeRegistry, /runtime_diagnostics_repair/);
+  assert.match(nodeRegistry, /RuntimeDiagnosticsRepairNode/);
+  assert.match(nodeRegistry, /runtimeDiagnosticsRepairDecisionIdField/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/diagnostics\/repair-decisions\/\{decisionId\}\/execute/);
+  assert.match(workflowRuntimeControlNodes, /createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeControlNodes, /RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND/);
+  assert.match(workflowRuntimeControlNodes, /operatorOverrideApproved/);
+  assert.match(workflowRuntimeControlNodes, /allowConflicts/);
   assert.match(nodeRegistry, /workflow_package_export/);
   assert.match(nodeRegistry, /WorkflowPackageExportNode/);
   assert.match(nodeRegistry, /workflow\.package\.export/);
@@ -9437,6 +9452,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_context_compact\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_rollback_snapshot\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_restore_gate\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_diagnostics_repair\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
@@ -9459,6 +9475,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeProjectionAdapter, /return "runtime_rollback_snapshot"/);
   assert.match(runtimeProjectionAdapter, /case "runtime_restore_gate"/);
   assert.match(runtimeProjectionAdapter, /return "runtime_restore_gate"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_diagnostics_repair"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_diagnostics_repair"/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
   assert.match(runtimeActionSchema, /"skill_context"/);
@@ -9468,6 +9486,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeActionSchema, /"runtime_context_compact"/);
   assert.match(runtimeActionSchema, /"runtime_rollback_snapshot"/);
   assert.match(runtimeActionSchema, /"runtime_restore_gate"/);
+  assert.match(runtimeActionSchema, /"runtime_diagnostics_repair"/);
   assert.match(generatedActionSchema, /"skill_context"/);
   assert.match(generatedActionSchema, /"workflow_package_export"/);
   assert.match(generatedActionSchema, /"workflow_package_import"/);
@@ -9475,6 +9494,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(generatedActionSchema, /"runtime_context_compact"/);
   assert.match(generatedActionSchema, /"runtime_rollback_snapshot"/);
   assert.match(generatedActionSchema, /"runtime_restore_gate"/);
+  assert.match(generatedActionSchema, /"runtime_diagnostics_repair"/);
   assert.match(generatedRustActionSchema, /"skill_context"/);
   assert.match(generatedRustActionSchema, /"workflow_package_export"/);
   assert.match(generatedRustActionSchema, /"workflow_package_import"/);
@@ -9482,6 +9502,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(generatedRustActionSchema, /"runtime_context_compact"/);
   assert.match(generatedRustActionSchema, /"runtime_rollback_snapshot"/);
   assert.match(generatedRustActionSchema, /"runtime_restore_gate"/);
+  assert.match(generatedRustActionSchema, /"runtime_diagnostics_repair"/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {
