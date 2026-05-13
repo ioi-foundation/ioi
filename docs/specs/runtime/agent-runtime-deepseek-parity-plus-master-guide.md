@@ -750,6 +750,9 @@ Current implementation note, 2026-05-13:
   those routes for spawn, list, wait, and result. It persists subagent lifecycle
   records, stamps parent/child agent and thread metadata, emits parent-thread
   subagent lifecycle events, and returns output-contract validation status.
+- The pure subagent lifecycle contract helpers now live in
+  `packages/runtime-daemon/src/subagent-manager.mjs`, keeping the daemon route
+  and store wiring thin enough for the next lifecycle operations.
 - Remaining P1-A gap: implement daemon send-input, cancel, resume, assign,
   cancellation propagation, SDK/TUI wrappers, and live parallel fan-out evidence
   behind this React Flow contract.
@@ -1868,6 +1871,7 @@ adding more infrastructure by default.
 
 Recent focused validation, 2026-05-13:
 
+- `node --check packages/runtime-daemon/src/subagent-manager.mjs`
 - `node --test --test-name-pattern "local daemon exposes SubagentManager spawn, list, wait, and result contracts" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
@@ -1876,6 +1880,9 @@ Recent focused validation, 2026-05-13:
 - `npm run build --workspace=@ioi/agent-ide`
 - `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --test --test-name-pattern "daemon owns MCP discovery|React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-manager-refactor`
+  passed and wrote
+  `/tmp/ioi-autopilot-gui-harness-subagent-manager-refactor/2026-05-13T18-28-58-990Z/result.json`.
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring`
   passed and wrote
   `/tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json`.
