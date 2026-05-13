@@ -115,6 +115,8 @@ const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
   "file.inspect",
 ];
 const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
+const RUNTIME_USAGE_DELTA_SCHEMA_VERSION = "ioi.runtime.usage-delta.v1";
+const RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION = "ioi.runtime.context-pressure-delta.v1";
 const RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION = "ioi.runtime.context-budget-policy.v1";
 const RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION = "ioi.runtime.compaction-policy.v1";
 const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
@@ -168,6 +170,8 @@ const RUN_EVENT_TO_TTI_EVENT = {
   postcondition_synthesized: "item.completed",
   semantic_impact: "item.completed",
   delta: "item.delta",
+  usage_delta: "usage.delta",
+  context_pressure_delta: "context.pressure_delta",
   usage_final: "item.completed",
   stop_condition: "item.completed",
   quality_ledger: "item.completed",
@@ -2889,6 +2893,11 @@ export class AgentgresRuntimeStateStore {
         diagnosticsFeedback,
       });
     }
+    projection.events = insertRuntimeBridgeUsageDeltaEvents({
+      projection,
+      agent,
+      threadId,
+    });
     for (const event of projection.events) this.appendRuntimeEvent(event);
     const run = runtimeBridgeRunRecord({ agent, request, projection });
     this.runs.set(run.id, run);
@@ -11768,7 +11777,29 @@ function buildRun({
   addEvent("probe", "Canonical replay probe completed", probes[0]);
   addEvent("postcondition_synthesized", "Postconditions synthesized", postconditions);
   addEvent("semantic_impact", "Semantic impact classified", semanticImpact);
+  const usageDeltas = runtimeUsageTelemetryDeltaPayloads(usageTelemetry, {
+    runId,
+    agentId: agent.id,
+    threadId: threadIdForAgent(agent.id),
+    turnId: turnIdForRun(runId),
+  });
+  if (usageDeltas[0]) {
+    addEvent("usage_delta", usageDeltas[0].summary, usageDeltas[0]);
+    addEvent(
+      "context_pressure_delta",
+      usageDeltas[0].contextPressureSummary,
+      contextPressureDeltaPayload(usageDeltas[0]),
+    );
+  }
   const deltaEvent = diagnosticsBlockingGate ? null : addEvent("delta", result, { text: result });
+  if (usageDeltas[1]) {
+    addEvent("usage_delta", usageDeltas[1].summary, usageDeltas[1]);
+    addEvent(
+      "context_pressure_delta",
+      usageDeltas[1].contextPressureSummary,
+      contextPressureDeltaPayload(usageDeltas[1]),
+    );
+  }
   addEvent("usage_final", "Usage telemetry recorded", {
     ...usageTelemetry,
     eventKind: "RuntimeUsageTelemetry",
@@ -16434,6 +16465,85 @@ function insertRuntimeBridgeDiagnosticsInjectionEvent({
   return [event, ...events];
 }
 
+function insertRuntimeBridgeUsageDeltaEvents({ projection, agent, threadId }) {
+  const usageTelemetry = runtimeUsageTelemetryForRun({
+    run: {
+      id: projection.runId,
+      agentId: agent.id,
+      mode: projection.mode,
+      objective: projection.prompt,
+      result: projection.result,
+      createdAt: projection.createdAt,
+      updatedAt: projection.updatedAt,
+      modelRouteDecision: agent.modelRouteDecision ?? null,
+      usage: projection.usage,
+    },
+    agent,
+    threadId,
+  });
+  const deltas = runtimeUsageTelemetryDeltaPayloads(usageTelemetry, {
+    runId: projection.runId,
+    agentId: agent.id,
+    threadId,
+    turnId: projection.turnId,
+  });
+  if (!deltas.length) return normalizeArray(projection.events);
+
+  const deltaEvents = deltas.flatMap((delta) => [
+    {
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: projection.turnId,
+      item_id: `${projection.turnId}:item:usage-delta:${safeId(delta.stage)}`,
+      idempotency_key: `turn:${projection.turnId}:usage-delta:${safeId(delta.stage)}`,
+      source: "runtime_auto",
+      source_event_kind: "RuntimeUsageTelemetry.Delta",
+      event_kind: "usage.delta",
+      status: "running",
+      actor: "runtime",
+      created_at: projection.updatedAt ?? projection.createdAt,
+      workspace_root: agent.cwd,
+      workflow_node_id: "runtime.usage-telemetry",
+      component_kind: "usage_telemetry",
+      payload_schema_version: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
+      payload: delta,
+      receipt_refs: [],
+      artifact_refs: [],
+      policy_decision_refs: [],
+      rollback_refs: [],
+    },
+    {
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: projection.turnId,
+      item_id: `${projection.turnId}:item:context-pressure:${safeId(delta.stage)}`,
+      idempotency_key: `turn:${projection.turnId}:context-pressure:${safeId(delta.stage)}`,
+      source: "runtime_auto",
+      source_event_kind: "RuntimeContextPressure.Delta",
+      event_kind: "context.pressure_delta",
+      status: delta.context_pressure_status === "high" ? "blocked" : "running",
+      actor: "runtime",
+      created_at: projection.updatedAt ?? projection.createdAt,
+      workspace_root: agent.cwd,
+      workflow_node_id: "runtime.context-budget",
+      component_kind: "context_pressure",
+      payload_schema_version: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
+      payload: contextPressureDeltaPayload(delta),
+      receipt_refs: [],
+      artifact_refs: [],
+      policy_decision_refs: [],
+      rollback_refs: [],
+    },
+  ]);
+  const events = [...normalizeArray(projection.events)];
+  const turnStartedIndex = events.findIndex((candidate) => candidate?.event_kind === "turn.started");
+  if (turnStartedIndex >= 0) {
+    events.splice(turnStartedIndex + 1, 0, ...deltaEvents);
+    return events;
+  }
+  return [...deltaEvents, ...events];
+}
+
 function subagentMemoryPolicy({ agent, threadId, parentPolicy = {}, receiver, mode }) {
   const targetId = `${threadId}:${receiver ?? "subagent"}`;
   const id = `memory_policy_subagent_${safeId(targetId)}`;
@@ -16957,9 +17067,203 @@ function normalizeRuntimeEventEnvelope(event, { seq, parentSeq, idempotencyKey }
   };
 }
 
+function runtimeUsageTelemetryDeltaPayloads(usageTelemetry = {}, {
+  runId,
+  agentId,
+  threadId,
+  turnId,
+} = {}) {
+  const totalTokens = contextBudgetNumber(
+    usageTelemetry.total_tokens,
+    usageTelemetry.totalTokens,
+  ) ?? 0;
+  const inputTokens = contextBudgetNumber(
+    usageTelemetry.input_tokens,
+    usageTelemetry.inputTokens,
+  ) ?? 0;
+  const outputTokens = contextBudgetNumber(
+    usageTelemetry.output_tokens,
+    usageTelemetry.outputTokens,
+  ) ?? Math.max(0, totalTokens - inputTokens);
+  const costUsd = contextBudgetNumber(
+    usageTelemetry.estimated_cost_usd,
+    usageTelemetry.estimatedCostUsd,
+  ) ?? 0;
+  const contextUsedTokens = contextBudgetNumber(
+    usageTelemetry.context_used_tokens,
+    usageTelemetry.contextUsedTokens,
+  ) ?? totalTokens;
+  const contextWindowTokens = contextBudgetNumber(
+    usageTelemetry.context_window_tokens,
+    usageTelemetry.contextWindowTokens,
+  ) ?? 128000;
+  const contextPressure = contextBudgetNumber(
+    usageTelemetry.context_pressure,
+    usageTelemetry.contextPressure,
+  ) ?? (contextWindowTokens > 0 ? roundRuntimeRatio(contextUsedTokens / contextWindowTokens) : 0);
+  const contextPressureStatus =
+    optionalString(
+      usageTelemetry.context_pressure_status ??
+        usageTelemetry.contextPressureStatus,
+    ) ?? runtimeContextPressureStatus(contextPressure);
+  const provider = optionalString(usageTelemetry.provider) ?? "local";
+  const model = optionalString(usageTelemetry.model) ?? "unknown";
+  const routeId =
+    optionalString(usageTelemetry.route_id ?? usageTelemetry.routeId) ?? null;
+  const promptTotal = Math.max(1, inputTokens);
+  const promptCost = totalTokens > 0 ? costUsd * (promptTotal / totalTokens) : 0;
+  const promptPressure = contextWindowTokens > 0
+    ? roundRuntimeRatio(promptTotal / contextWindowTokens)
+    : 0;
+  const stages = [
+    {
+      stage: "prompt_prepared",
+      delta_index: 1,
+      delta_total: 2,
+      input_tokens_delta: promptTotal,
+      output_tokens_delta: 0,
+      total_tokens_delta: promptTotal,
+      cumulative_input_tokens: inputTokens,
+      cumulative_output_tokens: 0,
+      cumulative_total_tokens: promptTotal,
+      cumulative_cost_estimate_usd: roundRuntimeUsd(promptCost),
+      context_used_tokens: promptTotal,
+      context_pressure: promptPressure,
+      context_pressure_status: runtimeContextPressureStatus(promptPressure),
+    },
+    {
+      stage: "completion_streamed",
+      delta_index: 2,
+      delta_total: 2,
+      input_tokens_delta: 0,
+      output_tokens_delta: outputTokens,
+      total_tokens_delta: Math.max(0, totalTokens - promptTotal),
+      cumulative_input_tokens: inputTokens,
+      cumulative_output_tokens: outputTokens,
+      cumulative_total_tokens: totalTokens,
+      cumulative_cost_estimate_usd: roundRuntimeUsd(costUsd),
+      context_used_tokens: contextUsedTokens,
+      context_pressure: contextPressure,
+      context_pressure_status: contextPressureStatus,
+    },
+  ];
+  return stages.map((stage) => {
+    const summary =
+      `Usage delta ${stage.delta_index}/${stage.delta_total}: ` +
+      `${stage.cumulative_total_tokens} tokens, context ${stage.context_pressure}.`;
+    return {
+      schema_version: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
+      schemaVersion: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
+      object: "ioi.runtime_usage_delta",
+      eventKind: "RuntimeUsageTelemetry.Delta",
+      workflowNodeId: "runtime.usage-telemetry",
+      componentKind: "usage_telemetry",
+      run_id: runId,
+      runId,
+      agent_id: agentId,
+      agentId,
+      thread_id: threadId,
+      threadId,
+      turn_id: turnId,
+      turnId,
+      provider,
+      model,
+      route_id: routeId,
+      routeId,
+      status: "running",
+      summary,
+      contextPressureSummary:
+        `Context pressure delta ${stage.delta_index}/${stage.delta_total}: ` +
+        `${stage.context_pressure_status} at ${stage.context_pressure}.`,
+      ...stage,
+      input_tokens: stage.cumulative_input_tokens,
+      inputTokens: stage.cumulative_input_tokens,
+      output_tokens: stage.cumulative_output_tokens,
+      outputTokens: stage.cumulative_output_tokens,
+      total_tokens: stage.cumulative_total_tokens,
+      totalTokens: stage.cumulative_total_tokens,
+      estimated_cost_usd: stage.cumulative_cost_estimate_usd,
+      estimatedCostUsd: stage.cumulative_cost_estimate_usd,
+      context_window_tokens: contextWindowTokens,
+      contextWindowTokens,
+      context_used_tokens: stage.context_used_tokens,
+      contextUsedTokens: stage.context_used_tokens,
+      contextPressure: stage.context_pressure,
+      contextPressureStatus: stage.context_pressure_status,
+      generated_at: new Date().toISOString(),
+    };
+  });
+}
+
+function contextPressureDeltaPayload(usageDelta = {}) {
+  return {
+    schema_version: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
+    schemaVersion: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
+    object: "ioi.runtime_context_pressure_delta",
+    eventKind: "RuntimeContextPressure.Delta",
+    workflowNodeId: "runtime.context-budget",
+    componentKind: "context_pressure",
+    run_id: usageDelta.run_id ?? usageDelta.runId ?? null,
+    runId: usageDelta.runId ?? usageDelta.run_id ?? null,
+    thread_id: usageDelta.thread_id ?? usageDelta.threadId ?? null,
+    threadId: usageDelta.threadId ?? usageDelta.thread_id ?? null,
+    turn_id: usageDelta.turn_id ?? usageDelta.turnId ?? null,
+    turnId: usageDelta.turnId ?? usageDelta.turn_id ?? null,
+    status: usageDelta.context_pressure_status === "high" ? "blocked" : "running",
+    summary: usageDelta.contextPressureSummary ?? usageDelta.summary ?? null,
+    stage: usageDelta.stage ?? null,
+    delta_index: usageDelta.delta_index ?? null,
+    delta_total: usageDelta.delta_total ?? null,
+    usage_delta_ref: `${usageDelta.run_id ?? usageDelta.runId ?? "run"}:${usageDelta.stage ?? "delta"}`,
+    usage_total_tokens: usageDelta.total_tokens ?? usageDelta.totalTokens ?? 0,
+    usageTotalTokens: usageDelta.totalTokens ?? usageDelta.total_tokens ?? 0,
+    usage_cost_estimate_usd:
+      usageDelta.estimated_cost_usd ?? usageDelta.estimatedCostUsd ?? 0,
+    usageCostEstimateUsd:
+      usageDelta.estimatedCostUsd ?? usageDelta.estimated_cost_usd ?? 0,
+    usage_context_pressure:
+      usageDelta.context_pressure ?? usageDelta.contextPressure ?? 0,
+    usageContextPressure:
+      usageDelta.contextPressure ?? usageDelta.context_pressure ?? 0,
+    usage_context_pressure_status:
+      usageDelta.context_pressure_status ??
+      usageDelta.contextPressureStatus ??
+      "nominal",
+    usageContextPressureStatus:
+      usageDelta.contextPressureStatus ??
+      usageDelta.context_pressure_status ??
+      "nominal",
+    generated_at: new Date().toISOString(),
+  };
+}
+
+function roundRuntimeRatio(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 10000) / 10000;
+}
+
+function roundRuntimeUsd(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.round(number * 1_000_000) / 1_000_000;
+}
+
+function runtimeContextPressureStatus(pressure) {
+  if (pressure >= 0.85) return "high";
+  if (pressure >= 0.6) return "elevated";
+  return "nominal";
+}
+
 function runtimeEventStatusForRunEvent(event) {
   if (event.type === "job_queued") return "queued";
-  if (event.type === "job_started" || event.type === "run_started" || event.type === "delta") return "running";
+  if (
+    event.type === "job_started" ||
+    event.type === "run_started" ||
+    event.type === "delta" ||
+    event.type === "usage_delta" ||
+    event.type === "context_pressure_delta"
+  ) return "running";
   if (event.type === "lsp_diagnostics_injected") {
     return event.data?.blocking && event.data?.diagnosticStatus === "findings" ? "blocked" : "completed";
   }
@@ -17379,6 +17683,80 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "hook_invocation_ledger_safe",
     };
   }
+  if (event.type === "usage_delta") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeUsageTelemetry.Delta",
+      eventKind: event.data?.eventKind ?? "RuntimeUsageTelemetry.Delta",
+      schema_version:
+        event.data?.schema_version ??
+        event.data?.schemaVersion ??
+        RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
+      stage: event.data?.stage ?? null,
+      delta_index: event.data?.delta_index ?? null,
+      delta_total: event.data?.delta_total ?? null,
+      run_id: event.data?.run_id ?? event.data?.runId ?? null,
+      thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
+      turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
+      total_tokens: event.data?.total_tokens ?? event.data?.totalTokens ?? 0,
+      input_tokens: event.data?.input_tokens ?? event.data?.inputTokens ?? 0,
+      output_tokens: event.data?.output_tokens ?? event.data?.outputTokens ?? 0,
+      total_tokens_delta: event.data?.total_tokens_delta ?? 0,
+      input_tokens_delta: event.data?.input_tokens_delta ?? 0,
+      output_tokens_delta: event.data?.output_tokens_delta ?? 0,
+      estimated_cost_usd:
+        event.data?.estimated_cost_usd ??
+        event.data?.estimatedCostUsd ??
+        0,
+      context_pressure:
+        event.data?.context_pressure ??
+        event.data?.contextPressure ??
+        0,
+      context_pressure_status:
+        event.data?.context_pressure_status ??
+        event.data?.contextPressureStatus ??
+        "nominal",
+      workflow_node_id: event.data?.workflowNodeId ?? "runtime.usage-telemetry",
+      component_kind: event.data?.componentKind ?? "usage_telemetry",
+      redaction: "usage_telemetry_safe",
+    };
+  }
+  if (event.type === "context_pressure_delta") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeContextPressure.Delta",
+      eventKind: event.data?.eventKind ?? "RuntimeContextPressure.Delta",
+      schema_version:
+        event.data?.schema_version ??
+        event.data?.schemaVersion ??
+        RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
+      stage: event.data?.stage ?? null,
+      delta_index: event.data?.delta_index ?? null,
+      delta_total: event.data?.delta_total ?? null,
+      run_id: event.data?.run_id ?? event.data?.runId ?? null,
+      thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
+      turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
+      usage_total_tokens:
+        event.data?.usage_total_tokens ??
+        event.data?.usageTotalTokens ??
+        0,
+      usage_cost_estimate_usd:
+        event.data?.usage_cost_estimate_usd ??
+        event.data?.usageCostEstimateUsd ??
+        0,
+      usage_context_pressure:
+        event.data?.usage_context_pressure ??
+        event.data?.usageContextPressure ??
+        0,
+      usage_context_pressure_status:
+        event.data?.usage_context_pressure_status ??
+        event.data?.usageContextPressureStatus ??
+        "nominal",
+      workflow_node_id: event.data?.workflowNodeId ?? "runtime.context-budget",
+      component_kind: event.data?.componentKind ?? "context_pressure",
+      redaction: "usage_telemetry_safe",
+    };
+  }
   if (event.type === "usage_final") {
     return {
       ...summary,
@@ -17490,8 +17868,11 @@ function componentKindForRunEvent(eventOrType) {
       return "postcondition_synthesizer";
     case "semantic_impact":
       return "semantic_impact_analyzer";
+    case "usage_delta":
     case "usage_final":
       return "usage_telemetry";
+    case "context_pressure_delta":
+      return "context_pressure";
     case "quality_ledger":
       return "quality_ledger";
     case "artifact":
@@ -17531,6 +17912,8 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
       eventOrType?.type === "hook_invocation_ledger" ||
+      eventOrType?.type === "usage_delta" ||
+      eventOrType?.type === "context_pressure_delta" ||
       eventOrType?.type === "usage_final") &&
     eventOrType.data?.workflowNodeId
   ) {

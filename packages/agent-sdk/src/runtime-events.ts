@@ -222,8 +222,14 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "turn_steered";
     case "context.compacted":
       return "context_compacted";
+    case "context_budget.evaluated":
+      return "context_budget_evaluated";
     case "compaction_policy.evaluated":
       return "compaction_policy_evaluated";
+    case "usage.delta":
+      return "usage_delta";
+    case "context.pressure_delta":
+      return "context_pressure_delta";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -277,8 +283,14 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "turn.steered";
     case "context_compacted":
       return "context.compacted";
+    case "context_budget_evaluated":
+      return "context_budget.evaluated";
     case "compaction_policy_evaluated":
       return "compaction_policy.evaluated";
+    case "usage_delta":
+      return "usage.delta";
+    case "context_pressure_delta":
+      return "context.pressure_delta";
     case "error":
       return "turn.failed";
     default:
@@ -287,7 +299,12 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
-  if (type === "run_started" || type === "delta") return "running";
+  if (
+    type === "run_started" ||
+    type === "delta" ||
+    type === "usage_delta" ||
+    type === "context_pressure_delta"
+  ) return "running";
   if (type === "canceled") return "canceled";
   if (type === "interrupted") return "interrupted";
   if (type === "error") return "failed";
@@ -298,7 +315,10 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "thread_forked") return "thread_fork";
   if (type === "interrupted" || type === "steered") return "operator_control";
   if (type === "context_compacted") return "context_compaction";
+  if (type === "context_budget_evaluated") return "context_budget";
   if (type === "compaction_policy_evaluated") return "compaction_policy";
+  if (type === "usage_delta") return "usage_telemetry";
+  if (type === "context_pressure_delta") return "context_pressure";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -310,7 +330,10 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "runtime.operator-interrupt";
   if (type === "steered") return "runtime.operator-steer";
   if (type === "context_compacted") return "runtime.context-compact";
+  if (type === "context_budget_evaluated") return "runtime.context-budget";
   if (type === "compaction_policy_evaluated") return "runtime.compaction-policy";
+  if (type === "usage_delta") return "runtime.usage-telemetry";
+  if (type === "context_pressure_delta") return "runtime.context-budget";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
@@ -322,7 +345,10 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "interrupted") return "OperatorControl.Interrupt";
   if (type === "steered") return "OperatorControl.Steer";
   if (type === "context_compacted") return "OperatorControl.Compact";
+  if (type === "context_budget_evaluated") return "RuntimeContextBudget.Evaluate";
   if (type === "compaction_policy_evaluated") return "RuntimeCompactionPolicy.Evaluate";
+  if (type === "usage_delta") return "RuntimeUsageTelemetry.Delta";
+  if (type === "context_pressure_delta") return "RuntimeContextPressure.Delta";
   return `run.${type}`;
 }
 
@@ -330,7 +356,10 @@ function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string 
   if (type === "thread_forked") return "ioi.runtime.thread-fork.v1";
   if (type === "interrupted" || type === "steered") return "ioi.runtime.operator-control.v1";
   if (type === "context_compacted") return "ioi.runtime.context-compaction.v1";
+  if (type === "context_budget_evaluated") return "ioi.runtime.context-budget-policy.v1";
   if (type === "compaction_policy_evaluated") return "ioi.runtime.compaction-policy.v1";
+  if (type === "usage_delta") return "ioi.runtime.usage-delta.v1";
+  if (type === "context_pressure_delta") return "ioi.runtime.context-pressure-delta.v1";
   return "ioi.agent-sdk.event.v1";
 }
 

@@ -708,6 +708,61 @@ test("projects compaction policy events into the runtime policy node", () => {
   assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-compaction-compact"]);
 });
 
+test("projects streaming usage and context-pressure deltas into runtime telemetry nodes", () => {
+  const usageDelta = event("event-usage-delta", 8, {
+    type: "usage_delta",
+    eventKind: "usage.delta",
+    sourceEventKind: "RuntimeUsageTelemetry.Delta",
+    status: "running",
+    componentKind: "usage_telemetry",
+    workflowNodeId: "runtime.usage-telemetry",
+    payloadSchemaVersion: "ioi.runtime.usage-delta.v1",
+    payload: {
+      stage: "completion_streamed",
+      total_tokens: 1280,
+      estimated_cost_usd: 0.00128,
+      context_pressure: 0.01,
+      context_pressure_status: "nominal",
+      summary: "Usage delta 2/2: 1280 tokens, context 0.01.",
+    },
+  });
+  const contextPressure = event("event-context-pressure", 9, {
+    type: "context_pressure_delta",
+    eventKind: "context.pressure_delta",
+    sourceEventKind: "RuntimeContextPressure.Delta",
+    status: "running",
+    componentKind: "context_pressure",
+    workflowNodeId: "runtime.context-budget",
+    payloadSchemaVersion: "ioi.runtime.context-pressure-delta.v1",
+    payload: {
+      usage_context_pressure: 0.01,
+      usage_context_pressure_status: "nominal",
+      summary: "Context pressure delta 2/2: nominal at 0.01.",
+    },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([
+    usageDelta,
+    contextPressure,
+  ]);
+
+  assert.equal(
+    workflowNodeIdForRuntimeThreadEvent(usageDelta),
+    "runtime.usage-telemetry",
+  );
+  assert.equal(
+    workflowNodeIdForRuntimeThreadEvent(contextPressure),
+    "runtime.context-budget",
+  );
+  assert.equal(nodes[0]?.nodeKind, "runtime_usage_meter");
+  assert.equal(nodes[0]?.componentKind, "usage_telemetry");
+  assert.equal(nodes[0]?.label, "Usage telemetry");
+  assert.equal(nodes[0]?.status, "running");
+  assert.equal(nodes[1]?.nodeKind, "runtime_context_budget");
+  assert.equal(nodes[1]?.componentKind, "context_pressure");
+  assert.equal(nodes[1]?.label, "Context pressure");
+  assert.equal(nodes[1]?.status, "running");
+});
+
 test("projects TUI control state into React Flow run-inspector rows", () => {
   const projection = projectRuntimeTuiControlStateToWorkflowProjection({
     schema_version: "ioi.agent-cli.tui-control-state.v1",

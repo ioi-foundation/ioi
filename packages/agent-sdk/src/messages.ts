@@ -14,6 +14,8 @@ export type IOISDKMessageType =
   | "probe"
   | "postcondition_synthesized"
   | "semantic_impact"
+  | "usage_delta"
+  | "context_pressure_delta"
   | "usage_final"
   | "stop_condition"
   | "quality_ledger"
@@ -23,6 +25,7 @@ export type IOISDKMessageType =
   | "interrupted"
   | "steered"
   | "context_compacted"
+  | "context_budget_evaluated"
   | "compaction_policy_evaluated"
   | "error";
 
@@ -149,7 +152,10 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "turn_interrupted",
   "turn_steered",
   "context_compacted",
+  "context_budget_evaluated",
   "compaction_policy_evaluated",
+  "usage_delta",
+  "context_pressure_delta",
   "reasoning_delta",
   "tool_completed",
   "tool_failed",

@@ -2004,6 +2004,10 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
     let approval_decisions = tui_approval_decisions(&render.events, thread_id.as_deref());
     let job_rows = tui_job_rows(&render.jobs, thread_id.as_deref());
     let run_lifecycle_rows = tui_run_lifecycle_rows(&render.jobs, thread_id.as_deref());
+    let cost_rows = tui_usage_delta_rows(&render.events, thread_id.as_deref());
+    let context_rows = tui_context_pressure_rows(&render.events, thread_id.as_deref());
+    let usage_status = latest_usage_delta_status(&render.events, thread_id.as_deref())
+        .unwrap_or_else(|| tui_usage_status(&render.thread, thread_id.as_deref()));
 
     if let Some(turn) = render.submitted_turn.as_ref() {
         command_history.push(serde_json::json!({
@@ -2050,11 +2054,13 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
         "last_cursor": last_cursor,
         "last_event_id": last_event_id,
         "mode_status": tui_mode_status(&render.thread, current_turn_id.as_deref()),
-        "usage_status": tui_usage_status(&render.thread, thread_id.as_deref()),
+        "usage_status": usage_status,
         "approval_rows": approval_rows,
         "approval_decisions": approval_decisions,
         "job_rows": job_rows,
         "run_lifecycle_rows": run_lifecycle_rows,
+        "cost_rows": cost_rows,
+        "context_rows": context_rows,
         "command_history": command_history,
         "validation_errors": [],
     })
@@ -2215,6 +2221,154 @@ pub(crate) fn tui_cost_rows(status: &Value, fallback_thread_id: Option<&str>) ->
     })]
 }
 
+pub(crate) fn tui_usage_delta_rows(
+    events: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    let Some(event) = latest_tui_usage_delta_event(events) else {
+        return Vec::new();
+    };
+    let Some(usage_status) = latest_usage_delta_status(events, fallback_thread_id) else {
+        return Vec::new();
+    };
+    let mut rows = tui_cost_rows(&usage_status, fallback_thread_id);
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    if let Some(object) = rows.first_mut().and_then(Value::as_object_mut) {
+        let thread_id = json_path_string(event, "/thread_id")
+            .or_else(|| json_path_string(&usage_status, "/thread_id"))
+            .or_else(|| fallback_thread_id.map(ToOwned::to_owned))
+            .unwrap_or_else(|| "detached".to_string());
+        object.insert(
+            "id".to_string(),
+            Value::String(format!("tui-usage-delta-{thread_id}")),
+        );
+        object.insert("status".to_string(), Value::String("running".to_string()));
+        object.insert("command".to_string(), Value::String("events".to_string()));
+        object.insert(
+            "raw_input".to_string(),
+            Value::String("/events".to_string()),
+        );
+        object.insert(
+            "label".to_string(),
+            Value::String("Streaming usage".to_string()),
+        );
+        if let Some(stage) = json_path_string(&usage_status, "/stage") {
+            object.insert("usage_delta_stage".to_string(), Value::String(stage));
+        }
+        if let Some(index) = json_path_string(&usage_status, "/delta_index") {
+            object.insert("usage_delta_index".to_string(), Value::String(index));
+        }
+        if let Some(total) = json_path_string(&usage_status, "/delta_total") {
+            object.insert("usage_delta_total".to_string(), Value::String(total));
+        }
+        if let Some(event_id) = json_path_string(event, "/event_id") {
+            object.insert("event_id".to_string(), Value::String(event_id));
+        }
+        if let Some(cursor) = tui_event_cursor(event, seq) {
+            object.insert("cursor".to_string(), Value::String(cursor));
+        }
+        if let Some(seq) = seq {
+            object.insert("seq".to_string(), Value::Number(seq.into()));
+        }
+        object.insert(
+            "message".to_string(),
+            Value::String(
+                json_path_string(&usage_status, "/summary").unwrap_or_else(|| {
+                    format!(
+                        "streaming tokens={} context={}",
+                        json_path_string(&usage_status, "/total_tokens")
+                            .or_else(|| json_path_string(&usage_status, "/totalTokens"))
+                            .unwrap_or_else(|| "0".to_string()),
+                        json_path_string(&usage_status, "/context_pressure")
+                            .or_else(|| json_path_string(&usage_status, "/contextPressure"))
+                            .unwrap_or_else(|| "0".to_string())
+                    )
+                }),
+            ),
+        );
+    }
+    rows
+}
+
+pub(crate) fn tui_context_pressure_rows(
+    events: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    let Some(event) = latest_tui_context_pressure_event(events) else {
+        return Vec::new();
+    };
+    let payload = event_payload_summary(event);
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    let thread_id = json_path_string(payload, "/thread_id")
+        .or_else(|| json_path_string(payload, "/threadId"))
+        .or_else(|| json_path_string(event, "/thread_id"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let pressure_status = json_path_string(payload, "/usage_context_pressure_status")
+        .or_else(|| json_path_string(payload, "/usageContextPressureStatus"))
+        .or_else(|| json_path_string(payload, "/context_pressure_status"))
+        .or_else(|| json_path_string(payload, "/contextPressureStatus"))
+        .unwrap_or_else(|| "nominal".to_string());
+    let status = match pressure_status.as_str() {
+        "high" => "blocked",
+        "elevated" => "warn",
+        _ => "ok",
+    };
+    vec![serde_json::json!({
+        "schema_version": TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION,
+        "surface": "tui",
+        "id": format!(
+            "tui-context-pressure-{}",
+            thread_id.clone().unwrap_or_else(|| "detached".to_string())
+        ),
+        "row_kind": "context_budget",
+        "status": status,
+        "command": "events",
+        "raw_input": "/events",
+        "label": "Context pressure",
+        "thread_id": thread_id,
+        "turn_id": json_path_string(payload, "/turn_id")
+            .or_else(|| json_path_string(payload, "/turnId"))
+            .or_else(|| json_path_string(event, "/turn_id")),
+        "usage_total_tokens": json_path_string(payload, "/usage_total_tokens")
+            .or_else(|| json_path_string(payload, "/usageTotalTokens"))
+            .or_else(|| json_path_string(payload, "/total_tokens"))
+            .or_else(|| json_path_string(payload, "/totalTokens"))
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_cost_estimate_usd": json_path_string(payload, "/usage_cost_estimate_usd")
+            .or_else(|| json_path_string(payload, "/usageCostEstimateUsd"))
+            .or_else(|| json_path_string(payload, "/estimated_cost_usd"))
+            .or_else(|| json_path_string(payload, "/estimatedCostUsd"))
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_context_pressure": json_path_string(payload, "/usage_context_pressure")
+            .or_else(|| json_path_string(payload, "/usageContextPressure"))
+            .or_else(|| json_path_string(payload, "/context_pressure"))
+            .or_else(|| json_path_string(payload, "/contextPressure"))
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_context_pressure_status": pressure_status,
+        "context_budget_status": status,
+        "summary": json_path_string(payload, "/summary"),
+        "workflow_node_id": json_path_string(event, "/workflow_node_id")
+            .or_else(|| json_path_string(payload, "/workflow_node_id"))
+            .or_else(|| json_path_string(payload, "/workflowNodeId"))
+            .unwrap_or_else(|| "runtime.context-budget".to_string()),
+        "event_id": json_path_string(event, "/event_id"),
+        "seq": seq,
+        "cursor": tui_event_cursor(event, seq),
+        "routes": {
+            "usage": fallback_thread_id
+                .map(|thread_id| route_with_thread(TUI_THREAD_USAGE_ROUTE_TEMPLATE, thread_id)),
+            "context_budget": fallback_thread_id
+                .map(|thread_id| route_with_thread(TUI_THREAD_CONTEXT_BUDGET_ROUTE_TEMPLATE, thread_id)),
+            "compaction_policy": fallback_thread_id
+                .map(|thread_id| route_with_thread(TUI_THREAD_COMPACTION_POLICY_ROUTE_TEMPLATE, thread_id)),
+        },
+        "react_flow": {
+            "workflow_node_id": "runtime.context-budget",
+            "thread_id": fallback_thread_id,
+        }
+    })]
+}
+
 pub(crate) fn tui_context_rows(
     usage: &Value,
     context_budget: &Value,
@@ -2350,6 +2504,43 @@ pub(crate) fn tui_context_rows(
             }
         }),
     ]
+}
+
+pub(crate) fn latest_usage_delta_status(
+    events: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Option<Value> {
+    let event = latest_tui_usage_delta_event(events)?;
+    let payload = event_payload_summary(event);
+    let mut status = payload.clone();
+    if let Some(object) = status.as_object_mut() {
+        if let Some(thread_id) = json_path_string(event, "/thread_id")
+            .or_else(|| fallback_thread_id.map(ToOwned::to_owned))
+        {
+            object
+                .entry("thread_id".to_string())
+                .or_insert_with(|| Value::String(thread_id));
+        }
+        if let Some(turn_id) = json_path_string(event, "/turn_id") {
+            object
+                .entry("turn_id".to_string())
+                .or_insert_with(|| Value::String(turn_id));
+        }
+        if let Some(event_id) = json_path_string(event, "/event_id") {
+            object.insert("event_id".to_string(), Value::String(event_id));
+        }
+        if let Some(seq) = event.pointer("/seq").and_then(Value::as_u64) {
+            object.insert("seq".to_string(), Value::Number(seq.into()));
+        }
+        if let Some(cursor) = tui_event_cursor(event, event.pointer("/seq").and_then(Value::as_u64))
+        {
+            object.insert("cursor".to_string(), Value::String(cursor));
+        }
+        object
+            .entry("workflow_node_id".to_string())
+            .or_insert_with(|| Value::String("runtime.usage-telemetry".to_string()));
+    }
+    Some(status)
 }
 
 pub(crate) fn tui_mcp_rows(status: &Value, fallback_thread_id: Option<&str>) -> Vec<Value> {
@@ -3360,6 +3551,63 @@ fn tui_event_cursor(event: &Value, seq: Option<u64>) -> Option<String> {
     })
 }
 
+fn latest_tui_usage_delta_event(events: &[Value]) -> Option<&Value> {
+    events
+        .iter()
+        .filter(|event| is_tui_usage_delta_event(event))
+        .max_by_key(|event| event.pointer("/seq").and_then(Value::as_u64).unwrap_or(0))
+}
+
+fn latest_tui_context_pressure_event(events: &[Value]) -> Option<&Value> {
+    events
+        .iter()
+        .filter(|event| is_tui_context_pressure_event(event))
+        .max_by_key(|event| event.pointer("/seq").and_then(Value::as_u64).unwrap_or(0))
+}
+
+fn is_tui_usage_delta_event(event: &Value) -> bool {
+    let haystack = [
+        json_path_string(event, "/event_kind"),
+        json_path_string(event, "/source_event_kind"),
+        json_path_string(event, "/component_kind"),
+        json_path_string(event, "/payload_summary/eventKind"),
+        json_path_string(event, "/payload/eventKind"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_ascii_lowercase();
+    haystack.contains("usage.delta")
+        || haystack.contains("runtimeusagetelemetry.delta")
+        || (haystack.contains("usage_telemetry") && haystack.contains("delta"))
+}
+
+fn is_tui_context_pressure_event(event: &Value) -> bool {
+    let haystack = [
+        json_path_string(event, "/event_kind"),
+        json_path_string(event, "/source_event_kind"),
+        json_path_string(event, "/component_kind"),
+        json_path_string(event, "/payload_summary/eventKind"),
+        json_path_string(event, "/payload/eventKind"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_ascii_lowercase();
+    haystack.contains("context.pressure_delta")
+        || haystack.contains("runtimecontextpressure.delta")
+        || haystack.contains("context_pressure")
+}
+
+fn event_payload_summary(event: &Value) -> &Value {
+    event
+        .pointer("/payload_summary")
+        .or_else(|| event.pointer("/payload"))
+        .unwrap_or(event)
+}
+
 fn tui_reopen_args(thread_id: Option<&str>, seq: Option<u64>) -> Vec<String> {
     let mut args = vec!["agent".to_string(), "tui".to_string()];
     if let Some(thread_id) = thread_id.filter(|value| !value.trim().is_empty()) {
@@ -3672,6 +3920,75 @@ mod tests {
             rows[0]["react_flow"]["workflow_node_id"],
             "runtime.operator-interrupt"
         );
+    }
+
+    #[test]
+    fn tui_streaming_usage_rows_preserve_runtime_node_identity() {
+        let events = vec![
+            serde_json::json!({
+                "event_id": "usage_delta_prompt",
+                "event_stream_id": "events_thread_live",
+                "seq": 12,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "usage.delta",
+                "source_event_kind": "RuntimeUsageTelemetry.Delta",
+                "status": "running",
+                "component_kind": "usage_telemetry",
+                "workflow_node_id": "runtime.usage-telemetry",
+                "payload_summary": {
+                    "eventKind": "RuntimeUsageTelemetry.Delta",
+                    "stage": "completion_streamed",
+                    "total_tokens": 1200,
+                    "input_tokens": 900,
+                    "output_tokens": 300,
+                    "estimated_cost_usd": 0.0012,
+                    "context_pressure": 0.01,
+                    "context_pressure_status": "nominal",
+                    "summary": "Usage delta 2/2: 1200 tokens, context 0.01."
+                }
+            }),
+            serde_json::json!({
+                "event_id": "context_pressure_delta",
+                "event_stream_id": "events_thread_live",
+                "seq": 13,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "context.pressure_delta",
+                "source_event_kind": "RuntimeContextPressure.Delta",
+                "status": "running",
+                "component_kind": "context_pressure",
+                "workflow_node_id": "runtime.context-budget",
+                "payload_summary": {
+                    "eventKind": "RuntimeContextPressure.Delta",
+                    "usage_total_tokens": 1200,
+                    "usage_cost_estimate_usd": 0.0012,
+                    "usage_context_pressure": 0.01,
+                    "usage_context_pressure_status": "nominal",
+                    "summary": "Context pressure delta 2/2: nominal at 0.01."
+                }
+            }),
+        ];
+
+        let usage_rows = tui_usage_delta_rows(&events, Some("thread_live"));
+        assert_eq!(usage_rows.len(), 1);
+        assert_eq!(usage_rows[0]["row_kind"], "cost_status");
+        assert_eq!(usage_rows[0]["status"], "running");
+        assert_eq!(usage_rows[0]["usage_delta_stage"], "completion_streamed");
+        assert_eq!(usage_rows[0]["usage_total_tokens"], "1200");
+        assert_eq!(usage_rows[0]["workflow_node_id"], "runtime.usage-telemetry");
+        assert_eq!(usage_rows[0]["cursor"], "events_thread_live:12");
+
+        let context_rows = tui_context_pressure_rows(&events, Some("thread_live"));
+        assert_eq!(context_rows.len(), 1);
+        assert_eq!(context_rows[0]["row_kind"], "context_budget");
+        assert_eq!(context_rows[0]["status"], "ok");
+        assert_eq!(context_rows[0]["usage_context_pressure"], "0.01");
+        assert_eq!(
+            context_rows[0]["workflow_node_id"],
+            "runtime.context-budget"
+        );
+        assert_eq!(context_rows[0]["cursor"], "events_thread_live:13");
     }
 
     #[test]

@@ -5593,7 +5593,11 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
 });
 
 test("daemon aggregates usage, cost, and context telemetry across turns and delegated subagents", async () => {
-  const { projectRuntimeTuiControlStateToWorkflowProjection } = await importAgentIde();
+  const {
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-telemetry-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-telemetry-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
@@ -5683,6 +5687,60 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
         (event) =>
           event.workflow_node_id === "runtime.usage-telemetry" &&
           event.payload_summary?.eventKind === "RuntimeUsageTelemetry",
+      ),
+    );
+    const usageDelta = events.find(
+      (event) =>
+        event.event_kind === "usage.delta" &&
+        event.workflow_node_id === "runtime.usage-telemetry",
+    );
+    assert.ok(usageDelta);
+    assert.equal(usageDelta.component_kind, "usage_telemetry");
+    assert.equal(usageDelta.status, "running");
+    assert.ok(usageDelta.payload_summary.total_tokens > 0);
+
+    const contextPressureDelta = events.find(
+      (event) =>
+        event.event_kind === "context.pressure_delta" &&
+        event.workflow_node_id === "runtime.context-budget",
+    );
+    assert.ok(contextPressureDelta);
+    assert.equal(contextPressureDelta.component_kind, "context_pressure");
+    assert.match(
+      contextPressureDelta.payload_summary.usage_context_pressure_status,
+      /nominal|elevated|high/,
+    );
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    assert.ok(
+      sdkEvents.some(
+        (event) =>
+          event.type === "usage_delta" &&
+          event.workflowNodeId === "runtime.usage-telemetry",
+      ),
+    );
+    assert.ok(
+      sdkEvents.some(
+        (event) =>
+          event.type === "context_pressure_delta" &&
+          event.workflowNodeId === "runtime.context-budget",
+      ),
+    );
+    const runtimeProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    assert.ok(
+      runtimeProjection.nodes.some(
+        (node) =>
+          node.workflowNodeId === "runtime.usage-telemetry" &&
+          node.nodeKind === "runtime_usage_meter",
+      ),
+    );
+    assert.ok(
+      runtimeProjection.nodes.some(
+        (node) =>
+          node.workflowNodeId === "runtime.context-budget" &&
+          node.nodeKind === "runtime_context_budget",
       ),
     );
   } finally {
@@ -6108,6 +6166,8 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /memory_policy/);
   assert.match(source, /ModelRouteDecision/);
   assert.match(source, /memory_update/);
+  assert.match(source, /usage_delta/);
+  assert.match(source, /context_pressure_delta/);
   assert.match(source, /\/v1\/doctor/);
   assert.match(source, /\/v1\/skills/);
   assert.match(source, /\/v1\/hooks/);
@@ -8747,6 +8807,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.match(result.stdout, /cost_row kind=cost_status scope=thread/);
     assert.match(result.stdout, /context_row kind=context_budget status=/);
     assert.match(result.stdout, /context_row kind=compaction_policy status=/);
+    assert.match(result.stdout, /usage_delta_row stage=completion_streamed/);
+    assert.match(result.stdout, /context_pressure_row pressure=/);
     assert.match(result.stdout, /memory_row kind=memory_status/);
     assert.match(result.stdout, /memory_row kind=memory_record/);
     assert.match(result.stdout, /subagent_row subagent=agent_[^\s]+ role=explore status=completed operation=spawn/);
@@ -8767,6 +8829,20 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(interruptEvent);
     assert.equal(interruptEvent.source, "cli_tui");
     assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
+    assert.ok(
+      daemonEvents.some(
+        (event) =>
+          event.event_kind === "usage.delta" &&
+          event.workflow_node_id === "runtime.usage-telemetry",
+      ),
+    );
+    assert.ok(
+      daemonEvents.some(
+        (event) =>
+          event.event_kind === "context.pressure_delta" &&
+          event.workflow_node_id === "runtime.context-budget",
+      ),
+    );
 
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const sdkThread = await Thread.open(threadId, { substrateClient: sdkClient });
@@ -8908,8 +8984,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
     assert.ok(lineModeControlProjection.mcpRowCount >= 2);
     assert.ok(lineModeControlProjection.memoryRowCount >= 2);
-    assert.equal(lineModeControlProjection.costRowCount, 1);
-    assert.equal(lineModeControlProjection.contextRowCount, 2);
+    assert.ok(lineModeControlProjection.costRowCount >= 1);
+    assert.ok(lineModeControlProjection.contextRowCount >= 2);
     assert.ok(lineModeControlProjection.subagentRowCount >= 2);
     assert.ok(
       lineModeControlProjection.rows.some(
@@ -10215,12 +10291,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /evaluateContextBudget/);
   assert.match(runtimeDaemon, /action === "compaction-policy"/);
   assert.match(runtimeDaemon, /evaluateCompactionPolicy/);
+  assert.match(runtimeDaemon, /usage_delta/);
+  assert.match(runtimeDaemon, /context_pressure_delta/);
   assert.match(runtimeDaemon, /usage_final/);
   assert.match(runtimeUsageTelemetry, /RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/);
   assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForRun/);
   assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForThread/);
   assert.match(workflowRuntimeEventProjection, /usage_status/);
   assert.match(workflowRuntimeEventProjection, /usageTotalTokens/);
+  assert.match(workflowRuntimeEventProjection, /usage_delta/);
+  assert.match(workflowRuntimeEventProjection, /context_pressure_delta/);
   assert.match(graphTypes, /mcp_import/);
   assert.match(graphTypes, /mcp_add/);
   assert.match(graphTypes, /mcp_serve/);
