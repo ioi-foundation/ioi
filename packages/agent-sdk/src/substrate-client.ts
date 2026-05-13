@@ -2068,26 +2068,6 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   ): Promise<RuntimeThreadToolInvocationResult> {
     const agent = await this.getAgent(agentIdForThread(threadId));
     const toolCallId = `mock_coding_tool_${crypto.randomUUID()}`;
-    const event = mockRuntimeEventEnvelope({
-      agent,
-      threadId,
-      streamId: eventStreamIdForThread(threadId),
-      seq: 1,
-      eventKind: "tool.completed",
-      sourceEventKind: mockCodingToolSourceEventKind(toolId),
-      itemId: `${threadId}:item:${toolId}`,
-      payload: {
-        event_kind: "CodingToolResult",
-        tool_pack: "coding",
-        tool_name: toolId,
-        tool_call_id: toolCallId,
-        shell_fallback_used: false,
-      },
-      createdAt: new Date().toISOString(),
-      componentKind: "coding_tool",
-      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? `runtime.coding-tool.${toolId}`),
-      receiptRefs: [`receipt_mock_${toolId.replaceAll(".", "_")}`],
-    });
     const mockWorkspaceSnapshot =
       toolId === "file.apply_patch"
         ? {
@@ -2107,6 +2087,35 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         : []),
       ...(mockWorkspaceSnapshot?.artifactRefs ?? []),
     ];
+    const rollbackRefs = [
+      ...(mockWorkspaceSnapshot ? [String(mockWorkspaceSnapshot.snapshotId)] : []),
+      ...((Array.isArray(input.rollbackRefs) ? input.rollbackRefs : []) as string[]),
+      ...((Array.isArray(input.rollback_refs) ? input.rollback_refs : []) as string[]),
+    ];
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "tool.completed",
+      sourceEventKind: mockCodingToolSourceEventKind(toolId),
+      itemId: `${threadId}:item:${toolId}`,
+      payload: {
+        event_kind: "CodingToolResult",
+        tool_pack: "coding",
+        tool_name: toolId,
+        tool_call_id: toolCallId,
+        shell_fallback_used: false,
+        rollback_refs: rollbackRefs,
+        diagnostics_repair_context: input.diagnosticsRepairContext ?? input.diagnostics_repair_context ?? null,
+      },
+      createdAt: new Date().toISOString(),
+      componentKind: "coding_tool",
+      workflowNodeId: String(input.workflowNodeId ?? input.workflow_node_id ?? `runtime.coding-tool.${toolId}`),
+      receiptRefs: [`receipt_mock_${toolId.replaceAll(".", "_")}`],
+      artifactRefs,
+      rollbackRefs,
+    });
     return {
       schema_version: "ioi.runtime.coding-tool-result.v1",
       object: "ioi.runtime_coding_tool_result",
@@ -2122,7 +2131,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       shell_fallback_used: false,
       receipt_refs: event.receipt_refs,
       artifact_refs: artifactRefs,
-      rollback_refs: mockWorkspaceSnapshot ? [String(mockWorkspaceSnapshot.snapshotId)] : [],
+      rollback_refs: rollbackRefs,
       event,
       workspace_snapshot: mockWorkspaceSnapshot,
       workspaceSnapshot: mockWorkspaceSnapshot,

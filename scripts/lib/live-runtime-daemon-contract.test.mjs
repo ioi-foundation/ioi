@@ -3937,6 +3937,16 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticPatchResult.auto_diagnostics?.workflow_node_id, "runtime.coding-tool.lsp-diagnostics.auto");
     assert.equal(diagnosticPatchResult.auto_diagnostics?.result.diagnosticStatus, "findings");
     assert.equal(diagnosticPatchResult.auto_diagnostics?.result.diagnosticCount, 1);
+    assert.deepEqual(diagnosticPatchResult.auto_diagnostics?.rollback_refs, [
+      diagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(diagnosticPatchResult.auto_diagnostics?.event.rollback_refs, [
+      diagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.equal(
+      diagnosticPatchResult.auto_diagnostics?.event.payload_summary.diagnostics_repair_context.workspace_snapshot_id,
+      diagnosticPatchResult.workspace_snapshot?.snapshotId,
+    );
     const injectedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
       method: "POST",
       body: JSON.stringify({
@@ -3970,6 +3980,11 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     );
     assert.equal(blockingDiagnosticPatchResult.status, "completed");
     assert.equal(blockingDiagnosticPatchResult.auto_diagnostics?.result.diagnosticStatus, "findings");
+    assert.equal(blockingDiagnosticPatchResult.workspace_snapshot?.restore?.previewSupported, true);
+    assert.equal(blockingDiagnosticPatchResult.workspace_snapshot?.restore?.applySupported, true);
+    assert.deepEqual(blockingDiagnosticPatchResult.auto_diagnostics?.rollback_refs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
     const blockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
       method: "POST",
       body: JSON.stringify({
@@ -3992,8 +4007,27 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.match(blockedConversation[0]?.content ?? "", /blocking-target\.mjs/);
     const blockedTrace = await fetchJson(`${daemon.endpoint}/v1/runs/${blockedTurn.request_id}/trace`);
     assert.equal(blockedTrace.diagnosticsFeedback?.mode, "blocking");
+    assert.deepEqual(blockedTrace.diagnosticsFeedback?.rollbackRefs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(blockedTrace.diagnosticsFeedback?.repairPolicy?.workspaceSnapshotRefs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(
+      blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.map((decision) => decision.action),
+      ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+    );
     assert.equal(blockedTrace.diagnosticsBlockingGate?.status, "blocked");
     assert.equal(blockedTrace.diagnosticsBlockingGate?.workflowNodeId, "runtime.lsp-diagnostics.blocking-gate");
+    assert.deepEqual(blockedTrace.diagnosticsBlockingGate?.rollbackRefs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(blockedTrace.diagnosticsBlockingGate?.workspaceSnapshotRefs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.ok(blockedTrace.diagnosticsBlockingGate?.policyDecisionRefs?.includes(
+      blockedTrace.diagnosticsBlockingGate?.repairPolicy?.policyId,
+    ));
     assert.equal(blockedTrace.runtimeTask?.status, "blocked");
     assert.equal(blockedTrace.runtimeJob?.status, "blocked");
     assert.equal(blockedTrace.runtimeChecklist?.blockedItemCount, 1);
@@ -4529,6 +4563,16 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(blockingDiagnosticsInjection.source, "runtime_auto");
     assert.equal(blockingDiagnosticsInjection.workflow_node_id, "runtime.lsp-diagnostics.injected");
     assert.match(blockingDiagnosticsInjection.payload.prompt_text, /blocking-target\.mjs/);
+    assert.deepEqual(blockingDiagnosticsInjection.rollback_refs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(blockingDiagnosticsInjection.payload_summary.workspace_snapshot_refs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(
+      blockingDiagnosticsInjection.payload_summary.repair_policy.decisions.map((decision) => decision.action),
+      ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+    );
     const diagnosticsBlockingGate = daemonEvents.find(
       (event) =>
         event.event_kind === "policy.blocked" &&
@@ -4543,7 +4587,21 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsBlockingGate.payload.reason, "post_edit_diagnostics_findings");
     assert.equal(diagnosticsBlockingGate.payload.diagnostic_status, "findings");
     assert.equal(diagnosticsBlockingGate.payload.requires_input, "true");
-    assert.ok(diagnosticsBlockingGate.policy_decision_refs.length >= 1);
+    assert.deepEqual(diagnosticsBlockingGate.rollback_refs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(diagnosticsBlockingGate.payload_summary.workspace_snapshot_refs, [
+      blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
+    ]);
+    assert.deepEqual(
+      diagnosticsBlockingGate.payload_summary.repair_decisions.map((decision) => decision.action),
+      ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+    );
+    assert.ok(diagnosticsBlockingGate.policy_decision_refs.length >= 5);
+    assert.ok(diagnosticsBlockingGate.policy_decision_refs.some((ref) => ref.includes("repair_retry")));
+    assert.ok(diagnosticsBlockingGate.policy_decision_refs.some((ref) => ref.includes("restore_preview")));
+    assert.ok(diagnosticsBlockingGate.policy_decision_refs.some((ref) => ref.includes("restore_apply")));
+    assert.ok(diagnosticsBlockingGate.policy_decision_refs.some((ref) => ref.includes("operator_override")));
     assert.ok(diagnosticsBlockingGate.receipt_refs.length >= 1);
     assert.ok(diagnosticsBlockingGate.artifact_refs.includes("diagnostics-blocking-gate.json"));
 
@@ -4578,6 +4636,15 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkDiagnosticsInjectionEvent.componentKind, "lsp_diagnostics");
     assert.equal(sdkDiagnosticsInjectionEvent.sourceEventKind, "LspDiagnostics.Injected");
     assert.deepEqual(sdkDiagnosticsInjectionEvent.receiptRefs, diagnosticsInjection.receipt_refs);
+    const sdkBlockingDiagnosticsInjectionEvent = sdkEvents.find(
+      (event) => event.id === blockingDiagnosticsInjection.event_id,
+    );
+    assert.ok(sdkBlockingDiagnosticsInjectionEvent);
+    assert.deepEqual(sdkBlockingDiagnosticsInjectionEvent.rollbackRefs, blockingDiagnosticsInjection.rollback_refs);
+    assert.deepEqual(
+      sdkBlockingDiagnosticsInjectionEvent.payload?.workspace_snapshot_refs,
+      blockingDiagnosticsInjection.payload_summary.workspace_snapshot_refs,
+    );
     const sdkDiagnosticsGateEvent = sdkEvents.find((event) => event.id === diagnosticsBlockingGate.event_id);
     assert.ok(sdkDiagnosticsGateEvent);
     assert.equal(sdkDiagnosticsGateEvent.type, "policy_blocked");
@@ -4586,6 +4653,11 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(sdkDiagnosticsGateEvent.sourceEventKind, "LspDiagnostics.BlockingGate");
     assert.equal(sdkDiagnosticsGateEvent.payloadSchemaVersion, "ioi.runtime.lsp-diagnostics-blocking-gate.v1");
     assert.deepEqual(sdkDiagnosticsGateEvent.policyDecisionRefs, diagnosticsBlockingGate.policy_decision_refs);
+    assert.deepEqual(sdkDiagnosticsGateEvent.rollbackRefs, diagnosticsBlockingGate.rollback_refs);
+    assert.deepEqual(
+      sdkDiagnosticsGateEvent.payload?.workspace_snapshot_refs,
+      diagnosticsBlockingGate.payload_summary.workspace_snapshot_refs,
+    );
     const sdkWorkspaceSnapshotEvent = sdkEvents.find((event) => event.id === diagnosticSnapshotEvent.event_id);
     assert.ok(sdkWorkspaceSnapshotEvent);
     assert.equal(sdkWorkspaceSnapshotEvent.type, "runtime_step");
@@ -4675,6 +4747,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(diagnosticsGateNode.status, "blocked");
     assert.deepEqual(diagnosticsGateNode.receiptRefs, diagnosticsBlockingGate.receipt_refs);
     assert.deepEqual(diagnosticsGateNode.policyDecisionRefs, diagnosticsBlockingGate.policy_decision_refs);
+    assert.deepEqual(diagnosticsGateNode.rollbackRefs, diagnosticsBlockingGate.rollback_refs);
     const workspaceSnapshotNode = reactFlowProjection.nodes.find((node) =>
       node.eventIds.includes(diagnosticSnapshotEvent.event_id),
     );

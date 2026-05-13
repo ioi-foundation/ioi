@@ -337,10 +337,25 @@ test("projects diagnostics blocking gates as workflow-addressable policy nodes",
     componentKind: "lsp_diagnostics_gate",
     payloadSchemaVersion: "ioi.runtime.lsp-diagnostics-blocking-gate.v1",
     receiptRefs: ["receipt-lsp-diagnostics-gate"],
-    policyDecisionRefs: ["policy-lsp-diagnostics-gate"],
+    policyDecisionRefs: [
+      "policy-lsp-diagnostics-gate",
+      "policy-lsp-diagnostics-gate-decision-repair-retry",
+      "policy-lsp-diagnostics-gate-decision-restore-preview",
+      "policy-lsp-diagnostics-gate-decision-restore-apply",
+      "policy-lsp-diagnostics-gate-decision-operator-override",
+    ],
+    rollbackRefs: ["workspace_snapshot_123"],
     payload: {
       summary: "Blocking diagnostics gate paused model continuation after 1 finding(s).",
       reason: "post_edit_diagnostics_findings",
+      repair_policy: {
+        decisions: [
+          { action: "repair_retry" },
+          { action: "restore_preview" },
+          { action: "restore_apply" },
+          { action: "operator_override" },
+        ],
+      },
     },
   });
   const nodes = projectRuntimeThreadEventsToWorkflowNodes([gate]);
@@ -351,7 +366,14 @@ test("projects diagnostics blocking gates as workflow-addressable policy nodes",
   assert.equal(nodes[0]?.label, "Diagnostics blocking gate");
   assert.equal(nodes[0]?.status, "blocked");
   assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-lsp-diagnostics-gate"]);
-  assert.deepEqual(nodes[0]?.policyDecisionRefs, ["policy-lsp-diagnostics-gate"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, [
+    "policy-lsp-diagnostics-gate",
+    "policy-lsp-diagnostics-gate-decision-repair-retry",
+    "policy-lsp-diagnostics-gate-decision-restore-preview",
+    "policy-lsp-diagnostics-gate-decision-restore-apply",
+    "policy-lsp-diagnostics-gate-decision-operator-override",
+  ]);
+  assert.deepEqual(nodes[0]?.rollbackRefs, ["workspace_snapshot_123"]);
   assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.lsp-diagnostics-blocking-gate.v1");
 });
 

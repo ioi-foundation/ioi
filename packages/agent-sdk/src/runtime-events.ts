@@ -137,6 +137,9 @@ export function mockRuntimeEventEnvelope({
   componentKind = null,
   workflowNodeId = null,
   receiptRefs = [],
+  artifactRefs = [],
+  policyDecisionRefs = [],
+  rollbackRefs = [],
 }: {
   agent: RuntimeAgentRecord;
   threadId: string;
@@ -153,6 +156,9 @@ export function mockRuntimeEventEnvelope({
   componentKind?: string | null;
   workflowNodeId?: string | null;
   receiptRefs?: string[];
+  artifactRefs?: string[];
+  policyDecisionRefs?: string[];
+  rollbackRefs?: string[];
 }): RuntimeEventEnvelope {
   return {
     schema_version: "ioi.runtime.event.v1",
@@ -176,10 +182,10 @@ export function mockRuntimeEventEnvelope({
     component_kind: componentKind,
     tool_call_id: null,
     approval_id: null,
-    artifact_refs: [],
+    artifact_refs: artifactRefs,
     receipt_refs: receiptRefs,
-    policy_decision_refs: [],
-    rollback_refs: [],
+    policy_decision_refs: policyDecisionRefs,
+    rollback_refs: rollbackRefs,
     payload_schema_version: payloadSchemaVersion,
     payload_ref: null,
     payload: runtimePayloadStringRecord(payload),

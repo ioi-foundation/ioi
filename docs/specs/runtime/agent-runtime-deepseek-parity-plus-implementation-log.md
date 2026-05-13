@@ -130,6 +130,7 @@ workstream was narrower.
 | 128 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | workspace snapshot records for mutating coding tools | /tmp/ioi-autopilot-gui-harness-workspace-snapshots/2026-05-13T05-16-45-830Z/result.json |
 | 129 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | content-backed workspace restore preview | /tmp/ioi-autopilot-gui-harness-workspace-restore-preview/2026-05-13T05-42-32-697Z/result.json |
 | 130 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | policy-gated workspace restore apply | /tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json |
+| 131 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | diagnostics rollback/repair policy | /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -925,6 +926,36 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-restore-apply`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-workspace-restore-apply/2026-05-13T05-59-11-822Z/result.json`.
+
+### Slice 131. 2026-05-13 - Diagnostics rollback/repair policy
+
+Implementation slice completed 2026-05-13, diagnostics rollback/repair policy:
+
+- Threaded workspace snapshot rollback refs from applied `file.apply_patch`
+  results into runtime-auto `lsp.diagnostics` events.
+- Added diagnostics repair context and a structured rollback/repair policy for
+  blocking diagnostics gates, with `repair_retry`, `restore_preview`,
+  `restore_apply`, and `operator_override` decision refs.
+- Propagated rollback refs, policy decision refs, and repair policy payloads
+  through daemon TTI events, SDK event normalization, mock substrate coding-tool
+  events, and React Flow projections.
+- Extended live coverage to prove blocked diagnostics carry snapshot refs and
+  repair/restore decisions from daemon trace through SDK and React Flow.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "projects coding tool|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "agent CLI exposes model|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-rollback-repair-policy/2026-05-13T06-12-33-948Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
