@@ -453,6 +453,10 @@ export function WorkflowRunsPanel({
               data-validation-error-count={
                 tuiControlStateProjection.validationErrorCount
               }
+              data-approval-count={tuiControlStateProjection.approvalCount}
+              data-approval-decision-count={
+                tuiControlStateProjection.approvalDecisionCount
+              }
             >
               <h4>TUI control state</h4>
               <div
@@ -463,6 +467,7 @@ export function WorkflowRunsPanel({
                 <span>
                   {tuiControlStateProjection.validationErrorCount} validation
                 </span>
+                <span>{tuiControlStateProjection.approvalCount} approvals</span>
                 <span>
                   {tuiControlStateProjection.currentTurnId ?? "no active turn"}
                 </span>
@@ -480,10 +485,13 @@ export function WorkflowRunsPanel({
                     data-row-status={row.status}
                     data-command={row.command ?? ""}
                     data-raw-input={row.rawInput ?? ""}
+                    data-approval-id={row.approvalId ?? ""}
                     data-thread-id={row.threadId ?? ""}
                     data-turn-id={row.turnId ?? ""}
                     data-cursor={row.cursor ?? ""}
                     data-event-id={row.eventId ?? ""}
+                    data-receipt-refs={row.receiptRefs.join("|")}
+                    data-policy-decision-refs={row.policyDecisionRefs.join("|")}
                     data-react-flow-node-id={row.reactFlowNodeId}
                     data-sequence={row.sequence ?? ""}
                     tabIndex={0}

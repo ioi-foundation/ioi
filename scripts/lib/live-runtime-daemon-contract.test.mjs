@@ -3478,13 +3478,17 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/interrupt/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/turns\/\{turn_id\}\/steer/);
+  assert.match(source, /\/v1\/threads\/\{thread_id\}\/approvals\/\{approval_id\}\/decision/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/compact/);
   assert.match(source, /\/v1\/threads\/\{thread_id\}\/fork/);
   assert.match(source, /OperatorControl\.Interrupt/);
   assert.match(source, /OperatorControl\.Steer/);
+  assert.match(source, /OperatorApproval\.Approve/);
+  assert.match(source, /OperatorApproval\.Reject/);
   assert.match(source, /OperatorControl\.Compact/);
   assert.match(source, /OperatorControl\.Fork/);
   assert.match(source, /operator_control/);
+  assert.match(source, /approval_gate/);
   assert.match(source, /context_compaction/);
   assert.match(source, /thread_fork/);
   assert.match(source, /since_seq/);
@@ -3498,11 +3502,14 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /tui_control_state/);
   assert.match(source, /command_history/);
   assert.match(source, /validation_errors/);
+  assert.match(source, /mode_status/);
+  assert.match(source, /approval_rows/);
+  assert.match(source, /approval_decisions/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_reopen/);
   assert.match(source, /run_tui_interactive_loop/);
   assert.match(source, /parse_tui_line_command/);
-  for (const slashCommand of ["/resume", "/events", "/interrupt", "/steer", "/quit"]) {
+  for (const slashCommand of ["/resume", "/events", "/approvals", "/approve", "/reject", "/interrupt", "/steer", "/quit"]) {
     assert.match(source, new RegExp(slashCommand));
   }
   assert.match(source, /event_kind/);
@@ -3769,7 +3776,7 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
       "/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
-    assert.match(result.stdout, /Line-mode commands: \/resume \/events \[since_seq\] \/interrupt \[reason\] \/steer <guidance> \/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/quit/);
     assert.match(result.stdout, /line_mode_command=interrupt/);
     assert.match(result.stdout, /line_mode_command=events/);
     assert.match(result.stdout, /line_mode_error=\/steer requires guidance text/);
@@ -3872,6 +3879,140 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
+test("agent TUI approval slash commands emit receipt-backed React Flow rows", async () => {
+  const {
+    WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-approval-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-approval-state-"));
+  const cli = cliBinary();
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Approve a daemon-backed TUI control.",
+        source: "cli_tui",
+        options: { local: { cwd } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Wait for a synthetic approval gate.",
+        source: "cli_tui",
+        mode: "tui",
+      }),
+    });
+    daemon.store.appendRuntimeEvent({
+      event_stream_id: thread.event_stream_id,
+      thread_id: thread.thread_id,
+      turn_id: turn.turn_id,
+      item_id: `${turn.turn_id}:item:approval-required`,
+      idempotency_key: `${turn.turn_id}:approval.required:approval-live`,
+      source: "daemon_bridge",
+      source_event_kind: "KernelEvent::ApprovalRequired",
+      event_kind: "approval.required",
+      status: "waiting_for_approval",
+      actor: "runtime",
+      workspace_root: cwd,
+      component_kind: "approval_gate",
+      workflow_node_id: "runtime.approval.approval-live",
+      approval_id: "approval-live",
+      payload_schema_version: "ioi.runtime.approval-request.v1",
+      payload: {
+        event_kind: "KernelEvent::ApprovalRequired",
+        approval_id: "approval-live",
+        message: "Approve shell execution",
+      },
+      receipt_refs: ["receipt_approval_required"],
+      policy_decision_refs: ["policy_approval_required"],
+      artifact_refs: [],
+      rollback_refs: [],
+    });
+
+    const result = await execFileWithInput(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--interactive",
+      ],
+      "/approvals\n/approve approval-live proceed with validation\n/quit\n",
+      { cwd: root, timeout: 30000 },
+    );
+    assert.match(result.stdout, /line_mode_command=approvals count=1/);
+    assert.match(result.stdout, /line_mode_command=approve approval=approval-live status=/);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const decisionEvent = daemonEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorApproval.Approve" &&
+        event.approval_id === "approval-live",
+    );
+    assert.ok(decisionEvent);
+    assert.equal(decisionEvent.source, "cli_tui");
+    assert.equal(decisionEvent.event_kind, "approval.approved");
+    assert.equal(decisionEvent.component_kind, "approval_gate");
+    assert.equal(decisionEvent.workflow_node_id, "runtime.approval.approval-live");
+    assert.equal(decisionEvent.payload_schema_version, "ioi.runtime.approval-decision.v1");
+    assert.ok(decisionEvent.receipt_refs.length > 0);
+    assert.ok(decisionEvent.policy_decision_refs.length > 0);
+
+    const controlStates = result.stdout
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("tui_control_state="))
+      .map((line) => JSON.parse(line.replace(/^tui_control_state=/, "")));
+    const finalControlState = controlStates[controlStates.length - 1];
+    assert.equal(finalControlState.mode_status.approval_mode, "suggest");
+    assert.ok(
+      finalControlState.approval_rows.some(
+        (row) =>
+          row.approval_id === "approval-live" &&
+          row.workflow_node_id === "runtime.approval.approval-live",
+      ),
+    );
+    assert.ok(
+      finalControlState.approval_decisions.some(
+        (row) =>
+          row.approval_id === "approval-live" &&
+          row.decision === "approve" &&
+          row.receipt_refs.length > 0 &&
+          row.policy_decision_refs.length > 0,
+      ),
+    );
+    const projection =
+      projectRuntimeTuiControlStateToWorkflowProjection(finalControlState);
+    assert.equal(
+      projection.schemaVersion,
+      WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
+    );
+    assert.equal(projection.approvalCount, 1);
+    assert.equal(projection.approvalDecisionCount, 1);
+    assert.ok(
+      projection.rows.some(
+        (row) =>
+          row.rowKind === "approval_decision" &&
+          row.status === "approved" &&
+          row.reactFlowNodeId === "runtime.approval.approval-live" &&
+          row.receiptRefs.length > 0,
+      ),
+    );
+  } finally {
+    if (daemon) await daemon.close();
   }
 });
 

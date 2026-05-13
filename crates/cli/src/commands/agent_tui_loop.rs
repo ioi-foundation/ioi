@@ -2,8 +2,9 @@
 
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
-    fetch_tui_event_batch, fetch_tui_thread, interrupt_tui_turn, latest_event_seq,
-    resume_tui_thread, selected_turn_id_from_values, steer_tui_turn, thread_id_from_value,
+    decide_tui_approval, fetch_tui_event_batch, fetch_tui_thread, interrupt_tui_turn,
+    latest_event_seq, resume_tui_thread, selected_turn_id_from_values, steer_tui_turn,
+    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_mode_status,
 };
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -25,9 +26,24 @@ pub(crate) enum TuiLineCommand {
     Noop,
     Help,
     Resume,
-    Events { since_seq: Option<u64> },
-    Interrupt { reason: Option<String> },
-    Steer { guidance: String },
+    Events {
+        since_seq: Option<u64>,
+    },
+    Approvals,
+    Approve {
+        approval_id: Option<String>,
+        reason: Option<String>,
+    },
+    Reject {
+        approval_id: Option<String>,
+        reason: Option<String>,
+    },
+    Interrupt {
+        reason: Option<String>,
+    },
+    Steer {
+        guidance: String,
+    },
     Quit,
 }
 
@@ -77,6 +93,62 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("events replayed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Approvals) => {
+                let events = handle_approvals_command(&mut session).await?;
+                control_state.record_command(
+                    "approvals",
+                    line.trim(),
+                    "applied",
+                    Some("approval rows replayed"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Approve {
+                approval_id,
+                reason,
+            }) => {
+                let events = handle_approval_decision_command(
+                    &mut session,
+                    &control_state,
+                    approval_id,
+                    "approve",
+                    reason,
+                )
+                .await?;
+                control_state.record_command(
+                    "approve",
+                    line.trim(),
+                    "applied",
+                    Some("approval accepted"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::Reject {
+                approval_id,
+                reason,
+            }) => {
+                let events = handle_approval_decision_command(
+                    &mut session,
+                    &control_state,
+                    approval_id,
+                    "reject",
+                    reason,
+                )
+                .await?;
+                control_state.record_command(
+                    "reject",
+                    line.trim(),
+                    "applied",
+                    Some("approval rejected"),
                     &session,
                     &events,
                 );
@@ -157,6 +229,21 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 };
             Ok(TuiLineCommand::Events { since_seq })
         }
+        "approvals" => Ok(TuiLineCommand::Approvals),
+        "approve" => {
+            let (approval_id, reason) = parse_approval_decision_args(rest);
+            Ok(TuiLineCommand::Approve {
+                approval_id,
+                reason,
+            })
+        }
+        "reject" => {
+            let (approval_id, reason) = parse_approval_decision_args(rest);
+            Ok(TuiLineCommand::Reject {
+                approval_id,
+                reason,
+            })
+        }
         "interrupt" => Ok(TuiLineCommand::Interrupt {
             reason: non_empty_string(rest),
         }),
@@ -209,6 +296,67 @@ async fn handle_events_command(
     Ok(batch.events)
 }
 
+async fn handle_approvals_command(session: &mut TuiInteractiveSession) -> Result<Vec<Value>> {
+    let events = handle_events_command(session, Some(0)).await?;
+    let thread_id = thread_id_from_value(&session.thread).ok();
+    let rows = tui_approval_rows(&events, thread_id.as_deref());
+    println!("line_mode_command=approvals count={}", rows.len());
+    for row in &rows {
+        println!(
+            "  approval={} status={} node={}",
+            json_path_string(row, "/approval_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/status").unwrap_or_else(|| "pending".to_string()),
+            json_path_string(row, "/workflow_node_id").unwrap_or_else(|| "none".to_string())
+        );
+    }
+    Ok(events)
+}
+
+async fn handle_approval_decision_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    approval_id: Option<String>,
+    decision: &str,
+    reason: Option<String>,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let turn_id = selected_turn_id_from_values(None, None, &session.thread).ok();
+    let approval_id = approval_id
+        .or_else(|| control_state.default_pending_approval_id())
+        .ok_or_else(|| {
+            anyhow!(
+                "/{decision} requires approval_id when no pending approval row is loaded; use /approvals first"
+            )
+        })?;
+    let control = decide_tui_approval(
+        &thread_id,
+        turn_id.as_deref(),
+        &approval_id,
+        decision,
+        reason.as_deref(),
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    session.thread =
+        fetch_tui_thread(&thread_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command={decision} approval={approval_id} status={} receipts={} policies={}",
+        json_path_string(&control, "/status").unwrap_or_else(|| "unknown".to_string()),
+        control
+            .pointer("/receipt_refs")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0),
+        control
+            .pointer("/policy_decision_refs")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    handle_events_command(session, None).await
+}
+
 async fn handle_interrupt_command(
     session: &mut TuiInteractiveSession,
     reason: Option<String>,
@@ -259,7 +407,7 @@ async fn handle_steer_command(
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /interrupt [reason] /steer <guidance> /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -277,11 +425,32 @@ fn non_empty_string(value: &str) -> Option<String> {
     }
 }
 
+fn parse_approval_decision_args(rest: &str) -> (Option<String>, Option<String>) {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return (None, None);
+    }
+    let split_at = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
+    let approval_id = trimmed[..split_at].trim();
+    let reason = trimmed[split_at..].trim();
+    (
+        non_empty_string(approval_id),
+        if reason.is_empty() {
+            None
+        } else {
+            Some(reason.to_string())
+        },
+    )
+}
+
 struct TuiControlState {
     thread_id: Option<String>,
     current_turn_id: Option<String>,
     last_cursor: Option<String>,
     last_event_id: Option<String>,
+    mode_status: Value,
+    approval_rows: Vec<Value>,
+    approval_decisions: Vec<Value>,
     command_history: Vec<Value>,
     validation_errors: Vec<Value>,
     sequence: u64,
@@ -289,11 +458,15 @@ struct TuiControlState {
 
 impl TuiControlState {
     fn from_session(session: &TuiInteractiveSession) -> Self {
+        let current_turn_id = selected_turn_id_from_values(None, None, &session.thread).ok();
         Self {
             thread_id: thread_id_from_value(&session.thread).ok(),
-            current_turn_id: selected_turn_id_from_values(None, None, &session.thread).ok(),
+            current_turn_id: current_turn_id.clone(),
             last_cursor: None,
             last_event_id: None,
+            mode_status: tui_mode_status(&session.thread, current_turn_id.as_deref()),
+            approval_rows: Vec::new(),
+            approval_decisions: Vec::new(),
             command_history: Vec::new(),
             validation_errors: Vec::new(),
             sequence: 0,
@@ -351,6 +524,7 @@ impl TuiControlState {
     fn update_from_session(&mut self, session: &TuiInteractiveSession) {
         self.thread_id = thread_id_from_value(&session.thread).ok();
         self.current_turn_id = selected_turn_id_from_values(None, None, &session.thread).ok();
+        self.mode_status = tui_mode_status(&session.thread, self.current_turn_id.as_deref());
     }
 
     fn update_from_events(&mut self, events: &[Value]) {
@@ -365,6 +539,61 @@ impl TuiControlState {
                 Some(format!("{stream}:{}", seq?))
             });
         }
+        self.merge_approval_rows(tui_approval_rows(events, self.thread_id.as_deref()));
+        self.merge_approval_decisions(tui_approval_decisions(events, self.thread_id.as_deref()));
+    }
+
+    fn merge_approval_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/approval_id")
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.approval_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.approval_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/approval_id")
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.approval_rows.push(row);
+            }
+        }
+    }
+
+    fn merge_approval_decisions(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/event_id")
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty()
+                || !self.approval_decisions.iter().any(|existing| {
+                    json_path_string(existing, "/event_id")
+                        .or_else(|| json_path_string(existing, "/id"))
+                        .as_deref()
+                        == Some(key.as_str())
+                })
+            {
+                self.approval_decisions.push(row);
+            }
+        }
+    }
+
+    fn default_pending_approval_id(&self) -> Option<String> {
+        self.approval_rows.iter().find_map(|row| {
+            let status = json_path_string(row, "/status")
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            if status == "pending" || status.contains("waiting") {
+                json_path_string(row, "/approval_id")
+            } else {
+                None
+            }
+        })
     }
 
     fn to_json(&self) -> Value {
@@ -375,6 +604,9 @@ impl TuiControlState {
             "current_turn_id": self.current_turn_id.clone(),
             "last_cursor": self.last_cursor.clone(),
             "last_event_id": self.last_event_id.clone(),
+            "mode_status": self.mode_status.clone(),
+            "approval_rows": self.approval_rows.clone(),
+            "approval_decisions": self.approval_decisions.clone(),
             "command_history": self.command_history.clone(),
             "validation_errors": self.validation_errors.clone(),
         })
@@ -418,6 +650,24 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/approvals").unwrap(),
+            TuiLineCommand::Approvals
+        );
+        assert_eq!(
+            parse_tui_line_command("/approve approval-live looks good").unwrap(),
+            TuiLineCommand::Approve {
+                approval_id: Some("approval-live".to_string()),
+                reason: Some("looks good".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/reject").unwrap(),
+            TuiLineCommand::Reject {
+                approval_id: None,
+                reason: None
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/interrupt pause live validation").unwrap(),
             TuiLineCommand::Interrupt {
                 reason: Some("pause live validation".to_string())
@@ -451,6 +701,9 @@ mod tests {
             thread: serde_json::json!({
                 "thread_id": "thread_live",
                 "latest_turn_id": "turn_live",
+                "mode": "agent",
+                "approval_mode": "suggest",
+                "trust_profile": "local_private",
             }),
             next_since_seq: Some(0),
             follow: false,
@@ -462,11 +715,23 @@ mod tests {
             "applied",
             Some("events replayed"),
             &session,
-            &[serde_json::json!({
-                "event_id": "event_live",
-                "event_stream_id": "events_thread_live",
-                "seq": 8,
-            })],
+            &[
+                serde_json::json!({
+                    "event_id": "event_live",
+                    "event_stream_id": "events_thread_live",
+                    "seq": 8,
+                }),
+                serde_json::json!({
+                    "event_id": "event_approval",
+                    "event_stream_id": "events_thread_live",
+                    "seq": 9,
+                    "event_kind": "approval.required",
+                    "source_event_kind": "KernelEvent::ApprovalRequired",
+                    "status": "waiting_for_approval",
+                    "approval_id": "approval_live",
+                    "workflow_node_id": "runtime.approval.approval_live",
+                }),
+            ],
         );
         state.record_validation_error("/steer", "/steer requires guidance text", &session);
         let json = state.to_json();
@@ -474,8 +739,10 @@ mod tests {
         assert_eq!(json["schema_version"], TUI_CONTROL_STATE_SCHEMA_VERSION);
         assert_eq!(json["thread_id"], "thread_live");
         assert_eq!(json["current_turn_id"], "turn_live");
-        assert_eq!(json["last_cursor"], "events_thread_live:8");
-        assert_eq!(json["last_event_id"], "event_live");
+        assert_eq!(json["last_cursor"], "events_thread_live:9");
+        assert_eq!(json["last_event_id"], "event_approval");
+        assert_eq!(json["mode_status"]["approval_mode"], "suggest");
+        assert_eq!(json["approval_rows"][0]["approval_id"], "approval_live");
         assert_eq!(json["command_history"][0]["command"], "events");
         assert_eq!(
             json["validation_errors"][0]["message"],

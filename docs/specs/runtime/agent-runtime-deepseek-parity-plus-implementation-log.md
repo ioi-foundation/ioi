@@ -114,6 +114,11 @@ workstream was narrower.
 | 112 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness activation panel split | /tmp/ioi-autopilot-gui-harness-activation-panel-refactor/2026-05-13T01-27-37-008Z/result.json |
 | 113 | 2026-05-13 | Guide Governance | Master guide parity-gap triage cleanup | docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md |
 | 114 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Thin daemon-backed `ioi agent tui` shell | /tmp/ioi-autopilot-gui-harness-agent-tui-thin-shell/2026-05-13T01-47-01-001Z/result.json |
+| 115 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI runtime-event deep-link contract | /tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json |
+| 116 | 2026-05-13 | P0. Terminal Coding-Agent TUI | Daemon-backed line-mode `ioi agent tui` loop | /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json |
+| 117 | 2026-05-13 | P0. Terminal Coding-Agent TUI | React Flow/TUI operator-control equivalence proof | /tmp/ioi-autopilot-gui-harness-tui-react-flow-control-equivalence/2026-05-13T02-12-53-211Z/result.json |
+| 118 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI control-state projection and run-inspector rows | /tmp/ioi-autopilot-gui-harness-tui-control-state-projection/2026-05-13T02-25-01-786Z/result.json |
+| 119 | 2026-05-13 | P0. Terminal Coding-Agent TUI | TUI approval and mode-status control rows | /tmp/ioi-autopilot-gui-harness-tui-approval-mode-status/2026-05-13T02-46-20-811Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -433,6 +438,44 @@ Known validation note:
   currently fails before this slice's run-inspector assertions on an existing
   readiness-label source-contract assertion. The slice-specific run-inspector
   projection and frontend build checks passed.
+
+### Slice 119. 2026-05-13 - TUI approval and mode-status control rows
+
+Implementation slice completed 2026-05-13, TUI approval and mode-status parity:
+
+- Added a daemon approval-decision endpoint,
+  `/v1/threads/{thread_id}/approvals/{approval_id}/decision`, that emits
+  receipt-backed `approval.approved` or `approval.rejected` events with policy
+  decision refs and preserved workflow node identity.
+- Extended line-mode `ioi agent tui` with `/approvals`, `/approve`, and
+  `/reject` while keeping `/resume`, `/events`, `/interrupt`, `/steer`, and
+  `/quit` on the same daemon-backed control loop.
+- Extended the TUI control-state envelope with `mode_status`, `approval_rows`,
+  and `approval_decisions`, including approval id, cursor, workflow node id,
+  receipt refs, and policy decision refs.
+- Mirrored those rows into the React Flow run inspector so workflow-authored
+  experiences can inspect mode posture, pending approvals, and approval
+  decisions beside runtime event graph rows.
+
+Validation evidence:
+
+- `cargo test --manifest-path crates/cli/Cargo.toml --bin cli agent_tui -- --nocapture`
+  - CLI TUI route, approval parser, mode-status, approval-row, and
+    control-state tests passed.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - React Flow TUI control-state projection and run-history model tests passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `node --test --test-name-pattern "agent CLI exposes|agent TUI approval slash commands|agent TUI line-mode slash commands" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract passed: TUI approval slash commands emitted approval
+    decision events with receipts/policy refs and React Flow rows.
+- `node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - daemon and live contract syntax checks passed.
+- `cargo check --manifest-path crates/cli/Cargo.toml --bin cli`
+  - CLI binary type-check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-approval-mode-status`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-approval-mode-status/2026-05-13T02-46-20-811Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

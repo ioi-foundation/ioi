@@ -251,6 +251,38 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     current_turn_id: "turn-test",
     last_cursor: "events_thread:test:8",
     last_event_id: "event-steer",
+    mode_status: {
+      mode: "agent",
+      approval_mode: "suggest",
+      trust_profile: "local_private",
+      thread_status: "active",
+      current_turn_status: "waiting_for_approval",
+    },
+    approval_rows: [
+      {
+        id: "approval-row",
+        approval_id: "approval-123",
+        status: "pending",
+        message: "Confirm shell execution",
+        workflow_node_id: "runtime.approval.approval-123",
+        receipt_refs: ["receipt-approval-request"],
+        policy_decision_refs: ["policy-approval-required"],
+        sequence: 5,
+      },
+    ],
+    approval_decisions: [
+      {
+        id: "approval-decision",
+        approval_id: "approval-123",
+        decision: "approve",
+        status: "approved",
+        event_id: "event-approval-approved",
+        workflow_node_id: "runtime.approval.approval-123",
+        receipt_refs: ["receipt-approval-approved"],
+        policy_decision_refs: ["policy-approval-allow"],
+        sequence: 6,
+      },
+    ],
     command_history: [
       {
         id: "tui-command-1",
@@ -291,19 +323,28 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.lastCursor, "events_thread:test:8");
   assert.equal(projection.commandCount, 2);
   assert.equal(projection.validationErrorCount, 1);
-  assert.equal(projection.rowCount, 4);
+  assert.equal(projection.approvalCount, 1);
+  assert.equal(projection.approvalDecisionCount, 1);
+  assert.equal(projection.rowCount, 7);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
       ["summary", null, "current"],
+      ["mode_status", null, "current"],
+      ["approval", null, "pending"],
+      ["approval_decision", "approve", "approved"],
       ["command", "events", "applied"],
       ["command", "steer", "applied"],
       ["validation_error", "steer", "validation_error"],
     ],
   );
   assert.equal(
-    projection.rows[2]?.reactFlowNodeId,
+    projection.rows[3]?.receiptRefs[0],
+    "receipt-approval-approved",
+  );
+  assert.equal(
+    projection.rows[5]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
-  assert.equal(projection.rows[3]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[6]?.message, "/steer requires guidance text");
 });
