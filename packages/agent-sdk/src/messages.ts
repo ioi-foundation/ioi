@@ -589,6 +589,8 @@ export interface RuntimeMcpStatus {
   schema_version?: string;
   schemaVersion?: string;
   object?: "ioi.runtime_mcp_manager_status" | string;
+  event_kind?: string;
+  control_kind?: string;
   status: string;
   server_count: number;
   serverCount?: number;
@@ -601,6 +603,10 @@ export interface RuntimeMcpStatus {
   enabled_server_count?: number;
   enabledServerCount?: number;
   servers: RuntimeMcpServerEntry[];
+  server?: RuntimeMcpServerEntry;
+  added?: RuntimeMcpServerEntry[];
+  imported?: RuntimeMcpServerEntry[];
+  removed?: RuntimeMcpServerEntry[];
   tools: RuntimeMcpToolEntry[];
   resources?: RuntimeMcpResourceEntry[];
   prompts?: RuntimeMcpPromptEntry[];

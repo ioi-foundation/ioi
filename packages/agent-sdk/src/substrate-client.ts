@@ -317,6 +317,17 @@ export interface RuntimeMcpServerControlInput extends RuntimeMcpValidationInput 
   enabled?: boolean;
 }
 
+export interface RuntimeMcpServerMutationInput extends RuntimeMcpServerControlInput {
+  label?: string;
+  name?: string;
+  server?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+  mcpServer?: Record<string, unknown>;
+  mcpServers?: Record<string, unknown>;
+  mcp_json?: Record<string, unknown>;
+  mcpJson?: Record<string, unknown>;
+}
+
 export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
   threadId?: string;
   thread_id?: string;
@@ -816,10 +827,20 @@ export interface RuntimeSubstrateClient {
   listMcpResources(options?: RuntimeMcpListOptions): Promise<RuntimeMcpResourceEntry[]>;
   listMcpPrompts(options?: RuntimeMcpListOptions): Promise<RuntimeMcpPromptEntry[]>;
   validateMcp(input?: RuntimeMcpValidationInput): Promise<RuntimeMcpValidationResult>;
+  importMcp(input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
+  addMcpServer(input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
+  removeMcpServer(serverId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
   enableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   disableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   invokeMcpTool(input?: RuntimeMcpToolInvokeInput): Promise<RuntimeMcpInvocationResult>;
   threadMcpStatus(threadId: string, input?: RuntimeThreadMcpInput): Promise<RuntimeMcpStatus>;
+  importThreadMcp(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
+  addThreadMcpServer(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
+  removeThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input?: RuntimeMcpServerMutationInput,
+  ): Promise<RuntimeMcpStatus>;
   validateThreadMcp(
     threadId: string,
     input?: RuntimeThreadMcpInput,
@@ -1245,6 +1266,35 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     });
   }
 
+  async importMcp(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
+    return this.request("importMcp", "POST", "/v1/mcp/import", {
+      source: "sdk_client",
+      ...input,
+    });
+  }
+
+  async addMcpServer(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
+    return this.request("addMcpServer", "POST", "/v1/mcp/servers", {
+      source: "sdk_client",
+      ...input,
+    });
+  }
+
+  async removeMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "removeMcpServer",
+      "DELETE",
+      `/v1/mcp/servers/${encodePath(serverId)}`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
   async enableMcpServer(
     serverId: string,
     input: RuntimeMcpServerControlInput = {},
@@ -1296,6 +1346,52 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "threadMcpStatus",
       "POST",
       `/v1/threads/${encodePath(threadId)}/mcp/status`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async importThreadMcp(
+    threadId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "importThreadMcp",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/import`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async addThreadMcpServer(
+    threadId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "addThreadMcpServer",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/mcp/servers`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async removeThreadMcpServer(
+    threadId: string,
+    serverId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.request(
+      "removeThreadMcpServer",
+      "DELETE",
+      `/v1/threads/${encodePath(threadId)}/mcp/servers/${encodePath(serverId)}`,
       {
         source: "sdk_client",
         ...input,
@@ -3068,6 +3164,24 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     };
   }
 
+  async importMcp(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
+    const threadId = input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id);
+    return this.importThreadMcp(threadId, input);
+  }
+
+  async addMcpServer(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
+    const threadId = input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id);
+    return this.addThreadMcpServer(threadId, input);
+  }
+
+  async removeMcpServer(
+    serverId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    const threadId = input.threadId ?? input.thread_id ?? threadIdForAgent((await this.createAgent({})).id);
+    return this.removeThreadMcpServer(threadId, serverId, input);
+  }
+
   async enableMcpServer(
     serverId: string,
     input: RuntimeMcpServerControlInput = {},
@@ -3107,6 +3221,55 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         sourceEventKind: "OperatorControl.Mcp",
         itemId: `${threadId}:item:mcp-status`,
         payload: { event_kind: "McpCatalogStatus", source: input.source ?? "sdk_client" },
+        createdAt: new Date().toISOString(),
+        componentKind: "mcp_provider",
+        workflowNodeId: "runtime.mcp-manager",
+      }),
+    };
+  }
+
+  async importThreadMcp(
+    threadId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.mockThreadMcpMutation(threadId, "McpServersImported", "mcp_import", input);
+  }
+
+  async addThreadMcpServer(
+    threadId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.mockThreadMcpMutation(threadId, "McpServerAdded", "mcp_add", input);
+  }
+
+  async removeThreadMcpServer(
+    threadId: string,
+    _serverId: string,
+    input: RuntimeMcpServerMutationInput = {},
+  ): Promise<RuntimeMcpStatus> {
+    return this.mockThreadMcpMutation(threadId, "McpServerRemoved", "mcp_remove", input);
+  }
+
+  private async mockThreadMcpMutation(
+    threadId: string,
+    eventKind: string,
+    controlKind: string,
+    input: RuntimeMcpServerMutationInput,
+  ): Promise<RuntimeMcpStatus> {
+    const status = await this.threadMcpStatus(threadId, input);
+    return {
+      ...status,
+      event_kind: eventKind,
+      control_kind: controlKind,
+      event: mockRuntimeEventEnvelope({
+        agent: await this.getAgent(agentIdForThread(threadId)),
+        threadId,
+        streamId: eventStreamIdForThread(threadId),
+        seq: this.threadRuntimeEvents(await this.getAgent(agentIdForThread(threadId))).length + 1,
+        eventKind: controlKind.replace("_", "."),
+        sourceEventKind: `OperatorControl.${eventKind.replace(/^Mcp/, "Mcp")}`,
+        itemId: `${threadId}:item:${controlKind}`,
+        payload: { event_kind: eventKind, source: input.source ?? "sdk_client" },
         createdAt: new Date().toISOString(),
         componentKind: "mcp_provider",
         workflowNodeId: "runtime.mcp-manager",

@@ -25,6 +25,10 @@ const TUI_THREAD_MODEL_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/model";
 const TUI_THREAD_THINKING_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/thinking";
 const TUI_THREAD_MCP_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/status";
 const TUI_THREAD_MCP_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/validate";
+const TUI_THREAD_MCP_IMPORT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/import";
+const TUI_THREAD_MCP_SERVER_ADD_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/servers";
+const TUI_THREAD_MCP_SERVER_REMOVE_ROUTE_TEMPLATE: &str =
+    "/v1/threads/{thread_id}/mcp/servers/{server_id}";
 const TUI_THREAD_MCP_SERVER_ENABLE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/mcp/servers/{server_id}/enable";
 const TUI_THREAD_MCP_SERVER_DISABLE_ROUTE_TEMPLATE: &str =
@@ -288,6 +292,21 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "run_trace": TUI_RUN_TRACE_ROUTE_TEMPLATE,
         "run_inspect": TUI_RUN_INSPECT_ROUTE_TEMPLATE,
     });
+    let mut routes = routes;
+    if let Some(routes_object) = routes.as_object_mut() {
+        routes_object.insert(
+            "thread_mcp_import".to_string(),
+            Value::String(TUI_THREAD_MCP_IMPORT_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_mcp_server_add".to_string(),
+            Value::String(TUI_THREAD_MCP_SERVER_ADD_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_mcp_server_remove".to_string(),
+            Value::String(TUI_THREAD_MCP_SERVER_REMOVE_ROUTE_TEMPLATE.to_string()),
+        );
+    }
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -765,6 +784,80 @@ pub(crate) async fn validate_tui_mcp(
             "event_kind": "OperatorControl.McpValidate",
             "component_kind": "mcp_validator",
             "workflow_node_id": "runtime.mcp-manager.validate",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn import_tui_mcp(
+    thread_id: &str,
+    mcp_json: Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MCP_IMPORT_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.McpImport",
+            "component_kind": "mcp_provider",
+            "workflow_node_id": "runtime.mcp-manager.import",
+            "mcp_json": mcp_json,
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn add_tui_mcp_server(
+    thread_id: &str,
+    label: &str,
+    config: Value,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MCP_SERVER_ADD_ROUTE_TEMPLATE, thread_id),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.McpAdd",
+            "component_kind": "mcp_provider",
+            "workflow_node_id": format!("runtime.mcp-server.{}", safe_id(label)),
+            "label": label,
+            "server": config,
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn remove_tui_mcp_server(
+    thread_id: &str,
+    server_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::DELETE,
+        &route_with_thread_and_mcp_server(
+            TUI_THREAD_MCP_SERVER_REMOVE_ROUTE_TEMPLATE,
+            thread_id,
+            server_id,
+        ),
+        Some(serde_json::json!({
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.McpRemove",
+            "component_kind": "mcp_provider",
+            "workflow_node_id": format!("runtime.mcp-server.{}", safe_id(server_id)),
         })),
     )
     .await

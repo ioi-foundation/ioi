@@ -193,6 +193,42 @@ export function WorkflowNodeBindingSections({
                   }
                 />
               </label>
+              {logic.stateOperation === "mcp_add" ? (
+                <>
+                  <label>
+                    MCP label
+                    <input
+                      data-testid="workflow-state-mcp-server-label"
+                      value={String(logic.mcpServerLabel ?? "")}
+                      onChange={(event) =>
+                        updateLogic({ ...logic, mcpServerLabel: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP server config JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-server-config"
+                      value={String(logic.mcpServerConfigJson ?? "{}")}
+                      onChange={(event) =>
+                        updateLogic({ ...logic, mcpServerConfigJson: event.target.value })
+                      }
+                    />
+                  </label>
+                </>
+              ) : null}
+              {logic.stateOperation === "mcp_import" ? (
+                <label>
+                  MCP import JSON
+                  <textarea
+                    data-testid="workflow-state-mcp-import-json"
+                    value={String(logic.mcpImportJson ?? "{\"mcpServers\":{}}")}
+                    onChange={(event) =>
+                      updateLogic({ ...logic, mcpImportJson: event.target.value })
+                    }
+                  />
+                </label>
+              ) : null}
             </>
           ) : null}
           {logic.sourceKind === "media" ? (
@@ -1170,6 +1206,9 @@ export function WorkflowNodeBindingSections({
                     | "append"
                     | "merge"
                     | "mcp_status"
+                    | "mcp_import"
+                    | "mcp_add"
+                    | "mcp_remove"
                     | "mcp_enable"
                     | "mcp_disable"
                     | "memory_status"
@@ -1193,6 +1232,9 @@ export function WorkflowNodeBindingSections({
               <option value="append">Append</option>
               <option value="merge">Merge</option>
               <option value="mcp_status">MCP status</option>
+              <option value="mcp_import">MCP import</option>
+              <option value="mcp_add">MCP add</option>
+              <option value="mcp_remove">MCP remove</option>
               <option value="mcp_enable">MCP enable</option>
               <option value="mcp_disable">MCP disable</option>
               <option value="memory_status">Memory status</option>
@@ -1205,6 +1247,9 @@ export function WorkflowNodeBindingSections({
             </select>
           </label>
           {logic.stateOperation === "mcp_status" ||
+          logic.stateOperation === "mcp_import" ||
+          logic.stateOperation === "mcp_add" ||
+          logic.stateOperation === "mcp_remove" ||
           logic.stateOperation === "mcp_enable" ||
           logic.stateOperation === "mcp_disable" ? (
             <>

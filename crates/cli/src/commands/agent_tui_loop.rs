@@ -2,13 +2,14 @@
 
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
-    apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run, decide_tui_approval,
-    delete_tui_memory, edit_tui_memory, fetch_tui_event_batch, fetch_tui_job, fetch_tui_run,
-    fetch_tui_run_trace, fetch_tui_thread, inspect_tui_mcp_status, inspect_tui_memory_path,
-    inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn,
-    invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq, list_tui_jobs_for_thread,
-    list_tui_memory_records, list_tui_workspace_snapshots, preview_tui_workspace_restore,
-    remember_tui_memory, replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
+    add_tui_mcp_server, apply_tui_workspace_restore, cancel_tui_job, cancel_tui_run,
+    decide_tui_approval, delete_tui_memory, edit_tui_memory, fetch_tui_event_batch, fetch_tui_job,
+    fetch_tui_run, fetch_tui_run_trace, fetch_tui_thread, import_tui_mcp, inspect_tui_mcp_status,
+    inspect_tui_memory_path, inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run,
+    interrupt_tui_turn, invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq,
+    list_tui_jobs_for_thread, list_tui_memory_records, list_tui_workspace_snapshots,
+    preview_tui_workspace_restore, remember_tui_memory, remove_tui_mcp_server,
+    replay_tui_run_events, resume_tui_thread, selected_run_id_from_thread,
     selected_turn_id_from_values, set_tui_mcp_server_enabled, steer_tui_turn, thread_id_from_value,
     tui_approval_decisions, tui_approval_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows,
     tui_mode_status, tui_run_lifecycle_rows, update_tui_memory_policy, update_tui_thread_mode,
@@ -1044,6 +1045,52 @@ async fn handle_mcp_command(
         "validate" | "doctor" => {
             validate_tui_mcp(&thread_id, &session.endpoint, session.token.as_deref()).await?
         }
+        "import" => {
+            let json_tail = parts.collect::<Vec<_>>().join(" ");
+            if json_tail.trim().is_empty() {
+                return Err(anyhow!("/mcp import requires <mcp_json>"));
+            }
+            let mcp_json = serde_json::from_str::<Value>(json_tail.trim())
+                .map_err(|error| anyhow!("/mcp import input must be JSON: {error}"))?;
+            import_tui_mcp(
+                &thread_id,
+                mcp_json,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "add" => {
+            let label = parts
+                .next()
+                .ok_or_else(|| anyhow!("/mcp add requires <label> <json_config>"))?;
+            let json_tail = parts.collect::<Vec<_>>().join(" ");
+            if json_tail.trim().is_empty() {
+                return Err(anyhow!("/mcp add requires <label> <json_config>"));
+            }
+            let config = serde_json::from_str::<Value>(json_tail.trim())
+                .map_err(|error| anyhow!("/mcp add config must be JSON: {error}"))?;
+            add_tui_mcp_server(
+                &thread_id,
+                label,
+                config,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
+        "remove" | "rm" => {
+            let server_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/mcp remove requires <server_id>"))?;
+            remove_tui_mcp_server(
+                &thread_id,
+                server_id,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
         "enable" | "disable" => {
             let server_id = parts
                 .next()
@@ -1084,7 +1131,7 @@ async fn handle_mcp_command(
         }
         _ => {
             return Err(anyhow!(
-                "/mcp accepts status, tools, servers, validate, enable, disable, or invoke"
+                "/mcp accepts status, tools, servers, validate, import, add, remove, enable, disable, or invoke"
             ));
         }
     };
