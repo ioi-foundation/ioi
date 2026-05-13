@@ -48,9 +48,11 @@ export function WorkflowNodeBindingSections({
     filesystemEnabled: true,
     writeEnabled: true,
     testEnabled: true,
+    diagnosticsEnabled: true,
     artifactEnabled: true,
     resultRetrievalEnabled: true,
     allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+    allowedDiagnosticCommandIds: ["node.check", "typescript.check"],
     timeoutMs: 60000,
     dryRun: false,
     allowedPaths: [] as string[],
@@ -66,6 +68,7 @@ export function WorkflowNodeBindingSections({
       nextPack.filesystemEnabled ? "file.inspect" : null,
       nextPack.writeEnabled ? "file.apply_patch" : null,
       nextPack.testEnabled ? "test.run" : null,
+      nextPack.diagnosticsEnabled ? "lsp.diagnostics" : null,
       nextPack.artifactEnabled ? "artifact.read" : null,
       nextPack.resultRetrievalEnabled ? "tool.retrieve_result" : null,
     ].filter(Boolean) as string[];
@@ -2120,6 +2123,7 @@ export function WorkflowNodeBindingSections({
                             filesystemEnabled: true,
                             writeEnabled: true,
                             testEnabled: true,
+                            diagnosticsEnabled: true,
                             artifactEnabled: true,
                             resultRetrievalEnabled: true,
                             allowedTestCommandIds: [
@@ -2127,6 +2131,10 @@ export function WorkflowNodeBindingSections({
                               "npm.test",
                               "cargo.test",
                               "cargo.check",
+                            ],
+                            allowedDiagnosticCommandIds: [
+                              "node.check",
+                              "typescript.check",
                             ],
                             timeoutMs: 60000,
                             dryRun: false,
@@ -2411,6 +2419,7 @@ export function WorkflowNodeBindingSections({
                   ["filesystemEnabled", "File inspect"],
                   ["writeEnabled", "File patch"],
                   ["testEnabled", "Test run"],
+                  ["diagnosticsEnabled", "Diagnostics"],
                   ["artifactEnabled", "Artifact read"],
                   ["resultRetrievalEnabled", "Retrieve result"],
                   ["dryRun", "Dry run"],
@@ -2465,6 +2474,24 @@ export function WorkflowNodeBindingSections({
                     updateCodingToolPack({
                       ...codingToolPack,
                       allowedTestCommandIds: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Diagnostic commands
+                <input
+                  data-testid="workflow-coding-tool-pack-diagnostic-commands"
+                  value={(codingToolPack.allowedDiagnosticCommandIds ?? []).join(
+                    ", ",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      allowedDiagnosticCommandIds: event.target.value
                         .split(",")
                         .map((item) => item.trim())
                         .filter(Boolean),
