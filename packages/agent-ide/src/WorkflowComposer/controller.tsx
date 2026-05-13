@@ -126,6 +126,11 @@ import type {
   WorkflowRuntimeThreadEventLike,
 } from "../runtime/workflow-runtime-event-projection";
 import {
+  WORKFLOW_RUNTIME_TELEMETRY_POLL_INTERVAL_MS,
+  createLiveWorkflowRunTelemetryHydration,
+  mergeWorkflowRuntimeThreadEvents,
+} from "../runtime/workflow-runtime-live-telemetry";
+import {
   WORKFLOW_NODE_DEFINITIONS,
   type WorkflowNodeCreatorDefinition,
   type WorkflowNodeDefinition,
@@ -2580,6 +2585,7 @@ export function useWorkflowComposerController({
     Record<string, WorkflowNodeFixture[]>
   >({});
   const dogfoodAutomationStarted = useRef(false);
+  const liveTelemetryRunIdRef = useRef<string | null>(null);
   const [globalConfig, setGlobalConfig] = useState<GraphGlobalConfig>(
     defaultWorkflow.global_config,
   );
@@ -9315,6 +9321,7 @@ export function useWorkflowComposerController({
     setCheckpoints([]);
     setNodeRunStatusById({});
     setNodeFixturesById({});
+    liveTelemetryRunIdRef.current = null;
   }, []);
 
   const loadRuntimeThreadEvents = useCallback(
@@ -9332,15 +9339,91 @@ export function useWorkflowComposerController({
     [runtime],
   );
 
+  const startRuntimeThreadEventHydration = useCallback(
+    (threadId: string): (() => void) => {
+      if (!runtime.loadWorkflowRuntimeThreadEvents) return () => {};
+      let cancelled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+
+      const poll = () => {
+        void loadRuntimeThreadEvents(threadId)
+          .then((events) => {
+            if (cancelled || events.length === 0) return;
+            setRuntimeThreadEvents((current) =>
+              mergeWorkflowRuntimeThreadEvents(current, events),
+            );
+          })
+          .finally(() => {
+            if (cancelled) return;
+            timer = setTimeout(
+              poll,
+              WORKFLOW_RUNTIME_TELEMETRY_POLL_INTERVAL_MS,
+            );
+          });
+      };
+
+      poll();
+      return () => {
+        cancelled = true;
+        if (timer) {
+          clearTimeout(timer);
+        }
+      };
+    },
+    [loadRuntimeThreadEvents, runtime.loadWorkflowRuntimeThreadEvents],
+  );
+
+  const prepareLiveRuntimeTelemetryHydration = useCallback(async () => {
+    if (
+      !runtime.createWorkflowThread ||
+      !runtime.loadWorkflowRuntimeThreadEvents
+    ) {
+      return null;
+    }
+
+    const thread = await runtime.createWorkflowThread(workflowPath);
+    const liveRun = createLiveWorkflowRunTelemetryHydration({
+      workflow: currentProjectFile,
+      thread,
+    });
+    liveTelemetryRunIdRef.current = liveRun.summary.id;
+    setLastRunResult(liveRun);
+    setSelectedRunId(liveRun.summary.id);
+    setRunEvents(liveRun.events);
+    setRuntimeThreadEvents([]);
+    setCheckpoints([]);
+    setNodeRunStatusById({});
+    setRuns((current) => [
+      liveRun.summary,
+      ...current.filter((run) => run.id !== liveRun.summary.id),
+    ]);
+    setStatusMessage("Run streaming runtime telemetry");
+
+    return {
+      threadId: thread.id,
+      stop: startRuntimeThreadEventHydration(thread.id),
+    };
+  }, [
+    currentProjectFile,
+    runtime,
+    startRuntimeThreadEventHydration,
+    workflowPath,
+  ]);
+
   const applyRunResult = useCallback(
     async (result: WorkflowRunResult) => {
+      const liveTelemetryRunId = liveTelemetryRunIdRef.current;
+      liveTelemetryRunIdRef.current = null;
       setLastRunResult(result);
       setSelectedRunId(result.summary.id);
       setRunEvents(result.events);
       setRuntimeThreadEvents(await loadRuntimeThreadEvents(result.thread.id));
       setRuns((current) => [
         result.summary,
-        ...current.filter((run) => run.id !== result.summary.id),
+        ...current.filter(
+          (run) =>
+            run.id !== result.summary.id && run.id !== liveTelemetryRunId,
+        ),
       ]);
       const runStatusEntries = new Map(
         result.nodeRuns.map((run) => [run.nodeId, run]),
@@ -11672,11 +11755,44 @@ export function useWorkflowComposerController({
     setRightPanel("runs");
     setBottomPanel("run_output");
     if (runtime.runWorkflowProject) {
+      let liveTelemetryHydration:
+        | { threadId: string; stop: () => void }
+        | null = null;
       try {
-        const result = await runtime.runWorkflowProject(workflowPath);
+        try {
+          liveTelemetryHydration = await prepareLiveRuntimeTelemetryHydration();
+        } catch (error) {
+          setStatusMessage(
+            `Run starting without live telemetry hydration: ${errorMessage(error)}`,
+          );
+        }
+        const result = await runtime.runWorkflowProject(
+          workflowPath,
+          liveTelemetryHydration
+            ? {
+                threadId: liveTelemetryHydration.threadId,
+                liveTelemetryHydration: true,
+              }
+            : undefined,
+        );
+        liveTelemetryHydration?.stop();
         await applyRunResult(result);
         setRightPanel("runs");
       } catch (error) {
+        liveTelemetryHydration?.stop();
+        const liveTelemetryRunId = liveTelemetryRunIdRef.current;
+        liveTelemetryRunIdRef.current = null;
+        if (liveTelemetryRunId) {
+          setLastRunResult((current) =>
+            current?.summary.id === liveTelemetryRunId ? null : current,
+          );
+          setSelectedRunId((current) =>
+            current === liveTelemetryRunId ? null : current,
+          );
+          setRuns((current) =>
+            current.filter((run) => run.id !== liveTelemetryRunId),
+          );
+        }
         setRightPanel("runs");
         setStatusMessage(
           `Run blocked by runtime substrate: ${errorMessage(error)}`,

@@ -8,6 +8,10 @@ import type {
   WorkflowStreamEvent,
 } from "../types/graph";
 import { workflowRunHistoryModel } from "./workflow-run-history-model";
+import {
+  createLiveWorkflowRunTelemetryHydration,
+  mergeWorkflowRuntimeThreadEvents,
+} from "./workflow-runtime-live-telemetry";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 
 const workflow = {
@@ -276,6 +280,81 @@ test("workflow run history model projects canonical runtime thread events", () =
     "runtime.reasoning",
   );
   assert.equal(model.timelineEvents[0]?.runId, "run-a");
+});
+
+test("workflow run history model hydrates live telemetry for an in-flight run", () => {
+  const liveRun = createLiveWorkflowRunTelemetryHydration({
+    workflow,
+    thread: {
+      id: "thread-live",
+      workflowPath: "workflow.json",
+      status: "queued",
+      createdAtMs: 950,
+      input: { prompt: "stream tokens" },
+    },
+    startedAtMs: 1_000,
+  });
+  const events = mergeWorkflowRuntimeThreadEvents(
+    [
+      runtimeThreadEvent("usage-1", 1, {
+        threadId: "thread-live",
+        type: "usage_delta",
+        eventKind: "usage.delta",
+        sourceEventKind: "RuntimeUsageTelemetry.Delta",
+        workflowNodeId: "runtime.usage-telemetry",
+        componentKind: "usage_telemetry",
+        status: "running",
+      }),
+    ],
+    [
+      runtimeThreadEvent("usage-1", 1, {
+        threadId: "thread-live",
+        type: "usage_delta",
+        eventKind: "usage.delta",
+        sourceEventKind: "RuntimeUsageTelemetry.Delta",
+        workflowNodeId: "runtime.usage-telemetry",
+        componentKind: "usage_telemetry",
+        status: "running",
+      }),
+      runtimeThreadEvent("context-2", 2, {
+        threadId: "thread-live",
+        type: "context_pressure_delta",
+        eventKind: "context.pressure_delta",
+        sourceEventKind: "RuntimeContextPressure.Delta",
+        workflowNodeId: "runtime.context-budget",
+        componentKind: "context_pressure",
+        status: "running",
+      }),
+    ],
+  );
+
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs: [liveRun.summary],
+    lastRunResult: liveRun,
+    compareRunResult: null,
+    selectedRunId: liveRun.summary.id,
+    compareRunId: null,
+    runEvents: [],
+    runtimeThreadEvents: events,
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.selectedRun?.summary.status, "running");
+  assert.equal(model.timelineEvents[0]?.threadId, "thread-live");
+  assert.equal(model.runtimeEventProjection.eventCount, 2);
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowNodes.map((node) => [
+      node.id,
+      node.data.nodeKind,
+      node.data.status,
+    ]),
+    [
+      ["runtime.usage-telemetry", "runtime_usage_meter", "running"],
+      ["runtime.context-budget", "runtime_context_budget", "running"],
+    ],
+  );
 });
 
 test("workflow run history model projects TUI control state for run inspector", () => {

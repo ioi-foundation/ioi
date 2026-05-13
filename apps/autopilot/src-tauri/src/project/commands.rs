@@ -1411,7 +1411,27 @@ pub fn run_workflow_project(
     let input = options
         .as_ref()
         .and_then(|value| value.get("input").cloned());
-    let thread = new_workflow_thread(&workflow_path, input);
+    let requested_thread_id = options
+        .as_ref()
+        .and_then(|value| {
+            value
+                .get("threadId")
+                .or_else(|| value.get("thread_id"))
+                .and_then(Value::as_str)
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let thread = if let Some(thread_id) = requested_thread_id {
+        let mut thread = load_workflow_thread(&workflow_path, &thread_id)?;
+        if let Some(input) = input.clone() {
+            thread.input = Some(input);
+        }
+        thread.status = "queued".to_string();
+        thread
+    } else {
+        new_workflow_thread(&workflow_path, input)
+    };
     save_workflow_thread(&workflow_path, &thread)?;
     let state = initial_workflow_state(&thread, "pending");
     let result =
