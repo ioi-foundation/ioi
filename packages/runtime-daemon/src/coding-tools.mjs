@@ -1,16 +1,25 @@
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const CODING_TOOL_PACK_SCHEMA_VERSION = "ioi.runtime.coding-tool-pack.v1";
 export const CODING_TOOL_RESULT_SCHEMA_VERSION = "ioi.runtime.coding-tool-result.v1";
 export const CODING_TOOL_PACK_ID = "coding";
-export const CODING_TOOL_IDS = new Set(["workspace.status", "git.diff", "file.inspect"]);
+export const CODING_TOOL_IDS = new Set([
+  "workspace.status",
+  "git.diff",
+  "file.inspect",
+  "file.apply_patch",
+]);
 
 const CODING_TOOL_DEFAULT_PREVIEW_BYTES = 16 * 1024;
 const CODING_TOOL_MAX_PREVIEW_BYTES = 64 * 1024;
 const CODING_TOOL_DIFF_MAX_BYTES = 64 * 1024;
+const CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES = 1024 * 1024;
+const CODING_TOOL_APPLY_PATCH_MAX_DIFF_BYTES = 32 * 1024;
+const CODING_TOOL_APPLY_PATCH_MAX_EDITS = 20;
 
 export function codingToolContracts() {
   return [
@@ -91,6 +100,68 @@ export function codingToolContracts() {
       workflowNodeType: "FilesystemToolNode",
       workflowConfigFields: ["toolPack.coding.filesystemEnabled", "toolPack.coding.allowedPaths"],
     },
+    {
+      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stableToolId: "file.apply_patch",
+      displayName: "Apply file patch",
+      pack: CODING_TOOL_PACK_ID,
+      primitiveCapabilities: ["prim:fs.apply_patch", "prim:fs.write"],
+      authorityScopeRequirements: ["scope:workspace.write"],
+      effectClass: "local_write",
+      riskDomain: "filesystem",
+      inputSchema: {
+        type: "object",
+        required: ["path"],
+        additionalProperties: false,
+        properties: {
+          path: { type: "string" },
+          dryRun: { type: "boolean" },
+          create: { type: "boolean" },
+          oldText: { type: "string" },
+          newText: { type: "string" },
+          appendText: { type: "string" },
+          prependText: { type: "string" },
+          occurrence: { type: "string", enum: ["only", "first", "all"] },
+          edits: {
+            type: "array",
+            maxItems: CODING_TOOL_APPLY_PATCH_MAX_EDITS,
+            items: {
+              type: "object",
+              required: ["type"],
+              additionalProperties: false,
+              properties: {
+                type: { type: "string", enum: ["replace", "append", "prepend"] },
+                oldText: { type: "string" },
+                newText: { type: "string" },
+                text: { type: "string" },
+                occurrence: { type: "string", enum: ["only", "first", "all"] },
+              },
+            },
+          },
+        },
+      },
+      outputSchema: {
+        type: "object",
+        required: [
+          "workspaceRoot",
+          "path",
+          "dryRun",
+          "applied",
+          "changed",
+          "beforeHash",
+          "afterHash",
+          "shellFallbackUsed",
+        ],
+      },
+      evidenceRequirements: ["file_apply_patch_receipt", "workspace_mutation_receipt", "coding_tool_receipt"],
+      workflowNodeType: "FilesystemPatchNode",
+      workflowConfigFields: [
+        "toolPack.coding.filesystemEnabled",
+        "toolPack.coding.writeEnabled",
+        "toolPack.coding.allowedPaths",
+        "toolPack.coding.dryRun",
+      ],
+    },
   ];
 }
 
@@ -109,6 +180,8 @@ export function executeCodingTool(toolId, workspaceRoot, input = {}) {
       return gitDiffTool(workspaceRoot, input);
     case "file.inspect":
       return fileInspectTool(workspaceRoot, input);
+    case "file.apply_patch":
+      return fileApplyPatchTool(workspaceRoot, input);
     default:
       throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
         toolId,
@@ -119,6 +192,13 @@ export function executeCodingTool(toolId, workspaceRoot, input = {}) {
 
 export function codingToolInputSummary(toolId, input = {}) {
   if (toolId === "file.inspect") return { path: optionalString(input.path) ?? null };
+  if (toolId === "file.apply_patch") {
+    return {
+      path: optionalString(input.path) ?? null,
+      dryRun: Boolean(input.dryRun ?? input.dry_run),
+      editCount: normalizePatchEdits(input).length,
+    };
+  }
   if (toolId === "git.diff") return { paths: codingToolRawPathSummary(input) };
   if (toolId === "workspace.status") {
     return { includeIgnored: Boolean(input.includeIgnored ?? input.include_ignored) };
@@ -149,6 +229,15 @@ export function codingToolResultSummary(toolId, result = {}) {
       truncated: Boolean(result?.truncated),
     };
   }
+  if (toolId === "file.apply_patch") {
+    return {
+      path: result?.path ?? null,
+      dryRun: Boolean(result?.dryRun),
+      applied: Boolean(result?.applied),
+      changed: Boolean(result?.changed),
+      editCount: Number(result?.editCount ?? 0),
+    };
+  }
   return {};
 }
 
@@ -163,12 +252,18 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
   if (toolId === "file.inspect") {
     return `Inspected ${result?.kind ?? "path"} ${result?.path ?? ""}`.trim();
   }
+  if (toolId === "file.apply_patch") {
+    if (result?.dryRun) return `Patch previewed ${result?.path ?? "file"}.`;
+    return result?.changed
+      ? `Patch applied to ${result?.path ?? "file"}.`
+      : `Patch checked ${result?.path ?? "file"} with no content change.`;
+  }
   return `${toolId} completed.`;
 }
 
 export function codingToolSourceEventKind(toolId) {
   return `CodingTool.${toolId
-    .split(".")
+    .split(/[._-]/)
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join("")}`;
 }
@@ -343,6 +438,93 @@ function fileInspectTool(workspaceRoot, input = {}) {
   };
 }
 
+function fileApplyPatchTool(workspaceRoot, input = {}) {
+  const selectedPath = optionalString(input.path);
+  if (!selectedPath) {
+    throw codingToolError(400, "file_apply_patch_path_required", "file.apply_patch requires a workspace-relative path.", {
+      toolId: "file.apply_patch",
+    });
+  }
+  const target = resolveWorkspacePath(workspaceRoot, selectedPath);
+  const dryRun = Boolean(input.dryRun ?? input.dry_run);
+  const create = Boolean(input.create);
+  const exists = fs.existsSync(target.absolutePath);
+  if (!exists && !create) {
+    throw codingToolError(404, "not_found", `File not found: ${target.relativePath}`, {
+      workspaceRoot,
+      path: target.relativePath,
+    });
+  }
+  if (exists) {
+    const stat = fs.statSync(target.absolutePath);
+    if (!stat.isFile()) {
+      throw codingToolError(400, "file_apply_patch_not_file", "file.apply_patch can only edit regular files.", {
+        workspaceRoot,
+        path: target.relativePath,
+      });
+    }
+    if (stat.size > CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES) {
+      throw codingToolError(413, "file_apply_patch_file_too_large", "file.apply_patch refused a file over the edit size limit.", {
+        workspaceRoot,
+        path: target.relativePath,
+        sizeBytes: stat.size,
+        maxBytes: CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES,
+      });
+    }
+  } else {
+    const parent = path.dirname(target.absolutePath);
+    if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory()) {
+      throw codingToolError(404, "file_apply_patch_parent_missing", "file.apply_patch create mode requires an existing parent directory.", {
+        workspaceRoot,
+        path: target.relativePath,
+      });
+    }
+  }
+  const before = exists ? fs.readFileSync(target.absolutePath, "utf8") : "";
+  const edits = normalizePatchEdits(input);
+  if (!edits.length) {
+    throw codingToolError(400, "file_apply_patch_empty", "file.apply_patch requires at least one edit.", {
+      workspaceRoot,
+      path: target.relativePath,
+    });
+  }
+  const appliedEdits = [];
+  let after = before;
+  for (const edit of edits) {
+    const applied = applyPatchEdit(after, edit, target.relativePath);
+    after = applied.text;
+    appliedEdits.push(applied.summary);
+  }
+  const beforeHash = hashText(before);
+  const afterHash = hashText(after);
+  const changed = beforeHash !== afterHash;
+  const diff = textDiffPreview(target.relativePath, before, after, CODING_TOOL_APPLY_PATCH_MAX_DIFF_BYTES);
+  if (!dryRun && changed) {
+    fs.writeFileSync(target.absolutePath, after, "utf8");
+  }
+  return {
+    schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+    workspaceRoot,
+    path: target.relativePath,
+    dryRun,
+    applied: !dryRun && changed,
+    changed,
+    created: !exists,
+    editCount: appliedEdits.length,
+    edits: appliedEdits,
+    beforeHash,
+    afterHash,
+    diff: diff.text,
+    diffBytes: diff.bytes,
+    diffHash: hashText(diff.text),
+    truncated: diff.truncated,
+    receiptRefs: [
+      `receipt_file_apply_patch_${safeReceiptPath(target.relativePath)}_${afterHash.slice(0, 12)}`,
+    ],
+    shellFallbackUsed: false,
+  };
+}
+
 function codingToolPaths(workspaceRoot, input = {}) {
   const rawPaths = [
     ...codingToolPathList(input.paths),
@@ -424,6 +606,153 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function normalizePatchEdits(input = {}) {
+  const edits = Array.isArray(input.edits) ? input.edits.slice(0, CODING_TOOL_APPLY_PATCH_MAX_EDITS) : [];
+  if (Object.hasOwn(input, "oldText") || Object.hasOwn(input, "old_text")) {
+    edits.push({
+      type: "replace",
+      oldText: input.oldText ?? input.old_text,
+      newText: input.newText ?? input.new_text ?? "",
+      occurrence: input.occurrence,
+    });
+  }
+  if (Object.hasOwn(input, "appendText") || Object.hasOwn(input, "append_text")) {
+    edits.push({ type: "append", text: input.appendText ?? input.append_text ?? "" });
+  }
+  if (Object.hasOwn(input, "prependText") || Object.hasOwn(input, "prepend_text")) {
+    edits.push({ type: "prepend", text: input.prependText ?? input.prepend_text ?? "" });
+  }
+  return edits
+    .map((edit) => (edit && typeof edit === "object" && !Array.isArray(edit) ? edit : null))
+    .filter(Boolean)
+    .slice(0, CODING_TOOL_APPLY_PATCH_MAX_EDITS);
+}
+
+function applyPatchEdit(text, edit, relativePath) {
+  const type = optionalString(edit.type);
+  if (type === "append") {
+    const addition = String(edit.text ?? "");
+    return {
+      text: `${text}${addition}`,
+      summary: { type, bytesAdded: Buffer.byteLength(addition, "utf8") },
+    };
+  }
+  if (type === "prepend") {
+    const addition = String(edit.text ?? "");
+    return {
+      text: `${addition}${text}`,
+      summary: { type, bytesAdded: Buffer.byteLength(addition, "utf8") },
+    };
+  }
+  if (type !== "replace") {
+    throw codingToolError(400, "file_apply_patch_unknown_edit", `Unsupported edit type for ${relativePath}.`, {
+      path: relativePath,
+      type,
+    });
+  }
+  const oldText = String(edit.oldText ?? edit.old_text ?? "");
+  const newText = String(edit.newText ?? edit.new_text ?? "");
+  if (!oldText) {
+    throw codingToolError(400, "file_apply_patch_empty_old_text", "Replace edits require non-empty oldText.", {
+      path: relativePath,
+    });
+  }
+  const occurrence = optionalString(edit.occurrence) ?? "only";
+  const count = countOccurrences(text, oldText);
+  if (count === 0) {
+    throw codingToolError(409, "file_apply_patch_old_text_missing", "file.apply_patch could not find oldText.", {
+      path: relativePath,
+      occurrence,
+    });
+  }
+  if (occurrence === "only" && count !== 1) {
+    throw codingToolError(409, "file_apply_patch_old_text_ambiguous", "file.apply_patch oldText matched more than once.", {
+      path: relativePath,
+      matches: count,
+    });
+  }
+  const nextText =
+    occurrence === "all"
+      ? text.split(oldText).join(newText)
+      : text.replace(oldText, newText);
+  return {
+    text: nextText,
+    summary: {
+      type,
+      occurrence,
+      matches: occurrence === "all" ? count : 1,
+      oldHash: hashText(oldText),
+      newHash: hashText(newText),
+    },
+  };
+}
+
+function countOccurrences(text, needle) {
+  if (!needle) return 0;
+  let count = 0;
+  let index = 0;
+  while (index <= text.length) {
+    const found = text.indexOf(needle, index);
+    if (found === -1) break;
+    count += 1;
+    index = found + needle.length;
+  }
+  return count;
+}
+
+function textDiffPreview(relativePath, before, after, maxBytes) {
+  if (before === after) return { text: "", bytes: 0, truncated: false };
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-coding-tool-diff-"));
+  const beforePath = path.join(tmpRoot, "before");
+  const afterPath = path.join(tmpRoot, "after");
+  try {
+    fs.writeFileSync(beforePath, before, "utf8");
+    fs.writeFileSync(afterPath, after, "utf8");
+    const diffResult = execFileReadOnly("git", [
+      "diff",
+      "--no-index",
+      "--no-color",
+      "--",
+      beforePath,
+      afterPath,
+    ]);
+    const raw = diffResult.stdout || diffResult.stderr || "";
+    const labeled = raw
+      .replaceAll(beforePath, `a/${relativePath}`)
+      .replaceAll(afterPath, `b/${relativePath}`);
+    const preview = utf8Preview(labeled, maxBytes);
+    return {
+      text: preview.text,
+      bytes: Buffer.byteLength(labeled, "utf8"),
+      truncated: preview.truncated,
+    };
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+function execFileReadOnly(command, args) {
+  try {
+    return {
+      ok: true,
+      stdout: execFileSync(command, args, {
+        encoding: "utf8",
+        maxBuffer: 4 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+      stderr: "",
+      exitCode: 0,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      stdout: String(error?.stdout ?? ""),
+      stderr: String(error?.stderr ?? error?.message ?? ""),
+      exitCode: Number(error?.status ?? error?.code ?? 1),
+    };
+  }
+}
+
 function optionalString(value) {
   if (value === undefined || value === null) return undefined;
   const text = String(value).trim();
@@ -432,6 +761,10 @@ function optionalString(value) {
 
 function hashText(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+function safeReceiptPath(value) {
+  return String(value).replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 48) || "file";
 }
 
 function codingToolError(status, code, message, details) {

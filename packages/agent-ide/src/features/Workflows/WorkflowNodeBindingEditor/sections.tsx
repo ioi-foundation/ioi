@@ -41,6 +41,41 @@ export function WorkflowNodeBindingSections({
   const updateSkillContext = (
     next: NonNullable<NodeLogic["skillContext"]>,
   ) => updateLogic({ ...logic, skillContext: next });
+  const codingToolPackDefaults = {
+    pack: "coding",
+    workspaceStatusEnabled: true,
+    gitEnabled: true,
+    filesystemEnabled: true,
+    writeEnabled: true,
+    dryRun: false,
+    allowedPaths: [] as string[],
+  };
+  const codingToolPack = {
+    ...codingToolPackDefaults,
+    ...(logic.toolBinding?.toolPack ?? {}),
+  };
+  const updateCodingToolPack = (nextPack: typeof codingToolPack) => {
+    const capabilityScope = [
+      nextPack.workspaceStatusEnabled ? "workspace.status" : null,
+      nextPack.gitEnabled ? "git.diff" : null,
+      nextPack.filesystemEnabled ? "file.inspect" : null,
+      nextPack.writeEnabled ? "file.apply_patch" : null,
+    ].filter(Boolean) as string[];
+    updateLogic({
+      ...logic,
+      toolBinding: {
+        toolRef: logic.toolBinding?.toolRef ?? "workspace.status",
+        bindingKind: "coding_tool_pack",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope,
+        sideEffectClass: nextPack.writeEnabled ? "write" : "read",
+        requiresApproval: Boolean(nextPack.writeEnabled && !nextPack.dryRun),
+        arguments: logic.toolBinding?.arguments ?? {},
+        toolPack: nextPack,
+      },
+    });
+  };
 
   return (
     <>
@@ -2047,12 +2082,16 @@ export function WorkflowNodeBindingSections({
                       bindingKind === "workflow_tool"
                         ? ["invoke"]
                         : bindingKind === "coding_tool_pack"
-                          ? ["workspace.status", "git.diff", "file.inspect"]
+                          ? ["workspace.status", "git.diff", "file.inspect", "file.apply_patch"]
                         : (logic.toolBinding?.capabilityScope ?? ["read"]),
                     sideEffectClass:
-                      logic.toolBinding?.sideEffectClass ?? "read",
+                      bindingKind === "coding_tool_pack"
+                        ? (logic.toolBinding?.sideEffectClass ?? "write")
+                        : (logic.toolBinding?.sideEffectClass ?? "read"),
                     requiresApproval:
-                      logic.toolBinding?.requiresApproval ?? false,
+                      bindingKind === "coding_tool_pack"
+                        ? true
+                        : (logic.toolBinding?.requiresApproval ?? false),
                     arguments: logic.toolBinding?.arguments ?? {},
                     workflowTool:
                       bindingKind === "workflow_tool"
@@ -2071,6 +2110,8 @@ export function WorkflowNodeBindingSections({
                             workspaceStatusEnabled: true,
                             gitEnabled: true,
                             filesystemEnabled: true,
+                            writeEnabled: true,
+                            dryRun: false,
                             allowedPaths: [],
                           })
                         : undefined,
@@ -2108,6 +2149,7 @@ export function WorkflowNodeBindingSections({
                       logic.toolBinding?.requiresApproval ?? false,
                     arguments: logic.toolBinding?.arguments ?? {},
                     workflowTool: logic.toolBinding?.workflowTool,
+                    toolPack: logic.toolBinding?.toolPack,
                   },
                 })
               }
@@ -2339,6 +2381,60 @@ export function WorkflowNodeBindingSections({
               </label>
             </section>
           ) : null}
+          {logic.toolBinding?.bindingKind === "coding_tool_pack" ? (
+            <section
+              className="workflow-tool-contract"
+              data-testid="workflow-coding-tool-pack-contract"
+            >
+              <div className="workflow-tool-contract-grid">
+                {[
+                  ["workspaceStatusEnabled", "Workspace status"],
+                  ["gitEnabled", "Git diff"],
+                  ["filesystemEnabled", "File inspect"],
+                  ["writeEnabled", "File patch"],
+                  ["dryRun", "Dry run"],
+                ].map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="workflow-config-checkbox-row"
+                  >
+                    <input
+                      data-testid={`workflow-coding-tool-pack-${key}`}
+                      type="checkbox"
+                      checked={Boolean(
+                        codingToolPack[
+                          key as keyof typeof codingToolPack
+                        ],
+                      )}
+                      onChange={(event) =>
+                        updateCodingToolPack({
+                          ...codingToolPack,
+                          [key]: event.target.checked,
+                        })
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <label>
+                Allowed paths
+                <input
+                  data-testid="workflow-coding-tool-pack-allowed-paths"
+                  value={(codingToolPack.allowedPaths ?? []).join(", ")}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      allowedPaths: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+            </section>
+          ) : null}
           {logic.toolBinding?.bindingKind !== "workflow_tool" ? (
             <section
               className="workflow-tool-credential-contract"
@@ -2372,6 +2468,7 @@ export function WorkflowNodeBindingSections({
                           logic.toolBinding?.requiresApproval ?? false,
                         arguments: logic.toolBinding?.arguments ?? {},
                         workflowTool: undefined,
+                        toolPack: logic.toolBinding?.toolPack,
                       },
                     })
                   }
@@ -2404,6 +2501,7 @@ export function WorkflowNodeBindingSections({
                           logic.toolBinding?.requiresApproval ?? false,
                         arguments: logic.toolBinding?.arguments ?? {},
                         workflowTool: undefined,
+                        toolPack: logic.toolBinding?.toolPack,
                       },
                     })
                   }
@@ -2446,6 +2544,7 @@ export function WorkflowNodeBindingSections({
                       logic.toolBinding?.requiresApproval ?? false,
                     arguments: args,
                     workflowTool: logic.toolBinding?.workflowTool,
+                    toolPack: logic.toolBinding?.toolPack,
                   },
                 });
               }}

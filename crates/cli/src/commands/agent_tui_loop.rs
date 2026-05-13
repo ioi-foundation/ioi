@@ -52,6 +52,12 @@ pub(crate) enum TuiLineCommand {
     Inspect {
         path: String,
     },
+    ApplyPatch {
+        path: String,
+        old_text: String,
+        new_text: String,
+        dry_run: bool,
+    },
     Quit,
 }
 
@@ -224,6 +230,36 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::ApplyPatch {
+                path,
+                old_text,
+                new_text,
+                dry_run,
+            }) => {
+                let mut input = serde_json::Map::new();
+                input.insert("path".to_string(), Value::String(path));
+                input.insert("oldText".to_string(), Value::String(old_text));
+                input.insert("newText".to_string(), Value::String(new_text));
+                if dry_run {
+                    input.insert("dryRun".to_string(), Value::Bool(true));
+                }
+                let events =
+                    handle_coding_tool_input_command(&mut session, "file.apply_patch", input)
+                        .await?;
+                control_state.record_command(
+                    if dry_run { "patch-dry-run" } else { "patch" },
+                    line.trim(),
+                    "applied",
+                    Some(if dry_run {
+                        "file patch previewed"
+                    } else {
+                        "file patch applied"
+                    }),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::Quit) => {
                 println!("line_mode_command=quit");
                 control_state.record_command(
@@ -306,6 +342,24 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
             let path = non_empty_string(rest)
                 .ok_or_else(|| anyhow!("/inspect requires a workspace-relative path"))?;
             Ok(TuiLineCommand::Inspect { path })
+        }
+        "patch" | "apply-patch" | "apply" => {
+            let (path, old_text, new_text) = parse_patch_args(rest)?;
+            Ok(TuiLineCommand::ApplyPatch {
+                path,
+                old_text,
+                new_text,
+                dry_run: false,
+            })
+        }
+        "patch-dry-run" | "apply-patch-dry-run" => {
+            let (path, old_text, new_text) = parse_patch_args(rest)?;
+            Ok(TuiLineCommand::ApplyPatch {
+                path,
+                old_text,
+                new_text,
+                dry_run: true,
+            })
         }
         "quit" | "exit" | "q" => Ok(TuiLineCommand::Quit),
         _ => Err(anyhow!("unknown TUI command /{command}; use /help")),
@@ -466,11 +520,19 @@ async fn handle_coding_tool_command(
     tool_id: &str,
     path: Option<String>,
 ) -> Result<Vec<Value>> {
-    let thread_id = thread_id_from_value(&session.thread)?;
     let mut input = serde_json::Map::new();
     if let Some(path) = path.as_deref().filter(|value| !value.trim().is_empty()) {
         input.insert("path".to_string(), Value::String(path.to_string()));
     }
+    handle_coding_tool_input_command(session, tool_id, input).await
+}
+
+async fn handle_coding_tool_input_command(
+    session: &mut TuiInteractiveSession,
+    tool_id: &str,
+    input: serde_json::Map<String, Value>,
+) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
     let result = invoke_tui_coding_tool(
         &thread_id,
         tool_id,
@@ -500,12 +562,13 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "workspace.status" => "status",
         "git.diff" => "diff",
         "file.inspect" => "inspect",
+        "file.apply_patch" => "patch",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -521,6 +584,27 @@ fn non_empty_string(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+fn parse_patch_args(rest: &str) -> Result<(String, String, String)> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("/patch requires <path> <old> => <new>"));
+    }
+    let path_end = trimmed
+        .find(char::is_whitespace)
+        .ok_or_else(|| anyhow!("/patch requires <path> <old> => <new>"))?;
+    let path = trimmed[..path_end].trim().to_string();
+    let body = trimmed[path_end..].trim();
+    let separator = body
+        .find("=>")
+        .ok_or_else(|| anyhow!("/patch separates old and new text with =>"))?;
+    let old_text = body[..separator].trim().to_string();
+    let new_text = body[separator + 2..].trim().to_string();
+    if path.is_empty() || old_text.is_empty() {
+        return Err(anyhow!("/patch requires a path and non-empty old text"));
+    }
+    Ok((path, old_text, new_text))
 }
 
 fn parse_approval_decision_args(rest: &str) -> (Option<String>, Option<String>) {
@@ -794,6 +878,24 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/patch README.md before => after").unwrap(),
+            TuiLineCommand::ApplyPatch {
+                path: "README.md".to_string(),
+                old_text: "before".to_string(),
+                new_text: "after".to_string(),
+                dry_run: false,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/patch-dry-run README.md before => after").unwrap(),
+            TuiLineCommand::ApplyPatch {
+                path: "README.md".to_string(),
+                old_text: "before".to_string(),
+                new_text: "after".to_string(),
+                dry_run: true,
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/quit").unwrap(),
             TuiLineCommand::Quit
         );
@@ -804,6 +906,7 @@ mod tests {
         assert!(parse_tui_line_command("hello").is_err());
         assert!(parse_tui_line_command("/steer").is_err());
         assert!(parse_tui_line_command("/inspect").is_err());
+        assert!(parse_tui_line_command("/patch README.md before after").is_err());
         assert!(parse_tui_line_command("/events latest").is_err());
         assert!(parse_tui_line_command("/unknown").is_err());
     }

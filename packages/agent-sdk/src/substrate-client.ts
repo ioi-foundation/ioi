@@ -916,6 +916,26 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
       workflowNodeType: "FilesystemToolNode",
       workflowConfigFields: ["toolPack.coding.filesystemEnabled", "toolPack.coding.allowedPaths"],
     },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "file.apply_patch",
+      displayName: "Apply file patch",
+      pack: "coding",
+      primitiveCapabilities: ["prim:fs.apply_patch", "prim:fs.write"],
+      authorityScopeRequirements: ["scope:workspace.write"],
+      effectClass: "local_write",
+      riskDomain: "filesystem",
+      inputSchema: { type: "object", required: ["path"] },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["file_apply_patch_receipt", "workspace_mutation_receipt", "coding_tool_receipt"],
+      workflowNodeType: "FilesystemPatchNode",
+      workflowConfigFields: [
+        "toolPack.coding.filesystemEnabled",
+        "toolPack.coding.writeEnabled",
+        "toolPack.coding.allowedPaths",
+        "toolPack.coding.dryRun",
+      ],
+    },
   ];
 }
 
@@ -1807,7 +1827,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       streamId: eventStreamIdForThread(threadId),
       seq: 1,
       eventKind: "tool.completed",
-      sourceEventKind: `CodingTool.${toolId.replaceAll(".", "")}`,
+      sourceEventKind: mockCodingToolSourceEventKind(toolId),
       itemId: `${threadId}:item:${toolId}`,
       payload: {
         event_kind: "CodingToolResult",
@@ -2395,6 +2415,13 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       // Best-effort cleanup; mock checkpoints are projections, not canonical runtime state.
     }
   }
+}
+
+function mockCodingToolSourceEventKind(toolId: string): string {
+  return `CodingTool.${toolId
+    .split(/[._-]/)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join("")}`;
 }
 
 function runtimeModeForOptions(options: AgentOptions): RuntimeMode {

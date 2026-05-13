@@ -4257,3 +4257,53 @@ Known validation note:
 - Broad `cargo test -p ioi-cli ...` remains blocked by unrelated CLI
   integration tests that need `StartAgentParams.runtime_route_frame`
   initializers.
+
+## Slice 121. 2026-05-13 - Coding tool-pack governed apply-patch contract
+
+Guide section: P0-B. Coding Tool Pack
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/runtime-daemon/src/coding-tools.mjs
+- packages/agent-sdk/src/substrate-client.ts
+- crates/cli/src/commands/agent.rs
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/runtime/workflow-node-registry.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch/2026-05-13T03-24-26-739Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs && node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - daemon and live contract syntax checks passed.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration and bundle build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `cargo fmt -p ioi-cli`
+  - Rust formatting completed.
+- `cargo check -p ioi-cli`
+  - CLI package check passed.
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+  - CLI coding-tool parser test passed for apply-patch flags.
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+  - TUI slash command parser test passed for `/patch` and `/patch-dry-run`.
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow coding-tool projection test passed for status and apply-patch rows.
+- `node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon/SDK/CLI/TUI/React Flow coding tool-pack proof passed for
+    status, diff, inspect, dry-run apply-patch, and mutating apply-patch.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch/2026-05-13T03-24-26-739Z/result.json`.
+
+Known validation note:
+
+- Broad `cargo test -p ioi-cli ...` remains blocked by unrelated CLI
+  integration tests that need `StartAgentParams.runtime_route_frame`
+  initializers.

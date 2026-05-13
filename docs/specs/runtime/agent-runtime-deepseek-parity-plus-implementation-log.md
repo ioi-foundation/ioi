@@ -532,6 +532,41 @@ Known validation note:
   initializer debt. Targeted CLI binary tests and `cargo check -p ioi-cli`
   passed for the touched CLI surfaces.
 
+### Slice 121. 2026-05-13 - Coding tool-pack governed apply-patch contract
+
+Implementation slice completed 2026-05-13, coding tool-pack governed
+apply-patch contract:
+
+- Added daemon-owned `file.apply_patch` to the `coding` pack with exact
+  replace/append/prepend edits, workspace path containment, create/dry-run
+  controls, edit limits, before/after hashes, bounded preview diffs, mutation
+  receipts, and `shellFallbackUsed: false`.
+- Extended SDK tool catalog/invocation mocks, CLI `agent tools run` flags,
+  TUI line-mode `/patch` and `/patch-dry-run`, and React Flow coding-pack
+  creator/config controls for filesystem write, dry-run, and allowed paths.
+- Updated the live daemon contract to prove apply-patch across React
+  Flow-originated daemon invocation, SDK invocation, CLI invocation, TUI
+  command replay, canonical SSE events, SDK event projection, and React Flow
+  run-inspector rows.
+- Refreshed the master guide active gap ledger so the next P0-B work moves to
+  structured test execution, artifact spillover, retrieve-result, and
+  diagnostics.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs && node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli`
+- `cargo check -p ioi-cli`
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch/2026-05-13T03-24-26-739Z/result.json`.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:
