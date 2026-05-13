@@ -109,6 +109,7 @@ the practical workstream when the source heading is broad.
 | 108 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime context compact control node | /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_context_compact_node_builds_react_flow_control_request<br>node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 109 | 2026-05-13 | P0. Live Runtime API Bridge | Shared React Flow runtime-control helper extraction | /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test --manifest-path apps/autopilot/src-tauri/Cargo.toml runtime_ -- --nocapture<br>node --test --test-name-pattern "React Flow context compact control preserves graph identity" scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 110 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness active runtime binding panel split | /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness |
+| 111 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness promotion readiness panel split | /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json | npm run build --workspace=@ioi/agent-ide<br>node --test scripts/lib/harness-refactor-shape.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -3901,3 +3902,43 @@ Known validation note:
   for `scripts/lib/autopilot-gui-harness-validation/core.mjs`, which this slice
   did not edit. The checkpoint now matches the current committed baseline and
   the suite passes.
+
+## Slice 111. 2026-05-13 - React Flow settings harness promotion readiness panel split
+
+Guide section: P2. Localization And Accessibility
+
+Evidence bundles:
+
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessSummary.tsx
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessAuthorityGates.tsx
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessRoutingCanary.tsx
+- scripts/lib/harness-refactor-shape.test.mjs
+- /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed with the extracted promotion
+    readiness components.
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+  - harness refactor shape passed and now covers the promotion readiness
+    summary, authority gates, and routing/canary modules.
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+  - harness refactor shape syntax check passed.
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - GUI harness validation core syntax check passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source contract passed with the parent panel preserving
+    `workflow-harness-selector-live-promotion-readiness` and
+    `workflow-harness-authority-gate-live`.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json`.
+
+Known validation note:
+
+- The first harness refactor shape run failed because the summary and authority
+  child components intentionally receive parent-routed test ids. The guard now
+  checks each child module's owned implementation surface while the parent
+  continues to preserve the source-contract literals.

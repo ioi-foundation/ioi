@@ -110,6 +110,7 @@ workstream was narrower.
 | 108 | 2026-05-13 | P0. Live Runtime API Bridge | React Flow runtime context compact control node | /tmp/ioi-autopilot-gui-harness-react-flow-context-compact-control/2026-05-13T00-40-20-698Z/result.json |
 | 109 | 2026-05-13 | P0. Live Runtime API Bridge | Shared React Flow runtime-control helper extraction | /tmp/ioi-autopilot-gui-harness-runtime-control-helper-refactor/2026-05-13T00-56-55-307Z/result.json |
 | 110 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness active runtime binding panel split | /tmp/ioi-autopilot-gui-harness-active-runtime-binding-panel-refactor/2026-05-13T01-09-15-286Z/result.json |
+| 111 | 2026-05-13 | P2. Localization And Accessibility | React Flow settings harness promotion readiness panel split | /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -5552,3 +5553,48 @@ Known validation note:
   its stale checkpoint by the test's own newline-counting method. The slice did
   not modify that core file; the checkpoint was refreshed to the current
   baseline and the suite then passed.
+
+### Slice 111. 2026-05-13 - React Flow settings harness promotion readiness panel split
+
+Implementation slice completed 2026-05-13, React Flow settings harness
+promotion readiness panel split:
+
+- Split the former 943-line promotion readiness panel into a small parent plus
+  typed `settingsHarnessPromotionReadinessSummary.tsx`,
+  `settingsHarnessPromotionReadinessAuthorityGates.tsx`, and
+  `settingsHarnessPromotionReadinessRoutingCanary.tsx` modules.
+- Preserved the parent
+  `WorkflowSettingsHarnessPromotionReadinessPanelProps` boundary and routed the
+  existing `workflow-harness-selector-live-promotion-readiness` and
+  `workflow-harness-authority-gate-live` source-contract markers through
+  parent constants.
+- Moved live handoff, runtime selector, selector readiness, and default runtime
+  dispatch evidence into
+  `WorkflowSettingsHarnessPromotionReadinessSummary`, including node authority
+  and worker launch/session invariant metadata.
+- Moved authority gate summary, rollup, component/receipt/replay buttons, and
+  row rendering into
+  `WorkflowSettingsHarnessPromotionReadinessAuthorityGates`.
+- Moved read-only routing proof rows and canary boundary/deep-link controls
+  into `WorkflowSettingsHarnessPromotionReadinessRoutingCanary`.
+- Updated the harness refactor shape test to assert all three new modules
+  exist, own implementation, expose typed prop boundaries, import shared
+  settings harness contracts, and remain free of `any`.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/harness-refactor-shape.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-promotion-readiness-panel-refactor/2026-05-13T01-18-45-520Z/result.json`.
+
+Known validation note:
+
+- The first harness refactor shape run failed because the summary and authority
+  child components intentionally receive parent-routed test ids. The guard now
+  checks each child module's owned implementation surface while the parent
+  continues to preserve the source-contract literals.
