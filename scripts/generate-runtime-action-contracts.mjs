@@ -36,6 +36,9 @@ function tsArray(name, values) {
 }
 
 function rustArray(name, values) {
+  if (values.length <= 2) {
+    return `pub const ${name}: &[&str] = &[${values.map((value) => JSON.stringify(value)).join(", ")}];`;
+  }
   return `pub const ${name}: &[&str] = &[\n${values.map((value) => `    ${JSON.stringify(value)},`).join("\n")}\n];`;
 }
 

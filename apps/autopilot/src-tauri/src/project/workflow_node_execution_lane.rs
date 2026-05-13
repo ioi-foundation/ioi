@@ -512,6 +512,90 @@ fn workflow_runtime_operator_interrupt_output(
     })
 }
 
+fn workflow_runtime_operator_steer_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let thread_id_field =
+        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerThreadIdField")
+            .unwrap_or_else(|| "threadId".to_string());
+    let turn_id_field =
+        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerTurnIdField")
+            .unwrap_or_else(|| "turnId".to_string());
+    let guidance_field =
+        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerGuidanceField")
+            .unwrap_or_else(|| "guidance".to_string());
+    let thread_id = workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerThreadId")
+        .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
+        .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
+        .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
+    let turn_id = workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerTurnId")
+        .or_else(|| workflow_runtime_control_input_string(input, &turn_id_field))
+        .or_else(|| workflow_runtime_control_input_string(input, "turn_id"))
+        .unwrap_or_else(|| "{{runtime.turn_id}}".to_string());
+    let guidance = workflow_runtime_control_input_string(input, &guidance_field)
+        .or_else(|| workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerGuidance"))
+        .unwrap_or_else(|| "Steer turn from React Flow workflow control.".to_string());
+    let workflow_graph_id = workflow
+        .map(|project| project.metadata.id.clone())
+        .filter(|value| !value.trim().is_empty());
+    let workflow_graph_id_value = workflow_graph_id.map(Value::String).unwrap_or(Value::Null);
+    let workflow_node_id =
+        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerWorkflowNodeId")
+            .unwrap_or_else(|| "runtime.operator-steer".to_string());
+    let actor = workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerActor")
+        .unwrap_or_else(|| "operator".to_string());
+    let endpoint_template =
+        workflow_runtime_control_logic_string(logic, "runtimeOperatorSteerEndpoint")
+            .unwrap_or_else(|| "/v1/threads/{threadId}/turns/{turnId}/steer".to_string());
+    let endpoint = endpoint_template
+        .replace("{threadId}", &thread_id)
+        .replace("{turnId}", &turn_id);
+    let request = json!({
+        "guidance": guidance,
+        "source": "react_flow",
+        "actor": actor,
+        "workflowGraphId": workflow_graph_id_value.clone(),
+        "workflowNodeId": workflow_node_id.clone(),
+        "eventKind": "OperatorControl.Steer",
+        "componentKind": "operator_control",
+        "payloadSchemaVersion": "ioi.runtime.operator-control.v1"
+    });
+    let runtime_operator_steer = json!({
+        "schemaVersion": "ioi.workflow.runtime-operator-steer-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "operator_control",
+        "workflowGraphId": workflow_graph_id_value,
+        "workflowNodeId": workflow_node_id,
+        "threadId": thread_id,
+        "turnId": turn_id,
+        "endpoint": endpoint,
+        "request": request,
+        "mutationExecuted": false
+    });
+    json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "schemaVersion": "ioi.workflow.runtime-operator-steer-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "operator_control",
+        "workflowGraphId": runtime_operator_steer.get("workflowGraphId").cloned().unwrap_or(Value::Null),
+        "workflowNodeId": runtime_operator_steer.get("workflowNodeId").cloned().unwrap_or(Value::Null),
+        "threadId": runtime_operator_steer.get("threadId").cloned().unwrap_or(Value::Null),
+        "turnId": runtime_operator_steer.get("turnId").cloned().unwrap_or(Value::Null),
+        "endpoint": runtime_operator_steer.get("endpoint").cloned().unwrap_or(Value::Null),
+        "request": runtime_operator_steer.get("request").cloned().unwrap_or(Value::Null),
+        "runtimeOperatorSteer": runtime_operator_steer,
+        "mutationExecuted": false,
+        "input": input
+    })
+}
+
 pub(super) fn execute_workflow_node(
     workflow_path: &Path,
     workflow: Option<&WorkflowProject>,
@@ -663,6 +747,13 @@ pub(super) fn execute_workflow_node(
             workflow_runtime_thread_fork_output(workflow, &node_id, &logic, &input, evidence_kind)
         }
         ActionKind::RuntimeOperatorInterrupt => workflow_runtime_operator_interrupt_output(
+            workflow,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        ),
+        ActionKind::RuntimeOperatorSteer => workflow_runtime_operator_steer_output(
             workflow,
             &node_id,
             &logic,
