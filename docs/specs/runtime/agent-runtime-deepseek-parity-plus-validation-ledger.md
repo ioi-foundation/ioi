@@ -156,6 +156,7 @@ the practical workstream when the source heading is broad.
 | 155 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow run-inspector diagnostics repair actions | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json | node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>rustfmt --check apps/autopilot/src-tauri/src/kernel/artifacts/mod.rs apps/autopilot/src-tauri/src/lib.rs<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>npm run build --workspace=autopilot<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector<br>git diff --check |
 | 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json | node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "run-inspector diagnostics repair action" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "React Flow memory, authority" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop |
 | 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon owns MCP discovery&#124;React Flow MCP workflow authoring" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring |
+| 158 | 2026-05-13 | P1. Subagent Runtime Parity | SDK SubagentManager route wrappers | /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json | npm run typecheck --workspace=@ioi/agent-sdk<br>npm test --workspace=@ioi/agent-sdk<br>node --test --test-name-pattern "SDK client and Thread wrappers drive daemon SubagentManager routes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "SubagentManager&#124;subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers<br>git diff --check |
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 
@@ -4812,6 +4813,43 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search`
   - GUI/workflow preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
+
+## Slice 158. 2026-05-13 - SDK SubagentManager route wrappers
+
+Guide section: P1. Subagent Runtime Parity
+
+Evidence bundles:
+
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/src/thread.ts
+- packages/agent-sdk/src/index.ts
+- packages/agent-sdk/src/testing.ts
+- packages/agent-sdk/test/sdk.test.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json
+
+Validation evidence:
+
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+  - SDK strict TypeScript check passed with subagent control/result types and
+    mock substrate implementation.
+- `npm test --workspace=@ioi/agent-sdk`
+  - SDK build plus 12 tests passed, including the explicit mock
+    `Thread` subagent wrapper coverage.
+- `node --test --test-name-pattern "SDK client and Thread wrappers drive daemon SubagentManager routes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - focused live daemon proof passed for SDK client and `Thread` wrapper route
+    calls with React Flow graph/node identity preserved.
+- `node --test --test-name-pattern "SubagentManager|subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - existing direct daemon SubagentManager and cancellation propagation
+    regressions plus the new SDK wrapper proof passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json`.
 - `git diff --check`
   - whitespace check passed.
 

@@ -16,6 +16,12 @@ import {
   type RuntimeMcpServerMutationInput,
   type RuntimeMcpToolInvokeInput,
   type RuntimeMcpToolSearchInput,
+  type RuntimeSubagentCancellationPropagationResult,
+  type RuntimeSubagentControlInput,
+  type RuntimeSubagentListInput,
+  type RuntimeSubagentListResult,
+  type RuntimeSubagentRecord,
+  type RuntimeSubagentResult,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
   type RuntimeThreadThinkingInput,
@@ -130,6 +136,59 @@ export class Thread {
 
   async thinking(input: RuntimeThreadThinkingInput): Promise<Thread> {
     return new Thread(this.client, await this.client.updateThreadThinking(this.id, input));
+  }
+
+  async listSubagents(input: RuntimeSubagentListInput = {}): Promise<RuntimeSubagentListResult> {
+    return this.client.listSubagents(this.id, input);
+  }
+
+  async spawnSubagent(input: RuntimeSubagentControlInput): Promise<RuntimeSubagentRecord> {
+    return this.client.spawnSubagent(this.id, input);
+  }
+
+  async waitSubagent(
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    return this.client.waitSubagent(this.id, subagentId, input);
+  }
+
+  async getSubagentResult(subagentId: string): Promise<RuntimeSubagentResult> {
+    return this.client.getSubagentResult(this.id, subagentId);
+  }
+
+  async sendSubagentInput(
+    subagentId: string,
+    input: RuntimeSubagentControlInput,
+  ): Promise<RuntimeSubagentRecord> {
+    return this.client.sendSubagentInput(this.id, subagentId, input);
+  }
+
+  async cancelSubagent(
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    return this.client.cancelSubagent(this.id, subagentId, input);
+  }
+
+  async resumeSubagent(
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentResult> {
+    return this.client.resumeSubagent(this.id, subagentId, input);
+  }
+
+  async assignSubagent(
+    subagentId: string,
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentRecord> {
+    return this.client.assignSubagent(this.id, subagentId, input);
+  }
+
+  async propagateSubagentCancellation(
+    input: RuntimeSubagentControlInput = {},
+  ): Promise<RuntimeSubagentCancellationPropagationResult> {
+    return this.client.propagateSubagentCancellation(this.id, input);
   }
 
   async mcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpStatus> {

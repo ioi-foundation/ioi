@@ -111,12 +111,11 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: P0-A/P0-C React Flow run-inspector diagnostics repair
-  full recovery loop
+- 2026-05-13: P1-A SDK subagent manager route wrappers
 - Evidence:
-  focused live daemon/SDK/React Flow/TUI recovery proof, coding-pack
-  regression, source contract, Agent IDE build, and live GUI preflight
-  validation in the validation ledger
+  SDK typecheck/test, focused live daemon SDK/Thread wrapper proof, existing
+  SubagentManager regression proof, and live GUI preflight validation in the
+  validation ledger
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -133,7 +132,7 @@ Completed-slice history belongs in the companion ledgers.
 | P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`, and `tool.retrieve_result` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve`, receipt-backed `tool.completed` events, range-aware test-output spillover artifacts, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, diagnostics mode/default command, restore policy, restore conflict policy, diagnostics repair default, operator-override approval, artifact retrieval, allowed paths, command ids, and timeouts. `file.apply_patch` now reports changed-file existence/size/mtime metadata and emits workspace snapshot ids, artifacts, receipts, and rollback refs for applied mutations. `lsp.diagnostics` defaults to `auto`, resolves TypeScript files with a nearest-`tsconfig.json` project check when local `tsc` is available, and emits degraded/fallback receipts when it must fall back. | Keep coding-pack regression proof green while using these tools inside the next full TUI/workflow recovery surfaces. | Tool-pack nodes can enable/disable git/test/diagnostics/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests; applied patch rows now link to workspace snapshot evidence and workflow-authored restore/repair policy. |
 | P0-C | Post-edit LSP diagnostics | Mutating `file.apply_patch` now auto-runs configured diagnostics for changed files, records `runtime_auto` diagnostic events, injects compact findings into the next local or runtime-bridge turn, emits a receipt-backed `lsp.diagnostics.injected` event, and projects the injection through SDK and React Flow. React Flow coding-pack controls expose `advisory`, `blocking`, and `skip` modes plus default diagnostic command; nested `toolPack.coding.*` config is honored by daemon invocation. `blocking` mode now stops model continuation before a local or runtime-bridge turn, creates a blocked turn/run with no assistant delta, emits a receipt-backed `policy.blocked` diagnostics gate, and binds candidate workspace snapshot refs into a workflow-configurable rollback/repair policy with `repair_retry`, `restore_preview`, `restore_apply`, and `operator_override` decision refs visible to SDK, TUI, and React Flow. Default `auto` diagnostics now carry requested/resolved command ids, backend, backend status/reason, project context, TypeScript project findings, degraded fallback receipts, rollback repair context, restore policy, conflict policy, preferred repair default, and override approval requirement. The `repair_retry`, `restore_preview`, `restore_apply`, and `operator_override` repair decisions are now executable through the daemon endpoint, SDK method, TUI `/diagnostics repair` commands, React Flow `runtime_diagnostics_repair` workflow action nodes, and React Flow run-inspector blocking-gate buttons; each path uses the same daemon request contract, emits workflow-addressable repair/override events plus `diagnostics.repair_decision.executed`, preserves React Flow graph/node identity where available, enforces override approval when configured, and either creates a diagnostics-injected retry turn, delegates to restore contracts, or marks the blocked turn continuation-allowed. A fresh live blocked-diagnostics fixture now proves the complete run-inspector recovery loop without sharing noisy prior diagnostics gates. | Use the proven recovery loop as a regression guard while broader workflow-authoring gaps resume. | `LspDiagnosticsNode` and coding-pack diagnostics controls change runtime warning/error injection behavior and surface injected findings, backend metadata, degraded receipts, blocking gates, rollback refs, repair retries, restore previews, restore applies, operator overrides, and repair decision executions as workflow-addressable rows. |
 | P0-D | Workspace rollback snapshots | Applied `file.apply_patch` calls now create first-class, receipt-backed, content-backed `workspace.snapshot.created` records for size-limited UTF-8 touched files, store before/after content in a redacted snapshot artifact, expose snapshot listing and SDK helpers, support daemon-owned `restore-preview` with drift/conflict checks, and support policy-gated `restore-apply` with explicit approval, conflict override policy, receipts, artifacts, rollback refs, SDK results, React Flow `restore_gate` rows, and diagnostics rollback/repair gate integration without touching user `.git`. React Flow coding-pack controls can configure restore authority, conflict behavior, and repair policy defaults, first-class `RuntimeRollbackSnapshotNode`/`RuntimeRestoreGateNode` definitions compile restore requests across the editor registry, local workflow execution lane, project templates, generated action schemas, and source contracts, and TUI `/restore` lists snapshots, previews restore operations, applies snapshots only with `--approve`, and replays restore events for React Flow projection. Diagnostics repair `restore_preview` and `restore_apply` now reuse the same restore endpoints and projection contracts. | Keep restore repair execution aligned as broader recovery UX grows. | Snapshot, restore-preview, and restore-apply rows are configurable rollback/restore workflow inputs; `RollbackSnapshotNode`, `RestoreGateNode`, TUI restore commands, and diagnostics repair decisions must remain projections of the same daemon restore endpoints. |
-| P1-A | Subagent runtime parity | Delegation patterns exist, but the full role-aware lifecycle and output contract are not productized. | Spawn, wait, send input, cancel, resume, and validate output contract for parallel child agents. | Subagent pool/role/join nodes enforce concurrency, budget, and merge policy. |
+| P1-A | Subagent runtime parity | React Flow has typed state-node authoring for pool/list, role/assign, spawn, join/wait, result, send-input, cancel, resume, and cancellation inheritance fields. The daemon exposes the full `SubagentManager` route surface for list, spawn, wait, result, send input, cancel, resume, assign, and parent cancellation propagation with persisted lifecycle records, output-contract status, restart/cancellation/input/assignment metadata, and parent-thread events. SDK clients and `Thread` handles now wrap the same routes, including propagation, and a live daemon proof validates SDK/client plus Thread wrapper calls with React Flow graph/node identity preserved in emitted events. | Add TUI slash/side-panel wrappers and a broader React Flow-authored parallel fan-out workflow that validates concurrency, output-contract merge readiness, and cancellation propagation end to end. | Subagent pool/role/join nodes enforce concurrency, budget, merge policy, and cancellation inheritance by compiling to daemon requests rather than canvas-local state. |
 | P1-B | MCP manager parity | MCP manager discovery/status/validation plus governed import/add/remove, enable/disable, invocation receipts, self-hosted HTTP JSON-RPC serve mode, vault-backed remote auth headers, large-catalog deferred tool exposure, global IOI MCP config discovery, keyboard-first TUI search/fetch, and React Flow-authored search/fetch/invoke request compilation are now daemon-owned for `$HOME/.ioi/mcp.json`, `.cursor/mcp.json`, `.agents/mcp.json`, inline options, active thread registries, and model-mounting MCP registry entries. `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`, `/v1/mcp/resources`, `/v1/mcp/prompts`, `/v1/mcp/validate`, `/v1/mcp/import`, `/v1/mcp/serve`, `/v1/mcp/servers`, `/v1/mcp/servers/{server_id}`, `/v1/mcp/servers/{server_id}/enable`, `/v1/mcp/servers/{server_id}/disable`, `/v1/mcp/tools/{tool_id}/invoke`, and matching thread-scoped controls expose governed catalog, validation, mutable registry writes, availability, invocation records, served IOI tool calls, source scope/compatibility provenance, redacted secret-ref provenance, request-time vault resolution evidence, catalog summaries, preview limits, stable catalog hashes, namespace summaries, and on-demand tool search/fetch without publishing header material or bloating status payloads. Command-backed stdio MCP tools launch through newline-delimited JSON-RPC, streamable HTTP servers launch through POST JSON-RPC, and SSE servers launch through endpoint-announced event streams; live discovery calls `tools/list`, `resources/list`, and `prompts/list` across supported transports. Remote HTTP/SSE auth-looking headers fail closed unless configured as `vault://` refs, and resolved material is injected only inside live transport requests. TUI `/mcp [status|tools|servers|search|fetch|validate|import|add|remove|enable|disable|invoke]` emits MCP control-state rows and source-mode-filtered search/fetch output; SDK clients and `Thread` handles can import/add/remove servers, search/fetch MCP tools, and call `mcpServeRpc`; React Flow exposes MCP import/add/remove/serve/search/fetch/invoke state-node operations with transport, URL, vault header refs, server config JSON, serve endpoint, allowed-tool JSON, catalog mode, config source mode, search query, tool input JSON, containment, egress intent, and preview-limit fields. | Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes only when a concrete workflow composition needs them. | MCP tool/resource/prompt rows and MCP state nodes carry server/tool/resource/prompt/containment/vault-boundary/catalog-summary/source-scope metadata; MCP import/add/remove/serve/search/fetch/invoke state nodes compile transport/url/vault-header/served-tool/catalog-query/source-mode/tool-input/containment config into daemon controls rather than a canvas-local registry. |
 | P1-M | Memory UX parity | Memory status/validation and write-side mutations are now daemon-owned through `/v1/memory`, `/v1/memory/validate`, `/v1/threads/{thread_id}/memory`, `/v1/threads/{thread_id}/memory/{memory_id}`, `/v1/threads/{thread_id}/memory/status`, and `/v1/threads/{thread_id}/memory/validate`. The daemon validates effective policy, storage paths, record shape, redaction, retention, scope, and subagent-inheritance mode; SDK clients and `Thread` handles expose memory status/validation plus remember/update/delete helpers; TUI `/memory [status|show|policy|path|validate|enable|disable|remember|edit|delete]` emits memory control-state rows; React Flow projects memory status/policy/record/mutation rows and exposes memory status/policy/search/list/remember/edit/delete state nodes. Existing remember/list/edit/delete/path/policy and subagent-inheritance runtime behavior remains intact. | Add redaction review and explicit memory injection/scope aliases only where they improve workflow readability; do not fork memory truth into canvas-local state. | Memory status, policy, search, list, write, delete, and injection controls must compile into daemon memory policy/projection requests rather than canvas-local state. |
 | P1-C | Modes, trust, approvals | Thread-level `plan`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Richer workspace trust and review-mode policy still need one approval manifest. | Prove plan/review block mutating tools at runtime even if UI config is permissive, and prove graph-level approval overrides compile into the same manifest. | Graph-level mode selector and node approval overrides compile into one approval manifest. |
@@ -141,8 +140,9 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Start P1-A subagent runtime parity with spawn/wait/send/cancel/resume
-   daemon contracts and React Flow pool/role/join authoring fields.
+1. Continue P1-A by adding TUI slash/side-panel wrappers over the same
+   SubagentManager routes, then prove a React Flow-authored parallel fan-out
+   workflow end to end.
 2. Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes
    only when a concrete workflow composition needs them.
 3. When adding the next recovery or diagnostics affordance, keep it
@@ -758,11 +758,16 @@ Current implementation note, 2026-05-13:
   `cancellationInheritance: "propagate"` are canceled with inherited
   cancellation metadata and parent-thread lifecycle events, while isolated
   descendants remain unchanged.
+- SDK clients and `Thread` handles now wrap the full daemon route surface:
+  list, spawn, wait, result, send input, cancel, resume, assign, and parent
+  cancellation propagation. The wrappers carry source, actor, role, tool-pack,
+  model-route, output-contract, merge-policy, budget, cancellation-inheritance,
+  and React Flow graph/node metadata into the daemon request contract.
 - The pure subagent lifecycle contract helpers now live in
   `packages/runtime-daemon/src/subagent-manager.mjs`, keeping the daemon route
   and store wiring thin enough for the next lifecycle operations.
-- Remaining P1-A gap: add SDK/TUI wrappers and broader live parallel fan-out
-  workflows behind this React Flow contract.
+- Remaining P1-A gap: add TUI slash/side-panel wrappers and broader live
+  parallel fan-out workflows behind this React Flow contract.
 
 Acceptance evidence:
 
@@ -1878,6 +1883,10 @@ adding more infrastructure by default.
 
 Recent focused validation, 2026-05-13:
 
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `npm test --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "SDK client and Thread wrappers drive daemon SubagentManager routes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "SubagentManager|subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --check packages/runtime-daemon/src/subagent-manager.mjs`
 - `node --test --test-name-pattern "local daemon exposes SubagentManager spawn, list, input, cancel, resume, assign, wait, and result contracts" scripts/lib/live-runtime-daemon-contract.test.mjs`
 - `node --test --test-name-pattern "local daemon propagates parent subagent cancellation with fan-out policy evidence" scripts/lib/live-runtime-daemon-contract.test.mjs`
@@ -1891,6 +1900,9 @@ Recent focused validation, 2026-05-13:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-cancel-propagation`
   passed and wrote
   `/tmp/ioi-autopilot-gui-harness-subagent-cancel-propagation/2026-05-13T18-44-38-612Z/result.json`.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers`
+  passed and wrote
+  `/tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json`.
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-resume-assign`
   passed and wrote
   `/tmp/ioi-autopilot-gui-harness-subagent-resume-assign/2026-05-13T18-39-52-293Z/result.json`.
@@ -1907,8 +1919,8 @@ Recent focused validation, 2026-05-13:
 
 Next runtime implementation sequence:
 
-1. Add SDK and TUI wrappers over the same routes, including output-contract
-   status and restart/cancellation visibility.
+1. Add TUI wrappers over the same routes, including output-contract status and
+   restart/cancellation visibility.
 2. Add a broader workflow-level live parallel fan-out proof that starts from a
    React Flow-authored workflow and exercises propagation through the GUI.
 3. Keep MCP, diagnostics repair, and memory controls regression-green while

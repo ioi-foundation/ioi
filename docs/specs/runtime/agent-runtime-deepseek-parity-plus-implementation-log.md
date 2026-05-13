@@ -157,6 +157,7 @@ workstream was narrower.
 | 155 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | React Flow run-inspector diagnostics repair actions | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-run-inspector/2026-05-13T17-22-14-924Z/result.json |
 | 156 | 2026-05-13 | P0. Terminal Coding-Agent TUI / P0-C. Post-edit LSP Diagnostics | run-inspector diagnostics repair full recovery loop | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-full-loop/2026-05-13T17-40-50-387Z/result.json |
 | 157 | 2026-05-13 | P1. MCP Manager Parity | React Flow MCP workflow authoring compiler | /tmp/ioi-autopilot-gui-harness-mcp-react-flow-authoring/2026-05-13T17-57-32-571Z/result.json |
+| 158 | 2026-05-13 | P1. Subagent Runtime Parity | SDK SubagentManager route wrappers | /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -277,6 +278,37 @@ Validation evidence:
 - `npm run build:ide`
 - `cargo test -p autopilot workflow_model_tool_memory_parser_loop_records_lineage`
 - `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- `git diff --check`
+
+### Slice 158. 2026-05-13 - SDK SubagentManager route wrappers
+
+Implementation slice completed 2026-05-13, P1-A SDK subagent manager parity:
+
+- Added typed SDK payloads for subagent lifecycle records, list results,
+  output-contract status, manager results, and parent cancellation propagation.
+- Exposed the full daemon `SubagentManager` route surface through
+  `RuntimeSubstrateClient`: list, spawn, wait, result, send input, cancel,
+  resume, assign, and propagate cancellation.
+- Added matching `Thread` convenience methods so thread-oriented SDK consumers
+  can drive subagent workflows without hand-writing daemon routes.
+- Extended the explicit mock substrate with a lightweight subagent manager
+  projection so SDK tests can cover the same route surface without creating a
+  second runtime implementation.
+- Added a live daemon contract proving SDK client calls and `Thread` wrappers
+  reach the daemon routes while preserving React Flow workflow graph/node
+  identity in emitted subagent lifecycle events.
+- Updated the master guide so remaining P1-A work is TUI slash/side-panel
+  wrappers and broader React Flow-authored parallel fan-out proof.
+
+Validation evidence:
+
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `npm test --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "SDK client and Thread wrappers drive daemon SubagentManager routes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "SubagentManager|subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-sdk-wrappers/2026-05-13T18-58-38-511Z/result.json`.
 - `git diff --check`
 
 ### Slice 157. 2026-05-13 - React Flow MCP workflow authoring compiler
