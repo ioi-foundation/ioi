@@ -375,6 +375,11 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     const job = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}`);
     assert.equal(job.jobId, jobs[0].jobId);
     assert.equal(job.runId, run.id);
+    const sdkJobs = await client.listJobs({ agentId: run.agentId });
+    assert.equal(sdkJobs.length, 1);
+    assert.equal(sdkJobs[0].jobId, jobs[0].jobId);
+    assert.equal(sdkJobs[0].runId, run.id);
+    assert.equal((await client.getJob(jobs[0].jobId)).jobId, jobs[0].jobId);
     const jobCancel = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}/cancel`, {
       method: "POST",
       body: "{}",
@@ -383,6 +388,9 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(jobCancel.status, "canceled");
     assert.deepEqual(jobCancel.lifecycle, ["queued", "started", "canceled"]);
     assert.equal(jobCancel.cancellation.reason, "operator_cancel");
+    const sdkJobCancel = await client.cancelJob(jobs[0].jobId);
+    assert.equal(sdkJobCancel.jobId, jobs[0].jobId);
+    assert.equal(sdkJobCancel.status, "canceled");
     assert.equal(jobCancel.checklistId, trace.runtimeChecklist.checklistId);
     assert.equal(jobCancel.checklistStatus, "canceled");
     const traceAfterJobCancel = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/trace`);
@@ -5507,6 +5515,13 @@ test("agent TUI thin shell starts a live thread, replays by cursor, and controls
     assert.equal(payload.control.stop_reason, "operator_interrupt");
     assert.match(payload.event_route, new RegExp(`/v1/threads/${payload.thread.thread_id}/events\\?since_seq=0`));
     assert.ok(payload.event_count >= 3);
+    assert.ok(payload.job_count >= 1);
+    assert.ok(payload.job_rows.some((row) => row.thread_id === payload.thread.thread_id));
+    assert.ok(payload.run_lifecycle_rows.some((row) => row.run_id));
+    assert.equal(payload.deep_links.job_row_count, payload.job_rows.length);
+    assert.equal(payload.deep_links.run_lifecycle_row_count, payload.run_lifecycle_rows.length);
+    assert.equal(payload.routes.job_list, "/v1/jobs");
+    assert.equal(payload.routes.run_replay, "/v1/runs/{run_id}/replay");
     assert.ok(payload.workflow_node_ids.includes("runtime.operator-interrupt"));
     assert.equal(
       payload.tui_control_state.schema_version,
@@ -5529,12 +5544,22 @@ test("agent TUI thin shell starts a live thread, replays by cursor, and controls
     assert.equal(tuiControlStateProjection.currentTurnId, payload.submitted_turn.turn_id);
     assert.equal(tuiControlStateProjection.commandCount, 2);
     assert.equal(tuiControlStateProjection.validationErrorCount, 0);
+    assert.ok(tuiControlStateProjection.jobCount >= 1);
+    assert.ok(tuiControlStateProjection.runLifecycleCount >= 1);
     assert.ok(
       tuiControlStateProjection.rows.some(
         (row) =>
           row.rowKind === "command" &&
           row.command === "interrupt" &&
           row.reactFlowNodeId === "runtime.tui-control-state.command.interrupt",
+      ),
+    );
+    assert.ok(
+      tuiControlStateProjection.rows.some(
+        (row) =>
+          row.rowKind === "job" &&
+          row.runId &&
+          row.reactFlowNodeId === "runtime.runtime-job",
       ),
     );
     const interruptEvent = payload.events.find(
@@ -5669,10 +5694,13 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         daemon.endpoint,
         "--interactive",
       ],
-      "/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
+      "/jobs\n/job\n/run replay\n/interrupt line-mode validation interrupt\n/events 0\n/steer\n/quit\n",
       { cwd: root, timeout: 30000 },
     );
-    assert.match(result.stdout, /Line-mode commands: .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/quit/);
+    assert.match(result.stdout, /Line-mode commands: .*\/approvals .*\/approve \[approval_id\] \[reason\] .*\/reject \[approval_id\] \[reason\].*\/interrupt \[reason\] .*\/steer <guidance> .*\/jobs .*\/job .*\/run .*\/quit/);
+    assert.match(result.stdout, /line_mode_command=jobs count=\d+/);
+    assert.match(result.stdout, /line_mode_command=job action=inspect/);
+    assert.match(result.stdout, /line_mode_command=run action=replay/);
     assert.match(result.stdout, /line_mode_command=interrupt/);
     assert.match(result.stdout, /line_mode_command=events/);
     assert.match(result.stdout, /line_mode_error=\/steer requires guidance text/);
@@ -5748,6 +5776,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
         (entry) => entry.command === "events" && entry.status === "applied",
       ),
     );
+    assert.ok(finalControlState.job_rows.some((row) => row.job_id));
+    assert.ok(finalControlState.run_lifecycle_rows.some((row) => row.run_id));
     assert.ok(
       finalControlState.validation_errors.some(
         (entry) =>
@@ -5762,6 +5792,8 @@ test("agent TUI line-mode slash commands control daemon turns and keep React Flo
       WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
     );
     assert.equal(lineModeControlProjection.threadId, threadId);
+    assert.ok(lineModeControlProjection.jobCount >= 1);
+    assert.ok(lineModeControlProjection.runLifecycleCount >= 1);
     assert.ok(
       lineModeControlProjection.rows.some(
         (row) =>

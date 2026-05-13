@@ -180,11 +180,19 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "mode_status"
   | "approval"
   | "approval_decision"
+  | "job"
+  | "run_lifecycle"
   | "command"
   | "validation_error";
 
 export type WorkflowRuntimeTuiControlRowStatus =
   | "current"
+  | "queued"
+  | "running"
+  | "waiting"
+  | "completed"
+  | "canceled"
+  | "interrupted"
   | "pending"
   | "approved"
   | "rejected"
@@ -213,6 +221,10 @@ export interface WorkflowRuntimeTuiControlStateInput {
   approval_rows?: unknown[];
   approvalDecisions?: unknown[];
   approval_decisions?: unknown[];
+  jobRows?: unknown[];
+  job_rows?: unknown[];
+  runLifecycleRows?: unknown[];
+  run_lifecycle_rows?: unknown[];
   commandHistory?: unknown[];
   command_history?: unknown[];
   validationErrors?: unknown[];
@@ -228,6 +240,8 @@ export interface WorkflowRuntimeTuiControlStateRow {
   rawInput: string | null;
   message: string | null;
   approvalId: string | null;
+  jobId: string | null;
+  runId: string | null;
   threadId: string | null;
   turnId: string | null;
   cursor: string | null;
@@ -250,6 +264,8 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   validationErrorCount: number;
   approvalCount: number;
   approvalDecisionCount: number;
+  jobCount: number;
+  runLifecycleCount: number;
   rowCount: number;
   rows: WorkflowRuntimeTuiControlStateRow[];
 }
@@ -336,6 +352,12 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     "approvalDecisions",
     "approval_decisions",
   );
+  const jobRows = arrayField(state, "jobRows", "job_rows");
+  const runLifecycleRows = arrayField(
+    state,
+    "runLifecycleRows",
+    "run_lifecycle_rows",
+  );
   const rows: WorkflowRuntimeTuiControlStateRow[] = [];
 
   if (threadId || currentTurnId || lastCursor || lastEventId) {
@@ -348,6 +370,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       rawInput: null,
       message: currentTurnId ? `Current turn ${currentTurnId}` : "No active turn",
       approvalId: null,
+      jobId: null,
+      runId: null,
       threadId,
       turnId: currentTurnId,
       cursor: lastCursor,
@@ -375,6 +399,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       rawInput: null,
       message: `${mode} · ${approvalMode} · ${trustProfile}`,
       approvalId: null,
+      jobId: null,
+      runId: null,
       threadId,
       turnId: currentTurnId,
       cursor: lastCursor,
@@ -399,6 +425,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       rawInput: null,
       message: stringField(entry, "message", "summary") ?? "Waiting for operator decision",
       approvalId,
+      jobId: null,
+      runId: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -432,6 +460,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       rawInput: null,
       message: stringField(entry, "message", "reason") ?? approvalId,
       approvalId,
+      jobId: null,
+      runId: null,
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -449,6 +479,81 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     });
   });
 
+  jobRows.forEach((entry, index) => {
+    const jobId = stringField(entry, "jobId", "job_id");
+    const runId = stringField(entry, "runId", "run_id");
+    const status = tuiControlRowStatus(stringField(entry, "status"));
+    const progress =
+      stringField(entry, "progressPercent", "progress_percent") ??
+      stringField(recordField(entry, "progress"), "percent");
+    const queueName = stringField(entry, "queueName", "queue_name");
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    rows.push({
+      id: stringField(entry, "id") ?? `tui-job:${jobId ?? sequence}`,
+      rowKind: "job",
+      status,
+      label: jobId ? `Job ${jobId}` : "Runtime job",
+      command: "jobs",
+      rawInput: "/jobs",
+      message: [runId, queueName, progress ? `${progress}%` : null]
+        .filter(Boolean)
+        .join(" · ") || null,
+      approvalId: null,
+      jobId,
+      runId,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        "runtime.runtime-job",
+    });
+  });
+
+  runLifecycleRows.forEach((entry, index) => {
+    const runId = stringField(entry, "runId", "run_id");
+    const jobId = stringField(entry, "jobId", "job_id");
+    const status = tuiControlRowStatus(stringField(entry, "status"));
+    const progress =
+      stringField(entry, "progressPercent", "progress_percent") ??
+      stringField(recordField(entry, "progress"), "percent");
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    rows.push({
+      id: stringField(entry, "id") ?? `tui-run-lifecycle:${runId ?? sequence}`,
+      rowKind: "run_lifecycle",
+      status,
+      label: runId ? `Run ${runId}` : "Run lifecycle",
+      command: "run",
+      rawInput: "/run",
+      message: [jobId, progress ? `${progress}%` : null].filter(Boolean).join(" · ") || null,
+      approvalId: null,
+      jobId,
+      runId,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        `runtime.run-lifecycle.${slug(runId ?? String(sequence))}`,
+    });
+  });
+
   commandHistory.forEach((entry, index) => {
     const command = stringField(entry, "command");
     const rawInput = stringField(entry, "rawInput", "raw_input") ?? command;
@@ -463,6 +568,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       rawInput,
       message: stringField(entry, "message"),
       approvalId: stringField(entry, "approvalId", "approval_id"),
+      jobId: stringField(entry, "jobId", "job_id"),
+      runId: stringField(entry, "runId", "run_id"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -491,6 +598,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       rawInput,
       message: stringField(entry, "message", "error") ?? "Invalid TUI command",
       approvalId: stringField(entry, "approvalId", "approval_id"),
+      jobId: stringField(entry, "jobId", "job_id"),
+      runId: stringField(entry, "runId", "run_id"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -514,6 +623,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     validationErrorCount: validationErrors.length,
     approvalCount: approvalRows.length,
     approvalDecisionCount: approvalDecisions.length,
+    jobCount: jobRows.length,
+    runLifecycleCount: runLifecycleRows.length,
     rowCount: rows.length,
     rows,
   };
@@ -998,6 +1109,12 @@ function tuiControlRowStatus(
   }
   switch (normalizedStatus) {
     case "current":
+    case "queued":
+    case "running":
+    case "waiting":
+    case "completed":
+    case "canceled":
+    case "interrupted":
     case "pending":
     case "approved":
     case "rejected":

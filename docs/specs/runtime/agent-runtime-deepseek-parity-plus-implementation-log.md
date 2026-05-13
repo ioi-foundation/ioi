@@ -6661,3 +6661,37 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-master-guide-triage/2026-05-13T01-35-47-401Z/result.json`.
 - `git diff --check`
+
+### Slice 139. 2026-05-13 - TUI jobs and run lifecycle parity view
+
+Implementation slice completed 2026-05-13, daemon-owned TUI jobs and run
+lifecycle parity view:
+
+- Extended `ioi agent tui` JSON and screen rendering with daemon-backed
+  `/v1/jobs` rows scoped to the selected thread/agent plus run lifecycle rows
+  with replay, trace, inspect, events, and cancel routes.
+- Added line-mode `/jobs`, `/job [inspect|cancel]`, and `/run
+  [run_id|trace|inspect|replay|cancel]` commands that call canonical daemon
+  job/run endpoints rather than private TUI state.
+- Added SDK `RuntimeJobRecord` plus `listJobs`, `getJob`, and `cancelJob`
+  handles so SDK, CLI/TUI, and daemon API share the same job contract.
+- Projected TUI `job_rows` and `run_lifecycle_rows` into React Flow
+  run-inspector control-state rows with counts, job/run ids, statuses, and
+  runtime job node identity.
+- Updated the master guide to mark the jobs/run lifecycle TUI slice complete
+  and move the immediate queue to mode/model/thinking controls.
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide -- --emptyOutDir=false`
+- `node --import tsx --test --test-name-pattern "projects TUI control state" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --import tsx --test --test-name-pattern "workflow run history model projects TUI control state" packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "local daemon public API|agent TUI thin shell|agent TUI line-mode slash" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt -p ioi-cli -- --check`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json`.

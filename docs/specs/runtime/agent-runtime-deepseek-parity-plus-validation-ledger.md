@@ -4276,6 +4276,47 @@ Known validation note:
   integration tests that need `StartAgentParams.runtime_route_frame`
   initializers.
 
+## Slice 139. 2026-05-13 - TUI jobs and run lifecycle parity view
+
+Guide section: P0-A. Terminal Coding-Agent TUI
+
+Evidence bundles:
+
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+  - Rust TUI route, parser, control-state, job-row, and lifecycle-row tests
+    passed.
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+  - SDK job-handle typecheck passed.
+- `npm run build --workspace=@ioi/agent-ide -- --emptyOutDir=false`
+  - React Flow control-state projection and run-panel build passed.
+- `node --import tsx --test --test-name-pattern "projects TUI control state" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow TUI control-state rows passed for job and run-lifecycle counts.
+- `node --import tsx --test --test-name-pattern "workflow run history model projects TUI control state" packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - run-inspector model projection stayed compatible with the expanded
+    control-state schema.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract syntax check passed.
+- `node --test --test-name-pattern "local daemon public API|agent TUI thin shell|agent TUI line-mode slash" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon, SDK job handles, JSON TUI job rows, line-mode `/jobs`, `/job`,
+    and `/run replay`, and React Flow projection proof passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `git diff --check`
+  - whitespace check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-tui-jobs-run-lifecycle/2026-05-13T11-39-18-945Z/result.json`.
+
 ## Slice 137. 2026-05-13 - Executable diagnostics repair retry
 
 Guide section: P0-C. Post-edit LSP Diagnostics
