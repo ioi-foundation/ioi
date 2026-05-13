@@ -2009,6 +2009,7 @@ function contextPressureActionsForEvents(
     const executable =
       booleanField(record, "executable") ??
       (action === "compact" ||
+        action === "delegate_summary" ||
         action === "request_approval" ||
         (action === "stop" && Boolean(alertEvent.turnId)));
     const status = stringField(record, "status") ?? (executable ? "available" : "advisory");

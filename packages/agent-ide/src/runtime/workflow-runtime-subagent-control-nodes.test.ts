@@ -6,6 +6,7 @@ import {
   RUNTIME_SUBAGENT_EVENT_KIND_BY_OPERATION,
   RUNTIME_SUBAGENT_SOURCE,
   WORKFLOW_RUNTIME_SUBAGENT_CONTROL_SCHEMA_VERSION,
+  createRuntimeSubagentControlRequest,
   createRuntimeSubagentControlRequestFromWorkflowNode,
 } from "./workflow-runtime-subagent-control-nodes";
 
@@ -66,6 +67,50 @@ test("subagent spawn state node builds a role-aware daemon request", () => {
   ]);
   assert.equal(request.body?.mergePolicy, "manual");
   assert.equal(request.body?.cancellationInheritance, "propagate");
+});
+
+test("subagent delegate-summary request preserves context-pressure provenance", () => {
+  const request = createRuntimeSubagentControlRequest({
+    nodeId: "context-pressure-delegate-summary",
+    operation: "spawn",
+    threadId: "thread-context-pressure",
+    parentTurnId: "turn-context-pressure",
+    role: "review",
+    prompt: "Summarize current context pressure and return receipts.",
+    forkContext: true,
+    toolPack: "coding",
+    outputContract: ["SUMMARY", "EVIDENCE", "RECEIPTS"],
+    mergePolicy: "evidence_only",
+    cancellationInheritance: "isolate",
+    contextPressureAction: "delegate_summary",
+    pressure: 0.74,
+    pressureStatus: "elevated",
+    alertId: "event-context-pressure-alert",
+    sourceEventId: "event-context-pressure-delta",
+    receiptRefs: ["receipt_context_pressure_alert"],
+    policyDecisionRefs: ["policy_context_pressure_delegate_summary"],
+    workflowGraphId: "workflow.context-pressure",
+    workflowNodeId: "runtime.subagent.delegate-summary",
+    actor: "operator",
+  });
+
+  assert.equal(request.operation, "spawn");
+  assert.equal(request.body?.eventKind, RUNTIME_SUBAGENT_EVENT_KIND_BY_OPERATION.spawn);
+  assert.equal(request.body?.workflowNodeId, "runtime.subagent.delegate-summary");
+  assert.equal(request.body?.parentTurnId, "turn-context-pressure");
+  assert.equal(request.body?.role, "review");
+  assert.equal(request.body?.forkContext, true);
+  assert.equal(request.body?.contextPressureAction, "delegate_summary");
+  assert.equal(request.body?.context_pressure_action, "delegate_summary");
+  assert.equal(request.body?.pressure, 0.74);
+  assert.equal(request.body?.contextPressure, 0.74);
+  assert.equal(request.body?.pressureStatus, "elevated");
+  assert.equal(request.body?.alertId, "event-context-pressure-alert");
+  assert.equal(request.body?.sourceEventId, "event-context-pressure-delta");
+  assert.deepEqual(request.body?.receiptRefs, ["receipt_context_pressure_alert"]);
+  assert.deepEqual(request.body?.policyDecisionRefs, [
+    "policy_context_pressure_delegate_summary",
+  ]);
 });
 
 test("subagent join state node builds a wait request with output contract gates", () => {

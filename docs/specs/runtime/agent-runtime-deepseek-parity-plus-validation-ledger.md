@@ -171,6 +171,44 @@ the practical workstream when the source heading is broad.
 | 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions |
 | 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action |
 | 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --import tsx --test --test-name-pattern "runtime_approval_request&#124;context-pressure alerts" packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --import tsx --test --test-name-pattern "React Flow approval request control creates a daemon-owned approval gate" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/generate-runtime-action-contracts.mjs --check<br>cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>git diff --check<br>npm run validate:autopilot-gui-harness |
+| 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/subagent-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test --test-name-pattern "React Flow delegate-summary context-pressure action spawns a daemon-owned subagent" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness<br>git diff --check |
+
+## Slice 173. 2026-05-13 - Context-pressure delegate-summary subagent execution
+
+Guide section: P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/runtime-daemon/src/subagent-manager.mjs
+- packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/graph-runtime-types.ts
+- packages/agent-ide/src/WorkflowComposer/controller.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon syntax check passed.
+- `node --check packages/runtime-daemon/src/subagent-manager.mjs`
+  - subagent manager syntax check passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract test syntax check passed.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - subagent request, context-pressure projection, and run-history tests passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript, Vite, and declaration build passed.
+- `node --import tsx --test --test-name-pattern "React Flow delegate-summary context-pressure action spawns a daemon-owned subagent" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon subagent spawn, SSE event, SDK event, and React Flow projection proof passed.
+- `node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source-contract guard passed.
+- `npm run validate:autopilot-gui-harness`
+  - live GUI/workflow preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
 
 ## Slice 172. 2026-05-13 - Context-pressure approval request execution
 

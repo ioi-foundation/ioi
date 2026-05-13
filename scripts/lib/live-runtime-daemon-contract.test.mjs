@@ -9324,6 +9324,124 @@ test("React Flow approval request control creates a daemon-owned approval gate",
   }
 });
 
+test("React Flow delegate-summary context-pressure action spawns a daemon-owned subagent", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeSubagentControlRequest,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-delegate-summary-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-delegate-summary-state-"));
+  const workflowGraphId = "workflow.react-flow.delegate-summary-proof";
+  const workflowNodeId = "runtime.subagent.delegate-summary";
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Prove React Flow context-pressure delegate summaries spawn subagents.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a React Flow context-pressure delegate-summary validation.",
+      }),
+    });
+
+    const control = createRuntimeSubagentControlRequest({
+      nodeId: "react-flow-delegate-summary-action",
+      operation: "spawn",
+      threadId: thread.thread_id,
+      parentTurnId: turn.turn_id,
+      role: "review",
+      prompt:
+        "Summarize the current turn context under elevated pressure. Return SUMMARY, EVIDENCE, RISKS, BLOCKERS, and RECEIPTS.",
+      forkContext: true,
+      toolPack: "coding",
+      outputContract: ["SUMMARY", "EVIDENCE", "RISKS", "BLOCKERS", "RECEIPTS"],
+      mergePolicy: "evidence_only",
+      cancellationInheritance: "isolate",
+      contextPressureAction: "delegate_summary",
+      pressure: 0.74,
+      pressureStatus: "elevated",
+      alertId: "event-context-pressure-alert-live",
+      sourceEventId: "event-context-pressure-live",
+      receiptRefs: ["receipt_context_pressure_alert_live"],
+      policyDecisionRefs: ["policy_context_pressure_delegate_live"],
+      workflowGraphId,
+      workflowNodeId,
+      actor: "operator",
+    });
+    assert.equal(control.nodeType, "runtime_subagent");
+    assert.equal(control.body.source, "react_flow");
+    assert.equal(control.body.workflowGraphId, workflowGraphId);
+    assert.equal(control.body.workflowNodeId, workflowNodeId);
+    assert.equal(control.body.contextPressureAction, "delegate_summary");
+    assert.equal(control.body.cancellationInheritance, "isolate");
+
+    const spawned = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: control.method,
+      body: JSON.stringify(control.body),
+    });
+    assert.equal(spawned.object, "ioi.runtime_subagent");
+    assert.equal(spawned.parent_thread_id, thread.thread_id);
+    assert.equal(spawned.parent_turn_id, turn.turn_id);
+    assert.equal(spawned.workflow_graph_id, workflowGraphId);
+    assert.equal(spawned.workflow_node_id, workflowNodeId);
+    assert.equal(spawned.role, "review");
+    assert.equal(spawned.context_pressure_action, "delegate_summary");
+    assert.equal(spawned.context_pressure, 0.74);
+    assert.equal(spawned.pressure_status, "elevated");
+    assert.equal(spawned.alert_id, "event-context-pressure-alert-live");
+    assert.equal(spawned.source_event_id, "event-context-pressure-live");
+    assert.equal(spawned.merge_policy, "evidence_only");
+    assert.equal(spawned.cancellation_inheritance, "isolate");
+    assert.ok(spawned.receipt_refs.includes("receipt_context_pressure_alert_live"));
+    assert.ok(spawned.policy_decision_refs.includes("policy_context_pressure_delegate_live"));
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const spawnEvent = daemonEvents.find(
+      (event) =>
+        event.source_event_kind === "OperatorControl.SubagentSpawn" &&
+        event.workflow_node_id === workflowNodeId,
+    );
+    assert.ok(spawnEvent);
+    assert.equal(spawnEvent.component_kind, "subagent_lifecycle");
+    assert.equal(spawnEvent.payload_summary.context_pressure_action, "delegate_summary");
+    assert.equal(spawnEvent.payload_summary.alert_id, "event-context-pressure-alert-live");
+    assert.equal(spawnEvent.payload_summary.source_event_id, "event-context-pressure-live");
+    assert.ok(spawnEvent.receipt_refs.includes("receipt_context_pressure_alert_live"));
+    assert.ok(spawnEvent.policy_decision_refs.includes("policy_context_pressure_delegate_live"));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkSpawnEvent = sdkEvents.find((event) => event.id === spawnEvent.event_id);
+    assert.ok(sdkSpawnEvent);
+    assert.equal(sdkSpawnEvent.sourceEventKind, "OperatorControl.SubagentSpawn");
+    assert.equal(sdkSpawnEvent.workflowGraphId, workflowGraphId);
+    assert.equal(sdkSpawnEvent.workflowNodeId, workflowNodeId);
+    assert.equal(sdkSpawnEvent.payload.contextPressureAction, "delegate_summary");
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const subagentNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(spawnEvent.event_id),
+    );
+    assert.ok(subagentNode);
+    assert.equal(subagentNode.componentKind, "subagent_lifecycle");
+    assert.equal(subagentNode.workflowNodeId, workflowNodeId);
+    assert.ok(reactFlowProjection.workflowGraphIds.includes(workflowGraphId));
+  } finally {
+    if (daemon) await daemon.close();
+  }
+});
+
 test("React Flow and line-mode TUI interrupt controls share the operator-control event contract", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -10377,6 +10495,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeMcpControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/mcp\/tools\/search/);
   assert.match(workflowRuntimeMcpControlNodes, /OperatorControl\.McpInvoke/);
   assert.match(workflowRuntimeSubagentControlNodes, /createRuntimeSubagentControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeSubagentControlNodes, /contextPressureAction/);
+  assert.match(workflowRuntimeSubagentControlNodes, /policyDecisionRefs/);
   assert.match(workflowRuntimeSubagentControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/subagents/);
   assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentSpawn/);
   assert.match(workflowRuntimeSubagentControlNodes, /OperatorControl\.SubagentSendInput/);
@@ -10618,8 +10738,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /createRuntimeApprovalRequestControlRequest/);
   assert.match(workflowComposerController, /createRuntimeContextCompactControlRequest/);
   assert.match(workflowComposerController, /createRuntimeOperatorInterruptControlRequest/);
+  assert.match(workflowComposerController, /createRuntimeSubagentControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeContextPressureAction/);
   assert.match(workflowComposerController, /"request_approval"/);
+  assert.match(workflowComposerController, /"delegate_summary"/);
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);

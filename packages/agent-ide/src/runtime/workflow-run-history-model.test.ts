@@ -342,7 +342,7 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
             {
               action: "delegate_summary",
               label: "Delegate summary",
-              executable: false,
+              executable: true,
               workflowNodeId: "runtime.subagent.delegate-summary",
             },
             {
@@ -390,7 +390,7 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
       (action) => [action.action, action.workflowNodeId, action.executable],
     ),
     [
-      ["delegate_summary", "runtime.subagent.delegate-summary", false],
+      ["delegate_summary", "runtime.subagent.delegate-summary", true],
       ["compact", "runtime.context-compact", true],
     ],
   );

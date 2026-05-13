@@ -172,8 +172,43 @@ workstream was narrower.
 | 170 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure alert/action rows | /tmp/ioi-autopilot-gui-harness-context-pressure-alert-actions/2026-05-13T22-39-10-370Z/result.json |
 | 171 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure stop action execution | /tmp/ioi-autopilot-gui-harness-context-pressure-stop-action/2026-05-13T22-44-54-853Z/result.json |
 | 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json |
+| 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 173. 2026-05-13 - Context-pressure delegate-summary subagent execution
+
+Implementation slice completed 2026-05-13, P1-D delegate-summary execution:
+
+- Made `delegate_summary` context-pressure alert actions executable and routed
+  the React Flow run-inspector action through the existing
+  `runtime_subagent`/SubagentManager control path instead of inventing a
+  parallel summary endpoint.
+- Extended subagent control requests with context-pressure provenance:
+  action, pressure, pressure status, alert/source event ids, receipt refs, and
+  policy decision refs now ride with the spawn request and are persisted on the
+  daemon subagent record plus `OperatorControl.SubagentSpawn` event.
+- Updated React Flow runtime-control typing so `runtime_subagent` requests are
+  accepted by the same Tauri daemon control executor as compact, stop,
+  approval, and diagnostics repair requests.
+- Added live proof coverage for a React Flow-style delegate-summary action
+  spawning a daemon-owned review subagent with forked context, isolated
+  cancellation, evidence-only merge policy, preserved graph/node identity, SDK
+  event visibility, and React Flow projection evidence.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/subagent-manager.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test --test-name-pattern "React Flow delegate-summary context-pressure action spawns a daemon-owned subagent" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json`.
+- `git diff --check`
 
 ### Slice 172. 2026-05-13 - Context-pressure approval request execution
 

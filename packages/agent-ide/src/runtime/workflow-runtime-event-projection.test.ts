@@ -799,6 +799,13 @@ test("projects context-pressure alerts into action rows", () => {
           workflowNodeId: "runtime.approval.context-pressure",
         },
         {
+          action: "delegate_summary",
+          label: "Delegate summary",
+          status: "recommended",
+          executable: true,
+          workflowNodeId: "runtime.subagent.delegate-summary",
+        },
+        {
           action: "stop",
           label: "Stop turn",
           status: "available",
@@ -839,6 +846,14 @@ test("projects context-pressure alerts into action rows", () => {
       [
         "request_approval",
         "runtime.approval.context-pressure",
+        true,
+        "subagent_aggregate",
+        "high",
+        "event-context-pressure",
+      ],
+      [
+        "delegate_summary",
+        "runtime.subagent.delegate-summary",
         true,
         "subagent_aggregate",
         "high",

@@ -1544,6 +1544,25 @@ export class AgentgresRuntimeStateStore {
       optionalString(request.parent_turn_id ?? request.parentTurnId ?? request.turn_id ?? request.turnId) ??
       parentThread.latest_turn_id ??
       null;
+    const contextPressureAction =
+      optionalString(request.context_pressure_action ?? request.contextPressureAction) ?? null;
+    const contextPressure = contextBudgetNumber(
+      request.context_pressure,
+      request.contextPressure,
+      request.pressure,
+    );
+    const pressureStatus =
+      optionalString(request.pressure_status ?? request.pressureStatus) ?? null;
+    const alertId = optionalString(request.alert_id ?? request.alertId) ?? null;
+    const sourceEventId =
+      optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
+    const requestReceiptRefs = uniqueStrings(
+      request.receipt_refs ?? request.receiptRefs,
+    );
+    const requestPolicyDecisionRefs = uniqueStrings(
+      request.policy_decision_refs ?? request.policyDecisionRefs,
+    );
+    const runReceiptRefs = run.receipts.map((receipt) => receipt.id);
     const record = {
       schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
       schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
@@ -1605,24 +1624,45 @@ export class AgentgresRuntimeStateStore {
         optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
       cancellationInheritance:
         optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
+      context_pressure_action: contextPressureAction,
+      contextPressureAction,
+      context_pressure: contextPressure,
+      contextPressure,
+      pressure: contextPressure,
+      pressure_status: pressureStatus,
+      pressureStatus,
+      alert_id: alertId,
+      alertId,
+      source_event_id: sourceEventId,
+      sourceEventId,
+      source_receipt_refs: requestReceiptRefs,
+      sourceReceiptRefs: requestReceiptRefs,
+      source_policy_decision_refs: requestPolicyDecisionRefs,
+      sourcePolicyDecisionRefs: requestPolicyDecisionRefs,
       created_at: now,
       createdAt: now,
       updated_at: now,
       updatedAt: now,
       result: subagentResultForRun({ record: null, run, output, outputContractStatus }),
-      receipt_refs: run.receipts.map((receipt) => receipt.id),
-      receiptRefs: run.receipts.map((receipt) => receipt.id),
+      receipt_refs: uniqueStrings([...runReceiptRefs, ...requestReceiptRefs]),
+      receiptRefs: uniqueStrings([...runReceiptRefs, ...requestReceiptRefs]),
+      policy_decision_refs: requestPolicyDecisionRefs,
+      policyDecisionRefs: requestPolicyDecisionRefs,
       evidence_refs: [
         "runtime.subagent_manager",
         "runtime.subagent.spawn",
         run.id,
-        ...run.receipts.map((receipt) => receipt.id),
+        ...runReceiptRefs,
+        ...requestReceiptRefs,
+        ...requestPolicyDecisionRefs,
       ],
       evidenceRefs: [
         "runtime.subagent_manager",
         "runtime.subagent.spawn",
         run.id,
-        ...run.receipts.map((receipt) => receipt.id),
+        ...runReceiptRefs,
+        ...requestReceiptRefs,
+        ...requestPolicyDecisionRefs,
       ],
     };
     record.result = subagentResultForRun({ record, run, output, outputContractStatus });
@@ -2423,10 +2463,16 @@ export class AgentgresRuntimeStateStore {
     const budgetPolicyDecision = record.budget_policy_decision ?? record.budgetPolicyDecision ?? null;
     const budgetStatus =
       record.budget_status ?? record.budgetStatus?.status ?? budgetPolicyDecision?.reason ?? null;
-    const policyDecisionRefs =
-      budgetStatus === "exceeded" && budgetPolicyDecision?.id && typeof budgetPolicyDecision.id === "string"
+    const requestReceiptRefs = uniqueStrings(request.receipt_refs ?? request.receiptRefs);
+    const requestPolicyDecisionRefs = uniqueStrings(
+      request.policy_decision_refs ?? request.policyDecisionRefs,
+    );
+    const policyDecisionRefs = uniqueStrings([
+      ...requestPolicyDecisionRefs,
+      ...(budgetStatus === "exceeded" && budgetPolicyDecision?.id && typeof budgetPolicyDecision.id === "string"
         ? [budgetPolicyDecision.id]
-        : [`policy_subagent_${safeId(operation)}_allow_${eventHash}`];
+        : [`policy_subagent_${safeId(operation)}_allow_${eventHash}`]),
+    ]);
     return this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
@@ -2446,7 +2492,10 @@ export class AgentgresRuntimeStateStore {
       component_kind: "subagent_lifecycle",
       payload_schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
       payload,
-      receipt_refs: [`receipt_subagent_${safeId(operation)}_${eventHash}`],
+      receipt_refs: uniqueStrings([
+        ...requestReceiptRefs,
+        `receipt_subagent_${safeId(operation)}_${eventHash}`,
+      ]),
       policy_decision_refs: policyDecisionRefs,
       artifact_refs: [],
       rollback_refs: [],
@@ -17499,7 +17548,7 @@ function contextPressureAlertPayload(usageDelta = {}) {
       action: "delegate_summary",
       label: "Delegate summary",
       status: pressureStatus === "high" ? "recommended" : "available",
-      executable: false,
+      executable: true,
       workflow_node_id: "runtime.subagent.delegate-summary",
       workflowNodeId: "runtime.subagent.delegate-summary",
       summary: "Create a summarization delegate before continuing the long-running turn.",

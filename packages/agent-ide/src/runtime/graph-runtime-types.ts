@@ -45,12 +45,14 @@ import type {
   RuntimeDiagnosticsRepairControlRequest,
   RuntimeOperatorInterruptControlRequest,
 } from "./workflow-runtime-control-nodes";
+import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
 
 export type WorkflowRuntimeControlRequest =
   | RuntimeApprovalRequestControlRequest
   | RuntimeContextCompactControlRequest
   | RuntimeDiagnosticsRepairControlRequest
-  | RuntimeOperatorInterruptControlRequest;
+  | RuntimeOperatorInterruptControlRequest
+  | RuntimeSubagentControlRequest;
 
 // Wire-format payload for graph execution requests.
 export interface GraphPayload {

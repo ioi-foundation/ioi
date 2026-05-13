@@ -87,6 +87,21 @@ export interface RuntimeSubagentControlRequestBody {
   mergePolicy: string;
   cancellation_inheritance: string;
   cancellationInheritance: string;
+  context_pressure_action: string | null;
+  contextPressureAction: string | null;
+  pressure: number | null;
+  context_pressure: number | null;
+  contextPressure: number | null;
+  pressure_status: string | null;
+  pressureStatus: string | null;
+  alert_id: string | null;
+  alertId: string | null;
+  source_event_id: string | null;
+  sourceEventId: string | null;
+  receipt_refs: string[];
+  receiptRefs: string[];
+  policy_decision_refs: string[];
+  policyDecisionRefs: string[];
 }
 
 export interface RuntimeSubagentControlRequest {
@@ -130,6 +145,20 @@ export interface RuntimeSubagentControlRequestInput {
   outputContract?: unknown[] | null;
   mergePolicy?: string | null;
   cancellationInheritance?: string | null;
+  contextPressureAction?: string | null;
+  contextPressureActionField?: string | null;
+  pressure?: number | null;
+  pressureField?: string | null;
+  pressureStatus?: string | null;
+  pressureStatusField?: string | null;
+  alertId?: string | null;
+  alertIdField?: string | null;
+  sourceEventId?: string | null;
+  sourceEventIdField?: string | null;
+  receiptRefs?: string[] | null;
+  receiptRefsField?: string | null;
+  policyDecisionRefs?: string[] | null;
+  policyDecisionRefsField?: string | null;
   workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   actor?: string | null;
@@ -202,6 +231,39 @@ export function createRuntimeSubagentControlRequest(
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
     `runtime.subagent.${params.operation}.${safeId(role)}`;
+  const contextPressureAction =
+    stringAtPath(params.input, params.contextPressureActionField ?? "contextPressureAction") ??
+    stringAtPath(params.input, "context_pressure_action") ??
+    cleanString(params.contextPressureAction);
+  const pressure =
+    numberAtPath(params.input, params.pressureField ?? "pressure") ??
+    numberAtPath(params.input, "context_pressure") ??
+    numberOrNull(params.pressure);
+  const pressureStatus =
+    stringAtPath(params.input, params.pressureStatusField ?? "pressureStatus") ??
+    stringAtPath(params.input, "pressure_status") ??
+    cleanString(params.pressureStatus);
+  const alertId =
+    stringAtPath(params.input, params.alertIdField ?? "alertId") ??
+    stringAtPath(params.input, "alert_id") ??
+    cleanString(params.alertId);
+  const sourceEventId =
+    stringAtPath(params.input, params.sourceEventIdField ?? "sourceEventId") ??
+    stringAtPath(params.input, "source_event_id") ??
+    cleanString(params.sourceEventId);
+  const receiptRefs = uniqueStringArray([
+    ...stringArrayAtPath(params.input, params.receiptRefsField ?? "receiptRefs"),
+    ...stringArrayAtPath(params.input, "receipt_refs"),
+    ...(params.receiptRefs ?? []),
+  ]);
+  const policyDecisionRefs = uniqueStringArray([
+    ...stringArrayAtPath(
+      params.input,
+      params.policyDecisionRefsField ?? "policyDecisionRefs",
+    ),
+    ...stringArrayAtPath(params.input, "policy_decision_refs"),
+    ...(params.policyDecisionRefs ?? []),
+  ]);
   const method = params.operation === "list" || params.operation === "result" ? "GET" : "POST";
   const endpoint = subagentEndpoint(params.operation, threadId, subagentId);
 
@@ -291,6 +353,21 @@ export function createRuntimeSubagentControlRequest(
       mergePolicy: cleanString(params.mergePolicy) ?? "manual",
       cancellation_inheritance: cleanString(params.cancellationInheritance) ?? "propagate",
       cancellationInheritance: cleanString(params.cancellationInheritance) ?? "propagate",
+      context_pressure_action: contextPressureAction,
+      contextPressureAction,
+      pressure,
+      context_pressure: pressure,
+      contextPressure: pressure,
+      pressure_status: pressureStatus,
+      pressureStatus,
+      alert_id: alertId,
+      alertId,
+      source_event_id: sourceEventId,
+      sourceEventId,
+      receipt_refs: receiptRefs,
+      receiptRefs,
+      policy_decision_refs: policyDecisionRefs,
+      policyDecisionRefs,
     },
   };
 }
@@ -412,6 +489,18 @@ function stringAtPath(input: unknown, path: string | null | undefined): string |
   return cleanString(value);
 }
 
+function numberAtPath(input: unknown, path: string | null | undefined): number | null {
+  const value = valueAtPath(input, path);
+  return numberOrNull(value);
+}
+
+function stringArrayAtPath(input: unknown, path: string | null | undefined): string[] {
+  const value = valueAtPath(input, path);
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    : [];
+}
+
 function valueAtPath(input: unknown, path: string | null | undefined): unknown {
   const clean = cleanString(path);
   if (!clean || input === null || typeof input !== "object") return null;
@@ -423,6 +512,10 @@ function valueAtPath(input: unknown, path: string | null | undefined): unknown {
 
 function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function uniqueStringArray(values: readonly string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
 function cleanString(value: unknown): string | null {
