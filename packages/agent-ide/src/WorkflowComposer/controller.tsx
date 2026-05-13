@@ -124,6 +124,7 @@ import {
   createRuntimeDiagnosticsRepairControlRequest,
   createRuntimeOperatorInterruptControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
+import { createRuntimeSubagentControlRequest } from "../runtime/workflow-runtime-subagent-control-nodes";
 import type {
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
@@ -9511,7 +9512,7 @@ export function useWorkflowComposerController({
         setStatusMessage(`Context pressure action ${action.label} is advisory`);
         return;
       }
-      if (!["compact", "stop", "request_approval"].includes(action.action)) {
+      if (!["compact", "stop", "request_approval", "delegate_summary"].includes(action.action)) {
         setStatusMessage(
           `Context pressure action ${action.label} is not executable yet`,
         );
@@ -9562,6 +9563,45 @@ export function useWorkflowComposerController({
                 workflowNodeId: action.workflowNodeId,
                 actor: "operator",
               })
+            : action.action === "delegate_summary"
+              ? createRuntimeSubagentControlRequest({
+                  nodeId: action.id,
+                  operation: "spawn",
+                  threadId: action.threadId,
+                  parentTurnId: action.turnId,
+                  role: "review",
+                  prompt: [
+                    `Summarize the current ${action.scope.replace(/_/g, " ")} context before the parent turn continues.`,
+                    action.pressureStatus || action.pressure !== null
+                      ? `Context pressure: ${action.pressureStatus ?? "unknown"}${action.pressure !== null ? ` at ${action.pressure}` : ""}.`
+                      : null,
+                    action.summary ? `Alert: ${action.summary}` : null,
+                    "Return SUMMARY, EVIDENCE, RISKS, BLOCKERS, and RECEIPTS.",
+                  ]
+                    .filter(Boolean)
+                    .join("\n"),
+                  forkContext: true,
+                  toolPack: "coding",
+                  outputContract: [
+                    "SUMMARY",
+                    "EVIDENCE",
+                    "RISKS",
+                    "BLOCKERS",
+                    "RECEIPTS",
+                  ],
+                  mergePolicy: "evidence_only",
+                  cancellationInheritance: "isolate",
+                  contextPressureAction: action.action,
+                  pressure: action.pressure,
+                  pressureStatus: action.pressureStatus,
+                  alertId: action.eventId,
+                  sourceEventId: action.sourceEventId ?? action.eventId,
+                  receiptRefs: action.receiptRefs,
+                  policyDecisionRefs: action.policyDecisionRefs,
+                  workflowGraphId,
+                  workflowNodeId: action.workflowNodeId,
+                  actor: "operator",
+                })
             : createRuntimeOperatorInterruptControlRequest({
                 nodeId: action.id,
                 threadId: action.threadId,

@@ -368,6 +368,35 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
     mergePolicy: record.mergePolicy ?? record.merge_policy ?? null,
     cancellation_inheritance: record.cancellation_inheritance ?? record.cancellationInheritance ?? null,
     cancellationInheritance: record.cancellationInheritance ?? record.cancellation_inheritance ?? null,
+    context_pressure_action:
+      record.context_pressure_action ?? record.contextPressureAction ?? null,
+    contextPressureAction:
+      record.contextPressureAction ?? record.context_pressure_action ?? null,
+    context_pressure:
+      record.context_pressure ?? record.contextPressure ?? record.pressure ?? null,
+    contextPressure:
+      record.contextPressure ?? record.context_pressure ?? record.pressure ?? null,
+    pressure: record.pressure ?? record.context_pressure ?? record.contextPressure ?? null,
+    pressure_status: record.pressure_status ?? record.pressureStatus ?? null,
+    pressureStatus: record.pressureStatus ?? record.pressure_status ?? null,
+    alert_id: record.alert_id ?? record.alertId ?? null,
+    alertId: record.alertId ?? record.alert_id ?? null,
+    source_event_id: record.source_event_id ?? record.sourceEventId ?? null,
+    sourceEventId: record.sourceEventId ?? record.source_event_id ?? null,
+    source_receipt_refs: uniqueStrings(
+      record.source_receipt_refs ?? record.sourceReceiptRefs,
+    ),
+    sourceReceiptRefs: uniqueStrings(
+      record.sourceReceiptRefs ?? record.source_receipt_refs,
+    ),
+    source_policy_decision_refs:
+      uniqueStrings(
+        record.source_policy_decision_refs ?? record.sourcePolicyDecisionRefs,
+      ),
+    sourcePolicyDecisionRefs:
+      uniqueStrings(
+        record.sourcePolicyDecisionRefs ?? record.source_policy_decision_refs,
+      ),
     input_id: record.input_id ?? record.inputId ?? null,
     inputId: record.inputId ?? record.input_id ?? null,
     input_count: record.input_count ?? record.inputCount ?? null,
