@@ -161,6 +161,56 @@ the practical workstream when the source heading is broad.
 | 160 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent fan-out workflow proof | /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout/2026-05-13T19-37-08-337Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls&#124;SubagentManager&#124;subagent cancellation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-react-flow-fanout |
 | 161 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent child-subflow projection | /tmp/ioi-autopilot-gui-harness-subagent-child-subflows/2026-05-13T19-50-06-418Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow subagent fan-out workflow compiles nodes into live daemon controls" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-child-subflows |
 | 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json | node --check packages/runtime-daemon/src/subagent-manager.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run typecheck --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo fmt -p ioi-cli -- --check<br>cargo test -p ioi-cli --bin cli agent_tui -- --nocapture<br>node --test --test-name-pattern "React Flow subagent budget and cost caps&#124;React Flow subagent fan-out workflow compiles nodes into live daemon controls&#124;local daemon exposes SubagentManager" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-budget-cost |
+| 163 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | RuntimeUsageTelemetry aggregation and projection | /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json | node --check packages/runtime-daemon/src/usage-telemetry.mjs<br>node --check packages/runtime-daemon/src/index.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows --quiet<br>node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-telemetry<br>git diff --check |
+
+## Slice 163. 2026-05-13 - RuntimeUsageTelemetry aggregation and projection
+
+Guide section: P1-D. Usage, Cost, Context Telemetry
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/usage-telemetry.mjs
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/messages.ts
+- packages/agent-sdk/src/substrate-client.ts
+- packages/agent-sdk/src/index.ts
+- packages/agent-sdk/src/testing.ts
+- crates/cli/src/commands/agent_tui.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/usage-telemetry.mjs`
+  - usage telemetry helper syntax passed.
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon route and runtime-event wiring syntax passed.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source-contract guard passed with usage row/data attributes.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - projection tests passed with `usage_status` rows and row-count updates.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK declaration/bundle build passed with usage endpoint helpers and types.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript and Vite build passed with usage run-inspector rows.
+- `cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows --quiet`
+  - Rust TUI control-state row test passed with usage status projection.
+- `node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon proof passed for run/thread usage, cost, context pressure, SDK
+    helpers, delegated subagent aggregation, and `usage_final` event metadata.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - workflow-addressable regression guard remained green.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-telemetry`
+  - GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
 
 ## Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 

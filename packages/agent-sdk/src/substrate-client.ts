@@ -122,7 +122,88 @@ export interface RuntimeRunRecord {
   memoryRecords?: AgentMemoryRecord[];
   memoryWriteReceipts?: RuntimeReceipt[];
   subagentMemoryInheritance?: SubagentMemoryInheritanceProjection | null;
+  usage?: RuntimeUsageTelemetry | null;
+  usage_telemetry?: RuntimeUsageTelemetry | null;
+  usageTelemetry?: RuntimeUsageTelemetry | null;
+  runtimeUsage?: RuntimeUsageTelemetry | null;
   result: string;
+}
+
+export interface RuntimeUsageTelemetry {
+  schema_version?: "ioi.runtime.usage-telemetry.v1" | string;
+  schemaVersion?: "ioi.runtime.usage-telemetry.v1" | string;
+  object?: "ioi.runtime_usage_telemetry" | string;
+  scope: "run" | "thread" | "subagent" | "global" | string;
+  thread_id?: string | null;
+  threadId?: string | null;
+  turn_id?: string | null;
+  turnId?: string | null;
+  run_id?: string | null;
+  runId?: string | null;
+  agent_id?: string | null;
+  agentId?: string | null;
+  provider: string;
+  model: string;
+  route_id?: string | null;
+  routeId?: string | null;
+  model_route_id?: string | null;
+  modelRouteId?: string | null;
+  input_tokens: number;
+  inputTokens?: number;
+  output_tokens: number;
+  outputTokens?: number;
+  reasoning_tokens: number;
+  reasoningTokens?: number;
+  cached_input_tokens: number;
+  cachedInputTokens?: number;
+  tool_result_tokens: number;
+  toolResultTokens?: number;
+  compacted_tokens: number;
+  compactedTokens?: number;
+  total_tokens: number;
+  totalTokens?: number;
+  estimated_cost_micros: number;
+  estimatedCostMicros?: number;
+  estimated_cost_usd?: number;
+  estimatedCostUsd?: number;
+  currency?: string;
+  context_window_tokens?: number;
+  contextWindowTokens?: number;
+  context_used_tokens?: number;
+  contextUsedTokens?: number;
+  context_pressure?: number;
+  contextPressure?: number;
+  context_pressure_status?: "nominal" | "elevated" | "high" | string;
+  contextPressureStatus?: "nominal" | "elevated" | "high" | string;
+  latency_ms: number;
+  latencyMs?: number;
+  estimated?: boolean;
+  source_counts?: { runs?: number; subagents?: number; [key: string]: unknown };
+  sourceCounts?: { runs?: number; subagents?: number; [key: string]: unknown };
+  source_refs?: string[];
+  sourceRefs?: string[];
+  generated_at?: string;
+  generatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimeUsageListInput {
+  groupBy?: "run" | "thread" | string;
+  group_by?: "run" | "thread" | string;
+  agentId?: string;
+  agent_id?: string;
+}
+
+export interface RuntimeUsageListResult {
+  schema_version?: "ioi.runtime.usage-telemetry.v1" | string;
+  schemaVersion?: "ioi.runtime.usage-telemetry.v1" | string;
+  object?: "ioi.runtime_usage_list" | string;
+  group_by?: string;
+  groupBy?: string;
+  count: number;
+  usage: RuntimeUsageTelemetry[];
+  generated_at?: string;
+  generatedAt?: string;
 }
 
 export interface RuntimeJobRecord {
@@ -1111,6 +1192,7 @@ export interface RuntimeSubstrateClient {
   createThread(input?: RuntimeThreadCreateInput): Promise<RuntimeThreadRecord>;
   listThreads(): Promise<RuntimeThreadRecord[]>;
   getThread(threadId: string): Promise<RuntimeThreadRecord>;
+  getThreadUsage(threadId: string): Promise<RuntimeUsageTelemetry>;
   resumeThread(threadId: string): Promise<RuntimeThreadRecord>;
   forkThread(threadId: string, input?: RuntimeThreadForkInput): Promise<RuntimeThreadRecord>;
   compactThread(threadId: string, input?: RuntimeThreadCompactInput): Promise<RuntimeThreadRecord>;
@@ -1173,7 +1255,9 @@ export interface RuntimeSubstrateClient {
   waitRun(runId: string): Promise<IOIRunResult>;
   cancelRun(runId: string): Promise<RuntimeRunRecord>;
   getRun(runId: string): Promise<RuntimeRunRecord>;
+  getRunUsage(runId: string): Promise<RuntimeUsageTelemetry>;
   listRuns(agentId?: string): Promise<RuntimeRunRecord[]>;
+  listUsage(input?: RuntimeUsageListInput): Promise<RuntimeUsageListResult>;
   listJobs(options?: RuntimeJobListOptions): Promise<RuntimeJobRecord[]>;
   getJob(jobId: string): Promise<RuntimeJobRecord>;
   cancelJob(jobId: string): Promise<RuntimeJobRecord>;
@@ -1335,6 +1419,10 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async getThread(threadId: string): Promise<RuntimeThreadRecord> {
     return this.request("getThread", "GET", `/v1/threads/${encodePath(threadId)}`);
+  }
+
+  async getThreadUsage(threadId: string): Promise<RuntimeUsageTelemetry> {
+    return this.request("getThreadUsage", "GET", `/v1/threads/${encodePath(threadId)}/usage`);
   }
 
   async resumeThread(threadId: string): Promise<RuntimeThreadRecord> {
@@ -1678,9 +1766,18 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("getRun", "GET", `/v1/runs/${encodePath(runId)}`);
   }
 
+  async getRunUsage(runId: string): Promise<RuntimeUsageTelemetry> {
+    return this.request("getRunUsage", "GET", `/v1/runs/${encodePath(runId)}/usage`);
+  }
+
   async listRuns(agentId?: string): Promise<RuntimeRunRecord[]> {
     const query = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
     return this.request("listRuns", "GET", `/v1/runs${query}`);
+  }
+
+  async listUsage(input: RuntimeUsageListInput = {}): Promise<RuntimeUsageListResult> {
+    const query = runtimeUsageListQuery(input);
+    return this.request("listUsage", "GET", `/v1/usage${query}`);
   }
 
   async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {
@@ -2401,6 +2498,288 @@ function encodePath(value: string): string {
   return encodeURIComponent(value);
 }
 
+function runtimeUsageListQuery(input: RuntimeUsageListInput = {}): string {
+  const params = new URLSearchParams();
+  const groupBy = input.groupBy ?? input.group_by;
+  const agentId = input.agentId ?? input.agent_id;
+  if (groupBy) params.set("group_by", groupBy);
+  if (agentId) params.set("agentId", agentId);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function mockUsageForRun(run: RuntimeRunRecord): RuntimeUsageTelemetry {
+  const existing = run.usageTelemetry ?? run.usage_telemetry ?? run.runtimeUsage ?? run.usage;
+  if (existing) return existing;
+  const inputTokens = estimatedTokenCount(run.objective);
+  const outputTokens = estimatedTokenCount(run.result);
+  const totalTokens = inputTokens + outputTokens;
+  const costUsd = roundUsageUsd(totalTokens * 0.000001);
+  const contextWindowTokens = 128000;
+  const contextUsedTokens = totalTokens;
+  const contextPressure = roundUsageRatio(contextUsedTokens / contextWindowTokens);
+  return {
+    schema_version: "ioi.runtime.usage-telemetry.v1",
+    schemaVersion: "ioi.runtime.usage-telemetry.v1",
+    object: "ioi.runtime_usage_telemetry",
+    scope: "run",
+    thread_id: threadIdForAgent(run.agentId),
+    threadId: threadIdForAgent(run.agentId),
+    turn_id: turnIdForRun(run.id),
+    turnId: turnIdForRun(run.id),
+    run_id: run.id,
+    runId: run.id,
+    agent_id: run.agentId,
+    agentId: run.agentId,
+    provider: run.modelRouteDecision?.providerId ?? "local",
+    model: run.modelRouteDecision?.selectedModel ?? "local:auto",
+    route_id: run.modelRouteDecision?.routeId ?? null,
+    routeId: run.modelRouteDecision?.routeId ?? null,
+    model_route_id: run.modelRouteDecision?.routeId ?? null,
+    modelRouteId: run.modelRouteDecision?.routeId ?? null,
+    input_tokens: inputTokens,
+    inputTokens,
+    output_tokens: outputTokens,
+    outputTokens,
+    reasoning_tokens: 0,
+    reasoningTokens: 0,
+    cached_input_tokens: 0,
+    cachedInputTokens: 0,
+    tool_result_tokens: 0,
+    toolResultTokens: 0,
+    compacted_tokens: 0,
+    compactedTokens: 0,
+    total_tokens: totalTokens,
+    totalTokens,
+    estimated_cost_micros: Math.round(costUsd * 1_000_000),
+    estimatedCostMicros: Math.round(costUsd * 1_000_000),
+    estimated_cost_usd: costUsd,
+    estimatedCostUsd: costUsd,
+    currency: "USD",
+    context_window_tokens: contextWindowTokens,
+    contextWindowTokens,
+    context_used_tokens: contextUsedTokens,
+    contextUsedTokens,
+    context_pressure: contextPressure,
+    contextPressure,
+    context_pressure_status: contextPressureStatus(contextPressure),
+    contextPressureStatus: contextPressureStatus(contextPressure),
+    latency_ms: 0,
+    latencyMs: 0,
+    estimated: true,
+    source_counts: { runs: 1, subagents: 0 },
+    sourceCounts: { runs: 1, subagents: 0 },
+    source_refs: [run.id],
+    sourceRefs: [run.id],
+    generated_at: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function mockUsageForThread({
+  threadId,
+  agent,
+  runs,
+  subagents,
+}: {
+  threadId: string;
+  agent: RuntimeAgentRecord;
+  runs: RuntimeRunRecord[];
+  subagents: RuntimeSubagentRecord[];
+}): RuntimeUsageTelemetry {
+  const records = [
+    ...runs.map((run) => run.usageTelemetry ?? run.usage_telemetry ?? run.runtimeUsage ?? run.usage ?? mockUsageForRun(run)),
+    ...subagents.map(mockUsageForSubagent).filter((record): record is RuntimeUsageTelemetry => Boolean(record)),
+  ];
+  const inputTokens = usageSum(records, "input_tokens", "inputTokens");
+  const outputTokens = usageSum(records, "output_tokens", "outputTokens");
+  const reasoningTokens = usageSum(records, "reasoning_tokens", "reasoningTokens");
+  const cachedInputTokens = usageSum(records, "cached_input_tokens", "cachedInputTokens");
+  const toolResultTokens = usageSum(records, "tool_result_tokens", "toolResultTokens");
+  const compactedTokens = usageSum(records, "compacted_tokens", "compactedTokens");
+  const totalTokens = usageSum(records, "total_tokens", "totalTokens");
+  const estimatedCostUsd = roundUsageUsd(
+    records.reduce((sum, record) => sum + usageNumber(record.estimated_cost_usd ?? record.estimatedCostUsd), 0),
+  );
+  const estimatedCostMicros =
+    records.reduce((sum, record) => sum + usageNumber(record.estimated_cost_micros ?? record.estimatedCostMicros), 0) ||
+    Math.round(estimatedCostUsd * 1_000_000);
+  const contextWindowTokens = Math.max(
+    128000,
+    ...records.map((record) => usageNumber(record.context_window_tokens ?? record.contextWindowTokens)),
+  );
+  const contextUsedTokens = records.reduce(
+    (sum, record) => sum + usageNumber(record.context_used_tokens ?? record.contextUsedTokens),
+    0,
+  );
+  const contextPressure = contextWindowTokens > 0
+    ? roundUsageRatio(contextUsedTokens / contextWindowTokens)
+    : 0;
+  return {
+    schema_version: "ioi.runtime.usage-telemetry.v1",
+    schemaVersion: "ioi.runtime.usage-telemetry.v1",
+    object: "ioi.runtime_usage_telemetry",
+    scope: "thread",
+    thread_id: threadId,
+    threadId,
+    agent_id: agent.id,
+    agentId: agent.id,
+    provider: "aggregate",
+    model: "aggregate",
+    route_id: null,
+    routeId: null,
+    model_route_id: null,
+    modelRouteId: null,
+    input_tokens: inputTokens,
+    inputTokens,
+    output_tokens: outputTokens,
+    outputTokens,
+    reasoning_tokens: reasoningTokens,
+    reasoningTokens,
+    cached_input_tokens: cachedInputTokens,
+    cachedInputTokens,
+    tool_result_tokens: toolResultTokens,
+    toolResultTokens,
+    compacted_tokens: compactedTokens,
+    compactedTokens,
+    total_tokens: totalTokens,
+    totalTokens,
+    estimated_cost_micros: estimatedCostMicros,
+    estimatedCostMicros: estimatedCostMicros,
+    estimated_cost_usd: estimatedCostUsd,
+    estimatedCostUsd: estimatedCostUsd,
+    currency: "USD",
+    context_window_tokens: contextWindowTokens,
+    contextWindowTokens,
+    context_used_tokens: contextUsedTokens,
+    contextUsedTokens,
+    context_pressure: contextPressure,
+    contextPressure,
+    context_pressure_status: contextPressureStatus(contextPressure),
+    contextPressureStatus: contextPressureStatus(contextPressure),
+    latency_ms: usageSum(records, "latency_ms", "latencyMs"),
+    latencyMs: usageSum(records, "latency_ms", "latencyMs"),
+    estimated: true,
+    source_counts: { runs: runs.length, subagents: subagents.length },
+    sourceCounts: { runs: runs.length, subagents: subagents.length },
+    source_refs: records.flatMap((record) => record.source_refs ?? record.sourceRefs ?? []).filter(Boolean),
+    sourceRefs: records.flatMap((record) => record.sourceRefs ?? record.source_refs ?? []).filter(Boolean),
+    generated_at: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function mockUsageForSubagent(record: RuntimeSubagentRecord): RuntimeUsageTelemetry | null {
+  const usage = record.usageTelemetry ?? record.usage_telemetry;
+  if (!usage) return null;
+  const totalTokens = usageNumber(usage.cumulative_total_tokens ?? usage.cumulativeTotalTokens ?? usage.total_tokens ?? usage.totalTokens);
+  const inputTokens = usageNumber(usage.cumulative_input_tokens ?? usage.cumulativeInputTokens ?? usage.input_tokens ?? usage.inputTokens);
+  const outputTokens = usageNumber(usage.cumulative_output_tokens ?? usage.cumulativeOutputTokens ?? usage.output_tokens ?? usage.outputTokens);
+  const estimatedCostUsd = roundUsageUsd(
+    usageNumber(usage.cumulative_cost_estimate_usd ?? usage.cumulativeCostEstimateUsd ?? usage.cost_estimate_usd ?? usage.costEstimateUsd) ||
+      totalTokens * 0.000001,
+  );
+  const contextPressure = roundUsageRatio(totalTokens / 128000);
+  return {
+    schema_version: "ioi.runtime.usage-telemetry.v1",
+    schemaVersion: "ioi.runtime.usage-telemetry.v1",
+    object: "ioi.runtime_usage_telemetry",
+    scope: "subagent",
+    thread_id: record.parent_thread_id ?? record.parentThreadId ?? null,
+    threadId: record.parentThreadId ?? record.parent_thread_id ?? null,
+    turn_id: record.parent_turn_id ?? record.parentTurnId ?? null,
+    turnId: record.parentTurnId ?? record.parent_turn_id ?? null,
+    run_id: record.run_id ?? record.runId ?? null,
+    runId: record.runId ?? record.run_id ?? null,
+    agent_id: record.agent_id ?? record.agentId ?? null,
+    agentId: record.agentId ?? record.agent_id ?? null,
+    provider: "subagent",
+    model: "subagent",
+    route_id: record.model_route_id ?? record.modelRouteId ?? null,
+    routeId: record.modelRouteId ?? record.model_route_id ?? null,
+    model_route_id: record.model_route_id ?? record.modelRouteId ?? null,
+    modelRouteId: record.modelRouteId ?? record.model_route_id ?? null,
+    input_tokens: inputTokens,
+    inputTokens,
+    output_tokens: outputTokens,
+    outputTokens,
+    reasoning_tokens: 0,
+    reasoningTokens: 0,
+    cached_input_tokens: 0,
+    cachedInputTokens: 0,
+    tool_result_tokens: 0,
+    toolResultTokens: 0,
+    compacted_tokens: 0,
+    compactedTokens: 0,
+    total_tokens: totalTokens,
+    totalTokens,
+    estimated_cost_micros: Math.round(estimatedCostUsd * 1_000_000),
+    estimatedCostMicros: Math.round(estimatedCostUsd * 1_000_000),
+    estimated_cost_usd: estimatedCostUsd,
+    estimatedCostUsd: estimatedCostUsd,
+    currency: "USD",
+    context_window_tokens: 128000,
+    contextWindowTokens: 128000,
+    context_used_tokens: totalTokens,
+    contextUsedTokens: totalTokens,
+    context_pressure: contextPressure,
+    contextPressure,
+    context_pressure_status: contextPressureStatus(contextPressure),
+    contextPressureStatus: contextPressureStatus(contextPressure),
+    latency_ms: 0,
+    latencyMs: 0,
+    estimated: true,
+    source_counts: { runs: 0, subagents: 1 },
+    sourceCounts: { runs: 0, subagents: 1 },
+    source_refs: [record.subagent_id ?? record.subagentId, record.run_id ?? record.runId].filter(Boolean) as string[],
+    sourceRefs: [record.subagentId ?? record.subagent_id, record.runId ?? record.run_id].filter(Boolean) as string[],
+    generated_at: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function mockUsageListEnvelope(groupBy: string, usage: RuntimeUsageTelemetry[]): RuntimeUsageListResult {
+  return {
+    schema_version: "ioi.runtime.usage-telemetry.v1",
+    schemaVersion: "ioi.runtime.usage-telemetry.v1",
+    object: "ioi.runtime_usage_list",
+    group_by: groupBy,
+    groupBy,
+    count: usage.length,
+    usage,
+    generated_at: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function usageSum(records: RuntimeUsageTelemetry[], snakeKey: string, camelKey: string): number {
+  return records.reduce((sum, record) => sum + usageNumber(record[snakeKey] ?? record[camelKey]), 0);
+}
+
+function usageNumber(value: unknown): number {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) && number >= 0 ? number : 0;
+}
+
+function estimatedTokenCount(value: unknown): number {
+  const text = String(value ?? "");
+  return text ? Math.max(1, Math.ceil(text.length / 4)) : 0;
+}
+
+function contextPressureStatus(value: number): "nominal" | "elevated" | "high" {
+  if (value >= 0.85) return "high";
+  if (value >= 0.6) return "elevated";
+  return "nominal";
+}
+
+function roundUsageUsd(value: number): number {
+  return Math.round((Number(value) || 0) * 1_000_000) / 1_000_000;
+}
+
+function roundUsageRatio(value: number): number {
+  return Math.round((Number(value) || 0) * 10000) / 10000;
+}
+
 function runtimeJobRecordForSdkRun(run: RuntimeRunRecord): RuntimeJobRecord {
   const terminal = ["completed", "failed", "canceled", "blocked"].includes(run.status);
   const jobId = `job_${run.id}`;
@@ -2893,6 +3272,7 @@ function isSdkMessageType(value: string): value is IOISDKMessage["type"] {
     "probe",
     "postcondition_synthesized",
     "semantic_impact",
+    "usage_final",
     "stop_condition",
     "quality_ledger",
     "artifact",
@@ -2991,6 +3371,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async getThread(threadId: string): Promise<RuntimeThreadRecord> {
     return this.threadRecordForAgent(await this.agentForThread(threadId));
+  }
+
+  async getThreadUsage(threadId: string): Promise<RuntimeUsageTelemetry> {
+    return this.usageForThread(threadId);
   }
 
   async resumeThread(threadId: string): Promise<RuntimeThreadRecord> {
@@ -4015,6 +4399,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       result: run.result,
       stopCondition: run.trace.stopCondition,
       routeDecision: run.modelRouteDecision ?? run.trace.modelRouteDecision ?? null,
+      usage: run.usageTelemetry ?? run.usage_telemetry ?? run.runtimeUsage ?? run.usage ?? mockUsageForRun(run),
       trace: run.trace,
       scorecard: run.trace.scorecard,
     };
@@ -4044,10 +4429,33 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return run;
   }
 
+  async getRunUsage(runId: string): Promise<RuntimeUsageTelemetry> {
+    const run = await this.getRun(runId);
+    return run.usageTelemetry ?? run.usage_telemetry ?? run.runtimeUsage ?? run.usage ?? mockUsageForRun(run);
+  }
+
   async listRuns(agentId?: string): Promise<RuntimeRunRecord[]> {
     return [...this.runs.values()]
       .filter((run) => !agentId || run.agentId === agentId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async listUsage(input: RuntimeUsageListInput = {}): Promise<RuntimeUsageListResult> {
+    const groupBy = input.groupBy ?? input.group_by ?? "run";
+    const agentId = input.agentId ?? input.agent_id;
+    if (groupBy === "thread") {
+      const threadIds = new Set(
+        (await this.listRuns(agentId)).map((run) => threadIdForAgent(run.agentId)),
+      );
+      const usage = await Promise.all([...threadIds].map((threadId) => this.usageForThread(threadId)));
+      return mockUsageListEnvelope(groupBy, usage);
+    }
+    return mockUsageListEnvelope(
+      "run",
+      (await this.listRuns(agentId)).map(
+        (run) => run.usageTelemetry ?? run.usage_telemetry ?? run.runtimeUsage ?? run.usage ?? mockUsageForRun(run),
+      ),
+    );
   }
 
   async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {
@@ -5574,9 +5982,37 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     }
     const memory = this.resolveRunMemory(agent, prompt, options, mode);
     const run = buildMockRun(agent, prompt, mode, options, memory);
-    await emitCallbacks(run, options);
-    this.persistRun(run);
-    return run;
+    const usageTelemetry = mockUsageForRun(run);
+    const runtimeRun = {
+      ...run,
+      usage: usageTelemetry,
+      usage_telemetry: usageTelemetry,
+      usageTelemetry,
+      runtimeUsage: usageTelemetry,
+      trace: {
+        ...run.trace,
+        usage: usageTelemetry,
+        usage_telemetry: usageTelemetry,
+        usageTelemetry,
+        runtimeUsage: usageTelemetry,
+      },
+    };
+    await emitCallbacks(runtimeRun, options);
+    this.persistRun(runtimeRun);
+    return runtimeRun;
+  }
+
+  private async usageForThread(threadId: string): Promise<RuntimeUsageTelemetry> {
+    const agent = await this.agentForThread(threadId);
+    const runs = await this.listRuns(agent.id);
+    return mockUsageForThread({
+      threadId,
+      agent,
+      runs,
+      subagents: [...this.subagents.values()].filter(
+        (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
+      ),
+    });
   }
 
   private withTerminalReplacement(
@@ -5878,6 +6314,14 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const approvalMode =
       runtimeControls?.approvalMode ?? runtimeControls?.approval_mode ?? "suggest";
     const modelControls = runtimeControls?.model;
+    const usageTelemetry = mockUsageForThread({
+      threadId,
+      agent,
+      runs,
+      subagents: [...this.subagents.values()].filter(
+        (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
+      ),
+    });
     return {
       schema_version: "ioi.runtime.thread.v1",
       thread_id: threadId,
@@ -5911,6 +6355,11 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         modelControls?.reasoning_effort ??
         null,
       runtime_controls: runtimeControls,
+      usage: usageTelemetry,
+      usage_telemetry: usageTelemetry,
+      usageTelemetry,
+      runtime_usage: usageTelemetry,
+      runtimeUsage: usageTelemetry,
     };
   }
 
@@ -6849,6 +7298,28 @@ function buildMockRun(
   addEvent("postcondition_synthesized", "Postconditions synthesized", postconditions);
   addEvent("semantic_impact", "Semantic impact classified", semanticImpact);
   const deltaEvent = addEvent("delta", result, { text: result });
+  const usagePreview = mockUsageForRun({
+    id: runId,
+    agentId: agent.id,
+    status: "completed",
+    objective: prompt,
+    mode,
+    createdAt,
+    updatedAt: createdAt,
+    events: [],
+    conversation: [],
+    receipts,
+    artifacts: [],
+    trace: {} as RuntimeTraceBundle,
+    modelRouteDecision,
+    modelRouteReceiptId,
+    memoryPolicy,
+    memoryRecords,
+    memoryWriteReceipts,
+    subagentMemoryInheritance,
+    result,
+  });
+  addEvent("usage_final", "Usage telemetry recorded", usagePreview);
   addEvent("stop_condition", "Stop condition recorded", stopCondition);
   addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
   addEvent("completed", "Run completed", { stopReason: stopCondition.reason });

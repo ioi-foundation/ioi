@@ -83,6 +83,13 @@ import {
   subagentRuntimeEventKind,
   validateSubagentOutputContract,
 } from "./subagent-manager.mjs";
+import {
+  RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+  runtimeUsageTelemetryForRun,
+  runtimeUsageTelemetryForThread,
+  runtimeUsageTelemetryList,
+  runtimeUsageTelemetrySummary,
+} from "./usage-telemetry.mjs";
 
 export {
   RuntimeAgentServiceCommandAdapter,
@@ -159,6 +166,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   postcondition_synthesized: "item.completed",
   semantic_impact: "item.completed",
   delta: "item.delta",
+  usage_final: "item.completed",
   stop_condition: "item.completed",
   quality_ledger: "item.completed",
   artifact: "item.completed",
@@ -363,10 +371,29 @@ export class AgentgresRuntimeStateStore {
       skillHookCatalog,
       diagnosticsFeedback: request.diagnosticsFeedback ?? request.diagnostics_feedback ?? null,
     });
-    const runtimeRun = {
+    const runtimeRunDraft = {
       ...run,
       threadMode,
       approvalMode,
+    };
+    const usageTelemetry = runtimeUsageTelemetryForRun({
+      run: runtimeRunDraft,
+      agent,
+      threadId: threadIdForAgent(agent.id),
+    });
+    const runtimeRun = {
+      ...runtimeRunDraft,
+      usage: usageTelemetry,
+      usage_telemetry: usageTelemetry,
+      usageTelemetry,
+      runtimeUsage: usageTelemetry,
+      trace: {
+        ...runtimeRunDraft.trace,
+        usage: usageTelemetry,
+        usage_telemetry: usageTelemetry,
+        usageTelemetry,
+        runtimeUsage: usageTelemetry,
+      },
     };
     this.runs.set(runtimeRun.id, runtimeRun);
     this.writeRun(runtimeRun, "run.create");
@@ -2513,6 +2540,13 @@ export class AgentgresRuntimeStateStore {
       mode: request.mode ?? "send",
       prompt: request.prompt ?? request.message ?? request.input ?? "",
       stopReason: bridgeResult?.stop_reason ?? bridgeResult?.stopReason ?? "runtime_bridge_completed",
+      usage:
+        bridgeResult?.usage_telemetry ??
+        bridgeResult?.usageTelemetry ??
+        bridgeResult?.runtime_usage ??
+        bridgeResult?.runtimeUsage ??
+        bridgeResult?.usage ??
+        null,
       events: events.map((event) => ({
         ...event,
         event_stream_id: event.event_stream_id ?? eventStreamIdForThread(threadId),
@@ -3078,6 +3112,14 @@ export class AgentgresRuntimeStateStore {
       Date.parse(agent.updatedAt) || 0,
       ...runs.map((run) => Date.parse(run.updatedAt) || 0),
     );
+    const usageTelemetry = runtimeUsageTelemetryForThread({
+      threadId,
+      agent,
+      runs,
+      subagents: [...this.subagents.values()].filter(
+        (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
+      ),
+    });
     return {
       schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
       thread_id: threadId,
@@ -3123,6 +3165,11 @@ export class AgentgresRuntimeStateStore {
       runtime_profile: agent.runtimeProfile ?? "fixture",
       runtime_bridge_id: agent.runtimeBridgeId ?? null,
       runtime_bridge_source: agent.runtimeBridgeSource ?? null,
+      usage: usageTelemetry,
+      usage_telemetry: usageTelemetry,
+      usageTelemetry,
+      runtime_usage: usageTelemetry,
+      runtimeUsage: usageTelemetry,
     };
   }
 
@@ -3135,6 +3182,12 @@ export class AgentgresRuntimeStateStore {
     const isOpen = status === "queued" || status === "running" || status === "waiting_for_approval" || status === "waiting_for_input";
     const seqEnd = isOpen ? null : (turnEvents.at(-1)?.seq ?? null);
     const completedAt = isOpen ? null : run.updatedAt;
+    const usageTelemetry =
+      run.usage_telemetry ??
+      run.usageTelemetry ??
+      run.runtimeUsage ??
+      run.usage ??
+      runtimeUsageTelemetryForRun({ run, agent, threadId: threadIdForAgent(run.agentId) });
     return {
       schema_version: RUNTIME_TURN_SCHEMA_VERSION,
       turn_id: turnIdForRun(run.id),
@@ -3155,7 +3208,11 @@ export class AgentgresRuntimeStateStore {
       mode: run.threadMode ?? threadModeForRunMode(run.mode, agent.runtimeControls?.mode),
       approval_mode: run.approvalMode ?? agent.runtimeControls?.approvalMode ?? "suggest",
       model_route_decision_id: run.modelRouteDecision?.decisionId ?? run.trace?.modelRouteDecision?.decisionId ?? null,
-      usage: null,
+      usage: usageTelemetry,
+      usage_telemetry: usageTelemetry,
+      usageTelemetry,
+      runtime_usage: usageTelemetry,
+      runtimeUsage: usageTelemetry,
       stop_reason: run.trace?.stopCondition?.reason ?? null,
       error: run.status === "failed" ? run.result : null,
       rollback_snapshot_id: null,
@@ -4856,6 +4913,42 @@ export class AgentgresRuntimeStateStore {
     return [...this.runs.values()]
       .filter((run) => !agentId || run.agentId === agentId)
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  usageForRun(runId) {
+    const run = this.getRun(runId);
+    return runtimeUsageTelemetryForRun({
+      run,
+      agent: this.getAgent(run.agentId),
+      threadId: threadIdForAgent(run.agentId),
+    });
+  }
+
+  usageForThread(threadId) {
+    const agent = this.agentForThread(threadId);
+    const subagents = [...this.subagents.values()].filter(
+      (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
+    );
+    return runtimeUsageTelemetryForThread({
+      threadId,
+      agent,
+      runs: this.listRuns(agent.id),
+      subagents,
+    });
+  }
+
+  listUsage(options = {}) {
+    const groupBy = options.group_by ?? options.groupBy ?? "run";
+    const agentId = options.agentId ?? options.agent_id;
+    const parentThreadId = agentId ? threadIdForAgent(agentId) : null;
+    return runtimeUsageTelemetryList({
+      runs: this.listRuns(agentId),
+      subagents: [...this.subagents.values()].filter(
+        (record) =>
+          !parentThreadId || (record.parent_thread_id ?? record.parentThreadId) === parentThreadId,
+      ),
+      groupBy,
+    });
   }
 
   cancelRun(runId) {
@@ -7517,6 +7610,10 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.listThreads());
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/usage") {
+      writeJsonResponse(response, store.listUsage(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
     if (segments[0] === "v1" && segments[1] === "threads" && segments[2]) {
       await handleThreadRoute({ request, response, store, url, segments });
       return;
@@ -9545,6 +9642,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     });
     return;
   }
+  if (request.method === "GET" && action === "usage" && !segments[4]) {
+    writeJsonResponse(response, store.usageForThread(threadId));
+    return;
+  }
   if (request.method === "POST" && action === "resume") {
     writeJsonResponse(response, store.resumeThread(threadId));
     return;
@@ -9838,6 +9939,10 @@ async function handleRunRoute({ request, response, store, url, segments }) {
     writeJsonResponse(response, store.getRun(runId));
     return;
   }
+  if (request.method === "GET" && action === "usage" && !segments[4]) {
+    writeJsonResponse(response, store.usageForRun(runId));
+    return;
+  }
   if (request.method === "POST" && action === "cancel") {
     writeJsonResponse(response, store.cancelRun(runId));
     return;
@@ -9851,6 +9956,7 @@ async function handleRunRoute({ request, response, store, url, segments }) {
       result: run.result,
       stopCondition: run.trace.stopCondition,
       routeDecision: run.modelRouteDecision ?? run.trace.modelRouteDecision ?? null,
+      usage: store.usageForRun(run.id),
       trace: run.trace,
       scorecard: run.trace.scorecard,
     });
@@ -10304,6 +10410,9 @@ function buildRun({
       "/v1/runs/{id}/trace",
       "/v1/skills",
       "/v1/hooks",
+      "/v1/usage",
+      "/v1/threads/{id}/usage",
+      "/v1/runs/{id}/usage",
       "/v1/repository-context",
       "/v1/branch-policy",
       "/v1/github-context",
@@ -10335,6 +10444,7 @@ function buildRun({
       "HookInvocationLedger",
       "HookInvocationRecord",
       "HookEscalationReceipt",
+      "RuntimeUsageTelemetry",
       ...(diagnosticsBlockingGate ? ["LspDiagnosticsBlockingGate"] : []),
       "RuntimeEventEnvelope",
     ],
@@ -10690,6 +10800,28 @@ function buildRun({
     ? diagnosticsBlockingGate.message
     : resultForMode(mode, agent, prompt, source, memory);
   const modelInput = promptWithDiagnosticsFeedback(prompt, diagnosticsFeedback);
+  const usageTelemetry = runtimeUsageTelemetryForRun({
+    run: {
+      id: runId,
+      agentId: agent.id,
+      mode,
+      objective: prompt,
+      result,
+      createdAt,
+      updatedAt: createdAt,
+      modelRouteDecision,
+      usage:
+        request.usage_telemetry ??
+        request.usageTelemetry ??
+        request.runtime_usage ??
+        request.runtimeUsage ??
+        request.usage ??
+        request.options?.usage ??
+        null,
+    },
+    agent,
+    threadId: threadIdForAgent(agent.id),
+  });
   const events = [];
   const addEvent = (type, summary, data) => {
     const event = makeEvent(runId, agent.id, events.length, type, summary, data);
@@ -10840,6 +10972,12 @@ function buildRun({
   addEvent("postcondition_synthesized", "Postconditions synthesized", postconditions);
   addEvent("semantic_impact", "Semantic impact classified", semanticImpact);
   const deltaEvent = diagnosticsBlockingGate ? null : addEvent("delta", result, { text: result });
+  addEvent("usage_final", "Usage telemetry recorded", {
+    ...usageTelemetry,
+    eventKind: "RuntimeUsageTelemetry",
+    workflowNodeId: "runtime.usage-telemetry",
+    summary: runtimeUsageTelemetrySummary(usageTelemetry),
+  });
   addEvent("stop_condition", "Stop condition recorded", stopCondition);
   addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
   if (!diagnosticsBlockingGate) {
@@ -10948,6 +11086,10 @@ function buildRun({
     memoryPolicy,
     memoryRecords,
     memoryWrites: memoryWriteRecords,
+    usage: usageTelemetry,
+    usage_telemetry: usageTelemetry,
+    usageTelemetry,
+    runtimeUsage: usageTelemetry,
     diagnosticsFeedback,
     diagnosticsBlockingGate,
     subagentMemoryInheritance,
@@ -11140,6 +11282,10 @@ function buildRun({
     memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
+    usage: usageTelemetry,
+    usage_telemetry: usageTelemetry,
+    usageTelemetry,
+    runtimeUsage: usageTelemetry,
     diagnosticsFeedback,
     diagnosticsBlockingGate,
     subagentMemoryInheritance,
@@ -11254,6 +11400,21 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     qualityLedger,
     scorecard,
   };
+  const usageTelemetry = runtimeUsageTelemetryForRun({
+    run: {
+      id: projection.runId,
+      agentId: agent.id,
+      mode: projection.mode,
+      objective: projection.prompt,
+      result: projection.result,
+      createdAt: projection.createdAt,
+      updatedAt: projection.updatedAt,
+      modelRouteDecision: agent.modelRouteDecision ?? null,
+      usage: projection.usage,
+    },
+    agent,
+    threadId: threadIdForAgent(agent.id),
+  });
   return {
     id: projection.runId,
     agentId: agent.id,
@@ -11267,12 +11428,22 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     runtimeSessionId: runtimeSessionIdForAgent(agent),
     runtimeTurnId: projection.turnId,
     result: projection.result,
+    usage: usageTelemetry,
+    usage_telemetry: usageTelemetry,
+    usageTelemetry,
+    runtimeUsage: usageTelemetry,
     events: [],
     conversation: [
       { role: "user", content: projection.prompt, createdAt: projection.createdAt },
       ...(projection.result ? [{ role: "assistant", content: projection.result, createdAt: projection.updatedAt }] : []),
     ],
-    trace,
+    trace: {
+      ...trace,
+      usage: usageTelemetry,
+      usage_telemetry: usageTelemetry,
+      usageTelemetry,
+      runtimeUsage: usageTelemetry,
+    },
     artifacts: [],
     receipts: [],
     modelRouteDecision: agent.modelRouteDecision ?? null,
@@ -16411,6 +16582,37 @@ function payloadSummaryForRunEvent(event) {
       redaction: event.data?.redaction?.profile ?? "hook_invocation_ledger_safe",
     };
   }
+  if (event.type === "usage_final") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "RuntimeUsageTelemetry",
+      eventKind: event.data?.eventKind ?? "RuntimeUsageTelemetry",
+      schema_version:
+        event.data?.schema_version ??
+        event.data?.schemaVersion ??
+        RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+      scope: event.data?.scope ?? "run",
+      thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
+      turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
+      total_tokens: event.data?.total_tokens ?? event.data?.totalTokens ?? 0,
+      input_tokens: event.data?.input_tokens ?? event.data?.inputTokens ?? 0,
+      output_tokens: event.data?.output_tokens ?? event.data?.outputTokens ?? 0,
+      estimated_cost_usd:
+        event.data?.estimated_cost_usd ??
+        event.data?.estimatedCostUsd ??
+        null,
+      context_pressure:
+        event.data?.context_pressure ??
+        event.data?.contextPressure ??
+        null,
+      context_pressure_status:
+        event.data?.context_pressure_status ??
+        event.data?.contextPressureStatus ??
+        null,
+      workflow_node_id: event.data?.workflowNodeId ?? "runtime.usage-telemetry",
+      redaction: "usage_telemetry_safe",
+    };
+  }
   if (event.type !== "model_route_decision") return summary;
   return {
     ...summary,
@@ -16491,6 +16693,8 @@ function componentKindForRunEvent(eventOrType) {
       return "postcondition_synthesizer";
     case "semantic_impact":
       return "semantic_impact_analyzer";
+    case "usage_final":
+      return "usage_telemetry";
     case "quality_ledger":
       return "quality_ledger";
     case "artifact":
@@ -16529,7 +16733,8 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "policy_blocked" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
-      eventOrType?.type === "hook_invocation_ledger") &&
+      eventOrType?.type === "hook_invocation_ledger" ||
+      eventOrType?.type === "usage_final") &&
     eventOrType.data?.workflowNodeId
   ) {
     return eventOrType.data.workflowNodeId;

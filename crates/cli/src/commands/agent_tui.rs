@@ -445,6 +445,17 @@ pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
         json_path_string(&control_state, "/mode_status/reasoning_effort")
             .unwrap_or_else(|| "default".to_string())
     );
+    println!(
+        "  usage tokens={} cost_usd={} context={} status={}",
+        json_path_string(&control_state, "/usage_status/usage_total_tokens")
+            .unwrap_or_else(|| "0".to_string()),
+        json_path_string(&control_state, "/usage_status/usage_cost_estimate_usd")
+            .unwrap_or_else(|| "0".to_string()),
+        json_path_string(&control_state, "/usage_status/usage_context_pressure")
+            .unwrap_or_else(|| "0".to_string()),
+        json_path_string(&control_state, "/usage_status/usage_context_pressure_status")
+            .unwrap_or_else(|| "nominal".to_string())
+    );
     let job_rows = tui_job_rows(&render.jobs, Some(&thread_id));
     if !job_rows.is_empty() {
         println!("Jobs: count={}", job_rows.len());
@@ -1906,6 +1917,7 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
         "last_cursor": last_cursor,
         "last_event_id": last_event_id,
         "mode_status": tui_mode_status(&render.thread, current_turn_id.as_deref()),
+        "usage_status": tui_usage_status(&render.thread, thread_id.as_deref()),
         "approval_rows": approval_rows,
         "approval_decisions": approval_decisions,
         "job_rows": job_rows,
@@ -1954,6 +1966,62 @@ pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> 
         "workflow_node_id": model_controls
             .and_then(|value| json_path_string(value, "/workflowNodeId"))
             .unwrap_or_else(|| "runtime.model-router".to_string()),
+        "source": "daemon_thread",
+    })
+}
+
+pub(crate) fn tui_usage_status(thread: &Value, fallback_thread_id: Option<&str>) -> Value {
+    let usage = thread
+        .pointer("/usage_telemetry")
+        .or_else(|| thread.pointer("/usageTelemetry"))
+        .or_else(|| thread.pointer("/runtime_usage"))
+        .or_else(|| thread.pointer("/runtimeUsage"))
+        .or_else(|| thread.pointer("/usage"));
+    let status = usage.unwrap_or(thread);
+    let thread_id = json_path_string(status, "/thread_id")
+        .or_else(|| json_path_string(status, "/threadId"))
+        .or_else(|| json_path_string(thread, "/thread_id"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let total_tokens = json_path_string(status, "/total_tokens")
+        .or_else(|| json_path_string(status, "/totalTokens"))
+        .unwrap_or_else(|| "0".to_string());
+    let cost_estimate = json_path_string(status, "/estimated_cost_usd")
+        .or_else(|| json_path_string(status, "/estimatedCostUsd"))
+        .unwrap_or_else(|| "0".to_string());
+    let context_pressure = json_path_string(status, "/context_pressure")
+        .or_else(|| json_path_string(status, "/contextPressure"))
+        .unwrap_or_else(|| "0".to_string());
+    let context_status = json_path_string(status, "/context_pressure_status")
+        .or_else(|| json_path_string(status, "/contextPressureStatus"))
+        .unwrap_or_else(|| "nominal".to_string());
+    serde_json::json!({
+        "schema_version": json_path_string(status, "/schema_version")
+            .or_else(|| json_path_string(status, "/schemaVersion"))
+            .unwrap_or_else(|| "ioi.runtime.usage-telemetry.v1".to_string()),
+        "object": "ioi.runtime_usage_tui_status",
+        "scope": json_path_string(status, "/scope").unwrap_or_else(|| "thread".to_string()),
+        "status": context_status,
+        "thread_id": thread_id,
+        "usage_total_tokens": total_tokens,
+        "usage_input_tokens": json_path_string(status, "/input_tokens")
+            .or_else(|| json_path_string(status, "/inputTokens"))
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_output_tokens": json_path_string(status, "/output_tokens")
+            .or_else(|| json_path_string(status, "/outputTokens"))
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_cost_estimate_usd": cost_estimate,
+        "usage_context_pressure": context_pressure,
+        "usage_context_pressure_status": json_path_string(status, "/context_pressure_status")
+            .or_else(|| json_path_string(status, "/contextPressureStatus"))
+            .unwrap_or_else(|| "nominal".to_string()),
+        "usage_run_count": json_path_string(status, "/source_counts/runs")
+            .or_else(|| json_path_string(status, "/sourceCounts/runs"))
+            .unwrap_or_else(|| "0".to_string()),
+        "usage_subagent_count": json_path_string(status, "/source_counts/subagents")
+            .or_else(|| json_path_string(status, "/sourceCounts/subagents"))
+            .unwrap_or_else(|| "0".to_string()),
+        "workflow_node_id": "runtime.usage-telemetry",
+        "message": format!("tokens={total_tokens} cost=${cost_estimate} context={context_pressure}"),
         "source": "daemon_thread",
     })
 }
@@ -3318,6 +3386,19 @@ mod tests {
                 "approval_mode": "suggest",
                 "trust_profile": "local_private",
                 "status": "active",
+                "usage": {
+                    "scope": "thread",
+                    "total_tokens": 2048,
+                    "input_tokens": 1536,
+                    "output_tokens": 512,
+                    "estimated_cost_usd": 0.002048,
+                    "context_pressure": 0.016,
+                    "context_pressure_status": "nominal",
+                    "source_counts": {
+                        "runs": 1,
+                        "subagents": 1
+                    }
+                },
                 "turns": [{
                     "turn_id": "turn_live",
                     "status": "waiting_for_approval",
@@ -3377,6 +3458,12 @@ mod tests {
         );
         assert_eq!(state["approval_rows"][0]["approval_id"], "approval_live");
         assert_eq!(state["approval_rows"][0]["status"], "pending");
+        assert_eq!(state["usage_status"]["usage_total_tokens"], "2048");
+        assert_eq!(state["usage_status"]["usage_subagent_count"], "1");
+        assert_eq!(
+            state["usage_status"]["workflow_node_id"],
+            "runtime.usage-telemetry"
+        );
         assert_eq!(state["approval_decisions"][0]["decision"], "approve");
         assert_eq!(
             state["approval_decisions"][0]["receipt_refs"],

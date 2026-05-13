@@ -512,6 +512,7 @@ export function WorkflowRunsPanel({
               }
               data-mcp-row-count={tuiControlStateProjection.mcpRowCount}
               data-memory-row-count={tuiControlStateProjection.memoryRowCount}
+              data-usage-row-count={tuiControlStateProjection.usageRowCount}
               data-subagent-row-count={tuiControlStateProjection.subagentRowCount}
               data-subagent-child-subflow-count={
                 tuiControlStateProjection.subagentChildSubflowCount
@@ -539,6 +540,7 @@ export function WorkflowRunsPanel({
                 </span>
                 <span>{tuiControlStateProjection.mcpRowCount} MCP</span>
                 <span>{tuiControlStateProjection.memoryRowCount} memory</span>
+                <span>{tuiControlStateProjection.usageRowCount} usage</span>
                 <span>{tuiControlStateProjection.subagentRowCount} subagents</span>
                 <span>
                   {tuiControlStateProjection.subagentChildSubflowCount} child
@@ -573,6 +575,21 @@ export function WorkflowRunsPanel({
                     data-memory-scope={row.memoryScope ?? ""}
                     data-memory-key={row.memoryKey ?? ""}
                     data-memory-operation={row.memoryOperation ?? ""}
+                    data-usage-scope={row.usageScope ?? ""}
+                    data-usage-total-tokens={row.usageTotalTokens ?? ""}
+                    data-usage-input-tokens={row.usageInputTokens ?? ""}
+                    data-usage-output-tokens={row.usageOutputTokens ?? ""}
+                    data-usage-cost-estimate-usd={
+                      row.usageCostEstimateUsd ?? ""
+                    }
+                    data-usage-context-pressure={
+                      row.usageContextPressure ?? ""
+                    }
+                    data-usage-context-pressure-status={
+                      row.usageContextPressureStatus ?? ""
+                    }
+                    data-usage-run-count={row.usageRunCount ?? ""}
+                    data-usage-subagent-count={row.usageSubagentCount ?? ""}
                     data-subagent-id={row.subagentId ?? ""}
                     data-subagent-role={row.subagentRole ?? ""}
                     data-subagent-operation={row.subagentOperation ?? ""}
