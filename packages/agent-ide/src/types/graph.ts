@@ -464,6 +464,44 @@ export interface NodeLogic {
   arguments?: Record<string, unknown>;
   toolBinding?: WorkflowToolBinding;
 
+  // --- Runtime Subagents ---
+  subagentId?: string;
+  subagentRole?:
+    | "general"
+    | "explore"
+    | "plan"
+    | "review"
+    | "implementer"
+    | "verifier"
+    | "custom"
+    | "browser_operator"
+    | "gui_operator"
+    | "security_reviewer"
+    | "policy_reviewer"
+    | "workflow_designer"
+    | "connector_author"
+    | "model_router"
+    | "receipt_auditor"
+    | string;
+  subagentPrompt?: string;
+  subagentInput?: string;
+  subagentParentTurnId?: string;
+  subagentModelRoute?: string;
+  subagentToolPack?: string;
+  subagentForkContext?: boolean;
+  subagentMaxConcurrency?: number;
+  subagentWaitTimeoutMs?: number;
+  subagentBudgetJson?: string;
+  subagentOutputContractJson?: string;
+  subagentMergePolicy?:
+    | "manual"
+    | "append"
+    | "replace"
+    | "merge"
+    | "evidence_only"
+    | string;
+  subagentCancellationInheritance?: "propagate" | "detach" | "manual" | string;
+
   // --- Code / Function ---
   language?: string;
   code?: string;
@@ -545,7 +583,15 @@ export interface NodeLogic {
     | "memory_list"
     | "memory_remember"
     | "memory_edit"
-    | "memory_delete";
+    | "memory_delete"
+    | "subagent_list"
+    | "subagent_spawn"
+    | "subagent_wait"
+    | "subagent_result"
+    | "subagent_send_input"
+    | "subagent_cancel"
+    | "subagent_resume"
+    | "subagent_assign";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
   memoryRecordId?: string;

@@ -95,6 +95,16 @@ export {
   createRuntimeMcpToolControlRequest,
   createRuntimeMcpToolControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-mcp-control-nodes";
+export {
+  RUNTIME_SUBAGENT_COMPONENT_KIND,
+  RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT,
+  RUNTIME_SUBAGENT_EVENT_KIND_BY_OPERATION,
+  RUNTIME_SUBAGENT_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_SUBAGENT_SOURCE,
+  WORKFLOW_RUNTIME_SUBAGENT_CONTROL_SCHEMA_VERSION,
+  createRuntimeSubagentControlRequest,
+  createRuntimeSubagentControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-subagent-control-nodes";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -385,6 +395,13 @@ export type {
   RuntimeMcpToolOperation,
   RuntimeMcpToolWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-mcp-control-nodes";
+export type {
+  RuntimeSubagentControlRequest,
+  RuntimeSubagentControlRequestBody,
+  RuntimeSubagentControlRequestInput,
+  RuntimeSubagentOperation,
+  RuntimeSubagentWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-subagent-control-nodes";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";

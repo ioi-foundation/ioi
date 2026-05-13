@@ -14,6 +14,7 @@ import type {
   WorkflowJsonSchema,
   WorkflowTestCase,
 } from "../../../types/graph";
+import { WorkflowSubagentStateFields } from "./subagentFields";
 import type { WorkflowNodeBindingSectionsProps } from "./types";
 
 export function WorkflowNodeBindingSections({
@@ -1216,28 +1217,8 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  stateOperation: event.target.value as
-                    | "read"
-                    | "write"
-                    | "append"
-                    | "merge"
-                    | "mcp_status"
-                    | "mcp_tool_search"
-                    | "mcp_tool_fetch"
-                    | "mcp_tool_invoke"
-                    | "mcp_import"
-                    | "mcp_add"
-                    | "mcp_serve"
-                    | "mcp_remove"
-                    | "mcp_enable"
-                    | "mcp_disable"
-                    | "memory_status"
-                    | "memory_policy"
-                    | "memory_search"
-                    | "memory_list"
-                    | "memory_remember"
-                    | "memory_edit"
-                    | "memory_delete",
+                  stateOperation: event.target
+                    .value as NonNullable<NodeLogic["stateOperation"]>,
                   reducer:
                     event.target.value === "append"
                       ? "append"
@@ -1261,6 +1242,14 @@ export function WorkflowNodeBindingSections({
               <option value="mcp_remove">MCP remove</option>
               <option value="mcp_enable">MCP enable</option>
               <option value="mcp_disable">MCP disable</option>
+              <option value="subagent_list">Subagent pool</option>
+              <option value="subagent_spawn">Subagent spawn</option>
+              <option value="subagent_wait">Subagent join/wait</option>
+              <option value="subagent_result">Subagent result</option>
+              <option value="subagent_send_input">Subagent send input</option>
+              <option value="subagent_cancel">Subagent cancel</option>
+              <option value="subagent_resume">Subagent resume</option>
+              <option value="subagent_assign">Subagent role assign</option>
               <option value="memory_status">Memory status</option>
               <option value="memory_policy">Memory policy</option>
               <option value="memory_search">Memory search</option>
@@ -1590,6 +1579,7 @@ export function WorkflowNodeBindingSections({
               ) : null}
             </>
           ) : null}
+          <WorkflowSubagentStateFields logic={logic} updateLogic={updateLogic} />
           {logic.stateOperation === "memory_status" ||
           logic.stateOperation === "memory_policy" ||
           logic.stateOperation === "memory_search" ||

@@ -733,6 +733,23 @@ React Flow workflow surface:
   - cancellation inheritance.
 - Show subagent children as collapsible graph subflows.
 
+Current implementation note, 2026-05-13:
+
+- React Flow now has typed state-node authoring for subagent pool/list,
+  role/assign, spawn, join/wait, result, send input, cancel, and resume
+  operations.
+- Those nodes compile through
+  `workflow-runtime-subagent-control-nodes.ts` into the target daemon routes:
+  `/v1/threads/{thread_id}/subagents`,
+  `/v1/threads/{thread_id}/subagents/{subagent_id}/wait`,
+  `/result`, `/input`, `/cancel`, `/resume`, and `/assign`.
+- The authoring fields cover role, model route, tool pack, fresh/forked
+  context, max concurrency, budget JSON, output contract JSON, merge policy,
+  wait timeout, and cancellation inheritance.
+- Remaining P1-A gap: implement daemon-owned `SubagentManager` execution,
+  lifecycle persistence, SDK/TUI wrappers, output-contract validation, and live
+  fan-out evidence behind this React Flow contract.
+
 Acceptance evidence:
 
 - parent can spawn explorer and implementer in parallel;
@@ -1847,6 +1864,7 @@ adding more infrastructure by default.
 
 Recent focused validation, 2026-05-13:
 
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts`
 - `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts`
 - `node --check packages/runtime-daemon/src/index.mjs`
 - `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
@@ -1860,10 +1878,11 @@ Recent focused validation, 2026-05-13:
 
 Next runtime implementation sequence:
 
-1. Start P1-A subagent runtime parity with daemon-owned spawn, wait, send,
-   cancel, resume, and output-validation contracts.
-2. Add React Flow subagent pool/role/join authoring fields only as those
-   daemon contracts land.
+1. Implement daemon-owned `SubagentManager` routes for spawn, list, wait,
+   result, send input, cancel, resume, and assign using the React Flow request
+   contract already landed.
+2. Add SDK and TUI wrappers over the same routes, including output-contract
+   status and restart/cancellation visibility.
 3. Keep MCP, diagnostics repair, and memory controls regression-green while
    subagent parity becomes the next primary workflow-authoring gap.
 
