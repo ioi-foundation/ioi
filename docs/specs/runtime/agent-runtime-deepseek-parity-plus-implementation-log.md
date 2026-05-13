@@ -134,6 +134,9 @@ workstream was narrower.
 | 132 | 2026-05-13 | P0-B/P0-C/P0-D. Workflow Restore/Repair Controls | workflow restore and diagnostics repair binding controls | /tmp/ioi-autopilot-gui-harness-workflow-restore-repair-binding-controls/2026-05-13T06-25-02-908Z/result.json |
 | 133 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | restore workflow nodes and request builders | /tmp/ioi-autopilot-gui-harness-restore-workflow-nodes/2026-05-13T06-48-16-424Z/result.json |
 | 134 | 2026-05-13 | P0-D. Workspace Rollback Snapshots | keyboard-first TUI restore UX | /tmp/ioi-autopilot-gui-harness-tui-restore-ux/2026-05-13T07-12-46-679Z/result.json |
+| 135 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair restore-preview | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-preview/2026-05-13T07-37-14-986Z/result.json |
+| 136 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair restore-apply | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply/2026-05-13T07-56-56-734Z/result.json |
+| 137 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | executable diagnostics repair retry | /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry/2026-05-13T08-20-57-956Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -1149,6 +1152,44 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-restore-apply/2026-05-13T07-56-56-734Z/result.json`.
+
+### Slice 137. 2026-05-13 - Executable diagnostics repair retry
+
+Implementation slice completed 2026-05-13, executable diagnostics repair retry:
+
+- Extended diagnostics repair decision execution to support `repair_retry`
+  alongside the restore decisions, with a dedicated repair-retry workflow node id
+  and idempotent retry-turn event creation.
+- Added a daemon-owned repair retry path that reconstructs the blocking
+  diagnostics context as a non-blocking repair-mode injection, creates a new
+  repair turn, emits `diagnostics.repair_retry.created`, and then records the
+  existing `diagnostics.repair_decision.executed` event.
+- Extended SDK result typing and the mock substrate client with
+  `repairRetry`, `repairTurn`, and `repairRetryEvent` fields so workflow and SDK
+  callers can observe the retry turn and workflow row.
+- Added React Flow projection support for `lsp_diagnostics_repair_retry`, giving
+  retry executions their own workflow-addressable policy row instead of hiding
+  them inside the generic repair decision row.
+- Proved a blocking diagnostics policy with `repair_retry`, executed it through
+  the SDK from a React Flow source, verified the new turn receives compact
+  diagnostics context, and checked daemon SSE, SDK events, and React Flow
+  projection preserve retry event, decision event, policy refs, and rollback
+  refs.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "diagnostics repair decisions|diagnostics repair retry|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-diagnostics-repair-retry/2026-05-13T08-20-57-956Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

@@ -340,6 +340,32 @@ export interface RuntimeWorkspaceRestoreApplyResult {
   summary?: string;
 }
 
+export interface RuntimeDiagnosticsRepairRetryResult {
+  schemaVersion: string;
+  schema_version?: string;
+  object: "ioi.runtime_diagnostics_repair_retry" | string;
+  threadId: string;
+  thread_id?: string;
+  status: string;
+  turnId?: string | null;
+  turn_id?: string | null;
+  requestId?: string | null;
+  request_id?: string | null;
+  repairTurn?: RuntimeTurnRecord | null;
+  repair_turn?: RuntimeTurnRecord | null;
+  event?: RuntimeEventEnvelope | null;
+  repair_retry_event?: RuntimeEventEnvelope | null;
+  receiptRefs: string[];
+  receipt_refs?: string[];
+  artifactRefs: string[];
+  artifact_refs?: string[];
+  policyDecisionRefs: string[];
+  policy_decision_refs?: string[];
+  rollbackRefs: string[];
+  rollback_refs?: string[];
+  summary?: string;
+}
+
 export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   action?: "repair_retry" | "restore_preview" | "restore_apply" | "operator_override" | string;
@@ -368,6 +394,10 @@ export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
   restore_preview_idempotency_key?: string;
   restoreApplyIdempotencyKey?: string;
   restore_apply_idempotency_key?: string;
+  repairRetryIdempotencyKey?: string;
+  repair_retry_idempotency_key?: string;
+  repairPromptText?: string;
+  repair_prompt_text?: string;
   [key: string]: unknown;
 }
 
@@ -394,6 +424,12 @@ export interface RuntimeDiagnosticsRepairDecisionExecutionResult {
   decision?: Record<string, unknown>;
   repairPolicy?: Record<string, unknown>;
   repair_policy?: Record<string, unknown>;
+  repairRetry?: RuntimeDiagnosticsRepairRetryResult;
+  repair_retry?: RuntimeDiagnosticsRepairRetryResult;
+  repairTurn?: RuntimeTurnRecord | null;
+  repair_turn?: RuntimeTurnRecord | null;
+  repairRetryEvent?: RuntimeEventEnvelope | null;
+  repair_retry_event?: RuntimeEventEnvelope | null;
   restorePreview?: RuntimeWorkspaceRestorePreviewResult;
   restore_preview?: RuntimeWorkspaceRestorePreviewResult;
   restoreApply?: RuntimeWorkspaceRestoreApplyResult;
@@ -2448,14 +2484,28 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     input: RuntimeDiagnosticsRepairDecisionExecuteInput = {},
   ): Promise<RuntimeDiagnosticsRepairDecisionExecutionResult> {
     const snapshotId = input.snapshotId ?? input.snapshot_id ?? `workspace_snapshot_mock_${threadId}`;
-    const action = String(input.action ?? "restore_preview");
+    const action = String(
+      input.action ??
+        (decisionId.includes("repair_retry")
+          ? "repair_retry"
+          : decisionId.includes("restore_apply")
+            ? "restore_apply"
+            : "restore_preview"),
+    );
     const workflowNodeId = String(
       input.workflowNodeId ??
         input.workflow_node_id ??
-        (action === "restore_apply"
+        (action === "repair_retry"
+          ? "runtime.lsp-diagnostics.repair.retry"
+          : action === "restore_apply"
           ? "runtime.lsp-diagnostics.repair.restore-apply"
           : "runtime.lsp-diagnostics.repair.restore-preview"),
     );
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const repairRetry =
+      action === "repair_retry"
+        ? await this.mockDiagnosticsRepairRetry(threadId, decisionId, workflowNodeId, input, snapshotId)
+        : undefined;
     const restorePreview =
       action === "restore_preview"
         ? await this.previewThreadWorkspaceRestore(threadId, snapshotId, {
@@ -2490,7 +2540,6 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         : restoreApply?.applyStatus === "failed"
           ? "failed"
           : "completed";
-    const agent = await this.getAgent(agentIdForThread(threadId));
     const event = mockRuntimeEventEnvelope({
       agent,
       threadId,
@@ -2504,6 +2553,9 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         decision_id: decisionId,
         action,
         snapshot_id: snapshotId,
+        repair_retry_event_id: repairRetry?.event?.event_id ?? null,
+        repair_retry_turn_id: repairRetry?.repairTurn?.turn_id ?? null,
+        repair_retry_request_id: repairRetry?.repairTurn?.request_id ?? null,
         restore_preview_event_id: restorePreview?.event?.event_id ?? null,
         restore_apply_event_id: restoreApply?.event?.event_id ?? null,
         restore_apply_status: restoreApply?.applyStatus ?? null,
@@ -2515,9 +2567,9 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       componentKind: "lsp_diagnostics_repair",
       workflowNodeId: `${workflowNodeId}.decision`,
       receiptRefs: [`receipt_lsp_diagnostics_repair_${decisionId}`],
-      artifactRefs: restoreApply?.artifactRefs ?? restorePreview?.artifactRefs ?? [],
-      policyDecisionRefs: [decisionId, ...(restoreApply?.policyDecisionRefs ?? [])],
-      rollbackRefs: [snapshotId],
+      artifactRefs: repairRetry?.artifactRefs ?? restoreApply?.artifactRefs ?? restorePreview?.artifactRefs ?? [],
+      policyDecisionRefs: [decisionId, ...(repairRetry?.policyDecisionRefs ?? []), ...(restoreApply?.policyDecisionRefs ?? [])],
+      rollbackRefs: [snapshotId, ...(repairRetry?.rollbackRefs ?? [])],
     });
     return {
       schemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
@@ -2535,6 +2587,12 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       workflow_graph_id: input.workflow_graph_id ?? input.workflowGraphId ?? null,
       workflowNodeId,
       workflow_node_id: workflowNodeId,
+      repairRetry,
+      repair_retry: repairRetry,
+      repairTurn: repairRetry?.repairTurn ?? null,
+      repair_turn: repairRetry?.repairTurn ?? null,
+      repairRetryEvent: repairRetry?.event ?? null,
+      repair_retry_event: repairRetry?.event ?? null,
       restorePreview,
       restore_preview: restorePreview,
       restoreApply,
@@ -2553,6 +2611,76 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       rollbackRefs: [snapshotId],
       rollback_refs: [snapshotId],
       summary: `Executed diagnostics repair decision ${action} for ${snapshotId}.`,
+    };
+  }
+
+  private async mockDiagnosticsRepairRetry(
+    threadId: string,
+    decisionId: string,
+    workflowNodeId: string,
+    input: RuntimeDiagnosticsRepairDecisionExecuteInput,
+    snapshotId: string,
+  ): Promise<RuntimeDiagnosticsRepairRetryResult> {
+    const agent = await this.getAgent(agentIdForThread(threadId));
+    const run = await this.createRun(
+      agent.id,
+      String(input.prompt ?? input.message ?? "Repair the blocking post-edit diagnostics and retry the turn."),
+      "send",
+      {},
+    );
+    const repairTurn = this.turnRecordForRun(run);
+    const event = mockRuntimeEventEnvelope({
+      agent,
+      threadId,
+      streamId: eventStreamIdForThread(threadId),
+      seq: 1,
+      eventKind: "diagnostics.repair_retry.created",
+      sourceEventKind: "LspDiagnostics.RepairRetryTurnCreated",
+      itemId: `${repairTurn.turn_id}:item:diagnostics-repair-retry:${decisionId}`,
+      payload: {
+        event_kind: "LspDiagnosticsRepairRetryTurnCreated",
+        decision_id: decisionId,
+        action: "repair_retry",
+        snapshot_id: snapshotId,
+        retry_turn_id: repairTurn.turn_id,
+        retry_request_id: repairTurn.request_id,
+        repair_prompt_injected: true,
+        summary: `Diagnostics repair retry created turn ${repairTurn.turn_id} for ${decisionId}.`,
+      },
+      createdAt: new Date().toISOString(),
+      turnId: repairTurn.turn_id,
+      payloadSchemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      componentKind: "lsp_diagnostics_repair_retry",
+      workflowNodeId,
+      receiptRefs: [`receipt_lsp_diagnostics_repair_retry_${decisionId}`],
+      artifactRefs: run.artifacts.map((artifact) => artifact.id),
+      policyDecisionRefs: [decisionId],
+      rollbackRefs: [snapshotId],
+    });
+    return {
+      schemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      schema_version: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+      object: "ioi.runtime_diagnostics_repair_retry",
+      threadId,
+      thread_id: threadId,
+      status: "completed",
+      turnId: repairTurn.turn_id,
+      turn_id: repairTurn.turn_id,
+      requestId: repairTurn.request_id,
+      request_id: repairTurn.request_id,
+      repairTurn,
+      repair_turn: repairTurn,
+      event,
+      repair_retry_event: event,
+      receiptRefs: event.receipt_refs,
+      receipt_refs: event.receipt_refs,
+      artifactRefs: event.artifact_refs,
+      artifact_refs: event.artifact_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      policy_decision_refs: event.policy_decision_refs,
+      rollbackRefs: event.rollback_refs,
+      rollback_refs: event.rollback_refs,
+      summary: String(event.payload?.summary ?? ""),
     };
   }
 

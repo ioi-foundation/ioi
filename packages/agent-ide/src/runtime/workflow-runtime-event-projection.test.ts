@@ -415,6 +415,44 @@ test("projects diagnostics repair decisions as workflow-addressable policy nodes
   assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
 });
 
+test("projects diagnostics repair retry executions as workflow-addressable policy nodes", () => {
+  const repairRetry = event("event-diagnostics-repair-retry", 8, {
+    type: "runtime_step",
+    eventKind: "diagnostics.repair_retry.created",
+    sourceEventKind: "LspDiagnostics.RepairRetryTurnCreated",
+    status: "completed",
+    workflowNodeId: "workflow.diagnostics.repair.retry",
+    componentKind: "lsp_diagnostics_repair_retry",
+    payloadSchemaVersion: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+    receiptRefs: ["receipt-lsp-diagnostics-repair-retry"],
+    policyDecisionRefs: [
+      "policy-lsp-diagnostics-gate",
+      "policy-lsp-diagnostics-gate-decision-repair-retry",
+    ],
+    rollbackRefs: ["workspace_snapshot_123"],
+    payload: {
+      summary: "Diagnostics repair retry created turn turn_123.",
+      action: "repair_retry",
+      retry_turn_id: "turn_123",
+      repair_prompt_injected: true,
+    },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([repairRetry]);
+
+  assert.equal(workflowNodeIdForRuntimeThreadEvent(repairRetry), "workflow.diagnostics.repair.retry");
+  assert.equal(nodes[0]?.nodeKind, "hook_policy");
+  assert.equal(nodes[0]?.componentKind, "lsp_diagnostics_repair_retry");
+  assert.equal(nodes[0]?.label, "Diagnostics repair retry");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.receiptRefs, ["receipt-lsp-diagnostics-repair-retry"]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, [
+    "policy-lsp-diagnostics-gate",
+    "policy-lsp-diagnostics-gate-decision-repair-retry",
+  ]);
+  assert.deepEqual(nodes[0]?.rollbackRefs, ["workspace_snapshot_123"]);
+  assert.equal(nodes[0]?.latestPayloadSchemaVersion, "ioi.runtime.diagnostics-repair-decision-execution.v1");
+});
+
 test("projects operator interrupt events into the runtime control node", () => {
   const interrupt = event("event-interrupt", 4, {
     type: "turn_interrupted",
