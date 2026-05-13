@@ -3672,8 +3672,16 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.ok(diagnosticsContract.inputSchema.properties.commandId.enum.includes("auto"));
     assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
     assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
+    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.restorePolicy"));
+    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.restoreConflictPolicy"));
+    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.diagnosticsRepairDefault"));
+    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
     assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
     assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
+    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.restorePolicy"));
+    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.restoreConflictPolicy"));
+    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.diagnosticsRepairDefault"));
+    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
     const artifactContract = catalog.find((tool) => tool.stableToolId === "artifact.read");
     assert.ok(artifactContract);
     assert.equal(artifactContract.effectClass, "local_read");
@@ -3970,6 +3978,14 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
           source: "react_flow",
           workflow_graph_id: "workflow-coding-tools",
           workflow_node_id: "workflow.coding.file.apply_patch.diagnostics-blocking",
+          toolPack: {
+            coding: {
+              restorePolicy: "preview_only",
+              restoreConflictPolicy: "require_approval",
+              diagnosticsRepairDefault: "restore_preview",
+              operatorOverrideRequiresApproval: false,
+            },
+          },
           input: {
             path: "blocking-target.mjs",
             oldText: "export const blocked = 1;",
@@ -3985,6 +4001,22 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(blockingDiagnosticPatchResult.auto_diagnostics?.rollback_refs, [
       blockingDiagnosticPatchResult.workspace_snapshot?.snapshotId,
     ]);
+    assert.equal(
+      blockingDiagnosticPatchResult.auto_diagnostics?.event.payload_summary.diagnostics_repair_context.restore_policy,
+      "preview_only",
+    );
+    assert.equal(
+      blockingDiagnosticPatchResult.auto_diagnostics?.event.payload_summary.diagnostics_repair_context.restore_conflict_policy,
+      "require_approval",
+    );
+    assert.equal(
+      blockingDiagnosticPatchResult.auto_diagnostics?.event.payload_summary.diagnostics_repair_context.diagnostics_repair_default,
+      "restore_preview",
+    );
+    assert.equal(
+      blockingDiagnosticPatchResult.auto_diagnostics?.event.payload_summary.diagnostics_repair_context.operator_override_requires_approval,
+      false,
+    );
     const blockedTurn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
       method: "POST",
       body: JSON.stringify({
@@ -4016,6 +4048,18 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.deepEqual(
       blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.map((decision) => decision.action),
       ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+    );
+    assert.equal(blockedTrace.diagnosticsFeedback?.repairPolicy?.restorePolicy, "preview_only");
+    assert.equal(blockedTrace.diagnosticsFeedback?.repairPolicy?.restoreConflictPolicy, "require_approval");
+    assert.equal(blockedTrace.diagnosticsFeedback?.repairPolicy?.defaultDecision, "restore_preview");
+    assert.equal(blockedTrace.diagnosticsFeedback?.repairPolicy?.operatorOverrideRequiresApproval, false);
+    assert.equal(
+      blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find((decision) => decision.action === "restore_apply")?.status,
+      "unavailable",
+    );
+    assert.equal(
+      blockedTrace.diagnosticsFeedback?.repairPolicy?.decisions.find((decision) => decision.action === "operator_override")?.status,
+      "available",
     );
     assert.equal(blockedTrace.diagnosticsBlockingGate?.status, "blocked");
     assert.equal(blockedTrace.diagnosticsBlockingGate?.workflowNodeId, "runtime.lsp-diagnostics.blocking-gate");
@@ -4573,6 +4617,10 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
       blockingDiagnosticsInjection.payload_summary.repair_policy.decisions.map((decision) => decision.action),
       ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
     );
+    assert.equal(blockingDiagnosticsInjection.payload_summary.repair_policy.restore_policy, "preview_only");
+    assert.equal(blockingDiagnosticsInjection.payload_summary.repair_policy.restore_conflict_policy, "require_approval");
+    assert.equal(blockingDiagnosticsInjection.payload_summary.repair_policy.default_decision, "restore_preview");
+    assert.equal(blockingDiagnosticsInjection.payload_summary.repair_policy.operator_override_requires_approval, false);
     const diagnosticsBlockingGate = daemonEvents.find(
       (event) =>
         event.event_kind === "policy.blocked" &&
@@ -4597,6 +4645,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
       diagnosticsBlockingGate.payload_summary.repair_decisions.map((decision) => decision.action),
       ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
     );
+    assert.equal(diagnosticsBlockingGate.payload_summary.repair_policy.restore_policy, "preview_only");
+    assert.equal(diagnosticsBlockingGate.payload_summary.repair_policy.default_decision, "restore_preview");
+    assert.deepEqual(diagnosticsBlockingGate.payload_summary.recommended_next_actions, [
+      "repair_retry",
+      "restore_preview",
+      "operator_override",
+    ]);
     assert.ok(diagnosticsBlockingGate.policy_decision_refs.length >= 5);
     assert.ok(diagnosticsBlockingGate.policy_decision_refs.some((ref) => ref.includes("repair_retry")));
     assert.ok(diagnosticsBlockingGate.policy_decision_refs.some((ref) => ref.includes("restore_preview")));

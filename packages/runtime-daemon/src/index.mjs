@@ -2569,7 +2569,9 @@ export class AgentgresRuntimeStateStore {
       `${threadId}:${normalizedToolId}:${toolCallId}`,
     ).slice(0, 12)}`;
     const requestRollbackRefs = uniqueStrings(normalizeArray(request.rollbackRefs ?? request.rollback_refs));
-    const diagnosticsRepairContext = diagnosticsRepairContextForRequest(request);
+    const diagnosticsRepairContext =
+      diagnosticsRepairContextForRequest(request) ??
+      diagnosticsRepairContextForToolPack(request, input, normalizedToolId);
     const artifactRefs = [];
     const receiptRefs = [receiptId];
     let status = "completed";
@@ -3484,6 +3486,7 @@ export class AgentgresRuntimeStateStore {
       workspaceSnapshotId,
       ...normalizeArray(patchResult?.rollbackRefs ?? patchResult?.rollback_refs),
     ]);
+    const repairPolicyConfig = config.repairPolicyConfig ?? diagnosticsRepairPolicyConfig(request, input);
     return this.invokeThreadTool(threadId, "lsp.diagnostics", {
       source: "runtime_auto",
       turn_id: turnId || null,
@@ -3504,6 +3507,14 @@ export class AgentgresRuntimeStateStore {
         source_workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
         workspaceSnapshotId: workspaceSnapshotId ?? null,
         workspace_snapshot_id: workspaceSnapshotId ?? null,
+        restorePolicy: repairPolicyConfig.restorePolicy,
+        restore_policy: repairPolicyConfig.restorePolicy,
+        restoreConflictPolicy: repairPolicyConfig.restoreConflictPolicy,
+        restore_conflict_policy: repairPolicyConfig.restoreConflictPolicy,
+        diagnosticsRepairDefault: repairPolicyConfig.diagnosticsRepairDefault,
+        diagnostics_repair_default: repairPolicyConfig.diagnosticsRepairDefault,
+        operatorOverrideRequiresApproval: repairPolicyConfig.operatorOverrideRequiresApproval,
+        operator_override_requires_approval: repairPolicyConfig.operatorOverrideRequiresApproval,
         rollbackRefs,
         rollback_refs: rollbackRefs,
         restore: workspaceSnapshot?.restore ?? null,
@@ -9741,6 +9752,7 @@ function hasExplicitSubagentMemorySelector(options = {}) {
 function postEditDiagnosticsConfig(request = {}, input = {}) {
   const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
   const pack = packRoot?.coding ?? packRoot;
+  const repairPolicyConfig = diagnosticsRepairPolicyConfig(request, input);
   const mode = normalizeDiagnosticsMode(
     request.diagnosticsMode ??
       request.diagnostics_mode ??
@@ -9777,7 +9789,132 @@ function postEditDiagnosticsConfig(request = {}, input = {}) {
       request.diagnosticMaxOutputBytes ??
       request.diagnostic_max_output_bytes ??
       4096,
+    repairPolicyConfig,
   };
+}
+
+function diagnosticsRepairPolicyConfig(request = {}, input = {}) {
+  const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
+  const pack = packRoot?.coding ?? packRoot;
+  const restorePolicy = normalizeRestorePolicy(
+    request.restorePolicy ??
+      request.restore_policy ??
+      input.restorePolicy ??
+      input.restore_policy ??
+      pack.restorePolicy ??
+      pack.restore_policy,
+  );
+  const restoreConflictPolicy = normalizeRestoreConflictPolicy(
+    request.restoreConflictPolicy ??
+      request.restore_conflict_policy ??
+      input.restoreConflictPolicy ??
+      input.restore_conflict_policy ??
+      pack.restoreConflictPolicy ??
+      pack.restore_conflict_policy ??
+      pack.conflictPolicy ??
+      pack.conflict_policy,
+  );
+  const diagnosticsRepairDefault = normalizeDiagnosticsRepairDefault(
+    request.diagnosticsRepairDefault ??
+      request.diagnostics_repair_default ??
+      request.defaultRepairDecision ??
+      request.default_repair_decision ??
+      input.diagnosticsRepairDefault ??
+      input.diagnostics_repair_default ??
+      input.defaultRepairDecision ??
+      input.default_repair_decision ??
+      pack.diagnosticsRepairDefault ??
+      pack.diagnostics_repair_default ??
+      pack.defaultRepairDecision ??
+      pack.default_repair_decision,
+  );
+  const operatorOverrideRequiresApproval = normalizeBooleanOption(
+    request.operatorOverrideRequiresApproval ??
+      request.operator_override_requires_approval ??
+      input.operatorOverrideRequiresApproval ??
+      input.operator_override_requires_approval ??
+      pack.operatorOverrideRequiresApproval ??
+      pack.operator_override_requires_approval,
+    true,
+  );
+  return {
+    restorePolicy,
+    restore_policy: restorePolicy,
+    restoreConflictPolicy,
+    restore_conflict_policy: restoreConflictPolicy,
+    diagnosticsRepairDefault,
+    diagnostics_repair_default: diagnosticsRepairDefault,
+    operatorOverrideRequiresApproval,
+    operator_override_requires_approval: operatorOverrideRequiresApproval,
+  };
+}
+
+function diagnosticsRepairPolicyConfigForContexts(contexts = []) {
+  const firstValue = (...keys) => {
+    for (const context of normalizeArray(contexts)) {
+      for (const key of keys) {
+        if (context?.[key] !== undefined && context?.[key] !== null) return context[key];
+      }
+    }
+    return undefined;
+  };
+  return diagnosticsRepairPolicyConfig({
+    restorePolicy: firstValue("restorePolicy", "restore_policy"),
+    restoreConflictPolicy: firstValue("restoreConflictPolicy", "restore_conflict_policy"),
+    diagnosticsRepairDefault: firstValue("diagnosticsRepairDefault", "diagnostics_repair_default"),
+    operatorOverrideRequiresApproval: firstValue(
+      "operatorOverrideRequiresApproval",
+      "operator_override_requires_approval",
+    ),
+  });
+}
+
+function diagnosticsRepairContextForToolPack(request = {}, input = {}, toolName = null) {
+  if (toolName !== "lsp.diagnostics") return null;
+  if (!hasDiagnosticsRepairPolicyConfig(request, input)) return null;
+  const policyConfig = diagnosticsRepairPolicyConfig(request, input);
+  return diagnosticsRepairContextRecord({
+    sourceToolName: toolName,
+    source_tool_name: toolName,
+    ...policyConfig,
+  });
+}
+
+function hasDiagnosticsRepairPolicyConfig(request = {}, input = {}) {
+  const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
+  const pack = packRoot?.coding ?? packRoot;
+  return [
+    request.restorePolicy,
+    request.restore_policy,
+    request.restoreConflictPolicy,
+    request.restore_conflict_policy,
+    request.diagnosticsRepairDefault,
+    request.diagnostics_repair_default,
+    request.defaultRepairDecision,
+    request.default_repair_decision,
+    request.operatorOverrideRequiresApproval,
+    request.operator_override_requires_approval,
+    input.restorePolicy,
+    input.restore_policy,
+    input.restoreConflictPolicy,
+    input.restore_conflict_policy,
+    input.diagnosticsRepairDefault,
+    input.diagnostics_repair_default,
+    input.defaultRepairDecision,
+    input.default_repair_decision,
+    input.operatorOverrideRequiresApproval,
+    input.operator_override_requires_approval,
+    pack.restorePolicy,
+    pack.restore_policy,
+    pack.restoreConflictPolicy,
+    pack.restore_conflict_policy,
+    pack.diagnosticsRepairDefault,
+    pack.diagnostics_repair_default,
+    pack.defaultRepairDecision,
+    pack.default_repair_decision,
+    pack.operatorOverrideRequiresApproval,
+    pack.operator_override_requires_approval,
+  ].some((value) => value !== undefined && value !== null);
 }
 
 function workspaceRestoreApplyApprovalForRequest(request = {}) {
@@ -9811,13 +9948,15 @@ function workspaceRestoreApplyApprovalForRequest(request = {}) {
 
 function workspaceRestoreApplyAllowsConflicts(request = {}) {
   const policy = optionalString(
-    request.conflictPolicy ??
+    request.restoreConflictPolicy ??
+      request.restore_conflict_policy ??
+      request.conflictPolicy ??
       request.conflict_policy ??
       request.restorePolicy ??
       request.restore_policy,
   )?.toLowerCase();
   return Boolean(request.allowConflicts ?? request.allow_conflicts ?? request.overrideConflicts ?? request.override_conflicts) ||
-    ["override", "override_conflicts", "force", "force_apply", "apply_with_conflicts"].includes(policy);
+    ["allow_override", "override", "override_conflicts", "force", "force_apply", "apply_with_conflicts"].includes(policy);
 }
 
 function workspaceRestoreApplyBlockedReason(operation = {}, options = {}) {
@@ -9876,6 +10015,36 @@ function normalizeDiagnosticsMode(value) {
   return "advisory";
 }
 
+function normalizeRestorePolicy(value) {
+  const policy = optionalString(value)?.toLowerCase() ?? "apply_with_approval";
+  if (["disabled", "disable", "off", "none", "blocked"].includes(policy)) return "disabled";
+  if (["preview", "preview_only", "restore_preview", "preview-only"].includes(policy)) return "preview_only";
+  return "apply_with_approval";
+}
+
+function normalizeRestoreConflictPolicy(value) {
+  const policy = optionalString(value)?.toLowerCase() ?? "block";
+  if (["allow_override", "override", "override_conflicts", "force", "apply_with_conflicts"].includes(policy)) {
+    return "allow_override";
+  }
+  if (["require_approval", "approval", "approval_required"].includes(policy)) return "require_approval";
+  return "block";
+}
+
+function normalizeDiagnosticsRepairDefault(value) {
+  const action = optionalString(value)?.toLowerCase() ?? "repair_retry";
+  if (["restore_preview", "preview", "preview_restore"].includes(action)) return "restore_preview";
+  if (["restore_apply", "apply", "apply_restore", "restore_apply_with_approval"].includes(action)) return "restore_apply";
+  if (["operator_override", "override", "continue"].includes(action)) return "operator_override";
+  return "repair_retry";
+}
+
+function normalizeBooleanOption(value, fallback) {
+  if (value === true || value === "true" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return fallback;
+}
+
 function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
   const findings = [];
   const statuses = [];
@@ -9928,6 +10097,7 @@ function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
       optionalString(context.sourceToolCallId ?? context.source_tool_call_id),
     ),
   );
+  const repairPolicyConfig = diagnosticsRepairPolicyConfigForContexts(diagnosticsRepairContexts);
   const repairPolicy = diagnosticsRollbackRepairPolicy({
     threadId,
     injectionId,
@@ -9937,6 +10107,10 @@ function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
     workspaceSnapshotRefs,
     rollbackRefs: uniqueRollbackRefs,
     sourceToolCallIds,
+    restorePolicy: repairPolicyConfig.restorePolicy,
+    restoreConflictPolicy: repairPolicyConfig.restoreConflictPolicy,
+    diagnosticsRepairDefault: repairPolicyConfig.diagnosticsRepairDefault,
+    operatorOverrideRequiresApproval: repairPolicyConfig.operatorOverrideRequiresApproval,
   });
   return {
     schemaVersion: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
@@ -9959,6 +10133,8 @@ function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
     source_tool_call_ids: sourceToolCallIds,
     diagnosticsRepairContexts,
     diagnostics_repair_contexts: diagnosticsRepairContexts,
+    repairPolicyConfig,
+    repair_policy_config: repairPolicyConfig,
     repairPolicy,
     repair_policy: repairPolicy,
     receiptRefs: uniqueStrings(receiptRefs),
@@ -10038,6 +10214,20 @@ function diagnosticsRepairContextRecord(value) {
     ...normalizeArray(value.rollbackRefs ?? value.rollback_refs),
     optionalString(value.workspaceSnapshotId ?? value.workspace_snapshot_id),
   ]);
+  const restorePolicy = normalizeRestorePolicy(value.restorePolicy ?? value.restore_policy);
+  const restoreConflictPolicy = normalizeRestoreConflictPolicy(
+    value.restoreConflictPolicy ?? value.restore_conflict_policy,
+  );
+  const diagnosticsRepairDefault = normalizeDiagnosticsRepairDefault(
+    value.diagnosticsRepairDefault ??
+      value.diagnostics_repair_default ??
+      value.defaultRepairDecision ??
+      value.default_repair_decision,
+  );
+  const operatorOverrideRequiresApproval = normalizeBooleanOption(
+    value.operatorOverrideRequiresApproval ?? value.operator_override_requires_approval,
+    true,
+  );
   return {
     ...value,
     schemaVersion:
@@ -10057,6 +10247,14 @@ function diagnosticsRepairContextRecord(value) {
     source_workflow_node_id: optionalString(value.source_workflow_node_id ?? value.sourceWorkflowNodeId) ?? null,
     workspaceSnapshotId: optionalString(value.workspaceSnapshotId ?? value.workspace_snapshot_id) ?? null,
     workspace_snapshot_id: optionalString(value.workspace_snapshot_id ?? value.workspaceSnapshotId) ?? null,
+    restorePolicy,
+    restore_policy: restorePolicy,
+    restoreConflictPolicy,
+    restore_conflict_policy: restoreConflictPolicy,
+    diagnosticsRepairDefault,
+    diagnostics_repair_default: diagnosticsRepairDefault,
+    operatorOverrideRequiresApproval,
+    operator_override_requires_approval: operatorOverrideRequiresApproval,
     rollbackRefs,
     rollback_refs: rollbackRefs,
   };
@@ -10071,11 +10269,29 @@ function diagnosticsRollbackRepairPolicy({
   workspaceSnapshotRefs,
   rollbackRefs,
   sourceToolCallIds,
+  restorePolicy,
+  restoreConflictPolicy,
+  diagnosticsRepairDefault,
+  operatorOverrideRequiresApproval,
 } = {}) {
   const policyId = `policy_lsp_diagnostics_rollback_repair_${doctorHash(
     `${threadId}:${injectionId}:${workspaceSnapshotRefs.join(",")}`,
   ).slice(0, 16)}`;
   const hasSnapshot = workspaceSnapshotRefs.length > 0;
+  const normalizedRestorePolicy = normalizeRestorePolicy(restorePolicy);
+  const normalizedRestoreConflictPolicy = normalizeRestoreConflictPolicy(restoreConflictPolicy);
+  const normalizedRepairDefault = normalizeDiagnosticsRepairDefault(diagnosticsRepairDefault);
+  const overrideRequiresApproval = normalizeBooleanOption(operatorOverrideRequiresApproval, true);
+  const restorePreviewStatus =
+    normalizedRestorePolicy === "disabled"
+      ? "unavailable"
+      : hasSnapshot
+        ? "available"
+        : "unavailable";
+  const restoreApplyStatus =
+    normalizedRestorePolicy === "apply_with_approval" && hasSnapshot
+      ? "requires_approval"
+      : "unavailable";
   const decisionBase = `${policyId}_decision`;
   const decisions = [
     {
@@ -10091,42 +10307,55 @@ function diagnosticsRollbackRepairPolicy({
       decisionId: `${decisionBase}_restore_preview`,
       decision_id: `${decisionBase}_restore_preview`,
       action: "restore_preview",
-      status: hasSnapshot ? "available" : "unavailable",
+      status: restorePreviewStatus,
       requiresApproval: false,
       requires_approval: false,
       rollbackRefs,
       rollback_refs: rollbackRefs,
       workspaceSnapshotRefs,
       workspace_snapshot_refs: workspaceSnapshotRefs,
-      summary: hasSnapshot
-        ? "Preview restoring the snapshot captured before the patch."
-        : "No content-backed workspace snapshot is available for restore preview.",
+      summary:
+        normalizedRestorePolicy === "disabled"
+          ? "Workflow restore policy disables snapshot restore preview."
+          : hasSnapshot
+            ? "Preview restoring the snapshot captured before the patch."
+            : "No content-backed workspace snapshot is available for restore preview.",
     },
     {
       decisionId: `${decisionBase}_restore_apply`,
       decision_id: `${decisionBase}_restore_apply`,
       action: "restore_apply",
-      status: hasSnapshot ? "requires_approval" : "unavailable",
-      requiresApproval: true,
-      requires_approval: true,
+      status: restoreApplyStatus,
+      requiresApproval: normalizedRestorePolicy === "apply_with_approval",
+      requires_approval: normalizedRestorePolicy === "apply_with_approval",
       rollbackRefs,
       rollback_refs: rollbackRefs,
       workspaceSnapshotRefs,
       workspace_snapshot_refs: workspaceSnapshotRefs,
-      summary: hasSnapshot
-        ? "Apply snapshot restore after explicit operator approval."
-        : "No content-backed workspace snapshot is available for restore apply.",
+      restoreConflictPolicy: normalizedRestoreConflictPolicy,
+      restore_conflict_policy: normalizedRestoreConflictPolicy,
+      summary:
+        normalizedRestorePolicy === "disabled"
+          ? "Workflow restore policy disables snapshot restore apply."
+          : normalizedRestorePolicy === "preview_only"
+            ? "Workflow restore policy allows preview only; apply is unavailable."
+            : hasSnapshot
+              ? "Apply snapshot restore after explicit operator approval."
+              : "No content-backed workspace snapshot is available for restore apply.",
     },
     {
       decisionId: `${decisionBase}_operator_override`,
       decision_id: `${decisionBase}_operator_override`,
       action: "operator_override",
-      status: "requires_approval",
-      requiresApproval: true,
-      requires_approval: true,
-      summary: "Continue despite blocking diagnostics after explicit operator override.",
+      status: overrideRequiresApproval ? "requires_approval" : "available",
+      requiresApproval: overrideRequiresApproval,
+      requires_approval: overrideRequiresApproval,
+      summary: overrideRequiresApproval
+        ? "Continue despite blocking diagnostics after explicit operator override."
+        : "Continue despite blocking diagnostics under workflow-configured operator override policy.",
     },
   ];
+  const defaultDecision = diagnosticsRepairDefaultForDecisions(decisions, normalizedRepairDefault);
   return {
     schemaVersion: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
     schema_version: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
@@ -10148,12 +10377,29 @@ function diagnosticsRollbackRepairPolicy({
     rollback_refs: rollbackRefs,
     sourceToolCallIds,
     source_tool_call_ids: sourceToolCallIds,
-    defaultDecision: "repair_retry",
-    default_decision: "repair_retry",
+    restorePolicy: normalizedRestorePolicy,
+    restore_policy: normalizedRestorePolicy,
+    restoreConflictPolicy: normalizedRestoreConflictPolicy,
+    restore_conflict_policy: normalizedRestoreConflictPolicy,
+    diagnosticsRepairDefault: defaultDecision,
+    diagnostics_repair_default: defaultDecision,
+    operatorOverrideRequiresApproval: overrideRequiresApproval,
+    operator_override_requires_approval: overrideRequiresApproval,
+    defaultDecision,
+    default_decision: defaultDecision,
     decisions,
     decisionRefs: decisions.map((decision) => decision.decisionId),
     decision_refs: decisions.map((decision) => decision.decision_id),
   };
+}
+
+function diagnosticsRepairDefaultForDecisions(decisions = [], preferredAction = "repair_retry") {
+  const preferred = normalizeDiagnosticsRepairDefault(preferredAction);
+  const decision = normalizeArray(decisions).find((item) => item?.action === preferred);
+  if (decision && ["available", "requires_approval"].includes(decision.status)) {
+    return preferred;
+  }
+  return "repair_retry";
 }
 
 function diagnosticsBlockingGateForFeedback(diagnosticsFeedback) {
@@ -10178,6 +10424,18 @@ function diagnosticsBlockingGateForFeedback(diagnosticsFeedback) {
       sourceToolCallIds: uniqueStrings(
         normalizeArray(diagnosticsFeedback.sourceToolCallIds ?? diagnosticsFeedback.source_tool_call_ids),
       ),
+      restorePolicy:
+        diagnosticsFeedback.repairPolicyConfig?.restorePolicy ??
+        diagnosticsFeedback.repair_policy_config?.restore_policy,
+      restoreConflictPolicy:
+        diagnosticsFeedback.repairPolicyConfig?.restoreConflictPolicy ??
+        diagnosticsFeedback.repair_policy_config?.restore_conflict_policy,
+      diagnosticsRepairDefault:
+        diagnosticsFeedback.repairPolicyConfig?.diagnosticsRepairDefault ??
+        diagnosticsFeedback.repair_policy_config?.diagnostics_repair_default,
+      operatorOverrideRequiresApproval:
+        diagnosticsFeedback.repairPolicyConfig?.operatorOverrideRequiresApproval ??
+        diagnosticsFeedback.repair_policy_config?.operator_override_requires_approval,
     });
   const policyDecisionRefs = uniqueStrings([
     `policy_${gateId}`,
@@ -10229,11 +10487,12 @@ function diagnosticsBlockingGateForFeedback(diagnosticsFeedback) {
     message:
       `Blocking diagnostics mode found ${diagnosticCount} post-edit diagnostic finding(s). ` +
       "Model continuation is paused until the findings are repaired, a snapshot restore is previewed/applied with approval, or an operator override is granted.",
-    recommendedNextActions: [
-      "repair_retry",
-      ...(workspaceSnapshotRefs.length ? ["restore_preview", "restore_apply_with_approval"] : []),
-      "operator_override",
-    ],
+    recommendedNextActions: normalizeArray(repairPolicy.decisions)
+      .filter((decision) => ["available", "requires_approval"].includes(decision?.status))
+      .map((decision) =>
+        decision?.action === "restore_apply" ? "restore_apply_with_approval" : decision?.action,
+      )
+      .filter(Boolean),
     workflowNodeId: LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
     componentKind: "lsp_diagnostics_gate",
     redaction: "lsp_diagnostics_safe",

@@ -55,6 +55,10 @@ export function WorkflowNodeBindingSections({
     allowedDiagnosticCommandIds: ["auto", "node.check", "typescript.check"],
     diagnosticsMode: "advisory" as const,
     defaultDiagnosticCommandId: "auto",
+    restorePolicy: "apply_with_approval" as const,
+    restoreConflictPolicy: "block" as const,
+    diagnosticsRepairDefault: "repair_retry" as const,
+    operatorOverrideRequiresApproval: true,
     timeoutMs: 60000,
     dryRun: false,
     allowedPaths: [] as string[],
@@ -2118,33 +2122,7 @@ export function WorkflowNodeBindingSections({
                         : undefined,
                     toolPack:
                       bindingKind === "coding_tool_pack"
-                        ? (logic.toolBinding?.toolPack ?? {
-                            pack: "coding",
-                            workspaceStatusEnabled: true,
-                            gitEnabled: true,
-                            filesystemEnabled: true,
-                            writeEnabled: true,
-                            testEnabled: true,
-                            diagnosticsEnabled: true,
-                            artifactEnabled: true,
-                            resultRetrievalEnabled: true,
-                            allowedTestCommandIds: [
-                              "node.test",
-                              "npm.test",
-                              "cargo.test",
-                              "cargo.check",
-                            ],
-                            allowedDiagnosticCommandIds: [
-                              "auto",
-                              "node.check",
-                              "typescript.check",
-                            ],
-                            diagnosticsMode: "advisory",
-                            defaultDiagnosticCommandId: "auto",
-                            timeoutMs: 60000,
-                            dryRun: false,
-                            allowedPaths: [],
-                          })
+                        ? (logic.toolBinding?.toolPack ?? codingToolPackDefaults)
                         : undefined,
                   },
                 });
@@ -2538,6 +2516,86 @@ export function WorkflowNodeBindingSections({
                     })
                   }
                 />
+              </label>
+              <label>
+                Restore policy
+                <select
+                  data-testid="workflow-coding-tool-pack-restore-policy"
+                  value={String(
+                    codingToolPack.restorePolicy ?? "apply_with_approval",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      restorePolicy: event.target.value as
+                        | "disabled"
+                        | "preview_only"
+                        | "apply_with_approval",
+                    })
+                  }
+                >
+                  <option value="apply_with_approval">Apply with approval</option>
+                  <option value="preview_only">Preview only</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </label>
+              <label>
+                Restore conflicts
+                <select
+                  data-testid="workflow-coding-tool-pack-restore-conflict-policy"
+                  value={String(codingToolPack.restoreConflictPolicy ?? "block")}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      restoreConflictPolicy: event.target.value as
+                        | "block"
+                        | "require_approval"
+                        | "allow_override",
+                    })
+                  }
+                >
+                  <option value="block">Block conflicts</option>
+                  <option value="require_approval">Require approval</option>
+                  <option value="allow_override">Allow override</option>
+                </select>
+              </label>
+              <label>
+                Repair default
+                <select
+                  data-testid="workflow-coding-tool-pack-diagnostics-repair-default"
+                  value={String(
+                    codingToolPack.diagnosticsRepairDefault ?? "repair_retry",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      diagnosticsRepairDefault: event.target.value as
+                        | "repair_retry"
+                        | "restore_preview"
+                        | "restore_apply"
+                        | "operator_override",
+                    })
+                  }
+                >
+                  <option value="repair_retry">Repair retry</option>
+                  <option value="restore_preview">Restore preview</option>
+                  <option value="restore_apply">Restore apply</option>
+                  <option value="operator_override">Operator override</option>
+                </select>
+              </label>
+              <label className="workflow-config-checkbox-row">
+                <input
+                  data-testid="workflow-coding-tool-pack-operator-override-requires-approval"
+                  type="checkbox"
+                  checked={codingToolPack.operatorOverrideRequiresApproval !== false}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      operatorOverrideRequiresApproval: event.target.checked,
+                    })
+                  }
+                />
+                Operator override requires approval
               </label>
               <label>
                 Timeout ms
