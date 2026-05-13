@@ -149,6 +149,7 @@ workstream was narrower.
 | 147 | 2026-05-13 | P1. MCP Manager Parity | live MCP HTTP/SSE transport | /tmp/ioi-autopilot-gui-harness-mcp-http-sse/2026-05-13T15-06-56-740Z/result.json |
 | 148 | 2026-05-13 | P1. MCP Manager Parity | self-hosted MCP serve mode | /tmp/ioi-autopilot-gui-harness-mcp-serve/2026-05-13T15-29-48-332Z/result.json |
 | 149 | 2026-05-13 | P1. MCP Manager Parity | remote MCP auth/vault header hardening | /tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json |
+| 150 | 2026-05-13 | P1. MCP Manager Parity | large MCP catalog deferred search/fetch | /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -7062,3 +7063,40 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-auth-vault`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-mcp-auth-vault/2026-05-13T15-45-08-787Z/result.json`.
+
+### Slice 150. 2026-05-13 - Large MCP catalog deferred search/fetch
+
+Implementation slice completed 2026-05-13, large MCP catalog parity:
+
+- Added daemon and thread-scoped MCP tool search/fetch routes at
+  `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`,
+  `/v1/threads/{thread_id}/mcp/tools/search`, and
+  `/v1/threads/{thread_id}/mcp/tools/{tool_id}`.
+- Kept live MCP status payloads bounded for large tool catalogs by publishing
+  catalog summaries, preview limits, returned-tool counts, stable catalog
+  hashes, and namespace summaries while preserving on-demand discovery.
+- Exposed SDK and `Thread` helpers for MCP tool search/fetch plus typed catalog
+  summary/search result payloads.
+- Added React Flow authoring metadata for MCP tool search/fetch state nodes and
+  catalog mode/search controls on MCP tool bindings.
+- Extended the live MCP fixture with an 80-tool remote server to prove deferred
+  status exposure, preview limits, exact search, exact fetch, and large-tool
+  omission from root status payloads.
+- Updated the master guide so the next MCP parity slice is global IOI MCP
+  config discovery.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `node --test --test-name-pattern "daemon owns MCP discovery" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon owns MCP discovery|agent CLI exposes model|agent TUI line-mode|React Flow memory" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-mcp-large-catalog-search/2026-05-13T16-02-41-899Z/result.json`.
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui --quiet`
+- `git diff --check`

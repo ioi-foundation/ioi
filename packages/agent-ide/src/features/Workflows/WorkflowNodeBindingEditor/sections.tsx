@@ -71,6 +71,8 @@ export function WorkflowNodeBindingSections({
     serverId: "",
     toolName: "",
     catalogRef: "mcp.tool.catalog.read",
+    catalogMode: "deferred",
+    catalogSearchQuery: "",
     validateBeforeInvoke: true,
     containmentMode: "read_only" as const,
     ...(logic.toolBinding?.mcp ?? {}),
@@ -1219,6 +1221,8 @@ export function WorkflowNodeBindingSections({
                     | "append"
                     | "merge"
                     | "mcp_status"
+                    | "mcp_tool_search"
+                    | "mcp_tool_fetch"
                     | "mcp_import"
                     | "mcp_add"
                     | "mcp_serve"
@@ -1246,6 +1250,8 @@ export function WorkflowNodeBindingSections({
               <option value="append">Append</option>
               <option value="merge">Merge</option>
               <option value="mcp_status">MCP status</option>
+              <option value="mcp_tool_search">MCP tool search</option>
+              <option value="mcp_tool_fetch">MCP tool fetch</option>
               <option value="mcp_import">MCP import</option>
               <option value="mcp_add">MCP add</option>
               <option value="mcp_serve">MCP serve</option>
@@ -1262,6 +1268,8 @@ export function WorkflowNodeBindingSections({
             </select>
           </label>
           {logic.stateOperation === "mcp_status" ||
+          logic.stateOperation === "mcp_tool_search" ||
+          logic.stateOperation === "mcp_tool_fetch" ||
           logic.stateOperation === "mcp_import" ||
           logic.stateOperation === "mcp_add" ||
           logic.stateOperation === "mcp_serve" ||
@@ -1277,6 +1285,74 @@ export function WorkflowNodeBindingSections({
                     value={String(logic.mcpServerId ?? "")}
                     onChange={(event) =>
                       updateLogic({ ...logic, mcpServerId: event.target.value })
+                    }
+                  />
+                </label>
+              ) : null}
+              {logic.stateOperation === "mcp_status" ||
+              logic.stateOperation === "mcp_tool_search" ||
+              logic.stateOperation === "mcp_tool_fetch" ? (
+                <>
+                  <label>
+                    MCP catalog mode
+                    <select
+                      data-testid="workflow-state-mcp-catalog-mode"
+                      value={String(logic.mcpCatalogMode ?? "summary")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpCatalogMode: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="summary">Summary/deferred</option>
+                      <option value="full">Full catalog</option>
+                    </select>
+                  </label>
+                  <label>
+                    MCP catalog preview limit
+                    <input
+                      data-testid="workflow-state-mcp-catalog-preview-limit"
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={Number(logic.mcpToolCatalogPreviewLimit ?? 50)}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpToolCatalogPreviewLimit: Number(event.target.value || 0),
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              ) : null}
+              {logic.stateOperation === "mcp_tool_search" ? (
+                <label>
+                  MCP tool search
+                  <input
+                    data-testid="workflow-state-mcp-tool-search-query"
+                    value={String(logic.mcpToolSearchQuery ?? "")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        mcpToolSearchQuery: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+              ) : null}
+              {logic.stateOperation === "mcp_tool_fetch" ? (
+                <label>
+                  MCP tool
+                  <input
+                    data-testid="workflow-state-mcp-tool-name"
+                    value={String(logic.mcpToolName ?? "")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        mcpToolName: event.target.value,
+                      })
                     }
                   />
                 </label>
@@ -2559,6 +2635,75 @@ export function WorkflowNodeBindingSections({
                         },
                       });
                     }}
+                  />
+                </label>
+                <label>
+                  Catalog mode
+                  <select
+                    data-testid="workflow-mcp-catalog-mode"
+                    value={String(mcpBinding.catalogMode ?? "deferred")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        toolBinding: {
+                          toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
+                          bindingKind: "mcp_tool",
+                          mockBinding: logic.toolBinding?.mockBinding ?? true,
+                          credentialReady:
+                            logic.toolBinding?.credentialReady ?? false,
+                          capabilityScope:
+                            logic.toolBinding?.capabilityScope ?? [
+                              "mcp.provider.read",
+                              "mcp.tool.catalog.read",
+                            ],
+                          sideEffectClass:
+                            logic.toolBinding?.sideEffectClass ?? "read",
+                          requiresApproval:
+                            logic.toolBinding?.requiresApproval ?? false,
+                          arguments: logic.toolBinding?.arguments ?? {},
+                          mcp: {
+                            ...mcpBinding,
+                            catalogMode: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <option value="deferred">Deferred search</option>
+                    <option value="full">Full catalog</option>
+                  </select>
+                </label>
+                <label>
+                  Catalog search
+                  <input
+                    data-testid="workflow-mcp-catalog-search-query"
+                    value={String(mcpBinding.catalogSearchQuery ?? "")}
+                    onChange={(event) =>
+                      updateLogic({
+                        ...logic,
+                        toolBinding: {
+                          toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
+                          bindingKind: "mcp_tool",
+                          mockBinding: logic.toolBinding?.mockBinding ?? true,
+                          credentialReady:
+                            logic.toolBinding?.credentialReady ?? false,
+                          capabilityScope:
+                            logic.toolBinding?.capabilityScope ?? [
+                              "mcp.provider.read",
+                              "mcp.tool.catalog.read",
+                            ],
+                          sideEffectClass:
+                            logic.toolBinding?.sideEffectClass ?? "read",
+                          requiresApproval:
+                            logic.toolBinding?.requiresApproval ?? false,
+                          arguments: logic.toolBinding?.arguments ?? {},
+                          mcp: {
+                            ...mcpBinding,
+                            catalogSearchQuery: event.target.value,
+                          },
+                        },
+                      })
+                    }
                   />
                 </label>
                 <label>

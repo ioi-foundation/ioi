@@ -48,6 +48,23 @@ const mcpFixturePrompts = [
   },
 ];
 
+function largeMcpFixtureTools(count = 80) {
+  return Array.from({ length: count }, (_, index) => {
+    const suffix = String(index).padStart(3, "0");
+    return {
+      name: `large_tool_${suffix}`,
+      description: `Large catalog fixture tool ${suffix}.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          value: { type: "string" },
+          index: { type: "integer", const: index },
+        },
+      },
+    };
+  });
+}
+
 async function execFileWithInput(file, args, input, options = {}) {
   return new Promise((resolve, reject) => {
     const child = execFile(file, args, options, (error, stdout, stderr) => {
@@ -65,6 +82,7 @@ async function execFileWithInput(file, args, input, options = {}) {
 
 async function startMcpRemoteFixtureServer(options = {}) {
   const requiredHeaders = options.requiredHeaders ?? {};
+  const fixtureTools = Array.isArray(options.tools) ? options.tools : mcpFixtureTools;
   const observedHeaders = [];
   const sseClients = new Map();
   const recordHeaders = (request, pathLabel) => {
@@ -114,7 +132,7 @@ async function startMcpRemoteFixtureServer(options = {}) {
       const sessionId = url.searchParams.get("sessionId") ?? "";
       const client = sseClients.get(sessionId);
       const message = JSON.parse(await readRequestBody(request));
-      const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-sse");
+      const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-sse", { tools: fixtureTools });
       response.writeHead(202).end();
       if (client && rpc) {
         client.write(`event: message\ndata: ${JSON.stringify(rpc)}\n\n`);
@@ -126,7 +144,7 @@ async function startMcpRemoteFixtureServer(options = {}) {
         return;
       }
       const message = JSON.parse(await readRequestBody(request));
-      const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-http");
+      const rpc = mcpFixtureJsonRpcResponse(message, "ioi-fixture-mcp-http", { tools: fixtureTools });
       if (!rpc) {
         response.writeHead(202).end();
         return;
@@ -157,7 +175,8 @@ async function startMcpRemoteFixtureServer(options = {}) {
   };
 }
 
-function mcpFixtureJsonRpcResponse(message, serverName) {
+function mcpFixtureJsonRpcResponse(message, serverName, options = {}) {
+  const tools = Array.isArray(options.tools) ? options.tools : mcpFixtureTools;
   if (message.method === "notifications/initialized") return null;
   if (message.method === "initialize") {
     return {
@@ -171,7 +190,7 @@ function mcpFixtureJsonRpcResponse(message, serverName) {
     };
   }
   if (message.method === "tools/list") {
-    return { jsonrpc: "2.0", id: message.id, result: { tools: mcpFixtureTools } };
+    return { jsonrpc: "2.0", id: message.id, result: { tools } };
   }
   if (message.method === "resources/list") {
     return { jsonrpc: "2.0", id: message.id, result: { resources: mcpFixtureResources } };
@@ -1729,6 +1748,9 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
   const remoteFixture = await startMcpRemoteFixtureServer({
     requiredHeaders: { [remoteAuthHeaderName]: remoteAuthMaterial },
   });
+  const largeRemoteFixture = await startMcpRemoteFixtureServer({
+    tools: largeMcpFixtureTools(),
+  });
   fs.mkdirSync(path.join(cwd, ".cursor"), { recursive: true });
   fs.writeFileSync(
     path.join(cwd, ".cursor", "mcp.json"),
@@ -1953,6 +1975,17 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.equal(JSON.stringify(remoteSseAdded).includes(remoteAuthVaultRef), false);
     assert.equal(JSON.stringify(remoteSseAdded).includes(remoteAuthMaterial), false);
 
+    const largeHttpAdded = await sdkThread.addMcpServer({
+      label: "large-http",
+      server: {
+        transport: "http",
+        url: `${largeRemoteFixture.url}/mcp`,
+        allowedTools: ["large_tool_000"],
+      },
+    });
+    assert.equal(largeHttpAdded.added[0].transport, "http");
+    assert.equal(largeHttpAdded.added[0].serverUrl, `${largeRemoteFixture.url}/mcp`);
+
     const rawAuthValidation = await sdkThread.validateMcp({
       mcpServers: {
         "raw-auth": {
@@ -1982,6 +2015,50 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     assert.ok(remoteStatus.prompts.some((prompt) => prompt.name === "remote-brief"));
     assert.equal(JSON.stringify(remoteStatus).includes(remoteAuthVaultRef), false);
     assert.equal(JSON.stringify(remoteStatus).includes(remoteAuthMaterial), false);
+    const largeDiscovery = remoteStatus.live_discovery.servers.find((entry) => entry.server_id === "mcp.large-http");
+    assert.equal(largeDiscovery.status, "completed");
+    assert.equal(largeDiscovery.catalogSummary.toolCount, 80);
+    assert.equal(largeDiscovery.catalogSummary.deferred, true);
+    assert.equal(largeDiscovery.catalogExposure.fullCatalogIncluded, false);
+    assert.ok(
+      remoteStatus.tools.filter((tool) => tool.serverId === "mcp.large-http").length <=
+        largeDiscovery.catalogExposure.previewLimit,
+    );
+    assert.equal(JSON.stringify(remoteStatus).includes("large_tool_079"), false);
+
+    const largePreviewStatus = await sdkThread.mcp({
+      live_discovery: true,
+      catalog_preview_limit: 5,
+    });
+    const largePreviewDiscovery = largePreviewStatus.live_discovery.servers.find(
+      (entry) => entry.server_id === "mcp.large-http",
+    );
+    assert.equal(largePreviewDiscovery.catalogSummary.toolCount, 80);
+    assert.equal(largePreviewDiscovery.catalogExposure.returnedToolCount, 5);
+    assert.ok(
+      largePreviewStatus.tools.filter((tool) => tool.serverId === "mcp.large-http").length <= 5,
+    );
+
+    const largeSearch = await sdkClient.searchMcpTools({
+      threadId: thread.thread_id,
+      serverId: "mcp.large-http",
+      q: "large_tool_079",
+      live_discovery: true,
+      limit: 3,
+    });
+    assert.equal(largeSearch.status, "completed");
+    assert.equal(largeSearch.returnedCount, 1);
+    assert.equal(largeSearch.tools[0].toolName, "large_tool_079");
+    assert.equal(largeSearch.catalogSummaries[0].toolCount, 80);
+    assert.equal(largeSearch.catalogSummaries[0].deferred, true);
+
+    const largeFetched = await sdkThread.getMcpTool("mcp.large-http.large_tool_079", {
+      serverId: "mcp.large-http",
+      live_discovery: true,
+    });
+    assert.equal(largeFetched.object, "ioi.runtime_mcp_tool_fetch");
+    assert.equal(largeFetched.tool.toolName, "large_tool_079");
+    assert.equal(largeFetched.tools.length, 1);
 
     const httpInvoked = await sdkThread.invokeMcpTool({
       serverId: "mcp.remote-http",
@@ -2198,6 +2275,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
   } finally {
     await daemon.close();
     await remoteFixture.close();
+    await largeRemoteFixture.close();
   }
 });
 

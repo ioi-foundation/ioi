@@ -15,6 +15,7 @@ import {
   type RuntimeMcpJsonRpcResponse,
   type RuntimeMcpServerMutationInput,
   type RuntimeMcpToolInvokeInput,
+  type RuntimeMcpToolSearchInput,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
   type RuntimeThreadThinkingInput,
@@ -28,6 +29,7 @@ import type {
   RuntimeMemoryValidationResult,
   RuntimeMcpStatus,
   RuntimeMcpInvocationResult,
+  RuntimeMcpToolSearchResult,
   RuntimeMcpValidationResult,
   RuntimeThreadEvent,
   RuntimeThreadRecord,
@@ -136,6 +138,17 @@ export class Thread {
 
   async validateMcp(input: RuntimeThreadMcpInput = {}): Promise<RuntimeMcpValidationResult> {
     return this.client.validateThreadMcp(this.id, input);
+  }
+
+  async searchMcpTools(input: RuntimeMcpToolSearchInput = {}): Promise<RuntimeMcpToolSearchResult> {
+    return this.client.searchThreadMcpTools(this.id, input);
+  }
+
+  async getMcpTool(
+    toolId: string,
+    input: RuntimeMcpToolSearchInput = {},
+  ): Promise<RuntimeMcpToolSearchResult> {
+    return this.client.getThreadMcpTool(this.id, toolId, input);
   }
 
   async importMcp(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
