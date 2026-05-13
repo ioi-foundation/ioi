@@ -310,6 +310,42 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-agent-tui-workflow-deeplinks/2026-05-13T01-56-18-198Z/result.json`.
 
+### Slice 116. 2026-05-13 - Daemon-backed line-mode `ioi agent tui` loop
+
+Implementation slice completed 2026-05-13, daemon-backed line-mode terminal
+agent UI:
+
+- Added `--interactive` to `ioi agent tui`, explicitly preserving the existing
+  one-shot JSON contract by rejecting `--interactive --json`.
+- Added `crates/cli/src/commands/agent_tui_loop.rs` for line-mode parsing and
+  command dispatch so the TUI shell stays modular instead of growing a hidden
+  runtime loop.
+- Implemented `/resume`, `/events [since_seq]`, `/interrupt [reason]`,
+  `/steer <guidance>`, `/help`, and `/quit` over the same daemon thread,
+  turn-control, and event-stream endpoints used by the one-shot shell.
+- Refactored the TUI daemon helpers for event fetch, turn interrupt, turn steer,
+  thread resume, and latest event cursor reuse while keeping
+  `private_runtime_loop: false`.
+- Added a live line-mode contract that drives stdin through
+  `/interrupt line-mode validation interrupt`, `/events 0`, and `/quit`, then
+  proves the resulting operator-interrupt event keeps the same event id, cursor,
+  workflow node id, and TUI reopen descriptor across daemon SSE, SDK
+  `Thread.events()`, CLI/TUI output, and React Flow projection.
+
+Validation evidence:
+
+- `cargo test -p ioi-cli --bin cli agent_tui`
+- `cargo test -p ioi-cli --bin cli parses_agent_operator_surface_commands`
+- `cargo test -p ioi-cli --bin cli`
+- `cargo check -p ioi-cli --bin cli`
+- `cargo fmt -p ioi-cli -- --check`
+- `node --test --test-name-pattern "agent TUI line-mode slash commands|agent TUI thin shell starts a live thread|agent TUI thin shell is daemon-backed|agent CLI exposes model" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-agent-tui-line-mode`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-agent-tui-line-mode/2026-05-13T02-06-09-973Z/result.json`.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:

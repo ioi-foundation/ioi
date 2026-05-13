@@ -4,6 +4,7 @@ use super::agent_event_stream::{
     fetch_runtime_event_stream, format_runtime_event_line, json_path_string,
     resolve_daemon_endpoint, resolve_daemon_token, runtime_event_url,
 };
+use super::agent_tui_loop::{run_tui_interactive_loop, TuiInteractiveSession};
 use super::model_mount_http::daemon_request;
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -82,12 +83,20 @@ pub struct AgentTuiArgs {
     /// Emit machine-readable JSON.
     #[clap(long)]
     pub json: bool,
+    /// Enter the daemon-backed line-mode TUI loop after the initial render.
+    #[clap(long)]
+    pub interactive: bool,
 }
 
 pub async fn run_agent_tui(args: AgentTuiArgs) -> Result<()> {
     if args.interrupt && args.steer.is_some() {
         return Err(anyhow!(
             "agent tui accepts either --interrupt or --steer <guidance>, not both"
+        ));
+    }
+    if args.interactive && args.json {
+        return Err(anyhow!(
+            "agent tui --interactive cannot be combined with --json"
         ));
     }
 
@@ -121,45 +130,52 @@ pub async fn run_agent_tui(args: AgentTuiArgs) -> Result<()> {
     )
     .await?;
     thread = fetch_tui_thread(&thread_id_from_value(&thread)?, &endpoint, token.as_deref()).await?;
-    let event_route =
-        thread_event_route(&thread_id_from_value(&thread)?, args.follow, args.since_seq);
-    let event_url = runtime_event_url(&endpoint, &event_route);
-    let events = fetch_runtime_event_stream(
-        &event_url,
+    let event_batch = fetch_tui_event_batch(
+        &thread_id_from_value(&thread)?,
+        &endpoint,
         token.as_deref(),
-        args.last_event_id.as_deref(),
         args.follow,
+        args.since_seq,
+        args.last_event_id.as_deref(),
     )
     .await?;
-
-    if args.json {
-        return print_tui_json(TuiRender {
-            endpoint,
-            event_route,
-            thread,
-            submitted_turn,
-            control,
-            events,
-            since_seq: args.since_seq,
-            last_event_id: args.last_event_id,
-            follow: args.follow,
-        });
-    }
-
-    print_tui_screen(TuiRender {
-        endpoint,
-        event_route,
+    let latest_event_seq = latest_event_seq(&event_batch.events);
+    let render = TuiRender {
+        endpoint: endpoint.clone(),
+        event_route: event_batch.event_route,
         thread,
         submitted_turn,
         control,
-        events,
+        events: event_batch.events,
         since_seq: args.since_seq,
         last_event_id: args.last_event_id,
         follow: args.follow,
-    })
+    };
+
+    if args.json {
+        return print_tui_json(&render);
+    }
+
+    print_tui_screen(&render)?;
+    if args.interactive {
+        return run_tui_interactive_loop(TuiInteractiveSession {
+            endpoint,
+            token,
+            thread: render.thread,
+            next_since_seq: latest_event_seq.or(args.since_seq),
+            follow: args.follow,
+        })
+        .await;
+    }
+    Ok(())
 }
 
-struct TuiRender {
+pub(crate) struct TuiEventBatch {
+    pub(crate) event_route: String,
+    pub(crate) events: Vec<Value>,
+}
+
+pub(crate) struct TuiRender {
     endpoint: String,
     event_route: String,
     thread: Value,
@@ -171,7 +187,7 @@ struct TuiRender {
     follow: bool,
 }
 
-fn print_tui_json(render: TuiRender) -> Result<()> {
+fn print_tui_json(render: &TuiRender) -> Result<()> {
     let workflow_node_ids = workflow_node_ids(&render.events);
     let thread_id = json_path_string(&render.thread, "/thread_id");
     let event_rows = tui_event_rows(&render.events, thread_id.as_deref());
@@ -214,7 +230,7 @@ fn print_tui_json(render: TuiRender) -> Result<()> {
     Ok(())
 }
 
-fn print_tui_screen(render: TuiRender) -> Result<()> {
+pub(crate) fn print_tui_screen(render: &TuiRender) -> Result<()> {
     let thread_id = thread_id_from_value(&render.thread)?;
     let latest_seq =
         json_path_string(&render.thread, "/latest_seq").unwrap_or_else(|| "0".to_string());
@@ -360,7 +376,11 @@ fn start_thread_options(args: &AgentTuiArgs) -> Map<String, Value> {
     options
 }
 
-async fn fetch_tui_thread(thread_id: &str, endpoint: &str, token: Option<&str>) -> Result<Value> {
+pub(crate) async fn fetch_tui_thread(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
     daemon_request(
         Some(endpoint),
         token,
@@ -371,7 +391,11 @@ async fn fetch_tui_thread(thread_id: &str, endpoint: &str, token: Option<&str>) 
     .await
 }
 
-async fn resume_tui_thread(thread_id: &str, endpoint: &str, token: Option<&str>) -> Result<Value> {
+pub(crate) async fn resume_tui_thread(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
     daemon_request(
         Some(endpoint),
         token,
@@ -412,22 +436,9 @@ async fn run_tui_control(
 ) -> Result<Option<Value>> {
     if args.interrupt {
         let turn_id = selected_turn_id(args, submitted_turn, thread)?;
-        return daemon_request(
-            Some(endpoint),
-            token,
-            Method::POST,
-            &route_with_thread_and_turn(TUI_INTERRUPT_ROUTE_TEMPLATE, thread_id, &turn_id),
-            Some(serde_json::json!({
-                "reason": args.reason,
-                "source": "cli_tui",
-                "actor": "operator",
-                "event_kind": "OperatorControl.Interrupt",
-                "component_kind": "operator_control",
-                "workflow_node_id": "runtime.operator-interrupt",
-            })),
-        )
-        .await
-        .map(Some);
+        return interrupt_tui_turn(thread_id, &turn_id, &args.reason, endpoint, token)
+            .await
+            .map(Some);
     }
     if let Some(guidance) = args
         .steer
@@ -435,24 +446,59 @@ async fn run_tui_control(
         .filter(|value| !value.trim().is_empty())
     {
         let turn_id = selected_turn_id(args, submitted_turn, thread)?;
-        return daemon_request(
-            Some(endpoint),
-            token,
-            Method::POST,
-            &route_with_thread_and_turn(TUI_STEER_ROUTE_TEMPLATE, thread_id, &turn_id),
-            Some(serde_json::json!({
-                "guidance": guidance,
-                "source": "cli_tui",
-                "actor": "operator",
-                "event_kind": "OperatorControl.Steer",
-                "component_kind": "operator_control",
-                "workflow_node_id": "runtime.operator-steer",
-            })),
-        )
-        .await
-        .map(Some);
+        return steer_tui_turn(thread_id, &turn_id, guidance, endpoint, token)
+            .await
+            .map(Some);
     }
     Ok(None)
+}
+
+pub(crate) async fn interrupt_tui_turn(
+    thread_id: &str,
+    turn_id: &str,
+    reason: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_turn(TUI_INTERRUPT_ROUTE_TEMPLATE, thread_id, turn_id),
+        Some(serde_json::json!({
+            "reason": reason,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Interrupt",
+            "component_kind": "operator_control",
+            "workflow_node_id": "runtime.operator-interrupt",
+        })),
+    )
+    .await
+}
+
+pub(crate) async fn steer_tui_turn(
+    thread_id: &str,
+    turn_id: &str,
+    guidance: &str,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread_and_turn(TUI_STEER_ROUTE_TEMPLATE, thread_id, turn_id),
+        Some(serde_json::json!({
+            "guidance": guidance,
+            "source": "cli_tui",
+            "actor": "operator",
+            "event_kind": "OperatorControl.Steer",
+            "component_kind": "operator_control",
+            "workflow_node_id": "runtime.operator-steer",
+        })),
+    )
+    .await
 }
 
 fn selected_turn_id(
@@ -460,8 +506,15 @@ fn selected_turn_id(
     submitted_turn: Option<&Value>,
     thread: &Value,
 ) -> Result<String> {
-    args.turn_id
-        .as_deref()
+    selected_turn_id_from_values(args.turn_id.as_deref(), submitted_turn, thread)
+}
+
+pub(crate) fn selected_turn_id_from_values(
+    explicit_turn_id: Option<&str>,
+    submitted_turn: Option<&Value>,
+    thread: &Value,
+) -> Result<String> {
+    explicit_turn_id
         .filter(|value| !value.trim().is_empty())
         .map(ToOwned::to_owned)
         .or_else(|| submitted_turn.and_then(|turn| json_path_string(turn, "/turn_id")))
@@ -476,10 +529,34 @@ fn selected_turn_id(
         .ok_or_else(|| anyhow!("agent tui control requires --turn-id or a thread latest turn"))
 }
 
-fn thread_id_from_value(thread: &Value) -> Result<String> {
+pub(crate) fn thread_id_from_value(thread: &Value) -> Result<String> {
     json_path_string(thread, "/thread_id")
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| anyhow!("daemon thread record is missing thread_id"))
+}
+
+pub(crate) async fn fetch_tui_event_batch(
+    thread_id: &str,
+    endpoint: &str,
+    token: Option<&str>,
+    follow: bool,
+    since_seq: Option<u64>,
+    last_event_id: Option<&str>,
+) -> Result<TuiEventBatch> {
+    let event_route = thread_event_route(thread_id, follow, since_seq);
+    let event_url = runtime_event_url(endpoint, &event_route);
+    let events = fetch_runtime_event_stream(&event_url, token, last_event_id, follow).await?;
+    Ok(TuiEventBatch {
+        event_route,
+        events,
+    })
+}
+
+pub(crate) fn latest_event_seq(events: &[Value]) -> Option<u64> {
+    events
+        .iter()
+        .filter_map(|event| event.pointer("/seq")?.as_u64())
+        .max()
 }
 
 fn workflow_node_ids(events: &[Value]) -> Vec<String> {
@@ -627,6 +704,7 @@ mod tests {
             cwd: None,
             max_steps: 20,
             json: true,
+            interactive: false,
         };
         let turn = serde_json::json!({ "turn_id": "turn_submitted" });
         let thread = serde_json::json!({ "latest_turn_id": "turn_latest" });
@@ -658,6 +736,7 @@ mod tests {
             cwd: Some("/tmp/workspace".to_string()),
             max_steps: 20,
             json: true,
+            interactive: false,
         };
         let options = start_thread_options(&args);
         assert_eq!(options["local"]["cwd"], "/tmp/workspace");
