@@ -134,11 +134,15 @@ Completed workstream snapshot as of 2026-05-12:
   `runtime_thread_fork`, which builds a daemon request with
   `source=react_flow`, graph id, node id, and control metadata preserved
   through daemon SSE, SDK `Thread.events()`, and the read-only React Flow
-  projection.
+  projection. The authoring surface now also exposes
+  `runtime_operator_interrupt`, which builds the live interrupt daemon request
+  from React Flow node config, preserves `source=react_flow` plus graph/node
+  identity through daemon SSE, SDK `Thread.events()`, and the read-only React
+  Flow projection, and shares request-building primitives with thread fork.
 
 Most recent guide slice:
 
-- 2026-05-12: React Flow runtime thread fork control node
+- 2026-05-13: React Flow runtime operator interrupt control node
 - Artifacts: scripts/lib/live-runtime-daemon-contract.test.mjs,
   packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts,
   packages/agent-ide/src/runtime/workflow-node-registry.ts,
@@ -148,19 +152,21 @@ Most recent guide slice:
   docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
 - Validation: targeted React Flow control-node tests, runtime action contract
   generation check, Rust workflow-node execution/scaffold/action-kind tests,
-  live daemon React Flow-originated fork proof, prior CLI fork proof, and GUI
-  harness preflight; see the validation ledger.
+  live daemon React Flow-originated interrupt proof, prior CLI interrupt proof,
+  workflow-addressability contract, and GUI harness preflight; see the
+  validation ledger.
 
 Most recent live GUI implementation evidence:
 
-- 2026-05-12: React Flow thread fork control GUI preflight
+- 2026-05-13: React Flow operator interrupt control GUI preflight
 - Evidence:
-  /tmp/ioi-autopilot-gui-harness-react-flow-thread-fork-control/2026-05-12T23-57-36-129Z/result.json
+  /tmp/ioi-autopilot-gui-harness-react-flow-operator-interrupt-control/2026-05-13T00-11-09-695Z/result.json
 
 Recent completed slice index:
 
 | Date | Workstream | Slice | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-13 | P0 live runtime bridge | React Flow runtime operator interrupt control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | React Flow runtime thread fork control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live thread fork control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 2026-05-12 | P0 live runtime bridge | Live context compact control event | scripts/lib/live-runtime-daemon-contract.test.mjs |
@@ -1737,11 +1743,12 @@ The bridge/event projection loop is closed for the current mapped KernelEvent
 foundation, and the first live control paths, operator interrupt, operator
 steer, context compact, and thread fork, are implemented as canonical
 `turn.interrupted`, `turn.steered`, `context.compacted`, and `thread.forked`
-events. Fork is now configurable from the React Flow workflow-authoring surface
-as `runtime_thread_fork` and has a live React Flow-originated graph identity
-proof. The next runtime slices should add the same authoring/runtime-control
-contract for interrupt, steer, and compact, while extracting a shared
-runtime-control helper once duplication becomes visible.
+events. Fork and interrupt are now configurable from the React Flow
+workflow-authoring surface as `runtime_thread_fork` and
+`runtime_operator_interrupt`, with live React Flow-originated graph identity
+proofs. The next runtime slices should add the same authoring/runtime-control
+contract for steer and compact, continuing to extract shared runtime-control
+request primitives as those nodes converge.
 
 Do not start the runtime bridge push with the full TUI. The TUI becomes
 straightforward once live threads, events, and tool contracts are real. Keep

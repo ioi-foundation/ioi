@@ -32,6 +32,7 @@ pub enum ActionKind {
     WorkflowPackageExport,
     WorkflowPackageImport,
     RuntimeThreadFork,
+    RuntimeOperatorInterrupt,
     Function,
     ModelBinding,
     ModelCall,
@@ -79,6 +80,7 @@ impl ActionKind {
             "workflow_package_export" => Self::WorkflowPackageExport,
             "workflow_package_import" => Self::WorkflowPackageImport,
             "runtime_thread_fork" => Self::RuntimeThreadFork,
+            "runtime_operator_interrupt" => Self::RuntimeOperatorInterrupt,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -126,6 +128,7 @@ impl ActionKind {
             Self::WorkflowPackageExport => "workflow_package_export",
             Self::WorkflowPackageImport => "workflow_package_import",
             Self::RuntimeThreadFork => "runtime_thread_fork",
+            Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -173,6 +176,7 @@ impl ActionKind {
             Self::WorkflowPackageExport => "workflow_package_export",
             Self::WorkflowPackageImport => "workflow_package_import",
             Self::RuntimeThreadFork => "runtime_thread_fork",
+            Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -237,6 +241,7 @@ impl ActionKind {
                 | Self::WorkflowPackageExport
                 | Self::WorkflowPackageImport
                 | Self::RuntimeThreadFork
+                | Self::RuntimeOperatorInterrupt
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -453,6 +458,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_thread_fork"),
             ActionKind::RuntimeThreadFork
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_operator_interrupt"),
+            ActionKind::RuntimeOperatorInterrupt
         );
         assert_eq!(
             ActionKind::from_node_type("repository_context"),

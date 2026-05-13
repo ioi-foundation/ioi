@@ -11,6 +11,7 @@ pub const RUNTIME_ACTION_KINDS: &[&str] = &[
     "workflow_package_export",
     "workflow_package_import",
     "runtime_thread_fork",
+    "runtime_operator_interrupt",
     "function",
     "model_binding",
     "model_call",
@@ -61,4 +62,5 @@ pub const RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS: &[&str] = &[
     "workflow_package_export",
     "workflow_package_import",
     "runtime_thread_fork",
+    "runtime_operator_interrupt",
 ];

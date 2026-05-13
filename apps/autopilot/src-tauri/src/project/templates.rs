@@ -534,6 +534,11 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
             "Workflow Package Import",
         ),
         ("runtime_thread_fork", "Runtime", "Thread Fork"),
+        (
+            "runtime_operator_interrupt",
+            "Runtime",
+            "Operator Interrupt",
+        ),
         ("repository_context", "Context", "Repository Context"),
         ("branch_policy", "Policy", "Branch Policy"),
         ("github_context", "Context", "GitHub Context"),
@@ -654,6 +659,33 @@ pub(super) fn workflow_runtime_thread_fork_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeThreadFork": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_operator_interrupt_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "threadId": { "type": "string" },
+            "turnId": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeOperatorInterrupt": { "type": "object" }
         }
     })
 }
@@ -1012,6 +1044,41 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 "connectionClasses": ["state", "data", "control"]
             })),
         ),
+        workflow_scaffold(
+            "workflow.runtime.operator_interrupt",
+            "runtime_operator_interrupt",
+            "Runtime",
+            "Operator interrupt control",
+            "Interrupt the active runtime turn from a React Flow workflow control.",
+            "Interrupt",
+            "control",
+            json!({
+                "runtimeOperatorInterruptEndpoint": "/v1/threads/{threadId}/turns/{turnId}/interrupt",
+                "runtimeOperatorInterruptField": "runtimeOperatorInterrupt",
+                "runtimeOperatorInterruptEventField": "runtimeOperatorInterrupt.event",
+                "runtimeOperatorInterruptStatusField": "runtimeOperatorInterrupt.status",
+                "runtimeOperatorInterruptReceiptField": "runtimeOperatorInterrupt.receiptRefs",
+                "runtimeOperatorInterruptPolicyField": "runtimeOperatorInterrupt.policyDecisionRefs",
+                "runtimeOperatorInterruptThreadIdField": "threadId",
+                "runtimeOperatorInterruptTurnIdField": "turnId",
+                "runtimeOperatorInterruptReasonField": "reason",
+                "runtimeOperatorInterruptReason": "Interrupt turn from React Flow workflow control.",
+                "runtimeOperatorInterruptWorkflowNodeId": "runtime.operator-interrupt",
+                "runtimeOperatorInterruptSource": "react_flow",
+                "runtimeOperatorInterruptActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_operator_interrupt_safe",
+                "outputSchema": workflow_runtime_operator_interrupt_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.turn.interrupt"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control"]
+            })),
+        ),
     ];
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
@@ -1022,6 +1089,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "plugin_tool"
                 | "skill_context"
                 | "runtime_thread_fork"
+                | "runtime_operator_interrupt"
                 | "workflow_package_export"
                 | "workflow_package_import"
                 | "output"
@@ -1061,6 +1129,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "human_gate"
         | "proposal"
         | "runtime_thread_fork"
+        | "runtime_operator_interrupt"
         | "workflow_package_export"
         | "workflow_package_import" => "write",
         _ => "none",
@@ -1079,6 +1148,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "review_gate"
             | "github_pr_create"
             | "runtime_thread_fork"
+            | "runtime_operator_interrupt"
             | "workflow_package_export"
             | "workflow_package_import"
     );
@@ -1102,6 +1172,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "review_gate"
             | "github_pr_create"
             | "runtime_thread_fork"
+            | "runtime_operator_interrupt"
             | "workflow_package_export"
             | "workflow_package_import"
             | "subgraph"
@@ -1120,6 +1191,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "review_gate" => vec!["state", "approval"],
         "github_pr_create" => vec!["state", "approval", "data"],
         "runtime_thread_fork" => vec!["state", "data", "control"],
+        "runtime_operator_interrupt" => vec!["state", "data", "control"],
         "workflow_package_export" => vec!["data", "output_bundle"],
         "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],

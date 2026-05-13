@@ -226,6 +226,39 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeOperatorInterrupt {
+            if workflow_json_string(&logic, "runtimeOperatorInterruptEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_operator_interrupt_endpoint".to_string(),
+                    message:
+                        "Runtime operator interrupt nodes need an interrupt endpoint template."
+                            .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeOperatorInterruptThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeOperatorInterruptThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_operator_interrupt_thread".to_string(),
+                    message:
+                        "Runtime operator interrupt nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeOperatorInterruptTurnIdField").is_none()
+                && workflow_json_string(&logic, "runtimeOperatorInterruptTurnId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_operator_interrupt_turn".to_string(),
+                    message:
+                        "Runtime operator interrupt nodes need a turn id field or fixed turn id."
+                            .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::Subgraph
             && logic
                 .get("subgraphRef")

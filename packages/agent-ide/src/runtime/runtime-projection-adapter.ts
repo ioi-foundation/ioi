@@ -64,6 +64,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "state";
     case "runtime_thread_fork":
       return "runtime_thread_fork";
+    case "runtime_operator_interrupt":
+      return "runtime_operator_interrupt";
     case "workflow_package_export":
       return "workflow_package_export";
     case "workflow_package_import":

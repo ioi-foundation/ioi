@@ -132,7 +132,7 @@ test("projects operator interrupt events into the runtime control node", () => {
   const nodes = projectRuntimeThreadEventsToWorkflowNodes([interrupt]);
 
   assert.equal(workflowNodeIdForRuntimeThreadEvent(interrupt), "runtime.operator-interrupt");
-  assert.equal(nodes[0]?.nodeKind, "output");
+  assert.equal(nodes[0]?.nodeKind, "runtime_operator_interrupt");
   assert.equal(nodes[0]?.componentKind, "operator_control");
   assert.equal(nodes[0]?.label, "Turn interrupted");
   assert.equal(nodes[0]?.status, "interrupted");

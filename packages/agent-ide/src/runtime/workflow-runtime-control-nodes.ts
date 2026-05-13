@@ -8,6 +8,16 @@ export const RUNTIME_THREAD_FORK_SOURCE = "react_flow" as const;
 export const RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND = "OperatorControl.Fork" as const;
 export const RUNTIME_THREAD_FORK_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.thread-fork.v1" as const;
+export const WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-operator-interrupt-control.v1" as const;
+export const RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID =
+  "runtime.operator-interrupt" as const;
+export const RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND = "operator_control" as const;
+export const RUNTIME_OPERATOR_INTERRUPT_SOURCE = "react_flow" as const;
+export const RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND =
+  "OperatorControl.Interrupt" as const;
+export const RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.operator-control.v1" as const;
 
 export interface RuntimeThreadForkControlRequestBody {
   reason: string;
@@ -47,6 +57,47 @@ export interface RuntimeThreadForkWorkflowNodeOptions {
   actor?: string | null;
 }
 
+export interface RuntimeOperatorInterruptControlRequestBody {
+  reason: string;
+  source: typeof RUNTIME_OPERATOR_INTERRUPT_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeOperatorInterruptControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_operator_interrupt";
+  nodeId: string | null;
+  threadId: string;
+  turnId: string;
+  endpoint: string;
+  body: RuntimeOperatorInterruptControlRequestBody;
+}
+
+export interface RuntimeOperatorInterruptControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  turnId?: string | null;
+  turnIdField?: string | null;
+  input?: unknown;
+  reason?: string | null;
+  reasonField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeOperatorInterruptWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
 export function createRuntimeThreadForkControlRequest(
   params: RuntimeThreadForkControlRequestInput,
 ): RuntimeThreadForkControlRequest {
@@ -67,10 +118,7 @@ export function createRuntimeThreadForkControlRequest(
   const workflowGraphId = cleanString(params.workflowGraphId);
   const endpointTemplate =
     cleanString(params.endpoint) ?? "/v1/threads/{threadId}/fork";
-  const endpoint = endpointTemplate.replace(
-    /\{threadId\}/g,
-    encodeURIComponent(threadId),
-  );
+  const endpoint = endpointFromTemplate(endpointTemplate, { threadId });
 
   return {
     schemaVersion: WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
@@ -87,6 +135,57 @@ export function createRuntimeThreadForkControlRequest(
       eventKind: RUNTIME_THREAD_FORK_SOURCE_EVENT_KIND,
       componentKind: RUNTIME_THREAD_FORK_COMPONENT_KIND,
       payloadSchemaVersion: RUNTIME_THREAD_FORK_PAYLOAD_SCHEMA_VERSION,
+    },
+  };
+}
+
+export function createRuntimeOperatorInterruptControlRequest(
+  params: RuntimeOperatorInterruptControlRequestInput,
+): RuntimeOperatorInterruptControlRequest {
+  const threadId =
+    cleanString(params.threadId) ??
+    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
+    stringAtPath(params.input, "thread_id");
+  if (!threadId) {
+    throw new Error("runtime_operator_interrupt nodes need a threadId input before dispatch.");
+  }
+
+  const turnId =
+    cleanString(params.turnId) ??
+    stringAtPath(params.input, params.turnIdField ?? "turnId") ??
+    stringAtPath(params.input, "turn_id");
+  if (!turnId) {
+    throw new Error("runtime_operator_interrupt nodes need a turnId input before dispatch.");
+  }
+
+  const reason =
+    stringAtPath(params.input, params.reasonField ?? "") ??
+    cleanString(params.reason) ??
+    "Interrupt turn from React Flow workflow control.";
+  const workflowNodeId =
+    cleanString(params.workflowNodeId) ?? RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID;
+  const workflowGraphId = cleanString(params.workflowGraphId);
+  const endpointTemplate =
+    cleanString(params.endpoint) ??
+    "/v1/threads/{threadId}/turns/{turnId}/interrupt";
+  const endpoint = endpointFromTemplate(endpointTemplate, { threadId, turnId });
+
+  return {
+    schemaVersion: WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
+    nodeType: "runtime_operator_interrupt",
+    nodeId: cleanString(params.nodeId),
+    threadId,
+    turnId,
+    endpoint,
+    body: {
+      reason,
+      source: RUNTIME_OPERATOR_INTERRUPT_SOURCE,
+      actor: cleanString(params.actor) ?? "operator",
+      workflowGraphId,
+      workflowNodeId,
+      eventKind: RUNTIME_OPERATOR_INTERRUPT_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_OPERATOR_INTERRUPT_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_OPERATOR_INTERRUPT_PAYLOAD_SCHEMA_VERSION,
     },
   };
 }
@@ -119,6 +218,37 @@ export function createRuntimeThreadForkControlRequestFromWorkflowNode(
   });
 }
 
+export function createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeOperatorInterruptWorkflowNodeOptions = {},
+): RuntimeOperatorInterruptControlRequest {
+  if (node.type !== "runtime_operator_interrupt") {
+    throw new Error(`Expected runtime_operator_interrupt node, received ${node.type}.`);
+  }
+  const logic: NodeLogic = node.config?.logic ?? {};
+  return createRuntimeOperatorInterruptControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeOperatorInterruptThreadId),
+    threadIdField:
+      cleanString(logic.runtimeOperatorInterruptThreadIdField) ?? "threadId",
+    turnId: cleanString(logic.runtimeOperatorInterruptTurnId),
+    turnIdField: cleanString(logic.runtimeOperatorInterruptTurnIdField) ?? "turnId",
+    reason: cleanString(logic.runtimeOperatorInterruptReason),
+    reasonField: cleanString(logic.runtimeOperatorInterruptReasonField),
+    endpoint: cleanString(logic.runtimeOperatorInterruptEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeOperatorInterruptWorkflowNodeId) ??
+      RUNTIME_OPERATOR_INTERRUPT_WORKFLOW_NODE_ID,
+    actor:
+      cleanString(options.actor) ??
+      cleanString(logic.runtimeOperatorInterruptActor) ??
+      "operator",
+  });
+}
+
 function cleanString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
@@ -130,6 +260,17 @@ function stringAtPath(value: unknown, path: string | null | undefined): string |
   if (!normalizedPath) return null;
   const found = valueAtPath(value, normalizedPath);
   return cleanString(found);
+}
+
+function endpointFromTemplate(
+  template: string,
+  values: Record<string, string>,
+): string {
+  return Object.entries(values).reduce(
+    (current, [key, value]) =>
+      current.replace(new RegExp(`\\{${key}\\}`, "g"), encodeURIComponent(value)),
+    template,
+  );
 }
 
 function valueAtPath(value: unknown, path: string): unknown {

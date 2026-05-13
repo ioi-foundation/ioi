@@ -1992,6 +1992,136 @@ test("operator interrupt keeps one canonical control event across SDK, CLI, and 
   }
 });
 
+test("React Flow operator interrupt control preserves graph identity across daemon, SDK, and projection", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-interrupt-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-interrupt-state-"));
+  const bridgeData = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-interrupt-data-"));
+  const bridgeBinary = rustRuntimeBridgeBinary();
+  const reason = "pause live turn from React Flow control";
+  const workflowGraphId = "workflow.react-flow.operator-interrupt-proof";
+  const workflowNodeId = "runtime.operator-interrupt";
+  const previousEnv = {
+    command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
+    args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
+    id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+  };
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
+  process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID = "rust-runtime-agent-service-react-flow-interrupt";
+
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        runtime_profile: "runtime_service",
+        goal: "Prove React Flow-originated operator interrupt keeps graph identity.",
+        max_steps: 2,
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Prepare a React Flow-originated interrupt control validation.",
+      }),
+    });
+
+    const workflowNode = {
+      id: "react-flow-operator-interrupt-control",
+      type: "runtime_operator_interrupt",
+      config: {
+        logic: {
+          runtimeOperatorInterruptEndpoint: "/v1/threads/{threadId}/turns/{turnId}/interrupt",
+          runtimeOperatorInterruptThreadIdField: "threadId",
+          runtimeOperatorInterruptTurnIdField: "turnId",
+          runtimeOperatorInterruptReasonField: "reason",
+          runtimeOperatorInterruptWorkflowNodeId: workflowNodeId,
+          runtimeOperatorInterruptActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.turn.interrupt"] },
+      },
+    };
+    const control = createRuntimeOperatorInterruptControlRequestFromWorkflowNode(
+      workflowNode,
+      { threadId: thread.thread_id, turnId: turn.turn_id, reason },
+      { workflowGraphId },
+    );
+    assert.equal(control.nodeType, "runtime_operator_interrupt");
+    assert.equal(control.body.source, "react_flow");
+    assert.equal(control.body.workflowGraphId, workflowGraphId);
+    assert.equal(control.body.workflowNodeId, workflowNodeId);
+    assert.equal(control.body.componentKind, "operator_control");
+
+    const interrupted = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(control.body),
+    });
+    assert.equal(interrupted.turn_id, turn.turn_id);
+    assert.equal(interrupted.status, "interrupted");
+    assert.equal(interrupted.stop_reason, "operator_interrupt");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const interruptEvent = daemonEvents.find(
+      (event) => event.source_event_kind === "OperatorControl.Interrupt" && event.source === "react_flow",
+    );
+    assert.ok(interruptEvent);
+    assert.equal(interruptEvent.event_kind, "turn.interrupted");
+    assert.equal(interruptEvent.status, "interrupted");
+    assert.equal(interruptEvent.source, "react_flow");
+    assert.equal(interruptEvent.actor, "user");
+    assert.equal(interruptEvent.thread_id, thread.thread_id);
+    assert.equal(interruptEvent.turn_id, turn.turn_id);
+    assert.equal(interruptEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(interruptEvent.workflow_node_id, workflowNodeId);
+    assert.equal(interruptEvent.component_kind, "operator_control");
+    assert.equal(interruptEvent.payload_schema_version, "ioi.runtime.operator-control.v1");
+    assert.equal(interruptEvent.payload.reason, reason);
+    assert.equal(interruptEvent.payload.requested_by, "operator");
+    assert.ok(interruptEvent.receipt_refs.includes(`receipt_${turn.request_id}_operator_interrupt`));
+    assert.ok(interruptEvent.policy_decision_refs.includes(`policy_${turn.request_id}_operator_interrupt_allow`));
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkInterruptEvent = sdkEvents.find((event) => event.id === interruptEvent.event_id);
+    assert.ok(sdkInterruptEvent);
+    assert.equal(sdkInterruptEvent.type, "turn_interrupted");
+    assert.equal(sdkInterruptEvent.sourceEventKind, "OperatorControl.Interrupt");
+    assert.equal(sdkInterruptEvent.componentKind, "operator_control");
+    assert.equal(sdkInterruptEvent.workflowGraphId, workflowGraphId);
+    assert.equal(sdkInterruptEvent.workflowNodeId, workflowNodeId);
+    assert.deepEqual(sdkInterruptEvent.receiptRefs, interruptEvent.receipt_refs);
+    assert.deepEqual(sdkInterruptEvent.policyDecisionRefs, interruptEvent.policy_decision_refs);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const reactFlowNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(interruptEvent.event_id),
+    );
+    assert.ok(reactFlowNode);
+    assert.ok(reactFlowProjection.workflowGraphIds.includes(workflowGraphId));
+    assert.equal(reactFlowNode.nodeKind, "runtime_operator_interrupt");
+    assert.equal(reactFlowNode.componentKind, "operator_control");
+    assert.equal(reactFlowNode.workflowGraphId, workflowGraphId);
+    assert.equal(reactFlowNode.workflowNodeId, workflowNodeId);
+    assert.equal(reactFlowNode.status, "interrupted");
+    assert.ok(reactFlowNode.sourceEventKinds.includes("OperatorControl.Interrupt"));
+  } finally {
+    if (daemon) await daemon.close();
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
 test("operator steer keeps one canonical guidance event across SDK, CLI, and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
@@ -4430,10 +4560,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTemplates, /workflow_package_export_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_package_import_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_thread_fork_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_operator_interrupt_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_github_pr_create_output_schema/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageExport/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageImport/);
   assert.match(tauriRuntimeProjection, /RuntimeThreadFork/);
+  assert.match(tauriRuntimeProjection, /RuntimeOperatorInterrupt/);
   assert.match(tauriRuntimeProjection, /GithubPrCreate/);
   assert.match(tauriRuntimeProjection, /output_bundle/);
   assert.match(workflowContracts, /repository\.context/);
@@ -4472,6 +4604,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeThreadForkNode/);
   assert.match(nodeRegistry, /runtimeThreadForkWorkflowNodeId/);
   assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/fork/);
+  assert.match(nodeRegistry, /runtime_operator_interrupt/);
+  assert.match(nodeRegistry, /RuntimeOperatorInterruptNode/);
+  assert.match(nodeRegistry, /runtimeOperatorInterruptWorkflowNodeId/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/turns\/\{turnId\}\/interrupt/);
   assert.match(nodeRegistry, /workflow_package_export/);
   assert.match(nodeRegistry, /WorkflowPackageExportNode/);
   assert.match(nodeRegistry, /workflow\.package\.export/);
@@ -4759,6 +4895,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_job\.aria/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_checklist\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_thread_fork\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_operator_interrupt\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
@@ -4771,6 +4908,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeProjectionAdapter, /return "workflow_package_export"/);
   assert.match(runtimeProjectionAdapter, /case "runtime_thread_fork"/);
   assert.match(runtimeProjectionAdapter, /return "runtime_thread_fork"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_operator_interrupt"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_operator_interrupt"/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
   assert.match(runtimeActionSchema, /"skill_context"/);
