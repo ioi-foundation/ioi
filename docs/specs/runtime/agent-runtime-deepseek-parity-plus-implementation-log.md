@@ -163,6 +163,7 @@ workstream was narrower.
 | 161 | 2026-05-13 | P1. Subagent Runtime Parity | React Flow subagent child-subflow projection | /tmp/ioi-autopilot-gui-harness-subagent-child-subflows/2026-05-13T19-50-06-418Z/result.json |
 | 162 | 2026-05-13 | P1. Subagent Runtime Parity / P1-D. Usage, Cost, Context Telemetry | subagent budget/cost enforcement and projection | /tmp/ioi-autopilot-gui-harness-subagent-budget-cost/2026-05-13T20-06-56-034Z/result.json |
 | 163 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | RuntimeUsageTelemetry aggregation and projection | /tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json |
+| 164 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | React Flow UsageMeterNode request compiler and live telemetry read | /tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -202,6 +203,41 @@ Validation evidence:
 - `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-telemetry`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json`.
+
+### Slice 164. 2026-05-13 - React Flow UsageMeterNode request compiler and live telemetry read
+
+Implementation slice completed 2026-05-13, P1-D workflow-facing usage telemetry:
+
+- Added a first-class React Flow `runtime_usage_meter` node kind, creator,
+  registry entry, graph typing, localized label, declared workflow schemas, and
+  runtime action contract generation entry.
+- Added `workflow-runtime-usage-control-nodes` helpers that compile
+  thread/run/workflow usage reads into daemon-owned GET requests with
+  graph/node identity, usage scope, event kind, component kind, payload schema,
+  source, actor, and simulation-mode metadata.
+- Echoed usage-meter request metadata from `/v1/usage`,
+  `/v1/threads/{id}/usage`, and `/v1/runs/{id}/usage` so workflow-authored
+  usage reads can project back into React Flow rows without becoming
+  canvas-local counters.
+- Extended source-contract and live daemon coverage to prove the node can read
+  real daemon telemetry and preserve `runtime.usage-meter` identity across
+  thread and run usage endpoints.
+- Updated the master guide to move the immediate P1-D queue from usage-meter
+  authoring to `ContextBudgetNode` policy simulation/enforcement.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow usage meter" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-usage-meter-node`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json`.
+- `git diff --check`
 
 ### Slice 1. 2026-05-11 - P1. Model Auto-Routing And Reasoning Effort
 

@@ -112,12 +112,13 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-13: P1-D `RuntimeUsageTelemetry` aggregation and projection
+- 2026-05-13: P1-D React Flow `UsageMeterNode` request compiler and live
+  telemetry read
 - Evidence:
-  daemon usage aggregation syntax checks, React Flow projection tests,
-  workflow-addressable source-contract guards, SDK/React Flow builds, Rust TUI
-  row validation, live daemon usage/subagent aggregation proof, and live GUI
-  preflight validation in the validation ledger
+  focused usage-meter request-builder tests, generated runtime action contract
+  check, React Flow source-contract guard, Agent IDE build, live daemon
+  usage-meter workflow proof, workflow-addressable regression guard, and live
+  GUI preflight validation in the validation ledger
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -138,23 +139,25 @@ Completed-slice history belongs in the companion ledgers.
 | P1-B | MCP manager parity | MCP manager discovery/status/validation plus governed import/add/remove, enable/disable, invocation receipts, self-hosted HTTP JSON-RPC serve mode, vault-backed remote auth headers, large-catalog deferred tool exposure, global IOI MCP config discovery, keyboard-first TUI search/fetch, and React Flow-authored search/fetch/invoke request compilation are now daemon-owned for `$HOME/.ioi/mcp.json`, `.cursor/mcp.json`, `.agents/mcp.json`, inline options, active thread registries, and model-mounting MCP registry entries. `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`, `/v1/mcp/resources`, `/v1/mcp/prompts`, `/v1/mcp/validate`, `/v1/mcp/import`, `/v1/mcp/serve`, `/v1/mcp/servers`, `/v1/mcp/servers/{server_id}`, `/v1/mcp/servers/{server_id}/enable`, `/v1/mcp/servers/{server_id}/disable`, `/v1/mcp/tools/{tool_id}/invoke`, and matching thread-scoped controls expose governed catalog, validation, mutable registry writes, availability, invocation records, served IOI tool calls, source scope/compatibility provenance, redacted secret-ref provenance, request-time vault resolution evidence, catalog summaries, preview limits, stable catalog hashes, namespace summaries, and on-demand tool search/fetch without publishing header material or bloating status payloads. Command-backed stdio MCP tools launch through newline-delimited JSON-RPC, streamable HTTP servers launch through POST JSON-RPC, and SSE servers launch through endpoint-announced event streams; live discovery calls `tools/list`, `resources/list`, and `prompts/list` across supported transports. Remote HTTP/SSE auth-looking headers fail closed unless configured as `vault://` refs, and resolved material is injected only inside live transport requests. TUI `/mcp [status|tools|servers|search|fetch|validate|import|add|remove|enable|disable|invoke]` emits MCP control-state rows and source-mode-filtered search/fetch output; SDK clients and `Thread` handles can import/add/remove servers, search/fetch MCP tools, and call `mcpServeRpc`; React Flow exposes MCP import/add/remove/serve/search/fetch/invoke state-node operations with transport, URL, vault header refs, server config JSON, serve endpoint, allowed-tool JSON, catalog mode, config source mode, search query, tool input JSON, containment, egress intent, and preview-limit fields. | Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes only when a concrete workflow composition needs them. | MCP tool/resource/prompt rows and MCP state nodes carry server/tool/resource/prompt/containment/vault-boundary/catalog-summary/source-scope metadata; MCP import/add/remove/serve/search/fetch/invoke state nodes compile transport/url/vault-header/served-tool/catalog-query/source-mode/tool-input/containment config into daemon controls rather than a canvas-local registry. |
 | P1-M | Memory UX parity | Memory status/validation and write-side mutations are now daemon-owned through `/v1/memory`, `/v1/memory/validate`, `/v1/threads/{thread_id}/memory`, `/v1/threads/{thread_id}/memory/{memory_id}`, `/v1/threads/{thread_id}/memory/status`, and `/v1/threads/{thread_id}/memory/validate`. The daemon validates effective policy, storage paths, record shape, redaction, retention, scope, and subagent-inheritance mode; SDK clients and `Thread` handles expose memory status/validation plus remember/update/delete helpers; TUI `/memory [status|show|policy|path|validate|enable|disable|remember|edit|delete]` emits memory control-state rows; React Flow projects memory status/policy/record/mutation rows and exposes memory status/policy/search/list/remember/edit/delete state nodes. Existing remember/list/edit/delete/path/policy and subagent-inheritance runtime behavior remains intact. | Add redaction review and explicit memory injection/scope aliases only where they improve workflow readability; do not fork memory truth into canvas-local state. | Memory status, policy, search, list, write, delete, and injection controls must compile into daemon memory policy/projection requests rather than canvas-local state. |
 | P1-C | Modes, trust, approvals | Thread-level `plan`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Richer workspace trust and review-mode policy still need one approval manifest. | Prove plan/review block mutating tools at runtime even if UI config is permissive, and prove graph-level approval overrides compile into the same manifest. | Graph-level mode selector and node approval overrides compile into one approval manifest. |
-| P1-D | Usage, cost, context telemetry | `RuntimeUsageTelemetry` now aggregates run, thread, and delegated subagent token/cost/context estimates through daemon endpoints, SDK clients, TUI status rows, `usage_final` runtime events, and React Flow run-inspector rows. Remaining work is streaming deltas, explicit context-pressure/compaction events, workflow budget-cap simulation, and enforcement nodes. | Live workflow budget caps stop or warn with receipt-backed usage/context evidence, and `/cost`/`/context` operator controls read the same telemetry. | Usage, context-budget, and compaction policy nodes simulate and enforce workflow caps from daemon-owned telemetry rather than canvas-local counters. |
+| P1-D | Usage, cost, context telemetry | `RuntimeUsageTelemetry` now aggregates run, thread, and delegated subagent token/cost/context estimates through daemon endpoints, SDK clients, TUI status rows, `usage_final` runtime events, and React Flow run-inspector rows. React Flow now also has a first-class `UsageMeterNode` that compiles thread/run/workflow usage reads into daemon-owned requests with graph/node identity and telemetry metadata echoed back by the daemon. Remaining work is streaming deltas, explicit context-pressure/compaction events, workflow budget-cap simulation, and enforcement nodes. | Live workflow budget caps stop or warn with receipt-backed usage/context evidence, and `/cost`/`/context` operator controls read the same telemetry. | Usage-meter, context-budget, and compaction policy nodes simulate and enforce workflow caps from daemon-owned telemetry rather than canvas-local counters. |
 
 ### Immediate Tactical Queue
 
 1. Continue P1-D with workflow-configurable usage/context budget caps:
-   `UsageMeterNode`, `ContextBudgetNode`, and `CompactionPolicyNode` should
-   compile into daemon-owned simulation/enforcement requests backed by
-   `RuntimeUsageTelemetry`.
-2. Add TUI `/cost` and `/context` controls only after they read the same
+   `ContextBudgetNode` should consume `UsageMeterNode` output and daemon-owned
+   `RuntimeUsageTelemetry` to simulate warning/blocking policy decisions with
+   receipts.
+2. Follow with `CompactionPolicyNode` once context-budget pressure has an
+   explicit policy output that can drive compact/stop/warn decisions.
+3. Add TUI `/cost` and `/context` controls only after they read the same
    daemon telemetry and project into React Flow rows.
-3. Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes
+4. Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes
    only when a concrete workflow composition needs them.
-4. When adding the next recovery or diagnostics affordance, keep it
+5. When adding the next recovery or diagnostics affordance, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
-5. Continue settings harness cleanup only as maintenance, gated by a concrete
+6. Continue settings harness cleanup only as maintenance, gated by a concrete
    parity slice dependency or a source-contract bloat guard failure.
-6. Keep this guide strategic. Put completed slice narratives in the
+7. Keep this guide strategic. Put completed slice narratives in the
    implementation log and proof commands/evidence paths in the validation
    ledger.
 
@@ -1920,20 +1923,24 @@ adding more infrastructure by default.
 Recent focused validation, 2026-05-13:
 
 - Latest full command/evidence detail lives in the validation ledger.
-- Current slice proof: daemon syntax checks, SDK/React Flow builds, Rust TUI
-  row test, React Flow projection and source-contract tests, live daemon
-  `RuntimeUsageTelemetry` aggregation proof, workflow-addressable regression
-  guard, live GUI preflight, and `git diff --check`.
+- Current slice proof: focused `UsageMeterNode` request-builder tests,
+  generated runtime action contract check, daemon syntax check, Agent IDE
+  build, React Flow source-contract tests, live daemon usage-meter workflow
+  proof, workflow-addressable regression guard, live GUI preflight, and
+  `git diff --check`.
 - Latest GUI/workflow preflight:
-  `/tmp/ioi-autopilot-gui-harness-usage-telemetry/2026-05-13T20-35-04-101Z/result.json`.
+  `/tmp/ioi-autopilot-gui-harness-usage-meter-node/2026-05-13T20-50-59-478Z/result.json`.
 
 Next runtime implementation sequence:
 
-1. Add workflow-authored usage/context budget policy nodes that can simulate,
-   warn, and block from daemon-owned `RuntimeUsageTelemetry`.
-2. Add `/cost` and `/context` TUI controls after the policy-node contract is
+1. Add `ContextBudgetNode` as a workflow-authored policy node that consumes
+   `UsageMeterNode` output and daemon-owned `RuntimeUsageTelemetry`, then emits
+   receipt-backed `ok`, `warn`, or `blocked` decisions.
+2. Add `CompactionPolicyNode` after context-budget pressure has a stable policy
+   output that can drive compact/stop/warn behavior.
+3. Add `/cost` and `/context` TUI controls after the policy-node contract is
    explicit enough to share rows with React Flow.
-3. Keep MCP, diagnostics repair, and memory controls regression-green while
+4. Keep MCP, diagnostics repair, and memory controls regression-green while
    telemetry remains the primary workflow-authoring gap.
 
 React Flow cleanup remains allowed, but it is now a support track. A cleanup

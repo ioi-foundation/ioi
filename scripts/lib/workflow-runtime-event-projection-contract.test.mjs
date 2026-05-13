@@ -21,8 +21,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const controlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
   );
+  const usageControlNodes = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
+  );
   const controlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+  );
+  const usageControlNodesTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts",
   );
   const runHistoryModel = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
@@ -130,7 +136,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(controlNodes, /source: RUNTIME_RESTORE_GATE_SOURCE/);
   assert.match(controlNodes, /workflowGraphId/);
   assert.match(controlNodes, /workflowNodeId/);
+  assert.match(usageControlNodes, /createRuntimeUsageMeterControlRequestFromWorkflowNode/);
+  assert.match(usageControlNodes, /runtime_usage_meter/);
+  assert.match(usageControlNodes, /\/v1\/threads\/\{threadId\}\/usage/);
+  assert.match(usageControlNodes, /RuntimeUsageTelemetry\.Read/);
+  assert.match(usageControlNodes, /usage_meter_scope/);
+  assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "usage\.meter"/);
   assert.match(controlNodesTest, /React Flow daemon request/);
+  assert.match(usageControlNodesTest, /workflow\.react-flow\.usage-meter-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.thread-fork-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-interrupt-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-steer-proof/);
@@ -139,6 +152,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(controlNodesTest, /workflow\.react-flow\.restore-gate-proof/);
   assert.match(exports, /workflow-runtime-event-projection/);
   assert.match(exports, /workflow-runtime-control-nodes/);
+  assert.match(exports, /workflow-runtime-usage-control-nodes/);
   assert.match(typeTest, /projects Thread\.events runtime events/);
   assert.match(typeTest, /runtime_thread_fork/);
   assert.match(typeTest, /runtime_operator_interrupt/);

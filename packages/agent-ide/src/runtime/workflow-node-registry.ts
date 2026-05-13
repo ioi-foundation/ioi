@@ -1075,6 +1075,123 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.context.compact"] },
   },
   {
+    type: "runtime_usage_meter",
+    label: "Runtime Usage Meter",
+    group: "Flow",
+    family: "flow_control",
+    token: "UM",
+    familyLabel: "Runtime",
+    metricLabel: "Usage",
+    metricValue: "meter",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["thread"],
+    outputs: ["usage", "status"],
+    portDefinitions: [
+      port("thread", "Thread or run state", "input", "state", "state", false, "state"),
+      port("usage", "Usage telemetry", "output", "state", "output", false, "state"),
+      port("status", "Usage status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("thread", "Thread or run state", "input", "state", "state", false, "state"),
+      port("usage", "Usage telemetry", "output", "state", "output", false, "state"),
+      port("status", "Usage status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeUsageMeterEndpoint",
+        "runtimeUsageMeterScope",
+        "runtimeUsageMeterWorkflowNodeId",
+      ],
+      properties: {
+        runtimeUsageMeterEndpoint: { type: "string" },
+        runtimeUsageMeterField: { type: "string" },
+        runtimeUsageMeterStatusField: { type: "string" },
+        runtimeUsageMeterThreadId: { type: "string" },
+        runtimeUsageMeterThreadIdField: { type: "string" },
+        runtimeUsageMeterRunId: { type: "string" },
+        runtimeUsageMeterRunIdField: { type: "string" },
+        runtimeUsageMeterScope: {
+          type: "string",
+          enum: ["run", "thread", "workflow"],
+        },
+        runtimeUsageMeterScopeField: { type: "string" },
+        runtimeUsageMeterGroupBy: {
+          type: "string",
+          enum: ["run", "thread"],
+        },
+        runtimeUsageMeterSimulationMode: { type: "boolean" },
+        runtimeUsageMeterWorkflowNodeId: { type: "string" },
+        runtimeUsageMeterSource: { type: "string" },
+        runtimeUsageMeterActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_usage_meter"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_usage_meter",
+      "runtimeUsageMeter.contextPressureStatus",
+    ),
+    policyProfile: policyProfile(),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_usage_meter",
+      executorId: "workflow.runtime_usage_meter",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_usage_meter",
+        "runtimeUsageMeter.contextPressureStatus",
+      ),
+      runtimeUsageMeterEndpoint: "/v1/threads/{threadId}/usage",
+      runtimeUsageMeterField: "runtimeUsageMeter",
+      runtimeUsageMeterStatusField: "runtimeUsageMeter.contextPressureStatus",
+      runtimeUsageMeterThreadIdField: "threadId",
+      runtimeUsageMeterRunIdField: "runId",
+      runtimeUsageMeterScope: "thread",
+      runtimeUsageMeterScopeField: "usageScope",
+      runtimeUsageMeterGroupBy: "thread",
+      runtimeUsageMeterSimulationMode: true,
+      runtimeUsageMeterWorkflowNodeId: "runtime.usage-meter",
+      runtimeUsageMeterSource: "react_flow",
+      runtimeUsageMeterActor: "operator",
+      readOnly: true,
+      dryRun: true,
+      mutationExecuted: false,
+      redactionProfile: "runtime_usage_meter_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeUsageMeter: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: ["string", "null"] },
+          runId: { type: ["string", "null"] },
+          scope: { type: "string" },
+          endpoint: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeUsageMeter: true,
+        runtimeUsageMeterField: "runtimeUsageMeter",
+        runtimeUsageMeterStatusField: "runtimeUsageMeter.contextPressureStatus",
+      },
+      nodeTypeLabel: "RuntimeUsageMeterNode",
+    },
+    defaultLaw: {},
+  },
+  {
     type: "runtime_rollback_snapshot",
     label: "Runtime Rollback Snapshot",
     group: "Flow",
@@ -4317,6 +4434,22 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       reducer: "replace",
     },
   });
+  const usageMeter = creatorDefinition("runtime_usage_meter", {
+    creatorId: "usage.meter",
+    label: "Usage meter",
+    description: "Read daemon-owned token, cost, and context telemetry for a run, thread, or workflow.",
+    metricValue: "usage",
+    defaultLogic: {
+      runtimeUsageMeterEndpoint: "/v1/threads/{threadId}/usage",
+      runtimeUsageMeterScope: "thread",
+      runtimeUsageMeterThreadIdField: "threadId",
+      runtimeUsageMeterRunIdField: "runId",
+      runtimeUsageMeterGroupBy: "thread",
+      runtimeUsageMeterSimulationMode: true,
+      runtimeUsageMeterWorkflowNodeId: "runtime.usage-meter",
+      runtimeUsageMeterActor: "operator",
+    },
+  });
   const mcpStatus = creatorDefinition("state", {
     creatorId: "mcp.status",
     label: "MCP status",
@@ -4807,6 +4940,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     modelVision,
     modelEmbedding,
     modelEvaluator,
+    usageMeter,
     stateRead,
     mcpStatus,
     mcpToolSearch,
@@ -4851,6 +4985,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           "plugin_tool",
           "output",
           "skill_context",
+          "runtime_usage_meter",
         ].includes(definition.type),
     ).map((definition) =>
       creatorDefinition(definition.type, {
@@ -4966,8 +5101,10 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_operator_interrupt", "decision", "verifier", "output"];
     case "runtime_context_compact":
       return ["runtime_operator_steer", "decision", "verifier", "output"];
+    case "runtime_usage_meter":
+      return ["runtime_context_compact", "budget_gate", "decision", "output"];
     case "runtime_rollback_snapshot":
-      return ["runtime_context_compact", "decision", "verifier", "output"];
+      return ["runtime_context_compact", "runtime_usage_meter", "decision", "verifier", "output"];
     case "runtime_restore_gate":
       return ["runtime_rollback_snapshot", "human_gate", "decision", "output"];
     case "runtime_diagnostics_repair":
@@ -5076,6 +5213,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_operator_interrupt" ||
     type === "runtime_operator_steer" ||
     type === "runtime_context_compact" ||
+    type === "runtime_usage_meter" ||
     type === "runtime_rollback_snapshot" ||
     type === "runtime_restore_gate" ||
     type === "runtime_diagnostics_repair" ||
