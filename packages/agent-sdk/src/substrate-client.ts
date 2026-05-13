@@ -1950,10 +1950,14 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
           : {}),
         ...(toolId === "lsp.diagnostics"
           ? {
-              commandId: "node.check",
+              commandId: "auto",
+              resolvedCommandId: "node.check",
               diagnosticStatus: "clean",
               diagnostics: [],
               diagnosticCount: 0,
+              backend: "node.check",
+              backendStatus: "available",
+              fallbackUsed: false,
               shellFallbackUsed: false,
             }
           : {}),

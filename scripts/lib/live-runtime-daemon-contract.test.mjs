@@ -3581,6 +3581,30 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
   git(cwd, ["config", "user.email", "runtime@example.test"]);
   git(cwd, ["config", "user.name", "Runtime Test"]);
   fs.writeFileSync(path.join(cwd, "README.md"), "# Runtime coding tools\n\nInitial line.\n");
+  fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({ type: "module", devDependencies: { typescript: "workspace" } }, null, 2));
+  fs.writeFileSync(
+    path.join(cwd, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          strict: true,
+          target: "ES2022",
+          module: "ESNext",
+          noEmit: true,
+        },
+        include: ["src/**/*.ts"],
+      },
+      null,
+      2,
+    ),
+  );
+  fs.mkdirSync(path.join(cwd, "src"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "src", "project-target.ts"), "export const typed: number = 1;\n");
+  const rootTsc = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc");
+  assert.ok(fs.existsSync(rootTsc), "repo-local TypeScript compiler is required for project-aware diagnostics proof");
+  fs.mkdirSync(path.join(cwd, "node_modules", ".bin"), { recursive: true });
+  const workspaceTsc = path.join(cwd, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc");
+  fs.symlinkSync(rootTsc, workspaceTsc);
   fs.writeFileSync(
     path.join(cwd, "sample.test.mjs"),
     "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `RUNTIME_ARTIFACT_SPILLOVER_START ${'x'.repeat(4096)} RUNTIME_ARTIFACT_SPILLOVER_END`;\n\ntest('runtime coding test proof', () => {\n  console.log(marker);\n  assert.equal(2 + 2, 4);\n});\n",
@@ -3588,7 +3612,17 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
   fs.writeFileSync(path.join(cwd, "diagnostic-target.mjs"), "export const value = 1;\n");
   fs.writeFileSync(path.join(cwd, "blocking-target.mjs"), "export const blocked = 1;\n");
   fs.writeFileSync(path.join(cwd, "skip-diagnostics.mjs"), "export const skip = 1;\n");
-  git(cwd, ["add", "README.md", "sample.test.mjs", "diagnostic-target.mjs", "blocking-target.mjs", "skip-diagnostics.mjs"]);
+  git(cwd, [
+    "add",
+    "README.md",
+    "package.json",
+    "tsconfig.json",
+    "src/project-target.ts",
+    "sample.test.mjs",
+    "diagnostic-target.mjs",
+    "blocking-target.mjs",
+    "skip-diagnostics.mjs",
+  ]);
   git(cwd, ["commit", "-m", "seed workspace"]);
   fs.appendFileSync(path.join(cwd, "README.md"), "\nChanged line for diff proof.\n");
 
@@ -3632,6 +3666,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.ok(diagnosticsContract);
     assert.equal(diagnosticsContract.effectClass, "local_read");
     assert.equal(diagnosticsContract.riskDomain, "diagnostics");
+    assert.ok(diagnosticsContract.inputSchema.properties.commandId.enum.includes("auto"));
     assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
     assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
     assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
@@ -3839,6 +3874,56 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.equal(skippedDiagnosticPatchResult.status, "completed");
     assert.equal(skippedDiagnosticPatchResult.result.diagnosticsRecommended, true);
     assert.equal(skippedDiagnosticPatchResult.auto_diagnostics, null);
+    const projectDiagnosticPatchResult = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.file.apply_patch.project-diagnostics",
+          input: {
+            path: "src/project-target.ts",
+            oldText: "export const typed: number = 1;",
+            newText: "export const typed: number = \"not a number\";",
+          },
+        }),
+      },
+    );
+    assert.equal(projectDiagnosticPatchResult.status, "completed");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.commandId, "auto");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.resolvedCommandId, "typescript.check");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.backend, "typescript.project.check");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.backendStatus, "available");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.projectContext?.tsconfigPath, "tsconfig.json");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.projectContext?.packageManager, "npm");
+    assert.equal(projectDiagnosticPatchResult.auto_diagnostics?.result.diagnosticStatus, "findings");
+    assert.match(projectDiagnosticPatchResult.auto_diagnostics?.result.diagnostics[0]?.code ?? "", /^TS/);
+    fs.renameSync(workspaceTsc, `${workspaceTsc}.disabled`);
+    const degradedProjectDiagnostics = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/lsp.diagnostics/invoke`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflow_graph_id: "workflow-coding-tools",
+          workflow_node_id: "workflow.coding.lsp.diagnostics.degraded-project",
+          input: {
+            commandId: "auto",
+            path: "src/project-target.ts",
+            maxOutputBytes: 4096,
+          },
+        }),
+      },
+    );
+    assert.equal(degradedProjectDiagnostics.status, "completed");
+    assert.equal(degradedProjectDiagnostics.result.commandId, "auto");
+    assert.equal(degradedProjectDiagnostics.result.backendStatus, "degraded");
+    assert.equal(degradedProjectDiagnostics.result.backendReason, "typescript_executable_missing");
+    assert.equal(degradedProjectDiagnostics.result.fallbackUsed, true);
+    assert.equal(degradedProjectDiagnostics.result.diagnosticStatus, "degraded");
+    assert.ok(degradedProjectDiagnostics.result.receiptRefs.some((receiptRef) => receiptRef.includes("degraded")));
+    assert.ok(degradedProjectDiagnostics.result.receiptRefs.some((receiptRef) => receiptRef.includes("fallback")));
     assert.equal(diagnosticsResult.status, "completed");
     assert.equal(diagnosticsResult.tool_name, "lsp.diagnostics");
     assert.equal(diagnosticsResult.result.diagnosticStatus, "findings");
@@ -4144,6 +4229,22 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     );
     assert.ok(autoDiagnostics);
     assert.equal(autoDiagnostics.payload_summary.result_summary.diagnosticStatus, "findings");
+    const projectAutoDiagnostics = codingEvents.find(
+      (event) =>
+        event.payload.tool_name === "lsp.diagnostics" &&
+        event.source === "runtime_auto" &&
+        event.payload_summary.result_summary.backend === "typescript.project.check",
+    );
+    assert.ok(projectAutoDiagnostics);
+    assert.equal(projectAutoDiagnostics.payload_summary.result_summary.resolvedCommandId, "typescript.check");
+    assert.equal(projectAutoDiagnostics.payload_summary.result_summary.backendStatus, "available");
+    const degradedProjectDiagnosticsEvent = codingEvents.find(
+      (event) => event.workflow_node_id === "workflow.coding.lsp.diagnostics.degraded-project",
+    );
+    assert.ok(degradedProjectDiagnosticsEvent);
+    assert.equal(degradedProjectDiagnosticsEvent.payload_summary.result_summary.backendStatus, "degraded");
+    assert.equal(String(degradedProjectDiagnosticsEvent.payload_summary.result_summary.fallbackUsed), "true");
+    assert.ok(degradedProjectDiagnosticsEvent.receipt_refs.some((receiptRef) => receiptRef.includes("degraded")));
     const reactFlowArtifactRead = codingEvents.find(
       (event) =>
         event.payload.tool_name === "artifact.read" &&

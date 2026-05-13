@@ -380,7 +380,7 @@ pub enum ToolCommands {
         /// Workspace-relative path for file.inspect, git.diff, file.apply_patch, test.run, or lsp.diagnostics.
         #[clap(long)]
         path: Option<String>,
-        /// Structured command id for test.run or lsp.diagnostics, for example node.test or node.check.
+        /// Structured command id for test.run or lsp.diagnostics, for example node.test, auto, node.check, or typescript.check.
         #[clap(long = "command-id")]
         command_id: Option<String>,
         /// Workspace-relative cwd for test.run or lsp.diagnostics.

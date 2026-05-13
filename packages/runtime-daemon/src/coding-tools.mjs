@@ -31,9 +31,11 @@ const CODING_TOOL_TEST_COMMAND_IDS = ["node.test", "npm.test", "cargo.test", "ca
 const CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES = 64 * 1024;
 const CODING_TOOL_DIAGNOSTIC_MAX_TIMEOUT_MS = 2 * 60 * 1000;
 const CODING_TOOL_DIAGNOSTIC_DEFAULT_TIMEOUT_MS = 30 * 1000;
-const CODING_TOOL_DIAGNOSTIC_COMMAND_IDS = ["node.check", "typescript.check"];
+const CODING_TOOL_DIAGNOSTIC_COMMAND_IDS = ["auto", "node.check", "typescript.check"];
 const CODING_TOOL_ARTIFACT_MAX_READ_BYTES = 256 * 1024;
 const CODING_TOOL_ARTIFACT_DEFAULT_READ_BYTES = 64 * 1024;
+const NODE_CHECK_PATH_PATTERN = /\.(cjs|js|mjs)$/i;
+const TYPESCRIPT_PATH_PATTERN = /\.(cts|mts|ts|tsx)$/i;
 
 export function codingToolContracts() {
   return [
@@ -255,6 +257,8 @@ export function codingToolContracts() {
         required: [
           "workspaceRoot",
           "commandId",
+          "resolvedCommandId",
+          "backend",
           "diagnosticStatus",
           "diagnostics",
           "diagnosticCount",
@@ -393,7 +397,7 @@ export function codingToolInputSummary(toolId, input = {}) {
   }
   if (toolId === "lsp.diagnostics") {
     return {
-      commandId: optionalString(input.commandId ?? input.command_id) ?? "node.check",
+      commandId: optionalString(input.commandId ?? input.command_id) ?? "auto",
       paths: codingToolRawPathSummary(input),
       cwd: optionalString(input.cwd) ?? ".",
       timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
@@ -465,9 +469,12 @@ export function codingToolResultSummary(toolId, result = {}) {
   if (toolId === "lsp.diagnostics") {
     return {
       commandId: result?.commandId ?? null,
+      resolvedCommandId: result?.resolvedCommandId ?? null,
+      backend: result?.backend ?? null,
       diagnosticStatus: result?.diagnosticStatus ?? null,
       diagnosticCount: Number(result?.diagnosticCount ?? 0),
       backendStatus: result?.backendStatus ?? null,
+      fallbackUsed: Boolean(result?.fallbackUsed),
       truncated: Boolean(result?.truncated),
       spilloverRecommended: Boolean(result?.spilloverRecommended),
     };
@@ -883,7 +890,7 @@ function testRunTool(workspaceRoot, input = {}) {
 }
 
 function lspDiagnosticsTool(workspaceRoot, input = {}) {
-  const commandId = optionalString(input.commandId ?? input.command_id) ?? "node.check";
+  const commandId = optionalString(input.commandId ?? input.command_id) ?? "auto";
   const runCwd = resolveWorkspaceDirectory(workspaceRoot, optionalString(input.cwd) ?? ".");
   const timeoutMs = boundedInteger(
     input.timeoutMs ?? input.timeout_ms,
@@ -903,19 +910,15 @@ function lspDiagnosticsTool(workspaceRoot, input = {}) {
       toolId: "lsp.diagnostics",
     });
   }
+  const diagnosticPlan = diagnosticsPlanForInput({
+    commandId,
+    workspaceRoot,
+    runCwd,
+    paths,
+    input,
+  });
   const startedAt = Date.now();
-  const diagnosticRun =
-    commandId === "node.check"
-      ? nodeCheckDiagnostics(workspaceRoot, runCwd, paths, timeoutMs)
-      : commandId === "typescript.check"
-        ? typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input)
-        : null;
-  if (!diagnosticRun) {
-    throw codingToolError(403, "lsp_diagnostics_command_not_allowed", "lsp.diagnostics commandId is not allowlisted.", {
-      commandId,
-      allowedCommandIds: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS,
-    });
-  }
+  const diagnosticRun = executeDiagnosticsPlan(diagnosticPlan, workspaceRoot, runCwd, paths, timeoutMs, input);
   const durationMs = Date.now() - startedAt;
   const stdoutPreview = utf8Preview(diagnosticRun.stdout, maxOutputBytes);
   const stderrPreview = utf8Preview(diagnosticRun.stderr, maxOutputBytes);
@@ -931,14 +934,33 @@ function lspDiagnosticsTool(workspaceRoot, input = {}) {
         },
       ]
     : [];
+  const receiptRefs = [
+    `receipt_lsp_diagnostics_${safeReceiptPath(diagnosticRun.backend)}_${outputHash.slice(0, 12)}`,
+    ...(diagnosticRun.backendStatus === "degraded"
+      ? [
+          `receipt_lsp_diagnostics_degraded_${safeReceiptPath(diagnosticRun.backendReason ?? diagnosticRun.backend)}_${outputHash.slice(0, 12)}`,
+        ]
+      : []),
+    ...(diagnosticRun.fallbackUsed
+      ? [
+          `receipt_lsp_diagnostics_fallback_${safeReceiptPath(diagnosticRun.fallbackFrom ?? diagnosticRun.backend)}_${outputHash.slice(0, 12)}`,
+        ]
+      : []),
+  ];
   return {
     schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
     workspaceRoot,
     commandId,
+    requestedCommandId: diagnosticPlan.requestedCommandId,
+    resolvedCommandId: diagnosticRun.resolvedCommandId,
     command: diagnosticRun.displayCommand,
     cwd: runCwd.relativePath,
     backend: diagnosticRun.backend,
     backendStatus: diagnosticRun.backendStatus,
+    backendReason: diagnosticRun.backendReason ?? null,
+    fallbackUsed: Boolean(diagnosticRun.fallbackUsed),
+    fallbackFrom: diagnosticRun.fallbackFrom ?? null,
+    projectContext: diagnosticRun.projectContext ?? diagnosticPlan.projectContext,
     diagnosticStatus: diagnosticRun.diagnosticStatus,
     diagnostics: diagnosticRun.diagnostics,
     diagnosticCount: diagnosticRun.diagnostics.length,
@@ -955,7 +977,7 @@ function lspDiagnosticsTool(workspaceRoot, input = {}) {
     spilloverRecommended: truncated,
     artifactDrafts,
     allowedCommandIds: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS,
-    receiptRefs: [`receipt_lsp_diagnostics_${safeReceiptPath(commandId)}_${outputHash.slice(0, 12)}`],
+    receiptRefs,
     shellFallbackUsed: false,
   };
 }
@@ -967,7 +989,7 @@ function nodeCheckDiagnostics(workspaceRoot, runCwd, paths, timeoutMs) {
   let timedOut = false;
   let unsupportedCount = 0;
   for (const target of paths) {
-    if (!/\.(cjs|js|mjs)$/i.test(target.relativePath)) {
+    if (!NODE_CHECK_PATH_PATTERN.test(target.relativePath)) {
       unsupportedCount += 1;
       diagnostics.push({
         path: target.relativePath,
@@ -1002,6 +1024,9 @@ function nodeCheckDiagnostics(workspaceRoot, runCwd, paths, timeoutMs) {
   return {
     backend: "node.check",
     backendStatus,
+    backendReason: backendStatus === "degraded" ? "unsupported_path" : null,
+    resolvedCommandId: "node.check",
+    fallbackUsed: false,
     displayCommand: "node --check",
     stdout,
     stderr,
@@ -1050,12 +1075,126 @@ function nodeCheckOutputDiagnostics(target, run) {
   ];
 }
 
-function typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input = {}) {
-  const executable = localTscExecutable(workspaceRoot);
+function diagnosticsPlanForInput({ commandId, workspaceRoot, runCwd, paths, input = {} } = {}) {
+  if (!CODING_TOOL_DIAGNOSTIC_COMMAND_IDS.includes(commandId)) {
+    throw codingToolError(403, "lsp_diagnostics_command_not_allowed", "lsp.diagnostics commandId is not allowlisted.", {
+      commandId,
+      allowedCommandIds: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS,
+    });
+  }
+  const projectContext = diagnosticsProjectContext(workspaceRoot, runCwd, paths);
+  const hasTypescriptPath = paths.some((entry) => TYPESCRIPT_PATH_PATTERN.test(entry.relativePath));
+  const executable = localTscExecutable(workspaceRoot, projectContext.projectRootAbsolutePath ?? runCwd.absolutePath);
+  const tsconfigPath = projectContext.tsconfigAbsolutePath;
+  if (commandId === "auto") {
+    if (hasTypescriptPath && tsconfigPath && executable) {
+      return {
+        requestedCommandId: commandId,
+        resolvedCommandId: "typescript.check",
+        backend: "typescript.project.check",
+        executable,
+        tsconfigPath,
+        projectContext: { ...projectContext, tscAvailable: true },
+        fallbackUsed: false,
+      };
+    }
+    if (hasTypescriptPath && tsconfigPath && !executable) {
+      return {
+        requestedCommandId: commandId,
+        resolvedCommandId: "node.check",
+        backend: "node.check",
+        projectContext: { ...projectContext, tscAvailable: false },
+        fallbackUsed: true,
+        fallbackFrom: "typescript.project.check",
+        fallbackReason: "typescript_executable_missing",
+      };
+    }
+    return {
+      requestedCommandId: commandId,
+      resolvedCommandId: "node.check",
+      backend: "node.check",
+      projectContext: { ...projectContext, tscAvailable: Boolean(executable) },
+      fallbackUsed: false,
+    };
+  }
+  if (commandId === "node.check") {
+    return {
+      requestedCommandId: commandId,
+      resolvedCommandId: "node.check",
+      backend: "node.check",
+      projectContext: { ...projectContext, tscAvailable: Boolean(executable) },
+      fallbackUsed: false,
+    };
+  }
+  return {
+    requestedCommandId: commandId,
+    resolvedCommandId: "typescript.check",
+    backend: tsconfigPath ? "typescript.project.check" : "typescript.file.check",
+    executable,
+    tsconfigPath,
+    projectContext: { ...projectContext, tscAvailable: Boolean(executable) },
+    fallbackUsed: false,
+  };
+}
+
+function executeDiagnosticsPlan(plan, workspaceRoot, runCwd, paths, timeoutMs, input = {}) {
+  if (plan.resolvedCommandId === "node.check") {
+    const run = nodeCheckDiagnostics(workspaceRoot, runCwd, paths, timeoutMs);
+    if (!plan.fallbackUsed) {
+      return {
+        ...run,
+        requestedCommandId: plan.requestedCommandId,
+        projectContext: plan.projectContext,
+      };
+    }
+    return {
+      ...run,
+      requestedCommandId: plan.requestedCommandId,
+      projectContext: plan.projectContext,
+      backendStatus: "degraded",
+      backendReason: plan.fallbackReason,
+      fallbackUsed: true,
+      fallbackFrom: plan.fallbackFrom,
+      diagnosticStatus: run.diagnosticStatus === "clean" ? "degraded" : run.diagnosticStatus,
+    };
+  }
+  return typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input, plan);
+}
+
+function diagnosticsProjectContext(workspaceRoot, runCwd, paths) {
+  const tsconfigPaths = uniqueStrings(
+    paths
+      .map((entry) => findNearestFile(path.dirname(entry.absolutePath), "tsconfig.json", workspaceRoot))
+      .filter(Boolean),
+  );
+  const tsconfigAbsolutePath =
+    tsconfigPaths[0] ?? findNearestFile(runCwd.absolutePath, "tsconfig.json", workspaceRoot);
+  const projectRootAbsolutePath = tsconfigAbsolutePath ? path.dirname(tsconfigAbsolutePath) : runCwd.absolutePath;
+  const packageJsonPath = findNearestFile(projectRootAbsolutePath, "package.json", workspaceRoot);
+  const packageRootAbsolutePath = packageJsonPath ? path.dirname(packageJsonPath) : null;
+  return {
+    schemaVersion: "ioi.runtime.diagnostics-project-context.v1",
+    projectRoot: path.relative(workspaceRoot, projectRootAbsolutePath) || ".",
+    projectRootAbsolutePath,
+    tsconfigPath: tsconfigAbsolutePath ? path.relative(workspaceRoot, tsconfigAbsolutePath) || "tsconfig.json" : null,
+    tsconfigAbsolutePath: tsconfigAbsolutePath ?? null,
+    tsconfigPaths: tsconfigPaths.map((item) => path.relative(workspaceRoot, item) || "tsconfig.json"),
+    packageRoot: packageRootAbsolutePath ? path.relative(workspaceRoot, packageRootAbsolutePath) || "." : null,
+    packageManager: packageRootAbsolutePath ? packageManagerForDirectory(packageRootAbsolutePath) : null,
+    pathCount: paths.length,
+  };
+}
+
+function typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input = {}, plan = {}) {
+  const executable = plan.executable ?? localTscExecutable(workspaceRoot, plan.projectContext?.projectRootAbsolutePath ?? runCwd.absolutePath);
   if (!executable) {
     return {
-      backend: "typescript.check",
+      backend: plan.backend ?? "typescript.check",
       backendStatus: "degraded",
+      backendReason: "typescript_executable_missing",
+      resolvedCommandId: "typescript.check",
+      fallbackUsed: false,
+      projectContext: plan.projectContext ?? diagnosticsProjectContext(workspaceRoot, runCwd, paths),
       displayCommand: "tsc --noEmit --pretty false",
       stdout: "",
       stderr: "typescript.check degraded: local node_modules/.bin/tsc was not found.",
@@ -1066,16 +1205,38 @@ function typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input = 
     };
   }
   const extraArgs = normalizeStringArray(input.args).slice(0, 100);
-  const pathArgs = paths.map((entry) => path.relative(runCwd.absolutePath, entry.absolutePath) || ".");
-  const args = ["--noEmit", "--pretty", "false", ...pathArgs, ...extraArgs];
+  const projectArgs = plan.tsconfigPath
+    ? ["-p", path.relative(runCwd.absolutePath, plan.tsconfigPath) || "tsconfig.json"]
+    : [];
+  const pathArgs = plan.tsconfigPath
+    ? []
+    : paths.map((entry) => path.relative(runCwd.absolutePath, entry.absolutePath) || ".");
+  const args = ["--noEmit", "--pretty", "false", ...projectArgs, ...pathArgs, ...extraArgs];
   const run = execFileCaptured(executable, args, { cwd: runCwd.absolutePath, timeoutMs, env: {} });
   const diagnostics = run.exitCode === 0 && !run.timedOut
     ? []
-    : typescriptOutputDiagnostics(paths, `${run.stdout}\n${run.stderr}`);
+    : typescriptOutputDiagnostics(workspaceRoot, runCwd, `${run.stdout}\n${run.stderr}`);
+  if (run.timedOut && diagnostics.length === 0) {
+    diagnostics.push({
+      path: plan.projectContext?.tsconfigPath ?? paths[0]?.relativePath ?? null,
+      severity: "error",
+      source: "typescript.check",
+      code: "timeout",
+      message: "typescript.check timed out.",
+      line: null,
+      column: null,
+    });
+  }
   return {
-    backend: "typescript.check",
+    backend: plan.backend ?? "typescript.check",
     backendStatus: run.timedOut ? "timed_out" : "available",
-    displayCommand: "tsc --noEmit --pretty false",
+    backendReason: null,
+    resolvedCommandId: "typescript.check",
+    fallbackUsed: false,
+    projectContext: plan.projectContext ?? diagnosticsProjectContext(workspaceRoot, runCwd, paths),
+    displayCommand: plan.tsconfigPath
+      ? "tsc --noEmit --pretty false -p tsconfig.json"
+      : "tsc --noEmit --pretty false",
     stdout: run.stdout,
     stderr: run.stderr,
     exitCode: run.exitCode,
@@ -1085,8 +1246,7 @@ function typescriptDiagnostics(workspaceRoot, runCwd, paths, timeoutMs, input = 
   };
 }
 
-function typescriptOutputDiagnostics(paths, output) {
-  const knownPaths = new Set(paths.map((entry) => entry.relativePath));
+function typescriptOutputDiagnostics(workspaceRoot, runCwd, output) {
   return String(output ?? "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -1094,9 +1254,9 @@ function typescriptOutputDiagnostics(paths, output) {
     .map((line) => {
       const match = line.match(/^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/);
       if (!match) return null;
-      const relativePath = match[1].replaceAll("\\", "/");
+      const relativePath = normalizeDiagnosticPath(workspaceRoot, runCwd, match[1]);
       return {
-        path: knownPaths.has(relativePath) ? relativePath : relativePath,
+        path: relativePath,
         severity: "error",
         source: "typescript.check",
         code: match[4],
@@ -1108,9 +1268,57 @@ function typescriptOutputDiagnostics(paths, output) {
     .filter(Boolean);
 }
 
-function localTscExecutable(workspaceRoot) {
-  const executable = path.join(workspaceRoot, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc");
-  return fs.existsSync(executable) ? executable : null;
+function normalizeDiagnosticPath(workspaceRoot, runCwd, diagnosticPath) {
+  const normalized = String(diagnosticPath ?? "").replaceAll("\\", "/");
+  const absolutePath = path.isAbsolute(normalized)
+    ? path.resolve(normalized)
+    : path.resolve(runCwd.absolutePath, normalized);
+  const relativePath = path.relative(workspaceRoot, absolutePath);
+  if (isInsidePath(workspaceRoot, absolutePath)) {
+    return relativePath.replaceAll("\\", "/") || ".";
+  }
+  return normalized;
+}
+
+function findNearestFile(startDirectory, fileName, workspaceRoot) {
+  const root = path.resolve(workspaceRoot);
+  let current = path.resolve(startDirectory);
+  if (!isInsidePath(root, current)) current = root;
+  while (isInsidePath(root, current)) {
+    const candidate = path.join(current, fileName);
+    if (fs.existsSync(candidate)) return candidate;
+    if (current === root) break;
+    current = path.dirname(current);
+  }
+  return null;
+}
+
+function packageManagerForDirectory(directory) {
+  if (fs.existsSync(path.join(directory, "pnpm-lock.yaml"))) return "pnpm";
+  if (fs.existsSync(path.join(directory, "yarn.lock"))) return "yarn";
+  if (fs.existsSync(path.join(directory, "bun.lockb"))) return "bun";
+  if (fs.existsSync(path.join(directory, "package-lock.json"))) return "npm";
+  if (fs.existsSync(path.join(directory, "package.json"))) return "npm";
+  return null;
+}
+
+function localTscExecutable(workspaceRoot, preferredDirectory = workspaceRoot) {
+  const executableName = process.platform === "win32" ? "tsc.cmd" : "tsc";
+  const root = path.resolve(workspaceRoot);
+  let current = path.resolve(preferredDirectory);
+  if (!isInsidePath(root, current)) current = root;
+  while (isInsidePath(root, current)) {
+    const executable = path.join(current, "node_modules", ".bin", executableName);
+    if (fs.existsSync(executable)) return executable;
+    if (current === root) break;
+    current = path.dirname(current);
+  }
+  return null;
+}
+
+function isInsidePath(rootPath, candidatePath) {
+  const relativePath = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
 function artifactReadTool(input = {}, context = {}) {
@@ -1254,6 +1462,10 @@ function codingToolRawPathSummary(input = {}) {
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function uniqueStrings(values) {
+  return [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))];
 }
 
 function normalizePatchEdits(input = {}) {

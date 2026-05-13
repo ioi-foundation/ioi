@@ -126,6 +126,7 @@ workstream was narrower.
 | 124 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | coding tool-pack post-edit diagnostics MVP | /tmp/ioi-autopilot-gui-harness-coding-tool-pack-diagnostics/2026-05-13T04-07-29-549Z/result.json |
 | 125 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | automatic post-edit diagnostics injection loop | /tmp/ioi-autopilot-gui-harness-post-edit-diagnostics-injection/2026-05-13T04-32-30-977Z/result.json |
 | 126 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | blocking post-edit diagnostics repair gate | /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json |
+| 127 | 2026-05-13 | P0-C. Post-edit LSP Diagnostics | project-aware diagnostics backend ladder | /tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
 
@@ -770,6 +771,48 @@ Validation evidence:
 - `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate`
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-blocking-diagnostics-gate/2026-05-13T04-49-47-650Z/result.json`.
+
+### Slice 127. 2026-05-13 - Project-aware diagnostics backend ladder
+
+Implementation slice completed 2026-05-13, project-aware diagnostics backend
+ladder:
+
+- Promoted `lsp.diagnostics` and post-edit diagnostics defaults from
+  `node.check` to `auto` across the daemon, CLI/TUI slash path, SDK mock, and
+  React Flow coding-tool/LSP node creators.
+- Added a diagnostics planner that records requested/resolved command ids,
+  backend, backend status/reason, project context, and fallback state.
+- Added TypeScript project diagnostics with nearest-`tsconfig.json`
+  resolution, local `node_modules/.bin/tsc` discovery from project root upward,
+  `tsc --noEmit --pretty false -p tsconfig.json`, and normalized
+  workspace-relative diagnostic paths.
+- Preserved degraded-mode behavior by falling back to `node.check` when an
+  `auto` TypeScript project has no local `tsc`, while emitting degraded and
+  fallback receipt refs plus compact result-summary metadata.
+- Extended the live daemon contract to prove React Flow-authored patch nodes
+  trigger TypeScript project findings automatically, explicit diagnostics can
+  degrade with receipts, and SDK/CLI/TUI/React Flow surfaces preserve the
+  backend ladder metadata.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "projects coding tool|diagnostics blocking gates" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "agent CLI exposes model|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "RUNTIME_EVENT_SOURCES|runtime event|TTI" scripts/lib/live-bridge-tti-schema-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo check -p ioi-cli --bin cli`
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-project-aware-diagnostics`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-project-aware-diagnostics/2026-05-13T05-02-46-174Z/result.json`.
 
 ### Slice 5. 2026-05-11 - workflow memory search/list
 

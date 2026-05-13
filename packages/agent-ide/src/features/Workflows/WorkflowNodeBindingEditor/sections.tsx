@@ -52,9 +52,9 @@ export function WorkflowNodeBindingSections({
     artifactEnabled: true,
     resultRetrievalEnabled: true,
     allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
-    allowedDiagnosticCommandIds: ["node.check", "typescript.check"],
+    allowedDiagnosticCommandIds: ["auto", "node.check", "typescript.check"],
     diagnosticsMode: "advisory" as const,
-    defaultDiagnosticCommandId: "node.check",
+    defaultDiagnosticCommandId: "auto",
     timeoutMs: 60000,
     dryRun: false,
     allowedPaths: [] as string[],
@@ -2135,11 +2135,12 @@ export function WorkflowNodeBindingSections({
                               "cargo.check",
                             ],
                             allowedDiagnosticCommandIds: [
+                              "auto",
                               "node.check",
                               "typescript.check",
                             ],
                             diagnosticsMode: "advisory",
-                            defaultDiagnosticCommandId: "node.check",
+                            defaultDiagnosticCommandId: "auto",
                             timeoutMs: 60000,
                             dryRun: false,
                             allowedPaths: [],
@@ -2528,7 +2529,7 @@ export function WorkflowNodeBindingSections({
                 <input
                   data-testid="workflow-coding-tool-pack-default-diagnostic-command"
                   value={String(
-                    codingToolPack.defaultDiagnosticCommandId ?? "node.check",
+                    codingToolPack.defaultDiagnosticCommandId ?? "auto",
                   )}
                   onChange={(event) =>
                     updateCodingToolPack({
