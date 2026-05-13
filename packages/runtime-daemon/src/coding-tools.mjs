@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +12,7 @@ export const CODING_TOOL_IDS = new Set([
   "git.diff",
   "file.inspect",
   "file.apply_patch",
+  "test.run",
 ]);
 
 const CODING_TOOL_DEFAULT_PREVIEW_BYTES = 16 * 1024;
@@ -20,6 +21,10 @@ const CODING_TOOL_DIFF_MAX_BYTES = 64 * 1024;
 const CODING_TOOL_APPLY_PATCH_MAX_FILE_BYTES = 1024 * 1024;
 const CODING_TOOL_APPLY_PATCH_MAX_DIFF_BYTES = 32 * 1024;
 const CODING_TOOL_APPLY_PATCH_MAX_EDITS = 20;
+const CODING_TOOL_TEST_MAX_OUTPUT_BYTES = 64 * 1024;
+const CODING_TOOL_TEST_MAX_TIMEOUT_MS = 5 * 60 * 1000;
+const CODING_TOOL_TEST_DEFAULT_TIMEOUT_MS = 60 * 1000;
+const CODING_TOOL_TEST_COMMAND_IDS = ["node.test", "npm.test", "cargo.test", "cargo.check"];
 
 export function codingToolContracts() {
   return [
@@ -162,6 +167,52 @@ export function codingToolContracts() {
         "toolPack.coding.dryRun",
       ],
     },
+    {
+      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stableToolId: "test.run",
+      displayName: "Run tests",
+      pack: CODING_TOOL_PACK_ID,
+      primitiveCapabilities: ["prim:test.run", "prim:process.exec_file"],
+      authorityScopeRequirements: ["scope:workspace.test"],
+      effectClass: "local_command",
+      riskDomain: "test",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          commandId: { type: "string", enum: CODING_TOOL_TEST_COMMAND_IDS },
+          cwd: { type: "string" },
+          path: { type: "string" },
+          paths: { type: "array", items: { type: "string" } },
+          args: { type: "array", items: { type: "string" } },
+          timeoutMs: { type: "integer", minimum: 1, maximum: CODING_TOOL_TEST_MAX_TIMEOUT_MS },
+          maxOutputBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_TEST_MAX_OUTPUT_BYTES },
+          env: { type: "object", additionalProperties: { type: "string" } },
+        },
+      },
+      outputSchema: {
+        type: "object",
+        required: [
+          "workspaceRoot",
+          "commandId",
+          "cwd",
+          "exitCode",
+          "testStatus",
+          "stdout",
+          "stderr",
+          "outputHash",
+          "shellFallbackUsed",
+        ],
+      },
+      evidenceRequirements: ["test_run_receipt", "coding_tool_receipt"],
+      workflowNodeType: "TestRunNode",
+      workflowConfigFields: [
+        "toolPack.coding.testEnabled",
+        "toolPack.coding.allowedTestCommandIds",
+        "toolPack.coding.allowedPaths",
+        "toolPack.coding.timeoutMs",
+      ],
+    },
   ];
 }
 
@@ -182,6 +233,8 @@ export function executeCodingTool(toolId, workspaceRoot, input = {}) {
       return fileInspectTool(workspaceRoot, input);
     case "file.apply_patch":
       return fileApplyPatchTool(workspaceRoot, input);
+    case "test.run":
+      return testRunTool(workspaceRoot, input);
     default:
       throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
         toolId,
@@ -197,6 +250,14 @@ export function codingToolInputSummary(toolId, input = {}) {
       path: optionalString(input.path) ?? null,
       dryRun: Boolean(input.dryRun ?? input.dry_run),
       editCount: normalizePatchEdits(input).length,
+    };
+  }
+  if (toolId === "test.run") {
+    return {
+      commandId: optionalString(input.commandId ?? input.command_id) ?? "node.test",
+      paths: codingToolRawPathSummary(input),
+      cwd: optionalString(input.cwd) ?? ".",
+      timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
     };
   }
   if (toolId === "git.diff") return { paths: codingToolRawPathSummary(input) };
@@ -238,6 +299,16 @@ export function codingToolResultSummary(toolId, result = {}) {
       editCount: Number(result?.editCount ?? 0),
     };
   }
+  if (toolId === "test.run") {
+    return {
+      commandId: result?.commandId ?? null,
+      testStatus: result?.testStatus ?? null,
+      exitCode: Number(result?.exitCode ?? 0),
+      durationMs: Number(result?.durationMs ?? 0),
+      truncated: Boolean(result?.truncated),
+      spilloverRecommended: Boolean(result?.spilloverRecommended),
+    };
+  }
   return {};
 }
 
@@ -257,6 +328,9 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
     return result?.changed
       ? `Patch applied to ${result?.path ?? "file"}.`
       : `Patch checked ${result?.path ?? "file"} with no content change.`;
+  }
+  if (toolId === "test.run") {
+    return `Test run ${result?.testStatus ?? "completed"} with exit code ${Number(result?.exitCode ?? 0)}.`;
   }
   return `${toolId} completed.`;
 }
@@ -525,6 +599,65 @@ function fileApplyPatchTool(workspaceRoot, input = {}) {
   };
 }
 
+function testRunTool(workspaceRoot, input = {}) {
+  const commandId = optionalString(input.commandId ?? input.command_id) ?? "node.test";
+  const runCwd = resolveWorkspaceDirectory(workspaceRoot, optionalString(input.cwd) ?? ".");
+  const timeoutMs = boundedInteger(
+    input.timeoutMs ?? input.timeout_ms,
+    CODING_TOOL_TEST_DEFAULT_TIMEOUT_MS,
+    1,
+    CODING_TOOL_TEST_MAX_TIMEOUT_MS,
+  );
+  const maxOutputBytes = boundedInteger(
+    input.maxOutputBytes ?? input.max_output_bytes,
+    CODING_TOOL_TEST_MAX_OUTPUT_BYTES,
+    1,
+    CODING_TOOL_TEST_MAX_OUTPUT_BYTES,
+  );
+  const command = testCommandForInput(commandId, workspaceRoot, runCwd, input);
+  const extraArgs = normalizeStringArray(input.args).slice(0, 100);
+  const args = [...command.args, ...extraArgs];
+  const startedAt = Date.now();
+  const run = execFileCaptured(command.executable, args, {
+    cwd: runCwd.absolutePath,
+    timeoutMs,
+    env: sanitizeTestEnv(input.env),
+  });
+  const durationMs = Date.now() - startedAt;
+  const stdoutPreview = utf8Preview(run.stdout, maxOutputBytes);
+  const stderrPreview = utf8Preview(run.stderr, maxOutputBytes);
+  const outputBytes = Buffer.byteLength(run.stdout, "utf8") + Buffer.byteLength(run.stderr, "utf8");
+  const outputHash = hashText(`${run.stdout}\n${run.stderr}`);
+  const truncated = stdoutPreview.truncated || stderrPreview.truncated;
+  const testStatus = run.timedOut ? "timed_out" : run.exitCode === 0 ? "passed" : "failed";
+  return {
+    schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+    workspaceRoot,
+    commandId,
+    command: command.displayCommand,
+    executable: command.executable,
+    args,
+    cwd: runCwd.relativePath,
+    exitCode: run.exitCode,
+    signal: run.signal,
+    testStatus,
+    timedOut: run.timedOut,
+    durationMs,
+    timeoutMs,
+    stdout: stdoutPreview.text,
+    stderr: stderrPreview.text,
+    stdoutBytes: Buffer.byteLength(run.stdout, "utf8"),
+    stderrBytes: Buffer.byteLength(run.stderr, "utf8"),
+    outputBytes,
+    outputHash,
+    truncated,
+    spilloverRecommended: truncated,
+    allowedCommandIds: CODING_TOOL_TEST_COMMAND_IDS,
+    receiptRefs: [`receipt_test_run_${safeReceiptPath(commandId)}_${outputHash.slice(0, 12)}`],
+    shellFallbackUsed: false,
+  };
+}
+
 function codingToolPaths(workspaceRoot, input = {}) {
   const rawPaths = [
     ...codingToolPathList(input.paths),
@@ -554,6 +687,17 @@ function resolveWorkspacePath(workspaceRoot, selectedPath) {
     });
   }
   return { absolutePath, relativePath };
+}
+
+function resolveWorkspaceDirectory(workspaceRoot, selectedPath) {
+  const target = resolveWorkspacePath(workspaceRoot, selectedPath);
+  if (!fs.existsSync(target.absolutePath) || !fs.statSync(target.absolutePath).isDirectory()) {
+    throw codingToolError(404, "test_run_cwd_missing", "test.run cwd must be an existing workspace directory.", {
+      workspaceRoot,
+      cwd: target.relativePath,
+    });
+  }
+  return target;
 }
 
 function execGitReadOnly(workspaceRoot, args) {
@@ -751,6 +895,82 @@ function execFileReadOnly(command, args) {
       exitCode: Number(error?.status ?? error?.code ?? 1),
     };
   }
+}
+
+function execFileCaptured(command, args, options = {}) {
+  const env = { ...process.env, ...(options.env ?? {}) };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("NODE_TEST")) delete env[key];
+  }
+  const result = spawnSync(command, args, {
+    cwd: options.cwd,
+    encoding: "utf8",
+    env,
+    maxBuffer: 4 * 1024 * 1024,
+    shell: false,
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: options.timeoutMs,
+  });
+  const timedOut = String(result.error?.code ?? "") === "ETIMEDOUT";
+  return {
+    ok: !result.error && Number(result.status ?? 0) === 0,
+    stdout: String(result.stdout ?? ""),
+    stderr: String(result.stderr ?? result.error?.message ?? ""),
+    exitCode: timedOut ? 124 : Number(result.status ?? 1),
+    signal: result.signal ?? null,
+    timedOut,
+  };
+}
+
+function testCommandForInput(commandId, workspaceRoot, runCwd, input = {}) {
+  const paths = codingToolPaths(workspaceRoot, input);
+  switch (commandId) {
+    case "node.test": {
+      const pathArgs = paths.map((entry) => path.relative(runCwd.absolutePath, entry.absolutePath) || ".");
+      return {
+        executable: process.execPath,
+        displayCommand: "node --test",
+        args: ["--test", ...pathArgs],
+      };
+    }
+    case "npm.test":
+      return {
+        executable: "npm",
+        displayCommand: "npm test",
+        args: ["test"],
+      };
+    case "cargo.test":
+      return {
+        executable: "cargo",
+        displayCommand: "cargo test",
+        args: ["test"],
+      };
+    case "cargo.check":
+      return {
+        executable: "cargo",
+        displayCommand: "cargo check",
+        args: ["check"],
+      };
+    default:
+      throw codingToolError(403, "test_run_command_not_allowed", "test.run commandId is not allowlisted.", {
+        commandId,
+        allowedCommandIds: CODING_TOOL_TEST_COMMAND_IDS,
+      });
+  }
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => optionalString(item)).filter(Boolean);
+}
+
+function sanitizeTestEnv(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, item]) => /^[A-Z_][A-Z0-9_]*$/i.test(key) && typeof item === "string")
+      .slice(0, 40),
+  );
 }
 
 function optionalString(value) {

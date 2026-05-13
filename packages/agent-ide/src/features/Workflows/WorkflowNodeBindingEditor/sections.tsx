@@ -47,6 +47,9 @@ export function WorkflowNodeBindingSections({
     gitEnabled: true,
     filesystemEnabled: true,
     writeEnabled: true,
+    testEnabled: true,
+    allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+    timeoutMs: 60000,
     dryRun: false,
     allowedPaths: [] as string[],
   };
@@ -60,6 +63,7 @@ export function WorkflowNodeBindingSections({
       nextPack.gitEnabled ? "git.diff" : null,
       nextPack.filesystemEnabled ? "file.inspect" : null,
       nextPack.writeEnabled ? "file.apply_patch" : null,
+      nextPack.testEnabled ? "test.run" : null,
     ].filter(Boolean) as string[];
     updateLogic({
       ...logic,
@@ -2082,7 +2086,7 @@ export function WorkflowNodeBindingSections({
                       bindingKind === "workflow_tool"
                         ? ["invoke"]
                         : bindingKind === "coding_tool_pack"
-                          ? ["workspace.status", "git.diff", "file.inspect", "file.apply_patch"]
+                          ? ["workspace.status", "git.diff", "file.inspect", "file.apply_patch", "test.run"]
                         : (logic.toolBinding?.capabilityScope ?? ["read"]),
                     sideEffectClass:
                       bindingKind === "coding_tool_pack"
@@ -2111,6 +2115,14 @@ export function WorkflowNodeBindingSections({
                             gitEnabled: true,
                             filesystemEnabled: true,
                             writeEnabled: true,
+                            testEnabled: true,
+                            allowedTestCommandIds: [
+                              "node.test",
+                              "npm.test",
+                              "cargo.test",
+                              "cargo.check",
+                            ],
+                            timeoutMs: 60000,
                             dryRun: false,
                             allowedPaths: [],
                           })
@@ -2392,6 +2404,7 @@ export function WorkflowNodeBindingSections({
                   ["gitEnabled", "Git diff"],
                   ["filesystemEnabled", "File inspect"],
                   ["writeEnabled", "File patch"],
+                  ["testEnabled", "Test run"],
                   ["dryRun", "Dry run"],
                 ].map(([key, label]) => (
                   <label
@@ -2429,6 +2442,39 @@ export function WorkflowNodeBindingSections({
                         .split(",")
                         .map((item) => item.trim())
                         .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Test commands
+                <input
+                  data-testid="workflow-coding-tool-pack-test-commands"
+                  value={(codingToolPack.allowedTestCommandIds ?? []).join(
+                    ", ",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      allowedTestCommandIds: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Timeout ms
+                <input
+                  data-testid="workflow-coding-tool-pack-timeout-ms"
+                  type="number"
+                  min={1}
+                  value={Number(codingToolPack.timeoutMs ?? 60000)}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      timeoutMs: Number(event.target.value || 0),
                     })
                   }
                 />

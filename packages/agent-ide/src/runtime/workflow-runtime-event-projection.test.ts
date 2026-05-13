@@ -125,6 +125,21 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
         summary: "Patch applied to README.md.",
       },
     }),
+    event("event-coding-test", 3, {
+      type: "tool_completed",
+      eventKind: "tool.completed",
+      sourceEventKind: "CodingTool.TestRun",
+      workflowNodeId: "runtime.coding-tool.test.run",
+      componentKind: "coding_tool",
+      toolName: "test.run",
+      payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
+      receiptRefs: ["receipt-coding-test"],
+      payload: {
+        tool_pack: "coding",
+        shell_fallback_used: false,
+        summary: "Test run passed with exit code 0.",
+      },
+    }),
   ]);
 
   const node = projection.nodes[0];
@@ -142,6 +157,12 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
   assert.equal(patchNode?.toolName, "file.apply_patch");
   assert.deepEqual(patchNode?.receiptRefs, ["receipt-coding-patch"]);
   assert.equal(patchNode?.summary, "Patch applied to README.md.");
+  const testNode = projection.nodes[2];
+  assert.equal(testNode?.workflowNodeId, "runtime.coding-tool.test.run");
+  assert.equal(testNode?.label, "Coding tool: test.run");
+  assert.equal(testNode?.toolName, "test.run");
+  assert.deepEqual(testNode?.receiptRefs, ["receipt-coding-test"]);
+  assert.equal(testNode?.summary, "Test run passed with exit code 0.");
 });
 
 test("projects approval and policy events without workflow node ids", () => {

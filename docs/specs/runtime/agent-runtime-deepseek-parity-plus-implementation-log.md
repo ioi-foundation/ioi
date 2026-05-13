@@ -567,6 +567,41 @@ Validation evidence:
   - preflight passed and wrote
     `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-apply-patch/2026-05-13T03-24-26-739Z/result.json`.
 
+### Slice 122. 2026-05-13 - Coding tool-pack structured test-run contract
+
+Implementation slice completed 2026-05-13, coding tool-pack structured
+test-run contract:
+
+- Added daemon-owned `test.run` to the `coding` pack with allowlisted command
+  ids (`node.test`, `npm.test`, `cargo.test`, `cargo.check`), workspace cwd and
+  path containment, timeout controls, bounded stdout/stderr previews, output
+  hashes, test status, exit code, spillover recommendation, receipts, and
+  `shellFallbackUsed: false`.
+- Extended SDK tool catalog mocks, CLI `agent tools run test.run` flags, TUI
+  line-mode `/test [path]`, and React Flow coding-pack controls for test
+  enablement, allowed command ids, and timeout.
+- Updated the live daemon contract to prove `test.run` across React
+  Flow-originated daemon invocation, SDK invocation, CLI invocation, TUI command
+  replay, canonical SSE events, SDK event projection, and React Flow
+  run-inspector rows.
+- Refreshed the master guide active gap ledger so the next P0-B work moves to
+  artifact spillover and `tool.retrieve_result`/`artifact.read`.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/coding-tools.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo fmt -p ioi-cli`
+- `cargo check -p ioi-cli`
+- `cargo test -p ioi-cli --bin cli parses_nested_tool_and_policy_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli parses_line_mode_slash_commands -- --nocapture`
+- `node --import tsx --test --test-name-pattern "projects coding tool" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-pack-test-run`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-pack-test-run/2026-05-13T03-36-24-435Z/result.json`.
+
 ### Slice 5. 2026-05-11 - workflow memory search/list
 
 Implementation slice completed 2026-05-11, workflow memory search/list:
