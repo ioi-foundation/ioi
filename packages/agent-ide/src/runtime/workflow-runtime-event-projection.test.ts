@@ -156,7 +156,19 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
         summary: "Diagnostics findings with 1 finding(s).",
       },
     }),
-    event("event-coding-retrieve", 5, {
+    event("event-diagnostics-injected", 5, {
+      type: "runtime_step",
+      eventKind: "lsp.diagnostics.injected",
+      sourceEventKind: "LspDiagnostics.Injected",
+      workflowNodeId: "runtime.lsp-diagnostics.injected",
+      componentKind: "lsp_diagnostics",
+      payloadSchemaVersion: "ioi.runtime.lsp-diagnostics-injection.v1",
+      receiptRefs: ["receipt-lsp-diagnostics-injected"],
+      payload: {
+        summary: "Injected 1 post-edit diagnostic finding(s).",
+      },
+    }),
+    event("event-coding-retrieve", 6, {
       type: "tool_completed",
       eventKind: "tool.completed",
       sourceEventKind: "CodingTool.ToolRetrieveResult",
@@ -200,7 +212,12 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
   assert.equal(diagnosticsNode?.workflowNodeId, "runtime.coding-tool.lsp.diagnostics");
   assert.equal(diagnosticsNode?.label, "Coding tool: lsp.diagnostics");
   assert.deepEqual(diagnosticsNode?.receiptRefs, ["receipt-coding-diagnostics"]);
-  const retrieveNode = projection.nodes[4];
+  const injectedNode = projection.nodes[4];
+  assert.equal(injectedNode?.workflowNodeId, "runtime.lsp-diagnostics.injected");
+  assert.equal(injectedNode?.label, "Diagnostics injected");
+  assert.deepEqual(injectedNode?.receiptRefs, ["receipt-lsp-diagnostics-injected"]);
+  assert.equal(injectedNode?.summary, "Injected 1 post-edit diagnostic finding(s).");
+  const retrieveNode = projection.nodes[5];
   assert.equal(retrieveNode?.workflowNodeId, "runtime.coding-tool.tool.retrieve-result");
   assert.equal(retrieveNode?.label, "Coding tool: tool.retrieve_result");
   assert.deepEqual(retrieveNode?.artifactRefs, ["artifact-coding-test-output"]);

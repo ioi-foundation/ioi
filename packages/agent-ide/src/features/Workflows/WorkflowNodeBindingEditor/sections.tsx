@@ -53,6 +53,8 @@ export function WorkflowNodeBindingSections({
     resultRetrievalEnabled: true,
     allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
     allowedDiagnosticCommandIds: ["node.check", "typescript.check"],
+    diagnosticsMode: "advisory" as const,
+    defaultDiagnosticCommandId: "node.check",
     timeoutMs: 60000,
     dryRun: false,
     allowedPaths: [] as string[],
@@ -2136,6 +2138,8 @@ export function WorkflowNodeBindingSections({
                               "node.check",
                               "typescript.check",
                             ],
+                            diagnosticsMode: "advisory",
+                            defaultDiagnosticCommandId: "node.check",
                             timeoutMs: 60000,
                             dryRun: false,
                             allowedPaths: [],
@@ -2482,6 +2486,26 @@ export function WorkflowNodeBindingSections({
                 />
               </label>
               <label>
+                Diagnostics mode
+                <select
+                  data-testid="workflow-coding-tool-pack-diagnostics-mode"
+                  value={String(codingToolPack.diagnosticsMode ?? "advisory")}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      diagnosticsMode: event.target.value as
+                        | "advisory"
+                        | "blocking"
+                        | "skip",
+                    })
+                  }
+                >
+                  <option value="advisory">Advisory</option>
+                  <option value="blocking">Blocking</option>
+                  <option value="skip">Skip</option>
+                </select>
+              </label>
+              <label>
                 Diagnostic commands
                 <input
                   data-testid="workflow-coding-tool-pack-diagnostic-commands"
@@ -2495,6 +2519,21 @@ export function WorkflowNodeBindingSections({
                         .split(",")
                         .map((item) => item.trim())
                         .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Default diagnostic command
+                <input
+                  data-testid="workflow-coding-tool-pack-default-diagnostic-command"
+                  value={String(
+                    codingToolPack.defaultDiagnosticCommandId ?? "node.check",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      defaultDiagnosticCommandId: event.target.value.trim(),
                     })
                   }
                 />

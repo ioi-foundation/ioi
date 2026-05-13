@@ -80,6 +80,7 @@ pub const RUNTIME_EVENT_SOURCES: &[&str] = &[
     "sdk_client",
     "cli_tui",
     "react_flow",
+    "runtime_auto",
     "fixture",
 ];
 

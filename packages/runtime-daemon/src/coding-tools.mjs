@@ -136,6 +136,10 @@ export function codingToolContracts() {
           appendText: { type: "string" },
           prependText: { type: "string" },
           occurrence: { type: "string", enum: ["only", "first", "all"] },
+          diagnosticsMode: { type: "string", enum: ["advisory", "blocking", "skip"] },
+          diagnosticCommandId: { type: "string", enum: CODING_TOOL_DIAGNOSTIC_COMMAND_IDS },
+          diagnosticTimeoutMs: { type: "integer", minimum: 1, maximum: CODING_TOOL_DIAGNOSTIC_MAX_TIMEOUT_MS },
+          diagnosticMaxOutputBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES },
           edits: {
             type: "array",
             maxItems: CODING_TOOL_APPLY_PATCH_MAX_EDITS,
@@ -174,6 +178,8 @@ export function codingToolContracts() {
         "toolPack.coding.writeEnabled",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.dryRun",
+        "toolPack.coding.diagnosticsMode",
+        "toolPack.coding.defaultDiagnosticCommandId",
       ],
     },
     {
@@ -261,6 +267,8 @@ export function codingToolContracts() {
       workflowConfigFields: [
         "toolPack.coding.diagnosticsEnabled",
         "toolPack.coding.allowedDiagnosticCommandIds",
+        "toolPack.coding.diagnosticsMode",
+        "toolPack.coding.defaultDiagnosticCommandId",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.timeoutMs",
       ],

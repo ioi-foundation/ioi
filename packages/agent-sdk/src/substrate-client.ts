@@ -934,6 +934,8 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
         "toolPack.coding.writeEnabled",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.dryRun",
+        "toolPack.coding.diagnosticsMode",
+        "toolPack.coding.defaultDiagnosticCommandId",
       ],
     },
     {
@@ -972,6 +974,8 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
       workflowConfigFields: [
         "toolPack.coding.diagnosticsEnabled",
         "toolPack.coding.allowedDiagnosticCommandIds",
+        "toolPack.coding.diagnosticsMode",
+        "toolPack.coding.defaultDiagnosticCommandId",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.timeoutMs",
       ],
@@ -1933,6 +1937,26 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       event,
       result: {
         input: input.input ?? input,
+        ...(toolId === "file.apply_patch"
+          ? {
+              changedFiles: [
+                {
+                  path: String((input.input as { path?: unknown } | undefined)?.path ?? "mock-file.js"),
+                  diagnosticsRecommended: true,
+                },
+              ],
+              diagnosticsRecommended: true,
+            }
+          : {}),
+        ...(toolId === "lsp.diagnostics"
+          ? {
+              commandId: "node.check",
+              diagnosticStatus: "clean",
+              diagnostics: [],
+              diagnosticCount: 0,
+              shellFallbackUsed: false,
+            }
+          : {}),
         ...(artifactRefs.length
           ? { artifactRefs, content: "mock coding artifact content" }
           : {}),

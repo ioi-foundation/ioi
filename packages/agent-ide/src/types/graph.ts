@@ -881,6 +881,8 @@ export interface WorkflowToolBinding {
     resultRetrievalEnabled?: boolean;
     allowedTestCommandIds?: string[];
     allowedDiagnosticCommandIds?: string[];
+    diagnosticsMode?: "advisory" | "blocking" | "skip";
+    defaultDiagnosticCommandId?: string;
     timeoutMs?: number;
     dryRun?: boolean;
     allowedPaths?: string[];

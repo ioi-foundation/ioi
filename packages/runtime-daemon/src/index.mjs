@@ -47,6 +47,11 @@ const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
 const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
 const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
+const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
+const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
+const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
+const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
+const LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS = 240;
 const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
 const RUN_EVENT_TO_TTI_EVENT = {
   run_started: "turn.started",
@@ -69,6 +74,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   hook_dry_run_plan: "item.completed",
   hook_invocation_ledger: "item.completed",
   memory_update: "item.completed",
+  lsp_diagnostics_injected: "lsp.diagnostics.injected",
   task_state: "item.completed",
   uncertainty: "item.completed",
   probe: "item.completed",
@@ -265,6 +271,7 @@ export class AgentgresRuntimeStateStore {
       modelRoute,
       memory,
       skillHookCatalog,
+      diagnosticsFeedback: request.diagnosticsFeedback ?? request.diagnostics_feedback ?? null,
     });
     this.runs.set(run.id, run);
     this.writeRun(run, "run.create");
@@ -1204,8 +1211,14 @@ export class AgentgresRuntimeStateStore {
 
   async createTurn(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
+    const diagnosticsFeedback = this.pendingDiagnosticsFeedbackForNextTurn(threadId, request);
     if (isRuntimeBackedAgent(agent)) {
-      return this.createRuntimeBridgeTurn({ agent, threadId, request });
+      return this.createRuntimeBridgeTurn({
+        agent,
+        threadId,
+        request: requestWithDiagnosticsFeedback(request, diagnosticsFeedback),
+        diagnosticsFeedback,
+      });
     }
     const prompt = request.prompt ?? request.message ?? request.input ?? "";
     const run = this.createRun(agent.id, {
@@ -1214,11 +1227,12 @@ export class AgentgresRuntimeStateStore {
       options: request.options ?? {},
       memory: request.memory,
       remember: request.remember,
+      diagnosticsFeedback,
     });
     return this.turnForRun(run);
   }
 
-  async createRuntimeBridgeTurn({ agent, threadId, request }) {
+  async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
     this.assertRuntimeBridgeAvailable({ runtimeProfile: agent.runtimeProfile, operation: "submit_turn" });
     const input = {
       request,
@@ -1242,6 +1256,14 @@ export class AgentgresRuntimeStateStore {
       throw error;
     }
     const projection = this.normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId, request });
+    if (diagnosticsFeedback) {
+      projection.events = insertRuntimeBridgeDiagnosticsInjectionEvent({
+        projection,
+        agent,
+        threadId,
+        diagnosticsFeedback,
+      });
+    }
     for (const event of projection.events) this.appendRuntimeEvent(event);
     const run = runtimeBridgeRunRecord({ agent, request, projection });
     this.runs.set(run.id, run);
@@ -2598,6 +2620,18 @@ export class AgentgresRuntimeStateStore {
       payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       payload_summary: payloadSummary,
     });
+    const autoDiagnostics =
+      status === "completed" && normalizedToolId === "file.apply_patch"
+        ? this.maybeRunPostEditDiagnostics({
+            threadId,
+            turnId,
+            patchToolCallId: toolCallId,
+            patchResult: result,
+            request,
+            input,
+            workflowGraphId,
+          })
+        : null;
     return {
       schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       object: "ioi.runtime_coding_tool_result",
@@ -2614,9 +2648,72 @@ export class AgentgresRuntimeStateStore {
       receipt_refs: event.receipt_refs,
       artifact_refs: event.artifact_refs,
       event,
+      auto_diagnostics: autoDiagnostics,
+      autoDiagnostics,
       result,
       error,
     };
+  }
+
+  maybeRunPostEditDiagnostics({
+    threadId,
+    turnId,
+    patchToolCallId,
+    patchResult,
+    request = {},
+    input = {},
+    workflowGraphId = null,
+  } = {}) {
+    const config = postEditDiagnosticsConfig(request, input);
+    if (config.mode === "skip") return null;
+    const paths = normalizeArray(patchResult?.changedFiles)
+      .filter((entry) => entry?.diagnosticsRecommended !== false)
+      .map((entry) => optionalString(entry?.path))
+      .filter(Boolean);
+    if (!paths.length) return null;
+    return this.invokeThreadTool(threadId, "lsp.diagnostics", {
+      source: "runtime_auto",
+      turn_id: turnId || null,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: LSP_DIAGNOSTICS_AUTO_NODE_ID,
+      tool_call_id: `coding_tool_lsp_diagnostics_auto_${doctorHash(`${patchToolCallId}:${paths.join(",")}`).slice(0, 16)}`,
+      input: {
+        commandId: config.commandId,
+        paths,
+        cwd: config.cwd,
+        timeoutMs: config.timeoutMs,
+        maxOutputBytes: config.maxOutputBytes,
+      },
+    });
+  }
+
+  pendingDiagnosticsFeedbackForNextTurn(threadId, request = {}) {
+    const injectionMode = normalizeDiagnosticsMode(
+      request.diagnosticsMode ??
+        request.diagnostics_mode ??
+        request.options?.diagnosticsMode ??
+        request.options?.diagnostics_mode ??
+        "advisory",
+    );
+    if (injectionMode === "skip") return null;
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const lastInjectedSeq = Math.max(
+      0,
+      ...stream.events
+        .filter((event) => event.event_kind === "lsp.diagnostics.injected")
+        .map((event) => Number(event.seq) || 0),
+    );
+    const diagnosticEvents = stream.events.filter((event) => {
+      const payload = event.payload_summary ?? event.payload ?? {};
+      return (
+        event.seq > lastInjectedSeq &&
+        event.event_kind === "tool.completed" &&
+        event.source === "runtime_auto" &&
+        payload.tool_name === "lsp.diagnostics"
+      );
+    });
+    if (!diagnosticEvents.length) return null;
+    return compactDiagnosticsFeedback({ threadId, mode: injectionMode, diagnosticEvents });
   }
 
   materializeCodingToolArtifactDrafts({ threadId, toolId, toolCallId, workspaceRoot, result, receiptId }) {
@@ -5018,7 +5115,17 @@ async function handleRunRoute({ request, response, store, url, segments }) {
   throw notFound("Run route not found.", { runId, action, method: request.method });
 }
 
-function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {}, skillHookCatalog = null }) {
+function buildRun({
+  agent,
+  mode,
+  prompt,
+  request,
+  source,
+  modelRoute,
+  memory = {},
+  skillHookCatalog = null,
+  diagnosticsFeedback = null,
+}) {
   const runId = `run_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
   const taskFamily = taskFamilyForMode(mode);
@@ -5172,6 +5279,11 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       `Hook dry-run plan: wouldRun=${hookDryRunPlan.wouldRunCount}, blocked=${hookDryRunPlan.blockedCount}, skipped=${hookDryRunPlan.skippedCount}`,
       `Hook invocation ledger: invocations=${hookInvocationLedger.invocationCount}, wouldRun=${hookInvocationLedger.wouldRunCount}, blocked=${hookInvocationLedger.blockedCount}, skipped=${hookInvocationLedger.skippedCount}`,
       `Hook escalation receipts: ${hookInvocationLedger.escalationCount} blocked invocation(s) require declaration fixes`,
+      ...(diagnosticsFeedback
+        ? [
+            `Post-edit diagnostics: status=${diagnosticsFeedback.diagnosticStatus}, findings=${diagnosticsFeedback.diagnosticCount}, mode=${diagnosticsFeedback.mode}`,
+          ]
+        : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -5195,6 +5307,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
+      diagnosticsFeedback?.injectionId,
       activeSkillHookManifest.activeSkillSetHash,
       activeSkillHookManifest.activeHookSetHash,
       ...agent.options.mcpServerNames,
@@ -5315,6 +5428,17 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
             },
           ]
         : []),
+      ...(diagnosticsFeedback
+        ? [
+            {
+              checkId: "post-edit-diagnostics-injected",
+              description: "Compact post-edit diagnostics were injected before this model turn continued.",
+              status: diagnosticsFeedback.blocking && diagnosticsFeedback.diagnosticStatus === "findings"
+                ? "blocked"
+                : "passed",
+            },
+          ]
+        : []),
     ],
     minimumEvidence: [
       "events",
@@ -5338,6 +5462,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       "hook_dry_run_plan",
       "hook_invocation_ledger",
       "hook_escalation_receipt",
+      ...(diagnosticsFeedback ? ["lsp_diagnostics_injection"] : []),
     ],
   };
   const semanticImpact = {
@@ -5414,6 +5539,9 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
         : []),
       ...(hookDryRunPlan.blockedCount > 0
         ? ["hooks.dry_run_blocked_without_declared_capabilities"]
+        : []),
+      ...(diagnosticsFeedback
+        ? [`lsp.diagnostics.${diagnosticsFeedback.mode}`]
         : []),
     ],
     affectedTests: ["live-runtime-daemon-contract"],
@@ -5656,6 +5784,20 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     ],
   };
   const hookEscalationReceipts = hookEscalationReceiptsForLedger(hookInvocationLedger);
+  const diagnosticsInjectionReceipt = diagnosticsFeedback
+    ? {
+        id: diagnosticsFeedback.receiptId,
+        kind: "lsp_diagnostics_injection",
+        summary: diagnosticsFeedback.summary,
+        redaction: "redacted",
+        evidenceRefs: [
+          diagnosticsFeedback.injectionId,
+          ...normalizeArray(diagnosticsFeedback.diagnosticEventIds),
+          "lsp.diagnostics.injected",
+          "LspDiagnosticsNode",
+        ],
+      }
+    : null;
   const agentgresReceipt = {
     id: `receipt_${runId}_agentgres`,
     kind: "agentgres_canonical_write",
@@ -5687,6 +5829,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     hookDryRunReceipt,
     hookPolicyReceipt,
     hookInvocationReceipt,
+    diagnosticsInjectionReceipt,
     ...hookEscalationReceipts,
     ...memoryWriteReceipts,
     policyReceipt,
@@ -5695,6 +5838,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     traceReceipt,
   ].filter(Boolean);
   const result = resultForMode(mode, agent, prompt, source, memory);
+  const modelInput = promptWithDiagnosticsFeedback(prompt, diagnosticsFeedback);
   const events = [];
   const addEvent = (type, summary, data) => {
     const event = makeEvent(runId, agent.id, events.length, type, summary, data);
@@ -5822,6 +5966,14 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
       workflowNodeId: "runtime.subagent-memory",
     });
   }
+  if (diagnosticsFeedback) {
+    addEvent("lsp_diagnostics_injected", diagnosticsFeedback.summary, {
+      ...diagnosticsFeedback,
+      eventKind: "LspDiagnosticsInjected",
+      receiptId: diagnosticsInjectionReceipt?.id ?? diagnosticsFeedback.receiptId,
+      workflowNodeId: LSP_DIAGNOSTICS_INJECTION_NODE_ID,
+    });
+  }
   addEvent("task_state", "Task state written to Agentgres", taskState);
   addEvent("uncertainty", "Uncertainty assessed", uncertainty);
   addEvent("probe", "Canonical replay probe completed", probes[0]);
@@ -5931,6 +6083,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     memoryPolicy,
     memoryRecords,
     memoryWrites: memoryWriteRecords,
+    diagnosticsFeedback,
     subagentMemoryInheritance,
     stopCondition,
     qualityLedger,
@@ -6082,7 +6235,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     updatedAt: createdAt,
     events,
     conversation: [
-      { role: "user", content: prompt, eventId: startedEvent.id, createdAt },
+      { role: "user", content: modelInput, eventId: startedEvent.id, createdAt },
       { role: "assistant", content: result, eventId: deltaEvent.id, createdAt },
     ],
     receipts,
@@ -6106,6 +6259,7 @@ function buildRun({ agent, mode, prompt, request, source, modelRoute, memory = {
     memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
+    diagnosticsFeedback,
     subagentMemoryInheritance,
     result,
   };
@@ -8627,6 +8781,197 @@ function hasExplicitSubagentMemorySelector(options = {}) {
   );
 }
 
+function postEditDiagnosticsConfig(request = {}, input = {}) {
+  const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
+  const pack = packRoot?.coding ?? packRoot;
+  const mode = normalizeDiagnosticsMode(
+    request.diagnosticsMode ??
+      request.diagnostics_mode ??
+      input.diagnosticsMode ??
+      input.diagnostics_mode ??
+      pack.diagnosticsMode ??
+      pack.diagnostics_mode ??
+      pack.diagnosticMode ??
+      pack.diagnostic_mode ??
+      "advisory",
+  );
+  return {
+    mode,
+    commandId: optionalString(
+      request.diagnosticCommandId ??
+        request.diagnostic_command_id ??
+        input.diagnosticCommandId ??
+        input.diagnostic_command_id ??
+        pack.defaultDiagnosticCommandId ??
+        pack.default_diagnostic_command_id,
+    ) ?? "node.check",
+    cwd: optionalString(input.cwd ?? request.cwd) ?? ".",
+    timeoutMs:
+      input.diagnosticTimeoutMs ??
+      input.diagnostic_timeout_ms ??
+      request.diagnosticTimeoutMs ??
+      request.diagnostic_timeout_ms ??
+      pack.timeoutMs ??
+      pack.timeout_ms ??
+      30000,
+    maxOutputBytes:
+      input.diagnosticMaxOutputBytes ??
+      input.diagnostic_max_output_bytes ??
+      request.diagnosticMaxOutputBytes ??
+      request.diagnostic_max_output_bytes ??
+      4096,
+  };
+}
+
+function normalizeDiagnosticsMode(value) {
+  const mode = optionalString(value)?.toLowerCase() ?? "advisory";
+  if (["skip", "off", "disabled", "none"].includes(mode)) return "skip";
+  if (["block", "blocking", "required", "fail"].includes(mode)) return "blocking";
+  return "advisory";
+}
+
+function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
+  const findings = [];
+  const statuses = [];
+  const diagnosticEventIds = [];
+  const receiptRefs = [];
+  for (const event of diagnosticEvents) {
+    const payload = event.payload_summary ?? event.payload ?? {};
+    const result = payload.result ?? {};
+    diagnosticEventIds.push(event.event_id);
+    receiptRefs.push(...normalizeArray(event.receipt_refs));
+    statuses.push(result.diagnosticStatus ?? payload.result_summary?.diagnosticStatus ?? "clean");
+    for (const diagnostic of normalizeArray(result.diagnostics)) {
+      findings.push(compactDiagnosticFinding(diagnostic, event));
+    }
+  }
+  const visibleFindings = findings.slice(0, LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS);
+  const diagnosticStatus = statuses.includes("findings")
+    ? "findings"
+    : statuses.includes("degraded")
+      ? "degraded"
+      : "clean";
+  const omittedCount = Math.max(0, findings.length - visibleFindings.length);
+  const summary =
+    diagnosticStatus === "findings"
+      ? `Injected ${visibleFindings.length}${omittedCount ? ` of ${findings.length}` : ""} post-edit diagnostic finding(s).`
+      : `Injected post-edit diagnostics status: ${diagnosticStatus}.`;
+  const injectionId = `lsp_diagnostics_injection_${doctorHash(
+    `${threadId}:${diagnosticEventIds.join(",")}:${mode}`,
+  ).slice(0, 16)}`;
+  const receiptId = `receipt_${injectionId}`;
+  return {
+    schemaVersion: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
+    object: "ioi.runtime_lsp_diagnostics_injection",
+    injectionId,
+    threadId,
+    mode,
+    blocking: mode === "blocking",
+    diagnosticStatus,
+    diagnosticCount: findings.length,
+    injectedFindingCount: visibleFindings.length,
+    omittedFindingCount: omittedCount,
+    findings: visibleFindings,
+    diagnosticEventIds,
+    receiptRefs: uniqueStrings(receiptRefs),
+    receiptId,
+    summary,
+    promptText: diagnosticsPromptText({ diagnosticStatus, mode, visibleFindings, omittedCount }),
+  };
+}
+
+function compactDiagnosticFinding(diagnostic = {}, event = {}) {
+  const location = [
+    optionalString(diagnostic.path) ?? "workspace",
+    diagnostic.line ? String(diagnostic.line) : null,
+    diagnostic.column ? String(diagnostic.column) : null,
+  ].filter(Boolean).join(":");
+  const message = String(diagnostic.message ?? "Diagnostic finding.").slice(
+    0,
+    LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS,
+  );
+  return {
+    path: optionalString(diagnostic.path) ?? null,
+    line: Number(diagnostic.line ?? 0) || null,
+    column: Number(diagnostic.column ?? 0) || null,
+    severity: optionalString(diagnostic.severity) ?? "warning",
+    source: optionalString(diagnostic.source) ?? "lsp.diagnostics",
+    code: optionalString(diagnostic.code) ?? null,
+    message,
+    location,
+    diagnosticEventId: event.event_id ?? null,
+  };
+}
+
+function diagnosticsPromptText({ diagnosticStatus, mode, visibleFindings, omittedCount }) {
+  const header = `Post-edit diagnostics (${mode}, ${diagnosticStatus})`;
+  if (!visibleFindings.length) return `${header}: no findings were reported.`;
+  const lines = visibleFindings.map((finding) =>
+    `- ${finding.location} [${finding.severity}${finding.code ? ` ${finding.code}` : ""}] ${finding.message}`,
+  );
+  if (omittedCount > 0) lines.push(`- ${omittedCount} additional finding(s) omitted from compact context.`);
+  return `${header}:\n${lines.join("\n")}`;
+}
+
+function promptWithDiagnosticsFeedback(prompt, diagnosticsFeedback) {
+  if (!diagnosticsFeedback?.promptText) return prompt;
+  return `${diagnosticsFeedback.promptText}\n\nUser request:\n${prompt}`;
+}
+
+function requestWithDiagnosticsFeedback(request = {}, diagnosticsFeedback = null) {
+  if (!diagnosticsFeedback) return request;
+  return {
+    ...request,
+    diagnosticsFeedback,
+    diagnostics_feedback: diagnosticsFeedback,
+    context: {
+      ...(request.context ?? {}),
+      diagnosticsFeedback,
+      diagnostics_feedback: diagnosticsFeedback,
+    },
+  };
+}
+
+function insertRuntimeBridgeDiagnosticsInjectionEvent({
+  projection,
+  agent,
+  threadId,
+  diagnosticsFeedback,
+}) {
+  const event = {
+    event_stream_id: eventStreamIdForThread(threadId),
+    thread_id: threadId,
+    turn_id: projection.turnId,
+    item_id: `${projection.turnId}:item:lsp-diagnostics-injection`,
+    idempotency_key: `turn:${projection.turnId}:lsp-diagnostics-injected:${diagnosticsFeedback.injectionId}`,
+    source: "runtime_auto",
+    source_event_kind: "LspDiagnostics.Injected",
+    event_kind: "lsp.diagnostics.injected",
+    status: diagnosticsFeedback.blocking && diagnosticsFeedback.diagnosticStatus === "findings" ? "blocked" : "completed",
+    actor: "runtime",
+    created_at: projection.createdAt,
+    workspace_root: agent.cwd,
+    workflow_node_id: LSP_DIAGNOSTICS_INJECTION_NODE_ID,
+    component_kind: "lsp_diagnostics",
+    payload_schema_version: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
+    payload: {
+      ...diagnosticsFeedback,
+      event_kind: "LspDiagnosticsInjected",
+      run_id: projection.runId,
+      turn_id: projection.turnId,
+    },
+    receipt_refs: [diagnosticsFeedback.receiptId],
+    artifact_refs: [],
+  };
+  const events = [...normalizeArray(projection.events)];
+  const turnStartedIndex = events.findIndex((candidate) => candidate?.event_kind === "turn.started");
+  if (turnStartedIndex >= 0) {
+    events.splice(turnStartedIndex + 1, 0, event);
+    return events;
+  }
+  return [event, ...events];
+}
+
 function subagentMemoryPolicy({ agent, threadId, parentPolicy = {}, receiver, mode }) {
   const targetId = `${threadId}:${receiver ?? "subagent"}`;
   const id = `memory_policy_subagent_${safeId(targetId)}`;
@@ -8669,7 +9014,7 @@ function optionalString(value) {
 
 function operatorControlSource(value) {
   const source = optionalString(value);
-  return ["cli_tui", "react_flow", "sdk_client"].includes(source) ? source : "sdk_client";
+  return ["cli_tui", "react_flow", "sdk_client", "runtime_auto"].includes(source) ? source : "sdk_client";
 }
 
 function approvalDecisionForRequest(value) {
@@ -8966,6 +9311,7 @@ function lifecycleStatusForRun(status) {
 function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
   const eventKind = RUN_EVENT_TO_TTI_EVENT[event.type] ?? `item.${event.type}`;
   const payload = payloadSummaryForRunEvent(event);
+  const isDiagnosticsInjection = event.type === "lsp_diagnostics_injected";
   return {
     schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
     event_stream_id: eventStreamIdForThread(threadId),
@@ -8973,8 +9319,8 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
     turn_id: turnId,
     item_id: `${turnId}:item:${doctorHash(event.id).slice(0, 12)}`,
     idempotency_key: `run:${event.runId}:event:${event.id}`,
-    source: "daemon_bridge",
-    source_event_kind: `run.${event.type}`,
+    source: isDiagnosticsInjection ? "runtime_auto" : "daemon_bridge",
+    source_event_kind: isDiagnosticsInjection ? "LspDiagnostics.Injected" : `run.${event.type}`,
     event_kind: eventKind,
     status: runtimeEventStatusForRunEvent(event),
     actor: event.type === "delta" ? "assistant" : "runtime",
@@ -8987,7 +9333,9 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
     approval_id: event.data?.approvalId ?? event.data?.approval_id ?? null,
     policy_decision_refs: policyDecisionRefsForRunEvent(event),
     rollback_refs: normalizeArray(event.data?.rollbackRefs ?? event.data?.rollback_refs),
-    payload_schema_version: RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+    payload_schema_version: isDiagnosticsInjection
+      ? LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION
+      : RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
     payload,
     payload_ref: null,
     receipt_refs: receiptRefsForRunEvent(event),
@@ -9042,6 +9390,9 @@ function normalizeRuntimeEventEnvelope(event, { seq, parentSeq, idempotencyKey }
 function runtimeEventStatusForRunEvent(event) {
   if (event.type === "job_queued") return "queued";
   if (event.type === "job_started" || event.type === "run_started" || event.type === "delta") return "running";
+  if (event.type === "lsp_diagnostics_injected") {
+    return event.data?.blocking && event.data?.diagnosticStatus === "findings" ? "blocked" : "completed";
+  }
   if (event.type === "canceled" || event.type === "job_canceled") return "canceled";
   if (event.type === "failed" || event.type === "error" || event.type === "job_failed") return "failed";
   return "completed";
@@ -9088,6 +9439,24 @@ function payloadSummaryForRunEvent(event) {
       memory_thread_id: event.data?.threadId ?? null,
       workflow_node_id: event.data?.workflowNodeId ?? null,
       redaction: event.data?.redaction ?? "none",
+    };
+  }
+  if (event.type === "lsp_diagnostics_injected") {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? "LspDiagnosticsInjected",
+      injection_id: event.data?.injectionId ?? null,
+      diagnostic_status: event.data?.diagnosticStatus ?? null,
+      diagnostic_count: event.data?.diagnosticCount ?? 0,
+      injected_finding_count: event.data?.injectedFindingCount ?? 0,
+      omitted_finding_count: event.data?.omittedFindingCount ?? 0,
+      diagnostic_event_ids: normalizeArray(event.data?.diagnosticEventIds),
+      mode: event.data?.mode ?? "advisory",
+      blocking: Boolean(event.data?.blocking),
+      prompt_text: event.data?.promptText ?? null,
+      findings: normalizeArray(event.data?.findings),
+      workflow_node_id: event.data?.workflowNodeId ?? LSP_DIAGNOSTICS_INJECTION_NODE_ID,
+      redaction: "lsp_diagnostics_safe",
     };
   }
   if (event.type === "repository_context") {
@@ -9460,6 +9829,8 @@ function componentKindForRunEvent(eventOrType) {
         return "memory_policy";
       }
       return "memory_write";
+    case "lsp_diagnostics_injected":
+      return "lsp_diagnostics";
     case "task_state":
       return "task_state";
     case "uncertainty":
@@ -9504,6 +9875,7 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "review_gate" ||
       eventOrType?.type === "github_pr_create_plan" ||
       eventOrType?.type === "memory_update" ||
+      eventOrType?.type === "lsp_diagnostics_injected" ||
       eventOrType?.type === "skill_hook_manifest" ||
       eventOrType?.type === "hook_dry_run_plan" ||
       eventOrType?.type === "hook_invocation_ledger") &&
@@ -9566,6 +9938,12 @@ function receiptRefsForRunEvent(event) {
   }
   if (event.type === "memory_update") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
+  if (event.type === "lsp_diagnostics_injected") {
+    return [
+      event.data?.receiptId ?? event.data?.receipt_id,
+      ...normalizeArray(event.data?.receiptRefs),
+    ].filter(Boolean);
   }
   if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];
   return [];
