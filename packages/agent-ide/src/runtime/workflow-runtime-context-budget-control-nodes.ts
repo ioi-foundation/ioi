@@ -1,4 +1,8 @@
 import type { Node, NodeLogic } from "../types/graph";
+import {
+  workflowRuntimeTelemetrySummaryToUsageTelemetry,
+  type WorkflowRuntimeTelemetrySummary,
+} from "./workflow-runtime-telemetry-summary";
 
 export const WORKFLOW_RUNTIME_CONTEXT_BUDGET_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-context-budget-control.v1" as const;
@@ -74,6 +78,7 @@ export interface RuntimeContextBudgetControlRequestInput {
   endpoint?: string | null;
   usageTelemetry?: unknown;
   usageTelemetryField?: string | null;
+  runtimeTelemetrySummary?: WorkflowRuntimeTelemetrySummary | null;
   mode?: string | null;
   modeField?: string | null;
   maxTotalTokens?: number | string | null;
@@ -130,11 +135,18 @@ export function createRuntimeContextBudgetControlRequest(
     cleanString(params.workflowNodeId) ?? RUNTIME_CONTEXT_BUDGET_WORKFLOW_NODE_ID;
   const workflowGraphId = cleanString(params.workflowGraphId);
   const simulationMode = params.simulationMode !== false;
-  const usageTelemetry =
+  const rawUsageTelemetry =
     params.usageTelemetry ??
+    params.runtimeTelemetrySummary ??
     valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter") ??
+    valueAtPath(params.input, "runtimeTelemetrySummary") ??
+    valueAtPath(params.input, "runtime_telemetry_summary") ??
     valueAtPath(params.input, "usageTelemetry") ??
     valueAtPath(params.input, "usage_telemetry") ??
+    null;
+  const usageTelemetry =
+    workflowRuntimeTelemetrySummaryToUsageTelemetry(rawUsageTelemetry) ??
+    rawUsageTelemetry ??
     null;
   const thresholds = {
     maxTotalTokens: numberOption(

@@ -54,6 +54,43 @@ export interface WorkflowRuntimeTelemetrySummary {
   policyDecisionRefs: string[];
 }
 
+export interface WorkflowRuntimeTelemetrySummaryUsageTelemetry {
+  schema_version: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
+  schemaVersion: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
+  object: "ioi.workflow_runtime_telemetry_summary_usage";
+  scope: "thread" | "workflow";
+  thread_id: string | null;
+  threadId: string | null;
+  turn_id: string | null;
+  turnId: string | null;
+  workflow_graph_id: string | null;
+  workflowGraphId: string | null;
+  total_tokens: number;
+  totalTokens: number;
+  input_tokens: number;
+  inputTokens: number;
+  output_tokens: number;
+  outputTokens: number;
+  estimated_cost_usd: number;
+  estimatedCostUsd: number;
+  cost_estimate_usd: number;
+  costEstimateUsd: number;
+  context_pressure: number;
+  contextPressure: number;
+  context_pressure_status: string;
+  contextPressureStatus: string;
+  source_counts: { runs: number; subagents: number };
+  sourceCounts: { runs: number; subagents: number };
+  source_refs: string[];
+  sourceRefs: string[];
+  receipt_refs: string[];
+  receiptRefs: string[];
+  policy_decision_refs: string[];
+  policyDecisionRefs: string[];
+  runtime_telemetry_summary_schema_version: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
+  runtimeTelemetrySummarySchemaVersion: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
+}
+
 interface UsageSnapshot {
   totalTokens: number | null;
   inputTokens: number | null;
@@ -182,6 +219,67 @@ export function workflowRuntimeTelemetrySummaryFromProjection({
       ...sortedEvents.flatMap((event) => event.policyDecisionRefs),
       ...tuiRows.flatMap((row) => row.policyDecisionRefs),
     ]),
+  };
+}
+
+export function workflowRuntimeTelemetrySummaryToUsageTelemetry(
+  summary: unknown,
+): WorkflowRuntimeTelemetrySummaryUsageTelemetry | null {
+  if (!isWorkflowRuntimeTelemetrySummary(summary)) return null;
+  const totalTokens = summary.totalTokens ?? 0;
+  const inputTokens = summary.inputTokens ?? 0;
+  const outputTokens = summary.outputTokens ?? 0;
+  const costEstimateUsd = summary.costEstimateUsd ?? 0;
+  const contextPressure = summary.contextPressure ?? 0;
+  const contextPressureStatus =
+    summary.contextPressureStatus ??
+    statusFromContextPressure(summary.contextPressure) ??
+    "nominal";
+  const sourceCounts = {
+    runs: summary.runCount ?? 0,
+    subagents: summary.subagentCount ?? 0,
+  };
+  const threadId = summary.threadIds[0] ?? null;
+  const turnId = summary.turnIds[0] ?? null;
+  const workflowGraphId = summary.workflowGraphIds[0] ?? null;
+
+  return {
+    schema_version: WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
+    schemaVersion: WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
+    object: "ioi.workflow_runtime_telemetry_summary_usage",
+    scope: threadId ? "thread" : "workflow",
+    thread_id: threadId,
+    threadId,
+    turn_id: turnId,
+    turnId,
+    workflow_graph_id: workflowGraphId,
+    workflowGraphId,
+    total_tokens: totalTokens,
+    totalTokens,
+    input_tokens: inputTokens,
+    inputTokens,
+    output_tokens: outputTokens,
+    outputTokens,
+    estimated_cost_usd: costEstimateUsd,
+    estimatedCostUsd: costEstimateUsd,
+    cost_estimate_usd: costEstimateUsd,
+    costEstimateUsd,
+    context_pressure: contextPressure,
+    contextPressure,
+    context_pressure_status: contextPressureStatus,
+    contextPressureStatus,
+    source_counts: sourceCounts,
+    sourceCounts,
+    source_refs: summary.eventIds,
+    sourceRefs: summary.eventIds,
+    receipt_refs: summary.receiptRefs,
+    receiptRefs: summary.receiptRefs,
+    policy_decision_refs: summary.policyDecisionRefs,
+    policyDecisionRefs: summary.policyDecisionRefs,
+    runtime_telemetry_summary_schema_version:
+      WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
+    runtimeTelemetrySummarySchemaVersion:
+      WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
   };
 }
 
@@ -506,6 +604,17 @@ function statusFromContextPressure(pressure: number | null): string | null {
   if (pressure >= 0.85) return "high";
   if (pressure >= 0.6) return "elevated";
   return "nominal";
+}
+
+function isWorkflowRuntimeTelemetrySummary(
+  value: unknown,
+): value is WorkflowRuntimeTelemetrySummary {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    (value as { schemaVersion?: unknown }).schemaVersion ===
+      WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION
+  );
 }
 
 function numberField(

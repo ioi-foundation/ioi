@@ -205,6 +205,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runHistoryModel, /runtimeThreadEventsForRunResult/);
   assert.match(runHistoryModelTest, /projects canonical runtime thread events/);
   assert.match(telemetrySummary, /ioi\.workflow\.runtime-telemetry-summary\.v1/);
+  assert.match(telemetrySummary, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.match(telemetrySummary, /estimated_cost_usd/);
   assert.match(telemetrySummary, /runtime_usage_events/);
   assert.match(telemetrySummary, /runtime_context_pressure_events/);
   assert.match(telemetrySummary, /runtime_context_pressure_alerts/);
@@ -212,6 +214,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(telemetrySummary, /tui_context_rows/);
   assert.match(telemetrySummary, /tui_subagent_rows/);
   assert.match(telemetrySummaryTest, /merges usage, context, TUI, and subagent rows/);
+  assert.match(telemetrySummaryTest, /converts to daemon budget usage telemetry/);
+  assert.match(contextBudgetControlNodes, /runtimeTelemetrySummary/);
+  assert.match(contextBudgetControlNodesTest, /runtime telemetry summary input/);
   assert.match(railPanel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(railPanel, /runtimeThreadEvents,/);
   assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
