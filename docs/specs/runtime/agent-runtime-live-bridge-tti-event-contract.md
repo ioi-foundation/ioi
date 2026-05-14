@@ -2,8 +2,8 @@
 
 Status: P0 contract-lock spec
 Created: 2026-05-12
-Parent guide:
-`docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md`
+Origin: extracted from the completed Agent Runtime DeepSeek TUI parity-plus
+planning effort; this file remains as the durable live-bridge contract.
 
 ## Purpose
 
