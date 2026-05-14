@@ -206,8 +206,48 @@ workstream was narrower.
 | 204 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector telemetry budget-chain materialization | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json |
 | 205 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector-created telemetry budget-chain execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json |
 | 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json |
+| 207 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | terminal-first coding-agent parity proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 207. 2026-05-14 - Terminal-first coding-agent parity proof
+
+Implementation slice completed 2026-05-14, closing the immediate
+terminal-first coding-agent parity gap while keeping the modular React Flow
+workflow-development environment as the inspection/configuration surface:
+
+- Extended TUI coding-tool row production beyond budget blocks so successful
+  daemon coding-tool completions become first-class `coding_tool` control rows
+  with command, raw input when available, tool identity, tool-call id, receipts,
+  artifact refs, rollback refs, shell-fallback status, dry-run status,
+  mutation-blocked status, event cursor, and workflow graph/node identity.
+- Preserved the existing `coding_tool_budget` row kind for budget blocks and
+  kept budget recovery rows distinct from successful terminal work.
+- Extended the React Flow TUI-control projection with `coding_tool` rows,
+  `codingToolRowCount`, artifact refs, rollback refs, shell-fallback metadata,
+  dry-run metadata, and separate budget-row counting.
+- Expanded the live daemon coding-tool parity contract so daemon API, SDK, CLI,
+  TUI line-mode commands, daemon events, TUI control state, and React Flow
+  projection all prove the same status/diff/inspect/patch/patch-dry-run/test/
+  diagnostics/artifact/retrieve contract.
+- Kept the recovered live GUI harness green against the componentized React Flow
+  workflow-development environment, using the same package/activation/worker
+  evidence path as the regression baseline for this terminal slice.
+
+Primary files:
+
+- `crates/cli/src/commands/agent_tui.rs`
+- `packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts`
+- `packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+
+Evidence:
+
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json`
+- `scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `crates/cli/src/commands/agent_tui.rs`
 
 ### Slice 206. 2026-05-14 - Live GUI package/activation evidence recovery
 

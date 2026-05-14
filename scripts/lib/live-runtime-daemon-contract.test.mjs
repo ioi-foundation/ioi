@@ -9108,7 +9108,10 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
 
 test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
-  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const {
+    projectRuntimeThreadEventsToWorkflowProjection,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+  } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-state-"));
   const cli = cliBinary();
@@ -10169,6 +10172,53 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI patched line\./);
     assert.doesNotMatch(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /TUI dry-run line/);
     assert.match(fs.readFileSync(path.join(cwd, "skip-diagnostics.mjs"), "utf8"), /export const skip = 1;/);
+    const tuiControlStateMatches = [...tuiResult.stdout.matchAll(/^tui_control_state=(.+)$/gm)];
+    assert.ok(tuiControlStateMatches.length >= 1);
+    const tuiControlState = JSON.parse(tuiControlStateMatches.at(-1)[1]);
+    const tuiCodingRows = tuiControlState.coding_tool_rows.filter(
+      (row) => row.row_kind === "coding_tool",
+    );
+    for (const toolName of expectedCodingToolIds) {
+      assert.ok(
+        tuiCodingRows.some((row) => row.tool_name === toolName),
+        `TUI control state should include successful coding-tool row for ${toolName}`,
+      );
+    }
+    assert.ok(tuiCodingRows.every((row) => row.receipt_refs.length >= 1));
+    assert.ok(tuiCodingRows.every((row) => row.shell_fallback_used === false));
+    const tuiDryRunRow = tuiCodingRows.find(
+      (row) => row.tool_name === "file.apply_patch" && row.command === "patch-dry-run",
+    );
+    assert.ok(tuiDryRunRow);
+    assert.equal(tuiDryRunRow.dry_run, true);
+    assert.equal(tuiDryRunRow.mutation_blocked, false);
+    const tuiTestRow = tuiCodingRows.find(
+      (row) => row.tool_name === "test.run" && row.command === "test",
+    );
+    assert.ok(tuiTestRow);
+    const tuiRetrieveRow = tuiCodingRows.find(
+      (row) => row.tool_name === "tool.retrieve_result" && row.command === "retrieve",
+    );
+    assert.ok(tuiRetrieveRow);
+    assert.match(tuiRetrieveRow.raw_input, /^\/retrieve/);
+    const tuiControlProjection =
+      projectRuntimeTuiControlStateToWorkflowProjection(tuiControlState);
+    assert.equal(
+      tuiControlProjection.codingToolBudgetRowCount,
+      tuiControlState.coding_tool_rows.filter(
+        (row) => row.row_kind === "coding_tool_budget",
+      ).length,
+    );
+    assert.equal(tuiControlProjection.codingToolRowCount, tuiCodingRows.length);
+    const tuiProjectedTestRow = tuiControlProjection.rows.find(
+      (row) =>
+        row.rowKind === "coding_tool" &&
+        row.toolName === "test.run" &&
+        row.command === "test",
+    );
+    assert.ok(tuiProjectedTestRow);
+    assert.equal(tuiProjectedTestRow.reactFlowNodeId, "runtime.coding-tool.test.run");
+    assert.deepEqual(tuiProjectedTestRow.receiptRefs, tuiTestRow.receipt_refs);
 
     const daemonEvents = await fetchSseEvents(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,

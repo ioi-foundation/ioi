@@ -162,22 +162,41 @@ Strategic snapshot as of 2026-05-14:
   checkpoint/invariant UI, promotion readiness canary boundaries, and deep-link
   helpers, so the full live GUI validator has no missing artifacts or
   runtime-consistency gaps.
+- Terminal-first coding-agent parity now has a live end-to-end proof from the
+  TUI/CLI surface through daemon-owned coding tools and back into React Flow:
+  line-mode status, diff, inspect, patch, patch dry-run, test, diagnostics,
+  artifact read, and result retrieval emit successful `coding_tool` control rows
+  with tool identity, receipts, shell-fallback status, dry-run/mutation metadata,
+  and workflow node ids. React Flow projection now preserves those terminal rows
+  separately from coding-tool budget rows, so successful terminal work and budget
+  recovery remain distinct, replayable inspector facts.
 - React Flow settings harness refactors are now maintenance work. They should
   continue only when they unblock a named parity-plus capability or prevent an
   active workflow-development surface from becoming unmaintainable.
 
 Most recent completed implementation slice:
 
-- 2026-05-14: live GUI package/activation evidence recovery
+- 2026-05-14: terminal-first coding-agent parity proof
 - Evidence:
-  The live Autopilot GUI harness now validates the package evidence manifest and
-  gate, activation gate evidence inspector/actions, reviewed import activation
-  handoff/apply/replay, and worker invariant GUI/deep-link enforcement across
-  the componentized React Flow workflow-development environment. The latest
-  live run reports validation `ok: true`, no false artifacts, and no false
-  runtime-consistency checks.
+  A live daemon contract drives the coding pack from daemon API, SDK, CLI, and
+  line-mode TUI, then parses TUI `coding_tool_rows` and reprojects them through
+  React Flow as successful coding-tool inspector rows. Targeted Rust and
+  TypeScript tests cover the row producer/projection split between successful
+  coding tools and budget rows. The live Autopilot GUI harness remains green at
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json`
+  with validation `ok: true`, blocked `false`, and zero false runtime,
+  artifact, or UI checks.
 
 Previous focused slice:
+
+- 2026-05-14: live GUI package/activation evidence recovery
+- Evidence:
+  The live Autopilot GUI harness validates the package evidence manifest and
+  gate, activation gate evidence inspector/actions, reviewed import activation
+  handoff/apply/replay, and worker invariant GUI/deep-link enforcement across
+  the componentized React Flow workflow-development environment.
+
+Earlier focused slice:
 
 - 2026-05-14: P1-D run-inspector-created telemetry budget-chain execution
 - Evidence:
@@ -186,17 +205,6 @@ Previous focused slice:
   chain drift, executes the hydrated usage/context/compaction/coding-budget path,
   and verifies daemon events plus React Flow run-inspector projections retain the
   generated graph/node identities.
-
-Earlier focused slice:
-
-- 2026-05-14: P1-D run-inspector telemetry budget-chain materialization
-- Evidence:
-  The run inspector exposes a `Use budget chain` action on telemetry summaries.
-  It creates the reusable usage/context/compaction/coding-budget chain when
-  missing, hydrates an existing compatible chain when present, binds only the
-  target chain nodes to selected run evidence, preserves evidence-link metadata,
-  and records targeted GUI-harness proof for readiness-positive,
-  missing-evidence, and broken-upstream-binding cases.
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -225,10 +233,10 @@ Completed-slice history belongs in the companion ledgers.
    next parity slice: preflight and live runs should keep package evidence,
    activation gate, reviewed import activation apply/replay, and worker
    invariant runtime-consistency checks green.
-2. Next primary parity slice: prove a terminal-first coding-agent loop from the
-   TUI/CLI surface that performs inspect/diff/patch-dry-run/test/diagnostics/
-   artifact retrieval and mirrors the same daemon events, receipts, and rows in
-   React Flow.
+2. Next primary parity slice: turn the proven terminal coding loop into a
+   workflow-creator/run-inspector template that configures coding-pack defaults,
+   diagnostics, restore policy, artifact retrieval, and TUI reopen behavior from
+   React Flow without introducing canvas-local runtime state.
 3. Keep P1-D telemetry chain execution as a regression guard for
    run-inspector-created workflow controls.
 4. Keep P1-C proposal policy as a regression guard: rejected workflow edits

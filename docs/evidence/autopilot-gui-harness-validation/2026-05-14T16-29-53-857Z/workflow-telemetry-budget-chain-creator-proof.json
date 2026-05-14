@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "workflow.telemetry-budget-chain.creator-gui-proof.v1",
+  "scenario": "workflow_telemetry_budget_chain_creator_click",
+  "passed": true,
+  "clickedControlTestId": "workflow-add-runtime-telemetry-budget-chain-template",
+  "insertedNodeIds": [
+    "telemetry-budget-chain-gui-click-usage-meter",
+    "telemetry-budget-chain-gui-click-context-budget",
+    "telemetry-budget-chain-gui-click-compaction-policy",
+    "telemetry-budget-chain-gui-click-coding-budget-gate"
+  ],
+  "insertedEdgeIds": [
+    "telemetry-budget-chain-gui-click-usage-to-context",
+    "telemetry-budget-chain-gui-click-context-to-compaction",
+    "telemetry-budget-chain-gui-click-compaction-to-budget-gate"
+  ],
+  "requestChecks": {
+    "usageRequest": true,
+    "contextRequest": true,
+    "compactionRequest": true,
+    "codingRequest": true
+  },
+  "checks": {
+    "workflowCreatorButtonRendered": true,
+    "workflowCreatorButtonClickWired": true,
+    "controllerCreatesTemplate": true,
+    "controllerUsesSharedReactFlowInsertion": true,
+    "insertionMapperCoversNodesAndEdges": true,
+    "clickedTemplateNodeCount": true,
+    "clickedTemplateEdgeCount": true,
+    "clickedTemplateNodeTypes": true,
+    "clickedTemplateEdges": true,
+    "reactFlowNodesMaterialized": true,
+    "reactFlowEdgesMaterialized": true,
+    "daemonRequestsCompile": true,
+    "readinessPassesWithLiveMappings": true,
+    "readinessFailsWhenUpstreamBindingRemoved": true,
+    "telemetrySourceQuickBindingCompatible": true
+  },
+  "validation": {
+    "readinessTelemetryIssueCount": 0,
+    "missingUsageTelemetryIssues": [
+      {
+        "nodeId": "telemetry-budget-chain-gui-click-context-budget",
+        "code": "missing_runtime_telemetry_source_usage_binding",
+        "fieldPath": "runtimeContextBudgetUsageField"
+      }
+    ]
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
+    "packages/agent-ide/src/runtime/workflow-validation.ts"
+  ]
+}

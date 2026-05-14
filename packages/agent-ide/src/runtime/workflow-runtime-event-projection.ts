@@ -308,6 +308,7 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "cost_status"
   | "context_budget"
   | "compaction_policy"
+  | "coding_tool"
   | "coding_tool_budget"
   | "workspace_trust_warning"
   | "subagent"
@@ -430,6 +431,8 @@ export interface WorkflowRuntimeTuiControlStateRow {
   codingToolBudgetUsageCostEstimateUsd?: number | null;
   codingToolBudgetUsageContextPressure?: number | null;
   codingToolMutationBlocked?: boolean | null;
+  codingToolShellFallbackUsed?: boolean | null;
+  codingToolDryRun?: boolean | null;
   compactionPolicyStatus?: string | null;
   compactionPolicyAction?: string | null;
   compactionPolicyDecisionId?: string | null;
@@ -467,7 +470,9 @@ export interface WorkflowRuntimeTuiControlStateRow {
   eventId: string | null;
   sequence: number | null;
   receiptRefs: string[];
+  artifactRefs?: string[];
   policyDecisionRefs: string[];
+  rollbackRefs?: string[];
   reactFlowNodeId: string;
 }
 
@@ -585,6 +590,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   runLifecycleCount: number;
   costRowCount: number;
   contextRowCount: number;
+  codingToolRowCount: number;
   codingToolBudgetRowCount: number;
   workspaceTrustWarningCount: number;
   mcpRowCount: number;
@@ -1512,13 +1518,90 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     });
   });
 
+  let codingToolRowCount = 0;
+  let codingToolBudgetRowCount = 0;
   codingToolRows.forEach((entry, index) => {
     const evidence = codingToolBudgetEvidenceFromRecord(entry);
+    const declaredKind = stringField(entry, "rowKind", "row_kind");
     const toolName =
       evidence.toolName ??
       stringField(entry, "toolName", "tool_name", "toolId", "tool_id");
     const toolCallId =
       evidence.toolCallId ?? stringField(entry, "toolCallId", "tool_call_id");
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    if (
+      declaredKind !== "coding_tool_budget" &&
+      (declaredKind === "coding_tool" || !evidence.isBudgetBlock)
+    ) {
+      codingToolRowCount += 1;
+      const command =
+        stringField(entry, "command") ?? codingToolCommandForToolName(toolName);
+      const status = tuiControlRowStatus(stringField(entry, "status") ?? "completed");
+      const nodeId =
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        `runtime.coding-tool.${slug(toolName ?? toolCallId ?? String(sequence))}`;
+      const receiptRefs = stringArrayField(entry, "receiptRefs", "receipt_refs");
+      const artifactRefs = stringArrayField(entry, "artifactRefs", "artifact_refs");
+      const policyDecisionRefs = stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      );
+      const rollbackRefs = stringArrayField(entry, "rollbackRefs", "rollback_refs");
+      rows.push({
+        id:
+          stringField(entry, "id") ??
+          `tui-coding-tool:${slug(
+            [toolName, toolCallId, sequence].filter(Boolean).join(":"),
+          )}`,
+        rowKind: "coding_tool",
+        status,
+        label:
+          stringField(entry, "label") ??
+          `Coding tool${toolName ? `: ${toolName}` : ""}`,
+        command,
+        rawInput:
+          stringField(entry, "rawInput", "raw_input") ??
+          (command ? `/${command}` : "/tool"),
+        message:
+          stringField(entry, "message", "summary") ??
+          ([toolName, status].filter(Boolean).join(" · ") || null),
+        approvalId: null,
+        jobId: null,
+        runId: stringField(entry, "runId", "run_id"),
+        modelId: null,
+        toolName,
+        toolCallId,
+        routeId: null,
+        reasoningEffort: null,
+        codingToolMutationBlocked: booleanField(
+          entry,
+          "mutationBlocked",
+          "mutation_blocked",
+        ),
+        codingToolShellFallbackUsed: booleanField(
+          entry,
+          "shellFallbackUsed",
+          "shell_fallback_used",
+        ),
+        codingToolDryRun: booleanField(entry, "dryRun", "dry_run"),
+        threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+        turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+        workflowGraphId:
+          stringField(entry, "workflowGraphId", "workflow_graph_id") ??
+          workflowGraphId,
+        cursor: stringField(entry, "cursor") ?? lastCursor,
+        eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+        sequence,
+        receiptRefs,
+        artifactRefs,
+        policyDecisionRefs,
+        rollbackRefs,
+        reactFlowNodeId: nodeId,
+      });
+      return;
+    }
+    codingToolBudgetRowCount += 1;
     const budgetStatus =
       evidence.budgetStatus ??
       stringField(entry, "budgetStatus", "budget_status");
@@ -1531,7 +1614,6 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       budgetStatus ??
       evidence.reason,
     );
-    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
     const nodeId =
       stringField(entry, "workflowNodeId", "workflow_node_id") ??
       `runtime.coding-tool-budget.${slug(
@@ -1699,7 +1781,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     runLifecycleCount: runLifecycleRows.length,
     costRowCount: costRows.length,
     contextRowCount: contextRows.length,
-    codingToolBudgetRowCount: codingToolRows.length,
+    codingToolRowCount,
+    codingToolBudgetRowCount,
     workspaceTrustWarningCount: workspaceTrustRows.length,
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
@@ -3341,6 +3424,29 @@ function stringArrayField(
     (candidate): candidate is string =>
       typeof candidate === "string" && Boolean(candidate.trim()),
   );
+}
+
+function codingToolCommandForToolName(toolName: string | null): string {
+  switch (toolName) {
+    case "workspace.status":
+      return "status";
+    case "git.diff":
+      return "diff";
+    case "file.inspect":
+      return "inspect";
+    case "file.apply_patch":
+      return "patch";
+    case "test.run":
+      return "test";
+    case "lsp.diagnostics":
+      return "diagnostics";
+    case "artifact.read":
+      return "artifact";
+    case "tool.retrieve_result":
+      return "retrieve";
+    default:
+      return "tool";
+  }
 }
 
 function tuiControlRowStatus(

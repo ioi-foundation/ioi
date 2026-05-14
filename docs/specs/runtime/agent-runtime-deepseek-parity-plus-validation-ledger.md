@@ -205,6 +205,44 @@ the practical workstream when the source heading is broad.
 | 204 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector telemetry budget-chain materialization | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json | node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts<br>node --import tsx scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs /tmp/workflow-telemetry-budget-chain-run-inspector-proof.json<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test scripts/lib/autopilot-gui-harness-contract.test.mjs<br>node --check scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts packages/agent-ide/src/index.ts packages/agent-ide/src/WorkflowComposer/controller.tsx packages/agent-ide/src/WorkflowComposer/view.tsx packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs scripts/lib/autopilot-gui-harness-contract.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
 | 205 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector-created telemetry budget-chain execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json | node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-reporter=spec --test-name-pattern "React Flow run-inspector-created telemetry budget chain executes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
 | 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json | node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --input-type=module -e "import { collectRollbackRestoreCanaryUiProof } from './scripts/lib/autopilot-gui-harness-validation/core.mjs'; const r=collectRollbackRestoreCanaryUiProof('/tmp/ioi-rollback-proof'); console.log(JSON.stringify({passed:r.proof.passed, failed:Object.fromEntries(Object.entries(r.proof.checks).filter(([,v])=>!v))}, null, 2));"<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
+| 207 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | terminal-first coding-agent parity proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json | cargo test -p ioi-cli --bin cli tui_coding_tool_rows_project_successful_terminal_commands -- --nocapture<br>cargo test -p ioi-cli --bin cli tui_coding_tool_budget_rows_project_policy_blocks -- --nocapture<br>node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-reporter=spec --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run |
+
+## Slice 207. 2026-05-14 - Terminal-first coding-agent parity proof
+
+Guide section: P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack
+
+Evidence bundles:
+
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- crates/cli/src/commands/agent_tui.rs
+
+Validation commands:
+
+- `cargo test -p ioi-cli --bin cli tui_coding_tool_rows_project_successful_terminal_commands -- --nocapture`
+- `cargo test -p ioi-cli --bin cli tui_coding_tool_budget_rows_project_policy_blocks -- --nocapture`
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-reporter=spec --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness`
+- `npm run validate:autopilot-gui-harness:run`
+
+Validation result:
+
+- Rust TUI row producer tests passed for successful coding-tool rows and budget
+  recovery rows.
+- React Flow projection/source contract tests passed for successful
+  `coding_tool` TUI rows, separate budget counting, receipts, dry-run metadata,
+  artifact refs, rollback refs, and workflow node ids.
+- The live daemon contract passed for daemon API, SDK, CLI, TUI line-mode, TUI
+  control-state parsing, and React Flow reprojection of the terminal coding
+  loop.
+- Live GUI harness validation passed with `ok: true`, `blocked: false`, no
+  validation failures, zero runtime-consistency false checks, zero artifact false
+  checks, and zero UI false checks.
 
 ## Slice 206. 2026-05-14 - Live GUI package/activation evidence recovery
 
