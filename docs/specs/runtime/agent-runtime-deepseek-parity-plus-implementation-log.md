@@ -176,8 +176,49 @@ workstream was narrower.
 | 174 | 2026-05-13 | P1-C. Modes, Trust, Approvals | review-mode coding-tool approval manifest gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json |
 | 175 | 2026-05-13 | P1-C. Modes, Trust, Approvals | React Flow approval policy manifest and retry gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry/2026-05-14T00-01-23-557Z/result.json |
 | 176 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-owned workspace trust warning records | /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json |
+| 177 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow mode/trust authoring and workspace trust acknowledgement controls | /tmp/ioi-autopilot-gui-harness-runtime-thread-mode-ack/2026-05-14T00-50-29-577Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 177. 2026-05-14 - React Flow mode/trust authoring and workspace trust acknowledgement controls
+
+Implementation slice completed 2026-05-14, P1-C React Flow mode/trust
+authoring:
+
+- Added a first-class React Flow `runtime_thread_mode` node with typed config,
+  ports, registry metadata, schema declarations, runtime-action schema entries,
+  canvas token, and workflow execution-lane support across TypeScript and
+  Tauri.
+- Added `createRuntimeThreadModeControlRequest` and
+  `createRuntimeThreadModeControlRequestFromWorkflowNode` helpers so graph
+  mode, approval mode, trust profile, warning-ack requirement, and graph/node
+  provenance compile to `/v1/threads/{thread_id}/mode` instead of canvas-local
+  trust state.
+- Added daemon-owned workspace trust acknowledgement at
+  `/v1/threads/{thread_id}/workspace-trust/{warning_id}/acknowledge`, emitting
+  receipt-backed `workspace.trust_acknowledged` events with warning id,
+  source event id, severity, mode, approval mode, trust profile, and workflow
+  provenance.
+- Extended SDK message/event mapping with `workspace_trust_acknowledged`.
+- Added React Flow run-inspector `workspaceTrustActions` so
+  `workspace_trust_warning` rows render an executable acknowledgement action,
+  then become acknowledged/non-executable once the daemon acknowledgement event
+  replays.
+- Updated the master guide so the next P1-C slice is acknowledgement-backed
+  workflow activation/run gating.
+
+Validation evidence:
+
+- `npm run check:runtime-layout`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `cargo test runtime_thread_mode_node_builds_react_flow_control_request --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test --test-name-pattern "workspace trust" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-runtime-thread-mode-ack`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-thread-mode-ack/2026-05-14T00-50-29-577Z/result.json`.
+- `git diff --check`
 
 ### Slice 176. 2026-05-14 - Daemon-owned workspace trust warning records
 

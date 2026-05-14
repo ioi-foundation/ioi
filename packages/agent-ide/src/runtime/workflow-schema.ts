@@ -77,6 +77,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_thread_fork" ||
       node.type === "runtime_operator_interrupt" ||
       node.type === "runtime_operator_steer" ||
+      node.type === "runtime_thread_mode" ||
       node.type === "runtime_context_compact" ||
       node.type === "runtime_approval_request" ||
       node.type === "runtime_usage_meter" ||
@@ -195,6 +196,26 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
         endpoint: { type: "string" },
         request: { type: "object" },
         runtimeContextCompact: { type: "object" },
+      },
+    };
+  }
+  if (node.type === "runtime_thread_mode") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        threadId: { type: "string" },
+        mode: { type: "string" },
+        approvalMode: { type: "string" },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        runtimeThreadMode: { type: "object" },
       },
     };
   }
@@ -408,6 +429,19 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         turnId: { type: "string" },
         reason: { type: "string" },
         scope: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_thread_mode") {
+    return {
+      type: "object",
+      properties: {
+        threadId: { type: "string" },
+        mode: { type: "string" },
+        approvalMode: { type: "string" },
+        trustProfile: { type: "string" },
+        workspaceTrustWorkflowNodeId: { type: "string" },
         workflowGraphId: { type: "string" },
       },
     };

@@ -29,6 +29,7 @@ export type WorkflowRuntimeThreadEventType =
   | "context_pressure_delta"
   | "context_pressure_alert"
   | "workspace_trust_warning"
+  | "workspace_trust_acknowledged"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -118,6 +119,7 @@ export interface WorkflowRuntimeReactFlowNodeData {
   summary: string | null;
   diagnosticsRepairActions: WorkflowRuntimeDiagnosticsRepairActionDescriptor[];
   contextPressureActions: WorkflowRuntimeContextPressureActionDescriptor[];
+  workspaceTrustActions: WorkflowRuntimeWorkspaceTrustActionDescriptor[];
   tuiDeepLink: WorkflowRuntimeTuiDeepLinkDescriptor;
 }
 
@@ -139,6 +141,28 @@ export interface WorkflowRuntimeContextPressureActionDescriptor {
   pressureStatus: string | null;
   threadId: string;
   turnId: string | null;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventId: string;
+  sourceEventId: string | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
+}
+
+export type WorkflowRuntimeWorkspaceTrustAction = "acknowledge";
+
+export interface WorkflowRuntimeWorkspaceTrustActionDescriptor {
+  id: string;
+  action: WorkflowRuntimeWorkspaceTrustAction;
+  label: string;
+  summary: string | null;
+  status: string;
+  executable: boolean;
+  warningId: string;
+  severity: string | null;
+  mode: string | null;
+  approvalMode: string | null;
+  threadId: string;
   workflowGraphId: string | null;
   workflowNodeId: string;
   eventId: string;
@@ -1852,6 +1876,7 @@ export function workflowNodeIdForRuntimeThreadEvent(
     case "context_pressure_alert":
       return "runtime.context-pressure-alert";
     case "workspace_trust_warning":
+    case "workspace_trust_acknowledged":
       return "runtime.workspace-trust";
     case "reasoning_delta":
       return "runtime.reasoning";
@@ -1914,6 +1939,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "context_pressure_alert":
       return "hook_policy";
     case "workspace_trust_warning":
+    case "workspace_trust_acknowledged":
       return "hook_policy";
     case "reasoning_delta":
       return "task_state";
@@ -1980,6 +2006,7 @@ function projectedNodeForBucket(
       latestEvent,
     ),
     contextPressureActions: contextPressureActionsForEvents(events, latestEvent),
+    workspaceTrustActions: workspaceTrustActionsForEvents(events, latestEvent),
     tuiDeepLink: tuiDeepLinkForRuntimeThreadEvent(latestEvent, bucket.nodeId),
   };
   const reactFlowNode: WorkflowRuntimeReactFlowNode = {
@@ -2130,6 +2157,81 @@ function contextPressureActionsForEvents(
   });
 }
 
+function workspaceTrustActionsForEvents(
+  events: readonly WorkflowRuntimeThreadEventLike[],
+  latestEvent: WorkflowRuntimeThreadEventLike,
+): WorkflowRuntimeWorkspaceTrustActionDescriptor[] {
+  const warningEvent =
+    [...events]
+      .reverse()
+      .find(
+        (event) =>
+          event.type === "workspace_trust_warning" ||
+          event.eventKind === "workspace.trust_warning" ||
+          event.sourceEventKind === "WorkspaceTrust.Warning",
+      ) ?? null;
+  if (!warningEvent) return [];
+  const warningPayload = warningEvent.payload ?? {};
+  const warningId =
+    stringField(warningPayload, "warningId", "warning_id") ??
+    warningEvent.id;
+  const acknowledgementEvent =
+    [...events]
+      .reverse()
+      .find((event) => {
+        if (
+          event.type !== "workspace_trust_acknowledged" &&
+          event.eventKind !== "workspace.trust_acknowledged" &&
+          event.sourceEventKind !== "WorkspaceTrust.Acknowledged"
+        ) {
+          return false;
+        }
+        const payload = event.payload ?? {};
+        return (
+          stringField(payload, "warningId", "warning_id") === warningId ||
+          stringField(payload, "sourceEventId", "source_event_id") ===
+            warningEvent.id
+        );
+      }) ?? null;
+  const severity = stringField(warningPayload, "severity");
+  const mode = stringField(warningPayload, "mode", "thread_mode");
+  const approvalMode =
+    stringField(warningPayload, "approvalMode", "approval_mode");
+  const acknowledged = Boolean(acknowledgementEvent);
+  return [
+    {
+      id: `workspace-trust:${latestEvent.threadId}:${warningId}:acknowledge`,
+      action: "acknowledge",
+      label: acknowledged ? "Acknowledged" : "Acknowledge warning",
+      summary:
+        stringField(warningPayload, "summary", "message") ??
+        (mode
+          ? `Acknowledge ${mode} workspace trust warning.`
+          : "Acknowledge workspace trust warning."),
+      status: acknowledged ? "acknowledged" : "available",
+      executable: !acknowledged,
+      warningId,
+      severity,
+      mode,
+      approvalMode,
+      threadId: warningEvent.threadId,
+      workflowGraphId:
+        warningEvent.workflowGraphId ?? latestEvent.workflowGraphId,
+      workflowNodeId: warningEvent.workflowNodeId ?? "runtime.workspace-trust",
+      eventId: warningEvent.id,
+      sourceEventId: warningEvent.id,
+      receiptRefs: uniqueStrings([
+        ...warningEvent.receiptRefs,
+        ...(acknowledgementEvent?.receiptRefs ?? []),
+      ]),
+      policyDecisionRefs: uniqueStrings([
+        ...warningEvent.policyDecisionRefs,
+        ...(acknowledgementEvent?.policyDecisionRefs ?? []),
+      ]),
+    },
+  ];
+}
+
 function workflowNodeIdForContextPressureAction(action: string): string {
   switch (action) {
     case "compact":
@@ -2210,6 +2312,7 @@ function componentKindForRuntimeThreadEvent(
     case "context_pressure_alert":
       return "context_pressure_alert";
     case "workspace_trust_warning":
+    case "workspace_trust_acknowledged":
       return "workspace_trust";
     case "reasoning_delta":
       return "reasoning_delta";
@@ -2242,7 +2345,12 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
   if (event.componentKind === "usage_telemetry") return "Usage telemetry";
   if (event.componentKind === "context_pressure") return "Context pressure";
   if (event.componentKind === "context_pressure_alert") return "Context pressure alert";
-  if (event.componentKind === "workspace_trust") return "Workspace trust warning";
+  if (event.componentKind === "workspace_trust") {
+    return event.type === "workspace_trust_acknowledged" ||
+      event.eventKind === "workspace.trust_acknowledged"
+      ? "Workspace trust acknowledged"
+      : "Workspace trust warning";
+  }
   if (event.componentKind === "context_budget") return "Context budget";
   if (event.componentKind === "compaction_policy") return "Compaction policy";
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
@@ -2282,6 +2390,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Context pressure alert";
     case "workspace_trust_warning":
       return "Workspace trust warning";
+    case "workspace_trust_acknowledged":
+      return "Workspace trust acknowledged";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":

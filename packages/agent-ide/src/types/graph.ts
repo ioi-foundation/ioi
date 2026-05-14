@@ -687,6 +687,29 @@ export interface NodeLogic {
   runtimeOperatorSteerWorkflowNodeId?: string;
   runtimeOperatorSteerSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeOperatorSteerActor?: string;
+  runtimeThreadModeEndpoint?: string;
+  runtimeThreadMode?: unknown;
+  runtimeThreadModeField?: string;
+  runtimeThreadModeEventField?: string;
+  runtimeThreadModeStatusField?: string;
+  runtimeThreadModeTrustField?: string;
+  runtimeThreadModeReceiptField?: string;
+  runtimeThreadModePolicyField?: string;
+  runtimeThreadModeThreadId?: string;
+  runtimeThreadModeThreadIdField?: string;
+  runtimeThreadModeMode?: string;
+  runtimeThreadModeModeField?: string;
+  runtimeThreadModeApprovalMode?: string;
+  runtimeThreadModeApprovalModeField?: string;
+  runtimeThreadModeTrustProfile?: string;
+  runtimeThreadModeTrustProfileField?: string;
+  runtimeThreadModeWorkspaceTrustWorkflowNodeId?: string;
+  runtimeThreadModeWorkspaceTrustWorkflowNodeIdField?: string;
+  runtimeThreadModeRequestWarningAcknowledgement?: boolean;
+  runtimeThreadModeRequestWarningAcknowledgementField?: string;
+  runtimeThreadModeWorkflowNodeId?: string;
+  runtimeThreadModeSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeThreadModeActor?: string;
   runtimeContextCompactEndpoint?: string;
   runtimeContextCompact?: unknown;
   runtimeContextCompactField?: string;
@@ -976,6 +999,7 @@ export interface NodeLogic {
     consumesRuntimeThreadFork?: boolean;
     consumesRuntimeOperatorInterrupt?: boolean;
     consumesRuntimeOperatorSteer?: boolean;
+    consumesRuntimeThreadMode?: boolean;
     consumesRuntimeContextCompact?: boolean;
     consumesRuntimeUsageMeter?: boolean;
     consumesRuntimeContextBudget?: boolean;
@@ -1007,6 +1031,8 @@ export interface NodeLogic {
     runtimeOperatorInterruptStatusField?: string;
     runtimeOperatorSteerField?: string;
     runtimeOperatorSteerStatusField?: string;
+    runtimeThreadModeField?: string;
+    runtimeThreadModeStatusField?: string;
     runtimeContextCompactField?: string;
     runtimeContextCompactStatusField?: string;
     consumesRuntimeApprovalRequest?: boolean;
@@ -1554,6 +1580,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_thread_fork">
   | WorkflowNodeConfigBase<"runtime_operator_interrupt">
   | WorkflowNodeConfigBase<"runtime_operator_steer">
+  | WorkflowNodeConfigBase<"runtime_thread_mode">
   | WorkflowNodeConfigBase<"runtime_context_compact">
   | WorkflowNodeConfigBase<"runtime_approval_request">
   | WorkflowNodeConfigBase<"runtime_usage_meter">
@@ -4256,6 +4283,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_thread_fork"
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
+  | "runtime_thread_mode"
   | "runtime_context_compact"
   | "runtime_approval_request"
   | "runtime_usage_meter"
@@ -4821,6 +4849,7 @@ export type WorkflowNodeKind =
   | "runtime_thread_fork"
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
+  | "runtime_thread_mode"
   | "runtime_context_compact"
   | "runtime_approval_request"
   | "runtime_usage_meter"

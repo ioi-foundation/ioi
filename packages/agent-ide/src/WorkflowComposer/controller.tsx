@@ -123,12 +123,14 @@ import {
   createRuntimeContextCompactControlRequest,
   createRuntimeDiagnosticsRepairControlRequest,
   createRuntimeOperatorInterruptControlRequest,
+  createRuntimeWorkspaceTrustAcknowledgementControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
 import { createRuntimeSubagentControlRequest } from "../runtime/workflow-runtime-subagent-control-nodes";
 import type {
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeThreadEventLike,
+  WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "../runtime/workflow-runtime-event-projection";
 import {
   WORKFLOW_RUNTIME_TELEMETRY_POLL_INTERVAL_MS,
@@ -9624,6 +9626,49 @@ export function useWorkflowComposerController({
     [currentProjectFile.metadata.id, loadRuntimeThreadEvents, runtime],
   );
 
+  const handleExecuteRuntimeWorkspaceTrustAction = useCallback(
+    async (action: WorkflowRuntimeWorkspaceTrustActionDescriptor) => {
+      setRightPanel("runs");
+      setBottomPanel("run_output");
+      if (!action.executable) {
+        setStatusMessage(`Workspace trust action ${action.label} is already recorded`);
+        return;
+      }
+      if (action.action !== "acknowledge") {
+        setStatusMessage(`Workspace trust action ${action.label} is not executable yet`);
+        return;
+      }
+      if (!runtime.executeWorkflowRuntimeControlRequest) {
+        setStatusMessage(
+          "Workspace trust actions require a daemon runtime control executor.",
+        );
+        return;
+      }
+      const request = createRuntimeWorkspaceTrustAcknowledgementControlRequest({
+        nodeId: action.id,
+        threadId: action.threadId,
+        warningId: action.warningId,
+        sourceEventId: action.sourceEventId ?? action.eventId,
+        reason:
+          action.summary ??
+          `${action.label} requested from React Flow run inspector.`,
+        workflowGraphId: action.workflowGraphId ?? currentProjectFile.metadata.id,
+        workflowNodeId: action.workflowNodeId,
+        actor: "operator",
+      });
+      try {
+        await runtime.executeWorkflowRuntimeControlRequest(request);
+        setRuntimeThreadEvents(await loadRuntimeThreadEvents(action.threadId));
+        setStatusMessage(`Workspace trust action ${action.label} recorded`);
+      } catch (error) {
+        setStatusMessage(
+          `Workspace trust action ${action.label} blocked: ${errorMessage(error)}`,
+        );
+      }
+    },
+    [currentProjectFile.metadata.id, loadRuntimeThreadEvents, runtime],
+  );
+
   const handleSelectRun = useCallback(
     async (run: WorkflowRunSummary) => {
       setSelectedRunId(run.id);
@@ -13571,6 +13616,7 @@ export function useWorkflowComposerController({
     handleApplyActiveRuntimeRollback,
     handleExecuteRuntimeDiagnosticsRepair,
     handleExecuteRuntimeContextPressureAction,
+    handleExecuteRuntimeWorkspaceTrustAction,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,

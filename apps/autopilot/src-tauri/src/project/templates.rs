@@ -540,6 +540,7 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
             "Operator Interrupt",
         ),
         ("runtime_operator_steer", "Runtime", "Operator Steer"),
+        ("runtime_thread_mode", "Runtime", "Thread Mode"),
         ("runtime_context_compact", "Runtime", "Context Compact"),
         ("runtime_approval_request", "Runtime", "Approval Request"),
         ("runtime_rollback_snapshot", "Runtime", "Rollback Snapshot"),
@@ -745,6 +746,34 @@ pub(super) fn workflow_runtime_context_compact_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeContextCompact": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_thread_mode_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "threadId": { "type": "string" },
+            "mode": { "type": "string" },
+            "approvalMode": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeThreadMode": { "type": "object" }
         }
     })
 }
@@ -1260,6 +1289,48 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
             })),
         ),
         workflow_scaffold(
+            "workflow.runtime.thread_mode",
+            "runtime_thread_mode",
+            "Runtime",
+            "Thread mode control",
+            "Set runtime thread mode from a React Flow workflow control and surface daemon trust warnings.",
+            "Mode",
+            "control",
+            json!({
+                "runtimeThreadModeEndpoint": "/v1/threads/{threadId}/mode",
+                "runtimeThreadModeField": "runtimeThreadMode",
+                "runtimeThreadModeEventField": "runtimeThreadMode.event",
+                "runtimeThreadModeStatusField": "runtimeThreadMode.status",
+                "runtimeThreadModeTrustField": "runtimeThreadMode.workspaceTrustWarning",
+                "runtimeThreadModeReceiptField": "runtimeThreadMode.receiptRefs",
+                "runtimeThreadModePolicyField": "runtimeThreadMode.policyDecisionRefs",
+                "runtimeThreadModeThreadIdField": "threadId",
+                "runtimeThreadModeModeField": "mode",
+                "runtimeThreadModeMode": "review",
+                "runtimeThreadModeApprovalModeField": "approvalMode",
+                "runtimeThreadModeApprovalMode": "human_required",
+                "runtimeThreadModeTrustProfileField": "trustProfile",
+                "runtimeThreadModeTrustProfile": "local_private",
+                "runtimeThreadModeWorkspaceTrustWorkflowNodeId": "runtime.thread-mode.workspace-trust",
+                "runtimeThreadModeRequestWarningAcknowledgement": true,
+                "runtimeThreadModeWorkflowNodeId": "runtime.thread-mode",
+                "runtimeThreadModeSource": "react_flow",
+                "runtimeThreadModeActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_thread_mode_safe",
+                "outputSchema": workflow_runtime_thread_mode_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.thread.mode"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "requiresApproval": true,
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control", "approval"]
+            })),
+        ),
+        workflow_scaffold(
             "workflow.runtime.context_compact",
             "runtime_context_compact",
             "Runtime",
@@ -1425,6 +1496,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "runtime_thread_fork"
                 | "runtime_operator_interrupt"
                 | "runtime_operator_steer"
+                | "runtime_thread_mode"
                 | "runtime_context_compact"
                 | "runtime_approval_request"
                 | "runtime_rollback_snapshot"
@@ -1470,6 +1542,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         | "runtime_thread_fork"
         | "runtime_operator_interrupt"
         | "runtime_operator_steer"
+        | "runtime_thread_mode"
         | "runtime_context_compact"
         | "runtime_approval_request"
         | "runtime_restore_gate"
@@ -1483,6 +1556,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "proposal"
             | "workflow_package_import"
             | "github_pr_create"
+            | "runtime_thread_mode"
             | "runtime_approval_request"
             | "runtime_restore_gate"
     );
@@ -1498,6 +1572,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_thread_fork"
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
+            | "runtime_thread_mode"
             | "runtime_context_compact"
             | "runtime_approval_request"
             | "runtime_rollback_snapshot"
@@ -1527,6 +1602,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_thread_fork"
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
+            | "runtime_thread_mode"
             | "runtime_context_compact"
             | "runtime_approval_request"
             | "runtime_rollback_snapshot"
@@ -1551,6 +1627,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "runtime_thread_fork" => vec!["state", "data", "control"],
         "runtime_operator_interrupt" => vec!["state", "data", "control"],
         "runtime_operator_steer" => vec!["state", "data", "control"],
+        "runtime_thread_mode" => vec!["state", "data", "control", "approval"],
         "runtime_context_compact" => vec!["state", "data", "control"],
         "runtime_approval_request" => vec!["state", "data", "control", "approval"],
         "runtime_rollback_snapshot" => vec!["state", "data", "control"],

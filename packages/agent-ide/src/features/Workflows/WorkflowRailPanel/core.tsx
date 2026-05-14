@@ -60,6 +60,7 @@ import type {
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeThreadEventLike,
+  WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "../../../runtime/workflow-runtime-event-projection";
 import {
   resolveWorkflowHarnessNodeAttemptInspection,
@@ -343,6 +344,7 @@ export function WorkflowRailPanel({
   onInspectNode,
   onExecuteRuntimeDiagnosticsRepair,
   onExecuteRuntimeContextPressureAction,
+  onExecuteRuntimeWorkspaceTrustAction,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -425,6 +427,9 @@ export function WorkflowRailPanel({
   ) => void | Promise<void>;
   onExecuteRuntimeContextPressureAction?: (
     action: WorkflowRuntimeContextPressureActionDescriptor,
+  ) => void | Promise<void>;
+  onExecuteRuntimeWorkspaceTrustAction?: (
+    action: WorkflowRuntimeWorkspaceTrustActionDescriptor,
   ) => void | Promise<void>;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
@@ -3320,6 +3325,9 @@ export function WorkflowRailPanel({
         onExecuteRuntimeDiagnosticsRepair={onExecuteRuntimeDiagnosticsRepair}
         onExecuteRuntimeContextPressureAction={
           onExecuteRuntimeContextPressureAction
+        }
+        onExecuteRuntimeWorkspaceTrustAction={
+          onExecuteRuntimeWorkspaceTrustAction
         }
       />
     );

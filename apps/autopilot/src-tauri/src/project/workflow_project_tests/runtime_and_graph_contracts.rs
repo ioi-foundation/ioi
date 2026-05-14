@@ -885,6 +885,134 @@ fn runtime_operator_steer_node_builds_react_flow_control_request() {
 }
 
 #[test]
+fn runtime_thread_mode_node_builds_react_flow_control_request() {
+    let root = temp_root("runtime-thread-mode");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Runtime Thread Mode".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut mode = workflow_node(
+        "mode-control",
+        "runtime_thread_mode",
+        "Mode control",
+        120,
+        180,
+        "Mode",
+        "control",
+    );
+    logic_mut(&mut mode).insert(
+        "runtimeThreadModeEndpoint".to_string(),
+        json!("/v1/threads/{threadId}/mode"),
+    );
+    logic_mut(&mut mode).insert(
+        "runtimeThreadModeThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut mode).insert("runtimeThreadModeModeField".to_string(), json!("mode"));
+    logic_mut(&mut mode).insert(
+        "runtimeThreadModeApprovalModeField".to_string(),
+        json!("approvalMode"),
+    );
+    logic_mut(&mut mode).insert(
+        "runtimeThreadModeTrustProfileField".to_string(),
+        json!("trustProfile"),
+    );
+    logic_mut(&mut mode).insert(
+        "runtimeThreadModeWorkspaceTrustWorkflowNodeId".to_string(),
+        json!("runtime.thread-mode.workspace-trust"),
+    );
+    logic_mut(&mut mode).insert(
+        "runtimeThreadModeWorkflowNodeId".to_string(),
+        json!("runtime.thread-mode"),
+    );
+    logic_mut(&mut mode).insert("runtimeThreadModeActor".to_string(), json!("operator"));
+    logic_mut(&mut mode).insert(
+        "outputSchema".to_string(),
+        workflow_runtime_thread_mode_output_schema(),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    let workflow_graph_id = workflow.metadata.id.clone();
+    workflow.nodes = vec![mode];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_node(
+        bundle.workflow_path,
+        "mode-control".to_string(),
+        Some(json!({
+            "threadId": "thread_react_flow",
+            "mode": "yolo",
+            "approvalMode": "never_prompt",
+            "trustProfile": "canvas_claimed_trusted"
+        })),
+        None,
+    )
+    .expect("runtime thread mode node should run");
+    assert_eq!(run.summary.status, "passed");
+    let node_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "mode-control")
+        .expect("mode node should run");
+    let output = node_run.output.as_ref().expect("mode output should exist");
+    assert_eq!(
+        output.get("kind").and_then(Value::as_str),
+        Some("runtime_thread_mode")
+    );
+    assert_eq!(output.get("source").and_then(Value::as_str), Some("react_flow"));
+    assert_eq!(
+        output.get("componentKind").and_then(Value::as_str),
+        Some("runtime_mode")
+    );
+    assert_eq!(
+        output.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        output.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.thread-mode")
+    );
+    assert_eq!(
+        output.get("endpoint").and_then(Value::as_str),
+        Some("/v1/threads/thread_react_flow/mode")
+    );
+    assert_eq!(output.get("mode").and_then(Value::as_str), Some("yolo"));
+    assert_eq!(
+        output.get("approvalMode").and_then(Value::as_str),
+        Some("never_prompt")
+    );
+    let request = output.get("request").expect("mode request should exist");
+    assert_eq!(request.get("mode").and_then(Value::as_str), Some("yolo"));
+    assert_eq!(
+        request.get("approval_mode").and_then(Value::as_str),
+        Some("never_prompt")
+    );
+    assert_eq!(
+        request.get("trust_profile").and_then(Value::as_str),
+        Some("canvas_claimed_trusted")
+    );
+    assert_eq!(
+        request
+            .get("workspace_trust_workflow_node_id")
+            .and_then(Value::as_str),
+        Some("runtime.thread-mode.workspace-trust")
+    );
+    assert_eq!(
+        request.get("eventKind").and_then(Value::as_str),
+        Some("OperatorControl.Mode")
+    );
+}
+
+#[test]
 fn runtime_context_compact_node_builds_react_flow_control_request() {
     let root = temp_root("runtime-context-compact");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

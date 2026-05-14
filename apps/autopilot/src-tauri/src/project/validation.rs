@@ -311,6 +311,27 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeThreadMode {
+            if workflow_json_string(&logic, "runtimeThreadModeEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_thread_mode_endpoint".to_string(),
+                    message: "Runtime thread mode nodes need a mode endpoint template."
+                        .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeThreadModeThreadIdField").is_none()
+                && workflow_json_string(&logic, "runtimeThreadModeThreadId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_thread_mode_thread".to_string(),
+                    message:
+                        "Runtime thread mode nodes need a thread id field or fixed thread id."
+                            .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::RuntimeApprovalRequest {
             if workflow_json_string(&logic, "runtimeApprovalRequestEndpoint").is_none() {
                 missing_config.push(WorkflowValidationIssue {

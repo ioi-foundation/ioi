@@ -20,6 +20,12 @@ import {
   RUNTIME_OPERATOR_STEER_COMPONENT_KIND,
   RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND,
   RUNTIME_OPERATOR_STEER_WORKFLOW_NODE_ID,
+  RUNTIME_THREAD_MODE_COMPONENT_KIND,
+  RUNTIME_THREAD_MODE_SOURCE_EVENT_KIND,
+  RUNTIME_THREAD_MODE_WORKFLOW_NODE_ID,
+  RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND,
+  RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND,
+  RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_WORKFLOW_NODE_ID,
   RUNTIME_ROLLBACK_SNAPSHOT_COMPONENT_KIND,
   RUNTIME_ROLLBACK_SNAPSHOT_SOURCE_EVENT_KIND,
   RUNTIME_ROLLBACK_SNAPSHOT_WORKFLOW_NODE_ID,
@@ -32,6 +38,8 @@ import {
   WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_RESTORE_GATE_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_ROLLBACK_SNAPSHOT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
@@ -40,6 +48,8 @@ import {
   createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode,
   createRuntimeOperatorInterruptControlRequestFromWorkflowNode,
   createRuntimeOperatorSteerControlRequestFromWorkflowNode,
+  createRuntimeThreadModeControlRequestFromWorkflowNode,
+  createRuntimeWorkspaceTrustAcknowledgementControlRequest,
   createRuntimeRestoreGateControlRequestFromWorkflowNode,
   createRuntimeRollbackSnapshotControlRequestFromWorkflowNode,
   createRuntimeThreadForkControlRequestFromWorkflowNode,
@@ -131,6 +141,11 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
       { threadId: "thread-shared", turnId: "turn-shared" },
       { workflowGraphId: graphId, actor },
     ),
+    createRuntimeThreadModeControlRequestFromWorkflowNode(
+      makeWorkflowNode("mode-shared", "runtime_thread_mode", "Mode", 0, 0),
+      { threadId: "thread-shared", mode: "review" },
+      { workflowGraphId: graphId, actor },
+    ),
     createRuntimeContextCompactControlRequestFromWorkflowNode(
       makeWorkflowNode(
         "compact-shared",
@@ -220,6 +235,13 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
         source: "react_flow",
         actor,
         graphId,
+        nodeId: RUNTIME_THREAD_MODE_WORKFLOW_NODE_ID,
+        threadId: "thread-shared",
+      },
+      {
+        source: "react_flow",
+        actor,
+        graphId,
         nodeId: RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
         threadId: "thread-shared",
       },
@@ -252,6 +274,124 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
         threadId: "thread-shared",
       },
     ],
+  );
+});
+
+test("runtime_thread_mode workflow node builds a React Flow daemon request", () => {
+  const node = makeWorkflowNode(
+    "mode-control",
+    "runtime_thread_mode",
+    "Mode control",
+    100,
+    120,
+  );
+  const request = createRuntimeThreadModeControlRequestFromWorkflowNode(
+    node,
+    {
+      threadId: "thread-react-flow-1",
+      mode: "yolo",
+      approvalMode: "never_prompt",
+      trustProfile: "canvas_claimed_trusted",
+    },
+    { workflowGraphId: "workflow.react-flow.thread-mode-proof" },
+  );
+
+  assert.equal(request.schemaVersion, WORKFLOW_RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION);
+  assert.equal(request.nodeType, "runtime_thread_mode");
+  assert.equal(request.nodeId, "mode-control");
+  assert.equal(request.threadId, "thread-react-flow-1");
+  assert.equal(request.mode, "yolo");
+  assert.equal(request.approvalMode, "never_prompt");
+  assert.equal(request.endpoint, "/v1/threads/thread-react-flow-1/mode");
+  assert.equal(request.body.mode, "yolo");
+  assert.equal(request.body.approval_mode, "never_prompt");
+  assert.equal(request.body.trust_profile, "canvas_claimed_trusted");
+  assert.equal(
+    request.body.workspace_trust_workflow_node_id,
+    "runtime.thread-mode.workspace-trust",
+  );
+  assert.equal(request.body.request_warning_acknowledgement, true);
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.workflowGraphId, "workflow.react-flow.thread-mode-proof");
+  assert.equal(request.body.workflowNodeId, RUNTIME_THREAD_MODE_WORKFLOW_NODE_ID);
+  assert.equal(request.body.eventKind, RUNTIME_THREAD_MODE_SOURCE_EVENT_KIND);
+  assert.equal(request.body.componentKind, RUNTIME_THREAD_MODE_COMPONENT_KIND);
+});
+
+test("runtime_thread_mode helper supports configurable fields from node logic", () => {
+  const node = makeWorkflowNode(
+    "mode-control-configured",
+    "runtime_thread_mode",
+    "Mode control",
+    100,
+    120,
+    {
+      runtimeThreadModeEndpoint: "/runtime/{threadId}/mode",
+      runtimeThreadModeThreadIdField: "runtime.threadId",
+      runtimeThreadModeModeField: "operator.mode",
+      runtimeThreadModeApprovalModeField: "operator.approval",
+      runtimeThreadModeTrustProfile: "canvas_local_override",
+      runtimeThreadModeWorkspaceTrustWorkflowNodeId:
+        "runtime.mode.trust-warning",
+      runtimeThreadModeRequestWarningAcknowledgement: false,
+      runtimeThreadModeWorkflowNodeId: "runtime.mode-control",
+      runtimeThreadModeActor: "workflow-author",
+    },
+  );
+  const request = createRuntimeThreadModeControlRequestFromWorkflowNode(node, {
+    runtime: { threadId: "thread with space" },
+    operator: { mode: "review", approval: "policy_required" },
+  });
+
+  assert.equal(request.threadId, "thread with space");
+  assert.equal(request.endpoint, "/runtime/thread%20with%20space/mode");
+  assert.equal(request.body.mode, "review");
+  assert.equal(request.body.approvalMode, "policy_required");
+  assert.equal(request.body.trustProfile, "canvas_local_override");
+  assert.equal(
+    request.body.workspaceTrustWorkflowNodeId,
+    "runtime.mode.trust-warning",
+  );
+  assert.equal(request.body.requestWarningAcknowledgement, false);
+  assert.equal(request.body.workflowNodeId, "runtime.mode-control");
+  assert.equal(request.body.actor, "workflow-author");
+});
+
+test("workspace trust acknowledgement builds a daemon receipt request", () => {
+  const request = createRuntimeWorkspaceTrustAcknowledgementControlRequest({
+    nodeId: "workspace-trust-action",
+    threadId: "thread-react-flow-1",
+    warningId: "workspace_trust_123",
+    sourceEventId: "event-workspace-trust",
+    reason: "operator reviewed dirty workspace warning",
+    endpoint: "/v1/threads/{threadId}/workspace-trust/{warningId}/acknowledge",
+    workflowGraphId: "workflow.react-flow.thread-mode-proof",
+    workflowNodeId: "runtime.thread-mode.workspace-trust",
+  });
+
+  assert.equal(
+    request.schemaVersion,
+    WORKFLOW_RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_CONTROL_SCHEMA_VERSION,
+  );
+  assert.equal(request.nodeType, "runtime_workspace_trust_acknowledgement");
+  assert.equal(request.endpoint, "/v1/threads/thread-react-flow-1/workspace-trust/workspace_trust_123/acknowledge");
+  assert.equal(request.body.warning_id, "workspace_trust_123");
+  assert.equal(request.body.source_event_id, "event-workspace-trust");
+  assert.equal(request.body.reason, "operator reviewed dirty workspace warning");
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.workflowGraphId, "workflow.react-flow.thread-mode-proof");
+  assert.equal(request.body.workflowNodeId, "runtime.thread-mode.workspace-trust");
+  assert.equal(
+    request.body.eventKind,
+    RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND,
+  );
+  assert.equal(
+    request.body.componentKind,
+    RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND,
+  );
+  assert.equal(
+    RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_WORKFLOW_NODE_ID,
+    "runtime.workspace-trust",
   );
 });
 

@@ -3265,6 +3265,10 @@ function sdkMessageTypeFromRuntimeEvent(event: RuntimeEventEnvelope): IOISDKMess
     case "model.route_decision":
     case "tool.route_decision":
       return "model_route_decision";
+    case "workspace.trust_warning":
+      return "workspace_trust_warning";
+    case "workspace.trust_acknowledged":
+      return "workspace_trust_acknowledged";
     default:
       return "step";
   }
@@ -3287,6 +3291,8 @@ function isSdkMessageType(value: string): value is IOISDKMessage["type"] {
     "usage_final",
     "stop_condition",
     "quality_ledger",
+    "workspace_trust_warning",
+    "workspace_trust_acknowledged",
     "artifact",
     "completed",
     "canceled",

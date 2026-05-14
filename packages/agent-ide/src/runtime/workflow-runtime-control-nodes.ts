@@ -28,6 +28,28 @@ export const RUNTIME_OPERATOR_STEER_SOURCE_EVENT_KIND =
   "OperatorControl.Steer" as const;
 export const RUNTIME_OPERATOR_STEER_PAYLOAD_SCHEMA_VERSION =
   "ioi.runtime.operator-control.v1" as const;
+export const WORKFLOW_RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-thread-mode-control.v1" as const;
+export const RUNTIME_THREAD_MODE_WORKFLOW_NODE_ID =
+  "runtime.thread-mode" as const;
+export const RUNTIME_THREAD_MODE_COMPONENT_KIND = "runtime_mode" as const;
+export const RUNTIME_THREAD_MODE_SOURCE = "react_flow" as const;
+export const RUNTIME_THREAD_MODE_SOURCE_EVENT_KIND =
+  "OperatorControl.Mode" as const;
+export const RUNTIME_THREAD_MODE_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.thread-mode-control.v1" as const;
+export const WORKFLOW_RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_CONTROL_SCHEMA_VERSION =
+  "ioi.workflow.runtime-workspace-trust-acknowledgement-control.v1" as const;
+export const RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_WORKFLOW_NODE_ID =
+  "runtime.workspace-trust" as const;
+export const RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND =
+  "workspace_trust" as const;
+export const RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE =
+  "react_flow" as const;
+export const RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND =
+  "WorkspaceTrust.Acknowledged" as const;
+export const RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION =
+  "ioi.runtime.workspace-trust-acknowledgement.v1" as const;
 export const WORKFLOW_RUNTIME_CONTEXT_COMPACT_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-context-compact-control.v1" as const;
 export const RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID =
@@ -200,6 +222,72 @@ export interface RuntimeOperatorSteerWorkflowNodeOptions {
   actor?: string | null;
 }
 
+export type RuntimeThreadModeMode = "plan" | "review" | "agent" | "yolo" | "custom";
+export type RuntimeThreadModeApprovalMode =
+  | "suggest"
+  | "auto_local"
+  | "never_prompt"
+  | "human_required"
+  | "policy_required";
+
+export interface RuntimeThreadModeControlRequestBody {
+  mode: RuntimeThreadModeMode;
+  interactionMode: RuntimeThreadModeMode;
+  interaction_mode: RuntimeThreadModeMode;
+  approvalMode: RuntimeThreadModeApprovalMode;
+  approval_mode: RuntimeThreadModeApprovalMode;
+  trustProfile: string;
+  trust_profile: string;
+  workspaceTrustWorkflowNodeId: string;
+  workspace_trust_workflow_node_id: string;
+  requestWarningAcknowledgement: boolean;
+  request_warning_acknowledgement: boolean;
+  source: typeof RUNTIME_THREAD_MODE_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_THREAD_MODE_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_THREAD_MODE_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_THREAD_MODE_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeThreadModeControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_thread_mode";
+  nodeId: string | null;
+  threadId: string;
+  mode: RuntimeThreadModeMode;
+  approvalMode: RuntimeThreadModeApprovalMode;
+  endpoint: string;
+  body: RuntimeThreadModeControlRequestBody;
+}
+
+export interface RuntimeThreadModeControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  input?: unknown;
+  mode?: string | null;
+  modeField?: string | null;
+  approvalMode?: string | null;
+  approvalModeField?: string | null;
+  trustProfile?: string | null;
+  trustProfileField?: string | null;
+  workspaceTrustWorkflowNodeId?: string | null;
+  workspaceTrustWorkflowNodeIdField?: string | null;
+  requestWarningAcknowledgement?: boolean | null;
+  requestWarningAcknowledgementField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeThreadModeWorkflowNodeOptions {
+  workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
 export interface RuntimeContextCompactControlRequestBody {
   reason: string;
   scope: string;
@@ -315,6 +403,48 @@ export interface RuntimeApprovalRequestControlRequestInput {
 
 export interface RuntimeApprovalRequestWorkflowNodeOptions {
   workflowGraphId?: string | null;
+  actor?: string | null;
+}
+
+export interface RuntimeWorkspaceTrustAcknowledgementControlRequestBody {
+  warningId: string;
+  warning_id: string;
+  reason: string;
+  sourceEventId: string | null;
+  source_event_id: string | null;
+  source: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE;
+  actor: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventKind: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;
+  componentKind: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND;
+  payloadSchemaVersion: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION;
+}
+
+export interface RuntimeWorkspaceTrustAcknowledgementControlRequest {
+  schemaVersion: typeof WORKFLOW_RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_CONTROL_SCHEMA_VERSION;
+  nodeType: "runtime_workspace_trust_acknowledgement";
+  nodeId: string | null;
+  threadId: string;
+  warningId: string;
+  endpoint: string;
+  body: RuntimeWorkspaceTrustAcknowledgementControlRequestBody;
+}
+
+export interface RuntimeWorkspaceTrustAcknowledgementControlRequestInput {
+  nodeId?: string | null;
+  threadId?: string | null;
+  threadIdField?: string | null;
+  warningId?: string | null;
+  warningIdField?: string | null;
+  sourceEventId?: string | null;
+  sourceEventIdField?: string | null;
+  input?: unknown;
+  reason?: string | null;
+  reasonField?: string | null;
+  endpoint?: string | null;
+  workflowGraphId?: string | null;
+  workflowNodeId?: string | null;
   actor?: string | null;
 }
 
@@ -643,6 +773,82 @@ export function createRuntimeOperatorSteerControlRequest(
   };
 }
 
+export function createRuntimeThreadModeControlRequest(
+  params: RuntimeThreadModeControlRequestInput,
+): RuntimeThreadModeControlRequest {
+  const envelope = createRuntimeControlRequestEnvelope(
+    {
+      schemaVersion: WORKFLOW_RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
+      nodeType: "runtime_thread_mode",
+      source: RUNTIME_THREAD_MODE_SOURCE,
+      eventKind: RUNTIME_THREAD_MODE_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_THREAD_MODE_COMPONENT_KIND,
+      payloadSchemaVersion: RUNTIME_THREAD_MODE_PAYLOAD_SCHEMA_VERSION,
+      defaultWorkflowNodeId: RUNTIME_THREAD_MODE_WORKFLOW_NODE_ID,
+      defaultEndpoint: "/v1/threads/{threadId}/mode",
+      turnIdMode: "none",
+    },
+    params,
+  );
+  const mode = runtimeThreadModeMode(
+    stringAtPath(params.input, params.modeField ?? "mode") ??
+      stringAtPath(params.input, "thread_mode") ??
+      cleanString(params.mode),
+  );
+  const approvalMode = runtimeThreadModeApprovalMode(
+    stringAtPath(params.input, params.approvalModeField ?? "approvalMode") ??
+      stringAtPath(params.input, "approval_mode") ??
+      cleanString(params.approvalMode),
+    approvalModeForRuntimeThreadMode(mode),
+  );
+  const trustProfile =
+    stringAtPath(params.input, params.trustProfileField ?? "trustProfile") ??
+    stringAtPath(params.input, "trust_profile") ??
+    cleanString(params.trustProfile) ??
+    "local_private";
+  const workspaceTrustWorkflowNodeId =
+    stringAtPath(
+      params.input,
+      params.workspaceTrustWorkflowNodeIdField ?? "workspaceTrustWorkflowNodeId",
+    ) ??
+    stringAtPath(params.input, "workspace_trust_workflow_node_id") ??
+    cleanString(params.workspaceTrustWorkflowNodeId) ??
+    `${envelope.metadata.workflowNodeId}.workspace-trust`;
+  const requestWarningAcknowledgement =
+    booleanAtPath(
+      params.input,
+      params.requestWarningAcknowledgementField ??
+        "requestWarningAcknowledgement",
+    ) ??
+    booleanAtPath(params.input, "request_warning_acknowledgement") ??
+    params.requestWarningAcknowledgement ??
+    true;
+
+  return {
+    schemaVersion: envelope.schemaVersion,
+    nodeType: envelope.nodeType,
+    nodeId: envelope.nodeId,
+    threadId: envelope.threadId,
+    mode,
+    approvalMode,
+    endpoint: envelope.endpoint,
+    body: {
+      mode,
+      interactionMode: mode,
+      interaction_mode: mode,
+      approvalMode,
+      approval_mode: approvalMode,
+      trustProfile,
+      trust_profile: trustProfile,
+      workspaceTrustWorkflowNodeId,
+      workspace_trust_workflow_node_id: workspaceTrustWorkflowNodeId,
+      requestWarningAcknowledgement,
+      request_warning_acknowledgement: requestWarningAcknowledgement,
+      ...envelope.metadata,
+    },
+  };
+}
+
 export function createRuntimeContextCompactControlRequest(
   params: RuntimeContextCompactControlRequestInput,
 ): RuntimeContextCompactControlRequest {
@@ -771,6 +977,68 @@ export function createRuntimeApprovalRequestControlRequest(
       policyDecisionRefs,
       policy_decision_refs: policyDecisionRefs,
       ...envelope.metadata,
+    },
+  };
+}
+
+export function createRuntimeWorkspaceTrustAcknowledgementControlRequest(
+  params: RuntimeWorkspaceTrustAcknowledgementControlRequestInput,
+): RuntimeWorkspaceTrustAcknowledgementControlRequest {
+  const threadId =
+    cleanString(params.threadId) ??
+    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
+    stringAtPath(params.input, "thread_id");
+  if (!threadId) {
+    throw new Error(
+      "runtime_workspace_trust_acknowledgement nodes need a threadId input before dispatch.",
+    );
+  }
+  const warningId =
+    cleanString(params.warningId) ??
+    stringAtPath(params.input, params.warningIdField ?? "warningId") ??
+    stringAtPath(params.input, "warning_id");
+  if (!warningId) {
+    throw new Error(
+      "runtime_workspace_trust_acknowledgement nodes need a warningId input before dispatch.",
+    );
+  }
+  const endpointTemplate =
+    cleanString(params.endpoint) ??
+    "/v1/threads/{threadId}/workspace-trust/{warningId}/acknowledge";
+  const workflowNodeId =
+    cleanString(params.workflowNodeId) ??
+    RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_WORKFLOW_NODE_ID;
+  const sourceEventId =
+    stringAtPath(params.input, params.sourceEventIdField ?? "sourceEventId") ??
+    stringAtPath(params.input, "source_event_id") ??
+    cleanString(params.sourceEventId);
+  const reason =
+    stringAtPath(params.input, params.reasonField ?? "reason") ??
+    cleanString(params.reason) ??
+    "Acknowledge workspace trust warning from React Flow run inspector.";
+
+  return {
+    schemaVersion:
+      WORKFLOW_RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_CONTROL_SCHEMA_VERSION,
+    nodeType: "runtime_workspace_trust_acknowledgement",
+    nodeId: cleanString(params.nodeId),
+    threadId,
+    warningId,
+    endpoint: endpointFromTemplate(endpointTemplate, { threadId, warningId }),
+    body: {
+      warningId,
+      warning_id: warningId,
+      reason,
+      sourceEventId,
+      source_event_id: sourceEventId,
+      source: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE,
+      actor: cleanString(params.actor) ?? "operator",
+      workflowGraphId: cleanString(params.workflowGraphId),
+      workflowNodeId,
+      eventKind: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND,
+      componentKind: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND,
+      payloadSchemaVersion:
+        RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION,
     },
   };
 }
@@ -1054,6 +1322,47 @@ export function createRuntimeContextCompactControlRequestFromWorkflowNode(
       logic,
       "runtimeContextCompactActor",
     ),
+  });
+}
+
+export function createRuntimeThreadModeControlRequestFromWorkflowNode(
+  node: Pick<Node, "id" | "type" | "config">,
+  input: unknown = {},
+  options: RuntimeThreadModeWorkflowNodeOptions = {},
+): RuntimeThreadModeControlRequest {
+  const logic = runtimeControlWorkflowNodeLogic(node, "runtime_thread_mode");
+  return createRuntimeThreadModeControlRequest({
+    nodeId: node.id,
+    input,
+    threadId: cleanString(logic.runtimeThreadModeThreadId),
+    threadIdField: cleanString(logic.runtimeThreadModeThreadIdField) ?? "threadId",
+    mode: cleanString(logic.runtimeThreadModeMode),
+    modeField: cleanString(logic.runtimeThreadModeModeField) ?? "mode",
+    approvalMode: cleanString(logic.runtimeThreadModeApprovalMode),
+    approvalModeField:
+      cleanString(logic.runtimeThreadModeApprovalModeField) ?? "approvalMode",
+    trustProfile: cleanString(logic.runtimeThreadModeTrustProfile),
+    trustProfileField:
+      cleanString(logic.runtimeThreadModeTrustProfileField) ?? "trustProfile",
+    workspaceTrustWorkflowNodeId: cleanString(
+      logic.runtimeThreadModeWorkspaceTrustWorkflowNodeId,
+    ),
+    workspaceTrustWorkflowNodeIdField:
+      cleanString(logic.runtimeThreadModeWorkspaceTrustWorkflowNodeIdField) ??
+      "workspaceTrustWorkflowNodeId",
+    requestWarningAcknowledgement:
+      typeof logic.runtimeThreadModeRequestWarningAcknowledgement === "boolean"
+        ? logic.runtimeThreadModeRequestWarningAcknowledgement
+        : null,
+    requestWarningAcknowledgementField: cleanString(
+      logic.runtimeThreadModeRequestWarningAcknowledgementField,
+    ),
+    endpoint: cleanString(logic.runtimeThreadModeEndpoint),
+    workflowGraphId: cleanString(options.workflowGraphId),
+    workflowNodeId:
+      cleanString(logic.runtimeThreadModeWorkflowNodeId) ??
+      RUNTIME_THREAD_MODE_WORKFLOW_NODE_ID,
+    actor: runtimeControlWorkflowActor(options, logic, "runtimeThreadModeActor"),
   });
 }
 
@@ -1392,6 +1701,66 @@ function runtimeDiagnosticsRepairAction(
       return "operator_override";
     default:
       return "repair_retry";
+  }
+}
+
+function runtimeThreadModeMode(value: string | null): RuntimeThreadModeMode {
+  const normalized = (value ?? "agent").trim().toLowerCase().replace(/[-.]/g, "_");
+  switch (normalized) {
+    case "plan":
+    case "planning":
+    case "read_only":
+    case "readonly":
+      return "plan";
+    case "review":
+    case "review_mode":
+    case "human_review":
+    case "approval_review":
+      return "review";
+    case "yolo":
+    case "auto":
+    case "auto_local":
+    case "never_prompt":
+      return "yolo";
+    case "custom":
+    case "dry_run":
+    case "handoff":
+    case "learn":
+      return "custom";
+    default:
+      return "agent";
+  }
+}
+
+function runtimeThreadModeApprovalMode(
+  value: string | null,
+  fallback: RuntimeThreadModeApprovalMode,
+): RuntimeThreadModeApprovalMode {
+  const normalized = value?.trim().toLowerCase().replace(/[-.]/g, "_");
+  switch (normalized) {
+    case "auto_local":
+    case "never_prompt":
+    case "human_required":
+    case "policy_required":
+      return normalized;
+    case "suggest":
+      return "suggest";
+    default:
+      return fallback;
+  }
+}
+
+function approvalModeForRuntimeThreadMode(
+  mode: RuntimeThreadModeMode,
+): RuntimeThreadModeApprovalMode {
+  switch (mode) {
+    case "plan":
+    case "review":
+      return "human_required";
+    case "yolo":
+      return "never_prompt";
+    default:
+      return "suggest";
   }
 }
 

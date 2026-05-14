@@ -80,7 +80,9 @@ export {
   WORKFLOW_RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_INTERRUPT_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_OPERATOR_STEER_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_THREAD_FORK_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_CONTROL_SCHEMA_VERSION,
   createRuntimeApprovalRequestControlRequest,
   createRuntimeApprovalRequestControlRequestFromWorkflowNode,
   createRuntimeContextCompactControlRequest,
@@ -93,6 +95,9 @@ export {
   createRuntimeOperatorSteerControlRequestFromWorkflowNode,
   createRuntimeThreadForkControlRequest,
   createRuntimeThreadForkControlRequestFromWorkflowNode,
+  createRuntimeThreadModeControlRequest,
+  createRuntimeThreadModeControlRequestFromWorkflowNode,
+  createRuntimeWorkspaceTrustAcknowledgementControlRequest,
 } from "./runtime/workflow-runtime-control-nodes";
 export {
   RUNTIME_CODING_TOOL_COMPONENT_KIND,
@@ -419,6 +424,8 @@ export type {
   WorkflowRuntimeTuiDeepLinkDescriptor,
   WorkflowRuntimeTuiControlStateProjection,
   WorkflowRuntimeTuiControlStateRow,
+  WorkflowRuntimeWorkspaceTrustAction,
+  WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "./runtime/workflow-runtime-event-projection";
 export type {
   RuntimeApprovalRequestControlRequest,
@@ -446,6 +453,15 @@ export type {
   RuntimeThreadForkControlRequestBody,
   RuntimeThreadForkControlRequestInput,
   RuntimeThreadForkWorkflowNodeOptions,
+  RuntimeThreadModeApprovalMode,
+  RuntimeThreadModeControlRequest,
+  RuntimeThreadModeControlRequestBody,
+  RuntimeThreadModeControlRequestInput,
+  RuntimeThreadModeMode,
+  RuntimeThreadModeWorkflowNodeOptions,
+  RuntimeWorkspaceTrustAcknowledgementControlRequest,
+  RuntimeWorkspaceTrustAcknowledgementControlRequestBody,
+  RuntimeWorkspaceTrustAcknowledgementControlRequestInput,
 } from "./runtime/workflow-runtime-control-nodes";
 export type {
   RuntimeCodingToolControlRequest,

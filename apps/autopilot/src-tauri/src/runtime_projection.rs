@@ -34,6 +34,7 @@ pub enum ActionKind {
     RuntimeThreadFork,
     RuntimeOperatorInterrupt,
     RuntimeOperatorSteer,
+    RuntimeThreadMode,
     RuntimeContextCompact,
     RuntimeApprovalRequest,
     RuntimeRollbackSnapshot,
@@ -88,6 +89,7 @@ impl ActionKind {
             "runtime_thread_fork" => Self::RuntimeThreadFork,
             "runtime_operator_interrupt" => Self::RuntimeOperatorInterrupt,
             "runtime_operator_steer" => Self::RuntimeOperatorSteer,
+            "runtime_thread_mode" => Self::RuntimeThreadMode,
             "runtime_context_compact" => Self::RuntimeContextCompact,
             "runtime_approval_request" => Self::RuntimeApprovalRequest,
             "runtime_rollback_snapshot" => Self::RuntimeRollbackSnapshot,
@@ -142,6 +144,7 @@ impl ActionKind {
             Self::RuntimeThreadFork => "runtime_thread_fork",
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
+            Self::RuntimeThreadMode => "runtime_thread_mode",
             Self::RuntimeContextCompact => "runtime_context_compact",
             Self::RuntimeApprovalRequest => "runtime_approval_request",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
@@ -196,6 +199,7 @@ impl ActionKind {
             Self::RuntimeThreadFork => "runtime_thread_fork",
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
+            Self::RuntimeThreadMode => "runtime_thread_mode",
             Self::RuntimeContextCompact => "runtime_context_compact",
             Self::RuntimeApprovalRequest => "runtime_approval_request",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
@@ -495,6 +499,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_operator_steer"),
             ActionKind::RuntimeOperatorSteer
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_thread_mode"),
+            ActionKind::RuntimeThreadMode
         );
         assert_eq!(
             ActionKind::from_node_type("runtime_context_compact"),

@@ -44,6 +44,8 @@ import type {
   RuntimeContextCompactControlRequest,
   RuntimeDiagnosticsRepairControlRequest,
   RuntimeOperatorInterruptControlRequest,
+  RuntimeThreadModeControlRequest,
+  RuntimeWorkspaceTrustAcknowledgementControlRequest,
 } from "./workflow-runtime-control-nodes";
 import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-tool-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
@@ -54,6 +56,8 @@ export type WorkflowRuntimeControlRequest =
   | RuntimeContextCompactControlRequest
   | RuntimeDiagnosticsRepairControlRequest
   | RuntimeOperatorInterruptControlRequest
+  | RuntimeThreadModeControlRequest
+  | RuntimeWorkspaceTrustAcknowledgementControlRequest
   | RuntimeSubagentControlRequest;
 
 // Wire-format payload for graph execution requests.

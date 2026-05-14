@@ -789,7 +789,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       "runtime_operator_interrupt",
       "runtimeOperatorInterrupt.status",
     ),
-    policyProfile: policyProfile("write"),
+    policyProfile: policyProfile("write", true),
     evidenceProfile: evidenceProfile(
       ["execution", "verification"],
       ["execution", "schema_validation"],
@@ -957,6 +957,136 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
       nodeTypeLabel: "RuntimeOperatorSteerNode",
     },
     defaultLaw: { privilegedActions: ["runtime.turn.steer"] },
+  },
+  {
+    type: "runtime_thread_mode",
+    label: "Runtime Thread Mode",
+    group: "Flow",
+    family: "flow_control",
+    token: "TM",
+    familyLabel: "Runtime",
+    metricLabel: "Mode",
+    metricValue: "control",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["thread"],
+    outputs: ["mode", "trust", "event", "status"],
+    portDefinitions: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("mode", "Mode control", "output", "state", "output", false, "state"),
+      port("trust", "Trust warning", "output", "state", "output", false, "state"),
+      port("event", "Mode event", "output", "state", "output", false, "state"),
+      port("status", "Mode status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("thread", "Thread state", "input", "state", "state", false, "state"),
+      port("mode", "Mode control", "output", "state", "output", false, "state"),
+      port("trust", "Trust warning", "output", "state", "output", false, "state"),
+      port("event", "Mode event", "output", "state", "output", false, "state"),
+      port("status", "Mode status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeThreadModeEndpoint",
+        "runtimeThreadModeThreadIdField",
+        "runtimeThreadModeWorkflowNodeId",
+      ],
+      properties: {
+        runtimeThreadModeEndpoint: { type: "string" },
+        runtimeThreadModeField: { type: "string" },
+        runtimeThreadModeEventField: { type: "string" },
+        runtimeThreadModeStatusField: { type: "string" },
+        runtimeThreadModeTrustField: { type: "string" },
+        runtimeThreadModeReceiptField: { type: "string" },
+        runtimeThreadModePolicyField: { type: "string" },
+        runtimeThreadModeThreadId: { type: "string" },
+        runtimeThreadModeThreadIdField: { type: "string" },
+        runtimeThreadModeMode: { type: "string" },
+        runtimeThreadModeModeField: { type: "string" },
+        runtimeThreadModeApprovalMode: { type: "string" },
+        runtimeThreadModeApprovalModeField: { type: "string" },
+        runtimeThreadModeTrustProfile: { type: "string" },
+        runtimeThreadModeTrustProfileField: { type: "string" },
+        runtimeThreadModeWorkspaceTrustWorkflowNodeId: { type: "string" },
+        runtimeThreadModeWorkspaceTrustWorkflowNodeIdField: { type: "string" },
+        runtimeThreadModeRequestWarningAcknowledgement: { type: "boolean" },
+        runtimeThreadModeRequestWarningAcknowledgementField: { type: "string" },
+        runtimeThreadModeWorkflowNodeId: { type: "string" },
+        runtimeThreadModeSource: { type: "string" },
+        runtimeThreadModeActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_thread_mode"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_thread_mode",
+      "runtimeThreadMode.status",
+    ),
+    policyProfile: policyProfile("write", true),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_thread_mode",
+      executorId: "workflow.runtime_thread_mode",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_thread_mode",
+        "runtimeThreadMode.status",
+      ),
+      runtimeThreadModeEndpoint: "/v1/threads/{threadId}/mode",
+      runtimeThreadModeField: "runtimeThreadMode",
+      runtimeThreadModeEventField: "runtimeThreadMode.event",
+      runtimeThreadModeStatusField: "runtimeThreadMode.status",
+      runtimeThreadModeTrustField: "runtimeThreadMode.workspaceTrustWarning",
+      runtimeThreadModeReceiptField: "runtimeThreadMode.receiptRefs",
+      runtimeThreadModePolicyField: "runtimeThreadMode.policyDecisionRefs",
+      runtimeThreadModeThreadIdField: "threadId",
+      runtimeThreadModeModeField: "mode",
+      runtimeThreadModeMode: "review",
+      runtimeThreadModeApprovalModeField: "approvalMode",
+      runtimeThreadModeApprovalMode: "human_required",
+      runtimeThreadModeTrustProfileField: "trustProfile",
+      runtimeThreadModeTrustProfile: "local_private",
+      runtimeThreadModeWorkspaceTrustWorkflowNodeId:
+        "runtime.thread-mode.workspace-trust",
+      runtimeThreadModeRequestWarningAcknowledgement: true,
+      runtimeThreadModeWorkflowNodeId: "runtime.thread-mode",
+      runtimeThreadModeSource: "react_flow",
+      runtimeThreadModeActor: "operator",
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_thread_mode_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "request"],
+        properties: {
+          runtimeThreadMode: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          threadId: { type: "string" },
+          mode: { type: "string" },
+          approvalMode: { type: "string" },
+          endpoint: { type: "string" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeThreadMode: true,
+        runtimeThreadModeField: "runtimeThreadMode",
+        runtimeThreadModeStatusField: "runtimeThreadMode.status",
+      },
+      nodeTypeLabel: "RuntimeThreadModeNode",
+    },
+    defaultLaw: { privilegedActions: ["runtime.thread.mode"] },
   },
   {
     type: "runtime_context_compact",
@@ -5581,6 +5711,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_thread_fork", "human_gate", "decision", "output"];
     case "runtime_operator_steer":
       return ["runtime_operator_interrupt", "decision", "verifier", "output"];
+    case "runtime_thread_mode":
+      return ["runtime_operator_steer", "human_gate", "decision", "output"];
     case "runtime_context_compact":
       return ["runtime_operator_steer", "decision", "verifier", "output"];
     case "runtime_approval_request":
@@ -5700,6 +5832,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_thread_fork" ||
     type === "runtime_operator_interrupt" ||
     type === "runtime_operator_steer" ||
+    type === "runtime_thread_mode" ||
     type === "runtime_context_compact" ||
     type === "runtime_usage_meter" ||
     type === "runtime_context_budget" ||

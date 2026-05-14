@@ -107,6 +107,7 @@ const RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION = "ioi.runtime.thread-controls.v1";
 const RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION = "ioi.runtime.thread-mode-control.v1";
 const RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.runtime.model-route-control.v1";
 const WORKSPACE_TRUST_WARNING_SCHEMA_VERSION = "ioi.runtime.workspace-trust-warning.v1";
+const WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION = "ioi.runtime.workspace-trust-acknowledgement.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const RUNTIME_MCP_SERVE_SCHEMA_VERSION = "ioi.runtime.mcp-serve.v1";
 const RUNTIME_MCP_SERVE_PROTOCOL_VERSION = "2024-11-05";
@@ -1470,6 +1471,151 @@ export class AgentgresRuntimeStateStore {
       redaction_profile: "internal",
       fixture_profile: fixtureProfileForAgent(agent),
     });
+  }
+
+  acknowledgeWorkspaceTrustWarning(threadId, warningId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const normalizedWarningId = optionalString(warningId ?? request.warning_id ?? request.warningId);
+    if (!normalizedWarningId) {
+      throw runtimeError({
+        status: 400,
+        code: "workspace_trust_warning_id_required",
+        message: "Workspace trust acknowledgement requires a warning id.",
+        details: { threadId },
+      });
+    }
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const warningEvent = [...stream.events].reverse().find((event) => {
+      if (event.event_kind !== "workspace.trust_warning" && event.type !== "workspace_trust_warning") return false;
+      const payload = event.payload_summary ?? event.payload ?? {};
+      return (
+        event.event_id === normalizedWarningId ||
+        payload.warning_id === normalizedWarningId ||
+        payload.warningId === normalizedWarningId
+      );
+    });
+    if (!warningEvent) {
+      throw runtimeError({
+        status: 404,
+        code: "workspace_trust_warning_not_found",
+        message: "Workspace trust warning does not exist for this thread.",
+        details: { threadId, warningId: normalizedWarningId },
+      });
+    }
+    const warningPayload = warningEvent.payload_summary ?? warningEvent.payload ?? {};
+    const now = new Date().toISOString();
+    const source = operatorControlSource(request.source);
+    const acknowledgedBy =
+      optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message) ??
+      "Workspace trust warning acknowledged by operator.";
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
+      warningEvent.workflow_graph_id ??
+      warningPayload.workflow_graph_id ??
+      null;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      warningEvent.workflow_node_id ??
+      warningPayload.workflow_node_id ??
+      "runtime.workspace-trust";
+    const sourceEventId =
+      optionalString(request.source_event_id ?? request.sourceEventId) ??
+      warningEvent.event_id;
+    const acknowledgementHash = doctorHash(
+      JSON.stringify({
+        threadId,
+        warningId: normalizedWarningId,
+        sourceEventId,
+        workflowGraphId,
+        workflowNodeId,
+        acknowledgedBy,
+      }),
+    ).slice(0, 16);
+    const payload = {
+      schemaVersion: WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
+      schema_version: WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
+      object: "ioi.workspace_trust_acknowledgement",
+      acknowledgementId: `workspace_trust_ack_${acknowledgementHash}`,
+      acknowledgement_id: `workspace_trust_ack_${acknowledgementHash}`,
+      warningId: normalizedWarningId,
+      warning_id: normalizedWarningId,
+      warningEventId: warningEvent.event_id,
+      warning_event_id: warningEvent.event_id,
+      sourceEventId,
+      source_event_id: sourceEventId,
+      status: "acknowledged",
+      acknowledgedAt: now,
+      acknowledged_at: now,
+      acknowledgedBy,
+      acknowledged_by: acknowledgedBy,
+      reason,
+      mode: warningPayload.mode ?? warningPayload.thread_mode ?? null,
+      thread_mode: warningPayload.thread_mode ?? warningPayload.mode ?? null,
+      approvalMode: warningPayload.approvalMode ?? warningPayload.approval_mode ?? null,
+      approval_mode: warningPayload.approval_mode ?? warningPayload.approvalMode ?? null,
+      severity: warningPayload.severity ?? null,
+      trustProfile: warningPayload.trustProfile ?? warningPayload.trust_profile ?? "local_private",
+      trust_profile: warningPayload.trust_profile ?? warningPayload.trustProfile ?? "local_private",
+      threadId,
+      thread_id: threadId,
+      agentId: agent.id,
+      agent_id: agent.id,
+      sessionId: runtimeSessionIdForAgent(agent),
+      session_id: runtimeSessionIdForAgent(agent),
+      workflowGraphId,
+      workflow_graph_id: workflowGraphId,
+      workflowNodeId,
+      workflow_node_id: workflowNodeId,
+      controlSurface: source,
+      control_surface: source,
+      daemonEnforced: true,
+      daemon_enforced: true,
+      canvasLocalTrustStateAccepted: false,
+      canvas_local_trust_state_accepted: false,
+      commandExecuted: false,
+      command_executed: false,
+    };
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: "",
+      item_id: `${threadId}:item:workspace-trust-ack:${acknowledgementHash}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:workspace-trust-acknowledgement:${acknowledgementHash}`,
+      source,
+      source_event_kind: "WorkspaceTrust.Acknowledged",
+      event_kind: "workspace.trust_acknowledged",
+      status: "completed",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "workspace_trust",
+      payload_schema_version: WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
+      payload_summary: payload,
+      receipt_refs: [
+        `receipt_${agent.id}_workspace_trust_ack_${safeId(normalizedWarningId)}_${acknowledgementHash}`,
+      ],
+      policy_decision_refs: [
+        `policy_${agent.id}_workspace_trust_acknowledged_${acknowledgementHash}`,
+      ],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    return {
+      ...this.threadForAgent(agent),
+      workspace_trust_acknowledgement: payload,
+      workspaceTrustAcknowledgement: payload,
+      workspace_trust_acknowledgement_event: event,
+      workspaceTrustAcknowledgementEvent: event,
+      event,
+    };
   }
 
   forkThread(threadId, request = {}) {
@@ -10455,6 +10601,23 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
   }
   if (request.method === "POST" && action === "mode" && !segments[4]) {
     writeJsonResponse(response, store.updateThreadMode(threadId, await readBody(request)));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    action === "workspace-trust" &&
+    segments[4] &&
+    segments[5] === "acknowledge" &&
+    !segments[6]
+  ) {
+    writeJsonResponse(
+      response,
+      store.acknowledgeWorkspaceTrustWarning(
+        threadId,
+        decodeURIComponent(segments[4]),
+        await readBody(request),
+      ),
+    );
     return;
   }
   if (request.method === "POST" && action === "model" && !segments[4]) {
