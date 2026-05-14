@@ -204,8 +204,53 @@ workstream was narrower.
 | 202 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable telemetry budget-chain workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json |
 | 203 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry budget-chain workflow creator GUI proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-35-601Z/result.json |
 | 204 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector telemetry budget-chain materialization | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json |
+| 205 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector-created telemetry budget-chain execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 205. 2026-05-14 - Run-inspector-created telemetry budget-chain execution
+
+Implementation slice completed 2026-05-14, P1-D/P0-B live execution proof for
+the run-inspector-created telemetry budget chain:
+
+- Added a focused live daemon contract that starts a runtime thread, captures
+  selected run-inspector telemetry evidence, materializes the reusable
+  usage-meter -> context-budget -> compaction-policy -> coding-tool budget-gate
+  chain from that evidence, and re-runs materialization to prove the existing
+  compatible chain hydrates without duplicate nodes or edges.
+- Executed the hydrated chain through daemon-owned usage, context-budget,
+  compaction-policy, context-compaction, and coding-tool budget-gate paths.
+- Verified the daemon events, SDK projection, TUI control-state projection, and
+  React Flow run-inspector rows preserve the generated workflow graph ID and
+  generated node IDs across context-budget, compaction-policy, compact, and
+  coding-budget events; usage is verified through the daemon usage endpoint and
+  projected run-inspector row.
+- Extended `importAgentIde()` live-test source tracking so changes in the
+  telemetry budget-chain subflow/materialization helpers trigger an agent-ide
+  rebuild before live contract execution.
+- Extended source-contract guards so the run-inspector-created execution proof,
+  materialization helper usage, hydration assertion, and blocked coding-budget
+  tool-call marker remain present.
+- Updated the master guide so the next tactical focus moves from P1-D telemetry
+  execution to the package/activation evidence gaps that still keep the full
+  live GUI harness validator red.
+
+Validation evidence:
+
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow run-inspector-created telemetry budget chain executes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-21-243Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - live GUI run wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json`;
+    it was not blocked, all retained chat scenarios passed, and the telemetry
+    budget-chain creator plus run-inspector artifacts passed. The broader
+    validator remains red on package/activation evidence gaps unrelated to this
+    slice.
 
 ### Slice 204. 2026-05-14 - Run-inspector telemetry budget-chain materialization
 

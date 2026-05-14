@@ -274,6 +274,8 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
@@ -8425,6 +8427,424 @@ test("React Flow bound telemetry-source chain executes with graph and node ident
     assert.ok(finalSummary.workflowNodeIds.includes("bound-context-budget"));
     assert.ok(finalSummary.workflowNodeIds.includes("bound-compaction-policy"));
     assert.ok(finalSummary.workflowNodeIds.includes("bound-coding-tool-budget-gate"));
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("React Flow run-inspector-created telemetry budget chain executes with graph and node identity", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeCodingToolControlRequestFromWorkflowNode,
+    createRuntimeCompactionPolicyControlRequestFromWorkflowNode,
+    createRuntimeContextBudgetControlRequestFromWorkflowNode,
+    createRuntimeUsageMeterControlRequestFromWorkflowNode,
+    materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry,
+    projectRuntimeThreadEventsToWorkflowProjection,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    workflowRuntimeTelemetryBudgetChainIdsFromWorkflow,
+    workflowRuntimeTelemetrySummaryFromProjection,
+  } = await importAgentIde();
+  const cli = cliBinary();
+  const cwd = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ioi-run-inspector-telemetry-chain-workspace-"),
+  );
+  const stateDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ioi-run-inspector-telemetry-chain-state-"),
+  );
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.run-inspector-telemetry-chain";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove a run-inspector-created telemetry budget chain executes.",
+        options: {
+          local: { cwd },
+          model: { id: "auto", routeId: "route.native-local" },
+        },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        prompt: "Produce telemetry for a run-inspector-created budget chain.",
+        mode: "send",
+      }),
+    });
+
+    const seedUsageParams = new URLSearchParams({
+      source: "react_flow",
+      actor: "workflow-author",
+      event_kind: "RuntimeUsageTelemetry.Read",
+      component_kind: "usage_telemetry",
+      payload_schema_version: "ioi.runtime.usage-telemetry.v1",
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: "run-inspector-selected-telemetry",
+      usage_meter_scope: "thread",
+      simulation_mode: "true",
+    });
+    const seedUsage = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/usage?${seedUsageParams}`,
+    );
+    const seedProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      current_turn_id: turn.turn_id,
+      last_event_id: seedUsage.event_id,
+      usage_status: seedUsage,
+    });
+    const selectedTelemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: seedProjection,
+    });
+    assert.ok(selectedTelemetrySummary.sourceKinds.includes("tui_usage_rows"));
+    assert.equal(selectedTelemetrySummary.threadIds[0], thread.thread_id);
+
+    const workflow = {
+      version: "workflow.v1",
+      metadata: {
+        id: workflowGraphId,
+        name: "Run-inspector telemetry budget chain",
+        slug: "run-inspector-telemetry-budget-chain",
+        workflowKind: "agent_workflow",
+        executionMode: "local",
+        gitLocation:
+          ".agents/workflows/run-inspector-telemetry-budget-chain.workflow.json",
+        readOnly: false,
+        dirty: false,
+        createdAtMs: Date.now(),
+        updatedAtMs: Date.now(),
+      },
+      nodes: [],
+      edges: [],
+      global_config: {},
+    };
+    const materialized = materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry(
+      workflow,
+      selectedTelemetrySummary,
+      {
+        idPrefix: "run-inspector-exec-chain",
+        origin: { x: 120, y: 180 },
+        maxTotalTokens: 1,
+        contextWarningRatio: 0.000001,
+        contextBlockRatio: 0.000001,
+        executeCompaction: true,
+      },
+    );
+    assert.equal(materialized.status, "bound");
+    assert.equal(materialized.mode, "materialized");
+    assert.equal(materialized.insertedNodeIds.length, 4);
+    assert.equal(materialized.insertedEdgeIds.length, 3);
+    assert.deepEqual(materialized.boundNodeIds, materialized.insertedNodeIds);
+
+    const hydrated = materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry(
+      materialized.workflow,
+      selectedTelemetrySummary,
+    );
+    assert.equal(hydrated.status, "bound");
+    assert.equal(hydrated.mode, "hydrated");
+    assert.deepEqual(hydrated.insertedNodeIds, []);
+    assert.deepEqual(hydrated.insertedEdgeIds, []);
+    assert.deepEqual(hydrated.chainNodeIds, materialized.chainNodeIds);
+    assert.equal(hydrated.workflow.nodes.length, materialized.workflow.nodes.length);
+    assert.equal(hydrated.workflow.edges.length, materialized.workflow.edges.length);
+    assert.equal(
+      hydrated.workflow.nodes.filter((node) => node.type === "runtime_usage_meter").length,
+      1,
+    );
+
+    const chainIds = workflowRuntimeTelemetryBudgetChainIdsFromWorkflow(
+      hydrated.workflow,
+    );
+    assert.deepEqual(chainIds, {
+      usageMeterNodeId: "run-inspector-exec-chain-usage-meter",
+      contextBudgetNodeId: "run-inspector-exec-chain-context-budget",
+      compactionPolicyNodeId: "run-inspector-exec-chain-compaction-policy",
+      budgetGateNodeId: "run-inspector-exec-chain-coding-budget-gate",
+    });
+    const nodeById = (id) => hydrated.workflow.nodes.find((node) => node.id === id);
+    const usageNode = nodeById(chainIds.usageMeterNodeId);
+    const contextNode = nodeById(chainIds.contextBudgetNodeId);
+    const compactionNode = nodeById(chainIds.compactionPolicyNodeId);
+    const codingNode = nodeById(chainIds.budgetGateNodeId);
+    assert.ok(usageNode);
+    assert.ok(contextNode);
+    assert.ok(compactionNode);
+    assert.ok(codingNode);
+
+    const usageRequest = createRuntimeUsageMeterControlRequestFromWorkflowNode(
+      usageNode,
+      {},
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(usageRequest.metadata.workflowNodeId, chainIds.usageMeterNodeId);
+    const usageResult = await fetchJson(`${daemon.endpoint}${usageRequest.endpoint}`);
+    assert.equal(usageResult.workflow_graph_id, workflowGraphId);
+    assert.equal(usageResult.workflow_node_id, chainIds.usageMeterNodeId);
+    assert.ok(usageResult.total_tokens >= turn.usage.total_tokens);
+
+    const budgetRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
+      contextNode,
+      { runtimeUsageMeter: usageResult },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(budgetRequest.body.workflowNodeId, chainIds.contextBudgetNodeId);
+    assert.equal(
+      budgetRequest.body.usageTelemetry.workflow_node_id,
+      chainIds.usageMeterNodeId,
+    );
+    const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
+      method: budgetRequest.method,
+      body: JSON.stringify(budgetRequest.body),
+    });
+    assert.equal(budgetResult.status, "blocked");
+    assert.equal(budgetResult.workflow_graph_id, workflowGraphId);
+    assert.equal(budgetResult.workflow_node_id, chainIds.contextBudgetNodeId);
+
+    const policyRequest = createRuntimeCompactionPolicyControlRequestFromWorkflowNode(
+      compactionNode,
+      { runtimeContextBudget: budgetResult },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(policyRequest.body.workflowNodeId, chainIds.compactionPolicyNodeId);
+    assert.equal(policyRequest.body.contextBudgetStatus, "blocked");
+    assert.equal(
+      policyRequest.body.policy.compactWorkflowNodeId,
+      `${chainIds.compactionPolicyNodeId}.compact`,
+    );
+    const policyResult = await fetchJson(`${daemon.endpoint}${policyRequest.endpoint}`, {
+      method: policyRequest.method,
+      body: JSON.stringify(policyRequest.body),
+    });
+    assert.equal(policyResult.status, "compacted");
+    assert.equal(policyResult.action, "compact");
+    assert.equal(policyResult.workflow_graph_id, workflowGraphId);
+    assert.equal(policyResult.workflow_node_id, chainIds.compactionPolicyNodeId);
+    assert.equal(
+      policyResult.compact_workflow_node_id,
+      `${chainIds.compactionPolicyNodeId}.compact`,
+    );
+    assert.equal(policyResult.compaction_executed, true);
+
+    const runInspectorRows = [
+      {
+        id: "run-inspector-created-context-budget-row",
+        row_kind: "context_budget",
+        status: budgetResult.status,
+        context_budget_status: budgetResult.status,
+        context_budget_mode: budgetResult.mode,
+        context_budget_decision_id: budgetResult.policy_decision_id,
+        usage_total_tokens: String(budgetResult.usage_summary.total_tokens),
+        usage_cost_estimate_usd: String(budgetResult.usage_summary.estimated_cost_usd),
+        usage_context_pressure: String(budgetResult.usage_summary.context_pressure),
+        usage_context_pressure_status:
+          budgetResult.usage_summary.context_pressure_status,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: chainIds.contextBudgetNodeId,
+        event_id: budgetResult.event_id,
+        receipt_refs: budgetResult.receipt_refs,
+        policy_decision_refs: budgetResult.policy_decision_refs,
+        context_budget: budgetResult,
+      },
+      {
+        id: "run-inspector-created-compaction-policy-row",
+        row_kind: "compaction_policy",
+        status: policyResult.status,
+        turn_id: turn.turn_id,
+        context_budget_status: policyResult.budget_status,
+        compaction_policy_status: policyResult.status,
+        compaction_policy_action: policyResult.action,
+        compaction_policy_decision_id: policyResult.policy_decision_id,
+        compaction_executed: String(policyResult.compaction_executed),
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: chainIds.compactionPolicyNodeId,
+        event_id: policyResult.event_id,
+        receipt_refs: policyResult.receipt_refs,
+        policy_decision_refs: policyResult.policy_decision_refs,
+        context_budget: budgetResult,
+      },
+    ];
+    const preCodingProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      current_turn_id: turn.turn_id,
+      last_event_id: policyResult.event_id,
+      usage_status: usageResult,
+      context_rows: runInspectorRows,
+    });
+    for (const [rowKind, nodeId] of [
+      ["usage_status", chainIds.usageMeterNodeId],
+      ["context_budget", chainIds.contextBudgetNodeId],
+      ["compaction_policy", chainIds.compactionPolicyNodeId],
+    ]) {
+      assert.ok(
+        preCodingProjection.rows.some(
+          (row) => row.rowKind === rowKind && row.reactFlowNodeId === nodeId,
+        ),
+      );
+    }
+    const liveTelemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: preCodingProjection,
+    });
+    assert.ok(liveTelemetrySummary.eventIds.includes(policyResult.event_id));
+    assert.ok(
+      liveTelemetrySummary.workflowNodeIds.includes(chainIds.compactionPolicyNodeId),
+    );
+
+    const codingRequest = createRuntimeCodingToolControlRequestFromWorkflowNode(
+      codingNode,
+      {
+        ...codingNode.config.logic.testInput,
+        runtimeTelemetrySummary: liveTelemetrySummary,
+      },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(codingRequest.body.workflowNodeId, chainIds.budgetGateNodeId);
+    assert.ok(
+      codingRequest.body.budgetUsageTelemetry.source_refs.includes(
+        policyResult.event_id,
+      ),
+    );
+    const blockedTool = await fetchJsonStatus(`${daemon.endpoint}${codingRequest.endpoint}`, {
+      method: codingRequest.method,
+      body: JSON.stringify({
+        ...codingRequest.body,
+        tool_call_id: "run_inspector_created_telemetry_chain_budget_blocked",
+        toolCallId: "run_inspector_created_telemetry_chain_budget_blocked",
+      }),
+    });
+    assert.equal(blockedTool.status, 403);
+    assert.equal(blockedTool.body.error.details.reason, "coding_tool_budget_exceeded");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const contextBudgetEvent = daemonEvents.find(
+      (event) =>
+        event.component_kind === "context_budget" &&
+        event.workflow_node_id === chainIds.contextBudgetNodeId,
+    );
+    const policyEvent = daemonEvents.find(
+      (event) => event.event_id === policyResult.event_id,
+    );
+    const compactEvent = daemonEvents.find(
+      (event) => event.event_id === policyResult.compaction_event_id,
+    );
+    const codingBudgetEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "policy.blocked" &&
+        event.component_kind === "coding_tool" &&
+        event.workflow_node_id === chainIds.budgetGateNodeId,
+    );
+    for (const [label, event] of [
+      ["context budget", contextBudgetEvent],
+      ["compaction policy", policyEvent],
+      ["context compact", compactEvent],
+      ["coding budget", codingBudgetEvent],
+    ]) {
+      assert.ok(event, `${label} event missing`);
+      assert.equal(event.workflow_graph_id, workflowGraphId);
+    }
+    assert.equal(policyEvent.workflow_node_id, chainIds.compactionPolicyNodeId);
+    assert.equal(
+      compactEvent.workflow_node_id,
+      `${chainIds.compactionPolicyNodeId}.compact`,
+    );
+    assert.equal(codingBudgetEvent.status, "blocked");
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, {
+      substrateClient: sdkClient,
+    });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const runtimeProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const projectedNode = (eventId) =>
+      runtimeProjection.nodes.find((node) => node.eventIds.includes(eventId));
+    assert.equal(
+      projectedNode(contextBudgetEvent.event_id)?.nodeKind,
+      "runtime_context_budget",
+    );
+    assert.equal(
+      projectedNode(contextBudgetEvent.event_id)?.workflowNodeId,
+      chainIds.contextBudgetNodeId,
+    );
+    assert.equal(
+      projectedNode(policyEvent.event_id)?.nodeKind,
+      "runtime_compaction_policy",
+    );
+    assert.equal(
+      projectedNode(policyEvent.event_id)?.workflowNodeId,
+      chainIds.compactionPolicyNodeId,
+    );
+    assert.equal(projectedNode(compactEvent.event_id)?.nodeKind, "runtime_context_compact");
+    assert.equal(
+      projectedNode(codingBudgetEvent.event_id)?.workflowNodeId,
+      chainIds.budgetGateNodeId,
+    );
+
+    const finalTui = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const finalControlState = JSON.parse(finalTui.stdout).tui_control_state;
+    assert.ok(
+      finalControlState.coding_tool_rows.some(
+        (row) =>
+          row.row_kind === "coding_tool_budget" &&
+          row.workflow_node_id === chainIds.budgetGateNodeId &&
+          row.event_id === codingBudgetEvent.event_id,
+      ),
+    );
+    const finalProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      ...finalControlState,
+      workflow_graph_id: workflowGraphId,
+      usage_status: usageResult,
+      context_rows: [
+        ...runInspectorRows,
+        ...(Array.isArray(finalControlState.context_rows)
+          ? finalControlState.context_rows
+          : []),
+      ],
+    });
+    for (const [rowKind, nodeId] of [
+      ["usage_status", chainIds.usageMeterNodeId],
+      ["context_budget", chainIds.contextBudgetNodeId],
+      ["compaction_policy", chainIds.compactionPolicyNodeId],
+      ["coding_tool_budget", chainIds.budgetGateNodeId],
+    ]) {
+      assert.ok(
+        finalProjection.rows.some(
+          (row) => row.rowKind === rowKind && row.reactFlowNodeId === nodeId,
+        ),
+      );
+    }
+    const finalSummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: finalProjection,
+    });
+    assert.ok(finalSummary.eventIds.includes(codingBudgetEvent.event_id));
+    for (const nodeId of [
+      chainIds.usageMeterNodeId,
+      chainIds.contextBudgetNodeId,
+      chainIds.compactionPolicyNodeId,
+      chainIds.budgetGateNodeId,
+    ]) {
+      assert.ok(finalSummary.workflowNodeIds.includes(nodeId));
+    }
   } finally {
     await daemon.close();
   }
