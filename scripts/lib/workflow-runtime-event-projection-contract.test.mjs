@@ -36,6 +36,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const codingToolBudgetRecoveryBinding = read(
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.ts",
   );
+  const telemetryBudgetChainSubflow = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+  );
   const compactionPolicyControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
@@ -80,6 +83,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   const codingToolBudgetRecoveryBindingTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.test.ts",
+  );
+  const telemetryBudgetChainSubflowTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
   );
   const workflowValidation = read(
     "packages/agent-ide/src/runtime/workflow-validation.ts",
@@ -181,6 +187,43 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(codingToolBudgetRecoveryPolicy, /budgetRecoveryOperatorRole/);
   assert.match(projection, /workflow\.run\.retry_completed/);
   assert.match(projection, /coding_tool_budget_preflight_blocked/);
+  assert.match(
+    telemetryBudgetChainSubflow,
+    /ioi\.workflow\.runtime-telemetry-budget-chain-subflow\.v1/,
+  );
+  assert.match(
+    telemetryBudgetChainSubflow,
+    /createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow/,
+  );
+  for (const nodeType of [
+    "runtime_usage_meter",
+    "runtime_context_budget",
+    "runtime_compaction_policy",
+    "plugin_tool",
+  ]) {
+    assert.match(telemetryBudgetChainSubflow, new RegExp(`"${nodeType}"`));
+  }
+  assert.match(telemetryBudgetChainSubflow, /runtimeUsageMeter/);
+  assert.match(telemetryBudgetChainSubflow, /runtimeContextBudget/);
+  assert.match(telemetryBudgetChainSubflow, /runtimeCompactionPolicy/);
+  assert.match(telemetryBudgetChainSubflow, /budgetUsageField: "runtimeTelemetrySummary"/);
+  assert.match(
+    telemetryBudgetChainSubflowTest,
+    /generated telemetry budget chain nodes compile into daemon requests/,
+  );
+  assert.match(
+    telemetryBudgetChainSubflowTest,
+    /missing_runtime_telemetry_source_usage_binding/,
+  );
+  assert.match(
+    exports,
+    /createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow/,
+  );
+  assert.match(composerController, /handleInsertRuntimeTelemetryBudgetChainTemplate/);
+  assert.match(
+    composerView,
+    /workflow-add-runtime-telemetry-budget-chain-template/,
+  );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);
   assert.match(projection, /runtimeSubagentRun/);

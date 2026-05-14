@@ -7588,10 +7588,16 @@ export function buildGuiEvidenceAssessment({
 
 function preflight() {
   const failures = [];
-  const packageScripts = runShell(
-    "node -e \"const p=require('./package.json'); console.log(Boolean(p.scripts?.['dev:desktop']))\"",
-  );
-  if (packageScripts.status !== 0 || packageScripts.stdout.trim() !== "true") {
+  let hasDesktopScript = false;
+  try {
+    const packageJson = JSON.parse(
+      readFileSync(join(repoRoot, "package.json"), "utf8"),
+    );
+    hasDesktopScript = Boolean(packageJson.scripts?.["dev:desktop"]);
+  } catch {
+    hasDesktopScript = false;
+  }
+  if (!hasDesktopScript) {
     failures.push("package.json is missing dev:desktop script");
   }
   for (const command of ["npm", "bash"]) {

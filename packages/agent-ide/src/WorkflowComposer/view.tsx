@@ -91,6 +91,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleImportPortablePackage,
     handleInsertAgentLoopMacro,
     handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
+    handleInsertRuntimeTelemetryBudgetChainTemplate,
     handleInspectExecutionNode,
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,
@@ -829,6 +830,19 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                       <span>
                         Prewires request, approve, reject, and retry nodes with
                         configurable runtime inputs.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="workflow-add-runtime-telemetry-budget-chain-template"
+                      onClick={handleInsertRuntimeTelemetryBudgetChainTemplate}
+                      title="Insert a telemetry-governed runtime usage, context budget, compaction, and coding budget gate chain"
+                    >
+                      <strong>Telemetry budget chain</strong>
+                      <span>
+                        Prewires usage, context budget, compaction policy, and
+                        coding-tool budget gate nodes with live runtime
+                        mappings.
                       </span>
                     </button>
                   </section>

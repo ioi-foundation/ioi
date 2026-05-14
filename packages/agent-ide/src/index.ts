@@ -550,6 +550,14 @@ export {
   createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow,
 } from "./runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
 export type {
+  WorkflowRuntimeTelemetryBudgetChainSubflow,
+  WorkflowRuntimeTelemetryBudgetChainSubflowOptions,
+} from "./runtime/workflow-runtime-telemetry-budget-chain-subflow";
+export {
+  WORKFLOW_RUNTIME_TELEMETRY_BUDGET_CHAIN_SUBFLOW_SCHEMA_VERSION,
+  createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow,
+} from "./runtime/workflow-runtime-telemetry-budget-chain-subflow";
+export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
   WorkflowRuntimeCodingToolBudgetRecoveryTemplateBindingResult,
