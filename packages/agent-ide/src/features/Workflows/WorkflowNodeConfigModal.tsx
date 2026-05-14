@@ -37,6 +37,7 @@ import {
   workflowNodeRunChildLineage,
   workflowSelectedNodeBindingSummary,
 } from "../../runtime/workflow-rail-model";
+import { workflowPrimitiveConfigProjection } from "../../runtime/workflow-primitive-config-projection";
 
 export type {
   WorkflowCompatibleNodeHint,
@@ -130,6 +131,10 @@ export function WorkflowNodeConfigModal({
 }) {
   const logic = node.config?.logic ?? {};
   const law = node.config?.law ?? {};
+  const primitiveProjection = workflowPrimitiveConfigProjection(
+    node.type as WorkflowNodeKind,
+    logic,
+  );
   const viewMacro = logic.viewMacro;
   const ports = node.ports ?? [];
   const [activeSection, setActiveSection] =
@@ -675,8 +680,12 @@ export function WorkflowNodeConfigModal({
             </header>
             <dl>
               <div>
-                <dt>Kind</dt>
-                <dd>{node.type}</dd>
+                <dt>Primitive</dt>
+                <dd>{primitiveProjection.primitiveLabel}</dd>
+              </div>
+              <div>
+                <dt>Mode</dt>
+                <dd>{primitiveProjection.modeLabel}</dd>
               </div>
               <div>
                 <dt>Policy</dt>
@@ -780,6 +789,18 @@ export function WorkflowNodeConfigModal({
               ) : (
                 <span>No typed ports configured.</span>
               )}
+            </div>
+          </section>
+          <section
+            className="workflow-config-port-summary"
+            data-testid="workflow-node-primitive-profile"
+          >
+            <strong>Primitive profile</strong>
+            <div>
+              <span>{primitiveProjection.primitiveLabel}</span>
+              <span>Mode · {primitiveProjection.modeLabel}</span>
+              <span>Authority · {primitiveProjection.authorityLabel}</span>
+              <span>Raw · {primitiveProjection.rawNodeKind}</span>
             </div>
           </section>
           <label>
@@ -1089,6 +1110,7 @@ export function WorkflowNodeConfigModal({
                 actionKind: actionKindForWorkflowNodeType(
                   node.type as WorkflowNodeKind,
                 ),
+                primitiveProjection,
                 bindingSummary,
               },
               null,
