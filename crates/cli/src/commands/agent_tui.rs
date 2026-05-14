@@ -2007,6 +2007,7 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
     let run_lifecycle_rows = tui_run_lifecycle_rows(&render.jobs, thread_id.as_deref());
     let cost_rows = tui_usage_delta_rows(&render.events, thread_id.as_deref());
     let context_rows = tui_context_pressure_rows(&render.events, thread_id.as_deref());
+    let coding_tool_rows = tui_coding_tool_rows(&render.events, thread_id.as_deref());
     let usage_status = latest_usage_delta_status(&render.events, thread_id.as_deref())
         .unwrap_or_else(|| tui_usage_status(&render.thread, thread_id.as_deref()));
 
@@ -2063,6 +2064,7 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
         "run_lifecycle_rows": run_lifecycle_rows,
         "cost_rows": cost_rows,
         "context_rows": context_rows,
+        "coding_tool_rows": coding_tool_rows,
         "command_history": command_history,
         "validation_errors": [],
     })
@@ -2369,6 +2371,353 @@ pub(crate) fn tui_context_pressure_rows(
             "thread_id": fallback_thread_id,
         }
     })]
+}
+
+pub(crate) fn tui_coding_tool_rows(
+    events: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    events
+        .iter()
+        .filter(|event| is_tui_coding_tool_budget_block_event(event))
+        .map(|event| tui_coding_tool_budget_row(event, fallback_thread_id))
+        .collect()
+}
+
+fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
+    let null = Value::Null;
+    let payload = event_payload_summary(event);
+    let result = payload.pointer("/result").unwrap_or(&null);
+    let result_summary = payload
+        .pointer("/result_summary")
+        .or_else(|| payload.pointer("/resultSummary"))
+        .unwrap_or(&null);
+    let error = payload
+        .pointer("/error")
+        .or_else(|| result.pointer("/error"))
+        .unwrap_or(&null);
+    let error_details = error.pointer("/details").unwrap_or(&null);
+    let context_budget = payload
+        .pointer("/context_budget")
+        .or_else(|| payload.pointer("/contextBudget"))
+        .or_else(|| result.pointer("/context_budget"))
+        .or_else(|| result.pointer("/contextBudget"))
+        .or_else(|| error_details.pointer("/context_budget"))
+        .or_else(|| error_details.pointer("/contextBudget"))
+        .unwrap_or(&null);
+    let policy_decision = context_budget
+        .pointer("/policy_decision")
+        .or_else(|| context_budget.pointer("/policyDecision"))
+        .unwrap_or(&null);
+    let budget_usage_telemetry = payload
+        .pointer("/budget_usage_telemetry")
+        .or_else(|| payload.pointer("/budgetUsageTelemetry"))
+        .or_else(|| result.pointer("/budget_usage_telemetry"))
+        .or_else(|| result.pointer("/budgetUsageTelemetry"))
+        .or_else(|| error_details.pointer("/budget_usage_telemetry"))
+        .or_else(|| error_details.pointer("/budgetUsageTelemetry"))
+        .or_else(|| context_budget.pointer("/usage_telemetry"))
+        .or_else(|| context_budget.pointer("/usageTelemetry"))
+        .unwrap_or(&null);
+    let usage_summary = context_budget
+        .pointer("/usage_summary")
+        .or_else(|| context_budget.pointer("/usageSummary"))
+        .or_else(|| budget_usage_telemetry.pointer("/usage_summary"))
+        .or_else(|| budget_usage_telemetry.pointer("/usageSummary"))
+        .unwrap_or(budget_usage_telemetry);
+    let checks = context_budget
+        .pointer("/checks")
+        .or_else(|| policy_decision.pointer("/checks"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let violations = context_budget
+        .pointer("/violations")
+        .or_else(|| policy_decision.pointer("/violations"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let check_count = checks.as_array().map(|items| items.len()).unwrap_or(0);
+    let violation_count = violations.as_array().map(|items| items.len()).unwrap_or(0);
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    let cursor = tui_event_cursor(event, seq);
+    let tool_name = json_path_string(payload, "/tool_name")
+        .or_else(|| json_path_string(payload, "/toolName"))
+        .or_else(|| json_path_string(payload, "/tool_id"))
+        .or_else(|| json_path_string(payload, "/toolId"))
+        .or_else(|| json_path_string(result, "/toolName"))
+        .or_else(|| json_path_string(result, "/tool_name"))
+        .or_else(|| json_path_string(error_details, "/toolId"))
+        .or_else(|| json_path_string(error_details, "/tool_id"));
+    let tool_call_id = json_path_string(payload, "/tool_call_id")
+        .or_else(|| json_path_string(payload, "/toolCallId"))
+        .or_else(|| json_path_string(result, "/tool_call_id"))
+        .or_else(|| json_path_string(result, "/toolCallId"))
+        .or_else(|| json_path_string(error_details, "/tool_call_id"))
+        .or_else(|| json_path_string(error_details, "/toolCallId"))
+        .or_else(|| json_path_string(event, "/tool_call_id"))
+        .or_else(|| json_path_string(event, "/toolCallId"));
+    let tool_key = tool_name
+        .clone()
+        .or_else(|| tool_call_id.clone())
+        .unwrap_or_else(|| "coding_tool".to_string());
+    let thread_id = json_path_string(payload, "/thread_id")
+        .or_else(|| json_path_string(payload, "/threadId"))
+        .or_else(|| json_path_string(event, "/thread_id"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let turn_id = json_path_string(payload, "/turn_id")
+        .or_else(|| json_path_string(payload, "/turnId"))
+        .or_else(|| json_path_string(event, "/turn_id"));
+    let workflow_graph_id = json_path_string(event, "/workflow_graph_id")
+        .or_else(|| json_path_string(payload, "/workflow_graph_id"))
+        .or_else(|| json_path_string(payload, "/workflowGraphId"));
+    let workflow_node_id = json_path_string(event, "/workflow_node_id")
+        .or_else(|| json_path_string(payload, "/workflow_node_id"))
+        .or_else(|| json_path_string(payload, "/workflowNodeId"))
+        .unwrap_or_else(|| format!("runtime.coding-tool-budget.{}", safe_id(&tool_key)));
+    let budget_status = json_path_string(payload, "/budget_status")
+        .or_else(|| json_path_string(payload, "/budgetStatus"))
+        .or_else(|| json_path_string(result, "/budget_status"))
+        .or_else(|| json_path_string(result, "/budgetStatus"))
+        .or_else(|| json_path_string(error_details, "/budget_status"))
+        .or_else(|| json_path_string(error_details, "/budgetStatus"))
+        .unwrap_or_else(|| "exceeded".to_string());
+    let context_budget_status = json_path_string(payload, "/context_budget_status")
+        .or_else(|| json_path_string(payload, "/contextBudgetStatus"))
+        .or_else(|| json_path_string(result, "/context_budget_status"))
+        .or_else(|| json_path_string(result, "/contextBudgetStatus"))
+        .or_else(|| json_path_string(error_details, "/context_budget_status"))
+        .or_else(|| json_path_string(error_details, "/contextBudgetStatus"))
+        .or_else(|| json_path_string(context_budget, "/status"))
+        .unwrap_or_else(|| "blocked".to_string());
+    let budget_mode = json_path_string(payload, "/budget_mode")
+        .or_else(|| json_path_string(payload, "/budgetMode"))
+        .or_else(|| json_path_string(context_budget, "/mode"));
+    let decision_id = json_path_string(payload, "/context_budget_decision_id")
+        .or_else(|| json_path_string(payload, "/contextBudgetDecisionId"))
+        .or_else(|| json_path_string(payload, "/budget_decision_id"))
+        .or_else(|| json_path_string(payload, "/budgetDecisionId"))
+        .or_else(|| json_path_string(context_budget, "/policy_decision_id"))
+        .or_else(|| json_path_string(context_budget, "/policyDecisionId"))
+        .or_else(|| json_path_string(policy_decision, "/policy_decision_id"))
+        .or_else(|| json_path_string(policy_decision, "/policyDecisionId"));
+    let reason = json_path_string(payload, "/reason")
+        .or_else(|| json_path_string(payload, "/block_reason"))
+        .or_else(|| json_path_string(payload, "/blockReason"))
+        .or_else(|| json_path_string(result_summary, "/reason"))
+        .or_else(|| json_path_string(error_details, "/reason"))
+        .or_else(|| json_path_string(error, "/code"));
+    let receipt_refs = event
+        .pointer("/receipt_refs")
+        .or_else(|| event.pointer("/receiptRefs"))
+        .or_else(|| payload.pointer("/receipt_refs"))
+        .or_else(|| payload.pointer("/receiptRefs"))
+        .or_else(|| context_budget.pointer("/receipt_refs"))
+        .or_else(|| context_budget.pointer("/receiptRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let policy_decision_refs = event
+        .pointer("/policy_decision_refs")
+        .or_else(|| event.pointer("/policyDecisionRefs"))
+        .or_else(|| payload.pointer("/policy_decision_refs"))
+        .or_else(|| payload.pointer("/policyDecisionRefs"))
+        .or_else(|| context_budget.pointer("/policy_decision_refs"))
+        .or_else(|| context_budget.pointer("/policyDecisionRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let row_id = format!(
+        "tui-coding-tool-budget-{}-{}",
+        safe_id(&tool_key),
+        seq.unwrap_or(0)
+    );
+    let event_id = json_path_string(event, "/event_id");
+    let usage_total_tokens = json_path_string(usage_summary, "/total_tokens")
+        .or_else(|| json_path_string(usage_summary, "/totalTokens"))
+        .unwrap_or_else(|| "0".to_string());
+    let usage_cost_estimate_usd = json_path_string(usage_summary, "/estimated_cost_usd")
+        .or_else(|| json_path_string(usage_summary, "/estimatedCostUsd"))
+        .or_else(|| json_path_string(usage_summary, "/cost_estimate_usd"))
+        .or_else(|| json_path_string(usage_summary, "/costEstimateUsd"))
+        .unwrap_or_else(|| "0".to_string());
+    let usage_context_pressure = json_path_string(usage_summary, "/context_pressure")
+        .or_else(|| json_path_string(usage_summary, "/contextPressure"))
+        .unwrap_or_else(|| "0".to_string());
+    let usage_context_pressure_status = json_path_string(usage_summary, "/context_pressure_status")
+        .or_else(|| json_path_string(usage_summary, "/contextPressureStatus"))
+        .unwrap_or_else(|| "blocked".to_string());
+
+    let mut row = Map::new();
+    row.insert(
+        "schema_version".to_string(),
+        Value::String(TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION.to_string()),
+    );
+    row.insert("surface".to_string(), Value::String("tui".to_string()));
+    row.insert("id".to_string(), Value::String(row_id));
+    row.insert(
+        "row_kind".to_string(),
+        Value::String("coding_tool_budget".to_string()),
+    );
+    row.insert(
+        "status".to_string(),
+        Value::String(json_path_string(event, "/status").unwrap_or_else(|| "blocked".to_string())),
+    );
+    row.insert("command".to_string(), Value::String("events".to_string()));
+    row.insert(
+        "raw_input".to_string(),
+        Value::String("/events".to_string()),
+    );
+    row.insert(
+        "label".to_string(),
+        Value::String(format!("Coding tool budget: {tool_key}")),
+    );
+    row.insert(
+        "message".to_string(),
+        json_path_string(payload, "/summary")
+            .or_else(|| json_path_string(error, "/message"))
+            .or_else(|| reason.clone())
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "summary".to_string(),
+        json_path_string(payload, "/summary")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "reason".to_string(),
+        reason.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "thread_id".to_string(),
+        thread_id.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "turn_id".to_string(),
+        turn_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "workflow_graph_id".to_string(),
+        workflow_graph_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "workflow_node_id".to_string(),
+        Value::String(workflow_node_id.clone()),
+    );
+    row.insert(
+        "tool_name".to_string(),
+        tool_name.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "tool_call_id".to_string(),
+        tool_call_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert("budget_status".to_string(), Value::String(budget_status));
+    row.insert(
+        "context_budget_status".to_string(),
+        Value::String(context_budget_status),
+    );
+    row.insert(
+        "context_budget_mode".to_string(),
+        budget_mode.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "context_budget_decision_id".to_string(),
+        decision_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "coding_tool_budget_check_count".to_string(),
+        Value::Number((check_count as u64).into()),
+    );
+    row.insert(
+        "coding_tool_budget_violation_count".to_string(),
+        Value::Number((violation_count as u64).into()),
+    );
+    row.insert(
+        "usage_total_tokens".to_string(),
+        Value::String(usage_total_tokens),
+    );
+    row.insert(
+        "usage_cost_estimate_usd".to_string(),
+        Value::String(usage_cost_estimate_usd),
+    );
+    row.insert(
+        "usage_context_pressure".to_string(),
+        Value::String(usage_context_pressure),
+    );
+    row.insert(
+        "usage_context_pressure_status".to_string(),
+        Value::String(usage_context_pressure_status),
+    );
+    row.insert("context_budget".to_string(), context_budget.clone());
+    row.insert(
+        "budget_usage_telemetry".to_string(),
+        budget_usage_telemetry.clone(),
+    );
+    row.insert("result_summary".to_string(), result_summary.clone());
+    row.insert("error".to_string(), error.clone());
+    row.insert("checks".to_string(), checks);
+    row.insert("violations".to_string(), violations);
+    row.insert("mutation_blocked".to_string(), Value::Bool(true));
+    row.insert("receipt_refs".to_string(), receipt_refs);
+    row.insert("policy_decision_refs".to_string(), policy_decision_refs);
+    row.insert(
+        "event_id".to_string(),
+        event_id.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "event_kind".to_string(),
+        json_path_string(event, "/event_kind")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "source_event_kind".to_string(),
+        json_path_string(event, "/source_event_kind")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "component_kind".to_string(),
+        json_path_string(event, "/component_kind")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "seq".to_string(),
+        seq.map(|value| Value::Number(value.into()))
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "sequence".to_string(),
+        seq.map(|value| Value::Number(value.into()))
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "cursor".to_string(),
+        cursor.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "tui_reopen".to_string(),
+        serde_json::json!({
+            "command": "ioi agent tui",
+            "args": tui_reopen_args(thread_id.as_deref(), seq),
+            "thread_id": thread_id,
+            "since_seq": seq,
+            "last_event_id": event_id,
+        }),
+    );
+    row.insert(
+        "react_flow".to_string(),
+        serde_json::json!({
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "event_id": json_path_string(event, "/event_id"),
+            "cursor": cursor,
+        }),
+    );
+    Value::Object(row)
 }
 
 pub(crate) fn tui_context_rows(
@@ -3676,6 +4025,66 @@ fn is_tui_context_pressure_event(event: &Value) -> bool {
         || haystack.contains("context_pressure")
 }
 
+fn is_tui_coding_tool_budget_block_event(event: &Value) -> bool {
+    let component_kind = json_path_string(event, "/component_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if component_kind != "coding_tool" {
+        return false;
+    }
+    let event_kind = json_path_string(event, "/event_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let status = json_path_string(event, "/status")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if event_kind != "policy.blocked" && status != "blocked" {
+        return false;
+    }
+    let null = Value::Null;
+    let payload = event_payload_summary(event);
+    let result = payload.pointer("/result").unwrap_or(&null);
+    let error = payload
+        .pointer("/error")
+        .or_else(|| result.pointer("/error"))
+        .unwrap_or(&null);
+    let error_details = error.pointer("/details").unwrap_or(&null);
+    let result_summary = payload
+        .pointer("/result_summary")
+        .or_else(|| payload.pointer("/resultSummary"))
+        .unwrap_or(&null);
+    matches!(
+        json_path_string(result_summary, "/reason").as_deref(),
+        Some("coding_tool_budget_exceeded")
+    ) || matches!(
+        json_path_string(error, "/code").as_deref(),
+        Some("coding_tool_budget_exceeded")
+    ) || matches!(
+        json_path_string(error_details, "/reason").as_deref(),
+        Some("coding_tool_budget_exceeded")
+    ) || matches!(
+        json_path_string(payload, "/budget_status")
+            .or_else(|| json_path_string(payload, "/budgetStatus"))
+            .as_deref(),
+        Some("exceeded")
+    ) || matches!(
+        json_path_string(payload, "/context_budget_status")
+            .or_else(|| json_path_string(payload, "/contextBudgetStatus"))
+            .as_deref(),
+        Some("blocked")
+    ) || matches!(
+        json_path_string(result, "/context_budget_status")
+            .or_else(|| json_path_string(result, "/contextBudgetStatus"))
+            .as_deref(),
+        Some("blocked")
+    ) || matches!(
+        json_path_string(error_details, "/context_budget_status")
+            .or_else(|| json_path_string(error_details, "/contextBudgetStatus"))
+            .as_deref(),
+        Some("blocked")
+    )
+}
+
 fn is_tui_workspace_trust_warning_event(event: &Value) -> bool {
     let haystack = [
         json_path_string(event, "/event_kind"),
@@ -4087,6 +4496,119 @@ mod tests {
             "runtime.context-budget"
         );
         assert_eq!(context_rows[0]["cursor"], "events_thread_live:13");
+    }
+
+    #[test]
+    fn tui_coding_tool_budget_rows_project_policy_blocks() {
+        let events = vec![serde_json::json!({
+            "event_id": "event_coding_budget_blocked",
+            "event_stream_id": "events_thread_live",
+            "seq": 14,
+            "thread_id": "thread_live",
+            "turn_id": "turn_live",
+            "event_kind": "policy.blocked",
+            "source_event_kind": "CodingTool.FileApplyPatch",
+            "status": "blocked",
+            "component_kind": "coding_tool",
+            "workflow_graph_id": "workflow.react-flow.coding-tool-summary-budget",
+            "workflow_node_id": "workflow.coding.file.apply_patch.summary-budget",
+            "tool_call_id": "coding_tool_summary_budget_blocked",
+            "receipt_refs": [
+                "receipt_coding_tool_file_apply_patch_budget",
+                "receipt_context_budget_thread_budget",
+            ],
+            "policy_decision_refs": ["policy_context_budget_thread_budget_blocked"],
+            "payload_summary": {
+                "tool_name": "file.apply_patch",
+                "tool_call_id": "coding_tool_summary_budget_blocked",
+                "budget_status": "exceeded",
+                "context_budget_status": "blocked",
+                "summary": "file.apply_patch blocked because the workflow coding-tool budget was exceeded.",
+                "result_summary": {
+                    "status": "blocked",
+                    "reason": "coding_tool_budget_exceeded",
+                },
+                "context_budget": {
+                    "status": "blocked",
+                    "mode": "block",
+                    "policy_decision_id": "policy_context_budget_thread_budget_blocked",
+                    "checks": [
+                        { "id": "total_tokens", "severity": "violation", "actual": 720, "limit": 100 },
+                    ],
+                    "violations": [
+                        { "id": "total_tokens", "severity": "violation", "actual": 720, "limit": 100 },
+                    ],
+                    "usage_summary": {
+                        "total_tokens": 720,
+                        "estimated_cost_usd": 0.0042,
+                        "context_pressure": 0.72,
+                    },
+                },
+            },
+        })];
+
+        let rows = tui_coding_tool_rows(&events, Some("thread_live"));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["row_kind"], "coding_tool_budget");
+        assert_eq!(rows[0]["status"], "blocked");
+        assert_eq!(rows[0]["command"], "events");
+        assert_eq!(rows[0]["raw_input"], "/events");
+        assert_eq!(rows[0]["tool_name"], "file.apply_patch");
+        assert_eq!(
+            rows[0]["tool_call_id"],
+            "coding_tool_summary_budget_blocked"
+        );
+        assert_eq!(rows[0]["budget_status"], "exceeded");
+        assert_eq!(rows[0]["context_budget_status"], "blocked");
+        assert_eq!(rows[0]["context_budget_mode"], "block");
+        assert_eq!(
+            rows[0]["context_budget_decision_id"],
+            "policy_context_budget_thread_budget_blocked"
+        );
+        assert_eq!(rows[0]["coding_tool_budget_check_count"], 1);
+        assert_eq!(rows[0]["coding_tool_budget_violation_count"], 1);
+        assert_eq!(rows[0]["usage_total_tokens"], "720");
+        assert_eq!(rows[0]["usage_cost_estimate_usd"], "0.0042");
+        assert_eq!(rows[0]["usage_context_pressure"], "0.72");
+        assert_eq!(rows[0]["mutation_blocked"], true);
+        assert_eq!(
+            rows[0]["receipt_refs"],
+            serde_json::json!([
+                "receipt_coding_tool_file_apply_patch_budget",
+                "receipt_context_budget_thread_budget",
+            ])
+        );
+        assert_eq!(
+            rows[0]["policy_decision_refs"],
+            serde_json::json!(["policy_context_budget_thread_budget_blocked"])
+        );
+        assert_eq!(
+            rows[0]["workflow_node_id"],
+            "workflow.coding.file.apply_patch.summary-budget"
+        );
+        assert_eq!(rows[0]["cursor"], "events_thread_live:14");
+
+        let render = TuiRender {
+            endpoint: "http://127.0.0.1:8765".to_string(),
+            event_route: "/v1/threads/thread_live/events?since_seq=0".to_string(),
+            thread: serde_json::json!({ "thread_id": "thread_live" }),
+            submitted_turn: None,
+            control: None,
+            events,
+            jobs: Vec::new(),
+            since_seq: Some(0),
+            last_event_id: None,
+            follow: false,
+        };
+        let state = tui_control_state_for_render(&render, Some("thread_live"));
+        assert_eq!(
+            state["coding_tool_rows"][0]["row_kind"],
+            "coding_tool_budget"
+        );
+        assert_eq!(
+            state["coding_tool_rows"][0]["tool_call_id"],
+            "coding_tool_summary_budget_blocked"
+        );
     }
 
     #[test]
