@@ -60,8 +60,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const telemetrySummary = read(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
   );
+  const telemetrySourceBinding = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+  );
   const telemetrySummaryTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+  );
+  const telemetrySourceBindingTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts",
   );
   const runHistoryModelTest = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
@@ -222,7 +228,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(codingToolControlNodes, /createRuntimeCodingToolControlRequestFromWorkflowNode/);
   assert.match(codingToolControlNodes, /runtimeTelemetrySummary/);
   assert.match(codingToolControlNodes, /budgetUsageTelemetry/);
+  assert.match(codingToolControlNodes, /budgetUsageTelemetryField/);
   assert.match(codingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.match(telemetrySourceBinding, /bindWorkflowRuntimeTelemetrySourceToWorkflow/);
+  assert.match(telemetrySourceBinding, /runtime_usage_meter/);
+  assert.match(telemetrySourceBinding, /runtime_context_budget/);
+  assert.match(telemetrySourceBinding, /runtime_compaction_policy/);
+  assert.match(telemetrySourceBinding, /react_flow_quick_fix/);
+  assert.match(telemetrySourceBindingTest, /wires selected summary into runtime budget nodes/);
   assert.match(compactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
   assert.match(compactionPolicyControlNodes, /runtime_compaction_policy/);
   assert.match(compactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);
@@ -281,6 +294,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(readinessModel, /Coding budget preflight/);
   assert.match(workflowValidation, /workflowRuntimeCodingToolBudgetRecoveryBindingIssues/);
   assert.match(workflowValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
+  assert.match(workflowValidation, /workflowRuntimeTelemetrySourceBindingIssues/);
+  assert.match(workflowValidation, /missing_runtime_telemetry_source_usage_binding/);
   assert.match(codingToolBudgetRecoveryBinding, /bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence/);
   assert.match(codingToolBudgetRecoveryBinding, /workflowRuntimeCodingToolBudgetRecoveryEvidenceAction/);
   assert.match(codingToolBudgetRecoveryBinding, /react_flow_quick_fix/);
@@ -318,6 +333,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(composerController, /handleExecuteRuntimeCodingToolBudgetRecovery/);
   assert.match(composerController, /handleBindRuntimeCodingToolBudgetRecoveryTemplate/);
   assert.match(composerController, /bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence/);
+  assert.match(composerController, /handleBindRuntimeTelemetrySource/);
+  assert.match(composerController, /bindWorkflowRuntimeTelemetrySourceToWorkflow/);
   assert.match(composerController, /coding-tool-budget-approved-retry/);
   assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
   assert.match(composerController, /setRuntimeThreadEvents/);
@@ -339,6 +356,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /workflow-run-coding-tool-budget-evidence/);
   assert.match(runsPanel, /workflow-run-coding-tool-budget-recovery-action/);
   assert.match(runsPanel, /workflow-run-coding-tool-budget-recovery-bind-template-/);
+  assert.match(runsPanel, /workflow-run-telemetry-bind-source/);
   assert.match(runsPanel, /data-coding-tool-budget-recovery-action-count/);
   assert.match(runsPanel, /data-recovery-policy-operator-role/);
   assert.match(runsPanel, /workflow-run-telemetry-source-kinds/);

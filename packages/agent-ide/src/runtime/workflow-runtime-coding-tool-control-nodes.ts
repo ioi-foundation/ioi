@@ -133,6 +133,8 @@ export function createRuntimeCodingToolControlRequest(
     params.budgetUsageTelemetry ??
     params.runtimeTelemetrySummary ??
     valueAtPath(params.input, budgetUsageField) ??
+    valueAtPath(toolPack, "budgetUsageTelemetry") ??
+    valueAtPath(toolPack, "budget_usage_telemetry") ??
     valueAtPath(params.input, "budgetUsageTelemetry") ??
     valueAtPath(params.input, "budget_usage_telemetry") ??
     valueAtPath(params.input, "runtimeTelemetrySummary") ??
@@ -299,6 +301,8 @@ export function createRuntimeCodingToolControlRequestFromWorkflowNode(
     nodeApprovalOverride: stringField(toolPack, "nodeApprovalOverride", "node_approval_override"),
     budgetMode: stringField(toolPack, "budgetMode", "budget_mode"),
     budgetUsageTelemetryField: stringField(toolPack, "budgetUsageField", "budget_usage_field"),
+    runtimeTelemetrySummary:
+      logic.runtimeTelemetrySummary as WorkflowRuntimeTelemetrySummary | null,
     maxTotalTokens: numberOption(
       valueAtPath(toolPack, "maxTotalTokens") ??
         valueAtPath(toolPack, "max_total_tokens"),

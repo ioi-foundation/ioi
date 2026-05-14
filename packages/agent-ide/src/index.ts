@@ -563,6 +563,18 @@ export {
   workflowRuntimeCodingToolBudgetRecoveryEvidenceActionsFromProjection,
 } from "./runtime/workflow-runtime-coding-tool-budget-recovery-binding";
 export type {
+  WorkflowRuntimeTelemetrySourceEvidenceBinding,
+  WorkflowRuntimeTelemetrySourceBindingResult,
+  WorkflowRuntimeTelemetrySourceNodeBindingResult,
+} from "./runtime/workflow-runtime-telemetry-source-binding";
+export {
+  WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION,
+  bindWorkflowRuntimeTelemetrySourceToNodes,
+  bindWorkflowRuntimeTelemetrySourceToWorkflow,
+  workflowRuntimeTelemetrySourceBindingIssue,
+  workflowRuntimeTelemetrySourceEvidenceBinding,
+} from "./runtime/workflow-runtime-telemetry-source-binding";
+export type {
   RuntimeMcpToolControlRequest,
   RuntimeMcpToolControlRequestBody,
   RuntimeMcpToolControlRequestInput,

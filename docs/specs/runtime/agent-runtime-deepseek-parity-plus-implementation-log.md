@@ -199,8 +199,43 @@ workstream was narrower.
 | 197 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable coding-tool budget recovery template | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-template/2026-05-14T12-58-07-902Z/result.json |
 | 198 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template readiness validation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-readiness/2026-05-14T13-13-08-201Z/result.json |
 | 199 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template binding assistant | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding/2026-05-14T13-29-50-390Z/result.json |
+| 200 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry-source binding assistant | /tmp/ioi-autopilot-gui-harness-telemetry-source-binding/2026-05-14T13-46-44-397Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 200. 2026-05-14 - Telemetry-source binding assistant
+
+Implementation slice completed 2026-05-14, P1-D/P0-B telemetry-source binding
+assistant:
+
+- Added a shared telemetry-source binding helper that turns a selected
+  `WorkflowRuntimeTelemetrySummary` into a reusable evidence binding for
+  `runtime_usage_meter`, `runtime_context_budget`,
+  `runtime_compaction_policy`, and coding-tool budget-gate nodes.
+- Added readiness issues and repair metadata for missing runtime telemetry
+  source bindings, so usage/context/budget nodes can be fixed from React Flow
+  readiness instead of hand-editing JSON.
+- Added a run-inspector `Bind telemetry source` control on the usage/context
+  summary card and wired it through the workflow composer controller.
+- Taught coding-tool budget gates to consume fixed telemetry summaries from the
+  node/tool-pack binding path, matching the existing runtime summary conversion
+  used by context-budget controls.
+- Exported the helper from `@ioi/agent-ide` and extended source-contract guards
+  so the helper, controller callback, run-inspector affordance, and focused
+  tests remain workflow-addressable.
+- Updated the master guide so the next P1-D slice proves a bound telemetry
+  chain executes end-to-end through daemon-owned events and run-inspector rows.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts`
+- `npm run build -w packages/agent-ide`
+- `node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-telemetry-source-binding`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-telemetry-source-binding/2026-05-14T13-46-44-397Z/result.json`.
 
 ### Slice 199. 2026-05-14 - Coding-tool budget recovery template binding assistant
 

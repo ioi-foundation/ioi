@@ -12582,6 +12582,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeTelemetrySourceBinding = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+    ),
+    "utf8",
+  );
   const workflowRuntimeDiagnosticsRepairActions = fs.readFileSync(
     path.join(
       root,
@@ -12953,6 +12960,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /trustProfile/);
   assert.match(workflowRuntimeCodingToolControlNodes, /runtimeTelemetrySummary/);
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetry/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetryField/);
   assert.match(workflowRuntimeCodingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /runtime_coding_tool_budget_recovery/);
@@ -12971,6 +12979,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeTelemetrySummary, /tui_coding_tool_rows/);
   assert.match(workflowRuntimeTelemetrySummary, /codingToolBudgetRowCount/);
   assert.match(workflowRuntimeTelemetrySummary, /usageSnapshotFromCodingToolBudgetRow/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /bindWorkflowRuntimeTelemetrySourceToWorkflow/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /runtime_usage_meter/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /runtime_context_budget/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /runtime_compaction_policy/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /react_flow_quick_fix/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-mode/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-usage-field/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-approval-scope/);
@@ -13293,6 +13307,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-edit-proposal-policy-stack/);
   assert.match(workflowRunsPanel, /workflow-run-coding-tool-budget-recovery-action/);
   assert.match(workflowRunsPanel, /workflow-run-coding-tool-budget-recovery-subflow-/);
+  assert.match(workflowRunsPanel, /workflow-run-telemetry-bind-source/);
   assert.match(workflowRunsPanel, /data-coding-tool-budget-recovery-action-count/);
   assert.match(workflowRunsPanel, /data-recovery-policy-operator-role/);
   assert.match(workflowRunsPanel, /onCreateRuntimeCodingToolBudgetRecoverySubflow/);
@@ -13303,6 +13318,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowValidation, /missing_workspace_trust_gate/);
   assert.match(workflowValidation, /workflowRuntimeCodingToolBudgetRecoveryBindingIssues/);
   assert.match(workflowValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
+  assert.match(workflowValidation, /workflowRuntimeTelemetrySourceBindingIssues/);
+  assert.match(workflowValidation, /missing_runtime_telemetry_source_usage_binding/);
   assert.match(tauriProjectValidation, /workflow_runtime_coding_tool_budget_recovery_binding_issues/);
   assert.match(tauriProjectValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
   assert.match(workflowComposerController, /workflowWorkspaceTrustGateReadiness/);
@@ -13316,10 +13333,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /handleExecuteRuntimeCodingToolBudgetRecovery/);
   assert.match(workflowComposerController, /handleCreateRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(workflowComposerController, /handleBindRuntimeCodingToolBudgetRecoveryTemplate/);
+  assert.match(workflowComposerController, /handleBindRuntimeTelemetrySource/);
   assert.match(workflowComposerController, /createWorkflowRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(workflowComposerController, /handleInsertRuntimeCodingToolBudgetRecoveryTemplate/);
   assert.match(workflowComposerController, /createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow/);
   assert.match(workflowComposerController, /bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence/);
+  assert.match(workflowComposerController, /bindWorkflowRuntimeTelemetrySourceToWorkflow/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryBinding, /WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_BINDING_SCHEMA_VERSION/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryBinding, /workflowRuntimeCodingToolBudgetRecoveryEvidenceActionsFromProjection/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryBinding, /react_flow_quick_fix/);
