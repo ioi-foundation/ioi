@@ -2420,6 +2420,7 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
     projectRuntimeThreadEventsToWorkflowProjection,
     projectRuntimeTuiControlStateToWorkflowProjection,
   } = await importAgentIde();
+  const cli = cliBinary();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-state-"));
   const targetPath = path.join(cwd, "README.md");
@@ -2579,29 +2580,48 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
     assert.equal(budgetNode.codingToolBudgetViolationCount, 1);
     assert.equal(budgetNode.codingToolMutationBlocked, true);
 
-    const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
-      schema_version: "ioi.agent-cli.tui-control-state.v1",
-      surface: "tui",
-      thread_id: thread.thread_id,
-      workflow_graph_id: workflowGraphId,
-      last_cursor: budgetCursor,
-      last_event_id: budgetEvent.event_id,
-      coding_tool_rows: [
-        {
-          ...budgetEvent.payload_summary,
-          id: "live-coding-tool-budget-row",
-          row_kind: "coding_tool_budget",
-          status: budgetEvent.status,
-          event_id: budgetEvent.event_id,
-          sequence: budgetEvent.seq,
-          workflow_graph_id: workflowGraphId,
-          workflow_node_id: workflowNodeId,
-          receipt_refs: budgetEvent.receipt_refs,
-          policy_decision_refs: budgetEvent.policy_decision_refs,
-          mutation_blocked: true,
-        },
+    const tuiResult = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
       ],
-    });
+      { cwd: root },
+    );
+    const tuiPayload = JSON.parse(tuiResult.stdout);
+    assert.equal(tuiPayload.tui_control_state.thread_id, thread.thread_id);
+    assert.equal(tuiPayload.tui_control_state.last_event_id, budgetEvent.event_id);
+    const emittedBudgetRow = tuiPayload.tui_control_state.coding_tool_rows.find(
+      (row) => row.event_id === budgetEvent.event_id,
+    );
+    assert.ok(emittedBudgetRow, "expected CLI/TUI control-state coding_tool_rows to include the budget block");
+    assert.equal(emittedBudgetRow.row_kind, "coding_tool_budget");
+    assert.equal(emittedBudgetRow.command, "events");
+    assert.equal(emittedBudgetRow.raw_input, "/events");
+    assert.equal(emittedBudgetRow.tool_name, "file.apply_patch");
+    assert.equal(emittedBudgetRow.tool_call_id, "coding_tool_summary_budget_blocked");
+    assert.equal(emittedBudgetRow.budget_status, "exceeded");
+    assert.equal(emittedBudgetRow.context_budget_status, "blocked");
+    assert.equal(emittedBudgetRow.context_budget_mode, "block");
+    assert.ok(
+      emittedBudgetRow.context_budget_decision_id.startsWith("policy_context_budget_thread_"),
+    );
+    assert.equal(emittedBudgetRow.coding_tool_budget_violation_count, 1);
+    assert.equal(emittedBudgetRow.mutation_blocked, true);
+    assert.equal(emittedBudgetRow.cursor, budgetCursor);
+    assert.deepEqual(emittedBudgetRow.receipt_refs, budgetEvent.receipt_refs);
+    assert.deepEqual(emittedBudgetRow.policy_decision_refs, budgetEvent.policy_decision_refs);
+
+    const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection(
+      tuiPayload.tui_control_state,
+    );
     const budgetRow = tuiProjection.rows.find(
       (row) => row.rowKind === "coding_tool_budget",
     );
@@ -7966,6 +7986,9 @@ test("agent CLI exposes model, thinking, and stream control contracts", () => {
   assert.match(source, /memory_rows/);
   assert.match(source, /cost_rows/);
   assert.match(source, /context_rows/);
+  assert.match(source, /coding_tool_rows/);
+  assert.match(source, /tui_coding_tool_rows/);
+  assert.match(source, /coding_tool_budget/);
   assert.match(source, /subagent_rows/);
   assert.match(source, /approval_rows/);
   assert.match(source, /approval_decisions/);
@@ -8025,6 +8048,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /execute_tui_diagnostics_repair_decision/);
   assert.match(source, /workflow_node_ids/);
   assert.match(source, /tui_event_rows/);
+  assert.match(source, /tui_coding_tool_rows/);
   assert.match(source, /tui_control_state/);
   assert.match(source, /tui_reopen_args/);
   assert.match(source, /line_mode_command=interrupt/);

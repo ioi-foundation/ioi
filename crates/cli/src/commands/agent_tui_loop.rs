@@ -16,8 +16,8 @@ use super::agent_tui::{
     replay_tui_run_events, resume_tui_subagent, resume_tui_thread, search_tui_mcp_tools,
     selected_run_id_from_thread, selected_turn_id_from_values, send_tui_subagent_input,
     set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn, thread_id_from_value,
-    tui_approval_decisions, tui_approval_rows, tui_context_pressure_rows, tui_context_rows,
-    tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
+    tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows, tui_context_pressure_rows,
+    tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
     tui_run_lifecycle_rows, tui_subagent_rows, tui_usage_delta_rows, tui_usage_status,
     tui_workspace_trust_rows, update_tui_memory_policy, update_tui_thread_mode,
     update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
@@ -3186,6 +3186,7 @@ struct TuiControlState {
     run_lifecycle_rows: Vec<Value>,
     cost_rows: Vec<Value>,
     context_rows: Vec<Value>,
+    coding_tool_rows: Vec<Value>,
     mcp_rows: Vec<Value>,
     memory_rows: Vec<Value>,
     subagent_rows: Vec<Value>,
@@ -3214,6 +3215,7 @@ impl TuiControlState {
             run_lifecycle_rows: Vec::new(),
             cost_rows: Vec::new(),
             context_rows: Vec::new(),
+            coding_tool_rows: Vec::new(),
             mcp_rows: Vec::new(),
             memory_rows: Vec::new(),
             subagent_rows: Vec::new(),
@@ -3305,6 +3307,7 @@ impl TuiControlState {
         }
         self.merge_cost_rows(tui_usage_delta_rows(events, self.thread_id.as_deref()));
         self.merge_context_rows(tui_context_pressure_rows(events, self.thread_id.as_deref()));
+        self.merge_coding_tool_rows(tui_coding_tool_rows(events, self.thread_id.as_deref()));
     }
 
     fn merge_approval_rows(&mut self, rows: Vec<Value>) {
@@ -3459,6 +3462,30 @@ impl TuiControlState {
         }
     }
 
+    fn merge_coding_tool_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/event_id")
+                .or_else(|| json_path_string(&row, "/tool_call_id"))
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.coding_tool_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.coding_tool_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/event_id")
+                    .or_else(|| json_path_string(existing, "/tool_call_id"))
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.coding_tool_rows.push(row);
+            }
+        }
+    }
+
     fn merge_mcp_rows(&mut self, rows: Vec<Value>) {
         for row in rows {
             let key = json_path_string(&row, "/id")
@@ -3582,6 +3609,7 @@ impl TuiControlState {
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
             "cost_rows": self.cost_rows.clone(),
             "context_rows": self.context_rows.clone(),
+            "coding_tool_rows": self.coding_tool_rows.clone(),
             "mcp_rows": self.mcp_rows.clone(),
             "memory_rows": self.memory_rows.clone(),
             "subagent_rows": self.subagent_rows.clone(),
@@ -4042,6 +4070,43 @@ mod tests {
                     "approval_id": "approval_live",
                     "workflow_node_id": "runtime.approval.approval_live",
                 }),
+                serde_json::json!({
+                    "event_id": "event_coding_budget_blocked",
+                    "event_stream_id": "events_thread_live",
+                    "seq": 10,
+                    "thread_id": "thread_live",
+                    "turn_id": "turn_live",
+                    "event_kind": "policy.blocked",
+                    "source_event_kind": "CodingTool.FileApplyPatch",
+                    "status": "blocked",
+                    "component_kind": "coding_tool",
+                    "workflow_graph_id": "workflow.react-flow.coding-tool-summary-budget",
+                    "workflow_node_id": "workflow.coding.file.apply_patch.summary-budget",
+                    "tool_call_id": "coding_tool_summary_budget_blocked",
+                    "payload_summary": {
+                        "tool_name": "file.apply_patch",
+                        "tool_call_id": "coding_tool_summary_budget_blocked",
+                        "budget_status": "exceeded",
+                        "context_budget_status": "blocked",
+                        "result_summary": {
+                            "status": "blocked",
+                            "reason": "coding_tool_budget_exceeded",
+                        },
+                        "context_budget": {
+                            "status": "blocked",
+                            "mode": "block",
+                            "policy_decision_id": "policy_context_budget_thread_budget_blocked",
+                            "violations": [
+                                { "id": "total_tokens", "severity": "violation", "actual": 720, "limit": 100 },
+                            ],
+                            "usage_summary": {
+                                "total_tokens": 720,
+                                "estimated_cost_usd": 0.0042,
+                                "context_pressure": 0.72,
+                            },
+                        },
+                    },
+                }),
             ],
         );
         let jobs = vec![serde_json::json!({
@@ -4072,10 +4137,18 @@ mod tests {
         assert_eq!(json["schema_version"], TUI_CONTROL_STATE_SCHEMA_VERSION);
         assert_eq!(json["thread_id"], "thread_live");
         assert_eq!(json["current_turn_id"], "turn_live");
-        assert_eq!(json["last_cursor"], "events_thread_live:9");
-        assert_eq!(json["last_event_id"], "event_approval");
+        assert_eq!(json["last_cursor"], "events_thread_live:10");
+        assert_eq!(json["last_event_id"], "event_coding_budget_blocked");
         assert_eq!(json["mode_status"]["approval_mode"], "suggest");
         assert_eq!(json["approval_rows"][0]["approval_id"], "approval_live");
+        assert_eq!(
+            json["coding_tool_rows"][0]["row_kind"],
+            "coding_tool_budget"
+        );
+        assert_eq!(
+            json["coding_tool_rows"][0]["tool_call_id"],
+            "coding_tool_summary_budget_blocked"
+        );
         assert_eq!(json["job_rows"][0]["job_id"], "job_run_live");
         assert_eq!(json["job_rows"][0]["run_id"], "run_live");
         assert_eq!(json["run_lifecycle_rows"][0]["run_id"], "run_live");

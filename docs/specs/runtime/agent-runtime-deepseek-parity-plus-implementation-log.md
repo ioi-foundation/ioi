@@ -185,8 +185,42 @@ workstream was narrower.
 | 183 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | subagent summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-subagent-summary-budget/2026-05-14T02-32-43-456Z/result.json |
 | 184 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget/2026-05-14T02-47-09-164Z/result.json |
 | 185 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget-block inspector projection | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json |
+| 186 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | CLI/TUI coding-tool budget-row producer | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-tui-producer/2026-05-14T03-19-32-015Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 186. 2026-05-14 - CLI/TUI coding-tool budget-row producer
+
+Implementation slice completed 2026-05-14, P1-D/P0/P0-B CLI/TUI
+coding-tool budget-row producer:
+
+- Added a daemon-event-backed `tui_coding_tool_rows` projector in the CLI that
+  turns live `policy.blocked` coding-tool events into `coding_tool_budget`
+  control-state rows with tool ids, graph/node ids, budget status,
+  context-budget mode/decision ids, threshold counts, refs, usage telemetry,
+  cursor/reopen metadata, and blocked-mutation evidence.
+- Added those rows to `ioi agent tui --json` control state and to the
+  line-mode `TuiControlState` merge path so `/events` replay exposes the same
+  row in interactive and one-shot TUI flows.
+- Updated the live coding-tool summary-budget contract to call the actual CLI
+  `/events --json` surface, assert the emitted `coding_tool_rows`, and feed
+  that unmodified control state into React Flow projection.
+- Updated source-contract guards and the master guide queue so the next P1-D
+  slice narrows to telemetry-summary aggregation of emitted
+  `coding_tool_budget` rows.
+
+Validation evidence:
+
+- `cargo fmt -p ioi-cli -- --check`
+- `cargo test -p ioi-cli --bin cli tui -- --nocapture`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "agent CLI exposes model, thinking, and stream control contracts|agent TUI thin shell is daemon-backed" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --import tsx --test --test-name-pattern "coding tool budget|TUI coding-tool budget" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-tui-producer`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-tui-producer/2026-05-14T03-19-32-015Z/result.json`.
 
 ### Slice 185. 2026-05-14 - Coding-tool budget-block inspector projection
 
