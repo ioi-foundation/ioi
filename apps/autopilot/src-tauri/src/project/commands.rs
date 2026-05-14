@@ -2,7 +2,25 @@
 
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::*;
+use crate::models::AppState;
 use sha2::{Digest, Sha256};
+use std::sync::Mutex;
+use tauri::State;
+
+fn workflow_execution_runtime_from_state(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<WorkflowExecutionRuntime, String> {
+    let guard = state.lock().map_err(|_| "Failed to lock state")?;
+    let local_engine_registry = guard
+        .memory_runtime
+        .as_ref()
+        .and_then(crate::orchestrator::load_local_engine_registry_state);
+    Ok(WorkflowExecutionRuntime {
+        inference: guard.inference_runtime.clone(),
+        local_engine_registry,
+        live_model_dispatch: true,
+    })
+}
 
 #[tauri::command]
 pub fn save_project(path: String, project: ProjectFile) -> Result<(), String> {
@@ -1405,6 +1423,24 @@ pub fn run_workflow_project(
     path: String,
     options: Option<Value>,
 ) -> Result<WorkflowRunResult, String> {
+    run_workflow_project_with_runtime(path, options, &WorkflowExecutionRuntime::default())
+}
+
+#[tauri::command]
+pub fn run_workflow_project_live(
+    state: State<'_, Mutex<AppState>>,
+    path: String,
+    options: Option<Value>,
+) -> Result<WorkflowRunResult, String> {
+    let runtime = workflow_execution_runtime_from_state(state)?;
+    run_workflow_project_with_runtime(path, options, &runtime)
+}
+
+fn run_workflow_project_with_runtime(
+    path: String,
+    options: Option<Value>,
+    runtime: &WorkflowExecutionRuntime,
+) -> Result<WorkflowRunResult, String> {
     let workflow_path = resolve_workflow_file_path(&path)?;
     let bundle = load_workflow_bundle_from_path(&workflow_path)?;
     let skill_resolver = WorkflowSkillResolver::from_options(options.as_ref());
@@ -1497,8 +1533,15 @@ pub fn run_workflow_project(
         }
     }
     let workflow_for_recovery = bundle.workflow.clone();
-    let mut result =
-        execute_workflow_project(&workflow_path, bundle, thread, state, None, &skill_resolver)?;
+    let mut result = execute_workflow_project(
+        &workflow_path,
+        bundle,
+        thread,
+        state,
+        None,
+        &skill_resolver,
+        runtime,
+    )?;
     if let Some(recovery) = coding_tool_budget_recovery {
         result = workflow_attach_coding_tool_budget_recovery_retry(
             &workflow_path,
@@ -1531,6 +1574,34 @@ pub fn run_workflow_node(
     node_id: String,
     input: Option<Value>,
     options: Option<Value>,
+) -> Result<WorkflowRunResult, String> {
+    run_workflow_node_with_runtime(
+        path,
+        node_id,
+        input,
+        options,
+        &WorkflowExecutionRuntime::default(),
+    )
+}
+
+#[tauri::command]
+pub fn run_workflow_node_live(
+    state: State<'_, Mutex<AppState>>,
+    path: String,
+    node_id: String,
+    input: Option<Value>,
+    options: Option<Value>,
+) -> Result<WorkflowRunResult, String> {
+    let runtime = workflow_execution_runtime_from_state(state)?;
+    run_workflow_node_with_runtime(path, node_id, input, options, &runtime)
+}
+
+fn run_workflow_node_with_runtime(
+    path: String,
+    node_id: String,
+    input: Option<Value>,
+    options: Option<Value>,
+    runtime: &WorkflowExecutionRuntime,
 ) -> Result<WorkflowRunResult, String> {
     let workflow_path = resolve_workflow_file_path(&path)?;
     let bundle = load_workflow_bundle_from_path(&workflow_path)?;
@@ -1614,6 +1685,7 @@ pub fn run_workflow_node(
         input,
         false,
         &skill_resolver,
+        runtime,
     )?;
     if let Some(recovery) = coding_tool_budget_recovery {
         workflow_attach_coding_tool_budget_recovery_retry(
@@ -1650,6 +1722,7 @@ pub fn dry_run_workflow_function(
         dry_input,
         true,
         &WorkflowSkillResolver::default(),
+        &WorkflowExecutionRuntime::default(),
     )
 }
 
@@ -1793,6 +1866,7 @@ pub fn dry_run_workflow_node(
         input,
         true,
         &skill_resolver,
+        &WorkflowExecutionRuntime::default(),
     )
 }
 
@@ -2638,6 +2712,7 @@ pub fn resume_workflow_run(
         state,
         resume_gate,
         &WorkflowSkillResolver::default(),
+        &WorkflowExecutionRuntime::default(),
     )?;
     append_workflow_evidence(
         &workflow_path,

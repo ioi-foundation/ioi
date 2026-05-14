@@ -26,6 +26,7 @@ pub(super) fn workflow_scheduler_execute_node(
     input: Value,
     resume_gate: Option<&(String, Value)>,
     skill_resolver: &WorkflowSkillResolver,
+    runtime: &WorkflowExecutionRuntime,
     run_id: &str,
     thread_id: &str,
     state: &mut WorkflowStateSnapshot,
@@ -73,6 +74,7 @@ pub(super) fn workflow_scheduler_execute_node(
             attempt,
             resume_value,
             skill_resolver,
+            runtime,
         );
         if execution_result.is_ok() || attempt == max_attempts {
             break;

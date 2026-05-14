@@ -1574,7 +1574,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         options?: Record<string, unknown>
     ): Promise<WorkflowRunResult> {
         const runtimeOptions = await this.workflowOptionsWithSkillCatalog(options);
-        const result = await invoke<WorkflowRunResult>("run_workflow_project", { path, options: runtimeOptions });
+        const result = await invoke<WorkflowRunResult>("run_workflow_project_live", { path, options: runtimeOptions });
         this.applyWorkflowPromotionDecisions(result.routeRunSummary?.promotionDecisions);
         return result;
     }
@@ -1586,7 +1586,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         options?: Record<string, unknown>
     ): Promise<WorkflowRunResult> {
         const runtimeOptions = await this.workflowOptionsWithSkillCatalog(options);
-        const result = await invoke<WorkflowRunResult>("run_workflow_node", { path, nodeId, input: input ?? null, options: runtimeOptions });
+        const result = await invoke<WorkflowRunResult>("run_workflow_node_live", { path, nodeId, input: input ?? null, options: runtimeOptions });
         this.applyWorkflowPromotionDecisions(result.routeRunSummary?.promotionDecisions);
         return result;
     }

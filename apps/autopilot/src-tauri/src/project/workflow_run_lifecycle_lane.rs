@@ -81,6 +81,7 @@ pub(super) fn workflow_single_node_result(
     input: Option<Value>,
     dry_run: bool,
     skill_resolver: &WorkflowSkillResolver,
+    runtime: &WorkflowExecutionRuntime,
 ) -> Result<WorkflowRunResult, String> {
     ensure_workflow_runtime_dirs(workflow_path)?;
     let node = workflow_node_by_id(workflow, node_id)
@@ -129,6 +130,7 @@ pub(super) fn workflow_single_node_result(
         1,
         None,
         skill_resolver,
+        runtime,
     );
     let status = match execution {
         Ok(output) => {

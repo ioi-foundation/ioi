@@ -26,6 +26,32 @@ pub(super) fn workflow_scheduler_emit_node_success_events(
         Some(format!("{node_name} completed.")),
         Some(vec![update]),
     );
+    if let Some(invocation) = output.get("modelInvocation") {
+        let mode = invocation
+            .get("mode")
+            .and_then(Value::as_str)
+            .unwrap_or("model");
+        let model_ref = invocation
+            .get("modelRef")
+            .and_then(Value::as_str)
+            .unwrap_or("model");
+        let response_hash = invocation
+            .get("responseHash")
+            .and_then(Value::as_str)
+            .unwrap_or("response hash pending");
+        workflow_push_event(
+            events,
+            run_id,
+            thread_id,
+            "model_invocation_succeeded",
+            Some(node_id),
+            Some("success"),
+            Some(format!(
+                "{node_name} invoked {model_ref} via {mode}; {response_hash}."
+            )),
+            None,
+        );
+    }
     if output.get("toolKind").and_then(Value::as_str) == Some("workflow_tool") {
         let child_run_id = output
             .get("childRunId")

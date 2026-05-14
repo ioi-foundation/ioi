@@ -1,14 +1,17 @@
 // apps/autopilot/src-tauri/src/project.rs
 
+use crate::models::LocalEngineRegistryState;
 use crate::runtime_projection::{
     validate_action_edge, validate_workflow_connection_class, ActionBindingRef, ActionFrame,
     ActionKind, ActionPolicy, ActionSurface,
 };
+use ioi_api::vm::inference::InferenceRuntime;
 use serde_json::{json, Value};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 mod commands;
 mod explorer;
@@ -30,8 +33,10 @@ mod workflow_execution_results_lane;
 mod workflow_graph_execution_lane;
 mod workflow_harness_results_lane;
 mod workflow_memory_lane;
+mod workflow_model_invocation_lane;
 mod workflow_node_contract_lane;
 mod workflow_node_execution_lane;
+mod workflow_node_input_lane;
 mod workflow_node_metadata_lane;
 mod workflow_output_lane;
 mod workflow_package_lane;
@@ -74,6 +79,13 @@ use workflow_state_lane::*;
 
 fn default_gitignore() -> &'static str {
     "node_modules/\ndist/\ntarget/\n.DS_Store\n.env\nioi-data/\n.autopilot/\n"
+}
+
+#[derive(Clone, Default)]
+pub(super) struct WorkflowExecutionRuntime {
+    pub inference: Option<Arc<dyn InferenceRuntime>>,
+    pub local_engine_registry: Option<LocalEngineRegistryState>,
+    pub live_model_dispatch: bool,
 }
 
 fn normalize_legacy_workflow_output_nodes(workflow: &mut WorkflowProject) {

@@ -61,6 +61,74 @@ function workflowPrCreateBottomBoolean(value: boolean | null): string {
   return "";
 }
 
+type WorkflowModelInvocationTraceStep = {
+  phase: string;
+  summary: string;
+  detail: string;
+};
+
+type WorkflowModelInvocationTraceView = {
+  nodeId: string;
+  nodeName: string;
+  mode: string;
+  modelRef: string;
+  modelId: string;
+  promptHash: string;
+  responseHash: string;
+  promptUser: string;
+  trace: WorkflowModelInvocationTraceStep[];
+};
+
+function workflowRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function workflowString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function workflowModelInvocationTraces(
+  result: WorkflowRunResult | null,
+  workflow: WorkflowProject,
+): WorkflowModelInvocationTraceView[] {
+  if (!result) return [];
+  return result.nodeRuns.flatMap((nodeRun) => {
+    const output = workflowRecord(nodeRun.output);
+    const invocation = workflowRecord(output?.modelInvocation);
+    if (!invocation) return [];
+    const prompt = workflowRecord(invocation.prompt);
+    const promptUser = workflowString(prompt?.user) ?? "Prompt payload captured in raw state.";
+    const trace = Array.isArray(invocation.trace)
+      ? invocation.trace.flatMap((step): WorkflowModelInvocationTraceStep[] => {
+          const item = workflowRecord(step);
+          if (!item) return [];
+          const phase = workflowString(item.phase) ?? "step";
+          const summary = workflowString(item.summary) ?? "Recorded runtime step.";
+          const detail =
+            workflowString(item.responseHash) ??
+            workflowString(item.promptHash) ??
+            (typeof item.latencyMs === "number" ? `${item.latencyMs} ms` : "");
+          return [{ phase, summary, detail }];
+        })
+      : [];
+    return [
+      {
+        nodeId: nodeRun.nodeId,
+        nodeName: workflowNodeName(workflow, nodeRun.nodeId),
+        mode: workflowString(invocation.mode) ?? "model",
+        modelRef: workflowString(invocation.modelRef) ?? "model",
+        modelId: workflowString(invocation.modelId) ?? "unmounted",
+        promptHash: workflowString(invocation.promptHash) ?? "prompt hash pending",
+        responseHash: workflowString(invocation.responseHash) ?? "response hash pending",
+        promptUser,
+        trace,
+      },
+    ];
+  });
+}
+
 export function WorkflowBottomShelf({
   panel,
   selectedNode,
@@ -715,6 +783,7 @@ export function WorkflowBottomShelf({
       : null;
     const showRuntimeLogs = logs.length > 0 && !latestRun;
     const showWorkflowChecks = dogfoodRun && !latestRun && logs.length === 0;
+    const modelInvocationTraces = workflowModelInvocationTraces(lastRunResult, workflow);
     return dryRunView ? (
       <div className="workflow-bottom-grid workflow-function-dry-run-report" data-testid="workflow-function-dry-run-bottom">
         <dl>
@@ -972,6 +1041,48 @@ export function WorkflowBottomShelf({
                             ? ` · ${evidence.evidenceRefs.slice(0, 3).join(", ")}`
                             : ""}
                         </small>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+              {modelInvocationTraces.length > 0 ? (
+                <section className="workflow-run-comparison workflow-run-comparison--bottom" data-testid="workflow-model-invocation-trace">
+                  <strong>Model pipeline trace</strong>
+                  <dl>
+                    <div>
+                      <dt>Invocations</dt>
+                      <dd>{modelInvocationTraces.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Mode</dt>
+                      <dd>{modelInvocationTraces[0]?.mode ?? "model"}</dd>
+                    </div>
+                    <div>
+                      <dt>Binding</dt>
+                      <dd>{modelInvocationTraces[0]?.modelRef ?? "model"}</dd>
+                    </div>
+                    <div>
+                      <dt>Response</dt>
+                      <dd>{modelInvocationTraces[0]?.responseHash ?? "pending"}</dd>
+                    </div>
+                  </dl>
+                  <div className="workflow-run-comparison-list">
+                    {modelInvocationTraces.map((invocation) => (
+                      <article key={`${invocation.nodeId}-${invocation.responseHash}`} className="workflow-run-comparison-node" data-testid={`workflow-model-invocation-node-${invocation.nodeId}`}>
+                        <strong>{invocation.nodeName}</strong>
+                        <span>{invocation.modelRef} · {invocation.modelId} · {invocation.mode}</span>
+                        <small>{invocation.promptHash} · {invocation.responseHash}</small>
+                        <pre data-testid="workflow-model-invocation-prompt">{invocation.promptUser}</pre>
+                        <div className="workflow-run-comparison-list">
+                          {invocation.trace.map((step, index) => (
+                            <div key={`${invocation.nodeId}-${step.phase}-${index}`} className="workflow-run-comparison-node" data-testid="workflow-model-invocation-trace-step">
+                              <strong>{step.phase}</strong>
+                              <span>{step.summary}</span>
+                              {step.detail ? <small>{step.detail}</small> : null}
+                            </div>
+                          ))}
+                        </div>
                       </article>
                     ))}
                   </div>

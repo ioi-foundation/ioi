@@ -22,6 +22,8 @@ use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::workflow_memory_lane::{
     workflow_memory_mutation_output, workflow_memory_query_output, workflow_memory_send_options,
 };
+use super::workflow_model_invocation_lane::workflow_model_call_output;
+use super::workflow_node_input_lane::workflow_inputs_by_kind;
 use super::workflow_node_metadata_lane::{
     workflow_node_id, workflow_node_logic, workflow_node_type,
 };
@@ -40,6 +42,7 @@ pub(super) fn execute_workflow_tool_binding(
     node_id: &str,
     binding: &WorkflowToolBinding,
     input: Value,
+    runtime: &WorkflowExecutionRuntime,
 ) -> Result<Value, String> {
     let Some(tool) = binding.workflow_tool.as_ref() else {
         return Err("Workflow tool binding is missing a child workflow reference.".to_string());
@@ -75,6 +78,7 @@ pub(super) fn execute_workflow_tool_binding(
             child_state,
             None,
             &WorkflowSkillResolver::default(),
+            runtime,
         )?;
         last_child_summary = Some(child_result.summary.clone());
         if child_result.summary.status != "passed" {
@@ -121,50 +125,6 @@ pub(super) fn execute_workflow_tool_binding(
                 .unwrap_or_default()
         )
     }))
-}
-
-pub(super) fn workflow_model_ref_from_input(input: &Value) -> Option<String> {
-    input
-        .get("modelRef")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            input.as_object().and_then(|object| {
-                object.values().find_map(|value| {
-                    value
-                        .get("modelRef")
-                        .and_then(Value::as_str)
-                        .filter(|model_ref| !model_ref.trim().is_empty())
-                        .map(str::to_string)
-                })
-            })
-        })
-}
-
-fn workflow_collect_inputs_by_kind(value: &Value, kind: &str, collected: &mut Vec<Value>) {
-    if value.get("kind").and_then(Value::as_str) == Some(kind) {
-        collected.push(value.clone());
-    }
-    match value {
-        Value::Array(items) => {
-            for item in items {
-                workflow_collect_inputs_by_kind(item, kind, collected);
-            }
-        }
-        Value::Object(object) => {
-            for item in object.values() {
-                workflow_collect_inputs_by_kind(item, kind, collected);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn workflow_inputs_by_kind(input: &Value, kind: &str) -> Vec<Value> {
-    let mut collected = Vec::new();
-    workflow_collect_inputs_by_kind(input, kind, &mut collected);
-    collected
 }
 
 pub(super) fn execute_workflow_function_node(node: &Value, input: Value) -> Result<Value, String> {
@@ -1806,6 +1766,7 @@ pub(super) fn execute_workflow_node(
     attempt: usize,
     resume_outcome: Option<&Value>,
     skill_resolver: &WorkflowSkillResolver,
+    runtime: &WorkflowExecutionRuntime,
 ) -> Result<Value, String> {
     let frame = workflow_action_frame(node);
     let node_id = frame.id.clone();
@@ -2039,13 +2000,6 @@ pub(super) fn execute_workflow_node(
             skill_resolver.resolve_skill_context(workflow, &node_id, &logic, &input)?
         }
         ActionKind::ModelCall => {
-            let model_ref = logic
-                .get("modelRef")
-                .and_then(Value::as_str)
-                .filter(|value| !value.trim().is_empty())
-                .map(str::to_string)
-                .or_else(|| workflow_model_ref_from_input(&input))
-                .ok_or_else(|| "Model binding is missing.".to_string())?;
             let parser_attachment = workflow_inputs_by_kind(&input, "parser").into_iter().next();
             let skill_context_attachment = workflow_inputs_by_kind(&input, "skill_context")
                 .into_iter()
@@ -2077,28 +2031,22 @@ pub(super) fn execute_workflow_node(
                 .and_then(|parser| parser.get("resultSchema").cloned())
                 .or_else(|| logic.get("outputSchema").cloned());
             let memory_send_options = workflow_memory_send_options(&logic, &node_id);
-            json!({
-                "nodeId": node_id,
-                "kind": evidence_kind,
-                "modelRef": model_ref,
-                "message": format!("{} completed with bound model {}.", node_name, model_ref),
-                "input": input,
-                "attachments": {
-                    "skillContext": skill_context_attachment,
-                    "parser": parser_attachment,
-                    "memory": memory_attachment,
-                    "memoryPolicy": memory_send_options.clone(),
-                    "tools": tool_attachments
-                },
-                "runtimeSendOptions": {
-                    "memory": memory_send_options
-                },
-                "toolCalls": tool_calls,
-                "structuredOutputSchema": parsed_output_schema,
-                "streaming": {
-                    "eventKinds": ["node_started", "state_updated", "node_succeeded"]
-                }
-            })
+            workflow_model_call_output(
+                workflow,
+                &node_id,
+                &node_name,
+                &logic,
+                &input,
+                evidence_kind,
+                runtime,
+                parser_attachment,
+                skill_context_attachment,
+                memory_attachment,
+                tool_attachments,
+                tool_calls,
+                parsed_output_schema,
+                memory_send_options,
+            )?
         }
         ActionKind::Parser => {
             let binding = workflow_parser_binding(node)?;
@@ -2139,7 +2087,13 @@ pub(super) fn execute_workflow_node(
         ActionKind::PluginTool => {
             let binding = workflow_tool_binding(node)?;
             if binding.binding_kind.as_deref() == Some("workflow_tool") {
-                execute_workflow_tool_binding(workflow_path, &node_id, &binding, input.clone())?
+                execute_workflow_tool_binding(
+                    workflow_path,
+                    &node_id,
+                    &binding,
+                    input.clone(),
+                    runtime,
+                )?
             } else {
                 if !binding.mock_binding
                     && workflow_side_effect_requires_live_runtime(&binding.side_effect_class)
@@ -2457,6 +2411,7 @@ pub(crate) fn execute_workflow_harness_canary_node(
         attempt,
         canary_human_gate_outcome.as_ref(),
         &WorkflowSkillResolver::default(),
+        &WorkflowExecutionRuntime::default(),
     )
 }
 
@@ -2481,5 +2436,6 @@ pub(crate) fn execute_workflow_harness_live_default_node(
         attempt,
         default_human_gate_outcome.as_ref(),
         &WorkflowSkillResolver::default(),
+        &WorkflowExecutionRuntime::default(),
     )
 }

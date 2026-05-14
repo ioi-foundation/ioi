@@ -2305,6 +2305,18 @@ assert.match(
   "Usability probe should cover the two canonical scratch exercises through visible controls",
 );
 
+assert.match(
+  tauriRuntime,
+  /run_workflow_project_live[\s\S]*run_workflow_node_live/,
+  "Workflow composer runs should call the live daemon project/node runner so configured model nodes can use mounted inference",
+);
+
+assert.match(
+  workflowBottomShelf,
+  /workflow-model-invocation-trace[\s\S]*workflow-model-invocation-prompt[\s\S]*workflow-model-invocation-trace-step/,
+  "Workflow run output should expose a glass-box model invocation trace with prompt and phase evidence",
+);
+
 assert.doesNotMatch(
   usabilityProbe,
   /createWorkflowProject|saveWorkflowProject|createWorkflowFromTemplate|workflow\.template\.instantiate|write_text\([^)]*workflow/i,
