@@ -541,6 +541,11 @@ export type {
   RuntimeCodingToolBudgetRecoveryWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-coding-tool-budget-recovery-control-nodes";
 export type {
+  WorkflowRuntimeCodingToolBudgetRecoverySubflow,
+  WorkflowRuntimeCodingToolBudgetRecoverySubflowOptions,
+} from "./runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
+export { createWorkflowRuntimeCodingToolBudgetRecoverySubflow } from "./runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
+export type {
   RuntimeMcpToolControlRequest,
   RuntimeMcpToolControlRequestBody,
   RuntimeMcpToolControlRequestInput,

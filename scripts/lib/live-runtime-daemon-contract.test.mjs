@@ -12029,6 +12029,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeCodingToolBudgetRecoverySubflow = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.ts",
+    ),
+    "utf8",
+  );
   const workflowRuntimeEditProposalControlNodes = fs.readFileSync(
     path.join(
       root,
@@ -12715,6 +12722,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /\/v1\/runs\/\{runId\}\/coding-tool-budget-recovery/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /WorkflowRunCodingToolBudgetRecoveryControl/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /normalizeWorkflowCodingToolBudgetRecoveryPolicy/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /createWorkflowRuntimeCodingToolBudgetRecoverySubflow/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /runtime_coding_tool_budget_recovery/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /request_approval/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /approve_override/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /reject_override/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /retry_approved/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /ioi\.workflow\.runtime-coding-tool-budget-recovery-subflow\.v1/);
   assert.match(workflowRuntimeTelemetrySummary, /tui_coding_tool_rows/);
   assert.match(workflowRuntimeTelemetrySummary, /codingToolBudgetRowCount/);
   assert.match(workflowRuntimeTelemetrySummary, /usageSnapshotFromCodingToolBudgetRow/);
@@ -13037,8 +13051,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunHistoryModel, /visibleTuiControlStateRows/);
   assert.match(workflowRunsPanel, /workflow-run-edit-proposal-policy-stack/);
   assert.match(workflowRunsPanel, /workflow-run-coding-tool-budget-recovery-action/);
+  assert.match(workflowRunsPanel, /workflow-run-coding-tool-budget-recovery-subflow-/);
   assert.match(workflowRunsPanel, /data-coding-tool-budget-recovery-action-count/);
   assert.match(workflowRunsPanel, /data-recovery-policy-operator-role/);
+  assert.match(workflowRunsPanel, /onCreateRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(runtimeDaemon, /proposeWorkflowEdit/);
   assert.match(runtimeDaemon, /applyWorkflowEditProposal/);
   assert.match(runtimeDaemon, /action === "workflow-edit-proposals"/);
@@ -13053,6 +13069,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /codingToolBudgetPreflight/);
   assert.match(workflowComposerController, /codingToolBudgetRecovery/);
   assert.match(workflowComposerController, /handleExecuteRuntimeCodingToolBudgetRecovery/);
+  assert.match(workflowComposerController, /handleCreateRuntimeCodingToolBudgetRecoverySubflow/);
+  assert.match(workflowComposerController, /createWorkflowRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(workflowComposerController, /coding-tool-budget-approved-retry/);
   assert.match(workflowComposerController, /coding-tool-budget-preflight/);
   assert.match(workflowComposerController, /inspector-coding-tool-budget-preflight/);
@@ -13083,6 +13101,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerView, /onExecuteRuntimeContextPressureAction/);
   assert.match(workflowComposerView, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowComposerView, /onExecuteRuntimeCodingToolBudgetRecovery/);
+  assert.match(workflowComposerView, /onCreateRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(runtimeDaemon, /context_pressure_alert/);
   assert.match(runtimeDaemon, /context\.pressure_alert/);
   assert.match(runtimeDaemon, /requestThreadApproval/);
