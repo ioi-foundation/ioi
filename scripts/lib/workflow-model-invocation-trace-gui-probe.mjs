@@ -5,6 +5,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { WorkflowBottomShelf } from "../../packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx";
+import { WorkflowRunsPanel } from "../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
+import { workflowRunHistoryModel } from "../../packages/agent-ide/src/runtime/workflow-run-history-model.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -146,7 +148,19 @@ const lastRunResult = {
   completionRequirements: [],
 };
 
-const html = renderToStaticMarkup(
+const model = workflowRunHistoryModel({
+  workflow,
+  runs: [summary],
+  lastRunResult,
+  compareRunResult: null,
+  selectedRunId: summary.id,
+  compareRunId: null,
+  runEvents: lastRunResult.events,
+  searchQuery: "sports",
+  statusFilter: "all",
+});
+
+const bottomShelfHtml = renderToStaticMarkup(
   React.createElement(WorkflowBottomShelf, {
     panel: "run_output",
     selectedNode: null,
@@ -174,13 +188,42 @@ const html = renderToStaticMarkup(
   }),
 );
 
-const traceStepCount = (html.match(/workflow-model-invocation-trace-step/g) ?? [])
-  .length;
+const runsPanelHtml = renderToStaticMarkup(
+  React.createElement(WorkflowRunsPanel, {
+    workflow,
+    model,
+    runSearchQuery: "sports",
+    runStatusFilter: "all",
+    runSourceFilter: "all",
+    checkpoints: [],
+    dogfoodRun: null,
+    accessibleStatusLabel: (status) => String(status ?? "unknown"),
+    onRunSearchQueryChange: () => {},
+    onRunStatusFilterChange: () => {},
+    onRunSourceFilterChange: () => {},
+    onSelectRun: () => {},
+    onCompareRun: () => {},
+    onInspectNode: () => {},
+  }),
+);
+
+const html = `${bottomShelfHtml}\n${runsPanelHtml}`;
+const traceStepCount = (
+  bottomShelfHtml.match(/workflow-model-invocation-trace-step/g) ?? []
+).length;
+const railTraceStepCount = (
+  runsPanelHtml.match(/data-testid="workflow-run-model-invocation-step"/g) ?? []
+).length;
 const checks = {
-  bottomShelfRendered: html.includes('data-testid="workflow-run-detail"'),
-  traceSectionRendered: html.includes(
+  bottomShelfRendered: bottomShelfHtml.includes('data-testid="workflow-run-detail"'),
+  traceSectionRendered: bottomShelfHtml.includes(
     'data-testid="workflow-model-invocation-trace"',
   ),
+  runsPanelTraceRendered: runsPanelHtml.includes(
+    'data-testid="workflow-run-model-invocation-trace"',
+  ),
+  runsPanelSearchFindsPrompt:
+    model.visibleRows.length === 1 && model.visibleRows[0]?.run.id === summary.id,
   promptVisible: html.includes("latest sports news"),
   mountedModeVisible: html.includes("live_mounted_model"),
   bindingVisible: html.includes("reasoning") && html.includes("demo-mounted-model"),
@@ -192,6 +235,7 @@ const checks = {
     html.includes(">prompt<") &&
     html.includes(">model<"),
   traceStepsRendered: traceStepCount === 4,
+  railTraceStepsRendered: railTraceStepCount === 4,
 };
 
 const proof = {
@@ -201,10 +245,13 @@ const proof = {
   prompt,
   expectedEventKind: "model_invocation_succeeded",
   traceStepCount,
+  railTraceStepCount,
   checks,
   sourceRefs: [
     "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx",
-    "packages/agent-ide/src/runtime/workflow-rail-model.ts",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/agent-ide/src/runtime/workflow-model-invocation-trace.ts",
+    "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
     "packages/agent-ide/src/types/graph.ts",
   ],
 };

@@ -228,6 +228,60 @@ test("workflow run history model binds selected run, timeline, and comparison", 
   assert.equal(model.comparison?.changedNodes[0]?.nodeId, "model");
 });
 
+test("workflow run history model exposes model invocation traces and searches prompt evidence", () => {
+  const target = runResult("run-a", "passed", {
+    response: "sports answer",
+    modelInvocation: {
+      mode: "live_mounted_model",
+      modelRef: "reasoning",
+      modelId: "demo-mounted-model",
+      promptHash: "sha256:prompt",
+      responseHash: "sha256:response",
+      prompt: {
+        user: "what's the latest sports news?",
+      },
+      trace: [
+        { phase: "input", summary: "Collected workflow input." },
+        { phase: "binding", summary: "Resolved mounted model binding." },
+        {
+          phase: "prompt",
+          summary: "Assembled prompt envelope.",
+          promptHash: "sha256:prompt",
+        },
+        {
+          phase: "model",
+          summary: "Invoked mounted runtime.",
+          responseHash: "sha256:response",
+        },
+      ],
+    },
+  });
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "sports",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.modelInvocationTraces.length, 1);
+  assert.equal(model.modelInvocationTraces[0]?.mode, "live_mounted_model");
+  assert.equal(model.modelInvocationTraces[0]?.modelId, "demo-mounted-model");
+  assert.equal(model.modelInvocationTraces[0]?.trace.length, 4);
+  assert.deepEqual(
+    model.modelInvocationTraces[0]?.trace.map((step) => step.phase),
+    ["input", "binding", "prompt", "model"],
+  );
+  assert.deepEqual(
+    model.visibleRows.map((row) => row.run.id),
+    ["run-a"],
+  );
+});
+
 test("workflow run history model projects canonical runtime thread events", () => {
   const target = runResult("run-a", "passed", { answer: "new" });
   const model = workflowRunHistoryModel({

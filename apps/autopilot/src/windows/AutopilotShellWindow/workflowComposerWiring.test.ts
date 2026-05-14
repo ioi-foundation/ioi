@@ -99,9 +99,28 @@ const workflowNodeDetailGrid = fs.readFileSync(
   ),
   "utf8",
 );
-const workflowRailPanel = fs.readFileSync(
+const workflowRailPanelDir = new URL(
+  "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/",
+  import.meta.url,
+);
+const workflowRailPanel = fs
+  .readdirSync(workflowRailPanelDir, { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".tsx"))
+  .sort((left, right) => left.name.localeCompare(right.name))
+  .map((entry) =>
+    fs.readFileSync(new URL(entry.name, workflowRailPanelDir), "utf8"),
+  )
+  .join("\n");
+const workflowRailRunsPanel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowRailReadinessPanel = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -114,7 +133,7 @@ const workflowComposerCss = [
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
-const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowBottomShelf}`;
+const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowRailRunsPanel}\n${workflowRailReadinessPanel}\n${workflowBottomShelf}`;
 const templates = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/workflowTemplates.ts",
@@ -153,6 +172,48 @@ const workflowValidation = fs.readFileSync(
 const workflowRailModel = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/runtime/workflow-rail-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowSettingsModel = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-settings-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowEntrypointsModel = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowFileBundleModel = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowReadinessModel = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowRunHistoryModel = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowModelInvocationTrace = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-model-invocation-trace.ts",
     import.meta.url,
   ),
   "utf8",
@@ -253,10 +314,12 @@ const projectCommands = fs.readFileSync(
   new URL("../../../src-tauri/src/project/commands.rs", import.meta.url),
   "utf8",
 );
-const projectRuntime = fs.readFileSync(
-  new URL("../../../src-tauri/src/project/runtime.rs", import.meta.url),
-  "utf8",
-);
+const projectRuntime = [
+  "../../../src-tauri/src/project/runtime.rs",
+  "../../../src-tauri/src/project/workflow_coding_route_lane.rs",
+]
+  .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 const graphState = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/hooks/useGraphState.ts",
@@ -489,7 +552,7 @@ assert.match(
 );
 
 assert.match(
-  `${workflowRailModel}\n${workflowRailPanel}\n${workflowBottomShelf}\n${workflowNodeDetailGrid}\n${workflowComposerModals}`,
+  `${workflowRailModel}\n${workflowRailPanel}\n${workflowRailReadinessPanel}\n${workflowBottomShelf}\n${workflowNodeDetailGrid}\n${workflowComposerModals}`,
   /(?=[\s\S]*WORKFLOW_ISSUE_TITLES)(?=[\s\S]*workflowIssueTitle)(?=[\s\S]*workflowIssueActionLabel)(?=[\s\S]*workflow-readiness-blocker-\$\{index\})(?=[\s\S]*onResolveIssue\(issue\))/,
   "Validation and readiness blockers should use product issue labels and resolve into an authoring action",
 );
@@ -840,7 +903,7 @@ assert.match(
 
 assert.match(
   composer,
-  /workflow-add-agent-loop-macro[\s\S]*handleInsertAgentLoopMacro/,
+  /(?=[\s\S]*workflow-add-agent-loop-macro)(?=[\s\S]*handleInsertAgentLoopMacro)/,
   "Composer should offer a generic agent-loop macro without adding scenario templates to the primitive catalog",
 );
 
@@ -1122,13 +1185,13 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /railSearchQuery[\s\S]*workflowRailSearchResults\(\s*workflow,\s*tests,\s*normalizedRailSearch,\s*\)[\s\S]*workflow-rail-search-input[\s\S]*workflow-rail-search-results[\s\S]*onInspectNode/,
+  /railSearchQuery[\s\S]*workflowRailSearchModel\([\s\S]*searchQuery: railSearchQuery[\s\S]*WorkflowSearchPanel[\s\S]*workflow-rail-search-input[\s\S]*workflow-rail-search-results[\s\S]*onInspectNode/,
   "Search rail should index nodes, tests, and outputs and let users jump to matching nodes",
 );
 
 assert.match(
-  workflowRailModel,
-  /workflowRailSearchResults[\s\S]*workflowSelectedNodeBindingSummary[\s\S]*resultKind: "Node"[\s\S]*resultKind: "Test"[\s\S]*resultKind: "Output"/,
+  `${workflowRailModel}\n${fs.readFileSync(new URL("../../../../../packages/agent-ide/src/runtime/workflow-rail-search-model.ts", import.meta.url), "utf8")}`,
+  /workflowRailSearchResults[\s\S]*workflowSelectedNodeBindingSummary[\s\S]*resultKind: "Node"[\s\S]*resultKind: "Test"[\s\S]*resultKind: "Output"[\s\S]*workflowRailSearchModel[\s\S]*actionable/,
   "Search rail indexing should live in the extracted rail model",
 );
 
@@ -1181,9 +1244,9 @@ for (const selector of [
 }
 
 assert.match(
-  workflowRailPanel,
-  /workflowBindingRegistryRows\(workflow\)[\s\S]*workflowBindingRegistrySummary\(bindingRegistryRows\)[\s\S]*workflow-binding-registry-row-\$\{row\.nodeItem\.id\}[\s\S]*workflow-binding-check-\$\{row\.id\}[\s\S]*workflow-binding-check-result-\$\{row\.id\}/,
-  "Settings rail should render binding registry rows from the extracted rail model",
+  `${workflowSettingsModel}\n${workflowRailPanel}`,
+  /(?=[\s\S]*workflowBindingRegistryRows\(workflow\))(?=[\s\S]*workflowBindingRegistrySummary\(bindingRegistryRows\))(?=[\s\S]*workflow-binding-registry-row-\$\{row\.nodeItem\.id\})(?=[\s\S]*workflow-binding-check-\$\{row\.id\})(?=[\s\S]*workflow-binding-check-result-\$\{row\.id\})/,
+  "Settings rail should render binding registry rows from the extracted settings model",
 );
 
 assert.match(
@@ -1319,13 +1382,13 @@ assert.doesNotMatch(
 );
 
 assert.match(
-  workflowRailPanel,
-  /sourceAndTriggerNodes[\s\S]*workflow-sources-list[\s\S]*workflow-source-node-\$\{nodeItem\.id\}[\s\S]*onInspectNode/,
+  `${workflowEntrypointsModel}\n${workflowRailPanel}`,
+  /sourceRows[\s\S]*triggerRows[\s\S]*workflow-sources-list[\s\S]*workflow-source-node-\$\{row\.node\.id\}[\s\S]*onInspectNode/,
   "Sources rail should list source and trigger start points with click-through inspection",
 );
 
 assert.match(
-  workflowRailPanel,
+  `${workflowFileBundleModel}\n${workflowRailPanel}`,
   /workflowFileBundleItems\([\s\S]*workflow,[\s\S]*tests,[\s\S]*proposals,[\s\S]*runs,[\s\S]*portablePackage,[\s\S]*bindingManifest,[\s\S]*\)[\s\S]*workflow-files-list/,
   "Files rail should show workflow bundle sidecars and portable package status",
 );
@@ -1337,8 +1400,8 @@ assert.match(
 );
 
 assert.match(
-  workflowRailPanel,
-  /triggerNodes[\s\S]*workflow-schedules-list[\s\S]*workflow-schedule-node-\$\{nodeItem\.id\}[\s\S]*cronSchedule[\s\S]*eventSourceRef/,
+  `${workflowEntrypointsModel}\n${workflowRailPanel}`,
+  /(?=[\s\S]*triggerRows)(?=[\s\S]*cronSchedule)(?=[\s\S]*eventSourceRef)(?=[\s\S]*workflow-schedules-list)(?=[\s\S]*workflow-schedule-node-\$\{row\.node\.id\})/,
   "Schedules rail should show trigger readiness for manual, scheduled, and event starts",
 );
 
@@ -1559,8 +1622,8 @@ assert.match(
 );
 
 assert.match(
-  workflowComposerUi,
-  /id: "readiness"[\s\S]*Readiness[\s\S]*handleCheckReadiness[\s\S]*validateWorkflowExecutionReadiness[\s\S]*Trigger or source[\s\S]*Model binding[\s\S]*Live bindings for activation[\s\S]*Outputs defined[\s\S]*Tests present/,
+  `${composer}\n${workflowRailReadinessPanel}\n${workflowValidation}\n${workflowReadinessModel}`,
+  /(?=[\s\S]*id: "readiness")(?=[\s\S]*Readiness)(?=[\s\S]*handleCheckReadiness)(?=[\s\S]*validateWorkflowExecutionReadiness)(?=[\s\S]*Trigger or source)(?=[\s\S]*Model binding)(?=[\s\S]*Live bindings for activation)(?=[\s\S]*Outputs defined)(?=[\s\S]*Tests present)/,
   "The workbench should expose activation readiness as operational product state",
 );
 
@@ -1816,14 +1879,14 @@ assert.match(
 );
 
 assert.match(
-  workflowRailPanel,
-  /(?=[\s\S]*runSearchQuery)(?=[\s\S]*setRunSearchQuery)(?=[\s\S]*runStatusFilter)(?=[\s\S]*setRunStatusFilter)(?=[\s\S]*filteredRuns)(?=[\s\S]*visibleRuns)(?=[\s\S]*workflow-run-filters)(?=[\s\S]*workflow-run-search-input)(?=[\s\S]*workflow-run-status-filter)(?=[\s\S]*workflow-runs-empty-filtered)/,
+  `${workflowRunHistoryModel}\n${workflowRailRunsPanel}\n${workflowRailPanel}`,
+  /(?=[\s\S]*runSearchQuery)(?=[\s\S]*setRunSearchQuery)(?=[\s\S]*runStatusFilter)(?=[\s\S]*setRunStatusFilter)(?=[\s\S]*filteredRuns)(?=[\s\S]*visibleRows)(?=[\s\S]*workflow-run-filters)(?=[\s\S]*workflow-run-search-input)(?=[\s\S]*workflow-run-status-filter)(?=[\s\S]*workflow-runs-empty-filtered)/,
   "Runs rail should filter high-volume execution history instead of dumping an overwhelming run count",
 );
 
 assert.match(
-  workflowComposerUi,
-  /handleCompareRun[\s\S]*loadWorkflowRun[\s\S]*compareRunRecords[\s\S]*workflow-run-compare[\s\S]*input changed[\s\S]*workflow-bottom-run-compare[\s\S]*workflow-bottom-run-compare-nodes[\s\S]*workflow-bottom-run-compare-state/,
+  `${composer}\n${workflowRunHistoryModel}\n${workflowRailRunsPanel}\n${workflowBottomShelf}`,
+  /(?=[\s\S]*handleCompareRun)(?=[\s\S]*loadWorkflowRun)(?=[\s\S]*compareRunRecords)(?=[\s\S]*workflow-run-compare)(?=[\s\S]*input changed)(?=[\s\S]*workflow-bottom-run-compare)(?=[\s\S]*workflow-bottom-run-compare-nodes)(?=[\s\S]*workflow-bottom-run-compare-state)/,
   "Runs UI should compare two durable run sidecars without exposing hidden trace vocabulary",
 );
 
@@ -1864,8 +1927,8 @@ assert.match(
 );
 
 assert.match(
-  workflowComposerUi,
-  /workflowInterruptPreview\(lastRunResult\)[\s\S]*workflow-interrupt-preview[\s\S]*workflow-run-action-preview[\s\S]*Approve and resume/,
+  `${workflowRunHistoryModel}\n${workflowRailRunsPanel}\n${workflowBottomShelf}`,
+  /(?=[\s\S]*workflowInterruptPreview\(lastRunResult\))(?=[\s\S]*workflow-interrupt-preview)(?=[\s\S]*workflow-run-action-preview)(?=[\s\S]*Approve and resume)/,
   "Paused tool and connector actions should show an operational approval preview before resume",
 );
 
@@ -2264,7 +2327,7 @@ assert.match(
 );
 
 assert.match(
-  workflowRailPanel,
+  workflowReadinessModel,
   /Error handling[\s\S]*Evaluation coverage[\s\S]*Replay samples[\s\S]*MCP access reviewed[\s\S]*Value estimate/,
   "Readiness checklist should make production blockers and replay-sample posture visible before activation",
 );
@@ -2315,6 +2378,18 @@ assert.match(
   workflowBottomShelf,
   /workflow-model-invocation-trace[\s\S]*workflow-model-invocation-prompt[\s\S]*workflow-model-invocation-trace-step/,
   "Workflow run output should expose a glass-box model invocation trace with prompt and phase evidence",
+);
+
+assert.match(
+  workflowRailRunsPanel,
+  /workflow-run-model-invocation-trace[\s\S]*workflow-run-model-invocation-summary[\s\S]*workflow-run-model-invocation-step/,
+  "Workflow run inspector should surface model prompt pipeline evidence in the primary Runs rail",
+);
+
+assert.match(
+  workflowModelInvocationTrace,
+  /workflowModelInvocationTraces[\s\S]*workflowModelInvocationTraceSearchText/,
+  "Model invocation traces should use a shared runtime view model for shelf, rail, and search projections",
 );
 
 assert.doesNotMatch(

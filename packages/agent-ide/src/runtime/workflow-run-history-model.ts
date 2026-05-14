@@ -36,6 +36,11 @@ import {
   workflowRuntimeTelemetrySummaryFromProjection,
   type WorkflowRuntimeTelemetrySummary,
 } from "./workflow-runtime-telemetry-summary";
+import {
+  workflowModelInvocationTraceSearchText,
+  workflowModelInvocationTraces,
+  type WorkflowModelInvocationTraceView,
+} from "./workflow-model-invocation-trace";
 
 export type WorkflowRunHistoryRow = {
   run: WorkflowRunSummary;
@@ -106,6 +111,7 @@ export type WorkflowRunHistoryModel = {
   runtimeTelemetrySourceFilter: string;
   runtimeTelemetrySourceFilters: WorkflowRunTelemetrySourceFilter[];
   runtimeCodingToolBudgetEvidence: WorkflowRunCodingToolBudgetEvidence | null;
+  modelInvocationTraces: WorkflowModelInvocationTraceView[];
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   visibleTuiControlStateRows: WorkflowRuntimeTuiControlStateRow[];
   defaultCompareRun: WorkflowRunSummary | null;
@@ -119,9 +125,10 @@ export type WorkflowRunHistoryModel = {
 function workflowRunMatchesSearch(
   run: WorkflowRunSummary,
   normalizedSearch: string,
+  traceSearchText = "",
 ): boolean {
   if (!normalizedSearch) return true;
-  return [run.id, run.status, run.summary]
+  return [run.id, run.status, run.summary, traceSearchText]
     .join(" ")
     .toLowerCase()
     .includes(normalizedSearch);
@@ -189,6 +196,27 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySummary,
     tuiControlStateProjection.rows,
   );
+  const selectedModelInvocationTraces = workflowModelInvocationTraces(
+    selectedRun,
+    workflow,
+  );
+  const modelInvocationTraceTextByRunId = new Map<string, string>();
+  if (lastRunResult) {
+    modelInvocationTraceTextByRunId.set(
+      lastRunResult.summary.id,
+      workflowModelInvocationTraceSearchText(
+        workflowModelInvocationTraces(lastRunResult, workflow),
+      ),
+    );
+  }
+  if (compareRunResult) {
+    modelInvocationTraceTextByRunId.set(
+      compareRunResult.summary.id,
+      workflowModelInvocationTraceSearchText(
+        workflowModelInvocationTraces(compareRunResult, workflow),
+      ),
+    );
+  }
   const visibleTuiControlStateRows = tuiControlStateProjection.rows.filter((row) =>
     tuiRowMatchesTelemetrySourceFilter(row, runtimeTelemetrySourceFilter),
   );
@@ -202,7 +230,14 @@ export function workflowRunHistoryModel({
   );
   const filteredRuns = runs.filter((run) => {
     const matchesStatus = statusFilter === "all" || run.status === statusFilter;
-    return matchesStatus && workflowRunMatchesSearch(run, normalizedSearch);
+    return (
+      matchesStatus &&
+      workflowRunMatchesSearch(
+        run,
+        normalizedSearch,
+        modelInvocationTraceTextByRunId.get(run.id),
+      )
+    );
   });
   const visibleRows = filteredRuns.slice(0, 8).map<WorkflowRunHistoryRow>(
     (run) => ({
@@ -228,6 +263,7 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySourceFilter,
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
+    modelInvocationTraces: selectedModelInvocationTraces,
     tuiControlStateProjection,
     visibleTuiControlStateRows,
     defaultCompareRun,
