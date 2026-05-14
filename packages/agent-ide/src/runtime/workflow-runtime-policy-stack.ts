@@ -264,10 +264,15 @@ function isApprovedRetry(
   if (
     !decisionEvent ||
     event.seq <= decisionEvent.seq ||
-    event.type !== "tool_completed"
+    (event.type !== "tool_completed" &&
+      event.eventKind !== "workflow.run.retry_completed" &&
+      event.sourceEventKind !== "WorkflowRunCodingToolBudgetApprovedRetry")
   ) {
     return false;
   }
+  const retryKind =
+    event.eventKind === "workflow.run.retry_completed" ||
+    event.sourceEventKind === "WorkflowRunCodingToolBudgetApprovedRetry";
   const payloadApprovalId = stringField(event.payload, "approvalId", "approval_id");
   const decisionEventId = stringField(
     event.payload,
@@ -275,7 +280,8 @@ function isApprovedRetry(
     "approval_decision_event_id",
   );
   const approvalSatisfied =
-    booleanField(event.payload, "approvalSatisfied", "approval_satisfied") ?? false;
+    booleanField(event.payload, "approvalSatisfied", "approval_satisfied") ??
+    retryKind;
   return (
     approvalSatisfied &&
     (!approvalId || payloadApprovalId === approvalId) &&

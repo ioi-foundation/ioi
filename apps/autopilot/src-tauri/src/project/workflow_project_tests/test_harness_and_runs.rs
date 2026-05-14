@@ -583,6 +583,186 @@ fn workflow_project_run_records_coding_tool_budget_preflight_policy_block() {
 }
 
 #[test]
+fn workflow_project_run_recovers_coding_tool_budget_preflight_with_approval_retry() {
+    let root = temp_root("coding-budget-recovery");
+    let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
+        project_root: root.display().to_string(),
+        template_id: "basic-agent-answer".to_string(),
+        name: Some("Budget Recovery Agent".to_string()),
+    })
+    .expect("template should instantiate");
+
+    let blocked = run_workflow_project(
+        bundle.workflow_path.clone(),
+        Some(json!({
+            "source": "test",
+            "codingToolBudgetPreflight": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-preflight.v1",
+                "sourceKind": "tui_coding_tool_rows",
+                "status": "blocked",
+                "rowCount": 1,
+                "targetNodeIds": ["model-answer"],
+                "eventIds": ["event-coding-budget-blocked"],
+                "toolNames": ["file.apply_patch"],
+                "toolCallIds": ["tool-call-budget"],
+                "budgetStatuses": ["exceeded"],
+                "contextBudgetStatuses": ["blocked"],
+                "mutationBlocked": true,
+                "receiptRefs": ["receipt-budget"],
+                "policyDecisionRefs": ["policy-budget"],
+                "issueCode": "prior_coding_tool_budget_evidence",
+                "issueMessage": "Budget exceeded before launch."
+            }
+        })),
+    )
+    .expect("blocked preflight should record a run");
+    assert_eq!(blocked.summary.status, "blocked");
+    let blocked_event_id = blocked
+        .runtime_thread_events
+        .first()
+        .and_then(|event| event.get("id"))
+        .and_then(Value::as_str)
+        .expect("blocked event id")
+        .to_string();
+
+    let requested = run_workflow_project(
+        bundle.workflow_path.clone(),
+        Some(json!({
+            "source": "coding-tool-budget-recovery",
+            "codingToolBudgetRecovery": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-recovery.v1",
+                "action": "request_approval",
+                "sourceEventId": blocked_event_id.clone(),
+                "blockedEventId": blocked_event_id.clone(),
+                "targetNodeIds": ["model-answer"],
+                "workflowNodeId": "runtime.coding-tool-budget-preflight",
+                "receiptRefs": ["receipt-budget"],
+                "policyDecisionRefs": ["policy-budget"],
+                "recoveryEvents": blocked.runtime_thread_events
+            }
+        })),
+    )
+    .expect("approval request should record");
+    assert_eq!(requested.summary.status, "blocked");
+    assert!(requested.runtime_thread_events.iter().any(|event| {
+        event.get("eventKind").and_then(Value::as_str) == Some("approval.required")
+    }));
+    let approval_event = requested
+        .runtime_thread_events
+        .iter()
+        .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("approval.required"))
+        .expect("approval event should exist");
+    let approval_id = approval_event
+        .get("approvalId")
+        .and_then(Value::as_str)
+        .expect("approval id")
+        .to_string();
+    let approval_request_event_id = approval_event
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("approval request event id")
+        .to_string();
+    let approval_rows = requested
+        .tui_control_state
+        .as_ref()
+        .and_then(|state| state.get("approvalRows"))
+        .and_then(Value::as_array)
+        .expect("approval rows should persist");
+    assert_eq!(
+        approval_rows[0].get("approvalId").and_then(Value::as_str),
+        Some(approval_id.as_str())
+    );
+
+    let approved = run_workflow_project(
+        bundle.workflow_path.clone(),
+        Some(json!({
+            "source": "coding-tool-budget-recovery",
+            "codingToolBudgetRecovery": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-recovery.v1",
+                "action": "approve_override",
+                "sourceEventId": blocked_event_id.clone(),
+                "blockedEventId": blocked_event_id.clone(),
+                "approvalId": approval_id.clone(),
+                "approvalRequestEventId": approval_request_event_id.clone(),
+                "targetNodeIds": ["model-answer"],
+                "workflowNodeId": "runtime.coding-tool-budget-preflight",
+                "receiptRefs": ["receipt-budget"],
+                "policyDecisionRefs": ["policy-budget"],
+                "recoveryEvents": requested.runtime_thread_events
+            }
+        })),
+    )
+    .expect("approval decision should record");
+    assert_eq!(approved.summary.status, "blocked");
+    let approval_decision_event = approved
+        .runtime_thread_events
+        .iter()
+        .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("approval.approved"))
+        .expect("approval decision event should exist");
+    let approval_decision_event_id = approval_decision_event
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("approval decision event id")
+        .to_string();
+    let approval_decisions = approved
+        .tui_control_state
+        .as_ref()
+        .and_then(|state| state.get("approvalDecisions"))
+        .and_then(Value::as_array)
+        .expect("approval decisions should persist");
+    assert_eq!(
+        approval_decisions[0].get("decision").and_then(Value::as_str),
+        Some("approve")
+    );
+
+    let retried = run_workflow_project(
+        bundle.workflow_path.clone(),
+        Some(json!({
+            "source": "coding-tool-budget-approved-retry",
+            "codingToolBudgetRecovery": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-recovery.v1",
+                "action": "retry_approved",
+                "sourceEventId": blocked_event_id.clone(),
+                "blockedEventId": blocked_event_id.clone(),
+                "approvalId": approval_id.clone(),
+                "approvalRequestEventId": approval_request_event_id.clone(),
+                "approvalDecisionEventId": approval_decision_event_id,
+                "targetNodeIds": ["model-answer"],
+                "workflowNodeId": "runtime.coding-tool-budget-preflight",
+                "receiptRefs": ["receipt-budget"],
+                "policyDecisionRefs": ["policy-budget"],
+                "recoveryEvents": approved.runtime_thread_events
+            }
+        })),
+    )
+    .expect("approved retry should execute");
+    assert_eq!(retried.summary.status, "passed");
+    assert!(retried.runtime_thread_events.iter().any(|event| {
+        event.get("sourceEventKind").and_then(Value::as_str)
+            == Some("WorkflowRunCodingToolBudgetApprovedRetry")
+            && event.get("eventKind").and_then(Value::as_str)
+                == Some("workflow.run.retry_completed")
+    }));
+    let retry_decisions = retried
+        .tui_control_state
+        .as_ref()
+        .and_then(|state| state.get("approvalDecisions"))
+        .and_then(Value::as_array)
+        .expect("retry decision rows should persist");
+    assert_eq!(
+        retry_decisions[0].get("decision").and_then(Value::as_str),
+        Some("retry_approved")
+    );
+    let loaded = load_workflow_run(bundle.workflow_path.clone(), retried.summary.id.clone())
+        .expect("retried run result should load");
+    assert_eq!(loaded.summary.status, "passed");
+    assert!(loaded.runtime_thread_events.iter().any(|event| {
+        event.get("sourceEventKind").and_then(Value::as_str)
+            == Some("WorkflowRunCodingToolBudgetApprovedRetry")
+    }));
+}
+
+#[test]
 fn workflow_run_project_reuses_prebound_thread_for_live_telemetry_hydration() {
     let root = temp_root("live-telemetry-thread");
     let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {

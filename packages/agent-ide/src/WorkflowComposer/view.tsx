@@ -77,6 +77,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleExecuteRuntimeDiagnosticsRepair,
     handleExecuteRuntimeContextPressureAction,
     handleExecuteRuntimeWorkspaceTrustAction,
+    handleExecuteRuntimeCodingToolBudgetRecovery,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -1370,6 +1371,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onExecuteRuntimeWorkspaceTrustAction={(action) => {
                       void handleExecuteRuntimeWorkspaceTrustAction(action);
+                    }}
+                    onExecuteRuntimeCodingToolBudgetRecovery={(action) => {
+                      void handleExecuteRuntimeCodingToolBudgetRecovery(action);
                     }}
                     onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
                     onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}

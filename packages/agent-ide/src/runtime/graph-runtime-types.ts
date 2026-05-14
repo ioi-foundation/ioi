@@ -126,6 +126,7 @@ export interface WorkflowRunRequestOptions extends Record<string, unknown> {
   source?: string;
   stopAtNodeId?: string;
   codingToolBudgetPreflight?: WorkflowCodingToolBudgetRunLaunchAnnotation;
+  codingToolBudgetRecovery?: Record<string, unknown>;
 }
 
 export interface GraphExecutionRuntime {

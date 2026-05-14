@@ -197,3 +197,63 @@ test("marks the stack waiting while trust or approval gates are unresolved", () 
   assert.equal(waitingForApproval.stages[3]?.status, "waiting");
   assert.equal(waitingForApproval.stages[4]?.status, "not_required");
 });
+
+test("recognizes daemon coding-budget approved retry events", () => {
+  const stack = workflowRuntimePolicyStackFromEvents([
+    event("approval-required", 1, {
+      type: "approval_required",
+      eventKind: "approval.required",
+      sourceEventKind: "OperatorApproval.Request",
+      componentKind: "approval_gate",
+      approvalId: "approval-budget",
+      payload: {
+        approvalId: "approval-budget",
+        reason: "coding_tool_budget_preflight_blocked",
+      },
+    }),
+    event("approval-approved", 2, {
+      type: "approval_decision",
+      eventKind: "approval.approved",
+      sourceEventKind: "OperatorApproval.Approve",
+      componentKind: "approval_gate",
+      approvalId: "approval-budget",
+      payload: {
+        approvalId: "approval-budget",
+        decision: "approve",
+      },
+    }),
+    event("approved-retry", 3, {
+      type: "tool_completed",
+      eventKind: "workflow.run.retry_completed",
+      sourceEventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
+      componentKind: "coding_tool",
+      workflowNodeId: "runtime.coding-tool-budget-recovery",
+      approvalId: "approval-budget",
+      toolCallId: "retry-budget",
+      receiptRefs: ["receipt-retry"],
+      policyDecisionRefs: ["policy-retry"],
+      payload: {
+        approvalId: "approval-budget",
+        approvalSatisfied: true,
+        approvalDecisionEventId: "approval-approved",
+      },
+    }),
+  ]);
+
+  assert.equal(stack.status, "completed");
+  assert.deepEqual(stack.stages[4], {
+    kind: "approved_retry",
+    status: "completed",
+    label: "Approved retry",
+    eventId: "approved-retry",
+    eventSeq: 3,
+    workflowGraphId: "workflow.policy-stack",
+    workflowNodeId: "runtime.coding-tool-budget-recovery",
+    threadId: "thread-test",
+    approvalId: "approval-budget",
+    warningId: null,
+    toolCallId: "retry-budget",
+    receiptRefs: ["receipt-retry"],
+    policyDecisionRefs: ["policy-retry"],
+  });
+});

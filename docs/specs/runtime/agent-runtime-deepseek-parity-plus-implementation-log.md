@@ -191,8 +191,48 @@ workstream was narrower.
 | 189 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget readiness preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight/2026-05-14T03-48-02-824Z/result.json |
 | 190 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-launch preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight/2026-05-14T03-58-36-539Z/result.json |
 | 191 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget daemon launch policy | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json |
+| 192 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery approval/retry path | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery/2026-05-14T04-45-12-309Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 192. 2026-05-14 - Coding-tool budget recovery approval/retry path
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool budget
+recovery approval/retry path:
+
+- Added daemon/Tauri coding-budget recovery controls for blocked workflow and
+  target-node launches: `review_receipt` stays advisory in the run inspector,
+  while `request_approval`, `approve_override`, `reject_override`, and
+  `retry_approved` route through persisted workflow-run decisions.
+- Persisted recovery approval requests and decisions as canonical runtime
+  thread events with stable approval ids, source blocked-event refs,
+  receipt/policy refs, target node ids, recovery schema version, and TUI
+  approval/coding-budget rows.
+- Made approved retries explicit: the daemon accepts retry only after an
+  approved recovery decision is present, appends
+  `workflow.run.retry_completed` / `WorkflowRunCodingToolBudgetApprovedRetry`,
+  and preserves the full recovery event chain on the final run result.
+- Projected blocked launch recovery actions into React Flow run-inspector rows,
+  added executable action buttons, and wired the workflow composer controller to
+  call the Tauri run path with the same `codingToolBudgetRecovery` contract used
+  by the daemon policy lane.
+- Updated the policy stack, run-history model, graph/runtime request types, and
+  source-contract guards so recovery approval, rejection, and approved retry are
+  replayable alongside earlier coding-tool budget evidence.
+- Updated the master guide queue so the next P1-D slice promotes recovery
+  policy into configurable React Flow workflow authoring instead of hard-coded
+  recovery defaults.
+
+Validation evidence:
+
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test coding_tool_budget_preflight --lib` from `apps/autopilot/src-tauri`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery/2026-05-14T04-45-12-309Z/result.json`.
 
 ### Slice 191. 2026-05-14 - Coding-tool budget daemon launch policy
 

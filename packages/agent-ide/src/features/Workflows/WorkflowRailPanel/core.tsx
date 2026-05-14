@@ -57,6 +57,7 @@ import { workflowFileBundleModel } from "../../../runtime/workflow-file-bundle-m
 import { workflowSettingsModel } from "../../../runtime/workflow-settings-model";
 import { workflowSettingsHarnessModel } from "../../../runtime/workflow-settings-harness-model";
 import type {
+  WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeThreadEventLike,
@@ -345,6 +346,7 @@ export function WorkflowRailPanel({
   onExecuteRuntimeDiagnosticsRepair,
   onExecuteRuntimeContextPressureAction,
   onExecuteRuntimeWorkspaceTrustAction,
+  onExecuteRuntimeCodingToolBudgetRecovery,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -430,6 +432,9 @@ export function WorkflowRailPanel({
   ) => void | Promise<void>;
   onExecuteRuntimeWorkspaceTrustAction?: (
     action: WorkflowRuntimeWorkspaceTrustActionDescriptor,
+  ) => void | Promise<void>;
+  onExecuteRuntimeCodingToolBudgetRecovery?: (
+    action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void | Promise<void>;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
@@ -3332,6 +3337,9 @@ export function WorkflowRailPanel({
         }
         onExecuteRuntimeWorkspaceTrustAction={
           onExecuteRuntimeWorkspaceTrustAction
+        }
+        onExecuteRuntimeCodingToolBudgetRecovery={
+          onExecuteRuntimeCodingToolBudgetRecovery
         }
       />
     );

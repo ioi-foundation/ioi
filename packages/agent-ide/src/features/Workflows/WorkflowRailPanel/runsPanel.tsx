@@ -6,6 +6,7 @@ import type {
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
 import type {
+  WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
@@ -45,6 +46,9 @@ type WorkflowRunsPanelProps = {
   onExecuteRuntimeWorkspaceTrustAction?: (
     action: WorkflowRuntimeWorkspaceTrustActionDescriptor,
   ) => void | Promise<void>;
+  onExecuteRuntimeCodingToolBudgetRecovery?: (
+    action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void | Promise<void>;
 };
 
 export function WorkflowRunsPanel({
@@ -66,6 +70,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeDiagnosticsRepair,
   onExecuteRuntimeContextPressureAction,
   onExecuteRuntimeWorkspaceTrustAction,
+  onExecuteRuntimeCodingToolBudgetRecovery,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -683,6 +688,9 @@ export function WorkflowRunsPanel({
                     data-workspace-trust-action-count={
                       node.data.workspaceTrustActions.length
                     }
+                    data-coding-tool-budget-recovery-action-count={
+                      node.data.codingToolBudgetRecoveryActions.length
+                    }
                     data-tool-name={node.data.toolName ?? ""}
                     data-approval-id={node.data.approvalId ?? ""}
                     data-tui-deep-link-schema-version={
@@ -864,6 +872,63 @@ export function WorkflowRunsPanel({
                               }
                               onClick={() => {
                                 void onExecuteRuntimeWorkspaceTrustAction?.(
+                                  action,
+                                );
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {node.data.codingToolBudgetRecoveryActions.length > 0 ? (
+                        <div
+                          className="workflow-run-coding-tool-budget-recovery-actions"
+                          data-testid={`workflow-run-coding-tool-budget-recovery-actions-${node.id}`}
+                          data-action-count={
+                            node.data.codingToolBudgetRecoveryActions.length
+                          }
+                        >
+                          {node.data.codingToolBudgetRecoveryActions.map((action) => (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className="workflow-secondary-action"
+                              data-testid={`workflow-run-coding-tool-budget-recovery-action-${action.action}`}
+                              data-action-id={action.id}
+                              data-action={action.action}
+                              data-action-status={action.status}
+                              data-thread-id={action.threadId}
+                              data-workflow-graph-id={
+                                action.workflowGraphId ?? ""
+                              }
+                              data-workflow-node-id={action.workflowNodeId}
+                              data-source-event-id={action.sourceEventId ?? ""}
+                              data-event-id={action.eventId}
+                              data-approval-id={action.approvalId ?? ""}
+                              data-approval-request-event-id={
+                                action.approvalRequestEventId ?? ""
+                              }
+                              data-approval-decision-event-id={
+                                action.approvalDecisionEventId ?? ""
+                              }
+                              data-target-node-ids={
+                                action.targetNodeIds.join("|")
+                              }
+                              data-receipt-refs={action.receiptRefs.join("|")}
+                              data-policy-decision-refs={
+                                action.policyDecisionRefs.join("|")
+                              }
+                              data-executable={action.executable}
+                              title={action.summary ?? action.label}
+                              aria-label={`${action.label} coding-tool budget recovery action`}
+                              disabled={
+                                (!action.executable &&
+                                  action.action !== "review_receipt") ||
+                                !onExecuteRuntimeCodingToolBudgetRecovery
+                              }
+                              onClick={() => {
+                                void onExecuteRuntimeCodingToolBudgetRecovery?.(
                                   action,
                                 );
                               }}
