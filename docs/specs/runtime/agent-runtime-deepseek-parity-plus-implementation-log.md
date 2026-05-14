@@ -209,8 +209,52 @@ workstream was narrower.
 | 207 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | terminal-first coding-agent parity proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json |
 | 208 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json |
 | 209 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop live execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json |
+| 210 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop saved workflow run launch | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-53-33-194Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 210. 2026-05-14 - Terminal coding-loop saved workflow run launch
+
+Implementation slice completed 2026-05-14, promoting the live terminal
+coding-loop proof from manual daemon-contract sequencing into a saved workflow
+run-launch surface that still respects the modular React Flow runtime boundary:
+
+- Added a terminal coding-loop run-launch helper that creates a launch plan from
+  a persisted `WorkflowProject`, orders saved coding-tool nodes, invokes each
+  node through daemon runtime-control requests, and returns a normal
+  `WorkflowRunResult`.
+- Preserved terminal-loop execution context across patch approval retry,
+  receipt refs, rollback refs, artifact refs, test output artifact ids, and the
+  original result-producing tool-call id so downstream artifact/read and
+  retrieve nodes remain data-driven rather than hardcoded.
+- Converted daemon coding-tool results into run-result `runtimeThreadEvents` so
+  the existing run-history model can project saved terminal-loop executions
+  alongside TUI `coding_tool` rows.
+- Updated the live daemon proof to persist the generated terminal-loop workflow
+  under `.agents/workflows`, load it back, launch it through the helper, approve
+  the patch step through the daemon approval endpoint, and verify run-history
+  projection over the resulting `WorkflowRunResult`.
+- Extended source contracts and public exports so the saved-workflow launch
+  helper, test coverage, and run-history integration remain guarded.
+- Re-ran the full live Autopilot GUI harness after the run-launch proof, with
+  the terminal coding-loop creator and run-inspector proof artifacts still
+  present in the live evidence bundle.
+
+Evidence:
+
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-53-33-194Z/result.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-53-33-194Z/workflow-terminal-coding-loop-creator-proof.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-53-33-194Z/workflow-terminal-coding-loop-run-inspector-proof.json`
+- `packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts`
+- `packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts`
+- `scripts/lib/live-runtime-daemon-contract.test.mjs`
+
+Next tactical recommendation:
+
+- Wire the saved terminal-loop run-launch helper into the actual
+  WorkflowComposer/Tauri run action so clicking Run on a persisted terminal
+  coding-loop workflow dispatches through the shared helper and records normal
+  run history without a bespoke test hook.
 
 ### Slice 209. 2026-05-14 - Terminal coding-loop live execution
 

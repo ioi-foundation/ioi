@@ -60,6 +60,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const terminalCodingLoopExecution = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
   );
+  const terminalCodingLoopRunLaunch = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+  );
   const terminalCodingLoopSubflowTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
   );
@@ -68,6 +71,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   const terminalCodingLoopExecutionTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts",
+  );
+  const terminalCodingLoopRunLaunchTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
   );
   const terminalCodingLoopCreatorGuiProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs",
@@ -445,6 +451,30 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /resolves upstream artifact and tool result placeholders/,
   );
   assert.match(
+    terminalCodingLoopRunLaunch,
+    /ioi\.workflow\.runtime-terminal-coding-loop-run-launch\.v1/,
+  );
+  assert.match(
+    terminalCodingLoopRunLaunch,
+    /createRuntimeTerminalCodingLoopRunLaunchPlan/,
+  );
+  assert.match(
+    terminalCodingLoopRunLaunch,
+    /runRuntimeTerminalCodingLoopWorkflowLaunch/,
+  );
+  assert.match(
+    terminalCodingLoopRunLaunch,
+    /WorkflowRunResult/,
+  );
+  assert.match(
+    terminalCodingLoopRunLaunch,
+    /workflowRuntimeThreadEventFromToolResult/,
+  );
+  assert.match(
+    terminalCodingLoopRunLaunchTest,
+    /dispatches saved workflow nodes in run-history order/,
+  );
+  assert.match(
     exports,
     /createWorkflowRuntimeTerminalCodingLoopTemplateSubflow/,
   );
@@ -455,6 +485,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     exports,
     /createRuntimeTerminalCodingLoopStepRequest/,
+  );
+  assert.match(
+    exports,
+    /runRuntimeTerminalCodingLoopWorkflowLaunch/,
+  );
+  assert.match(
+    exports,
+    /workflowRunHistoryModel/,
   );
   assert.match(
     composerController,
@@ -524,11 +562,23 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     liveRuntimeDaemonContract,
-    /createRuntimeTerminalCodingLoopStepRequest/,
+    /runRuntimeTerminalCodingLoopWorkflowLaunch/,
   );
   assert.match(
     liveRuntimeDaemonContract,
-    /terminal_loop_\$\{stepId\}/,
+    /\.agents\/workflows\/terminal-coding-loop-live\.workflow\.json/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /workflowRunHistoryModel/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /terminal_loop_\$\{invokeContext\.stepId\}/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /runHistory\.visibleTuiControlStateRows/,
   );
   assert.match(
     guiHarnessContract,

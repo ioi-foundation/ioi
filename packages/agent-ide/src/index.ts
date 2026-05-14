@@ -599,6 +599,25 @@ export type {
   WorkflowRuntimeTerminalCodingLoopExecutionContext,
   WorkflowRuntimeTerminalCodingLoopStepRequestOptions,
 } from "./runtime/workflow-runtime-terminal-coding-loop-execution";
+export {
+  WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_RUN_LAUNCH_SCHEMA_VERSION,
+  createRuntimeTerminalCodingLoopRunLaunchPlan,
+  runRuntimeTerminalCodingLoopWorkflowLaunch,
+} from "./runtime/workflow-runtime-terminal-coding-loop-run-launch";
+export type {
+  WorkflowRuntimeTerminalCodingLoopApprovalContext,
+  WorkflowRuntimeTerminalCodingLoopApprovalResult,
+  WorkflowRuntimeTerminalCodingLoopRunLaunchBody,
+  WorkflowRuntimeTerminalCodingLoopRunLaunchInvokeContext,
+  WorkflowRuntimeTerminalCodingLoopRunLaunchOptions,
+  WorkflowRuntimeTerminalCodingLoopRunLaunchPlan,
+  WorkflowRuntimeTerminalCodingLoopRunLaunchResult,
+} from "./runtime/workflow-runtime-terminal-coding-loop-run-launch";
+export { workflowRunHistoryModel } from "./runtime/workflow-run-history-model";
+export type {
+  WorkflowRunHistoryModel,
+  WorkflowRunHistoryModelInput,
+} from "./runtime/workflow-run-history-model";
 export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
