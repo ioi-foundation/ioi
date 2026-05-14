@@ -183,8 +183,57 @@ workstream was narrower.
 | 181 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary unification | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json |
 | 182 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary budget gate enforcement | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary-budget-gate/2026-05-14T02-21-14-227Z/result.json |
 | 183 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | subagent summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-subagent-summary-budget/2026-05-14T02-32-43-456Z/result.json |
+| 184 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget/2026-05-14T02-47-09-164Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 184. 2026-05-14 - Coding-tool summary-budget enforcement
+
+Implementation slice completed 2026-05-14, P1-D/P0-B summary-driven coding-tool
+budget enforcement:
+
+- Added React Flow coding-tool request support for `runtimeTelemetrySummary`,
+  `budgetUsageTelemetry`, `budgetUsageField`, budget mode, and token, cost,
+  and context-pressure thresholds.
+- Extended coding-tool pack defaults and the workflow binding editor so budget
+  mode, usage field, max total tokens, max cost USD, max context pressure, and
+  warn ratio are configurable in React Flow.
+- Advertised those budget fields from daemon coding-tool contracts so workflow
+  authoring can discover the same knobs across status, diff, inspect, patch,
+  test, diagnostics, artifact, and retrieval tools.
+- Added a daemon coding-tool budget gate before approval and tool execution; a
+  blocked policy now emits a receipt-backed `policy.blocked` coding-tool event
+  with context-budget policy refs, returns a 403 policy error, and leaves the
+  target file unchanged.
+- Updated the master guide so the next P1-D slice narrows to explicit
+  React Flow/TUI inspector rendering for coding-tool budget-block evidence.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts`
+  - coding-tool request compilation and telemetry-summary conversion tests
+    passed.
+- `node --check packages/runtime-daemon/src/index.mjs && node --check packages/runtime-daemon/src/coding-tools.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - daemon/coding-tools/live-contract syntax checks passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript/Vite build passed.
+- `node --test --test-name-pattern "React Flow coding-tool budget" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon proof passed for summary-driven coding-tool blocking before
+    mutation, unchanged target file contents, coding-tool `policy.blocked`
+    event evidence, receipt refs, and context-budget policy refs.
+- `node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow|React Flow coding-tool approval manifests survive approval and retry execution" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - nearby coding-tool approval/approved-retry regression passed.
+- `node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broad coding-tool pack live proof passed for status, diff, inspect, apply
+    patch, diagnostics, test run, artifact read, retrieval, SDK, CLI/TUI, and
+    React Flow projection surfaces.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow event projection source-contract guard passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broad React Flow/runtime source-contract regression passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget/2026-05-14T02-47-09-164Z/result.json`.
 
 ### Slice 183. 2026-05-14 - Subagent summary-budget enforcement
 

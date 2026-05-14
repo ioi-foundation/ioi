@@ -93,3 +93,75 @@ test("workflow coding-tool pack binding compiles policy provenance", () => {
     newText: "after",
   });
 });
+
+test("workflow coding-tool pack binding compiles runtime telemetry summary budget gates", () => {
+  const request = createRuntimeCodingToolControlRequestFromWorkflowNode(
+    {
+      id: "node-budgeted-file-patch",
+      type: "plugin_tool",
+      config: {
+        logic: {
+          toolBinding: {
+            toolRef: "file.apply_patch",
+            bindingKind: "coding_tool_pack",
+            arguments: {
+              path: "README.md",
+              oldText: "before",
+              newText: "after",
+            },
+            toolPack: {
+              pack: "coding",
+              writeEnabled: true,
+              budgetMode: "block",
+              budgetUsageField: "runtimeTelemetrySummary",
+              maxTotalTokens: 100,
+              maxCostUsd: 0.01,
+              maxContextPressure: 0.5,
+            },
+          },
+        },
+      },
+    } as any,
+    {
+      threadId: "thread-budgeted-coding-tool",
+      runtimeTelemetrySummary: {
+        schemaVersion: "ioi.workflow.runtime-telemetry-summary.v1",
+        status: "elevated",
+        sourceKinds: ["runtime_usage_events"],
+        threadIds: ["thread-budgeted-coding-tool"],
+        turnIds: ["turn-budgeted-coding-tool"],
+        workflowGraphIds: ["workflow.budgeted-coding-tool"],
+        eventIds: ["evt_usage_budgeted_coding_tool"],
+        inputTokens: 420,
+        outputTokens: 300,
+        totalTokens: 720,
+        costEstimateUsd: 0.0042,
+        contextPressure: 0.72,
+        contextPressureStatus: "elevated",
+        runCount: 1,
+        subagentCount: 0,
+        receiptRefs: ["receipt_usage_budgeted_coding_tool"],
+        policyDecisionRefs: ["policy_context_budget_budgeted_coding_tool"],
+      },
+    },
+    { workflowGraphId: "workflow.budgeted-coding-tool" },
+  );
+
+  assert.equal(request.body.budgetMode, "block");
+  assert.equal(request.body.budget_mode, "block");
+  assert.equal(request.body.thresholds.maxTotalTokens, 100);
+  assert.equal(request.body.thresholds.max_cost_usd, 0.01);
+  assert.equal(request.body.thresholds.maxContextPressure, 0.5);
+  assert.equal(request.body.toolPack.coding.budgetUsageField, "runtimeTelemetrySummary");
+  assert.equal(request.body.toolPack.coding.budget_mode, "block");
+
+  const budgetUsageTelemetry = request.body.budgetUsageTelemetry as Record<
+    string,
+    unknown
+  >;
+  assert.equal(budgetUsageTelemetry.total_tokens, 720);
+  assert.equal(budgetUsageTelemetry.estimated_cost_usd, 0.0042);
+  assert.equal(budgetUsageTelemetry.context_pressure, 0.72);
+  assert.equal(budgetUsageTelemetry.runtimeTelemetrySummarySchemaVersion, "ioi.workflow.runtime-telemetry-summary.v1");
+  assert.deepEqual(request.body.budget_usage_telemetry, request.body.budgetUsageTelemetry);
+});

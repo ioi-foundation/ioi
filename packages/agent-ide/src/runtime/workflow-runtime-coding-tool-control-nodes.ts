@@ -1,4 +1,8 @@
 import type { Node, NodeLogic } from "../types/graph";
+import {
+  workflowRuntimeTelemetrySummaryToUsageTelemetry,
+  type WorkflowRuntimeTelemetrySummary,
+} from "./workflow-runtime-telemetry-summary";
 
 export const WORKFLOW_RUNTIME_CODING_TOOL_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-coding-tool-control.v1" as const;
@@ -25,6 +29,20 @@ export interface RuntimeCodingToolControlRequestBody {
   toolId: string;
   input: Record<string, unknown>;
   arguments: Record<string, unknown>;
+  budget_mode: string;
+  budgetMode: string;
+  thresholds: {
+    maxTotalTokens: number | null;
+    max_total_tokens: number | null;
+    maxCostUsd: number | null;
+    max_cost_usd: number | null;
+    maxContextPressure: number | null;
+    max_context_pressure: number | null;
+    warnAtRatio: number;
+    warn_at_ratio: number;
+  };
+  budget_usage_telemetry: unknown | null;
+  budgetUsageTelemetry: unknown | null;
   requires_approval: boolean;
   requiresApproval: boolean;
   approval_mode: string;
@@ -63,6 +81,14 @@ export interface RuntimeCodingToolControlRequestInput {
   trustProfile?: string | null;
   nodeApprovalOverride?: string | null;
   requiresApproval?: boolean | null;
+  budgetMode?: string | null;
+  budgetUsageTelemetry?: unknown;
+  budgetUsageTelemetryField?: string | null;
+  runtimeTelemetrySummary?: WorkflowRuntimeTelemetrySummary | null;
+  maxTotalTokens?: number | string | null;
+  maxCostUsd?: number | string | null;
+  maxContextPressure?: number | string | null;
+  warnAtRatio?: number | string | null;
   workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   actor?: string | null;
@@ -97,6 +123,60 @@ export function createRuntimeCodingToolControlRequest(
   const toolPack = {
     ...(params.toolPack ?? {}),
   };
+  const budgetUsageField =
+    cleanString(params.budgetUsageTelemetryField) ??
+    stringAtPath(params.input, "budgetUsageField") ??
+    stringAtPath(params.input, "budget_usage_field") ??
+    stringField(toolPack, "budgetUsageField", "budget_usage_field") ??
+    "runtimeTelemetrySummary";
+  const rawBudgetUsageTelemetry =
+    params.budgetUsageTelemetry ??
+    params.runtimeTelemetrySummary ??
+    valueAtPath(params.input, budgetUsageField) ??
+    valueAtPath(params.input, "budgetUsageTelemetry") ??
+    valueAtPath(params.input, "budget_usage_telemetry") ??
+    valueAtPath(params.input, "runtimeTelemetrySummary") ??
+    valueAtPath(params.input, "runtime_telemetry_summary") ??
+    null;
+  const budgetUsageTelemetry =
+    workflowRuntimeTelemetrySummaryToUsageTelemetry(rawBudgetUsageTelemetry) ??
+    rawBudgetUsageTelemetry ??
+    null;
+  const budgetMode =
+    cleanString(params.budgetMode) ??
+    stringAtPath(params.input, "budgetMode") ??
+    stringAtPath(params.input, "budget_mode") ??
+    stringField(toolPack, "budgetMode", "budget_mode") ??
+    "simulate";
+  const maxTotalTokens = numberOption(
+    params.maxTotalTokens,
+    valueAtPath(params.input, "maxTotalTokens"),
+    valueAtPath(params.input, "max_total_tokens"),
+    valueAtPath(toolPack, "maxTotalTokens"),
+    valueAtPath(toolPack, "max_total_tokens"),
+  );
+  const maxCostUsd = numberOption(
+    params.maxCostUsd,
+    valueAtPath(params.input, "maxCostUsd"),
+    valueAtPath(params.input, "max_cost_usd"),
+    valueAtPath(toolPack, "maxCostUsd"),
+    valueAtPath(toolPack, "max_cost_usd"),
+  );
+  const maxContextPressure = numberOption(
+    params.maxContextPressure,
+    valueAtPath(params.input, "maxContextPressure"),
+    valueAtPath(params.input, "max_context_pressure"),
+    valueAtPath(toolPack, "maxContextPressure"),
+    valueAtPath(toolPack, "max_context_pressure"),
+  );
+  const warnAtRatio =
+    numberOption(
+      params.warnAtRatio,
+      valueAtPath(params.input, "warnAtRatio"),
+      valueAtPath(params.input, "warn_at_ratio"),
+      valueAtPath(toolPack, "warnAtRatio"),
+      valueAtPath(toolPack, "warn_at_ratio"),
+    ) ?? 0.8;
   const requiresApproval =
     params.requiresApproval ??
     booleanAtPath(params.input, "requiresApproval", "requires_approval") ??
@@ -132,6 +212,18 @@ export function createRuntimeCodingToolControlRequest(
     trust_profile: trustProfile,
     nodeApprovalOverride,
     node_approval_override: nodeApprovalOverride,
+    budgetMode,
+    budget_mode: budgetMode,
+    budgetUsageField,
+    budget_usage_field: budgetUsageField,
+    maxTotalTokens,
+    max_total_tokens: maxTotalTokens,
+    maxCostUsd,
+    max_cost_usd: maxCostUsd,
+    maxContextPressure,
+    max_context_pressure: maxContextPressure,
+    warnAtRatio,
+    warn_at_ratio: warnAtRatio,
   };
 
   return {
@@ -159,6 +251,20 @@ export function createRuntimeCodingToolControlRequest(
       toolId,
       input: toolInput,
       arguments: toolInput,
+      budget_mode: budgetMode,
+      budgetMode,
+      thresholds: {
+        maxTotalTokens,
+        max_total_tokens: maxTotalTokens,
+        maxCostUsd,
+        max_cost_usd: maxCostUsd,
+        maxContextPressure,
+        max_context_pressure: maxContextPressure,
+        warnAtRatio,
+        warn_at_ratio: warnAtRatio,
+      },
+      budget_usage_telemetry: budgetUsageTelemetry,
+      budgetUsageTelemetry,
       requires_approval: requiresApproval,
       requiresApproval,
       approval_mode: approvalMode,
@@ -191,6 +297,22 @@ export function createRuntimeCodingToolControlRequestFromWorkflowNode(
     approvalMode: stringField(toolPack, "approvalMode", "approval_mode"),
     trustProfile: stringField(toolPack, "trustProfile", "trust_profile"),
     nodeApprovalOverride: stringField(toolPack, "nodeApprovalOverride", "node_approval_override"),
+    budgetMode: stringField(toolPack, "budgetMode", "budget_mode"),
+    budgetUsageTelemetryField: stringField(toolPack, "budgetUsageField", "budget_usage_field"),
+    maxTotalTokens: numberOption(
+      valueAtPath(toolPack, "maxTotalTokens") ??
+        valueAtPath(toolPack, "max_total_tokens"),
+    ),
+    maxCostUsd: numberOption(
+      valueAtPath(toolPack, "maxCostUsd") ?? valueAtPath(toolPack, "max_cost_usd"),
+    ),
+    maxContextPressure: numberOption(
+      valueAtPath(toolPack, "maxContextPressure") ??
+        valueAtPath(toolPack, "max_context_pressure"),
+    ),
+    warnAtRatio: numberOption(
+      valueAtPath(toolPack, "warnAtRatio") ?? valueAtPath(toolPack, "warn_at_ratio"),
+    ),
     workflowGraphId: options.workflowGraphId,
     workflowNodeId:
       stringField(logic, "workflowNodeId", "workflow_node_id") ??
@@ -238,6 +360,19 @@ function booleanAtPath(source: unknown, ...paths: string[]): boolean | null {
   for (const path of paths) {
     const value = valueAtPath(source, path);
     if (typeof value === "boolean") return value;
+  }
+  return null;
+}
+
+function numberOption(...values: unknown[]): number | null {
+  for (const value of values) {
+    const parsed =
+      typeof value === "number"
+        ? value
+        : typeof value === "string" && value.trim()
+          ? Number(value)
+          : null;
+    if (typeof parsed === "number" && Number.isFinite(parsed)) return parsed;
   }
   return null;
 }

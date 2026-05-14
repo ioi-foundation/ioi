@@ -36,6 +36,14 @@ const CODING_TOOL_ARTIFACT_MAX_READ_BYTES = 256 * 1024;
 const CODING_TOOL_ARTIFACT_DEFAULT_READ_BYTES = 64 * 1024;
 const NODE_CHECK_PATH_PATTERN = /\.(cjs|js|mjs)$/i;
 const TYPESCRIPT_PATH_PATTERN = /\.(cts|mts|ts|tsx)$/i;
+const CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS = [
+  "toolPack.coding.budgetMode",
+  "toolPack.coding.budgetUsageField",
+  "toolPack.coding.maxTotalTokens",
+  "toolPack.coding.maxCostUsd",
+  "toolPack.coding.maxContextPressure",
+  "toolPack.coding.warnAtRatio",
+];
 
 export function codingToolContracts() {
   return [
@@ -61,7 +69,11 @@ export function codingToolContracts() {
       },
       evidenceRequirements: ["workspace_status_receipt", "coding_tool_receipt"],
       workflowNodeType: "CodingToolNode",
-      workflowConfigFields: ["toolPack.coding.workspaceStatus", "toolPack.coding.gitEnabled"],
+      workflowConfigFields: [
+        "toolPack.coding.workspaceStatus",
+        "toolPack.coding.gitEnabled",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
+      ],
     },
     {
       schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
@@ -87,7 +99,11 @@ export function codingToolContracts() {
       },
       evidenceRequirements: ["git_diff_receipt", "coding_tool_receipt"],
       workflowNodeType: "GitToolNode",
-      workflowConfigFields: ["toolPack.coding.gitEnabled", "toolPack.coding.allowedPaths"],
+      workflowConfigFields: [
+        "toolPack.coding.gitEnabled",
+        "toolPack.coding.allowedPaths",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
+      ],
     },
     {
       schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
@@ -114,7 +130,11 @@ export function codingToolContracts() {
       },
       evidenceRequirements: ["file_inspect_receipt", "coding_tool_receipt"],
       workflowNodeType: "FilesystemToolNode",
-      workflowConfigFields: ["toolPack.coding.filesystemEnabled", "toolPack.coding.allowedPaths"],
+      workflowConfigFields: [
+        "toolPack.coding.filesystemEnabled",
+        "toolPack.coding.allowedPaths",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
+      ],
     },
     {
       schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
@@ -195,6 +215,7 @@ export function codingToolContracts() {
         "toolPack.coding.trustProfile",
         "toolPack.coding.nodeApprovalOverride",
         "toolPack.coding.requiresApproval",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
@@ -245,6 +266,7 @@ export function codingToolContracts() {
         "toolPack.coding.trustProfile",
         "toolPack.coding.nodeApprovalOverride",
         "toolPack.coding.requiresApproval",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
@@ -296,6 +318,7 @@ export function codingToolContracts() {
         "toolPack.coding.operatorOverrideRequiresApproval",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.timeoutMs",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
@@ -328,6 +351,7 @@ export function codingToolContracts() {
       workflowConfigFields: [
         "toolPack.coding.artifactEnabled",
         "toolPack.coding.resultRetrievalEnabled",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
@@ -361,6 +385,7 @@ export function codingToolContracts() {
       workflowConfigFields: [
         "toolPack.coding.resultRetrievalEnabled",
         "toolPack.coding.artifactEnabled",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
   ];
