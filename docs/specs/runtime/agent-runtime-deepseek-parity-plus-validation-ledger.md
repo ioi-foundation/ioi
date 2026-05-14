@@ -204,6 +204,39 @@ the practical workstream when the source heading is broad.
 | 203 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry budget-chain workflow creator GUI proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-35-601Z/result.json | node --import tsx scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs /tmp/workflow-telemetry-budget-chain-creator-proof.json<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test scripts/lib/autopilot-gui-harness-contract.test.mjs<br>node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- packages/agent-ide/src/WorkflowComposer/controller.tsx packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs scripts/lib/autopilot-gui-harness-contract.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
 | 204 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector telemetry budget-chain materialization | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json | node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts<br>node --import tsx scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs /tmp/workflow-telemetry-budget-chain-run-inspector-proof.json<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test scripts/lib/autopilot-gui-harness-contract.test.mjs<br>node --check scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts packages/agent-ide/src/index.ts packages/agent-ide/src/WorkflowComposer/controller.tsx packages/agent-ide/src/WorkflowComposer/view.tsx packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs scripts/lib/autopilot-gui-harness-contract.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
 | 205 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector-created telemetry budget-chain execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json | node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-reporter=spec --test-name-pattern "React Flow run-inspector-created telemetry budget chain executes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
+| 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json | node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --input-type=module -e "import { collectRollbackRestoreCanaryUiProof } from './scripts/lib/autopilot-gui-harness-validation/core.mjs'; const r=collectRollbackRestoreCanaryUiProof('/tmp/ioi-rollback-proof'); console.log(JSON.stringify({passed:r.proof.passed, failed:Object.fromEntries(Object.entries(r.proof.checks).filter(([,v])=>!v))}, null, 2));"<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
+
+## Slice 206. 2026-05-14 - Live GUI package/activation evidence recovery
+
+Guide section: Cross-cutting GUI Harness Evidence / Workflow Development
+Environment
+
+Evidence bundles:
+
+- scripts/lib/autopilot-gui-harness-validation/core.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-05-474Z/result.json
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json
+
+Validation evidence:
+
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+  - syntax check passed.
+- `node --input-type=module -e "import { collectRollbackRestoreCanaryUiProof } from './scripts/lib/autopilot-gui-harness-validation/core.mjs'; const r=collectRollbackRestoreCanaryUiProof('/tmp/ioi-rollback-proof'); console.log(JSON.stringify({passed:r.proof.passed, failed:Object.fromEntries(Object.entries(r.proof.checks).filter(([,v])=>!v))}, null, 2));"`
+  - focused rollback/package/activation source proof passed with no failed
+    checks.
+- `npm run validate:autopilot-gui-harness`
+  - GUI harness preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-05-474Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - live GUI run wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json`;
+    it was not blocked, validation was `ok: true`, all artifacts were present,
+    and every runtime-consistency check was true.
+- `git diff --check -- scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
+  - scoped whitespace check passed.
 
 ## Slice 205. 2026-05-14 - Run-inspector-created telemetry budget-chain execution
 

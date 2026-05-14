@@ -205,8 +205,46 @@ workstream was narrower.
 | 203 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry budget-chain workflow creator GUI proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-35-601Z/result.json |
 | 204 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector telemetry budget-chain materialization | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json |
 | 205 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector-created telemetry budget-chain execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json |
+| 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 206. 2026-05-14 - Live GUI package/activation evidence recovery
+
+Implementation slice completed 2026-05-14, cross-cutting GUI harness evidence
+recovery for the componentized React Flow workflow-development environment:
+
+- Retargeted the rollback/package/activation source proof to read the
+  decomposed settings-harness modules that now own rollback restore canary UI,
+  activation actions, activation wizard details, package-evidence rows,
+  worker-session checkpoint/invariant state, active-runtime deep links,
+  promotion readiness summaries, and promotion canary boundaries.
+- Preserved the existing selector and contract assertions instead of weakening
+  the proof, so the validator still requires package evidence manifest/gate,
+  activation gate inspector/actions, reviewed import activation apply/replay,
+  worker invariant GUI/deep-link enforcement, and rollback restore canary
+  selectors to exist in the workflow-development surface.
+- Recovered the full live Autopilot GUI harness: validation is `ok: true`, all
+  retained chat scenarios pass, all required artifacts are present, and every
+  runtime-consistency check is true.
+- Updated the master guide so the next primary parity target returns to the
+  terminal-first coding-agent loop, with the recovered full GUI harness kept as
+  regression coverage.
+
+Validation evidence:
+
+- `node --check scripts/lib/autopilot-gui-harness-validation/core.mjs`
+- `node --input-type=module -e "import { collectRollbackRestoreCanaryUiProof } from './scripts/lib/autopilot-gui-harness-validation/core.mjs'; const r=collectRollbackRestoreCanaryUiProof('/tmp/ioi-rollback-proof'); console.log(JSON.stringify({passed:r.proof.passed, failed:Object.fromEntries(Object.entries(r.proof.checks).filter(([,v])=>!v))}, null, 2));"`
+  - focused rollback/package/activation source proof passed with no failed
+    checks.
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-05-474Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - live GUI run wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json`;
+    it was not blocked, validation was `ok: true`, all artifacts were present,
+    and every runtime-consistency check was true.
 
 ### Slice 205. 2026-05-14 - Run-inspector-created telemetry budget-chain execution
 
