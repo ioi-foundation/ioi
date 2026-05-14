@@ -5799,6 +5799,72 @@ export function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
   }
 }
 
+export function collectWorkflowTelemetryBudgetChainCreatorProof(outputRoot) {
+  const path = join(
+    outputRoot,
+    "workflow-telemetry-budget-chain-creator-proof.json",
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs",
+      path,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TSX_TSCONFIG_PATH: resolve(
+          repoRoot,
+          "packages/agent-ide/tsconfig.json",
+        ),
+      },
+      timeout: 60_000,
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (result.status !== 0 || !existsSync(path)) {
+    const proof = {
+      schemaVersion: "workflow.telemetry-budget-chain.creator-gui-proof.v1",
+      scenario: "workflow_telemetry_budget_chain_creator_click",
+      passed: false,
+      checks: {
+        probeExecuted: false,
+      },
+      error:
+        result.error?.message ??
+        (result.signal
+          ? `telemetry budget-chain GUI probe terminated by ${result.signal}`
+          : `telemetry budget-chain GUI probe exited with ${result.status ?? "unknown"}`),
+      stdout: result.stdout?.slice(-8_000) ?? "",
+      stderr: result.stderr?.slice(-8_000) ?? "",
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+  try {
+    return {
+      path,
+      proof: JSON.parse(readFileSync(path, "utf8")),
+    };
+  } catch (error) {
+    const proof = {
+      schemaVersion: "workflow.telemetry-budget-chain.creator-gui-proof.v1",
+      scenario: "workflow_telemetry_budget_chain_creator_click",
+      passed: false,
+      checks: {
+        proofParsed: false,
+      },
+      error: String(error?.message || error),
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+}
+
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
     graphTypes: "packages/agent-ide/src/types/graph.ts",
@@ -6108,6 +6174,7 @@ export function buildGuiEvidenceAssessment({
   rollbackRestoreCanaryUiProof,
   promotionTransitionGuiBehaviorProof,
   promotionTransitionLiveGuiInteractionProof,
+  workflowTelemetryBudgetChainCreatorProof,
   workflowSkillContextProof,
   workflowCodingRouteProof,
   workflowCodingRoutePromotionLoopProof,
@@ -7136,6 +7203,8 @@ export function buildGuiEvidenceAssessment({
     readOnlyCapabilityRoutingNoMutationScenarioCoverage;
   const hasWorkflowSkillContextCreateRunProof =
     workflowSkillContextProof?.proof?.passed === true;
+  const hasWorkflowTelemetryBudgetChainCreatorProof =
+    workflowTelemetryBudgetChainCreatorProof?.proof?.passed === true;
   const hasWorkflowCodingRouteCreateRunProof =
     workflowCodingRouteProof?.proof?.passed === true;
   const hasWorkflowCodingRoutePromotionLoopProof =
@@ -7326,6 +7395,8 @@ export function buildGuiEvidenceAssessment({
         hasHarnessReadOnlyCapabilityRouting,
       workflow_skill_context_create_run_proof_present:
         hasWorkflowSkillContextCreateRunProof,
+      workflow_telemetry_budget_chain_creator_proof_present:
+        hasWorkflowTelemetryBudgetChainCreatorProof,
       workflow_coding_route_create_run_proof_present:
         hasWorkflowCodingRouteCreateRunProof,
       workflow_coding_route_promotion_loop_proof_present:
@@ -7415,6 +7486,7 @@ export function buildGuiEvidenceAssessment({
       hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
       hasHarnessReadOnlyCapabilityRouting,
       hasWorkflowSkillContextCreateRunProof,
+      hasWorkflowTelemetryBudgetChainCreatorProof,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -11198,6 +11270,8 @@ async function runGuiValidation(args, outputRoot) {
       collectRollbackRestoreCanaryUiProof(outputRoot);
     const promotionTransitionGuiBehaviorProof =
       collectPromotionTransitionGuiBehaviorProof(outputRoot);
+    const workflowTelemetryBudgetChainCreatorProof =
+      collectWorkflowTelemetryBudgetChainCreatorProof(outputRoot);
     const workflowSkillContextProof =
       collectWorkflowSkillContextProof(outputRoot);
     const workflowCodingRouteProof =
@@ -11210,6 +11284,7 @@ async function runGuiValidation(args, outputRoot) {
       rollbackRestoreCanaryUiProof,
       promotionTransitionGuiBehaviorProof,
       promotionTransitionLiveGuiInteractionProof,
+      workflowTelemetryBudgetChainCreatorProof,
       workflowSkillContextProof,
       workflowCodingRouteProof,
       workflowCodingRoutePromotionLoopProof,
@@ -11696,6 +11771,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowSkillContextProof.proof.passed === true
             ? workflowSkillContextProof.path
             : false,
+        workflow_telemetry_budget_chain_creator:
+          workflowTelemetryBudgetChainCreatorProof.proof.passed === true
+            ? workflowTelemetryBudgetChainCreatorProof.path
+            : false,
         workflow_coding_route_create_run:
           workflowCodingRouteProof.proof.passed === true
             ? workflowCodingRouteProof.path
@@ -11714,6 +11793,8 @@ async function runGuiValidation(args, outputRoot) {
         promotionTransitionLiveGui:
           promotionTransitionLiveGuiInteractionProof.proof,
         workflowSkillContext: workflowSkillContextProof.proof,
+        workflowTelemetryBudgetChainCreator:
+          workflowTelemetryBudgetChainCreatorProof.proof,
         workflowCodingRoute: workflowCodingRouteProof.proof,
         workflowCodingRoutePromotionLoop:
           workflowCodingRoutePromotionLoopProof.proof,

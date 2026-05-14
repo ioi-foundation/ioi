@@ -202,8 +202,56 @@ workstream was narrower.
 | 200 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry-source binding assistant | /tmp/ioi-autopilot-gui-harness-telemetry-source-binding/2026-05-14T13-46-44-397Z/result.json |
 | 201 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | bound telemetry-source chain execution proof | /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain/2026-05-14T14-04-05-115Z/result.json |
 | 202 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable telemetry budget-chain workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json |
+| 203 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry budget-chain workflow creator GUI proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-35-601Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 203. 2026-05-14 - Telemetry budget-chain workflow creator GUI proof
+
+Implementation slice completed 2026-05-14, P1-D/P0-B workflow creator GUI
+proof for the reusable telemetry budget chain:
+
+- Added `workflowRuntimeSubflowReactFlowElements` as a shared
+  WorkflowComposer insertion mapper so reusable runtime subflows materialize
+  React Flow nodes/edges through one tested path.
+- Refactored the telemetry budget-chain insertion path to use the shared mapper
+  while retaining the existing composition-helper control id.
+- Added `workflow-telemetry-budget-chain-creator-gui-probe.mjs`, a targeted
+  harness proof that follows the click-wired workflow creator path, inserts the
+  four-node/three-edge telemetry chain, verifies React Flow node/edge
+  materialization, compiles daemon requests for usage/context/compaction/coding
+  budget gates, proves activation readiness with live mappings, and proves the
+  missing-upstream-binding negative case.
+- Wired the Autopilot GUI harness to collect
+  `workflow_telemetry_budget_chain_creator` as a required artifact and
+  `workflow_telemetry_budget_chain_creator_proof_present` as a runtime
+  consistency signal.
+- Extended source-contract guards so the workflow creator control, shared
+  insertion mapper, targeted proof script, harness artifact key, harness UI
+  assertion, and readiness negative case remain coupled.
+- Updated the master guide so the next P1-D slice moves from workflow-creator
+  insertion proof to run-inspector materialization/hydration from selected
+  telemetry evidence.
+
+Validation evidence:
+
+- `node --import tsx scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs /tmp/workflow-telemetry-budget-chain-creator-proof.json`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-24-710Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - escalated live GUI run wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-35-601Z/result.json`;
+    it was not blocked, all eight retained chat scenarios passed, and
+    `workflow_telemetry_budget_chain_creator` passed. The broader harness
+    validator remains red on pre-existing package/activation evidence artifact
+    gaps unrelated to this slice.
+- `git diff --check -- ...`
+  - scoped whitespace check passed for the files changed in this slice.
 
 ### Slice 202. 2026-05-14 - Reusable telemetry budget-chain workflow template
 
