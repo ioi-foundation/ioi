@@ -268,6 +268,7 @@ export function WorkflowHeaderAction({
   showLabel = false,
   title,
   disabled = false,
+  disabledReason,
 }: {
   label: string;
   icon: LucideIcon;
@@ -277,6 +278,7 @@ export function WorkflowHeaderAction({
   showLabel?: boolean;
   title?: string;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
     <button
@@ -284,8 +286,9 @@ export function WorkflowHeaderAction({
       className={`workflow-action-button is-${variant}`}
       data-testid={testId}
       aria-label={label}
-      title={title ?? label}
+      title={title ?? disabledReason ?? label}
       disabled={disabled}
+      data-disabled-reason={disabledReason ?? ""}
       onClick={onClick}
     >
       <WorkflowInlineIcon icon={Icon} />

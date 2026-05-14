@@ -44,6 +44,29 @@ export type WorkflowCodingToolBudgetPreflight = {
   policyDecisionRefs: string[];
 };
 
+export type WorkflowCodingToolBudgetRunLaunchAnnotation = {
+  schemaVersion: "ioi.workflow.coding-tool-budget-preflight.v1";
+  sourceKind: "tui_coding_tool_rows";
+  status: "blocked" | "warning";
+  rowCount: number;
+  targetNodeIds: string[];
+  evidenceWorkflowNodeIds: string[];
+  eventIds: string[];
+  toolNames: string[];
+  toolCallIds: string[];
+  budgetStatuses: string[];
+  contextBudgetStatuses: string[];
+  totalTokens: number | null;
+  costEstimateUsd: number | null;
+  contextPressure: number | null;
+  contextPressureStatus: string | null;
+  mutationBlocked: boolean;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
+  issueCode: string;
+  issueMessage: string;
+};
+
 export type WorkflowReadinessModelInput = {
   validationResult: WorkflowValidationResult | null;
   readinessResult: WorkflowValidationResult | null;
@@ -271,7 +294,7 @@ export function workflowReadinessModel({
   };
 }
 
-function workflowCodingToolBudgetPreflight({
+export function workflowCodingToolBudgetPreflight({
   workflow,
   evidence,
 }: {
@@ -324,6 +347,34 @@ function workflowCodingToolBudgetPreflight({
     mutationBlocked: evidence.mutationBlocked,
     receiptRefs: evidence.receiptRefs,
     policyDecisionRefs: evidence.policyDecisionRefs,
+  };
+}
+
+export function workflowCodingToolBudgetRunLaunchAnnotation(
+  preflight: WorkflowCodingToolBudgetPreflight | null,
+): WorkflowCodingToolBudgetRunLaunchAnnotation | null {
+  if (!preflight) return null;
+  return {
+    schemaVersion: "ioi.workflow.coding-tool-budget-preflight.v1",
+    sourceKind: preflight.sourceKind,
+    status: preflight.status,
+    rowCount: preflight.rowCount,
+    targetNodeIds: preflight.targetNodeIds,
+    evidenceWorkflowNodeIds: preflight.evidenceWorkflowNodeIds,
+    eventIds: preflight.eventIds,
+    toolNames: preflight.toolNames,
+    toolCallIds: preflight.toolCallIds,
+    budgetStatuses: preflight.budgetStatuses,
+    contextBudgetStatuses: preflight.contextBudgetStatuses,
+    totalTokens: preflight.totalTokens,
+    costEstimateUsd: preflight.costEstimateUsd,
+    contextPressure: preflight.contextPressure,
+    contextPressureStatus: preflight.contextPressureStatus,
+    mutationBlocked: preflight.mutationBlocked,
+    receiptRefs: preflight.receiptRefs,
+    policyDecisionRefs: preflight.policyDecisionRefs,
+    issueCode: preflight.issue.code,
+    issueMessage: preflight.issue.message,
   };
 }
 

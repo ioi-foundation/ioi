@@ -189,8 +189,46 @@ workstream was narrower.
 | 187 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget telemetry-summary aggregation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-telemetry-summary/2026-05-14T03-27-24-067Z/result.json |
 | 188 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-history evidence | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history/2026-05-14T03-39-35-777Z/result.json |
 | 189 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget readiness preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight/2026-05-14T03-48-02-824Z/result.json |
+| 190 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-launch preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight/2026-05-14T03-58-36-539Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 190. 2026-05-14 - Coding-tool budget run-launch preflight
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool budget
+run-launch preflight:
+
+- Promoted `WorkflowCodingToolBudgetPreflight` into a reusable launch
+  annotation with schema
+  `ioi.workflow.coding-tool-budget-preflight.v1`, preserving target node ids,
+  evidence workflow node ids, event/tool-call refs, budget/context status,
+  usage, receipts, policy refs, and the issue message.
+- The workflow composer controller now derives coding-budget evidence from the
+  same run-history model as the rail, blocks full workflow launches and
+  upstream launches when prior budget evidence is blocked, and defensively
+  blocks direct mutating coding-tool target-node runs.
+- Warning-level preflight evidence is forwarded through typed workflow run
+  request options as `codingToolBudgetPreflight`, so daemon-backed run
+  invocations can receive the launch context without relying on canvas-local
+  counters.
+- The header Run button and Executions Run button now disable/annotate the
+  operator launch path with preflight status, target node ids, and disabled
+  reason metadata.
+- Updated source-contract guards and the master guide queue so the next P1-D
+  slice promotes this launch preflight into daemon-owned workflow-run policy
+  events/receipts for replay through TUI and React Flow run history.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight/2026-05-14T03-58-36-539Z/result.json`.
+- `git diff --check`
 
 ### Slice 189. 2026-05-14 - Coding-tool budget readiness preflight
 
