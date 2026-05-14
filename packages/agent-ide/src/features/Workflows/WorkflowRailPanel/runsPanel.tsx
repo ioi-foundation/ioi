@@ -919,6 +919,24 @@ export function WorkflowRunsPanel({
                               data-policy-decision-refs={
                                 action.policyDecisionRefs.join("|")
                               }
+                              data-recovery-policy-schema-version={
+                                action.recoveryPolicy?.schemaVersion ?? ""
+                              }
+                              data-recovery-policy-approval-scope={
+                                action.recoveryPolicy?.approvalScope ?? ""
+                              }
+                              data-recovery-policy-operator-role={
+                                action.recoveryPolicy?.operatorRole ?? ""
+                              }
+                              data-recovery-policy-retry-limit={
+                                action.recoveryPolicy?.retryLimit ?? ""
+                              }
+                              data-recovery-policy-ttl-ms={
+                                action.recoveryPolicy?.ttlMs ?? ""
+                              }
+                              data-recovery-policy-target-node-ids={
+                                action.recoveryPolicy?.targetNodeIds.join("|") ?? ""
+                              }
                               data-executable={action.executable}
                               title={action.summary ?? action.label}
                               aria-label={`${action.label} coding-tool budget recovery action`}

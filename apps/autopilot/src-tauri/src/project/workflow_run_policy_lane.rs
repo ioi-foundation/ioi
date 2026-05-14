@@ -21,6 +21,8 @@ const WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON: &str =
     "coding_tool_budget_preflight_blocked";
 const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION: &str =
     "ioi.workflow.coding-tool-budget-recovery.v1";
+const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION: &str =
+    "ioi.workflow.coding-tool-budget-recovery-policy.v1";
 const WORKFLOW_RUN_CODING_TOOL_BUDGET_RECOVERY_APPROVAL_EVENT_KIND: &str =
     "WorkflowRunCodingToolBudgetRecoveryApproval";
 const WORKFLOW_RUN_CODING_TOOL_BUDGET_RECOVERY_RETRY_EVENT_KIND: &str =
@@ -166,6 +168,11 @@ pub(super) fn workflow_coding_tool_budget_preflight_blocked_result(
     let mutation_blocked =
         workflow_value_bool_any(&preflight, &["mutationBlocked", "mutation_blocked"])
             .unwrap_or(true);
+    let recovery_policy =
+        workflow_coding_tool_budget_recovery_policy_from_value(&preflight, &target_node_ids)
+            .unwrap_or_else(|| {
+                workflow_coding_tool_budget_recovery_default_policy(&target_node_ids)
+            });
     let runtime_event_id = unique_runtime_id("runtime-event");
     let cursor = format!("workflow_run_policy:{}:1", run_id);
     let runtime_workflow_node_id = target_node_id
@@ -200,6 +207,8 @@ pub(super) fn workflow_coding_tool_budget_preflight_blocked_result(
         "mutationBlocked": mutation_blocked,
         "receiptRefs": receipt_refs.clone(),
         "policyDecisionRefs": policy_decision_refs.clone(),
+        "recoveryPolicy": recovery_policy.clone(),
+        "recovery_policy": recovery_policy.clone(),
         "resultSummary": {
             "status": "blocked",
             "reason": WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON
@@ -367,6 +376,8 @@ pub(super) fn workflow_coding_tool_budget_preflight_blocked_result(
             "contextPressureStatus": context_pressure_status.clone(),
             "receiptRefs": receipt_refs.clone(),
             "policyDecisionRefs": policy_decision_refs.clone(),
+            "recoveryPolicy": recovery_policy.clone(),
+            "recovery_policy": recovery_policy.clone(),
             "contextBudget": {
                 "status": context_budget_status.clone(),
                 "mode": budget_mode,
@@ -470,14 +481,24 @@ pub(super) fn workflow_coding_tool_budget_recovery_control_result(
     if let Some(node_id) = target_node_id {
         target_node_ids = vec![node_id.to_string()];
     }
-    let target_node_ids = target_node_ids
+    let mut target_node_ids = target_node_ids
         .into_iter()
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
-    state.blocked_node_ids = target_node_ids.clone();
 
     let mut runtime_thread_events = workflow_coding_tool_budget_recovery_prior_events(&recovery);
+    let recovery_policy = workflow_coding_tool_budget_recovery_policy_from_recovery(
+        &recovery,
+        &runtime_thread_events,
+        &target_node_ids,
+    );
+    let policy_target_node_ids =
+        workflow_string_array_any(&recovery_policy, &["targetNodeIds", "target_node_ids"]);
+    if target_node_ids.is_empty() && !policy_target_node_ids.is_empty() {
+        target_node_ids = policy_target_node_ids;
+    }
+    state.blocked_node_ids = target_node_ids.clone();
     let next_seq = workflow_coding_tool_budget_recovery_next_seq(&runtime_thread_events);
     let event_id = unique_runtime_id("runtime-event");
     let cursor = format!("workflow_run_recovery:{}:{}", run_id, next_seq);
@@ -519,6 +540,15 @@ pub(super) fn workflow_coding_tool_budget_recovery_control_result(
             });
     let approved = action == "approve_override";
     let rejected = action == "reject_override";
+    if approved
+        && !workflow_value_bool_any(&recovery_policy, &["allowOverride", "allow_override"])
+            .unwrap_or(true)
+    {
+        return Err(
+            "Coding-tool budget recovery override is disabled by workflow-authored policy."
+                .to_string(),
+        );
+    }
     let (event_type, event_kind, source_event_kind, status, decision) = if approved {
         (
             "approval_decision",
@@ -593,6 +623,8 @@ pub(super) fn workflow_coding_tool_budget_recovery_control_result(
         "receipt_refs": receipt_refs.clone(),
         "policyDecisionRefs": policy_decision_refs.clone(),
         "policy_decision_refs": policy_decision_refs.clone(),
+        "recoveryPolicy": recovery_policy.clone(),
+        "recovery_policy": recovery_policy.clone(),
         "overridePolicy": "operator_approval_required",
         "override_policy": "operator_approval_required"
     });
@@ -640,6 +672,8 @@ pub(super) fn workflow_coding_tool_budget_recovery_control_result(
             "approvalManifest": manifest.clone(),
             "targetNodeIds": target_node_ids.clone(),
             "target_node_ids": target_node_ids.clone(),
+            "recoveryPolicy": recovery_policy.clone(),
+            "recovery_policy": recovery_policy.clone(),
             "receiptRefs": receipt_refs.clone(),
             "receipt_refs": receipt_refs.clone(),
             "policyDecisionRefs": policy_decision_refs.clone(),
@@ -794,11 +828,31 @@ pub(super) fn workflow_attach_coding_tool_budget_recovery_retry(
         &recovery,
         &["approvalDecisionEventId", "approval_decision_event_id"],
     );
-    let target_node_ids = target_node_id
+    let mut target_node_ids = target_node_id
         .map(|node_id| vec![node_id.to_string()])
         .unwrap_or_else(|| {
             workflow_string_array_any(&recovery, &["targetNodeIds", "target_node_ids"])
         });
+    let recovery_policy = workflow_coding_tool_budget_recovery_policy_from_recovery(
+        &recovery,
+        &runtime_thread_events,
+        &target_node_ids,
+    );
+    let policy_target_node_ids =
+        workflow_string_array_any(&recovery_policy, &["targetNodeIds", "target_node_ids"]);
+    if target_node_ids.is_empty() && !policy_target_node_ids.is_empty() {
+        target_node_ids = policy_target_node_ids;
+    }
+    let retry_limit =
+        workflow_value_u64_any(&recovery_policy, &["retryLimit", "retry_limit"]).unwrap_or(1);
+    let prior_retry_count =
+        workflow_coding_tool_budget_recovery_retry_count(&runtime_thread_events);
+    if prior_retry_count >= retry_limit {
+        return Err(format!(
+            "Coding-tool budget recovery retry limit exhausted: {} of {} retries already recorded.",
+            prior_retry_count, retry_limit
+        ));
+    }
     let receipt_refs = unique_workflow_strings([
         workflow_string_array_any(&recovery, &["receiptRefs", "receipt_refs"]),
         workflow_coding_tool_budget_recovery_event_refs(&runtime_thread_events, "receiptRefs"),
@@ -856,6 +910,8 @@ pub(super) fn workflow_attach_coding_tool_budget_recovery_retry(
             "approval_decision_event_id": approval_decision_event_id.clone(),
             "targetNodeIds": target_node_ids.clone(),
             "target_node_ids": target_node_ids.clone(),
+            "recoveryPolicy": recovery_policy.clone(),
+            "recovery_policy": recovery_policy.clone(),
             "reason": WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
             "summary": "Workflow run retried after coding-tool budget recovery approval."
         }
@@ -880,6 +936,7 @@ pub(super) fn workflow_attach_coding_tool_budget_recovery_retry(
             "eventId": event_id,
             "receiptRefs": receipt_refs,
             "policyDecisionRefs": policy_decision_refs,
+            "recoveryPolicy": recovery_policy,
             "sequence": next_seq
         }]
     }));
@@ -892,6 +949,154 @@ fn workflow_preflight_value_any(value: &Value, keys: &[&str]) -> Value {
         .find_map(|key| value.get(*key))
         .cloned()
         .unwrap_or(Value::Null)
+}
+
+fn workflow_coding_tool_budget_recovery_default_policy(target_node_ids: &[String]) -> Value {
+    workflow_coding_tool_budget_recovery_normalize_policy(
+        &json!({
+            "source": "daemon_default",
+            "approvalScope": "target_nodes",
+            "operatorRole": "operator",
+            "retryLimit": 1,
+            "ttlMs": 900000,
+            "requiresApproval": true,
+            "allowOverride": true,
+            "targetNodeIds": target_node_ids
+        }),
+        target_node_ids,
+    )
+}
+
+fn workflow_coding_tool_budget_recovery_policy_from_recovery(
+    recovery: &Value,
+    runtime_thread_events: &[Value],
+    fallback_target_node_ids: &[String],
+) -> Value {
+    workflow_coding_tool_budget_recovery_policy_from_value(recovery, fallback_target_node_ids)
+        .or_else(|| {
+            runtime_thread_events.iter().rev().find_map(|event| {
+                event.get("payload").and_then(|payload| {
+                    workflow_coding_tool_budget_recovery_policy_from_value(
+                        payload,
+                        fallback_target_node_ids,
+                    )
+                })
+            })
+        })
+        .unwrap_or_else(|| {
+            workflow_coding_tool_budget_recovery_default_policy(fallback_target_node_ids)
+        })
+}
+
+fn workflow_coding_tool_budget_recovery_policy_from_value(
+    value: &Value,
+    fallback_target_node_ids: &[String],
+) -> Option<Value> {
+    let policy = if workflow_value_string_any(value, &["schemaVersion", "schema_version"])
+        .as_deref()
+        == Some(WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION)
+    {
+        Some(value)
+    } else {
+        value
+            .get("recoveryPolicy")
+            .or_else(|| value.get("recovery_policy"))
+            .or_else(|| value.get("codingToolBudgetRecoveryPolicy"))
+            .or_else(|| value.get("coding_tool_budget_recovery_policy"))
+            .or_else(|| {
+                value.get("preflight").and_then(|preflight| {
+                    preflight
+                        .get("recoveryPolicy")
+                        .or_else(|| preflight.get("recovery_policy"))
+                })
+            })
+            .or_else(|| {
+                value
+                    .get("approvalManifest")
+                    .or_else(|| value.get("approval_manifest"))
+                    .and_then(|manifest| {
+                        manifest
+                            .get("recoveryPolicy")
+                            .or_else(|| manifest.get("recovery_policy"))
+                    })
+            })
+    }?;
+    Some(workflow_coding_tool_budget_recovery_normalize_policy(
+        policy,
+        fallback_target_node_ids,
+    ))
+}
+
+fn workflow_coding_tool_budget_recovery_normalize_policy(
+    policy: &Value,
+    fallback_target_node_ids: &[String],
+) -> Value {
+    let target_node_ids = {
+        let configured = workflow_string_array_any(policy, &["targetNodeIds", "target_node_ids"]);
+        if configured.is_empty() {
+            fallback_target_node_ids.to_vec()
+        } else {
+            configured
+        }
+    };
+    let source_node_ids = workflow_string_array_any(policy, &["sourceNodeIds", "source_node_ids"]);
+    let approval_scope = workflow_value_string_any(policy, &["approvalScope", "approval_scope"])
+        .unwrap_or_else(|| "target_nodes".to_string());
+    let operator_role = workflow_value_string_any(policy, &["operatorRole", "operator_role"])
+        .unwrap_or_else(|| "operator".to_string());
+    let retry_limit = workflow_value_u64_any(policy, &["retryLimit", "retry_limit"]).unwrap_or(1);
+    let ttl_ms = workflow_value_u64_any(policy, &["ttlMs", "ttl_ms"]).unwrap_or(900000);
+    let requires_approval =
+        workflow_value_bool_any(policy, &["requiresApproval", "requires_approval"]).unwrap_or(true);
+    let allow_override =
+        workflow_value_bool_any(policy, &["allowOverride", "allow_override"]).unwrap_or(true);
+    let source = workflow_value_string_any(policy, &["source"])
+        .unwrap_or_else(|| "react_flow_coding_tool_pack".to_string());
+    json!({
+        "schemaVersion": WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+        "schema_version": WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+        "source": source,
+        "approvalScope": approval_scope,
+        "approval_scope": approval_scope,
+        "operatorRole": operator_role,
+        "operator_role": operator_role,
+        "retryLimit": retry_limit,
+        "retry_limit": retry_limit,
+        "ttlMs": ttl_ms,
+        "ttl_ms": ttl_ms,
+        "requiresApproval": requires_approval,
+        "requires_approval": requires_approval,
+        "allowOverride": allow_override,
+        "allow_override": allow_override,
+        "targetNodeIds": target_node_ids.clone(),
+        "target_node_ids": target_node_ids,
+        "sourceNodeIds": source_node_ids.clone(),
+        "source_node_ids": source_node_ids
+    })
+}
+
+fn workflow_value_u64_any(value: &Value, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|key| {
+        value.get(*key).and_then(|candidate| {
+            candidate.as_u64().or_else(|| {
+                candidate
+                    .as_str()
+                    .and_then(|text| text.trim().parse::<u64>().ok())
+            })
+        })
+    })
+}
+
+fn workflow_coding_tool_budget_recovery_retry_count(events: &[Value]) -> u64 {
+    events
+        .iter()
+        .filter(|event| {
+            event.get("sourceEventKind").and_then(Value::as_str)
+                == Some(WORKFLOW_RUN_CODING_TOOL_BUDGET_RECOVERY_RETRY_EVENT_KIND)
+                || event.get("eventKind").and_then(Value::as_str)
+                    == Some("workflow.run.retry_completed")
+        })
+        .count() as u64
 }
 
 fn workflow_coding_tool_budget_recovery_action(recovery: &Value) -> Option<String> {

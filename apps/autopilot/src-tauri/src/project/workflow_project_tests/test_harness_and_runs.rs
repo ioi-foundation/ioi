@@ -507,6 +507,18 @@ fn workflow_project_run_records_coding_tool_budget_preflight_policy_block() {
                 "mutationBlocked": true,
                 "receiptRefs": ["receipt-budget"],
                 "policyDecisionRefs": ["policy-budget"],
+                "recoveryPolicy": {
+                    "schemaVersion": "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+                    "source": "react_flow_coding_tool_pack",
+                    "approvalScope": "target_nodes",
+                    "operatorRole": "budget_operator",
+                    "retryLimit": 1,
+                    "ttlMs": 300000,
+                    "requiresApproval": true,
+                    "allowOverride": true,
+                    "targetNodeIds": ["model-answer"],
+                    "sourceNodeIds": ["model-answer"]
+                },
                 "issueCode": "prior_coding_tool_budget_evidence",
                 "issueMessage": "Budget exceeded before launch."
             }
@@ -544,9 +556,17 @@ fn workflow_project_run_records_coding_tool_budget_preflight_policy_block() {
     assert_eq!(
         runtime_event
             .get("payload")
-            .and_then(|payload| payload.get("reason"))
-            .and_then(Value::as_str),
+        .and_then(|payload| payload.get("reason"))
+        .and_then(Value::as_str),
         Some("coding_tool_budget_preflight_blocked")
+    );
+    assert_eq!(
+        runtime_event
+            .get("payload")
+            .and_then(|payload| payload.get("recoveryPolicy"))
+            .and_then(|policy| policy.get("operatorRole"))
+            .and_then(Value::as_str),
+        Some("budget_operator")
     );
     assert!(runtime_event
         .get("receiptRefs")
@@ -610,6 +630,18 @@ fn workflow_project_run_recovers_coding_tool_budget_preflight_with_approval_retr
                 "mutationBlocked": true,
                 "receiptRefs": ["receipt-budget"],
                 "policyDecisionRefs": ["policy-budget"],
+                "recoveryPolicy": {
+                    "schemaVersion": "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+                    "source": "react_flow_coding_tool_pack",
+                    "approvalScope": "target_nodes",
+                    "operatorRole": "budget_operator",
+                    "retryLimit": 1,
+                    "ttlMs": 300000,
+                    "requiresApproval": true,
+                    "allowOverride": true,
+                    "targetNodeIds": ["model-answer"],
+                    "sourceNodeIds": ["model-answer"]
+                },
                 "issueCode": "prior_coding_tool_budget_evidence",
                 "issueMessage": "Budget exceeded before launch."
             }
@@ -652,6 +684,14 @@ fn workflow_project_run_recovers_coding_tool_budget_preflight_with_approval_retr
         .iter()
         .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("approval.required"))
         .expect("approval event should exist");
+    assert_eq!(
+        approval_event
+            .get("payload")
+            .and_then(|payload| payload.get("recoveryPolicy"))
+            .and_then(|policy| policy.get("retryLimit"))
+            .and_then(Value::as_u64),
+        Some(1)
+    );
     let approval_id = approval_event
         .get("approvalId")
         .and_then(Value::as_str)
@@ -704,6 +744,14 @@ fn workflow_project_run_recovers_coding_tool_budget_preflight_with_approval_retr
         .and_then(Value::as_str)
         .expect("approval decision event id")
         .to_string();
+    assert_eq!(
+        approval_decision_event
+            .get("payload")
+            .and_then(|payload| payload.get("recoveryPolicy"))
+            .and_then(|policy| policy.get("operatorRole"))
+            .and_then(Value::as_str),
+        Some("budget_operator")
+    );
     let approval_decisions = approved
         .tui_control_state
         .as_ref()
@@ -743,6 +791,22 @@ fn workflow_project_run_recovers_coding_tool_budget_preflight_with_approval_retr
             && event.get("eventKind").and_then(Value::as_str)
                 == Some("workflow.run.retry_completed")
     }));
+    let retry_event = retried
+        .runtime_thread_events
+        .iter()
+        .find(|event| {
+            event.get("sourceEventKind").and_then(Value::as_str)
+                == Some("WorkflowRunCodingToolBudgetApprovedRetry")
+        })
+        .expect("retry event should persist");
+    assert_eq!(
+        retry_event
+            .get("payload")
+            .and_then(|payload| payload.get("recoveryPolicy"))
+            .and_then(|policy| policy.get("ttlMs"))
+            .and_then(Value::as_u64),
+        Some(300000)
+    );
     let retry_decisions = retried
         .tui_control_state
         .as_ref()
@@ -760,6 +824,28 @@ fn workflow_project_run_recovers_coding_tool_budget_preflight_with_approval_retr
         event.get("sourceEventKind").and_then(Value::as_str)
             == Some("WorkflowRunCodingToolBudgetApprovedRetry")
     }));
+    let second_retry = run_workflow_project(
+        bundle.workflow_path.clone(),
+        Some(json!({
+            "source": "coding-tool-budget-approved-retry",
+            "codingToolBudgetRecovery": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-recovery.v1",
+                "action": "retry_approved",
+                "sourceEventId": blocked_event_id,
+                "approvalId": approval_id,
+                "approvalRequestEventId": approval_request_event_id,
+                "approvalDecisionEventId": approval_decision_event_id,
+                "targetNodeIds": ["model-answer"],
+                "workflowNodeId": "runtime.coding-tool-budget-preflight",
+                "receiptRefs": ["receipt-budget"],
+                "policyDecisionRefs": ["policy-budget"],
+                "recoveryEvents": loaded.runtime_thread_events
+            }
+        })),
+    );
+    assert!(second_retry
+        .expect_err("workflow-authored retry limit should block a second retry")
+        .contains("retry limit exhausted"));
 }
 
 #[test]

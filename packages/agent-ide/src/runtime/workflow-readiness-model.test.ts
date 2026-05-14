@@ -336,6 +336,18 @@ test("workflow coding budget preflight creates run launch annotations", () => {
                 bindingKind: "coding_tool_pack",
                 toolRef: "file.apply_patch",
                 sideEffectClass: "write",
+                toolPack: {
+                  pack: "coding",
+                  budgetRecoveryApprovalScope: "target_nodes",
+                  budgetRecoveryTargetNodeIds: [
+                    "workflow.coding.file.apply_patch.followup",
+                  ],
+                  budgetRecoveryRetryLimit: 2,
+                  budgetRecoveryTtlMs: 300000,
+                  budgetRecoveryOperatorRole: "budget_operator",
+                  budgetRecoveryAllowOverride: true,
+                  budgetRecoveryRequiresApproval: true,
+                },
               },
             },
           },
@@ -371,6 +383,16 @@ test("workflow coding budget preflight creates run launch annotations", () => {
   );
   assert.equal(annotation?.status, "warning");
   assert.deepEqual(annotation?.targetNodeIds, [
+    "workflow.coding.file.apply_patch.followup",
+  ]);
+  assert.equal(
+    annotation?.recoveryPolicy.schemaVersion,
+    "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+  );
+  assert.equal(annotation?.recoveryPolicy.operatorRole, "budget_operator");
+  assert.equal(annotation?.recoveryPolicy.retryLimit, 2);
+  assert.equal(annotation?.recoveryPolicy.ttlMs, 300000);
+  assert.deepEqual(annotation?.recoveryPolicy.targetNodeIds, [
     "workflow.coding.file.apply_patch.followup",
   ]);
   assert.deepEqual(annotation?.toolCallIds, ["tool-call-budget"]);

@@ -1244,6 +1244,19 @@ export interface WorkflowToolBinding {
     allowedDiagnosticCommandIds?: string[];
     diagnosticsMode?: "advisory" | "blocking" | "skip";
     defaultDiagnosticCommandId?: string;
+    budgetMode?: "simulate" | "warn" | "block" | string;
+    budgetUsageField?: string;
+    maxTotalTokens?: number | null;
+    maxCostUsd?: number | null;
+    maxContextPressure?: number | null;
+    warnAtRatio?: number;
+    budgetRecoveryApprovalScope?: "workflow" | "target_nodes" | "evidence_nodes" | string;
+    budgetRecoveryTargetNodeIds?: string[];
+    budgetRecoveryRetryLimit?: number;
+    budgetRecoveryTtlMs?: number;
+    budgetRecoveryOperatorRole?: string;
+    budgetRecoveryRequiresApproval?: boolean;
+    budgetRecoveryAllowOverride?: boolean;
     restorePolicy?: "disabled" | "preview_only" | "apply_with_approval";
     restoreConflictPolicy?: "block" | "require_approval" | "allow_override";
     diagnosticsRepairDefault?:

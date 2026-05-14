@@ -11961,6 +11961,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeCodingToolBudgetRecoveryPolicy = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
+    ),
+    "utf8",
+  );
   const graphRuntimeTypes = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/graph-runtime-types.ts"),
     "utf8",
@@ -12317,6 +12324,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeTelemetrySummary, /usageSnapshotFromCodingToolBudgetRow/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-mode/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-usage-field/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-approval-scope/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-target-node-ids/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-retry-limit/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-ttl-ms/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-operator-role/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryPolicy, /workflowCodingToolBudgetRecoveryPolicyFromWorkflow/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryPolicy, /ioi\.workflow\.coding-tool-budget-recovery-policy\.v1/);
   assert.match(runtimeCodingTools, /toolPack\.coding\.budgetUsageField/);
   assert.match(runtimeCodingTools, /toolPack\.coding\.maxTotalTokens/);
   assert.match(workflowRuntimeEditProposalControlNodes, /createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode/);
@@ -12616,6 +12630,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-edit-proposal-policy-stack/);
   assert.match(workflowRunsPanel, /workflow-run-coding-tool-budget-recovery-action/);
   assert.match(workflowRunsPanel, /data-coding-tool-budget-recovery-action-count/);
+  assert.match(workflowRunsPanel, /data-recovery-policy-operator-role/);
   assert.match(runtimeDaemon, /proposeWorkflowEdit/);
   assert.match(runtimeDaemon, /applyWorkflowEditProposal/);
   assert.match(runtimeDaemon, /action === "workflow-edit-proposals"/);
@@ -12684,8 +12699,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEventProjection, /workspace_trust_acknowledged/);
   assert.match(workflowRuntimeEventProjection, /approval_decision/);
   assert.match(workflowRuntimeEventProjection, /codingToolBudgetRecoveryActions/);
+  assert.match(workflowRuntimeEventProjection, /recoveryPolicy/);
   assert.match(workflowRuntimeEventProjection, /WorkflowRunCodingToolBudgetApprovedRetry/);
   assert.match(workflowRuntimeEventProjection, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
+  assert.match(workflowRuntimeEventProjection, /workflowCodingToolBudgetRecoveryPolicyFromUnknown/);
   assert.match(workflowRuntimeEventProjection, /workflow\.run\.retry_completed/);
   assert.match(workflowRuntimeEventProjection, /workspaceTrustRows/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
@@ -12701,8 +12718,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTypes, /tui_control_state/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /ioi\.workflow\.coding-tool-budget-preflight\.v1/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /ioi\.workflow\.coding-tool-budget-recovery-policy\.v1/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /WorkflowRunCodingToolBudgetPreflightBlocked/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /WorkflowRunCodingToolBudgetApprovedRetry/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /workflow_coding_tool_budget_recovery_retry_count/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /workflow_coding_tool_budget_recovery_from_options/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /workflow_coding_tool_budget_recovery_control_result/);
   assert.match(tauriProjectWorkflowRunPolicyLane, /workflow_attach_coding_tool_budget_recovery_retry/);

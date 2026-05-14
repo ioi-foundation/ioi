@@ -1,4 +1,8 @@
 import type { WorkflowNodeKind } from "../types/graph";
+import {
+  workflowCodingToolBudgetRecoveryPolicyFromUnknown,
+  type WorkflowRuntimeCodingToolBudgetRecoveryPolicyDescriptor,
+} from "./workflow-runtime-coding-tool-budget-recovery-policy";
 import { diagnosticsRepairActionsForEvents } from "./workflow-runtime-diagnostics-repair-actions";
 import type { WorkflowRuntimeDiagnosticsRepairActionDescriptor } from "./workflow-runtime-diagnostics-repair-actions";
 export type {
@@ -167,6 +171,7 @@ export interface WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor {
   targetNodeIds: string[];
   receiptRefs: string[];
   policyDecisionRefs: string[];
+  recoveryPolicy: WorkflowRuntimeCodingToolBudgetRecoveryPolicyDescriptor | null;
 }
 
 export type WorkflowRuntimeContextPressureAction =
@@ -2518,6 +2523,25 @@ function codingToolBudgetRecoveryActionsForEvents(
     ...stringArrayField(retryEvent?.payload, "targetNodeIds", "target_node_ids"),
     blockedEvent.workflowNodeId ?? latestEvent.workflowNodeId ?? "",
   ]);
+  const recoveryPolicy =
+    workflowCodingToolBudgetRecoveryPolicyFromUnknown(
+      retryEvent?.payload,
+      targetNodeIds,
+    ) ??
+    workflowCodingToolBudgetRecoveryPolicyFromUnknown(
+      approvalDecisionEvent?.payload,
+      targetNodeIds,
+    ) ??
+    workflowCodingToolBudgetRecoveryPolicyFromUnknown(
+      approvalRequestEvent?.payload,
+      targetNodeIds,
+    ) ??
+    workflowCodingToolBudgetRecoveryPolicyFromUnknown(
+      blockedEvent.payload,
+      targetNodeIds,
+    );
+  const recoveryTargetNodeIds =
+    recoveryPolicy?.targetNodeIds.length ? recoveryPolicy.targetNodeIds : targetNodeIds;
   const receiptRefs = uniqueStrings([
     ...events.flatMap((event) => event.receiptRefs),
     ...stringArrayField(blockedEvent.payload, "receiptRefs", "receipt_refs"),
@@ -2566,9 +2590,10 @@ function codingToolBudgetRecoveryActionsForEvents(
     approvalId,
     approvalRequestEventId: approvalRequestEvent?.id ?? null,
     approvalDecisionEventId: approvalDecisionEvent?.id ?? null,
-    targetNodeIds,
+    targetNodeIds: recoveryTargetNodeIds,
     receiptRefs,
     policyDecisionRefs,
+    recoveryPolicy,
   } satisfies Omit<
     WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
     "id" | "action" | "label" | "summary" | "status" | "executable"
