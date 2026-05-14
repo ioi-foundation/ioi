@@ -5865,6 +5865,74 @@ export function collectWorkflowTelemetryBudgetChainCreatorProof(outputRoot) {
   }
 }
 
+export function collectWorkflowTelemetryBudgetChainRunInspectorProof(outputRoot) {
+  const path = join(
+    outputRoot,
+    "workflow-telemetry-budget-chain-run-inspector-proof.json",
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs",
+      path,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TSX_TSCONFIG_PATH: resolve(
+          repoRoot,
+          "packages/agent-ide/tsconfig.json",
+        ),
+      },
+      timeout: 60_000,
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (result.status !== 0 || !existsSync(path)) {
+    const proof = {
+      schemaVersion:
+        "workflow.telemetry-budget-chain.run-inspector-proof.v1",
+      scenario: "workflow_telemetry_budget_chain_run_inspector_materialize",
+      passed: false,
+      checks: {
+        probeExecuted: false,
+      },
+      error:
+        result.error?.message ??
+        (result.signal
+          ? `telemetry budget-chain run-inspector probe terminated by ${result.signal}`
+          : `telemetry budget-chain run-inspector probe exited with ${result.status ?? "unknown"}`),
+      stdout: result.stdout?.slice(-8_000) ?? "",
+      stderr: result.stderr?.slice(-8_000) ?? "",
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+  try {
+    return {
+      path,
+      proof: JSON.parse(readFileSync(path, "utf8")),
+    };
+  } catch (error) {
+    const proof = {
+      schemaVersion:
+        "workflow.telemetry-budget-chain.run-inspector-proof.v1",
+      scenario: "workflow_telemetry_budget_chain_run_inspector_materialize",
+      passed: false,
+      checks: {
+        proofParsed: false,
+      },
+      error: String(error?.message || error),
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+}
+
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
     graphTypes: "packages/agent-ide/src/types/graph.ts",
@@ -6175,6 +6243,7 @@ export function buildGuiEvidenceAssessment({
   promotionTransitionGuiBehaviorProof,
   promotionTransitionLiveGuiInteractionProof,
   workflowTelemetryBudgetChainCreatorProof,
+  workflowTelemetryBudgetChainRunInspectorProof,
   workflowSkillContextProof,
   workflowCodingRouteProof,
   workflowCodingRoutePromotionLoopProof,
@@ -7205,6 +7274,8 @@ export function buildGuiEvidenceAssessment({
     workflowSkillContextProof?.proof?.passed === true;
   const hasWorkflowTelemetryBudgetChainCreatorProof =
     workflowTelemetryBudgetChainCreatorProof?.proof?.passed === true;
+  const hasWorkflowTelemetryBudgetChainRunInspectorProof =
+    workflowTelemetryBudgetChainRunInspectorProof?.proof?.passed === true;
   const hasWorkflowCodingRouteCreateRunProof =
     workflowCodingRouteProof?.proof?.passed === true;
   const hasWorkflowCodingRoutePromotionLoopProof =
@@ -7397,6 +7468,8 @@ export function buildGuiEvidenceAssessment({
         hasWorkflowSkillContextCreateRunProof,
       workflow_telemetry_budget_chain_creator_proof_present:
         hasWorkflowTelemetryBudgetChainCreatorProof,
+      workflow_telemetry_budget_chain_run_inspector_proof_present:
+        hasWorkflowTelemetryBudgetChainRunInspectorProof,
       workflow_coding_route_create_run_proof_present:
         hasWorkflowCodingRouteCreateRunProof,
       workflow_coding_route_promotion_loop_proof_present:
@@ -7487,6 +7560,7 @@ export function buildGuiEvidenceAssessment({
       hasHarnessReadOnlyCapabilityRouting,
       hasWorkflowSkillContextCreateRunProof,
       hasWorkflowTelemetryBudgetChainCreatorProof,
+      hasWorkflowTelemetryBudgetChainRunInspectorProof,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -11272,6 +11346,8 @@ async function runGuiValidation(args, outputRoot) {
       collectPromotionTransitionGuiBehaviorProof(outputRoot);
     const workflowTelemetryBudgetChainCreatorProof =
       collectWorkflowTelemetryBudgetChainCreatorProof(outputRoot);
+    const workflowTelemetryBudgetChainRunInspectorProof =
+      collectWorkflowTelemetryBudgetChainRunInspectorProof(outputRoot);
     const workflowSkillContextProof =
       collectWorkflowSkillContextProof(outputRoot);
     const workflowCodingRouteProof =
@@ -11285,6 +11361,7 @@ async function runGuiValidation(args, outputRoot) {
       promotionTransitionGuiBehaviorProof,
       promotionTransitionLiveGuiInteractionProof,
       workflowTelemetryBudgetChainCreatorProof,
+      workflowTelemetryBudgetChainRunInspectorProof,
       workflowSkillContextProof,
       workflowCodingRouteProof,
       workflowCodingRoutePromotionLoopProof,
@@ -11775,6 +11852,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowTelemetryBudgetChainCreatorProof.proof.passed === true
             ? workflowTelemetryBudgetChainCreatorProof.path
             : false,
+        workflow_telemetry_budget_chain_run_inspector:
+          workflowTelemetryBudgetChainRunInspectorProof.proof.passed === true
+            ? workflowTelemetryBudgetChainRunInspectorProof.path
+            : false,
         workflow_coding_route_create_run:
           workflowCodingRouteProof.proof.passed === true
             ? workflowCodingRouteProof.path
@@ -11795,6 +11876,8 @@ async function runGuiValidation(args, outputRoot) {
         workflowSkillContext: workflowSkillContextProof.proof,
         workflowTelemetryBudgetChainCreator:
           workflowTelemetryBudgetChainCreatorProof.proof,
+        workflowTelemetryBudgetChainRunInspector:
+          workflowTelemetryBudgetChainRunInspectorProof.proof,
         workflowCodingRoute: workflowCodingRouteProof.proof,
         workflowCodingRoutePromotionLoop:
           workflowCodingRoutePromotionLoopProof.proof,

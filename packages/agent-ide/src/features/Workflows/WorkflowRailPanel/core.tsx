@@ -351,6 +351,7 @@ export function WorkflowRailPanel({
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
+  onMaterializeRuntimeTelemetryBudgetChain,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -447,6 +448,9 @@ export function WorkflowRailPanel({
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void;
   onBindRuntimeTelemetrySource?: (
+    summary: WorkflowRuntimeTelemetrySummary,
+  ) => void;
+  onMaterializeRuntimeTelemetryBudgetChain?: (
     summary: WorkflowRuntimeTelemetrySummary,
   ) => void;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
@@ -3361,6 +3365,9 @@ export function WorkflowRailPanel({
           onBindRuntimeCodingToolBudgetRecoveryTemplate
         }
         onBindRuntimeTelemetrySource={onBindRuntimeTelemetrySource}
+        onMaterializeRuntimeTelemetryBudgetChain={
+          onMaterializeRuntimeTelemetryBudgetChain
+        }
       />
     );
   }

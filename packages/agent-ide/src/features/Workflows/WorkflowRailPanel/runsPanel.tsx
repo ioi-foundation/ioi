@@ -59,6 +59,9 @@ type WorkflowRunsPanelProps = {
   onBindRuntimeTelemetrySource?: (
     summary: WorkflowRuntimeTelemetrySummary,
   ) => void;
+  onMaterializeRuntimeTelemetryBudgetChain?: (
+    summary: WorkflowRuntimeTelemetrySummary,
+  ) => void;
 };
 
 function codingToolBudgetRecoverySubflowSeed(
@@ -95,6 +98,7 @@ export function WorkflowRunsPanel({
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
+  onMaterializeRuntimeTelemetryBudgetChain,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -493,6 +497,28 @@ export function WorkflowRunsPanel({
                 }}
               >
                 Bind telemetry source
+              </button>
+              <button
+                type="button"
+                className="workflow-secondary-action"
+                data-testid="workflow-run-telemetry-budget-chain-materialize"
+                data-schema-version={runtimeTelemetrySummary.schemaVersion}
+                data-telemetry-status={runtimeTelemetrySummary.status}
+                data-thread-ids={runtimeTelemetrySummary.threadIds.join("|")}
+                data-turn-ids={runtimeTelemetrySummary.turnIds.join("|")}
+                data-source-kinds={runtimeTelemetrySummary.sourceKinds.join("|")}
+                data-latest-event-id={runtimeTelemetrySummary.latestEventId ?? ""}
+                data-latest-cursor={runtimeTelemetrySummary.latestCursor ?? ""}
+                disabled={!onMaterializeRuntimeTelemetryBudgetChain}
+                title="Create or hydrate a telemetry-governed budget chain from this run evidence."
+                aria-label="Create telemetry budget chain"
+                onClick={() => {
+                  onMaterializeRuntimeTelemetryBudgetChain?.(
+                    runtimeTelemetrySummary,
+                  );
+                }}
+              >
+                Use budget chain
               </button>
               {runtimeTelemetrySourceFilters.length > 0 ? (
                 <div

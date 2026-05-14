@@ -558,6 +558,16 @@ export {
   createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow,
 } from "./runtime/workflow-runtime-telemetry-budget-chain-subflow";
 export type {
+  WorkflowRuntimeTelemetryBudgetChainMaterializationMode,
+  WorkflowRuntimeTelemetryBudgetChainMaterializationOptions,
+  WorkflowRuntimeTelemetryBudgetChainMaterializationResult,
+} from "./runtime/workflow-runtime-telemetry-budget-chain-materialization";
+export {
+  WORKFLOW_RUNTIME_TELEMETRY_BUDGET_CHAIN_MATERIALIZATION_SCHEMA_VERSION,
+  materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry,
+  workflowRuntimeTelemetryBudgetChainIdsFromWorkflow,
+} from "./runtime/workflow-runtime-telemetry-budget-chain-materialization";
+export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
   WorkflowRuntimeCodingToolBudgetRecoveryTemplateBindingResult,

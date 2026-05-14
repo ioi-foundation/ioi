@@ -39,8 +39,17 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const telemetryBudgetChainSubflow = read(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
   );
+  const telemetryBudgetChainMaterialization = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+  );
+  const telemetryBudgetChainMaterializationTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
+  );
   const telemetryBudgetChainCreatorGuiProbe = read(
     "scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs",
+  );
+  const telemetryBudgetChainRunInspectorProbe = read(
+    "scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs",
   );
   const telemetryBudgetChainRuntimeSubflowInsertion = read(
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
@@ -231,11 +240,56 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     exports,
     /createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow/,
   );
-  assert.match(composerController, /handleInsertRuntimeTelemetryBudgetChainTemplate/);
+  assert.match(
+    exports,
+    /materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterialization,
+    /ioi\.workflow\.runtime-telemetry-budget-chain-materialization\.v1/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterialization,
+    /materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterialization,
+    /workflowRuntimeTelemetryBudgetChainIdsFromWorkflow/,
+  );
+  assert.match(telemetryBudgetChainMaterialization, /mode: "materialized"/);
+  assert.match(telemetryBudgetChainMaterialization, /mode: "hydrated"/);
+  assert.match(
+    telemetryBudgetChainMaterialization,
+    /targetNodeIds: chainNodeIds/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterializationTest,
+    /run-inspector telemetry evidence materializes and binds a budget chain/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterializationTest,
+    /hydrates an existing compatible chain/,
+  );
+  assert.match(
+    composerController,
+    /handleInsertRuntimeTelemetryBudgetChainTemplate/,
+  );
+  assert.match(
+    composerController,
+    /handleMaterializeRuntimeTelemetryBudgetChain/,
+  );
+  assert.match(
+    composerController,
+    /materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry/,
+  );
   assert.match(
     composerView,
     /workflow-add-runtime-telemetry-budget-chain-template/,
   );
+  assert.match(runsPanel, /workflow-run-telemetry-budget-chain-materialize/);
+  assert.match(runsPanel, /onMaterializeRuntimeTelemetryBudgetChain/);
+  assert.match(railPanel, /onMaterializeRuntimeTelemetryBudgetChain/);
+  assert.match(composerView, /handleMaterializeRuntimeTelemetryBudgetChain/);
   assert.match(
     telemetryBudgetChainRuntimeSubflowInsertion,
     /workflowRuntimeSubflowReactFlowElements/,
@@ -269,12 +323,40 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /missing_runtime_telemetry_source_usage_binding/,
   );
   assert.match(
+    telemetryBudgetChainRunInspectorProbe,
+    /workflow_telemetry_budget_chain_run_inspector_materialize/,
+  );
+  assert.match(
+    telemetryBudgetChainRunInspectorProbe,
+    /workflow-run-telemetry-budget-chain-materialize/,
+  );
+  assert.match(
+    telemetryBudgetChainRunInspectorProbe,
+    /materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry/,
+  );
+  assert.match(
+    telemetryBudgetChainRunInspectorProbe,
+    /hydratesExistingChain/,
+  );
+  assert.match(
+    telemetryBudgetChainRunInspectorProbe,
+    /readinessFailsWhenUpstreamBindingRemoved/,
+  );
+  assert.match(
     guiHarnessContract,
     /workflow_telemetry_budget_chain_creator/,
   );
   assert.match(
     guiHarnessContract,
+    /workflow_telemetry_budget_chain_run_inspector/,
+  );
+  assert.match(
+    guiHarnessContract,
     /workflow_telemetry_budget_chain_creator_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_telemetry_budget_chain_run_inspector_proof_present/,
   );
   assert.match(
     guiHarnessValidation,
@@ -282,7 +364,15 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /collectWorkflowTelemetryBudgetChainRunInspectorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflowTelemetryBudgetChainCreatorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflowTelemetryBudgetChainRunInspectorProof/,
   );
   assert.match(
     guiHarnessValidation,
@@ -290,7 +380,15 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_telemetry_budget_chain_run_inspector/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_telemetry_budget_chain_run_inspector_proof_present/,
   );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);
