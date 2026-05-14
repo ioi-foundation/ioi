@@ -236,6 +236,10 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "workspace_trust_warning";
     case "workspace.trust_acknowledged":
       return "workspace_trust_acknowledged";
+    case "workflow.edit_proposed":
+      return "workflow_edit_proposed";
+    case "workflow.edit_applied":
+      return "workflow_edit_applied";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -306,6 +310,10 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "workspace.trust_warning";
     case "workspace_trust_acknowledged":
       return "workspace.trust_acknowledged";
+    case "workflow_edit_proposed":
+      return "workflow.edit_proposed";
+    case "workflow_edit_applied":
+      return "workflow.edit_applied";
     case "error":
       return "turn.failed";
     default:
@@ -323,6 +331,8 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
   ) return "running";
   if (type === "workspace_trust_warning") return "warning";
   if (type === "workspace_trust_acknowledged") return "completed";
+  if (type === "workflow_edit_proposed") return "waiting_for_approval";
+  if (type === "workflow_edit_applied") return "completed";
   if (type === "canceled") return "canceled";
   if (type === "interrupted") return "interrupted";
   if (type === "error") return "failed";
@@ -339,6 +349,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "context_pressure_delta") return "context_pressure";
   if (type === "context_pressure_alert") return "context_pressure_alert";
   if (type === "workspace_trust_warning" || type === "workspace_trust_acknowledged") return "workspace_trust";
+  if (type === "workflow_edit_proposed" || type === "workflow_edit_applied") return "workflow_edit_proposal";
   if (type === "approval_required" || type === "approval_decision") return "approval_gate";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
@@ -357,6 +368,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "context_pressure_delta") return "runtime.context-budget";
   if (type === "context_pressure_alert") return "runtime.context-pressure-alert";
   if (type === "workspace_trust_warning" || type === "workspace_trust_acknowledged") return "runtime.workspace-trust";
+  if (type === "workflow_edit_proposed" || type === "workflow_edit_applied") return "runtime.workflow-edit-proposal";
   if (type === "approval_decision") return "runtime.approval-decision";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
@@ -376,6 +388,8 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "context_pressure_alert") return "RuntimeContextPressure.Alert";
   if (type === "workspace_trust_warning") return "WorkspaceTrust.Warning";
   if (type === "workspace_trust_acknowledged") return "WorkspaceTrust.Acknowledged";
+  if (type === "workflow_edit_proposed") return "WorkflowEdit.Proposed";
+  if (type === "workflow_edit_applied") return "WorkflowEdit.Applied";
   if (type === "approval_decision") return "OperatorApproval.Decision";
   return `run.${type}`;
 }
@@ -391,6 +405,8 @@ function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string 
   if (type === "context_pressure_alert") return "ioi.runtime.context-pressure-alert.v1";
   if (type === "workspace_trust_warning") return "ioi.runtime.workspace-trust-warning.v1";
   if (type === "workspace_trust_acknowledged") return "ioi.runtime.workspace-trust-acknowledgement.v1";
+  if (type === "workflow_edit_proposed") return "ioi.runtime.workflow-edit-proposal.v1";
+  if (type === "workflow_edit_applied") return "ioi.runtime.workflow-edit-apply.v1";
   if (type === "approval_decision") return "ioi.runtime.approval-decision.v1";
   return "ioi.agent-sdk.event.v1";
 }

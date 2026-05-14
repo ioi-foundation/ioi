@@ -54,6 +54,25 @@ export {
   workflowRuntimePolicyStackFromEvents,
 } from "./runtime/workflow-runtime-policy-stack";
 export {
+  WORKFLOW_RUNTIME_EDIT_PROPOSAL_POLICY_SCHEMA_VERSION,
+  workflowRuntimeEditProposalPolicyStackFromEvents,
+} from "./runtime/workflow-runtime-edit-proposal-policy";
+export {
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND,
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_PAYLOAD_SCHEMA_VERSION,
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE,
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE_EVENT_KIND,
+  RUNTIME_WORKFLOW_EDIT_PROPOSAL_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_EDIT_PROPOSAL_APPLY_CONTROL_SCHEMA_VERSION,
+  WORKFLOW_RUNTIME_EDIT_PROPOSAL_CONTROL_SCHEMA_VERSION,
+  createRuntimeWorkflowEditProposalApplyControlRequest,
+  createRuntimeWorkflowEditProposalApplyControlRequestFromWorkflowNode,
+  createRuntimeWorkflowEditProposalControlRequest,
+  createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-edit-proposal-control-nodes";
+export {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_CONTEXT_COMPACT_SOURCE,

@@ -192,6 +192,61 @@ test("projects workspace trust acknowledgements as completed hook-policy rows", 
   ]);
 });
 
+test("projects workflow edit proposals as proposal React Flow rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-workflow-edit-proposed", 1, {
+      type: "workflow_edit_proposed",
+      eventKind: "workflow.edit_proposed",
+      sourceEventKind: "WorkflowEdit.Proposed",
+      status: "waiting_for_approval",
+      workflowNodeId: "runtime.workflow-edit-proposal.proposal-a",
+      componentKind: "workflow_edit_proposal",
+      approvalId: "approval-a",
+      payloadSchemaVersion: "ioi.runtime.workflow-edit-proposal.v1",
+      receiptRefs: ["receipt-proposal"],
+      policyDecisionRefs: ["policy-proposal"],
+      payload: {
+        proposal_id: "proposal-a",
+        approval_id: "approval-a",
+        summary: "Proposal-only workflow edit staged for approval.",
+      },
+    }),
+    event("event-workflow-edit-applied", 2, {
+      type: "workflow_edit_applied",
+      eventKind: "workflow.edit_applied",
+      sourceEventKind: "WorkflowEdit.Applied",
+      status: "completed",
+      workflowNodeId: "runtime.workflow-edit-proposal.proposal-a",
+      componentKind: "workflow_edit_proposal",
+      approvalId: "approval-a",
+      payloadSchemaVersion: "ioi.runtime.workflow-edit-apply.v1",
+      receiptRefs: ["receipt-apply"],
+      policyDecisionRefs: ["policy-apply"],
+      payload: {
+        proposal_id: "proposal-a",
+        mutation_executed: true,
+      },
+    }),
+  ]);
+
+  assert.equal(projection.nodes[0]?.nodeKind, "proposal");
+  assert.equal(projection.nodes[0]?.componentKind, "workflow_edit_proposal");
+  assert.equal(projection.nodes[0]?.label, "Workflow edit applied");
+  assert.equal(projection.nodes[0]?.status, "completed");
+  assert.equal(
+    projection.nodes[0]?.workflowNodeId,
+    "runtime.workflow-edit-proposal.proposal-a",
+  );
+  assert.deepEqual(projection.nodes[0]?.eventIds, [
+    "event-workflow-edit-proposed",
+    "event-workflow-edit-applied",
+  ]);
+  assert.deepEqual(projection.nodes[0]?.receiptRefs, [
+    "receipt-proposal",
+    "receipt-apply",
+  ]);
+});
+
 test("projects coding tool events as receipt-backed React Flow rows", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("event-coding-status", 1, {

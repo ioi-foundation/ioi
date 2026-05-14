@@ -79,6 +79,7 @@ export function WorkflowRunsPanel({
     timelineEvents,
     runtimeEventProjection,
     runtimePolicyStack,
+    runtimeEditProposalPolicyStack,
     tuiControlStateProjection,
   } = model;
 
@@ -367,6 +368,63 @@ export function WorkflowRunsPanel({
                       data-approval-id={stage.approvalId ?? ""}
                       data-warning-id={stage.warningId ?? ""}
                       data-tool-call-id={stage.toolCallId ?? ""}
+                      data-receipt-refs={stage.receiptRefs.join("|")}
+                      data-policy-decision-refs={
+                        stage.policyDecisionRefs.join("|")
+                      }
+                    >
+                      <span>{stage.label}</span>
+                      <small>{accessibleStatusLabel(stage.status)}</small>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              {runtimeEditProposalPolicyStack.status !== "not_required" ? (
+                <ol
+                  className="workflow-run-policy-stack workflow-run-edit-proposal-policy-stack"
+                  data-testid="workflow-run-edit-proposal-policy-stack"
+                  data-schema-version={
+                    runtimeEditProposalPolicyStack.schemaVersion
+                  }
+                  data-policy-stack-status={
+                    runtimeEditProposalPolicyStack.status
+                  }
+                  data-policy-stack-stage-count={
+                    runtimeEditProposalPolicyStack.stages.length
+                  }
+                  data-proposal-id={
+                    runtimeEditProposalPolicyStack.proposalId ?? ""
+                  }
+                  data-approval-id={
+                    runtimeEditProposalPolicyStack.approvalId ?? ""
+                  }
+                  data-target-workflow-node-ids={
+                    runtimeEditProposalPolicyStack.targetWorkflowNodeIds.join("|")
+                  }
+                  data-mutation-executed={
+                    runtimeEditProposalPolicyStack.mutationExecuted
+                  }
+                  data-receipt-refs={
+                    runtimeEditProposalPolicyStack.receiptRefs.join("|")
+                  }
+                  data-policy-decision-refs={
+                    runtimeEditProposalPolicyStack.policyDecisionRefs.join("|")
+                  }
+                >
+                  {runtimeEditProposalPolicyStack.stages.map((stage) => (
+                    <li
+                      key={stage.kind}
+                      className={`workflow-run-policy-stack-stage is-${stage.status}`}
+                      data-testid={`workflow-run-edit-proposal-policy-stack-stage-${stage.kind}`}
+                      data-stage-kind={stage.kind}
+                      data-stage-status={stage.status}
+                      data-event-id={stage.eventId ?? ""}
+                      data-event-seq={stage.eventSeq ?? ""}
+                      data-thread-id={stage.threadId ?? ""}
+                      data-workflow-graph-id={stage.workflowGraphId ?? ""}
+                      data-workflow-node-id={stage.workflowNodeId ?? ""}
+                      data-proposal-id={stage.proposalId ?? ""}
+                      data-approval-id={stage.approvalId ?? ""}
                       data-receipt-refs={stage.receiptRefs.join("|")}
                       data-policy-decision-refs={
                         stage.policyDecisionRefs.join("|")

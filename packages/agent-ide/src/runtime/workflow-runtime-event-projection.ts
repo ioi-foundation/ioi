@@ -30,6 +30,8 @@ export type WorkflowRuntimeThreadEventType =
   | "context_pressure_alert"
   | "workspace_trust_warning"
   | "workspace_trust_acknowledged"
+  | "workflow_edit_proposed"
+  | "workflow_edit_applied"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -1879,6 +1881,11 @@ export function workflowNodeIdForRuntimeThreadEvent(
     case "workspace_trust_warning":
     case "workspace_trust_acknowledged":
       return "runtime.workspace-trust";
+    case "workflow_edit_proposed":
+    case "workflow_edit_applied":
+      return `runtime.workflow-edit-proposal.${slug(
+        stringField(event.payload, "proposalId", "proposal_id") ?? event.id,
+      )}`;
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -1909,6 +1916,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "context_pressure") return "runtime_context_budget";
   if (event.componentKind === "context_pressure_alert") return "hook_policy";
   if (event.componentKind === "workspace_trust") return "runtime_workspace_trust_gate";
+  if (event.componentKind === "workflow_edit_proposal") return "proposal";
   if (event.componentKind === "approval_gate") return "human_gate";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
@@ -1944,6 +1952,9 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "workspace_trust_warning":
     case "workspace_trust_acknowledged":
       return "hook_policy";
+    case "workflow_edit_proposed":
+    case "workflow_edit_applied":
+      return "proposal";
     case "reasoning_delta":
       return "task_state";
     case "tool_completed":
@@ -2318,6 +2329,9 @@ function componentKindForRuntimeThreadEvent(
     case "workspace_trust_warning":
     case "workspace_trust_acknowledged":
       return "workspace_trust";
+    case "workflow_edit_proposed":
+    case "workflow_edit_applied":
+      return "workflow_edit_proposal";
     case "reasoning_delta":
       return "reasoning_delta";
     case "tool_completed":
@@ -2356,6 +2370,12 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       event.eventKind === "workspace.trust_acknowledged"
       ? "Workspace trust acknowledged"
       : "Workspace trust warning";
+  }
+  if (event.componentKind === "workflow_edit_proposal") {
+    return event.type === "workflow_edit_applied" ||
+      event.eventKind === "workflow.edit_applied"
+      ? "Workflow edit applied"
+      : "Workflow edit proposal";
   }
   if (event.componentKind === "approval_gate") {
     if (event.type === "approval_decision" || event.eventKind.startsWith("approval.")) {
@@ -2406,6 +2426,10 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Workspace trust warning";
     case "workspace_trust_acknowledged":
       return "Workspace trust acknowledged";
+    case "workflow_edit_proposed":
+      return "Workflow edit proposal";
+    case "workflow_edit_applied":
+      return "Workflow edit applied";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":
@@ -2435,6 +2459,8 @@ function projectedStatusForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): WorkflowRuntimeProjectedStatus {
   if (event.type === "approval_required") return "waiting";
+  if (event.type === "workflow_edit_proposed") return "waiting";
+  if (event.type === "workflow_edit_applied") return "completed";
   if (event.type === "policy_blocked") return "blocked";
   if (event.type === "context_pressure_alert") {
     return event.status.toLowerCase().includes("blocked")

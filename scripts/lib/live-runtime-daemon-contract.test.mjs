@@ -268,6 +268,8 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
@@ -2716,6 +2718,263 @@ test("React Flow policy stack replays workspace trust and coding approval gates 
     assert.ok(policyStack.workflowNodeIds.includes(codingNodeId));
     assert.ok(policyStack.receiptRefs.length >= 5);
     assert.ok(policyStack.policyDecisionRefs.length >= 5);
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("React Flow workflow edit proposals are daemon-gated and replayable", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeWorkflowEditProposalApplyControlRequest,
+    createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+    workflowRuntimeEditProposalPolicyStackFromEvents,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-edit-proposal-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-edit-proposal-state-"));
+  const workflowPath = path.join(cwd, "proposal-proof.workflow.json");
+  const initialWorkflow = {
+    version: "1",
+    metadata: {
+      id: "workflow.react-flow.edit-proposal-proof",
+      name: "Proposal proof",
+    },
+    nodes: [{ id: "model", type: "model_call", name: "Model" }],
+    edges: [],
+  };
+  const rejectedWorkflow = {
+    ...initialWorkflow,
+    metadata: { ...initialWorkflow.metadata, name: "Rejected edit" },
+  };
+  const approvedWorkflow = {
+    ...initialWorkflow,
+    metadata: { ...initialWorkflow.metadata, name: "Approved edit" },
+  };
+  fs.writeFileSync(workflowPath, `${JSON.stringify(initialWorkflow, null, 2)}\n`);
+
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = initialWorkflow.metadata.id;
+    const workflowNodeId = "runtime.workflow-edit-proposal.model";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove workflow edit proposals are daemon gated.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const proposalNode = {
+      id: "proposal-node",
+      type: "proposal",
+      name: "Bounded workflow edit",
+      config: {
+        logic: {
+          workflowNodeId,
+          proposalId: "proposal-rejected",
+          title: "Reject unsafe metadata edit",
+          summary: "Rejected proposal should never mutate the workflow file.",
+          workflowPath,
+          workflowPatch: rejectedWorkflow,
+          proposalAction: {
+            actionKind: "create",
+            boundedTargets: ["model"],
+            requiresApproval: true,
+          },
+        },
+      },
+    };
+    const rejectedProposalControl =
+      createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode(
+        proposalNode,
+        { threadId: thread.thread_id },
+        { workflowGraphId, actor: "workflow-author" },
+      );
+    assert.equal(rejectedProposalControl.body.proposal_only, true);
+    assert.equal(rejectedProposalControl.body.mutation_allowed, false);
+
+    const rejectedProposal = await fetchJson(
+      `${daemon.endpoint}${rejectedProposalControl.endpoint}`,
+      {
+        method: rejectedProposalControl.method,
+        body: JSON.stringify(rejectedProposalControl.body),
+      },
+    );
+    assert.equal(rejectedProposal.status, "waiting_for_approval");
+    assert.equal(rejectedProposal.approval_required, true);
+    assert.equal(rejectedProposal.mutation_executed, false);
+    assert.equal(JSON.parse(fs.readFileSync(workflowPath, "utf8")).metadata.name, "Proposal proof");
+
+    const directApply = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/workflow-edit-proposals/proposal-rejected/apply`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId,
+          approved: true,
+          approvalGranted: true,
+          approvalMode: "never_prompt",
+        }),
+      },
+    );
+    assert.equal(directApply.status, "blocked");
+    assert.equal(directApply.approval_required, true);
+    assert.equal(directApply.mutation_executed, false);
+    assert.equal(JSON.parse(fs.readFileSync(workflowPath, "utf8")).metadata.name, "Proposal proof");
+
+    const rejectedDecision = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${rejectedProposal.approval_id}/reject`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId,
+          reason: "Reject the proposal to prove no workflow mutation occurs.",
+        }),
+      },
+    );
+    assert.equal(rejectedDecision.decision, "reject");
+
+    const rejectedApply = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/workflow-edit-proposals/proposal-rejected/apply`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId,
+          approvalId: rejectedProposal.approval_id,
+        }),
+      },
+    );
+    assert.equal(rejectedApply.status, "blocked");
+    assert.equal(rejectedApply.reason, "approval_rejected");
+    assert.equal(JSON.parse(fs.readFileSync(workflowPath, "utf8")).metadata.name, "Proposal proof");
+
+    const approvedControl = createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode(
+      {
+        ...proposalNode,
+        config: {
+          logic: {
+            ...proposalNode.config.logic,
+            proposalId: "proposal-approved",
+            title: "Approve metadata edit",
+            summary: "Approved proposal mutates the workflow after daemon approval.",
+            workflowPatch: approvedWorkflow,
+          },
+        },
+      },
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    const approvedProposal = await fetchJson(`${daemon.endpoint}${approvedControl.endpoint}`, {
+      method: approvedControl.method,
+      body: JSON.stringify(approvedControl.body),
+    });
+    assert.equal(approvedProposal.status, "waiting_for_approval");
+    const approvedDecision = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${approvedProposal.approval_id}/approve`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId,
+          reason: "Approve bounded workflow metadata edit.",
+        }),
+      },
+    );
+    assert.equal(approvedDecision.decision, "approve");
+
+    const applyControl = createRuntimeWorkflowEditProposalApplyControlRequest({
+      threadId: thread.thread_id,
+      proposalId: "proposal-approved",
+      approvalId: approvedProposal.approval_id,
+      workflowGraphId,
+      workflowNodeId,
+      actor: "workflow-author",
+    });
+    const applied = await fetchJson(`${daemon.endpoint}${applyControl.endpoint}`, {
+      method: applyControl.method,
+      body: JSON.stringify(applyControl.body),
+    });
+    assert.equal(applied.status, "completed");
+    assert.equal(applied.mutation_executed, true);
+    assert.equal(JSON.parse(fs.readFileSync(workflowPath, "utf8")).metadata.name, "Approved edit");
+
+    const replay = await fetchJson(`${daemon.endpoint}${applyControl.endpoint}`, {
+      method: applyControl.method,
+      body: JSON.stringify(applyControl.body),
+    });
+    assert.equal(replay.status, "completed");
+    assert.equal(replay.idempotent_replay, true);
+    assert.equal(replay.event.event_id, applied.event.event_id);
+
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const proposedEvent = sdkEvents.find(
+      (event) => event.eventKind === "workflow.edit_proposed" &&
+        event.payload.proposal_id === "proposal-approved",
+    );
+    assert.ok(proposedEvent);
+    assert.equal(proposedEvent.type, "workflow_edit_proposed");
+    assert.equal(proposedEvent.componentKind, "workflow_edit_proposal");
+    const appliedEvent = sdkEvents.find((event) => event.id === applied.event.event_id);
+    assert.ok(appliedEvent);
+    assert.equal(appliedEvent.type, "workflow_edit_applied");
+    assert.equal(appliedEvent.payload.mutation_executed, true);
+    const rejectedAppliedEvent = sdkEvents.find(
+      (event) => event.eventKind === "workflow.edit_applied" &&
+        event.payload.proposal_id === "proposal-rejected",
+    );
+    assert.equal(rejectedAppliedEvent, undefined);
+
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const proposalNodeProjection = projection.nodes.find(
+      (node) => node.workflowNodeId === workflowNodeId,
+    );
+    assert.ok(proposalNodeProjection);
+    assert.equal(proposalNodeProjection.nodeKind, "proposal");
+    assert.ok(proposalNodeProjection.eventIds.includes(proposedEvent.id));
+    assert.ok(proposalNodeProjection.eventIds.includes(appliedEvent.id));
+
+    const rejectedStack = workflowRuntimeEditProposalPolicyStackFromEvents(sdkEvents, {
+      workflowGraphId,
+      proposalId: "proposal-rejected",
+    });
+    assert.equal(rejectedStack.status, "blocked");
+    assert.equal(rejectedStack.mutationExecuted, false);
+    assert.deepEqual(
+      rejectedStack.stages.map((stage) => [stage.kind, stage.status]),
+      [
+        ["proposal_created", "completed"],
+        ["approval_requirement", "completed"],
+        ["approval_decision", "blocked"],
+        ["proposal_apply", "blocked"],
+      ],
+    );
+
+    const approvedStack = workflowRuntimeEditProposalPolicyStackFromEvents(sdkEvents, {
+      workflowGraphId,
+      proposalId: "proposal-approved",
+    });
+    assert.equal(approvedStack.status, "completed");
+    assert.equal(approvedStack.approvalId, approvedProposal.approval_id);
+    assert.equal(approvedStack.mutationExecuted, true);
+    assert.deepEqual(
+      approvedStack.stages.map((stage) => [stage.kind, stage.status]),
+      [
+        ["proposal_created", "completed"],
+        ["approval_requirement", "completed"],
+        ["approval_decision", "completed"],
+        ["proposal_apply", "completed"],
+      ],
+    );
   } finally {
     await daemon.close();
   }
@@ -10853,6 +11112,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeEditProposalControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+    ),
+    "utf8",
+  );
   const workflowRuntimeMcpControlNodes = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts"),
     "utf8",
@@ -11142,6 +11408,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   );
   const workflowRuntimePolicyStack = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts"),
+    "utf8",
+  );
+  const workflowRuntimeEditProposalPolicy = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+    ),
     "utf8",
   );
   const workflowRuntimeDiagnosticsRepairActions = fs.readFileSync(
@@ -11492,6 +11765,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/tools\/\$\{encodeSegment\(toolId\)\}\/invoke/);
   assert.match(workflowRuntimeCodingToolControlNodes, /nodeApprovalOverride/);
   assert.match(workflowRuntimeCodingToolControlNodes, /trustProfile/);
+  assert.match(workflowRuntimeEditProposalControlNodes, /createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeEditProposalControlNodes, /workflow-edit-proposals/);
+  assert.match(workflowRuntimeEditProposalControlNodes, /proposal_only/);
+  assert.match(workflowRuntimeEditProposalControlNodes, /mutation_allowed: false/);
   assert.match(workflowRuntimeSubagentControlNodes, /createRuntimeSubagentControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeSubagentControlNodes, /contextPressureAction/);
   assert.match(workflowRuntimeSubagentControlNodes, /policyDecisionRefs/);
@@ -11737,8 +12014,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEventProjection, /runtime_workspace_trust_gate/);
   assert.match(workflowRuntimePolicyStack, /WORKFLOW_RUNTIME_POLICY_STACK_SCHEMA_VERSION/);
   assert.match(workflowRuntimePolicyStack, /approved_retry/);
+  assert.match(workflowRuntimeEditProposalPolicy, /WORKFLOW_RUNTIME_EDIT_PROPOSAL_POLICY_SCHEMA_VERSION/);
+  assert.match(workflowRuntimeEditProposalPolicy, /proposal_apply/);
   assert.match(workflowRunHistoryModel, /workflowRuntimePolicyStackFromEvents/);
   assert.match(workflowRunHistoryModel, /runtimePolicyStack/);
+  assert.match(workflowRunHistoryModel, /workflowRuntimeEditProposalPolicyStackFromEvents/);
+  assert.match(workflowRunHistoryModel, /runtimeEditProposalPolicyStack/);
+  assert.match(workflowRunsPanel, /workflow-run-edit-proposal-policy-stack/);
+  assert.match(runtimeDaemon, /proposeWorkflowEdit/);
+  assert.match(runtimeDaemon, /applyWorkflowEditProposal/);
+  assert.match(runtimeDaemon, /action === "workflow-edit-proposals"/);
   assert.match(workflowValidation, /workflowWorkspaceTrustGateIssues/);
   assert.match(workflowValidation, /missing_workspace_trust_gate/);
   assert.match(workflowComposerController, /workflowWorkspaceTrustGateReadiness/);

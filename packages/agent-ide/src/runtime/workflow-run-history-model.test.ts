@@ -372,6 +372,89 @@ test("workflow run history model projects the replayable runtime policy stack", 
   ]);
 });
 
+test("workflow run history model projects workflow edit proposal policy stack", () => {
+  const target = runResult("run-a", "passed", { answer: "new" });
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    runtimeThreadEvents: [
+      runtimeThreadEvent("proposal", 1, {
+        type: "workflow_edit_proposed",
+        eventKind: "workflow.edit_proposed",
+        sourceEventKind: "WorkflowEdit.Proposed",
+        workflowNodeId: "runtime.workflow-edit-proposal.proposal-a",
+        componentKind: "workflow_edit_proposal",
+        approvalId: "approval-a",
+        receiptRefs: ["receipt-proposal"],
+        payload: {
+          proposal_id: "proposal-a",
+          approval_id: "approval-a",
+          target_workflow_node_ids: ["model"],
+        },
+      }),
+      runtimeThreadEvent("approval-required", 2, {
+        type: "approval_required",
+        eventKind: "approval.required",
+        sourceEventKind: "OperatorApproval.Request",
+        workflowNodeId: "runtime.workflow-edit-proposal.proposal-a",
+        componentKind: "approval_gate",
+        approvalId: "approval-a",
+        receiptRefs: ["receipt-approval"],
+        payload: { approval_id: "approval-a" },
+      }),
+      runtimeThreadEvent("approval-approved", 3, {
+        type: "approval_decision",
+        eventKind: "approval.approved",
+        sourceEventKind: "OperatorApproval.Approve",
+        workflowNodeId: "runtime.workflow-edit-proposal.proposal-a",
+        componentKind: "approval_gate",
+        approvalId: "approval-a",
+        status: "approved",
+        receiptRefs: ["receipt-approved"],
+        payload: { approval_id: "approval-a", decision: "approve" },
+      }),
+      runtimeThreadEvent("apply", 4, {
+        type: "workflow_edit_applied",
+        eventKind: "workflow.edit_applied",
+        sourceEventKind: "WorkflowEdit.Applied",
+        workflowNodeId: "runtime.workflow-edit-proposal.proposal-a",
+        componentKind: "workflow_edit_proposal",
+        approvalId: "approval-a",
+        receiptRefs: ["receipt-apply"],
+        payload: {
+          proposal_id: "proposal-a",
+          proposal_event_id: "proposal",
+          approval_id: "approval-a",
+          mutation_executed: true,
+        },
+      }),
+    ],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.runtimeEditProposalPolicyStack.status, "completed");
+  assert.equal(model.runtimeEditProposalPolicyStack.proposalId, "proposal-a");
+  assert.equal(model.runtimeEditProposalPolicyStack.mutationExecuted, true);
+  assert.deepEqual(
+    model.runtimeEditProposalPolicyStack.stages.map((stage) => [
+      stage.kind,
+      stage.status,
+    ]),
+    [
+      ["proposal_created", "completed"],
+      ["approval_requirement", "completed"],
+      ["approval_decision", "completed"],
+      ["proposal_apply", "completed"],
+    ],
+  );
+});
+
 test("workflow run history model hydrates live telemetry for an in-flight run", () => {
   const liveRun = createLiveWorkflowRunTelemetryHydration({
     workflow,
