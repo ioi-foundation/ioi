@@ -60,6 +60,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const guiHarnessValidation = read(
     "scripts/lib/autopilot-gui-harness-validation/core.mjs",
   );
+  const liveRuntimeDaemonContract = read(
+    "scripts/lib/live-runtime-daemon-contract.test.mjs",
+  );
   const compactionPolicyControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
@@ -341,6 +344,19 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     telemetryBudgetChainRunInspectorProbe,
     /readinessFailsWhenUpstreamBindingRemoved/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /React Flow run-inspector-created telemetry budget chain executes/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry/,
+  );
+  assert.match(liveRuntimeDaemonContract, /mode, "hydrated"/);
+  assert.match(
+    liveRuntimeDaemonContract,
+    /run_inspector_created_telemetry_chain_budget_blocked/,
   );
   assert.match(
     guiHarnessContract,
