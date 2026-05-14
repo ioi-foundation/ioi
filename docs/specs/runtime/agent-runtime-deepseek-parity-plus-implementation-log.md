@@ -188,8 +188,43 @@ workstream was narrower.
 | 186 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | CLI/TUI coding-tool budget-row producer | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-tui-producer/2026-05-14T03-19-32-015Z/result.json |
 | 187 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget telemetry-summary aggregation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-telemetry-summary/2026-05-14T03-27-24-067Z/result.json |
 | 188 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-history evidence | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history/2026-05-14T03-39-35-777Z/result.json |
+| 189 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget readiness preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight/2026-05-14T03-48-02-824Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 189. 2026-05-14 - Coding-tool budget readiness preflight
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool budget
+readiness preflight:
+
+- Added `WorkflowCodingToolBudgetPreflight`, derived from run-history
+  `tui_coding_tool_rows` evidence when the workflow still contains a mutating
+  coding-tool-pack node.
+- Updated the readiness model so prior blocked/exceeded coding-tool budget
+  evidence becomes a blocker, while non-blocking evidence becomes a warning,
+  carrying target node ids, source workflow node ids, event ids, tool-call ids,
+  token/cost/context usage, receipt refs, and policy refs.
+- Passed run-history `runtimeCodingToolBudgetEvidence` from the rail into the
+  readiness panel and rendered a dedicated coding-budget preflight section with
+  stable data attributes for live GUI and source-contract proof.
+- Expanded focused readiness/run-history coverage and source guards so the
+  model, panel, and rail wiring remain workflow-addressable.
+- Updated the master guide queue so the next P1-D slice moves from visible
+  readiness preflight to the operator launch path: workflow execution controls
+  and the run request builder should disable or explicitly annotate blocked
+  follow-up mutating coding-tool runs.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight/2026-05-14T03-48-02-824Z/result.json`.
+- `git diff --check`
 
 ### Slice 188. 2026-05-14 - Coding-tool budget run-history evidence
 

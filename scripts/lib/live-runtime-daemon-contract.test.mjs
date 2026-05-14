@@ -12513,8 +12513,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowValidation, /schedulerLaneReadiness/);
   assert.match(workflowValidation, /gateId: "scheduler-lanes"/);
   assert.match(workflowRailPanel, /WorkflowReadinessPanel/);
+  assert.match(workflowRailPanel, /runtimeCodingToolBudgetEvidence/);
   assert.match(workflowReadinessPanel, /workflowReadinessModel/);
+  assert.match(workflowReadinessPanel, /workflow-readiness-coding-tool-budget-preflight/);
+  assert.match(workflowReadinessPanel, /data-tool-call-ids/);
+  assert.match(workflowReadinessPanel, /data-policy-decision-refs/);
   assert.match(workflowReadinessModel, /workflowSchedulerLaneReadiness/);
+  assert.match(workflowReadinessModel, /WorkflowCodingToolBudgetPreflight/);
+  assert.match(workflowReadinessModel, /runtimeCodingToolBudgetEvidence/);
+  assert.match(workflowReadinessModel, /prior_coding_tool_budget_evidence/);
+  assert.match(workflowReadinessModel, /Coding budget preflight/);
   assert.match(workflowReadinessModel, /readinessItems/);
   assert.match(workflowReadinessPanel, /workflow-readiness-scheduler-lanes/);
   assert.match(workflowReadinessPanel, /data-proof-check/);
