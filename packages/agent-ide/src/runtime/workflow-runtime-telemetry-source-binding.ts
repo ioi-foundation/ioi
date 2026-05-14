@@ -1,8 +1,14 @@
 import type { Node, NodeLogic, WorkflowProject, WorkflowValidationIssue } from "../types/graph";
 import {
+  RUNTIME_COMPACTION_POLICY_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
+  RUNTIME_COMPACTION_POLICY_WORKFLOW_NODE_ID,
+} from "./workflow-runtime-compaction-policy-control-nodes";
+import { RUNTIME_CONTEXT_BUDGET_WORKFLOW_NODE_ID } from "./workflow-runtime-context-budget-control-nodes";
+import {
   workflowRuntimeTelemetrySummaryToUsageTelemetry,
   type WorkflowRuntimeTelemetrySummary,
 } from "./workflow-runtime-telemetry-summary";
+import { RUNTIME_USAGE_METER_WORKFLOW_NODE_ID } from "./workflow-runtime-usage-control-nodes";
 
 export const WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION =
   "ioi.workflow.runtime-telemetry-source-binding.v1" as const;
@@ -176,6 +182,11 @@ function bindUsageMeterNode(
     runtimeUsageMeterEndpoint: evidence.threadId
       ? "/v1/threads/{threadId}/usage"
       : "/v1/usage",
+    runtimeUsageMeterWorkflowNodeId: boundWorkflowNodeId(
+      node,
+      logic.runtimeUsageMeterWorkflowNodeId,
+      RUNTIME_USAGE_METER_WORKFLOW_NODE_ID,
+    ),
     runtimeUsageMeterField: "runtimeUsageMeter",
     runtimeUsageMeterStatusField: "runtimeUsageMeter.contextPressureStatus",
     inputMapping: {
@@ -202,7 +213,12 @@ function bindContextBudgetNode(
     runtimeContextBudgetEndpoint: evidence.threadId
       ? "/v1/threads/{threadId}/context-budget"
       : "/v1/context-budget",
-    runtimeContextBudgetUsageField: "runtimeTelemetrySummary",
+    runtimeContextBudgetWorkflowNodeId: boundWorkflowNodeId(
+      node,
+      logic.runtimeContextBudgetWorkflowNodeId,
+      RUNTIME_CONTEXT_BUDGET_WORKFLOW_NODE_ID,
+    ),
+    runtimeContextBudgetUsageField: "runtimeUsageMeter",
     runtimeContextBudgetStatusField: "runtimeContextBudget.status",
     inputMapping: {
       ...(logic.inputMapping ?? {}),
@@ -231,6 +247,15 @@ function bindCompactionPolicyNode(
     runtimeCompactionPolicyTurnId: evidence.turnId ?? undefined,
     runtimeCompactionPolicyContextBudget: contextBudget,
     runtimeCompactionPolicyContextBudgetStatus: contextBudget.status,
+    runtimeCompactionPolicyWorkflowNodeId: boundWorkflowNodeId(
+      node,
+      logic.runtimeCompactionPolicyWorkflowNodeId,
+      RUNTIME_COMPACTION_POLICY_WORKFLOW_NODE_ID,
+    ),
+    runtimeCompactionPolicyCompactWorkflowNodeId: boundCompactWorkflowNodeId(
+      node,
+      logic.runtimeCompactionPolicyCompactWorkflowNodeId,
+    ),
     runtimeCompactionPolicyContextBudgetField: "runtimeContextBudget",
     runtimeCompactionPolicyContextBudgetStatusField: "runtimeContextBudget.status",
     inputMapping: {
@@ -264,6 +289,7 @@ function bindCodingToolBudgetGateNode(
   };
   return withTelemetryLogic(node, {
     ...logic,
+    workflowNodeId: boundWorkflowNodeId(node, logic.workflowNodeId, null),
     runtimeTelemetrySummary: evidence.telemetrySummary,
     runtimeTelemetrySourceBinding: evidence,
     toolBinding: {
@@ -313,6 +339,27 @@ function codingToolPackIsBudgetBindable(binding: unknown): binding is NonNullabl
   if (!binding || typeof binding !== "object" || Array.isArray(binding)) return false;
   const record = binding as NonNullable<NodeLogic["toolBinding"]>;
   return record.bindingKind === "coding_tool_pack" || record.toolPack?.pack === "coding";
+}
+
+function boundWorkflowNodeId(
+  node: Node,
+  current: unknown,
+  defaultNodeId: string | null,
+): string {
+  const existing = cleanString(current);
+  if (existing && existing !== defaultNodeId) return existing;
+  return node.id;
+}
+
+function boundCompactWorkflowNodeId(node: Node, current: unknown): string {
+  const existing = cleanString(current);
+  if (
+    existing &&
+    existing !== RUNTIME_COMPACTION_POLICY_CONTEXT_COMPACT_WORKFLOW_NODE_ID
+  ) {
+    return existing;
+  }
+  return `${node.id}.compact`;
 }
 
 function telemetrySourceInputMapping(
@@ -367,6 +414,12 @@ function objectValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function cleanString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const clean = value.trim();
+  return clean ? clean : null;
 }
 
 function uniqueStrings(values: readonly unknown[]): string[] {

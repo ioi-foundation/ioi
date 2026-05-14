@@ -131,20 +131,20 @@ export function createRuntimeCompactionPolicyControlRequest(
     stringAtPath(params.input, "turn_id") ??
     null;
   const contextBudget =
-    params.contextBudget ??
     valueAtPath(params.input, params.contextBudgetField ?? "runtimeContextBudget") ??
     valueAtPath(params.input, "contextBudget") ??
     valueAtPath(params.input, "context_budget") ??
+    params.contextBudget ??
     null;
   const contextBudgetStatus =
-    cleanString(params.contextBudgetStatus) ??
     stringAtPath(
       params.input,
       params.contextBudgetStatusField ?? "runtimeContextBudget.status",
     ) ??
     stringAtPath(contextBudget, "status") ??
     stringAtPath(contextBudget, "policyDecision.status") ??
-    stringAtPath(contextBudget, "policy_decision.status");
+    stringAtPath(contextBudget, "policy_decision.status") ??
+    cleanString(params.contextBudgetStatus);
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
     RUNTIME_COMPACTION_POLICY_WORKFLOW_NODE_ID;

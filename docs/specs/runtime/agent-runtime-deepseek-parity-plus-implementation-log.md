@@ -200,8 +200,43 @@ workstream was narrower.
 | 198 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template readiness validation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-readiness/2026-05-14T13-13-08-201Z/result.json |
 | 199 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template binding assistant | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding/2026-05-14T13-29-50-390Z/result.json |
 | 200 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry-source binding assistant | /tmp/ioi-autopilot-gui-harness-telemetry-source-binding/2026-05-14T13-46-44-397Z/result.json |
+| 201 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | bound telemetry-source chain execution proof | /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain/2026-05-14T14-04-05-115Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 201. 2026-05-14 - Bound telemetry-source chain execution proof
+
+Implementation slice completed 2026-05-14, P1-D/P0-B bound telemetry-source
+chain execution proof:
+
+- Updated telemetry-source binding so default workflow-node IDs are replaced
+  with the actual bound React Flow node IDs while preserving explicit custom
+  IDs. Compaction-policy bindings also derive a stable compact-event node ID.
+- Adjusted context-budget, compaction-policy, and coding-tool request builders
+  so live React Flow upstream inputs override bound fallback telemetry. The
+  bound summary still works for standalone quick-fix execution.
+- Extended focused telemetry-source binding tests to prove live usage,
+  context-budget, and runtime summary inputs override the bound fallback.
+- Added a live daemon contract that creates a telemetry summary, binds a React
+  Flow workflow, executes usage meter -> context budget -> compaction policy ->
+  coding-tool budget gate, and verifies daemon events, SDK projection nodes, and
+  run-inspector rows preserve graph/node identity.
+- Extended source-contract guards for identity stamping, input precedence, and
+  the bound-chain live proof.
+- Updated the master guide so the next P1-D slice packages the proven
+  telemetry-governed chain as a reusable workflow-creator template or
+  run-inspector subflow with readiness validation.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts`
+- `node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build -w packages/agent-ide`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow bound telemetry-source chain executes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain/2026-05-14T14-04-05-115Z/result.json`.
 
 ### Slice 200. 2026-05-14 - Telemetry-source binding assistant
 

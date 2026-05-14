@@ -131,14 +131,14 @@ export function createRuntimeCodingToolControlRequest(
     "runtimeTelemetrySummary";
   const rawBudgetUsageTelemetry =
     params.budgetUsageTelemetry ??
-    params.runtimeTelemetrySummary ??
     valueAtPath(params.input, budgetUsageField) ??
-    valueAtPath(toolPack, "budgetUsageTelemetry") ??
-    valueAtPath(toolPack, "budget_usage_telemetry") ??
     valueAtPath(params.input, "budgetUsageTelemetry") ??
     valueAtPath(params.input, "budget_usage_telemetry") ??
     valueAtPath(params.input, "runtimeTelemetrySummary") ??
     valueAtPath(params.input, "runtime_telemetry_summary") ??
+    params.runtimeTelemetrySummary ??
+    valueAtPath(toolPack, "budgetUsageTelemetry") ??
+    valueAtPath(toolPack, "budget_usage_telemetry") ??
     null;
   const budgetUsageTelemetry =
     workflowRuntimeTelemetrySummaryToUsageTelemetry(rawBudgetUsageTelemetry) ??

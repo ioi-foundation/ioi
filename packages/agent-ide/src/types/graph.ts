@@ -873,6 +873,8 @@ export interface NodeLogic {
   runtimeCodingToolBudgetRecoveryWorkflowNodeId?: string;
   runtimeCodingToolBudgetRecoverySource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeCodingToolBudgetRecoveryActor?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
   runtimeTelemetrySummary?: unknown;
   runtimeTelemetrySourceBinding?: unknown;
   runtimeUsageMeterEndpoint?: string;

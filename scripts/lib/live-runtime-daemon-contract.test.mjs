@@ -267,9 +267,13 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
@@ -7921,6 +7925,511 @@ test("React Flow compaction policy workflow node drives approved compaction", as
   }
 });
 
+test("React Flow bound telemetry-source chain executes with graph and node identity", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION,
+    bindWorkflowRuntimeTelemetrySourceToWorkflow,
+    createRuntimeCodingToolControlRequestFromWorkflowNode,
+    createRuntimeCompactionPolicyControlRequestFromWorkflowNode,
+    createRuntimeContextBudgetControlRequestFromWorkflowNode,
+    createRuntimeUsageMeterControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    workflowRuntimeTelemetrySummaryFromProjection,
+  } = await importAgentIde();
+  const cli = cliBinary();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-bound-telemetry-chain-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-bound-telemetry-chain-state-"));
+  const targetPath = path.join(cwd, "README.md");
+  fs.writeFileSync(targetPath, "Bound telemetry source keeps this line.\n");
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.bound-telemetry-source-chain";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove a bound runtime telemetry source drives a React Flow budget chain.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        prompt: "Produce telemetry for a bound React Flow usage, context, compaction, and coding budget chain.",
+        mode: "send",
+      }),
+    });
+
+    const seedUsageParams = new URLSearchParams({
+      source: "react_flow",
+      actor: "workflow-author",
+      event_kind: "RuntimeUsageTelemetry.Read",
+      component_kind: "usage_telemetry",
+      payload_schema_version: "ioi.runtime.usage-telemetry.v1",
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: "telemetry-source-seed",
+      usage_meter_scope: "thread",
+      simulation_mode: "true",
+    });
+    const seedUsage = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/usage?${seedUsageParams}`,
+    );
+    assert.equal(seedUsage.workflow_graph_id, workflowGraphId);
+    assert.equal(seedUsage.workflow_node_id, "telemetry-source-seed");
+    assert.ok(seedUsage.total_tokens >= turn.usage.total_tokens);
+
+    const seedProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      current_turn_id: turn.turn_id,
+      last_event_id: "telemetry-source-seed",
+      usage_status: {
+        ...seedUsage,
+        event_id: "telemetry-source-seed",
+        workflow_node_id: "telemetry-source-seed",
+      },
+    });
+    const telemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: seedProjection,
+    });
+    assert.ok(telemetrySummary.sourceKinds.includes("tui_usage_rows"));
+    assert.equal(telemetrySummary.threadIds[0], thread.thread_id);
+    assert.equal(telemetrySummary.workflowGraphIds[0], workflowGraphId);
+
+    const workflow = {
+      version: "workflow.v1",
+      metadata: {
+        id: workflowGraphId,
+        name: "Bound telemetry source chain",
+        slug: "bound-telemetry-source-chain",
+        workflowKind: "agent_workflow",
+        executionMode: "local",
+        gitLocation: ".agents/workflows/bound-telemetry-source-chain.workflow.json",
+        readOnly: false,
+        dirty: false,
+        createdAtMs: Date.now(),
+        updatedAtMs: Date.now(),
+      },
+      nodes: [
+        {
+          id: "bound-usage-meter",
+          type: "runtime_usage_meter",
+          name: "Bound usage meter",
+          x: 0,
+          y: 0,
+          config: { kind: "runtime_usage_meter", logic: {} },
+        },
+        {
+          id: "bound-context-budget",
+          type: "runtime_context_budget",
+          name: "Bound context budget",
+          x: 280,
+          y: 0,
+          config: {
+            kind: "runtime_context_budget",
+            logic: {
+              runtimeContextBudgetMode: "block",
+              runtimeContextBudgetMaxTotalTokens: 1,
+              runtimeContextBudgetMaxCostUsd: 0.000001,
+              runtimeContextBudgetMaxContextPressure: 0.000001,
+            },
+          },
+        },
+        {
+          id: "bound-compaction-policy",
+          type: "runtime_compaction_policy",
+          name: "Bound compaction policy",
+          x: 560,
+          y: 0,
+          config: {
+            kind: "runtime_compaction_policy",
+            logic: {
+              runtimeCompactionPolicyBlockedAction: "compact",
+              runtimeCompactionPolicyApprovalRequired: false,
+              runtimeCompactionPolicyExecuteCompaction: true,
+              runtimeCompactionPolicyCompactReason:
+                "bound telemetry-source context budget requested compaction",
+            },
+          },
+        },
+        {
+          id: "bound-coding-tool-budget-gate",
+          type: "plugin_tool",
+          name: "Bound coding tool budget gate",
+          x: 840,
+          y: 0,
+          config: {
+            kind: "plugin_tool",
+            logic: {
+              toolBinding: {
+                toolRef: "file.apply_patch",
+                bindingKind: "coding_tool_pack",
+                mockBinding: false,
+                credentialReady: true,
+                capabilityScope: ["file.apply_patch"],
+                sideEffectClass: "write",
+                requiresApproval: false,
+                arguments: {
+                  path: "README.md",
+                  oldText: "Bound telemetry source keeps this line.",
+                  newText: "Bound telemetry source should not allow mutation.",
+                },
+                toolPack: {
+                  pack: "coding",
+                  writeEnabled: true,
+                  dryRun: false,
+                  approvalMode: "suggest",
+                  trustProfile: "local_private",
+                  nodeApprovalOverride: "inherit",
+                  requiresApproval: false,
+                  budgetMode: "block",
+                  budgetUsageField: "runtimeTelemetrySummary",
+                  maxTotalTokens: 1,
+                  maxCostUsd: 1,
+                  maxContextPressure: 1,
+                },
+              },
+            },
+          },
+        },
+      ],
+      edges: [
+        { id: "usage-to-budget", from: "bound-usage-meter", to: "bound-context-budget", type: "data" },
+        { id: "budget-to-policy", from: "bound-context-budget", to: "bound-compaction-policy", type: "data" },
+        { id: "policy-to-tool", from: "bound-compaction-policy", to: "bound-coding-tool-budget-gate", type: "control" },
+      ],
+      global_config: {},
+    };
+
+    const binding = bindWorkflowRuntimeTelemetrySourceToWorkflow(
+      workflow,
+      telemetrySummary,
+    );
+    assert.equal(binding.status, "bound");
+    assert.deepEqual(binding.boundNodeIds, [
+      "bound-usage-meter",
+      "bound-context-budget",
+      "bound-compaction-policy",
+      "bound-coding-tool-budget-gate",
+    ]);
+    assert.equal(
+      binding.evidenceBinding.schemaVersion,
+      WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION,
+    );
+
+    const boundNode = (id) => binding.workflow.nodes.find((node) => node.id === id);
+    const usageNode = boundNode("bound-usage-meter");
+    const contextNode = boundNode("bound-context-budget");
+    const compactionNode = boundNode("bound-compaction-policy");
+    const codingNode = boundNode("bound-coding-tool-budget-gate");
+    assert.ok(usageNode);
+    assert.ok(contextNode);
+    assert.ok(compactionNode);
+    assert.ok(codingNode);
+    for (const node of [usageNode, contextNode, compactionNode, codingNode]) {
+      assert.equal(
+        node.config.logic.runtimeTelemetrySourceBinding.schemaVersion,
+        WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION,
+      );
+    }
+
+    const usageRequest = createRuntimeUsageMeterControlRequestFromWorkflowNode(
+      usageNode,
+      {},
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(usageRequest.metadata.workflowNodeId, "bound-usage-meter");
+    const usageResult = await fetchJson(`${daemon.endpoint}${usageRequest.endpoint}`);
+    assert.equal(usageResult.workflow_graph_id, workflowGraphId);
+    assert.equal(usageResult.workflow_node_id, "bound-usage-meter");
+    assert.ok(usageResult.total_tokens >= turn.usage.total_tokens);
+
+    const usageProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      current_turn_id: turn.turn_id,
+      usage_status: usageResult,
+    });
+    assert.ok(
+      usageProjection.rows.some(
+        (row) =>
+          row.rowKind === "usage_status" &&
+          row.reactFlowNodeId === "bound-usage-meter" &&
+          row.usageTotalTokens === usageResult.total_tokens,
+      ),
+    );
+
+    const budgetRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
+      contextNode,
+      { runtimeUsageMeter: usageResult },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(budgetRequest.body.workflowNodeId, "bound-context-budget");
+    assert.equal(budgetRequest.body.usageTelemetry.workflow_node_id, "bound-usage-meter");
+    const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
+      method: budgetRequest.method,
+      body: JSON.stringify(budgetRequest.body),
+    });
+    assert.equal(budgetResult.status, "blocked");
+    assert.equal(budgetResult.workflow_graph_id, workflowGraphId);
+    assert.equal(budgetResult.workflow_node_id, "bound-context-budget");
+
+    const policyRequest = createRuntimeCompactionPolicyControlRequestFromWorkflowNode(
+      compactionNode,
+      { runtimeContextBudget: budgetResult },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(policyRequest.body.workflowNodeId, "bound-compaction-policy");
+    assert.equal(policyRequest.body.contextBudgetStatus, "blocked");
+    assert.equal(policyRequest.body.policy.compactWorkflowNodeId, "bound-compaction-policy.compact");
+    const policyResult = await fetchJson(`${daemon.endpoint}${policyRequest.endpoint}`, {
+      method: policyRequest.method,
+      body: JSON.stringify(policyRequest.body),
+    });
+    assert.equal(policyResult.status, "compacted");
+    assert.equal(policyResult.action, "compact");
+    assert.equal(policyResult.workflow_graph_id, workflowGraphId);
+    assert.equal(policyResult.workflow_node_id, "bound-compaction-policy");
+    assert.equal(policyResult.compact_workflow_node_id, "bound-compaction-policy.compact");
+    assert.equal(policyResult.compaction_executed, true);
+
+    const boundContextRows = [
+      {
+        id: "bound-context-budget-row",
+        row_kind: "context_budget",
+        status: budgetResult.status,
+        context_budget_status: budgetResult.status,
+        context_budget_mode: budgetResult.mode,
+        context_budget_decision_id: budgetResult.policy_decision_id,
+        usage_total_tokens: String(budgetResult.usage_summary.total_tokens),
+        usage_cost_estimate_usd: String(budgetResult.usage_summary.estimated_cost_usd),
+        usage_context_pressure: String(budgetResult.usage_summary.context_pressure),
+        usage_context_pressure_status: budgetResult.usage_summary.context_pressure_status,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: "bound-context-budget",
+        event_id: budgetResult.event_id,
+        receipt_refs: budgetResult.receipt_refs,
+        policy_decision_refs: budgetResult.policy_decision_refs,
+        context_budget: budgetResult,
+      },
+      {
+        id: "bound-compaction-policy-row",
+        row_kind: "compaction_policy",
+        status: policyResult.status,
+        turn_id: turn.turn_id,
+        context_budget_status: policyResult.budget_status,
+        compaction_policy_status: policyResult.status,
+        compaction_policy_action: policyResult.action,
+        compaction_policy_decision_id: policyResult.policy_decision_id,
+        compaction_executed: String(policyResult.compaction_executed),
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: "bound-compaction-policy",
+        event_id: policyResult.event_id,
+        receipt_refs: policyResult.receipt_refs,
+        policy_decision_refs: policyResult.policy_decision_refs,
+        context_budget: budgetResult,
+      },
+    ];
+    const preCodingControlState = {
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      current_turn_id: turn.turn_id,
+      last_event_id: policyResult.event_id,
+      context_rows: boundContextRows,
+    };
+    const preCodingProjection = projectRuntimeTuiControlStateToWorkflowProjection(
+      preCodingControlState,
+    );
+    assert.ok(
+      preCodingProjection.rows.some(
+        (row) =>
+          row.rowKind === "context_budget" &&
+          row.reactFlowNodeId === "bound-context-budget",
+      ),
+    );
+    assert.ok(
+      preCodingProjection.rows.some(
+        (row) =>
+          row.rowKind === "compaction_policy" &&
+          row.reactFlowNodeId === "bound-compaction-policy",
+      ),
+    );
+    const liveTelemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: preCodingProjection,
+    });
+    assert.ok(liveTelemetrySummary.sourceKinds.includes("tui_context_rows"));
+    assert.ok(liveTelemetrySummary.eventIds.includes(policyResult.event_id));
+
+    const codingRequest = createRuntimeCodingToolControlRequestFromWorkflowNode(
+      codingNode,
+      {
+        ...codingNode.config.logic.testInput,
+        runtimeTelemetrySummary: liveTelemetrySummary,
+      },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(codingRequest.body.workflowNodeId, "bound-coding-tool-budget-gate");
+    assert.equal(
+      codingRequest.body.toolPack.coding.telemetrySourceBinding.schemaVersion,
+      WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION,
+    );
+    assert.ok(codingRequest.body.budgetUsageTelemetry.total_tokens >= 1);
+    assert.ok(
+      codingRequest.body.budgetUsageTelemetry.source_refs.includes(
+        policyResult.event_id,
+      ),
+    );
+    const blockedTool = await fetchJsonStatus(`${daemon.endpoint}${codingRequest.endpoint}`, {
+      method: codingRequest.method,
+      body: JSON.stringify({
+        ...codingRequest.body,
+        tool_call_id: "bound_telemetry_source_coding_budget_blocked",
+        toolCallId: "bound_telemetry_source_coding_budget_blocked",
+      }),
+    });
+    assert.equal(blockedTool.status, 403);
+    assert.equal(blockedTool.body.error.details.reason, "coding_tool_budget_exceeded");
+    assert.equal(
+      blockedTool.body.error.details.budget_usage_telemetry.runtime_telemetry_summary_schema_version,
+      "ioi.workflow.runtime-telemetry-summary.v1",
+    );
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "Bound telemetry source keeps this line.\n");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const contextBudgetEvent = daemonEvents.find(
+      (event) =>
+        event.component_kind === "context_budget" &&
+        event.workflow_node_id === "bound-context-budget",
+    );
+    const policyEvent = daemonEvents.find((event) => event.event_id === policyResult.event_id);
+    const compactEvent = daemonEvents.find(
+      (event) => event.event_id === policyResult.compaction_event_id,
+    );
+    const codingBudgetEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "policy.blocked" &&
+        event.component_kind === "coding_tool" &&
+        event.workflow_node_id === "bound-coding-tool-budget-gate",
+    );
+    assert.ok(contextBudgetEvent);
+    assert.ok(policyEvent);
+    assert.ok(compactEvent);
+    assert.ok(codingBudgetEvent);
+    for (const event of [contextBudgetEvent, policyEvent, compactEvent, codingBudgetEvent]) {
+      assert.equal(event.workflow_graph_id, workflowGraphId);
+    }
+    assert.equal(contextBudgetEvent.status, "blocked");
+    assert.equal(policyEvent.workflow_node_id, "bound-compaction-policy");
+    assert.equal(compactEvent.workflow_node_id, "bound-compaction-policy.compact");
+    assert.equal(codingBudgetEvent.status, "blocked");
+    assert.equal(
+      codingBudgetEvent.payload_summary.budget_usage_telemetry.runtime_telemetry_summary_schema_version,
+      "ioi.workflow.runtime-telemetry-summary.v1",
+    );
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const runtimeProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const contextBudgetNode = runtimeProjection.nodes.find((node) =>
+      node.eventIds.includes(contextBudgetEvent.event_id),
+    );
+    const policyNode = runtimeProjection.nodes.find((node) =>
+      node.eventIds.includes(policyEvent.event_id),
+    );
+    const compactNode = runtimeProjection.nodes.find((node) =>
+      node.eventIds.includes(compactEvent.event_id),
+    );
+    const codingBudgetNode = runtimeProjection.nodes.find((node) =>
+      node.eventIds.includes(codingBudgetEvent.event_id),
+    );
+    assert.equal(contextBudgetNode?.nodeKind, "runtime_context_budget");
+    assert.equal(contextBudgetNode?.workflowNodeId, "bound-context-budget");
+    assert.equal(policyNode?.nodeKind, "runtime_compaction_policy");
+    assert.equal(policyNode?.workflowNodeId, "bound-compaction-policy");
+    assert.equal(compactNode?.nodeKind, "runtime_context_compact");
+    assert.equal(compactNode?.workflowNodeId, "bound-compaction-policy.compact");
+    assert.equal(codingBudgetNode?.nodeKind, "plugin_tool");
+    assert.equal(codingBudgetNode?.workflowNodeId, "bound-coding-tool-budget-gate");
+
+    const finalTui = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const finalControlState = JSON.parse(finalTui.stdout).tui_control_state;
+    assert.ok(
+      finalControlState.coding_tool_rows.some(
+        (row) =>
+          row.row_kind === "coding_tool_budget" &&
+          row.workflow_node_id === "bound-coding-tool-budget-gate" &&
+          row.event_id === codingBudgetEvent.event_id,
+      ),
+    );
+    const finalProjection = projectRuntimeTuiControlStateToWorkflowProjection(
+      {
+        ...finalControlState,
+        workflow_graph_id: workflowGraphId,
+        context_rows: [
+          ...boundContextRows,
+          ...(Array.isArray(finalControlState.context_rows)
+            ? finalControlState.context_rows
+            : []),
+        ],
+      },
+    );
+    assert.ok(
+      finalProjection.rows.some(
+        (row) =>
+          row.rowKind === "context_budget" &&
+          row.reactFlowNodeId === "bound-context-budget",
+      ),
+    );
+    assert.ok(
+      finalProjection.rows.some(
+        (row) =>
+          row.rowKind === "compaction_policy" &&
+          row.reactFlowNodeId === "bound-compaction-policy",
+      ),
+    );
+    assert.ok(
+      finalProjection.rows.some(
+        (row) =>
+          row.rowKind === "coding_tool_budget" &&
+          row.reactFlowNodeId === "bound-coding-tool-budget-gate" &&
+          row.eventId === codingBudgetEvent.event_id,
+      ),
+    );
+    const finalSummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: finalProjection,
+    });
+    assert.ok(finalSummary.eventIds.includes(codingBudgetEvent.event_id));
+    assert.ok(finalSummary.workflowNodeIds.includes("bound-context-budget"));
+    assert.ok(finalSummary.workflowNodeIds.includes("bound-compaction-policy"));
+    assert.ok(finalSummary.workflowNodeIds.includes("bound-coding-tool-budget-gate"));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("agent CLI exposes model, thinking, and stream control contracts", () => {
   const source = [
     "crates/cli/src/commands/agent.rs",
@@ -12221,6 +12730,10 @@ test("React Flow generated coding-tool budget recovery subflow executes daemon r
 });
 
 test("React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable", () => {
+  const liveRuntimeDaemonContract = fs.readFileSync(
+    path.join(root, "scripts/lib/live-runtime-daemon-contract.test.mjs"),
+    "utf8",
+  );
   const workflowContracts = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
@@ -12962,6 +13475,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetry/);
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetryField/);
   assert.match(workflowRuntimeCodingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.ok(
+    workflowRuntimeCodingToolControlNodes.indexOf(
+      "valueAtPath(params.input, budgetUsageField)",
+    ) < workflowRuntimeCodingToolControlNodes.indexOf("params.runtimeTelemetrySummary"),
+  );
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /runtime_coding_tool_budget_recovery/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /\/v1\/runs\/\{runId\}\/coding-tool-budget-recovery/);
@@ -12985,6 +13503,16 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeTelemetrySourceBinding, /runtime_context_budget/);
   assert.match(workflowRuntimeTelemetrySourceBinding, /runtime_compaction_policy/);
   assert.match(workflowRuntimeTelemetrySourceBinding, /react_flow_quick_fix/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /boundWorkflowNodeId/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /boundCompactWorkflowNodeId/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /runtimeContextBudgetUsageField: "runtimeUsageMeter"/);
+  assert.match(graphTypes, /workflowNodeId\?: string/);
+  assert.match(graphTypes, /workflow_node_id\?: string/);
+  assert.match(liveRuntimeDaemonContract, /React Flow bound telemetry-source chain executes/);
+  assert.match(liveRuntimeDaemonContract, /bound-usage-meter/);
+  assert.match(liveRuntimeDaemonContract, /bound-context-budget/);
+  assert.match(liveRuntimeDaemonContract, /bound-compaction-policy/);
+  assert.match(liveRuntimeDaemonContract, /bound-coding-tool-budget-gate/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-mode/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-usage-field/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-approval-scope/);
@@ -13025,10 +13553,20 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeContextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /runtimeTelemetrySummary/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.ok(
+    workflowRuntimeContextBudgetControlNodes.indexOf(
+      'valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter")',
+    ) < workflowRuntimeContextBudgetControlNodes.indexOf("params.usageTelemetry"),
+  );
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /runtime_compaction_policy/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /RuntimeCompactionPolicy\.Evaluate/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);
+  assert.ok(
+    workflowRuntimeCompactionPolicyControlNodes.indexOf(
+      'valueAtPath(params.input, params.contextBudgetField ?? "runtimeContextBudget")',
+    ) < workflowRuntimeCompactionPolicyControlNodes.indexOf("params.contextBudget"),
+  );
   assert.match(nodeRegistry, /creatorId: "usage\.meter"/);
   assert.match(nodeRegistry, /creatorId: "context\.budget"/);
   assert.match(nodeRegistry, /creatorId: "compaction\.policy"/);
