@@ -117,9 +117,21 @@ export interface WorkflowRuntimeReactFlowNodeData {
   policyDecisionRefs: string[];
   rollbackRefs: string[];
   toolName: string | null;
+  toolCallId: string | null;
   approvalId: string | null;
   agentStatus: string | null;
   summary: string | null;
+  codingToolBudgetStatus: string | null;
+  codingToolBudgetReason: string | null;
+  codingToolContextBudgetStatus: string | null;
+  codingToolBudgetMode: string | null;
+  codingToolBudgetDecisionId: string | null;
+  codingToolBudgetCheckCount: number | null;
+  codingToolBudgetViolationCount: number | null;
+  codingToolBudgetChecks: unknown[];
+  codingToolBudgetViolations: unknown[];
+  codingToolBudgetUsageTelemetry: Record<string, unknown> | null;
+  codingToolMutationBlocked: boolean | null;
   diagnosticsRepairActions: WorkflowRuntimeDiagnosticsRepairActionDescriptor[];
   contextPressureActions: WorkflowRuntimeContextPressureActionDescriptor[];
   workspaceTrustActions: WorkflowRuntimeWorkspaceTrustActionDescriptor[];
@@ -259,6 +271,7 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "cost_status"
   | "context_budget"
   | "compaction_policy"
+  | "coding_tool_budget"
   | "workspace_trust_warning"
   | "subagent"
   | "approval"
@@ -317,6 +330,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   cost_rows?: unknown[];
   contextRows?: unknown[];
   context_rows?: unknown[];
+  codingToolRows?: unknown[];
+  coding_tool_rows?: unknown[];
   mcpRows?: unknown[];
   mcp_rows?: unknown[];
   memoryRows?: unknown[];
@@ -343,6 +358,8 @@ export interface WorkflowRuntimeTuiControlStateRow {
   jobId: string | null;
   runId: string | null;
   modelId: string | null;
+  toolName?: string | null;
+  toolCallId?: string | null;
   mcpServerId?: string | null;
   mcpToolName?: string | null;
   mcpToolCallId?: string | null;
@@ -365,6 +382,17 @@ export interface WorkflowRuntimeTuiControlStateRow {
   contextBudgetStatus?: string | null;
   contextBudgetMode?: string | null;
   contextBudgetDecisionId?: string | null;
+  codingToolBudgetStatus?: string | null;
+  codingToolBudgetReason?: string | null;
+  codingToolContextBudgetStatus?: string | null;
+  codingToolBudgetMode?: string | null;
+  codingToolBudgetDecisionId?: string | null;
+  codingToolBudgetCheckCount?: number | null;
+  codingToolBudgetViolationCount?: number | null;
+  codingToolBudgetUsageTotalTokens?: number | null;
+  codingToolBudgetUsageCostEstimateUsd?: number | null;
+  codingToolBudgetUsageContextPressure?: number | null;
+  codingToolMutationBlocked?: boolean | null;
   compactionPolicyStatus?: string | null;
   compactionPolicyAction?: string | null;
   compactionPolicyDecisionId?: string | null;
@@ -520,6 +548,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   runLifecycleCount: number;
   costRowCount: number;
   contextRowCount: number;
+  codingToolBudgetRowCount: number;
   workspaceTrustWarningCount: number;
   mcpRowCount: number;
   memoryRowCount: number;
@@ -536,6 +565,28 @@ export interface WorkflowRuntimeTuiControlStateProjection {
 interface MutableProjectedNode {
   events: WorkflowRuntimeThreadEventLike[];
   nodeId: string;
+}
+
+interface CodingToolBudgetEvidence {
+  isBudgetBlock: boolean;
+  toolName: string | null;
+  toolCallId: string | null;
+  reason: string | null;
+  budgetStatus: string | null;
+  contextBudgetStatus: string | null;
+  budgetMode: string | null;
+  budgetDecisionId: string | null;
+  checkCount: number | null;
+  violationCount: number | null;
+  checks: unknown[];
+  violations: unknown[];
+  usageTelemetry: Record<string, unknown> | null;
+  usageTotalTokens: number | null;
+  usageCostEstimateUsd: number | null;
+  usageContextPressure: number | null;
+  mutationBlocked: boolean | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
 }
 
 export function projectRuntimeThreadEventsToWorkflowProjection(
@@ -629,6 +680,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
   );
   const costRows = arrayField(state, "costRows", "cost_rows");
   const contextRows = arrayField(state, "contextRows", "context_rows");
+  const codingToolRows = arrayField(state, "codingToolRows", "coding_tool_rows");
   const mcpRows = arrayField(state, "mcpRows", "mcp_rows");
   const memoryRows = arrayField(state, "memoryRows", "memory_rows");
   const usageStatus = recordField(state, "usageStatus", "usage_status");
@@ -1423,6 +1475,102 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     });
   });
 
+  codingToolRows.forEach((entry, index) => {
+    const evidence = codingToolBudgetEvidenceFromRecord(entry);
+    const toolName =
+      evidence.toolName ??
+      stringField(entry, "toolName", "tool_name", "toolId", "tool_id");
+    const toolCallId =
+      evidence.toolCallId ?? stringField(entry, "toolCallId", "tool_call_id");
+    const budgetStatus =
+      evidence.budgetStatus ??
+      stringField(entry, "budgetStatus", "budget_status");
+    const contextBudgetStatus =
+      evidence.contextBudgetStatus ??
+      stringField(entry, "contextBudgetStatus", "context_budget_status");
+    const status = tuiControlRowStatus(
+      stringField(entry, "status") ??
+      contextBudgetStatus ??
+      budgetStatus ??
+      evidence.reason,
+    );
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    const nodeId =
+      stringField(entry, "workflowNodeId", "workflow_node_id") ??
+      `runtime.coding-tool-budget.${slug(
+        toolName ?? toolCallId ?? String(sequence),
+      )}`;
+    const receiptRefs = uniqueStrings([
+      ...stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      ...evidence.receiptRefs,
+    ]);
+    const policyDecisionRefs = uniqueStrings([
+      ...stringArrayField(entry, "policyDecisionRefs", "policy_decision_refs"),
+      ...evidence.policyDecisionRefs,
+    ]);
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-coding-tool-budget:${slug(
+          [toolName, toolCallId, sequence].filter(Boolean).join(":"),
+        )}`,
+      rowKind: "coding_tool_budget",
+      status,
+      label:
+        stringField(entry, "label") ??
+        `Coding tool budget${toolName ? `: ${toolName}` : ""}`,
+      command: stringField(entry, "command") ?? "coding-tool",
+      rawInput:
+        stringField(entry, "rawInput", "raw_input") ??
+        "/coding-tool budget",
+      message:
+        stringField(entry, "message", "summary") ??
+        ([
+          evidence.reason,
+          budgetStatus,
+          contextBudgetStatus,
+          evidence.violationCount === null
+            ? null
+            : `${evidence.violationCount} violation(s)`,
+        ].filter(Boolean).join(" · ") || null),
+      approvalId: null,
+      jobId: null,
+      runId: null,
+      modelId: null,
+      toolName,
+      toolCallId,
+      routeId: null,
+      reasoningEffort: null,
+      usageScope: stringField(entry, "scope", "usageScope", "usage_scope") ?? "thread",
+      usageTotalTokens: evidence.usageTotalTokens,
+      usageCostEstimateUsd: evidence.usageCostEstimateUsd,
+      usageContextPressure: evidence.usageContextPressure,
+      usageContextPressureStatus: contextBudgetStatus,
+      codingToolBudgetStatus: budgetStatus,
+      codingToolBudgetReason: evidence.reason,
+      codingToolContextBudgetStatus: contextBudgetStatus,
+      codingToolBudgetMode: evidence.budgetMode,
+      codingToolBudgetDecisionId: evidence.budgetDecisionId,
+      codingToolBudgetCheckCount: evidence.checkCount,
+      codingToolBudgetViolationCount: evidence.violationCount,
+      codingToolBudgetUsageTotalTokens: evidence.usageTotalTokens,
+      codingToolBudgetUsageCostEstimateUsd: evidence.usageCostEstimateUsd,
+      codingToolBudgetUsageContextPressure: evidence.usageContextPressure,
+      codingToolMutationBlocked: evidence.mutationBlocked,
+      threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      workflowGraphId:
+        stringField(entry, "workflowGraphId", "workflow_graph_id") ??
+        workflowGraphId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs,
+      policyDecisionRefs,
+      reactFlowNodeId: nodeId,
+    });
+  });
+
   commandHistory.forEach((entry, index) => {
     const command = stringField(entry, "command");
     const rawInput = stringField(entry, "rawInput", "raw_input") ?? command;
@@ -1514,6 +1662,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     runLifecycleCount: runLifecycleRows.length,
     costRowCount: costRows.length,
     contextRowCount: contextRows.length,
+    codingToolBudgetRowCount: codingToolRows.length,
     workspaceTrustWarningCount: workspaceTrustRows.length,
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
@@ -1849,6 +1998,12 @@ export function workflowNodeIdForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string {
   if (event.workflowNodeId) return event.workflowNodeId;
+  if (isCodingToolBudgetBlockedEvent(event)) {
+    const evidence = codingToolBudgetEvidenceForRuntimeThreadEvent(event);
+    return `runtime.coding-tool-budget.${slug(
+      evidence.toolName ?? evidence.toolCallId ?? event.eventKind,
+    )}`;
+  }
   switch (event.type) {
     case "thread_started":
       return "runtime.thread";
@@ -1920,6 +2075,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "approval_gate") return "human_gate";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
+  if (event.componentKind === "coding_tool") return "plugin_tool";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
   if (event.componentKind === "lsp_diagnostics_repair_retry") return "hook_policy";
   if (event.componentKind === "lsp_diagnostics_operator_override") return "hook_policy";
@@ -1984,6 +2140,8 @@ function projectedNodeForBucket(
   const events = sortRuntimeThreadEvents(bucket.events);
   const firstEvent = events[0];
   const latestEvent = events[events.length - 1];
+  const codingToolBudgetEvidence =
+    codingToolBudgetEvidenceForRuntimeThreadEvent(latestEvent);
   const nodeData: WorkflowRuntimeReactFlowNodeData = {
     schemaVersion: WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
     nodeKind: workflowNodeKindForRuntimeThreadEvent(latestEvent),
@@ -2012,10 +2170,24 @@ function projectedNodeForBucket(
       events.flatMap((event) => event.policyDecisionRefs),
     ),
     rollbackRefs: uniqueStrings(events.flatMap((event) => event.rollbackRefs)),
-    toolName: latestEvent.toolName ?? null,
+    toolName: latestEvent.toolName ?? codingToolBudgetEvidence.toolName,
+    toolCallId: latestEvent.toolCallId ?? codingToolBudgetEvidence.toolCallId,
     approvalId: latestEvent.approvalId ?? null,
     agentStatus: latestEvent.agentStatus ?? null,
     summary: summaryForRuntimeThreadEvent(latestEvent),
+    codingToolBudgetStatus: codingToolBudgetEvidence.budgetStatus,
+    codingToolBudgetReason: codingToolBudgetEvidence.reason,
+    codingToolContextBudgetStatus:
+      codingToolBudgetEvidence.contextBudgetStatus,
+    codingToolBudgetMode: codingToolBudgetEvidence.budgetMode,
+    codingToolBudgetDecisionId: codingToolBudgetEvidence.budgetDecisionId,
+    codingToolBudgetCheckCount: codingToolBudgetEvidence.checkCount,
+    codingToolBudgetViolationCount: codingToolBudgetEvidence.violationCount,
+    codingToolBudgetChecks: codingToolBudgetEvidence.checks,
+    codingToolBudgetViolations: codingToolBudgetEvidence.violations,
+    codingToolBudgetUsageTelemetry:
+      codingToolBudgetEvidence.usageTelemetry,
+    codingToolMutationBlocked: codingToolBudgetEvidence.mutationBlocked,
     diagnosticsRepairActions: diagnosticsRepairActionsForEvents(
       events,
       latestEvent,
@@ -2297,6 +2469,168 @@ function summaryForContextPressureAction(
   }
 }
 
+function isCodingToolBudgetBlockedEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): boolean {
+  if (event.componentKind !== "coding_tool") return false;
+  if (
+    event.type !== "policy_blocked" &&
+    event.eventKind !== "policy.blocked" &&
+    event.status !== "blocked"
+  ) {
+    return false;
+  }
+  return codingToolBudgetEvidenceForRuntimeThreadEvent(event).isBudgetBlock;
+}
+
+function codingToolBudgetEvidenceForRuntimeThreadEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): CodingToolBudgetEvidence {
+  return codingToolBudgetEvidenceFromRecord(event.payload, {
+    toolName: event.toolName ?? null,
+    toolCallId: event.toolCallId ?? null,
+    receiptRefs: event.receiptRefs,
+    policyDecisionRefs: event.policyDecisionRefs,
+  });
+}
+
+function codingToolBudgetEvidenceFromRecord(
+  record: unknown,
+  defaults: {
+    toolName?: string | null;
+    toolCallId?: string | null;
+    receiptRefs?: string[];
+    policyDecisionRefs?: string[];
+  } = {},
+): CodingToolBudgetEvidence {
+  const payload = objectField(record) ?? {};
+  const result = recordField(payload, "result") ?? {};
+  const resultSummary = recordField(payload, "resultSummary", "result_summary") ?? {};
+  const error = recordField(payload, "error") ?? recordField(result, "error") ?? {};
+  const errorDetails = recordField(error, "details") ?? {};
+  const contextBudget =
+    recordField(payload, "contextBudget", "context_budget") ??
+    recordField(result, "contextBudget", "context_budget") ??
+    recordField(errorDetails, "contextBudget", "context_budget") ??
+    {};
+  const policyDecision =
+    recordField(contextBudget, "policyDecision", "policy_decision") ?? {};
+  const usageTelemetry =
+    recordField(payload, "budgetUsageTelemetry", "budget_usage_telemetry") ??
+    recordField(result, "budgetUsageTelemetry", "budget_usage_telemetry") ??
+    recordField(errorDetails, "budgetUsageTelemetry", "budget_usage_telemetry") ??
+    recordField(contextBudget, "usageTelemetry", "usage_telemetry") ??
+    null;
+  const usageSummary =
+    recordField(contextBudget, "usageSummary", "usage_summary") ??
+    recordField(usageTelemetry, "usageSummary", "usage_summary") ??
+    usageTelemetry ??
+    {};
+  const checks = nonEmptyArrayField(contextBudget, "checks")
+    ? arrayField(contextBudget, "checks")
+    : arrayField(policyDecision, "checks");
+  const violations = nonEmptyArrayField(contextBudget, "violations")
+    ? arrayField(contextBudget, "violations")
+    : arrayField(policyDecision, "violations");
+  const reason =
+    stringField(payload, "reason", "blockReason", "block_reason") ??
+    stringField(resultSummary, "reason") ??
+    stringField(errorDetails, "reason", "code") ??
+    stringField(error, "code");
+  const budgetStatus =
+    stringField(payload, "budgetStatus", "budget_status") ??
+    stringField(result, "budgetStatus", "budget_status") ??
+    stringField(errorDetails, "budgetStatus", "budget_status");
+  const contextBudgetStatus =
+    stringField(payload, "contextBudgetStatus", "context_budget_status") ??
+    stringField(result, "contextBudgetStatus", "context_budget_status") ??
+    stringField(errorDetails, "contextBudgetStatus", "context_budget_status") ??
+    stringField(contextBudget, "status");
+  const isBudgetBlock =
+    reason === "coding_tool_budget_exceeded" ||
+    budgetStatus === "exceeded" ||
+    contextBudgetStatus === "blocked";
+  const resultStatus = stringField(result, "status") ?? stringField(payload, "status");
+  const mutationBlocked =
+    booleanField(payload, "mutationBlocked", "mutation_blocked") ??
+    booleanField(result, "mutationBlocked", "mutation_blocked") ??
+    (isBudgetBlock && resultStatus === "blocked" ? true : null);
+  const decisionId =
+    stringField(
+      payload,
+      "contextBudgetDecisionId",
+      "context_budget_decision_id",
+      "budgetDecisionId",
+      "budget_decision_id",
+      "policyDecisionId",
+      "policy_decision_id",
+    ) ??
+    stringField(contextBudget, "policyDecisionId", "policy_decision_id") ??
+    stringField(policyDecision, "policyDecisionId", "policy_decision_id");
+  const receiptRefs = uniqueStrings([
+    ...(defaults.receiptRefs ?? []),
+    ...stringArrayField(payload, "receiptRefs", "receipt_refs"),
+    ...stringArrayField(contextBudget, "receiptRefs", "receipt_refs"),
+  ]);
+  const policyDecisionRefs = uniqueStrings([
+    ...(defaults.policyDecisionRefs ?? []),
+    ...stringArrayField(payload, "policyDecisionRefs", "policy_decision_refs"),
+    ...stringArrayField(contextBudget, "policyDecisionRefs", "policy_decision_refs"),
+  ]);
+
+  return {
+    isBudgetBlock,
+    toolName:
+      stringField(payload, "toolName", "tool_name", "toolId", "tool_id") ??
+      stringField(result, "toolName", "tool_name", "toolId", "tool_id") ??
+      defaults.toolName ??
+      null,
+    toolCallId:
+      stringField(payload, "toolCallId", "tool_call_id") ??
+      stringField(result, "toolCallId", "tool_call_id") ??
+      defaults.toolCallId ??
+      null,
+    reason,
+    budgetStatus,
+    contextBudgetStatus,
+    budgetMode:
+      stringField(payload, "budgetMode", "budget_mode") ??
+      stringField(contextBudget, "mode"),
+    budgetDecisionId: decisionId,
+    checkCount: checks.length > 0 ? checks.length : null,
+    violationCount: violations.length > 0 ? violations.length : null,
+    checks,
+    violations,
+    usageTelemetry,
+    usageTotalTokens: numberField(
+      usageSummary,
+      "total_tokens",
+      "totalTokens",
+      "cumulativeTotalTokens",
+      "cumulative_total_tokens",
+    ),
+    usageCostEstimateUsd: numberField(
+      usageSummary,
+      "estimated_cost_usd",
+      "estimatedCostUsd",
+      "cost_estimate_usd",
+      "costEstimateUsd",
+      "cumulativeCostEstimateUsd",
+      "cumulative_cost_estimate_usd",
+    ),
+    usageContextPressure: numberField(
+      usageSummary,
+      "context_pressure",
+      "contextPressure",
+      "usageContextPressure",
+      "usage_context_pressure",
+    ),
+    mutationBlocked,
+    receiptRefs,
+    policyDecisionRefs,
+  };
+}
+
 function componentKindForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string {
@@ -2355,6 +2689,12 @@ function componentKindForRuntimeThreadEvent(
 }
 
 function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): string {
+  if (isCodingToolBudgetBlockedEvent(event)) {
+    const evidence = codingToolBudgetEvidenceForRuntimeThreadEvent(event);
+    return `Coding tool budget: ${
+      evidence.toolName ?? event.toolName ?? evidence.toolCallId ?? "blocked"
+    }`;
+  }
   if (event.componentKind === "coding_tool" && event.toolName) return `Coding tool: ${event.toolName}`;
   if (event.componentKind === "workspace_snapshot") return "Workspace snapshot";
   if (event.componentKind === "restore_gate") {
@@ -2636,6 +2976,13 @@ function arrayField(
   const candidate = keys.find((key) => objectValue[key] !== undefined);
   const valueForKey = candidate ? objectValue[candidate] : undefined;
   return Array.isArray(valueForKey) ? valueForKey : [];
+}
+
+function nonEmptyArrayField(
+  value: unknown,
+  ...keys: string[]
+): boolean {
+  return arrayField(value, ...keys).length > 0;
 }
 
 function recordField(

@@ -2415,7 +2415,11 @@ test("React Flow coding-tool approval manifests survive approval and retry execu
 });
 
 test("React Flow coding-tool budget gates consume runtime telemetry summary before mutation", async () => {
-  const { createRuntimeCodingToolControlRequestFromWorkflowNode } = await importAgentIde();
+  const {
+    createRuntimeCodingToolControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+  } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-state-"));
   const targetPath = path.join(cwd, "README.md");
@@ -2534,6 +2538,82 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
     assert.equal(budgetEvent.payload_summary.error.code, "coding_tool_budget_exceeded");
     assert.equal(budgetEvent.payload_summary.budget_usage_telemetry.total_tokens, 720);
     assert.ok(budgetEvent.policy_decision_refs[0].startsWith("policy_context_budget_thread_"));
+    const budgetCursor = canonicalRuntimeEventCursor(budgetEvent);
+
+    const runtimeProjection = projectRuntimeThreadEventsToWorkflowProjection([
+      {
+        id: budgetEvent.event_id,
+        cursor: budgetCursor,
+        seq: budgetEvent.seq,
+        threadId: budgetEvent.thread_id,
+        turnId: budgetEvent.turn_id ?? null,
+        type: "policy_blocked",
+        eventKind: budgetEvent.event_kind,
+        sourceEventKind: budgetEvent.source_event_kind,
+        status: budgetEvent.status,
+        createdAt: budgetEvent.created_at,
+        componentKind: budgetEvent.component_kind,
+        workflowNodeId: budgetEvent.workflow_node_id,
+        workflowGraphId: budgetEvent.workflow_graph_id,
+        toolCallId: budgetEvent.tool_call_id,
+        toolName: budgetEvent.payload_summary.tool_name,
+        payloadSchemaVersion: budgetEvent.payload_schema_version,
+        receiptRefs: budgetEvent.receipt_refs ?? [],
+        artifactRefs: budgetEvent.artifact_refs ?? [],
+        policyDecisionRefs: budgetEvent.policy_decision_refs ?? [],
+        rollbackRefs: budgetEvent.rollback_refs ?? [],
+        payload: budgetEvent.payload_summary,
+      },
+    ]);
+    const budgetNode = runtimeProjection.nodes.find((node) =>
+      node.eventIds.includes(budgetEvent.event_id),
+    );
+    assert.ok(budgetNode);
+    assert.equal(budgetNode.nodeKind, "plugin_tool");
+    assert.equal(budgetNode.label, "Coding tool budget: file.apply_patch");
+    assert.equal(budgetNode.status, "blocked");
+    assert.equal(budgetNode.toolCallId, "coding_tool_summary_budget_blocked");
+    assert.equal(budgetNode.codingToolBudgetStatus, "exceeded");
+    assert.equal(budgetNode.codingToolContextBudgetStatus, "blocked");
+    assert.equal(budgetNode.codingToolBudgetMode, "block");
+    assert.equal(budgetNode.codingToolBudgetViolationCount, 1);
+    assert.equal(budgetNode.codingToolMutationBlocked, true);
+
+    const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      last_cursor: budgetCursor,
+      last_event_id: budgetEvent.event_id,
+      coding_tool_rows: [
+        {
+          ...budgetEvent.payload_summary,
+          id: "live-coding-tool-budget-row",
+          row_kind: "coding_tool_budget",
+          status: budgetEvent.status,
+          event_id: budgetEvent.event_id,
+          sequence: budgetEvent.seq,
+          workflow_graph_id: workflowGraphId,
+          workflow_node_id: workflowNodeId,
+          receipt_refs: budgetEvent.receipt_refs,
+          policy_decision_refs: budgetEvent.policy_decision_refs,
+          mutation_blocked: true,
+        },
+      ],
+    });
+    const budgetRow = tuiProjection.rows.find(
+      (row) => row.rowKind === "coding_tool_budget",
+    );
+    assert.ok(budgetRow);
+    assert.equal(tuiProjection.codingToolBudgetRowCount, 1);
+    assert.equal(budgetRow.reactFlowNodeId, workflowNodeId);
+    assert.equal(budgetRow.toolName, "file.apply_patch");
+    assert.equal(budgetRow.toolCallId, "coding_tool_summary_budget_blocked");
+    assert.equal(budgetRow.codingToolBudgetStatus, "exceeded");
+    assert.equal(budgetRow.codingToolContextBudgetStatus, "blocked");
+    assert.equal(budgetRow.codingToolBudgetViolationCount, 1);
+    assert.equal(budgetRow.codingToolMutationBlocked, true);
   } finally {
     await daemon.close();
   }

@@ -803,6 +803,9 @@ export function WorkflowRunsPanel({
               data-mcp-row-count={tuiControlStateProjection.mcpRowCount}
               data-memory-row-count={tuiControlStateProjection.memoryRowCount}
               data-usage-row-count={tuiControlStateProjection.usageRowCount}
+              data-coding-tool-budget-row-count={
+                tuiControlStateProjection.codingToolBudgetRowCount
+              }
               data-subagent-row-count={tuiControlStateProjection.subagentRowCount}
               data-subagent-child-subflow-count={
                 tuiControlStateProjection.subagentChildSubflowCount
@@ -831,6 +834,10 @@ export function WorkflowRunsPanel({
                 <span>{tuiControlStateProjection.mcpRowCount} MCP</span>
                 <span>{tuiControlStateProjection.memoryRowCount} memory</span>
                 <span>{tuiControlStateProjection.usageRowCount} usage</span>
+                <span>
+                  {tuiControlStateProjection.codingToolBudgetRowCount} coding
+                  budgets
+                </span>
                 <span>{tuiControlStateProjection.subagentRowCount} subagents</span>
                 <span>
                   {tuiControlStateProjection.subagentChildSubflowCount} child
@@ -857,6 +864,8 @@ export function WorkflowRunsPanel({
                     data-job-id={row.jobId ?? ""}
                     data-run-id={row.runId ?? ""}
                     data-model-id={row.modelId ?? ""}
+                    data-tool-name={row.toolName ?? ""}
+                    data-tool-call-id={row.toolCallId ?? ""}
                     data-mcp-server-id={row.mcpServerId ?? ""}
                     data-mcp-tool-name={row.mcpToolName ?? ""}
                     data-mcp-tool-call-id={row.mcpToolCallId ?? ""}
@@ -880,6 +889,39 @@ export function WorkflowRunsPanel({
                     }
                     data-usage-run-count={row.usageRunCount ?? ""}
                     data-usage-subagent-count={row.usageSubagentCount ?? ""}
+                    data-coding-tool-budget-status={
+                      row.codingToolBudgetStatus ?? ""
+                    }
+                    data-coding-tool-budget-reason={
+                      row.codingToolBudgetReason ?? ""
+                    }
+                    data-coding-tool-context-budget-status={
+                      row.codingToolContextBudgetStatus ?? ""
+                    }
+                    data-coding-tool-budget-mode={
+                      row.codingToolBudgetMode ?? ""
+                    }
+                    data-coding-tool-budget-decision-id={
+                      row.codingToolBudgetDecisionId ?? ""
+                    }
+                    data-coding-tool-budget-check-count={
+                      row.codingToolBudgetCheckCount ?? ""
+                    }
+                    data-coding-tool-budget-violation-count={
+                      row.codingToolBudgetViolationCount ?? ""
+                    }
+                    data-coding-tool-budget-usage-total-tokens={
+                      row.codingToolBudgetUsageTotalTokens ?? ""
+                    }
+                    data-coding-tool-budget-usage-cost-estimate-usd={
+                      row.codingToolBudgetUsageCostEstimateUsd ?? ""
+                    }
+                    data-coding-tool-budget-usage-context-pressure={
+                      row.codingToolBudgetUsageContextPressure ?? ""
+                    }
+                    data-coding-tool-mutation-blocked={
+                      row.codingToolMutationBlocked ?? ""
+                    }
                     data-subagent-id={row.subagentId ?? ""}
                     data-subagent-role={row.subagentRole ?? ""}
                     data-subagent-operation={row.subagentOperation ?? ""}

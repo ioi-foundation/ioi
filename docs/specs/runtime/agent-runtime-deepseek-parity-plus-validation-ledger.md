@@ -183,6 +183,41 @@ the practical workstream when the source heading is broad.
 | 182 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary budget gate enforcement | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary-budget-gate/2026-05-14T02-21-14-227Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary-budget-gate |
 | 183 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | subagent summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-subagent-summary-budget/2026-05-14T02-32-43-456Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts<br>node --check packages/runtime-daemon/src/subagent-manager.mjs && node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow subagent budget" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-summary-budget |
 | 184 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget/2026-05-14T02-47-09-164Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts<br>node --check packages/runtime-daemon/src/index.mjs && node --check packages/runtime-daemon/src/coding-tools.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs && node --check scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow coding-tool budget" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow&#124;React Flow coding-tool approval manifests survive approval and retry execution" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes status" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget |
+| 185 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget-block inspector projection | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json | node --import tsx --test --test-name-pattern "coding tool budget&#124;TUI coding-tool budget" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection |
+
+## Slice 185. 2026-05-14 - Coding-tool budget-block inspector projection
+
+Guide section: P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test --test-name-pattern "coding tool budget|TUI coding-tool budget" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - Focused React Flow and TUI coding-tool budget projection tests passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE TypeScript, declarations, and Vite build passed.
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - Live daemon proof passed for summary-budget pre-mutation block, file
+    preservation, budget-specific React Flow node projection, and
+    budget-specific TUI row projection.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - Source contract guard passed for coding-tool budget row and inspector
+    attributes.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - Broad React Flow source-contract guard passed.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - Full runtime event projection suite passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection`
+  - Live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json`.
 
 ## Slice 184. 2026-05-14 - Coding-tool summary-budget enforcement
 

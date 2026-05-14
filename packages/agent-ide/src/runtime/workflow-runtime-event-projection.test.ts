@@ -455,6 +455,115 @@ test("projects coding tool events as receipt-backed React Flow rows", () => {
   assert.deepEqual(retrieveNode?.artifactRefs, ["artifact-coding-test-output"]);
 });
 
+test("projects coding tool budget blocks as policy-addressable React Flow rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-coding-budget-blocked", 1, {
+      type: "policy_blocked",
+      eventKind: "policy.blocked",
+      sourceEventKind: "CodingTool.FileApplyPatch",
+      status: "blocked",
+      workflowNodeId: "workflow.coding.file.apply_patch.summary-budget",
+      workflowGraphId: "workflow.react-flow.coding-tool-summary-budget",
+      componentKind: "coding_tool",
+      toolName: "file.apply_patch",
+      toolCallId: "coding_tool_summary_budget_blocked",
+      payloadSchemaVersion: "ioi.runtime.coding-tool-result.v1",
+      receiptRefs: [
+        "receipt_coding_tool_file_apply_patch_budget",
+        "receipt_context_budget_thread_budget",
+      ],
+      policyDecisionRefs: ["policy_context_budget_thread_budget_blocked"],
+      payload: {
+        event_kind: "CodingToolBudgetBlocked",
+        tool_name: "file.apply_patch",
+        tool_call_id: "coding_tool_summary_budget_blocked",
+        status: "blocked",
+        summary:
+          "file.apply_patch blocked because the workflow coding-tool budget was exceeded.",
+        budget_status: "exceeded",
+        context_budget_status: "blocked",
+        result_summary: {
+          status: "blocked",
+          reason: "coding_tool_budget_exceeded",
+        },
+        result: {
+          status: "blocked",
+          budget_status: "exceeded",
+          context_budget_status: "blocked",
+        },
+        error: {
+          code: "coding_tool_budget_exceeded",
+          details: {
+            reason: "coding_tool_budget_exceeded",
+          },
+        },
+        context_budget: {
+          status: "blocked",
+          mode: "block",
+          policy_decision_id: "policy_context_budget_thread_budget_blocked",
+          receipt_refs: ["receipt_context_budget_thread_budget"],
+          policy_decision_refs: ["policy_context_budget_thread_budget_blocked"],
+          checks: [
+            { id: "total_tokens", severity: "violation", actual: 720, limit: 100 },
+            { id: "estimated_cost_usd", severity: "ok", actual: 0.0042, limit: 1 },
+            { id: "context_pressure", severity: "ok", actual: 0.72, limit: 1 },
+          ],
+          violations: [
+            { id: "total_tokens", severity: "violation", actual: 720, limit: 100 },
+          ],
+          usage_summary: {
+            total_tokens: 720,
+            estimated_cost_usd: 0.0042,
+            context_pressure: 0.72,
+          },
+        },
+        budget_usage_telemetry: {
+          total_tokens: 720,
+          estimated_cost_usd: 0.0042,
+          context_pressure: 0.72,
+        },
+      },
+    }),
+  ]);
+
+  const node = projection.nodes[0];
+  assert.equal(node?.workflowNodeId, "workflow.coding.file.apply_patch.summary-budget");
+  assert.equal(node?.workflowGraphId, "workflow.react-flow.coding-tool-summary-budget");
+  assert.equal(node?.nodeKind, "plugin_tool");
+  assert.equal(node?.componentKind, "coding_tool");
+  assert.equal(node?.label, "Coding tool budget: file.apply_patch");
+  assert.equal(node?.status, "blocked");
+  assert.equal(node?.toolName, "file.apply_patch");
+  assert.equal(node?.toolCallId, "coding_tool_summary_budget_blocked");
+  assert.equal(node?.codingToolBudgetStatus, "exceeded");
+  assert.equal(node?.codingToolBudgetReason, "coding_tool_budget_exceeded");
+  assert.equal(node?.codingToolContextBudgetStatus, "blocked");
+  assert.equal(node?.codingToolBudgetMode, "block");
+  assert.equal(
+    node?.codingToolBudgetDecisionId,
+    "policy_context_budget_thread_budget_blocked",
+  );
+  assert.equal(node?.codingToolBudgetCheckCount, 3);
+  assert.equal(node?.codingToolBudgetViolationCount, 1);
+  assert.equal(node?.codingToolMutationBlocked, true);
+  assert.deepEqual(
+    node?.codingToolBudgetChecks.map((check) =>
+      typeof check === "object" && check !== null
+        ? (check as { id?: unknown }).id
+        : null,
+    ),
+    ["total_tokens", "estimated_cost_usd", "context_pressure"],
+  );
+  assert.equal(node?.codingToolBudgetUsageTelemetry?.total_tokens, 720);
+  assert.deepEqual(node?.policyDecisionRefs, [
+    "policy_context_budget_thread_budget_blocked",
+  ]);
+  assert.equal(
+    node?.reactFlowNode.data.codingToolBudgetViolationCount,
+    1,
+  );
+});
+
 test("projects approval and policy events without workflow node ids", () => {
   const approval = event("event-approval", 1, {
     type: "approval_required",
@@ -1565,4 +1674,88 @@ test("projects TUI cost and context controls to usage, budget, and compaction no
         row.reactFlowNodeId === "runtime.compaction-policy",
     ),
   );
+});
+
+test("projects TUI coding-tool budget rows into inspector controls", () => {
+  const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+    schema_version: "ioi.agent-cli.tui-control-state.v1",
+    surface: "tui",
+    thread_id: "thread-coding-tool-budget",
+    workflow_graph_id: "workflow.react-flow.coding-tool-summary-budget",
+    current_turn_id: "turn-coding-tool-budget",
+    last_cursor: "events_thread:budget:3",
+    last_event_id: "event-coding-budget-blocked",
+    coding_tool_rows: [
+      {
+        id: "coding-tool-budget-row",
+        row_kind: "coding_tool_budget",
+        status: "blocked",
+        tool_name: "file.apply_patch",
+        tool_call_id: "coding_tool_summary_budget_blocked",
+        workflow_graph_id: "workflow.react-flow.coding-tool-summary-budget",
+        workflow_node_id: "workflow.coding.file.apply_patch.summary-budget",
+        event_id: "event-coding-budget-blocked",
+        receipt_refs: [
+          "receipt_coding_tool_file_apply_patch_budget",
+          "receipt_context_budget_thread_budget",
+        ],
+        policy_decision_refs: ["policy_context_budget_thread_budget_blocked"],
+        budget_status: "exceeded",
+        context_budget_status: "blocked",
+        mutation_blocked: true,
+        result_summary: {
+          status: "blocked",
+          reason: "coding_tool_budget_exceeded",
+        },
+        context_budget: {
+          status: "blocked",
+          mode: "block",
+          policy_decision_id: "policy_context_budget_thread_budget_blocked",
+          checks: [
+            { id: "total_tokens", severity: "violation", actual: 720, limit: 100 },
+          ],
+          violations: [
+            { id: "total_tokens", severity: "violation", actual: 720, limit: 100 },
+          ],
+          usage_summary: {
+            total_tokens: 720,
+            estimated_cost_usd: 0.0042,
+            context_pressure: 0.72,
+          },
+        },
+      },
+    ],
+  });
+
+  assert.equal(projection.codingToolBudgetRowCount, 1);
+  assert.equal(projection.rowCount, 2);
+  const row = projection.rows.find(
+    (candidate) => candidate.rowKind === "coding_tool_budget",
+  );
+  assert.ok(row);
+  assert.equal(row.label, "Coding tool budget: file.apply_patch");
+  assert.equal(row.status, "blocked");
+  assert.equal(row.toolName, "file.apply_patch");
+  assert.equal(row.toolCallId, "coding_tool_summary_budget_blocked");
+  assert.equal(row.codingToolBudgetStatus, "exceeded");
+  assert.equal(row.codingToolBudgetReason, "coding_tool_budget_exceeded");
+  assert.equal(row.codingToolContextBudgetStatus, "blocked");
+  assert.equal(row.codingToolBudgetMode, "block");
+  assert.equal(
+    row.codingToolBudgetDecisionId,
+    "policy_context_budget_thread_budget_blocked",
+  );
+  assert.equal(row.codingToolBudgetCheckCount, 1);
+  assert.equal(row.codingToolBudgetViolationCount, 1);
+  assert.equal(row.codingToolBudgetUsageTotalTokens, 720);
+  assert.equal(row.codingToolBudgetUsageCostEstimateUsd, 0.0042);
+  assert.equal(row.codingToolBudgetUsageContextPressure, 0.72);
+  assert.equal(row.codingToolMutationBlocked, true);
+  assert.equal(
+    row.reactFlowNodeId,
+    "workflow.coding.file.apply_patch.summary-budget",
+  );
+  assert.deepEqual(row.policyDecisionRefs, [
+    "policy_context_budget_thread_budget_blocked",
+  ]);
 });
