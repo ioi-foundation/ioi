@@ -267,6 +267,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
@@ -2405,6 +2406,316 @@ test("React Flow coding-tool approval manifests survive approval and retry execu
     assert.equal(approvalNode.nodeKind, "human_gate");
     assert.equal(approvalNode.componentKind, "approval_gate");
     assert.equal(approvalNode.workflowNodeId, workflowNodeId);
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("React Flow policy stack replays workspace trust and coding approval gates in order", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeCodingToolControlRequestFromWorkflowNode,
+    createRuntimeThreadModeControlRequestFromWorkflowNode,
+    createRuntimeWorkspaceTrustAcknowledgementControlRequest,
+    projectRuntimeThreadEventsToWorkflowProjection,
+    workflowRuntimePolicyStackFromEvents,
+    workflowWorkspaceTrustGateReadiness,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-policy-stack-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-policy-stack-state-"));
+  execFileSync("git", ["init"], { cwd, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "runtime-policy-stack@example.com"], { cwd });
+  execFileSync("git", ["config", "user.name", "Runtime Policy Stack"], { cwd });
+  const targetPath = path.join(cwd, "README.md");
+  fs.writeFileSync(targetPath, "Policy stack starts here.\n");
+  execFileSync("git", ["add", "README.md"], { cwd });
+  execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "seed policy stack"], {
+    cwd,
+    stdio: "ignore",
+  });
+  execFileSync("git", ["checkout", "-b", "feature/policy-stack"], { cwd, stdio: "ignore" });
+  fs.writeFileSync(path.join(cwd, "dirty.txt"), "untracked policy evidence\n");
+
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.policy-stack-proof";
+    const modeNodeId = "runtime.thread-mode.yolo.policy-stack";
+    const trustWorkflowNodeId = `${modeNodeId}.workspace-trust`;
+    const codingNodeId = "workflow.coding.file.apply_patch.policy-stack";
+    const toolCallId = "coding_tool_policy_stack_retry";
+    const workflowWithPolicyStack = {
+      version: "1",
+      metadata: {
+        id: workflowGraphId,
+        slug: "policy-stack-proof",
+        name: "Policy stack proof",
+        workflowKind: "agent_workflow",
+        executionMode: "mock",
+      },
+      global_config: {
+        env: "test",
+        requiredCapabilities: {},
+        policy: { maxBudget: 1, maxSteps: 6, timeoutMs: 1000 },
+        contract: { developerBond: 0, adjudicationRubric: "test" },
+        meta: { name: "Policy stack proof", description: "Policy stack proof" },
+      },
+      nodes: [
+        {
+          id: "mode-control",
+          type: "runtime_thread_mode",
+          name: "Yolo mode",
+          x: 0,
+          y: 0,
+          config: {
+            logic: {
+              runtimeThreadModeMode: "yolo",
+              runtimeThreadModeWorkflowNodeId: modeNodeId,
+              runtimeThreadModeWorkspaceTrustWorkflowNodeId: trustWorkflowNodeId,
+              runtimeThreadModeRequestWarningAcknowledgement: true,
+            },
+          },
+        },
+        {
+          id: "trust-gate",
+          type: "runtime_workspace_trust_gate",
+          name: "Workspace trust gate",
+          x: 240,
+          y: 0,
+          config: {
+            logic: {
+              runtimeWorkspaceTrustGateModeNodeId: "mode-control",
+              runtimeWorkspaceTrustGateWarningWorkflowNodeId: trustWorkflowNodeId,
+            },
+          },
+        },
+        {
+          id: "apply-patch",
+          type: "plugin_tool",
+          name: "Apply patch",
+          x: 480,
+          y: 0,
+          config: {
+            logic: {
+              workflowNodeId: codingNodeId,
+              toolBinding: {
+                toolRef: "file.apply_patch",
+                bindingKind: "coding_tool_pack",
+                mockBinding: false,
+                credentialReady: true,
+                capabilityScope: ["file.apply_patch"],
+                sideEffectClass: "write",
+                requiresApproval: true,
+                arguments: {
+                  path: "README.md",
+                  oldText: "Policy stack starts here.",
+                  newText: "Policy stack applied after trust and approval.",
+                },
+                toolPack: {
+                  pack: "coding",
+                  writeEnabled: true,
+                  dryRun: false,
+                  approvalMode: "human_required",
+                  trustProfile: "review_required",
+                  nodeApprovalOverride: "require_approval",
+                  requiresApproval: true,
+                },
+              },
+            },
+          },
+        },
+      ],
+      edges: [
+        { id: "mode-to-trust", from: "mode-control", to: "trust-gate" },
+        { id: "trust-to-patch", from: "trust-gate", to: "apply-patch" },
+      ],
+    };
+
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove the ordered runtime policy stack is replayable.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const modeRequest = createRuntimeThreadModeControlRequestFromWorkflowNode(
+      workflowWithPolicyStack.nodes[0],
+      {
+        threadId: thread.thread_id,
+        mode: "yolo",
+        approvalMode: "never_prompt",
+        trustProfile: "local_private",
+      },
+      { workflowGraphId },
+    );
+    const mode = await fetchJson(`${daemon.endpoint}${modeRequest.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(modeRequest.body),
+    });
+    assert.equal(mode.mode, "yolo");
+    assert.equal(mode.workspace_trust_warning_event?.workflow_node_id, trustWorkflowNodeId);
+
+    const eventsBeforeAck = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const readinessBeforeAck = workflowWorkspaceTrustGateReadiness(
+      workflowWithPolicyStack,
+      eventsBeforeAck,
+    );
+    assert.equal(readinessBeforeAck.status, "blocked");
+    assert.equal(
+      readinessBeforeAck.issues[0]?.code,
+      "workspace_trust_acknowledgement_missing",
+    );
+
+    const warningEvent = eventsBeforeAck.find(
+      (event) =>
+        event.type === "workspace_trust_warning" &&
+        event.workflowNodeId === trustWorkflowNodeId,
+    );
+    assert.ok(warningEvent);
+    const acknowledgementRequest = createRuntimeWorkspaceTrustAcknowledgementControlRequest({
+      nodeId: "policy-stack-trust-ack",
+      threadId: thread.thread_id,
+      warningId: warningEvent.payload.warning_id,
+      sourceEventId: warningEvent.id,
+      workflowGraphId,
+      workflowNodeId: trustWorkflowNodeId,
+      reason: "operator acknowledged the policy stack workspace trust warning",
+    });
+    const acknowledgement = await fetchJson(
+      `${daemon.endpoint}${acknowledgementRequest.endpoint}`,
+      {
+        method: "POST",
+        body: JSON.stringify(acknowledgementRequest.body),
+      },
+    );
+    assert.equal(
+      acknowledgement.workspace_trust_acknowledgement_event?.workflow_node_id,
+      trustWorkflowNodeId,
+    );
+
+    const eventsAfterAck = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const readinessAfterAck = workflowWorkspaceTrustGateReadiness(
+      workflowWithPolicyStack,
+      eventsAfterAck,
+    );
+    assert.equal(readinessAfterAck.status, "passed");
+
+    const codingControl = createRuntimeCodingToolControlRequestFromWorkflowNode(
+      workflowWithPolicyStack.nodes[2],
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    const attemptBody = {
+      ...codingControl.body,
+      toolCallId,
+      approved: true,
+      approvalGranted: true,
+      approvalMode: "never_prompt",
+      approval_mode: "never_prompt",
+      requiresApproval: false,
+      requires_approval: false,
+      toolPack: {
+        coding: {
+          ...codingControl.body.toolPack.coding,
+          requiresApproval: false,
+          requires_approval: false,
+          approvalMode: "suggest",
+          approval_mode: "suggest",
+        },
+      },
+    };
+    const blocked = await fetchJson(`${daemon.endpoint}${codingControl.endpoint}`, {
+      method: codingControl.method,
+      body: JSON.stringify(attemptBody),
+    });
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.approval_required, true);
+    assert.equal(blocked.approval_manifest?.policy_reason, "workflow_node_requires_approval");
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "Policy stack starts here.\n");
+
+    const decision = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${blocked.approval_id}/decision`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId: codingNodeId,
+          decision: "approve",
+          reason: "Approve the full policy stack coding retry.",
+        }),
+      },
+    );
+    assert.equal(decision.decision, "approve");
+
+    const approved = await fetchJson(`${daemon.endpoint}${codingControl.endpoint}`, {
+      method: codingControl.method,
+      body: JSON.stringify({
+        ...attemptBody,
+        approvalId: blocked.approval_id,
+      }),
+    });
+    assert.equal(approved.status, "completed");
+    assert.equal(approved.event.payload_summary.approval_satisfied, true);
+    assert.equal(approved.event.payload_summary.approval_decision_event_id, decision.event_id);
+    assert.equal(
+      fs.readFileSync(targetPath, "utf8"),
+      "Policy stack applied after trust and approval.\n",
+    );
+
+    const replay = await fetchJson(`${daemon.endpoint}${codingControl.endpoint}`, {
+      method: codingControl.method,
+      body: JSON.stringify({
+        ...attemptBody,
+        approvalId: blocked.approval_id,
+      }),
+    });
+    assert.equal(replay.status, "completed");
+    assert.equal(replay.idempotent_replay, true);
+    assert.equal(replay.event.event_id, approved.event.event_id);
+
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const approvalDecisionEvent = sdkEvents.find((event) => event.id === decision.event_id);
+    assert.ok(approvalDecisionEvent);
+    assert.equal(approvalDecisionEvent.type, "approval_decision");
+    assert.equal(approvalDecisionEvent.componentKind, "approval_gate");
+    assert.equal(approvalDecisionEvent.workflowNodeId, codingNodeId);
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const trustNode = projection.nodes.find((node) => node.workflowNodeId === trustWorkflowNodeId);
+    assert.equal(trustNode?.nodeKind, "runtime_workspace_trust_gate");
+    assert.equal(trustNode?.status, "completed");
+    const approvalNode = projection.nodes.find((node) => node.workflowNodeId === codingNodeId);
+    assert.ok(approvalNode);
+    assert.equal(approvalNode.nodeKind, "plugin_tool");
+    assert.ok(approvalNode.eventIds.includes(blocked.approval_event_id));
+    assert.ok(approvalNode.eventIds.includes(decision.event_id));
+    assert.ok(approvalNode.eventIds.includes(approved.event.event_id));
+
+    const policyStack = workflowRuntimePolicyStackFromEvents(sdkEvents, { workflowGraphId });
+    assert.equal(policyStack.status, "completed");
+    assert.equal(policyStack.approvalId, blocked.approval_id);
+    assert.equal(policyStack.warningId, warningEvent.payload.warning_id);
+    assert.equal(policyStack.toolCallId, toolCallId);
+    assert.deepEqual(
+      policyStack.stages.map((stage) => [stage.kind, stage.status, stage.eventId]),
+      [
+        ["workspace_trust_warning", "completed", warningEvent.id],
+        [
+          "workspace_trust_acknowledgement",
+          "completed",
+          acknowledgement.workspace_trust_acknowledgement_event.event_id,
+        ],
+        ["approval_requirement", "completed", blocked.approval_event_id],
+        ["approval_decision", "completed", decision.event_id],
+        ["approved_retry", "completed", approved.event.event_id],
+      ],
+    );
+    assert.ok(policyStack.workflowNodeIds.includes(trustWorkflowNodeId));
+    assert.ok(policyStack.workflowNodeIds.includes(codingNodeId));
+    assert.ok(policyStack.receiptRefs.length >= 5);
+    assert.ok(policyStack.policyDecisionRefs.length >= 5);
   } finally {
     await daemon.close();
   }
@@ -10829,6 +11140,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts"),
     "utf8",
   );
+  const workflowRuntimePolicyStack = fs.readFileSync(
+    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts"),
+    "utf8",
+  );
   const workflowRuntimeDiagnosticsRepairActions = fs.readFileSync(
     path.join(
       root,
@@ -11399,6 +11714,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-workspace-trust-actions/);
   assert.match(workflowRunsPanel, /workflow-run-workspace-trust-action-/);
   assert.match(workflowRunsPanel, /data-workspace-trust-action-count/);
+  assert.match(workflowRunsPanel, /workflow-run-policy-stack/);
+  assert.match(workflowRunsPanel, /data-policy-stack-status/);
   assert.match(workflowRunsPanel, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
   assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
@@ -11418,6 +11735,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEventProjection, /workspaceTrustActionsForEvents/);
   assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeWorkspaceTrustActionDescriptor/);
   assert.match(workflowRuntimeEventProjection, /runtime_workspace_trust_gate/);
+  assert.match(workflowRuntimePolicyStack, /WORKFLOW_RUNTIME_POLICY_STACK_SCHEMA_VERSION/);
+  assert.match(workflowRuntimePolicyStack, /approved_retry/);
+  assert.match(workflowRunHistoryModel, /workflowRuntimePolicyStackFromEvents/);
+  assert.match(workflowRunHistoryModel, /runtimePolicyStack/);
   assert.match(workflowValidation, /workflowWorkspaceTrustGateIssues/);
   assert.match(workflowValidation, /missing_workspace_trust_gate/);
   assert.match(workflowComposerController, /workflowWorkspaceTrustGateReadiness/);
@@ -11465,6 +11786,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /canvas_local_trust_state_accepted/);
   assert.match(workflowRuntimeEventProjection, /workspace_trust_warning/);
   assert.match(workflowRuntimeEventProjection, /workspace_trust_acknowledged/);
+  assert.match(workflowRuntimeEventProjection, /approval_decision/);
   assert.match(workflowRuntimeEventProjection, /workspaceTrustRows/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);

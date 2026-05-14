@@ -282,6 +282,96 @@ test("workflow run history model projects canonical runtime thread events", () =
   assert.equal(model.timelineEvents[0]?.runId, "run-a");
 });
 
+test("workflow run history model projects the replayable runtime policy stack", () => {
+  const target = runResult("run-a", "passed", { answer: "new" });
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    runtimeThreadEvents: [
+      runtimeThreadEvent("trust-warning", 1, {
+        type: "workspace_trust_warning",
+        eventKind: "workspace.trust_warning",
+        sourceEventKind: "WorkspaceTrust.Warning",
+        workflowNodeId: "runtime.thread-mode.workspace-trust",
+        componentKind: "workspace_trust",
+        status: "warning",
+        receiptRefs: ["receipt-trust"],
+        payload: { warning_id: "warning-1" },
+      }),
+      runtimeThreadEvent("trust-ack", 2, {
+        type: "workspace_trust_acknowledged",
+        eventKind: "workspace.trust_acknowledged",
+        sourceEventKind: "WorkspaceTrust.Acknowledged",
+        workflowNodeId: "runtime.thread-mode.workspace-trust",
+        componentKind: "workspace_trust",
+        receiptRefs: ["receipt-trust-ack"],
+        payload: { warning_id: "warning-1" },
+      }),
+      runtimeThreadEvent("approval-required", 3, {
+        type: "approval_required",
+        eventKind: "approval.required",
+        sourceEventKind: "OperatorApproval.Request",
+        workflowNodeId: "workflow.coding.file.apply_patch",
+        componentKind: "approval_gate",
+        approvalId: "approval-1",
+        receiptRefs: ["receipt-approval"],
+        payload: { approval_id: "approval-1" },
+      }),
+      runtimeThreadEvent("approval-approved", 4, {
+        type: "approval_decision",
+        eventKind: "approval.approved",
+        sourceEventKind: "OperatorApproval.Approve",
+        workflowNodeId: "workflow.coding.file.apply_patch",
+        componentKind: "approval_gate",
+        approvalId: "approval-1",
+        status: "approved",
+        receiptRefs: ["receipt-approval-approved"],
+        payload: { approval_id: "approval-1", decision: "approve" },
+      }),
+      runtimeThreadEvent("tool-completed", 5, {
+        type: "tool_completed",
+        eventKind: "tool.completed",
+        sourceEventKind: "CodingTool.FileApplyPatch",
+        workflowNodeId: "workflow.coding.file.apply_patch",
+        componentKind: "coding_tool",
+        toolCallId: "tool-call-1",
+        receiptRefs: ["receipt-tool"],
+        payload: {
+          approval_id: "approval-1",
+          approval_satisfied: true,
+          approval_decision_event_id: "approval-approved",
+        },
+      }),
+    ],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.runtimePolicyStack.status, "completed");
+  assert.deepEqual(
+    model.runtimePolicyStack.stages.map((stage) => [stage.kind, stage.status]),
+    [
+      ["workspace_trust_warning", "completed"],
+      ["workspace_trust_acknowledgement", "completed"],
+      ["approval_requirement", "completed"],
+      ["approval_decision", "completed"],
+      ["approved_retry", "completed"],
+    ],
+  );
+  assert.deepEqual(model.runtimePolicyStack.receiptRefs, [
+    "receipt-trust",
+    "receipt-trust-ack",
+    "receipt-approval",
+    "receipt-approval-approved",
+    "receipt-tool",
+  ]);
+});
+
 test("workflow run history model hydrates live telemetry for an in-flight run", () => {
   const liveRun = createLiveWorkflowRunTelemetryHydration({
     workflow,

@@ -34,6 +34,7 @@ export type WorkflowRuntimeThreadEventType =
   | "tool_completed"
   | "tool_failed"
   | "approval_required"
+  | "approval_decision"
   | "policy_blocked"
   | "receipt_emitted"
   | "model_route_decision"
@@ -1884,6 +1885,7 @@ export function workflowNodeIdForRuntimeThreadEvent(
     case "tool_failed":
       return `runtime.tool-result.${slug(event.toolName ?? event.toolCallId ?? event.eventKind)}`;
     case "approval_required":
+    case "approval_decision":
       return `runtime.approval.${slug(event.approvalId ?? event.eventKind)}`;
     case "policy_blocked":
       return "runtime.policy";
@@ -1907,6 +1909,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "context_pressure") return "runtime_context_budget";
   if (event.componentKind === "context_pressure_alert") return "hook_policy";
   if (event.componentKind === "workspace_trust") return "runtime_workspace_trust_gate";
+  if (event.componentKind === "approval_gate") return "human_gate";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
@@ -1947,6 +1950,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "tool_failed":
       return "plugin_tool";
     case "approval_required":
+    case "approval_decision":
       return "human_gate";
     case "policy_blocked":
       return "hook_policy";
@@ -2321,6 +2325,8 @@ function componentKindForRuntimeThreadEvent(
       return "tool_result";
     case "approval_required":
       return "approval_gate";
+    case "approval_decision":
+      return "approval_gate";
     case "policy_blocked":
       return "policy_gate";
     case "receipt_emitted":
@@ -2350,6 +2356,14 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       event.eventKind === "workspace.trust_acknowledged"
       ? "Workspace trust acknowledged"
       : "Workspace trust warning";
+  }
+  if (event.componentKind === "approval_gate") {
+    if (event.type === "approval_decision" || event.eventKind.startsWith("approval.")) {
+      return event.status.toLowerCase().includes("rejected")
+        ? "Approval rejected"
+        : "Approval approved";
+    }
+    return "Approval gate";
   }
   if (event.componentKind === "context_budget") return "Context budget";
   if (event.componentKind === "compaction_policy") return "Compaction policy";
@@ -2400,6 +2414,10 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Tool failed";
     case "approval_required":
       return "Approval gate";
+    case "approval_decision":
+      return event.status.toLowerCase().includes("rejected")
+        ? "Approval rejected"
+        : "Approval approved";
     case "policy_blocked":
       return "Policy gate";
     case "receipt_emitted":

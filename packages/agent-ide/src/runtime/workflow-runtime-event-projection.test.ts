@@ -93,7 +93,7 @@ test("projects Thread.events runtime events into stable React Flow nodes and edg
   assert.equal(projection.latestCursor, "events_thread:test:3");
 });
 
-test("projects workspace trust warnings as hook-policy React Flow rows", () => {
+test("projects workspace trust warnings as workspace trust gate React Flow rows", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("event-workspace-trust", 1, {
       type: "workspace_trust_warning",
@@ -115,7 +115,7 @@ test("projects workspace trust warnings as hook-policy React Flow rows", () => {
     }),
   ]);
 
-  assert.equal(projection.nodes[0]?.nodeKind, "hook_policy");
+  assert.equal(projection.nodes[0]?.nodeKind, "runtime_workspace_trust_gate");
   assert.equal(projection.nodes[0]?.componentKind, "workspace_trust");
   assert.equal(projection.nodes[0]?.label, "Workspace trust warning");
   assert.equal(projection.nodes[0]?.status, "warning");
@@ -424,6 +424,53 @@ test("projects approval and policy events without workflow node ids", () => {
   assert.equal(nodes[1]?.nodeKind, "hook_policy");
   assert.equal(nodes[1]?.status, "blocked");
   assert.deepEqual(nodes[1]?.policyDecisionRefs, ["policy-deny"]);
+});
+
+test("projects approval decisions as human-gate React Flow rows", () => {
+  const approval = event("event-approval", 1, {
+    type: "approval_required",
+    eventKind: "approval.required",
+    sourceEventKind: "OperatorApproval.Request",
+    componentKind: "approval_gate",
+    workflowNodeId: "workflow.coding.file.apply_patch",
+    approvalId: "approval-123",
+    status: "waiting_for_input",
+    receiptRefs: ["receipt-approval-required"],
+    policyDecisionRefs: ["policy-approval-required"],
+  });
+  const decision = event("event-approval-approved", 2, {
+    type: "approval_decision",
+    eventKind: "approval.approved",
+    sourceEventKind: "OperatorApproval.Approve",
+    componentKind: "approval_gate",
+    workflowNodeId: "workflow.coding.file.apply_patch",
+    approvalId: "approval-123",
+    status: "approved",
+    receiptRefs: ["receipt-approval-approved"],
+    policyDecisionRefs: ["policy-approval-approved"],
+    payloadSchemaVersion: "ioi.runtime.approval-decision.v1",
+    payload: {
+      approval_id: "approval-123",
+      decision: "approve",
+      approval_request_event_id: "event-approval",
+    },
+  });
+  const nodes = projectRuntimeThreadEventsToWorkflowNodes([approval, decision]);
+
+  assert.equal(nodes.length, 1);
+  assert.equal(nodes[0]?.nodeKind, "human_gate");
+  assert.equal(nodes[0]?.componentKind, "approval_gate");
+  assert.equal(nodes[0]?.label, "Approval approved");
+  assert.equal(nodes[0]?.status, "completed");
+  assert.deepEqual(nodes[0]?.eventIds, ["event-approval", "event-approval-approved"]);
+  assert.deepEqual(nodes[0]?.receiptRefs, [
+    "receipt-approval-required",
+    "receipt-approval-approved",
+  ]);
+  assert.deepEqual(nodes[0]?.policyDecisionRefs, [
+    "policy-approval-required",
+    "policy-approval-approved",
+  ]);
 });
 
 test("projects diagnostics blocking gates as workflow-addressable policy nodes", () => {

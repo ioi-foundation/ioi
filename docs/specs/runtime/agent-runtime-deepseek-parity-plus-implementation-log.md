@@ -178,8 +178,42 @@ workstream was narrower.
 | 176 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-owned workspace trust warning records | /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json |
 | 177 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow mode/trust authoring and workspace trust acknowledgement controls | /tmp/ioi-autopilot-gui-harness-runtime-thread-mode-ack/2026-05-14T00-50-29-577Z/result.json |
 | 178 | 2026-05-14 | P1-C. Modes, Trust, Approvals | WorkspaceTrustGateNode activation/run gate | /tmp/ioi-autopilot-gui-harness-workspace-trust-gate/2026-05-14T01-22-22-906Z/result.json |
+| 179 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow policy-stack replay for trust plus coding approval | /tmp/ioi-autopilot-gui-harness-policy-stack-replay/2026-05-14T01-35-21-567Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 179. 2026-05-14 - React Flow policy-stack replay for trust plus coding approval
+
+Implementation slice completed 2026-05-14, P1-C policy-stack replay:
+
+- Added SDK normalization for `approval.approved` and `approval.rejected` as
+  first-class `approval_decision` thread events so approval decisions no longer
+  degrade to generic runtime steps.
+- Updated React Flow runtime-event projection so approval decision receipts stay
+  on human-gate rows and can share workflow/node identity with the original
+  `approval.required` event and approved coding-tool retry.
+- Added `workflowRuntimePolicyStackFromEvents` as a reusable, daemon-event-only
+  model for the ordered path: workspace trust warning, workspace trust
+  acknowledgement, approval requirement, approval decision, and approved retry.
+- Surfaced the policy stack in the run inspector with schema/status/stage
+  data attributes so React Flow can show replayable gate order without storing
+  canvas-local trust or approval truth.
+- Added a live daemon proof that drives a React Flow-authored YOLO workflow
+  through workspace trust acknowledgement, coding-tool approval, approved retry,
+  and idempotent replay while preserving graph/node identity.
+- Updated the master guide so the next P1-C work moves from composing trust and
+  approval gates to proposal-only workflow edit locks and hard policy coverage.
+
+Validation evidence:
+
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --test --test-name-pattern "React Flow policy stack replays workspace trust and coding approval gates in order" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-policy-stack-replay`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-policy-stack-replay/2026-05-14T01-35-21-567Z/result.json`.
 
 ### Slice 178. 2026-05-14 - WorkspaceTrustGateNode activation/run gate
 

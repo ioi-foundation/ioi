@@ -23,6 +23,10 @@ import {
   type WorkflowRuntimeEventProjection,
   type WorkflowRuntimeThreadEventLike,
 } from "./workflow-runtime-event-projection";
+import {
+  workflowRuntimePolicyStackFromEvents,
+  type WorkflowRuntimePolicyStack,
+} from "./workflow-runtime-policy-stack";
 
 export type WorkflowRunHistoryRow = {
   run: WorkflowRunSummary;
@@ -58,6 +62,7 @@ export type WorkflowRunHistoryModel = {
   selectedRun: WorkflowRunResult | null;
   comparison: WorkflowRunComparison | null;
   runtimeEventProjection: WorkflowRuntimeEventProjection;
+  runtimePolicyStack: WorkflowRuntimePolicyStack;
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   defaultCompareRun: WorkflowRunSummary | null;
   timelineEvents: WorkflowStreamEvent[];
@@ -109,6 +114,10 @@ export function workflowRunHistoryModel({
     canonicalRuntimeThreadEvents,
     { columns: 2 },
   );
+  const runtimePolicyStack = workflowRuntimePolicyStackFromEvents(
+    canonicalRuntimeThreadEvents,
+    { workflowGraphId: workflow.metadata.id },
+  );
   const tuiControlStateProjection = projectRuntimeTuiControlStateToWorkflowProjection(
     tuiControlState ?? tuiControlStateForRunResult(selectedRun),
   );
@@ -142,6 +151,7 @@ export function workflowRunHistoryModel({
     selectedRun,
     comparison,
     runtimeEventProjection,
+    runtimePolicyStack,
     tuiControlStateProjection,
     defaultCompareRun,
     timelineEvents,
