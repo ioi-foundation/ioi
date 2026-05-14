@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "workflow.telemetry-budget-chain.run-inspector-proof.v1",
+  "scenario": "workflow_telemetry_budget_chain_run_inspector_materialize",
+  "passed": true,
+  "clickedControlTestId": "workflow-run-telemetry-budget-chain-materialize",
+  "materialized": {
+    "mode": "materialized",
+    "insertedNodeIds": [
+      "run-inspector-proof-chain-usage-meter",
+      "run-inspector-proof-chain-context-budget",
+      "run-inspector-proof-chain-compaction-policy",
+      "run-inspector-proof-chain-coding-budget-gate"
+    ],
+    "insertedEdgeIds": [
+      "run-inspector-proof-chain-usage-to-context",
+      "run-inspector-proof-chain-context-to-compaction",
+      "run-inspector-proof-chain-compaction-to-budget-gate"
+    ],
+    "boundNodeIds": [
+      "run-inspector-proof-chain-usage-meter",
+      "run-inspector-proof-chain-context-budget",
+      "run-inspector-proof-chain-compaction-policy",
+      "run-inspector-proof-chain-coding-budget-gate"
+    ],
+    "evidenceLatestEventId": "event-run-inspector-context"
+  },
+  "hydrated": {
+    "mode": "hydrated",
+    "insertedNodeIds": [],
+    "boundNodeIds": [
+      "existing-run-inspector-chain-usage-meter",
+      "existing-run-inspector-chain-context-budget",
+      "existing-run-inspector-chain-compaction-policy",
+      "existing-run-inspector-chain-coding-budget-gate"
+    ]
+  },
+  "validation": {
+    "materializedTelemetryIssueCount": 0,
+    "brokenTelemetryIssues": [
+      {
+        "nodeId": "run-inspector-proof-chain-context-budget",
+        "code": "missing_runtime_telemetry_source_usage_binding",
+        "fieldPath": "runtimeContextBudgetUsageField"
+      }
+    ]
+  },
+  "checks": {
+    "runInspectorButtonRendered": true,
+    "runInspectorButtonCallsHandler": true,
+    "railPanelPropWired": true,
+    "viewPassesHandler": true,
+    "controllerUsesMaterializationHelper": true,
+    "materializationHelperDetectsExistingChain": true,
+    "materializesFourNodes": true,
+    "materializesThreeEdges": true,
+    "materializedChainDetected": true,
+    "materializedReadinessPasses": true,
+    "hydratesExistingChain": true,
+    "blocksMissingTelemetry": true,
+    "readinessFailsWhenUpstreamBindingRemoved": true
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts"
+  ]
+}

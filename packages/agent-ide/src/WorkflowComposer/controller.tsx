@@ -152,6 +152,11 @@ import type { WorkflowRuntimeTelemetrySummary } from "../runtime/workflow-runtim
 import { materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry } from "../runtime/workflow-runtime-telemetry-budget-chain-materialization";
 import { materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow } from "../runtime/workflow-runtime-terminal-coding-loop-materialization";
 import { workflowRuntimeSubflowReactFlowElements } from "./runtimeSubflowInsertion";
+import {
+  runWorkflowComposerTerminalCodingLoopActivation,
+  workflowComposerTerminalCodingLoopControlRequestForRuntime,
+  workflowComposerTerminalCodingLoopRunLaunchEligible,
+} from "./terminalCodingLoopRunActivation";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -9507,7 +9512,15 @@ export function useWorkflowComposerController({
       setLastRunResult(result);
       setSelectedRunId(result.summary.id);
       setRunEvents(result.events);
-      setRuntimeThreadEvents(await loadRuntimeThreadEvents(result.thread.id));
+      const runResultRuntimeEvents = Array.isArray(result.runtimeThreadEvents)
+        ? (result.runtimeThreadEvents as WorkflowRuntimeThreadEventLike[])
+        : [];
+      setRuntimeThreadEvents(
+        mergeWorkflowRuntimeThreadEvents(
+          runResultRuntimeEvents,
+          await loadRuntimeThreadEvents(result.thread.id),
+        ),
+      );
       setRuns((current) => [
         result.summary,
         ...current.filter(
@@ -12961,6 +12974,30 @@ export function useWorkflowComposerController({
         if (workflowRunCodingBudgetPreflightAnnotation) {
           workflowRunOptions.codingToolBudgetPreflight =
             workflowRunCodingBudgetPreflightAnnotation;
+        }
+        if (
+          validation.status === "passed" &&
+          liveTelemetryHydration &&
+          runtime.executeWorkflowRuntimeControlRequest &&
+          workflowComposerTerminalCodingLoopRunLaunchEligible(currentProjectFile)
+        ) {
+          const launch = await runWorkflowComposerTerminalCodingLoopActivation({
+            workflow: currentProjectFile,
+            workflowPath,
+            threadId: liveTelemetryHydration.threadId,
+            actor: "workflow-author",
+            executeRuntimeControlRequest: async (request) =>
+              runtime.executeWorkflowRuntimeControlRequest?.(
+                workflowComposerTerminalCodingLoopControlRequestForRuntime(
+                  request,
+                ),
+              ) ?? null,
+          });
+          liveTelemetryHydration?.stop();
+          await applyRunResult(launch.runResult);
+          setRightPanel("runs");
+          setStatusMessage(launch.runResult.summary.summary);
+          return;
         }
         const result = await runtime.runWorkflowProject(
           workflowPath,
