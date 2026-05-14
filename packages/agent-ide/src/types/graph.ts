@@ -492,6 +492,7 @@ export interface NodeLogic {
   subagentMaxConcurrency?: number;
   subagentWaitTimeoutMs?: number;
   subagentBudgetJson?: string;
+  subagentBudgetUsageField?: string;
   subagentOutputContractJson?: string;
   subagentMergePolicy?:
     | "manual"

@@ -182,8 +182,49 @@ workstream was narrower.
 | 180 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-gated workflow edit proposals | /tmp/ioi-autopilot-gui-harness-workflow-edit-proposals/2026-05-14T01-59-10-348Z/result.json |
 | 181 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary unification | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json |
 | 182 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary budget gate enforcement | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary-budget-gate/2026-05-14T02-21-14-227Z/result.json |
+| 183 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | subagent summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-subagent-summary-budget/2026-05-14T02-32-43-456Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 183. 2026-05-14 - Subagent summary-budget enforcement
+
+Implementation slice completed 2026-05-14, P1-D/P1-A summary-driven subagent
+budget enforcement:
+
+- Added React Flow `subagentBudgetUsageField` support so subagent spawn/input
+  state nodes can point budget evaluation at `runtimeTelemetrySummary` or any
+  workflow input field that carries usage telemetry.
+- Extended `createRuntimeSubagentControlRequestFromWorkflowNode` to normalize a
+  shared telemetry summary into `budgetUsageTelemetry` with daemon-friendly
+  token, cost, context-pressure, source-count, receipt, and policy fields.
+- Added daemon-side `subagentBudgetUsageTelemetryForRequest` normalization and
+  wired it into subagent spawn, send-input continuation, and resume budget
+  checks as prior usage before the new child run is evaluated.
+- Preserved daemon-owned blocked subagent records, lifecycle events, budget
+  policy decisions, receipt refs, and React Flow projection rows when summary
+  usage pushes the delegated work over budget.
+- Updated the master guide so the next P1-D slice narrows to coding-tool
+  continuation decisions from the same shared telemetry summary.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts`
+  - subagent request compilation and telemetry-summary conversion tests passed.
+- `node --check packages/runtime-daemon/src/subagent-manager.mjs && node --check packages/runtime-daemon/src/index.mjs && node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - daemon/subagent/live-contract syntax checks passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript/Vite build passed.
+- `node --test --test-name-pattern "React Flow subagent budget" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon proof passed for summary-driven subagent spawn blocking,
+    summary-driven subagent continuation blocking, persisted blocked records,
+    and React Flow projection evidence.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow event projection source-contract guard passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broad React Flow/runtime source-contract regression passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-subagent-summary-budget`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-subagent-summary-budget/2026-05-14T02-32-43-456Z/result.json`.
 
 ### Slice 182. 2026-05-14 - Runtime telemetry summary budget gate enforcement
 

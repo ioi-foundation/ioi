@@ -74,6 +74,7 @@ import {
   optionalPositiveInteger,
   subagentBudgetStatusForRun,
   subagentBudgetForRequest,
+  subagentBudgetUsageTelemetryForRequest,
   subagentCancellationPropagates,
   subagentContractOutputForRun,
   subagentIsActive,
@@ -1782,7 +1783,13 @@ export class AgentgresRuntimeStateStore {
     const output = subagentContractOutputForRun(run, outputContract);
     const outputContractStatus = validateSubagentOutputContract(output, outputContract);
     const budget = subagentBudgetForRequest(request);
-    const budgetStatus = subagentBudgetStatusForRun({ budget, run, prompt });
+    const budgetUsageTelemetry = subagentBudgetUsageTelemetryForRequest(request);
+    const budgetStatus = subagentBudgetStatusForRun({
+      budget,
+      run,
+      prompt,
+      previousUsage: budgetUsageTelemetry ?? {},
+    });
     const subagentLifecycleStatus =
       budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status);
     const workflowGraphId =
@@ -1854,6 +1861,8 @@ export class AgentgresRuntimeStateStore {
       max_concurrency: maxConcurrency,
       maxConcurrency,
       budget,
+      budget_usage_telemetry: budgetUsageTelemetry,
+      budgetUsageTelemetry,
       budget_status: budgetStatus.status,
       budgetStatus,
       usage_telemetry: budgetStatus.usage,
@@ -2053,6 +2062,18 @@ export class AgentgresRuntimeStateStore {
       output,
       record.output_contract ?? record.outputContract,
     );
+    const budget = subagentBudgetForRequest(request) ?? subagentBudgetForRequest(record);
+    const budgetUsageTelemetry =
+      subagentBudgetUsageTelemetryForRequest(request) ??
+      record.usage_telemetry ??
+      record.usageTelemetry ??
+      null;
+    const budgetStatus = subagentBudgetStatusForRun({
+      budget,
+      run,
+      prompt: message,
+      previousUsage: budgetUsageTelemetry ?? {},
+    });
     const now = new Date().toISOString();
     const inputRecord = {
       schema_version: "ioi.runtime.subagent-input.v1",
@@ -2086,9 +2107,23 @@ export class AgentgresRuntimeStateStore {
         ...normalizeArray(record.previousRunIds ?? record.previous_run_ids),
         previousRunId,
       ]),
-      lifecycle_status: lifecycleStatusForRun(run.status),
-      lifecycleStatus: lifecycleStatusForRun(run.status),
-      status: lifecycleStatusForRun(run.status),
+      lifecycle_status:
+        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
+      lifecycleStatus:
+        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
+      status:
+        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
+      budget,
+      budget_usage_telemetry: budgetUsageTelemetry,
+      budgetUsageTelemetry,
+      budget_status: budgetStatus.status,
+      budgetStatus,
+      usage_telemetry: budgetStatus.usage,
+      usageTelemetry: budgetStatus.usage,
+      budget_policy_decision: budgetStatus.policy_decision,
+      budgetPolicyDecision: budgetStatus.policyDecision,
+      block_reason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
+      blockReason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
       output_contract_status: outputContractStatus.status,
       outputContractStatus,
       output_contract_validation: outputContractStatus,
@@ -2144,6 +2179,22 @@ export class AgentgresRuntimeStateStore {
     };
     saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
     this.writeSubagent(saved, "subagent.input");
+    if (budgetStatus.status === "exceeded") {
+      throw policyError("Subagent budget limit exceeded.", {
+        threadId,
+        subagentId,
+        reason: "subagent_budget_exceeded",
+        budgetStatus,
+        budget_status: budgetStatus.status,
+        subagent: this.subagentProjection(saved),
+        eventId: event.event_id,
+        event_id: event.event_id,
+        receiptRefs: event.receipt_refs,
+        receipt_refs: event.receipt_refs,
+        policyDecisionRefs: event.policy_decision_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      });
+    }
     return {
       ...this.subagentProjection(saved),
       input: inputRecord,
@@ -2167,6 +2218,18 @@ export class AgentgresRuntimeStateStore {
       output,
       record.output_contract ?? record.outputContract,
     );
+    const budget = subagentBudgetForRequest(request) ?? subagentBudgetForRequest(record);
+    const budgetUsageTelemetry =
+      subagentBudgetUsageTelemetryForRequest(request) ??
+      record.usage_telemetry ??
+      record.usageTelemetry ??
+      null;
+    const budgetStatus = subagentBudgetStatusForRun({
+      budget,
+      run,
+      prompt,
+      previousUsage: budgetUsageTelemetry ?? {},
+    });
     const now = new Date().toISOString();
     const updated = {
       ...record,
@@ -2421,9 +2484,23 @@ export class AgentgresRuntimeStateStore {
       ]),
       model_route_id: modelRouteId,
       modelRouteId,
-      lifecycle_status: lifecycleStatusForRun(run.status),
-      lifecycleStatus: lifecycleStatusForRun(run.status),
-      status: lifecycleStatusForRun(run.status),
+      lifecycle_status:
+        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
+      lifecycleStatus:
+        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
+      status:
+        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
+      budget,
+      budget_usage_telemetry: budgetUsageTelemetry,
+      budgetUsageTelemetry,
+      budget_status: budgetStatus.status,
+      budgetStatus,
+      usage_telemetry: budgetStatus.usage,
+      usageTelemetry: budgetStatus.usage,
+      budget_policy_decision: budgetStatus.policy_decision,
+      budgetPolicyDecision: budgetStatus.policyDecision,
+      block_reason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
+      blockReason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
       restart_status: "restarted",
       restartStatus: "restarted",
       restart_count: restartCount,
@@ -2486,6 +2563,22 @@ export class AgentgresRuntimeStateStore {
     };
     saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
     this.writeSubagent(saved, "subagent.resume");
+    if (budgetStatus.status === "exceeded") {
+      throw policyError("Subagent budget limit exceeded.", {
+        threadId,
+        subagentId,
+        reason: "subagent_budget_exceeded",
+        budgetStatus,
+        budget_status: budgetStatus.status,
+        subagent: this.subagentProjection(saved),
+        eventId: event.event_id,
+        event_id: event.event_id,
+        receiptRefs: event.receipt_refs,
+        receipt_refs: event.receipt_refs,
+        policyDecisionRefs: event.policy_decision_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      });
+    }
     return {
       ...saved.result,
       subagent: this.subagentProjection(saved),
