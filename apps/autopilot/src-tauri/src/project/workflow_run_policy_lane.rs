@@ -785,6 +785,7 @@ pub(super) fn workflow_coding_tool_budget_recovery_control_result(
             tui_control_state: Some(workflow_coding_tool_budget_recovery_tui_state(
                 &thread_id,
                 workflow,
+                &run_id,
                 &cursor,
                 &event_id,
                 &workflow_node_id,
@@ -916,6 +917,11 @@ pub(super) fn workflow_attach_coding_tool_budget_recovery_retry(
             "summary": "Workflow run retried after coding-tool budget recovery approval."
         }
     }));
+    let raw_input = workflow_coding_tool_budget_recovery_tui_raw_input(
+        "retry_approved",
+        &result.summary.id,
+        &approval_id,
+    );
     result.runtime_thread_events = runtime_thread_events;
     result.tui_control_state = Some(json!({
         "schemaVersion": "ioi.workflow.runtime-tui-control-state.v1",
@@ -932,12 +938,22 @@ pub(super) fn workflow_attach_coding_tool_budget_recovery_retry(
             "decision": "retry_approved",
             "status": "completed",
             "message": "Workflow run retried after coding-tool budget recovery approval.",
+            "command": "run",
+            "rawInput": raw_input,
             "workflowNodeId": workflow_node_id,
             "eventId": event_id,
             "receiptRefs": receipt_refs,
             "policyDecisionRefs": policy_decision_refs,
             "recoveryPolicy": recovery_policy,
             "sequence": next_seq
+        }],
+        "commandHistory": [{
+            "id": format!("workflow-run-coding-tool-budget-retry-command-{}", result.summary.id),
+            "command": "run",
+            "rawInput": raw_input,
+            "status": "completed",
+            "sequence": next_seq,
+            "message": "Workflow run retried after coding-tool budget recovery approval."
         }]
     }));
     save_workflow_run_result(workflow_path, &result)?;
@@ -1179,9 +1195,24 @@ fn workflow_coding_tool_budget_recovery_approval_id(
     })
 }
 
+fn workflow_coding_tool_budget_recovery_tui_raw_input(
+    action: &str,
+    run_id: &str,
+    approval_id: &str,
+) -> String {
+    match action {
+        "request_approval" => format!("/run recovery request {run_id} {approval_id}"),
+        "approve_override" => format!("/run recovery approve {run_id} {approval_id}"),
+        "reject_override" => format!("/run recovery reject {run_id} {approval_id}"),
+        "retry_approved" => format!("/run recovery retry-approved {run_id} {approval_id}"),
+        other => format!("/run recovery {other} {run_id} {approval_id}"),
+    }
+}
+
 fn workflow_coding_tool_budget_recovery_tui_state(
     thread_id: &str,
     workflow: &WorkflowProject,
+    run_id: &str,
     cursor: &str,
     event_id: &str,
     workflow_node_id: &str,
@@ -1193,6 +1224,7 @@ fn workflow_coding_tool_budget_recovery_tui_state(
     receipt_refs: &[String],
     policy_decision_refs: &[String],
 ) -> Value {
+    let raw_input = workflow_coding_tool_budget_recovery_tui_raw_input(action, run_id, approval_id);
     let approval_rows = if action == "request_approval" {
         json!([{
             "id": format!("workflow-run-coding-tool-budget-approval-{}", approval_id),
@@ -1212,7 +1244,7 @@ fn workflow_coding_tool_budget_recovery_tui_state(
         json!([{
             "id": format!("workflow-run-coding-tool-budget-decision-{}", approval_id),
             "approvalId": approval_id,
-            "decision": if action == "approve_override" { "approve" } else { "reject" },
+            "decision": if action == "reject_override" { "reject" } else { "approve" },
             "status": status,
             "message": "Coding-tool budget recovery decision recorded.",
             "workflowNodeId": workflow_node_id,
@@ -1238,7 +1270,7 @@ fn workflow_coding_tool_budget_recovery_tui_state(
             "status": "blocked",
             "label": "Coding tool budget: recovery",
             "command": "run",
-            "rawInput": "/workflow run",
+            "rawInput": raw_input,
             "message": "Coding-tool budget launch block is pending recovery.",
             "workflowNodeId": target_node_ids.first().cloned().unwrap_or_else(|| WORKFLOW_RUN_CODING_TOOL_BUDGET_RECOVERY_WORKFLOW_NODE_ID.to_string()),
             "workflowGraphId": workflow.metadata.id,
@@ -1257,7 +1289,7 @@ fn workflow_coding_tool_budget_recovery_tui_state(
         "commandHistory": [{
             "id": format!("workflow-run-coding-tool-budget-recovery-command-{}", approval_id),
             "command": "run",
-            "rawInput": "/workflow run",
+            "rawInput": raw_input,
             "status": status,
             "sequence": 1,
             "message": "Coding-tool budget recovery control recorded."

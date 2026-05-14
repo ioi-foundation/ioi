@@ -109,6 +109,12 @@ const RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION = "ioi.runtime.thread-mode-cont
 const RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.runtime.model-route-control.v1";
 const WORKSPACE_TRUST_WARNING_SCHEMA_VERSION = "ioi.runtime.workspace-trust-warning.v1";
 const WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION = "ioi.runtime.workspace-trust-acknowledgement.v1";
+const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION =
+  "ioi.workflow.coding-tool-budget-recovery.v1";
+const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION =
+  "ioi.workflow.coding-tool-budget-recovery-policy.v1";
+const WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON =
+  "coding_tool_budget_preflight_blocked";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const RUNTIME_MCP_SERVE_SCHEMA_VERSION = "ioi.runtime.mcp-serve.v1";
 const RUNTIME_MCP_SERVE_PROTOCOL_VERSION = "2024-11-05";
@@ -2224,6 +2230,7 @@ export class AgentgresRuntimeStateStore {
       record.usage_telemetry ??
       record.usageTelemetry ??
       null;
+    const prompt = optionalString(record.prompt ?? record.objective ?? record.task) ?? "";
     const budgetStatus = subagentBudgetStatusForRun({
       budget,
       run,
@@ -2436,6 +2443,18 @@ export class AgentgresRuntimeStateStore {
       output,
       record.output_contract ?? record.outputContract,
     );
+    const budget = subagentBudgetForRequest(request) ?? subagentBudgetForRequest(record);
+    const budgetUsageTelemetry =
+      subagentBudgetUsageTelemetryForRequest(request) ??
+      record.usage_telemetry ??
+      record.usageTelemetry ??
+      null;
+    const budgetStatus = subagentBudgetStatusForRun({
+      budget,
+      run,
+      prompt,
+      previousUsage: budgetUsageTelemetry ?? {},
+    });
     const now = new Date().toISOString();
     const restartCount = Number(record.restart_count ?? record.restartCount ?? 0) + 1;
     const resumeRecord = {
@@ -4150,6 +4169,354 @@ export class AgentgresRuntimeStateStore {
       receipt_refs: event.receipt_refs,
       policy_decision_refs: event.policy_decision_refs,
     };
+  }
+
+  latestApprovalDecisionEvent(threadId, approvalId) {
+    const normalizedApprovalId = optionalString(approvalId);
+    if (!normalizedApprovalId) return null;
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    return (
+      stream.events
+        .filter(
+          (event) =>
+            event.approval_id === normalizedApprovalId &&
+            (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
+        )
+        .at(-1) ?? null
+    );
+  }
+
+  latestCodingToolBudgetBlockedEventForRun(runId, sourceEventId = null) {
+    const run = this.getRun(runId);
+    const agent = this.getAgent(run.agentId);
+    this.projectThreadEvents(agent);
+    const turnId = turnIdForRun(run.id);
+    const events = this.runtimeEventsForTurn(turnId);
+    const explicitSourceEventId = optionalString(sourceEventId);
+    if (explicitSourceEventId) {
+      const explicit = events.find((event) => event.event_id === explicitSourceEventId);
+      if (explicit) return explicit;
+    }
+    return events.filter(isCodingToolBudgetBlockedRuntimeEvent).at(-1) ?? null;
+  }
+
+  codingToolBudgetRecoveryForRun(runId, request = {}) {
+    const run = this.getRun(runId);
+    const agent = this.getAgent(run.agentId);
+    const expectedThreadId = threadIdForAgent(agent.id);
+    const threadId =
+      optionalString(request.thread_id ?? request.threadId) ??
+      expectedThreadId;
+    if (threadId !== expectedThreadId) {
+      throw notFound(`Run not found for thread: ${runId}`, { runId, threadId });
+    }
+    const turnId = turnIdForRun(run.id);
+    const action = codingToolBudgetRecoveryAction(
+      request.action ?? request.recovery_action ?? request.recoveryAction,
+    );
+    const source = operatorControlSource(request.source);
+    const actor = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedSourceEventId = optionalString(request.source_event_id ?? request.sourceEventId);
+    const blockedEvent = this.latestCodingToolBudgetBlockedEventForRun(run.id, requestedSourceEventId);
+    const blockedPayload = blockedEvent?.payload_summary ?? blockedEvent?.payload ?? {};
+    const sourceEventId = requestedSourceEventId ?? blockedEvent?.event_id ?? null;
+    const targetNodeIds = codingToolBudgetRecoveryTargetNodeIds({ request, blockedEvent, blockedPayload });
+    const recoveryPolicy = codingToolBudgetRecoveryPolicyFromInputs({
+      request,
+      blockedPayload,
+      targetNodeIds,
+      source,
+    });
+    const approvalId =
+      optionalString(request.approval_id ?? request.approvalId) ??
+      optionalString(blockedPayload.approval_id ?? blockedPayload.approvalId) ??
+      `approval_workflow_run_coding_tool_budget_${safeId(run.id)}_${safeId(sourceEventId ?? "source")}`;
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
+      optionalString(blockedEvent?.workflow_graph_id ?? blockedPayload.workflow_graph_id ?? blockedPayload.workflowGraphId) ??
+      null;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(blockedEvent?.workflow_node_id ?? blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId) ??
+      targetNodeIds[0] ??
+      "runtime.coding-tool-budget-recovery";
+    const receiptRefs = uniqueStrings([
+      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
+      ...normalizeArray(blockedEvent?.receipt_refs),
+      `receipt_${run.id}_coding_tool_budget_recovery_${safeId(action)}_${safeId(approvalId)}`,
+    ]);
+    const policyDecisionRefs = uniqueStrings([
+      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
+      ...normalizeArray(blockedEvent?.policy_decision_refs),
+      `policy_${run.id}_coding_tool_budget_recovery_${safeId(action)}`,
+    ]);
+    const approvalManifest = {
+      schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+      schemaVersion: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+      action: "workflow_run.coding_budget_recovery",
+      recovery_action: action,
+      recoveryAction: action,
+      reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
+      source_event_id: sourceEventId,
+      sourceEventId,
+      approval_id: approvalId,
+      approvalId,
+      run_id: run.id,
+      runId: run.id,
+      thread_id: threadId,
+      threadId,
+      turn_id: turnId,
+      turnId,
+      workflow_graph_id: workflowGraphId,
+      workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflowNodeId,
+      target_node_ids: targetNodeIds,
+      targetNodeIds,
+      recovery_policy: recoveryPolicy,
+      recoveryPolicy,
+    };
+
+    if (action === "request_approval") {
+      const approval = this.requestThreadApproval(threadId, {
+        ...request,
+        source,
+        actor,
+        turnId,
+        workflowGraphId,
+        workflowNodeId,
+        action: "workflow_run.coding_budget_recovery",
+        reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
+        scope: "coding_tool_budget_recovery",
+        approvalId,
+        toolId: "coding_tool",
+        effectClass: "coding_tool_budget_recovery",
+        riskDomain: "runtime_coding_tool_budget",
+        authorityScopeRequirements: ["workflow.run.coding_tool_budget_recovery"],
+        approvalManifest,
+        receiptRefs,
+        policyDecisionRefs,
+      });
+      const approvalEvent = this.latestApprovalRequestEvent(threadId, approval.approval_id);
+      return codingToolBudgetRecoveryResult({
+        action,
+        status: "waiting_for_approval",
+        run,
+        threadId,
+        turnId,
+        approvalId: approval.approval_id,
+        sourceEventId,
+        targetNodeIds,
+        workflowGraphId,
+        workflowNodeId,
+        recoveryPolicy,
+        event: approvalEvent,
+        approvalEvent,
+        receiptRefs: uniqueStrings([...receiptRefs, ...normalizeArray(approval.receipt_refs)]),
+        policyDecisionRefs: uniqueStrings([
+          ...policyDecisionRefs,
+          ...normalizeArray(approval.policy_decision_refs),
+        ]),
+      });
+    }
+
+    if (action === "approve_override" || action === "reject_override") {
+      const decision = action === "approve_override" ? "approve" : "reject";
+      const decisionResult = this.decideThreadApproval(threadId, approvalId, {
+        ...request,
+        source,
+        actor,
+        turnId,
+        decision,
+        reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
+        workflowGraphId,
+        workflowNodeId,
+      });
+      const decisionEvent = this.latestApprovalDecisionEvent(threadId, approvalId);
+      return codingToolBudgetRecoveryResult({
+        action,
+        status: decision === "approve" ? "approved" : "rejected",
+        run,
+        threadId,
+        turnId,
+        approvalId,
+        sourceEventId,
+        targetNodeIds,
+        workflowGraphId,
+        workflowNodeId,
+        recoveryPolicy,
+        event: decisionEvent,
+        decisionEvent,
+        receiptRefs: uniqueStrings([...receiptRefs, ...normalizeArray(decisionResult.receipt_refs)]),
+        policyDecisionRefs: uniqueStrings([
+          ...policyDecisionRefs,
+          ...normalizeArray(decisionResult.policy_decision_refs),
+        ]),
+      });
+    }
+
+    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, approvalId);
+    const approvalDecisionEvent = this.latestApprovalDecisionEvent(threadId, approvalId);
+    if (recoveryPolicy.requiresApproval !== false) {
+      if (!approvalRequestEvent) {
+        return codingToolBudgetRecoveryResult({
+          action,
+          status: "blocked",
+          reason: "approval_request_missing",
+          run,
+          threadId,
+          turnId,
+          approvalId,
+          sourceEventId,
+          targetNodeIds,
+          workflowGraphId,
+          workflowNodeId,
+          recoveryPolicy,
+          receiptRefs,
+          policyDecisionRefs,
+        });
+      }
+      if (!approvalDecisionEvent || approvalDecisionEvent.event_kind !== "approval.approved") {
+        return codingToolBudgetRecoveryResult({
+          action,
+          status: "blocked",
+          reason: approvalDecisionEvent ? "approval_rejected" : "approval_decision_missing",
+          run,
+          threadId,
+          turnId,
+          approvalId,
+          sourceEventId,
+          targetNodeIds,
+          workflowGraphId,
+          workflowNodeId,
+          recoveryPolicy,
+          event: approvalDecisionEvent,
+          decisionEvent: approvalDecisionEvent,
+          receiptRefs,
+          policyDecisionRefs,
+        });
+      }
+    }
+    const retryLimit = recoveryPolicyRetryLimit(recoveryPolicy);
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const retryCount = stream.events.filter((event) => {
+      if (event.event_kind !== "workflow.run.retry_completed") return false;
+      const payload = event.payload_summary ?? event.payload ?? {};
+      return (
+        event.approval_id === approvalId ||
+        payload.approval_id === approvalId ||
+        payload.approvalId === approvalId ||
+        (sourceEventId &&
+          (payload.source_event_id === sourceEventId || payload.sourceEventId === sourceEventId))
+      );
+    }).length;
+    if (retryCount >= retryLimit) {
+      return codingToolBudgetRecoveryResult({
+        action,
+        status: "blocked",
+        reason: "retry_limit_exceeded",
+        run,
+        threadId,
+        turnId,
+        approvalId,
+        sourceEventId,
+        targetNodeIds,
+        workflowGraphId,
+        workflowNodeId,
+        recoveryPolicy,
+        event: approvalDecisionEvent,
+        decisionEvent: approvalDecisionEvent,
+        receiptRefs,
+        policyDecisionRefs,
+      });
+    }
+    const now = new Date().toISOString();
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId}:item:coding-tool-budget-recovery:${safeId(approvalId)}:${retryCount + 1}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `run:${run.id}:coding-tool-budget-recovery.retry:${approvalId}:${retryCount + 1}`,
+      source,
+      source_event_kind: "WorkflowRunCodingToolBudgetApprovedRetry",
+      event_kind: "workflow.run.retry_completed",
+      status: "completed",
+      actor,
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "coding_tool",
+      approval_id: approvalId,
+      payload_schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+      payload: {
+        ...approvalManifest,
+        event_kind: "WorkflowRunCodingToolBudgetApprovedRetry",
+        eventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
+        recovery_action: "retry_approved",
+        recoveryAction: "retry_approved",
+        status: "completed",
+        approval_satisfied: true,
+        approvalSatisfied: true,
+        approval_decision_event_id: approvalDecisionEvent?.event_id ?? null,
+        approvalDecisionEventId: approvalDecisionEvent?.event_id ?? null,
+        retry_count: retryCount + 1,
+        retryCount: retryCount + 1,
+        retry_limit: retryLimit,
+        retryLimit,
+        control_surface: source,
+        requested_by: actor,
+      },
+      receipt_refs: receiptRefs,
+      policy_decision_refs: policyDecisionRefs,
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "coding_tool_budget_recovery",
+      action: "retry_approved",
+      approvalId,
+      status: "completed",
+      source,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    const updated = {
+      ...run,
+      updatedAt: event.created_at,
+      trace: {
+        ...run.trace,
+        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+      },
+      operatorControls: appendOperatorControl(run.operatorControls, control),
+    };
+    this.runs.set(run.id, updated);
+    this.writeRun(updated, "workflow.run.retry_completed");
+    return codingToolBudgetRecoveryResult({
+      action,
+      status: "completed",
+      run: updated,
+      threadId,
+      turnId,
+      approvalId,
+      sourceEventId,
+      targetNodeIds,
+      workflowGraphId,
+      workflowNodeId,
+      recoveryPolicy,
+      event,
+      decisionEvent: approvalDecisionEvent,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+    });
   }
 
   workflowEditThreadContext(threadId, request = {}) {
@@ -12455,6 +12822,13 @@ async function handleRunRoute({ request, response, store, url, segments }) {
     );
     return;
   }
+  if (request.method === "POST" && action === "coding-tool-budget-recovery" && !segments[4]) {
+    writeJsonResponse(
+      response,
+      store.codingToolBudgetRecoveryForRun(runId, await readBody(request)),
+    );
+    return;
+  }
   if (request.method === "POST" && action === "cancel") {
     writeJsonResponse(response, store.cancelRun(runId));
     return;
@@ -18802,6 +19176,28 @@ function approvalDecisionForRequest(value) {
   });
 }
 
+function codingToolBudgetRecoveryAction(value) {
+  const action = optionalString(value)?.toLowerCase().replace(/-/g, "_") ?? "request_approval";
+  if (["request", "request_approval", "approval_request"].includes(action)) {
+    return "request_approval";
+  }
+  if (["approve", "approved", "approve_override", "allow", "allowed"].includes(action)) {
+    return "approve_override";
+  }
+  if (["reject", "rejected", "reject_override", "deny", "denied"].includes(action)) {
+    return "reject_override";
+  }
+  if (["retry", "retry_approved", "approved_retry"].includes(action)) {
+    return "retry_approved";
+  }
+  throw runtimeError({
+    status: 400,
+    code: "coding_tool_budget_recovery_action_invalid",
+    message: "Coding-tool budget recovery accepts request_approval, approve_override, reject_override, or retry_approved.",
+    details: { action: value ?? null },
+  });
+}
+
 function appendOperatorControl(controls, control) {
   const existing = normalizeArray(controls);
   if (existing.some((candidate) => candidate?.eventId === control.eventId)) return existing;
@@ -18810,6 +19206,169 @@ function appendOperatorControl(controls, control) {
 
 function safeId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
+}
+
+function codingToolBudgetRecoveryTargetNodeIds({ request = {}, blockedEvent = null, blockedPayload = {} }) {
+  return uniqueStrings([
+    ...normalizeArray(request.target_node_ids ?? request.targetNodeIds),
+    ...normalizeArray(blockedPayload.target_node_ids ?? blockedPayload.targetNodeIds),
+    optionalString(request.workflow_node_id ?? request.workflowNodeId),
+    optionalString(blockedEvent?.workflow_node_id),
+    optionalString(blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId),
+  ]);
+}
+
+function codingToolBudgetRecoveryPolicyFromInputs({
+  request = {},
+  blockedPayload = {},
+  targetNodeIds = [],
+  source = "sdk_client",
+}) {
+  const manifest =
+    blockedPayload.approval_manifest ??
+    blockedPayload.approvalManifest ??
+    {};
+  const rawPolicy =
+    request.recovery_policy ??
+    request.recoveryPolicy ??
+    blockedPayload.recovery_policy ??
+    blockedPayload.recoveryPolicy ??
+    manifest.recovery_policy ??
+    manifest.recoveryPolicy ??
+    {};
+  const policy = rawPolicy && typeof rawPolicy === "object" ? rawPolicy : {};
+  const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? request.retry_limit ?? request.retryLimit ?? 1);
+  const normalizedTargetNodeIds = uniqueStrings([
+    ...normalizeArray(policy.target_node_ids ?? policy.targetNodeIds),
+    ...targetNodeIds,
+  ]);
+  return {
+    ...policy,
+    schema_version:
+      policy.schema_version ??
+      policy.schemaVersion ??
+      WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+    schemaVersion:
+      policy.schemaVersion ??
+      policy.schema_version ??
+      WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+    requires_approval: policy.requires_approval ?? policy.requiresApproval ?? true,
+    requiresApproval: policy.requiresApproval ?? policy.requires_approval ?? true,
+    allow_override: policy.allow_override ?? policy.allowOverride ?? true,
+    allowOverride: policy.allowOverride ?? policy.allow_override ?? true,
+    retry_limit: Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1,
+    retryLimit: Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1,
+    approval_scope: policy.approval_scope ?? policy.approvalScope ?? "target_nodes",
+    approvalScope: policy.approvalScope ?? policy.approval_scope ?? "target_nodes",
+    operator_role: policy.operator_role ?? policy.operatorRole ?? "budget_operator",
+    operatorRole: policy.operatorRole ?? policy.operator_role ?? "budget_operator",
+    target_node_ids: normalizedTargetNodeIds,
+    targetNodeIds: normalizedTargetNodeIds,
+    source: policy.source ?? source,
+  };
+}
+
+function recoveryPolicyRetryLimit(policy = {}) {
+  const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? 1);
+  return Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1;
+}
+
+function isCodingToolBudgetBlockedRuntimeEvent(event) {
+  const payload = event?.payload_summary ?? event?.payload ?? {};
+  const haystack = [
+    event?.component_kind,
+    event?.event_kind,
+    event?.source_event_kind,
+    event?.status,
+    payload.event_kind,
+    payload.eventKind,
+    payload.reason,
+    payload.block_reason,
+    payload.blockReason,
+    payload.budget_status,
+    payload.budgetStatus,
+    payload.context_budget_status,
+    payload.contextBudgetStatus,
+    payload.result_summary?.reason,
+    payload.resultSummary?.reason,
+    payload.error?.code,
+    payload.error?.details?.reason,
+  ]
+    .map((value) => optionalString(value)?.toLowerCase())
+    .filter(Boolean)
+    .join(" ");
+  return (
+    haystack.includes("coding_tool") &&
+    (haystack.includes("workflowruncodingtoolbudgetpreflightblocked") ||
+      haystack.includes(WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON) ||
+      haystack.includes("coding_tool_budget_exceeded") ||
+      haystack.includes("exceeded") ||
+      haystack.includes("blocked"))
+  );
+}
+
+function codingToolBudgetRecoveryResult({
+  action,
+  status,
+  reason = null,
+  run,
+  threadId,
+  turnId,
+  approvalId,
+  sourceEventId,
+  targetNodeIds,
+  workflowGraphId,
+  workflowNodeId,
+  recoveryPolicy,
+  event = null,
+  approvalEvent = null,
+  decisionEvent = null,
+  receiptRefs = [],
+  policyDecisionRefs = [],
+}) {
+  return {
+    schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+    schemaVersion: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+    status,
+    action,
+    recovery_action: action,
+    recoveryAction: action,
+    reason,
+    run_id: run.id,
+    runId: run.id,
+    thread_id: threadId,
+    threadId,
+    turn_id: turnId,
+    turnId,
+    approval_id: approvalId,
+    approvalId,
+    source_event_id: sourceEventId,
+    sourceEventId,
+    target_node_ids: targetNodeIds,
+    targetNodeIds,
+    workflow_graph_id: workflowGraphId,
+    workflowGraphId,
+    workflow_node_id: workflowNodeId,
+    workflowNodeId,
+    recovery_policy: recoveryPolicy,
+    recoveryPolicy,
+    event_id: event?.event_id ?? null,
+    eventId: event?.event_id ?? null,
+    seq: event?.seq ?? null,
+    approval_event_id: approvalEvent?.event_id ?? null,
+    approvalEventId: approvalEvent?.event_id ?? null,
+    approval_decision_event_id: decisionEvent?.event_id ?? null,
+    approvalDecisionEventId: decisionEvent?.event_id ?? null,
+    receipt_refs: receiptRefs,
+    receiptRefs,
+    policy_decision_refs: policyDecisionRefs,
+    policyDecisionRefs,
+    event,
+    approval_event: approvalEvent,
+    approvalEvent,
+    decision_event: decisionEvent,
+    decisionEvent,
+  };
 }
 
 function memoryPolicyOverrides(options = {}) {

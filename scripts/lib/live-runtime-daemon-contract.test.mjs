@@ -8121,7 +8121,11 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /TUI_RESTORE_PREVIEW_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_RESTORE_APPLY_ROUTE_TEMPLATE/);
   assert.match(source, /TUI_THREAD_DIAGNOSTICS_REPAIR_DECISION_EXECUTE_ROUTE_TEMPLATE/);
+  assert.match(source, /TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE/);
   assert.match(source, /execute_tui_diagnostics_repair_decision/);
+  assert.match(source, /execute_tui_run_coding_tool_budget_recovery/);
+  assert.match(source, /RunRecovery/);
+  assert.match(source, /\/run recovery/);
   assert.match(source, /workflow_node_ids/);
   assert.match(source, /tui_event_rows/);
   assert.match(source, /tui_coding_tool_rows/);
@@ -8132,6 +8136,7 @@ test("agent TUI thin shell is daemon-backed and avoids a private runtime loop", 
   assert.match(source, /line_mode_command=mcp/);
   assert.match(source, /line_mode_command=memory/);
   assert.match(source, /line_mode_command=subagent/);
+  assert.match(source, /line_mode_command=run action=recovery/);
   assert.match(source, /line_mode_command=restore/);
   assert.match(source, /line_mode_command=diagnostics action=repair/);
   assert.match(source, /line_mode_error/);
@@ -10964,6 +10969,203 @@ test("agent TUI approval slash commands emit receipt-backed React Flow rows", as
   }
 });
 
+test("agent TUI coding-tool budget recovery slash commands use workflow recovery policy", async () => {
+  const { projectRuntimeThreadEventsToWorkflowProjection } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-budget-recovery-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-tui-budget-recovery-state-"));
+  const cli = cliBinary();
+  const workflowGraphId = "workflow.tui.coding-budget-recovery-proof";
+  const workflowNodeId = "node-write";
+  const approvalId = "approval-budget-recovery-live";
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Recover a coding-tool budget block through TUI slash commands.",
+        source: "cli_tui",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Wait for a synthetic coding-tool budget preflight block.",
+        source: "cli_tui",
+        mode: "tui",
+      }),
+    });
+    const sourceEvent = daemon.store.appendRuntimeEvent({
+      event_stream_id: thread.event_stream_id,
+      thread_id: thread.thread_id,
+      turn_id: turn.turn_id,
+      item_id: `${turn.turn_id}:item:coding-budget-preflight-blocked`,
+      idempotency_key: `${turn.turn_id}:coding-budget-preflight-blocked`,
+      source: "daemon_bridge",
+      source_event_kind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+      event_kind: "policy.blocked",
+      status: "blocked",
+      actor: "runtime",
+      workspace_root: cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "coding_tool",
+      payload_schema_version: "ioi.workflow.coding-tool-budget-preflight.v1",
+      payload: {
+        eventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+        reason: "coding_tool_budget_preflight_blocked",
+        runId: turn.request_id,
+        threadId: thread.thread_id,
+        targetNodeIds: [workflowNodeId],
+        budgetStatus: "exceeded",
+        contextBudgetStatus: "blocked",
+        mutationBlocked: true,
+        recoveryPolicy: {
+          schemaVersion: "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+          source: "cli_tui_live",
+          approvalScope: "target_nodes",
+          operatorRole: "budget_operator",
+          retryLimit: 1,
+          ttlMs: 300000,
+          requiresApproval: true,
+          allowOverride: true,
+          targetNodeIds: [workflowNodeId],
+          sourceNodeIds: [workflowNodeId],
+        },
+      },
+      receipt_refs: ["receipt_budget_preflight_live"],
+      policy_decision_refs: ["policy_budget_preflight_live"],
+      artifact_refs: [],
+      rollback_refs: [],
+    });
+
+    const result = await execFileWithInput(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--interactive",
+      ],
+      `/run recovery request ${turn.request_id} ${approvalId}\n/run recovery approve ${turn.request_id} ${approvalId}\n/run recovery retry-approved ${turn.request_id} ${approvalId}\n/quit\n`,
+      { cwd: root, timeout: 30000 },
+    );
+    assert.match(result.stdout, /\/run recovery \[request\|approve\|reject\|retry-approved\]/);
+    assert.match(result.stdout, /line_mode_command=run action=recovery recovery_action=request_approval/);
+    assert.match(result.stdout, /line_mode_command=run action=recovery recovery_action=approve_override/);
+    assert.match(result.stdout, /line_mode_command=run action=recovery recovery_action=retry_approved/);
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const approvalEvent = daemonEvents.find(
+      (event) => event.event_kind === "approval.required" && event.approval_id === approvalId,
+    );
+    assert.ok(approvalEvent);
+    assert.equal(approvalEvent.source, "cli_tui");
+    assert.equal(
+      approvalEvent.payload_summary.approval_manifest.recoveryPolicy.operatorRole,
+      "budget_operator",
+    );
+    assert.equal(
+      approvalEvent.payload_summary.approval_manifest.recoveryPolicy.retryLimit,
+      1,
+    );
+    assert.equal(
+      approvalEvent.payload_summary.approval_manifest.sourceEventId,
+      sourceEvent.event_id,
+    );
+    const decisionEvent = daemonEvents.find(
+      (event) => event.event_kind === "approval.approved" && event.approval_id === approvalId,
+    );
+    assert.ok(decisionEvent);
+    assert.equal(decisionEvent.payload_summary.decision, "approve");
+    const retryEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "workflow.run.retry_completed" &&
+        event.approval_id === approvalId,
+    );
+    assert.ok(retryEvent);
+    assert.equal(retryEvent.source_event_kind, "WorkflowRunCodingToolBudgetApprovedRetry");
+    assert.equal(retryEvent.payload_summary.approvalDecisionEventId, decisionEvent.event_id);
+    assert.equal(retryEvent.payload_summary.recoveryPolicy.operatorRole, "budget_operator");
+    assert.equal(retryEvent.payload_summary.recoveryPolicy.retryLimit, 1);
+
+    const finalControlState = result.stdout
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("tui_control_state="))
+      .map((line) => JSON.parse(line.replace(/^tui_control_state=/, "")))
+      .at(-1);
+    assert.ok(
+      finalControlState.coding_tool_rows.some(
+        (row) =>
+          row.raw_input === `/run recovery request ${turn.request_id}` ||
+          row.raw_input === `/run recovery request ${turn.request_id} ${approvalId}`,
+      ),
+    );
+
+    const projectionEvents = daemonEvents.map((event) => ({
+      id: event.event_id,
+      seq: event.seq,
+      type: event.event_kind === "approval.required"
+        ? "approval_required"
+        : event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"
+          ? "approval_decision"
+          : event.event_kind === "workflow.run.retry_completed"
+            ? "tool_completed"
+            : event.event_kind === "policy.blocked"
+              ? "policy_blocked"
+              : event.event_kind,
+      eventKind: event.event_kind,
+      sourceEventKind: event.source_event_kind,
+      status: event.status,
+      componentKind: event.component_kind,
+      workflowNodeId: event.workflow_node_id,
+      workflowGraphId: event.workflow_graph_id,
+      threadId: event.thread_id,
+      turnId: event.turn_id,
+      approvalId: event.approval_id,
+      payloadSchemaVersion: event.payload_schema_version,
+      payload: event.payload_summary ?? event.payload ?? {},
+      receiptRefs: event.receipt_refs ?? [],
+      policyDecisionRefs: event.policy_decision_refs ?? [],
+    }));
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(projectionEvents);
+    const node = [...projection.nodes].reverse().find(
+      (candidate) =>
+        candidate.workflowNodeId === workflowNodeId ||
+        candidate.codingToolBudgetRecoveryActions?.length > 0,
+    );
+    assert.ok(node);
+    assert.deepEqual(
+      node.codingToolBudgetRecoveryActions.map((action) => [
+        action.action,
+        action.status,
+        action.executable,
+      ]),
+      [
+        ["review_receipt", "completed", false],
+        ["request_approval", "completed", false],
+        ["approve_override", "completed", false],
+        ["reject_override", "blocked", false],
+        ["retry_approved", "completed", false],
+      ],
+    );
+    assert.equal(
+      node.codingToolBudgetRecoveryActions[4].recoveryPolicy.operatorRole,
+      "budget_operator",
+    );
+  } finally {
+    if (daemon) await daemon.close();
+  }
+});
+
 test("React Flow approval request control creates a daemon-owned approval gate", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -12331,6 +12533,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-recovery-operator-role/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryPolicy, /workflowCodingToolBudgetRecoveryPolicyFromWorkflow/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryPolicy, /ioi\.workflow\.coding-tool-budget-recovery-policy\.v1/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /\/run recovery request/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /\/run recovery retry-approved/);
   assert.match(runtimeCodingTools, /toolPack\.coding\.budgetUsageField/);
   assert.match(runtimeCodingTools, /toolPack\.coding\.maxTotalTokens/);
   assert.match(workflowRuntimeEditProposalControlNodes, /createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode/);
@@ -12685,6 +12889,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /codingToolApprovalManifestsMatch/);
   assert.match(runtimeDaemon, /codingToolBudgetPolicyForRequest/);
   assert.match(runtimeDaemon, /coding_tool_budget_exceeded/);
+  assert.match(runtimeDaemon, /codingToolBudgetRecoveryForRun/);
+  assert.match(runtimeDaemon, /coding-tool-budget-recovery/);
+  assert.match(runtimeDaemon, /WorkflowRunCodingToolBudgetApprovedRetry/);
+  assert.match(runtimeDaemon, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
   assert.match(runtimeDaemon, /workflow_node_requires_approval/);
   assert.match(runtimeDaemon, /workflow_trust_profile_requires_approval/);
   assert.match(runtimeDaemon, /approval_decision_event_id/);
