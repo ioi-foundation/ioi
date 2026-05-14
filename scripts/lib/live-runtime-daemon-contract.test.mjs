@@ -276,6 +276,9 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
@@ -8847,6 +8850,347 @@ test("React Flow run-inspector-created telemetry budget chain executes with grap
     }
   } finally {
     await daemon.close();
+  }
+});
+
+function terminalLoopNodeWithArguments(node, argumentsOverride) {
+  return {
+    ...node,
+    config: {
+      ...node.config,
+      logic: {
+        ...node.config?.logic,
+        toolBinding: {
+          ...node.config?.logic?.toolBinding,
+          arguments: {
+            ...(node.config?.logic?.toolBinding?.arguments ?? {}),
+            ...argumentsOverride,
+          },
+        },
+      },
+    },
+  };
+}
+
+test("React Flow terminal coding-loop template executes against daemon with TUI row parity", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeTerminalCodingLoopStepRequest,
+    createWorkflowRuntimeTerminalCodingLoopTemplateSubflow,
+    projectRuntimeThreadEventsToWorkflowProjection,
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    updateRuntimeTerminalCodingLoopExecutionContextFromToolResult,
+    workflowRuntimeTerminalCodingLoopNodesInExecutionOrder,
+  } = await importAgentIde();
+  const cli = cliBinary();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-terminal-coding-loop-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-terminal-coding-loop-state-"));
+  git(cwd, ["init"]);
+  git(cwd, ["config", "user.email", "runtime@example.test"]);
+  git(cwd, ["config", "user.name", "Runtime Test"]);
+  fs.writeFileSync(path.join(cwd, "README.md"), "# Terminal loop\n\nreplace me\n");
+  fs.writeFileSync(
+    path.join(cwd, "sample.test.mjs"),
+    "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nconst marker = `TERMINAL_LOOP_ARTIFACT_START ${'x'.repeat(4096)} TERMINAL_LOOP_ARTIFACT_END`;\n\ntest('terminal coding loop proof', () => {\n  console.log(marker);\n  assert.equal(21 * 2, 42);\n});\n",
+  );
+  fs.writeFileSync(path.join(cwd, "loop-diagnostics.mjs"), "export const diagnostics = 1;\n");
+  git(cwd, ["add", "README.md", "sample.test.mjs", "loop-diagnostics.mjs"]);
+  git(cwd, ["commit", "-m", "seed terminal coding loop workspace"]);
+  fs.appendFileSync(path.join(cwd, "README.md"), "\nPending diff line.\n");
+
+  const workflowGraphId = "workflow.react-flow.terminal-coding-loop-live";
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove a React Flow terminal coding loop executes through daemon coding tools.",
+        options: {
+          local: { cwd },
+          model: { id: "auto", routeId: "route.native-local" },
+        },
+      }),
+    });
+    const subflow = createWorkflowRuntimeTerminalCodingLoopTemplateSubflow({
+      idPrefix: "terminal-loop-live",
+      workflowGraphId,
+      origin: { x: 120, y: 180 },
+    });
+    const nodes = workflowRuntimeTerminalCodingLoopNodesInExecutionOrder(
+      subflow.nodes.map((node) => {
+        const stepId = node.config?.logic.runtimeTerminalCodingLoopStepId;
+        if (stepId === "test_run") {
+          return terminalLoopNodeWithArguments(node, {
+            commandId: "node.test",
+            path: "sample.test.mjs",
+            maxOutputBytes: 128,
+          });
+        }
+        if (stepId === "lsp_diagnostics") {
+          return terminalLoopNodeWithArguments(node, {
+            commandId: "node.check",
+            path: "loop-diagnostics.mjs",
+            maxOutputBytes: 4096,
+          });
+        }
+        if (stepId === "artifact_read") {
+          return terminalLoopNodeWithArguments(node, {
+            artifactId: "{artifactId}",
+            lengthBytes: 8192,
+          });
+        }
+        if (stepId === "tool_retrieve_result") {
+          return terminalLoopNodeWithArguments(node, {
+            toolCallId: "{toolCallId}",
+            channel: "output",
+            lengthBytes: 8192,
+          });
+        }
+        return node;
+      }),
+    );
+    assert.deepEqual(nodes.map((node) => node.id), subflow.nodeIds);
+
+    let context = { threadId: thread.thread_id };
+    const results = new Map();
+    for (const node of nodes) {
+      const stepId = node.config?.logic.runtimeTerminalCodingLoopStepId;
+      const request = createRuntimeTerminalCodingLoopStepRequest(
+        node,
+        context,
+        { workflowGraphId, actor: "workflow-author" },
+      );
+      assert.equal(request.threadId, thread.thread_id);
+      assert.equal(request.body.workflowGraphId, workflowGraphId);
+      assert.equal(request.body.workflowNodeId, node.id);
+      if (stepId === "artifact_read") {
+        assert.notEqual(request.body.arguments.artifactId, "{artifactId}");
+        assert.equal(request.body.arguments.artifactId, context.artifactId);
+      }
+      if (stepId === "tool_retrieve_result") {
+        assert.notEqual(request.body.arguments.toolCallId, "{toolCallId}");
+        assert.equal(request.body.arguments.toolCallId, context.resultToolCallId);
+      }
+
+      const body = {
+        ...request.body,
+        toolCallId: `terminal_loop_${stepId}`,
+        tool_call_id: `terminal_loop_${stepId}`,
+      };
+      let result;
+      if (stepId === "file_apply_patch") {
+        assert.equal(body.requiresApproval, true);
+        const blocked = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
+          method: request.method,
+          body: JSON.stringify(body),
+        });
+        assert.equal(blocked.status, "blocked");
+        assert.equal(blocked.approval_required, true);
+        assert.equal(blocked.approval_manifest?.workflow_policy?.requiresApproval, true);
+        assert.equal(blocked.approval_manifest?.workflow_trust_profile, "local_private");
+        assert.equal(blocked.approval_manifest?.node_approval_override, "require_approval");
+        const decision = await fetchJson(
+          `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${blocked.approval_id}/decision`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              source: "react_flow",
+              workflowGraphId,
+              workflowNodeId: node.id,
+              decision: "approve",
+              reason: "Approve terminal coding-loop apply step.",
+            }),
+          },
+        );
+        assert.equal(decision.decision, "approve");
+        result = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
+          method: request.method,
+          body: JSON.stringify({
+            ...body,
+            approvalId: blocked.approval_id,
+          }),
+        });
+        assert.equal(result.event.payload_summary.approval_satisfied, true);
+      } else {
+        result = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
+          method: request.method,
+          body: JSON.stringify(body),
+        });
+      }
+      assert.equal(
+        result.status,
+        "completed",
+        `${stepId} failed: ${JSON.stringify(result.error ?? result.result ?? result).slice(0, 600)}`,
+      );
+      assert.equal(result.workflow_graph_id, workflowGraphId);
+      assert.equal(result.workflow_node_id, node.id);
+      assert.equal(result.tool_call_id, `terminal_loop_${stepId}`);
+      results.set(stepId, result);
+      context = updateRuntimeTerminalCodingLoopExecutionContextFromToolResult(
+        context,
+        result,
+      );
+    }
+
+    assert.match(results.get("git_diff").result.diff, /Pending diff line/);
+    assert.match(results.get("file_inspect").result.preview, /Terminal loop/);
+    assert.equal(results.get("file_apply_patch_dry_run").result.applied, false);
+    assert.equal(results.get("file_apply_patch_dry_run").result.dryRun, true);
+    assert.equal(results.get("file_apply_patch").result.applied, true);
+    assert.match(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /applied replacement/);
+    assert.doesNotMatch(fs.readFileSync(path.join(cwd, "README.md"), "utf8"), /preview replacement/);
+    assert.equal(results.get("file_apply_patch").workspace_snapshot?.schemaVersion, "ioi.runtime.workspace-snapshot.v1");
+    assert.deepEqual(results.get("file_apply_patch").rollback_refs, [
+      results.get("file_apply_patch").workspace_snapshot?.snapshotId,
+    ]);
+    assert.equal(results.get("test_run").result.testStatus, "passed");
+    assert.equal(results.get("test_run").result.truncated, true);
+    assert.ok(results.get("test_run").artifact_refs.length >= 1);
+    assert.equal(results.get("lsp_diagnostics").result.diagnosticStatus, "clean");
+    assert.match(results.get("artifact_read").result.content, /TERMINAL_LOOP_ARTIFACT_END/);
+    assert.equal(
+      results.get("artifact_read").result.artifactId,
+      results.get("test_run").result.artifacts.find((artifact) => artifact.channel === "output")?.artifactId,
+    );
+    assert.equal(
+      results.get("tool_retrieve_result").result.toolCallId,
+      results.get("test_run").tool_call_id,
+    );
+    assert.match(results.get("tool_retrieve_result").result.content, /TERMINAL_LOOP_ARTIFACT_END/);
+    assert.equal(context.resultToolCallId, results.get("test_run").tool_call_id);
+    assert.equal(context.artifactId, results.get("artifact_read").result.artifactId);
+    assert.ok(context.receiptRefs.length >= 9);
+    assert.ok(context.rollbackRefs.includes(results.get("file_apply_patch").workspace_snapshot?.snapshotId));
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const loopEvents = daemonEvents.filter(
+      (event) =>
+        event.component_kind === "coding_tool" &&
+        event.workflow_graph_id === workflowGraphId &&
+        subflow.nodeIds.includes(event.workflow_node_id),
+    );
+    assert.equal(loopEvents.length, 9);
+    assert.deepEqual(
+      loopEvents.map((event) => event.workflow_node_id),
+      subflow.nodeIds,
+    );
+    assert.ok(loopEvents.every((event) => event.event_kind === "tool.completed"));
+    assert.ok(loopEvents.every((event) => event.source === "react_flow"));
+    assert.ok(loopEvents.every((event) => event.receipt_refs.length >= 1));
+    const applyEvent = loopEvents.find(
+      (event) => event.workflow_node_id === subflow.stepNodeIds.file_apply_patch,
+    );
+    assert.ok(applyEvent.rollback_refs.includes(results.get("file_apply_patch").workspace_snapshot?.snapshotId));
+    const approvalEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "approval.required" &&
+        event.workflow_node_id === subflow.stepNodeIds.file_apply_patch,
+    );
+    assert.ok(approvalEvent);
+    assert.equal(approvalEvent.workflow_graph_id, workflowGraphId);
+    const approvalDecisionEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "approval.approved" &&
+        event.workflow_node_id === subflow.stepNodeIds.file_apply_patch,
+    );
+    assert.ok(approvalDecisionEvent);
+    const snapshotEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "workspace.snapshot.created" &&
+        event.payload_summary?.snapshot_id ===
+          results.get("file_apply_patch").workspace_snapshot?.snapshotId,
+    );
+    assert.ok(snapshotEvent);
+    assert.equal(snapshotEvent.component_kind, "workspace_snapshot");
+    assert.deepEqual(snapshotEvent.rollback_refs, [
+      results.get("file_apply_patch").workspace_snapshot?.snapshotId,
+    ]);
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, {
+      substrateClient: sdkClient,
+    });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    for (const event of loopEvents) {
+      const projected = projection.nodes.find((node) =>
+        node.eventIds.includes(event.event_id),
+      );
+      assert.ok(projected, `missing projected node for ${event.workflow_node_id}`);
+      assert.equal(projected.nodeKind, "plugin_tool");
+      assert.equal(projected.componentKind, "coding_tool");
+      assert.equal(projected.workflowNodeId, event.workflow_node_id);
+      for (const receiptRef of event.receipt_refs) {
+        assert.ok(projected.receiptRefs.includes(receiptRef));
+      }
+    }
+    const projectedRetrieve = projection.nodes.find((node) =>
+      node.eventIds.includes(results.get("tool_retrieve_result").event.event_id),
+    );
+    assert.equal(projectedRetrieve?.label, "Coding tool: tool.retrieve_result");
+
+    const finalTui = await execFileAsync(
+      cli,
+      [
+        "agent",
+        "tui",
+        "--thread-id",
+        thread.thread_id,
+        "--since-seq",
+        "0",
+        "--endpoint",
+        daemon.endpoint,
+        "--json",
+      ],
+      { cwd: root },
+    );
+    const finalControlState = JSON.parse(finalTui.stdout).tui_control_state;
+    const terminalRows = finalControlState.coding_tool_rows.filter(
+      (row) =>
+        row.row_kind === "coding_tool" &&
+        row.workflow_graph_id === workflowGraphId &&
+        subflow.nodeIds.includes(row.workflow_node_id),
+    );
+    assert.equal(terminalRows.length, 9);
+    assert.deepEqual(
+      terminalRows.map((row) => row.workflow_node_id),
+      subflow.nodeIds,
+    );
+    assert.deepEqual(
+      terminalRows.map((row) => row.command),
+      ["status", "diff", "inspect", "patch-dry-run", "patch", "test", "diagnostics", "artifact", "retrieve"],
+    );
+    assert.ok(terminalRows.every((row) => row.receipt_refs.length >= 1));
+    assert.ok(terminalRows.every((row) => row.shell_fallback_used === false));
+    assert.equal(
+      terminalRows.find((row) => row.workflow_node_id === subflow.stepNodeIds.file_apply_patch_dry_run)?.dry_run,
+      true,
+    );
+    assert.equal(
+      terminalRows.find((row) => row.workflow_node_id === subflow.stepNodeIds.file_apply_patch)?.rollback_refs[0],
+      results.get("file_apply_patch").workspace_snapshot?.snapshotId,
+    );
+    const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      ...finalControlState,
+      workflow_graph_id: workflowGraphId,
+    });
+    for (const nodeId of subflow.nodeIds) {
+      assert.ok(
+        tuiProjection.rows.some(
+          (row) =>
+            row.rowKind === "coding_tool" &&
+            row.reactFlowNodeId === nodeId &&
+            row.workflowGraphId === workflowGraphId,
+        ),
+        `missing TUI projected row for ${nodeId}`,
+      );
+    }
+  } finally {
+    if (daemon) await daemon.close();
   }
 });
 

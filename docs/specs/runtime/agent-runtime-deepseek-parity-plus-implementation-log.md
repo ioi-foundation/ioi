@@ -208,8 +208,51 @@ workstream was narrower.
 | 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json |
 | 207 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | terminal-first coding-agent parity proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json |
 | 208 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json |
+| 209 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop live execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 209. 2026-05-14 - Terminal coding-loop live execution
+
+Implementation slice completed 2026-05-14, moving the reusable terminal
+coding-loop template from authoring/materialization proof into live daemon
+execution while preserving the modular React Flow workflow-development
+boundary:
+
+- Added a terminal coding-loop execution helper that orders the generated
+  React Flow nodes, resolves template placeholders for live thread/tool/artifact
+  context, and builds daemon coding-tool invoke requests from each node's
+  `coding_tool_pack` binding.
+- Tracked live execution context across status, diff, inspect, patch dry-run,
+  patch apply, test, diagnostics, artifact read, and result retrieval, including
+  approval ids, receipt refs, rollback refs, workspace snapshot refs, test
+  output artifacts, and the original result-producing tool-call id.
+- Extended the live daemon contract so the React Flow-authored loop executes
+  against a daemon thread, handles the patch approval retry path, proves dry-run
+  non-mutation before apply, reads the spilled test artifact, retrieves the
+  original test result, and verifies daemon events plus TUI `coding_tool` rows
+  remain in generated node order.
+- Extended source contracts so the new execution helper, tests, index export,
+  and live daemon proof remain part of the workflow runtime parity surface.
+- Validated the live Autopilot GUI harness after the runtime proof, with the
+  terminal coding-loop creator and run-inspector proof artifacts still present
+  in the live evidence bundle.
+
+Evidence:
+
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/workflow-terminal-coding-loop-creator-proof.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/workflow-terminal-coding-loop-run-inspector-proof.json`
+- `packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts`
+- `packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts`
+- `scripts/lib/live-runtime-daemon-contract.test.mjs`
+
+Next tactical recommendation:
+
+- Promote the terminal coding-loop live execution from bespoke daemon-contract
+  sequencing into saved workflow run-launch/composer activation, proving a
+  persisted React Flow-authored workflow dispatches the same coding-tool loop
+  through scheduler/run-history state.
 
 ### Slice 208. 2026-05-14 - Terminal coding-loop workflow template
 

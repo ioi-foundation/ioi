@@ -589,6 +589,16 @@ export {
   workflowRuntimeTerminalCodingLoopEvidenceBinding,
   workflowRuntimeTerminalCodingLoopIdsFromWorkflow,
 } from "./runtime/workflow-runtime-terminal-coding-loop-materialization";
+export {
+  WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_EXECUTION_SCHEMA_VERSION,
+  createRuntimeTerminalCodingLoopStepRequest,
+  updateRuntimeTerminalCodingLoopExecutionContextFromToolResult,
+  workflowRuntimeTerminalCodingLoopNodesInExecutionOrder,
+} from "./runtime/workflow-runtime-terminal-coding-loop-execution";
+export type {
+  WorkflowRuntimeTerminalCodingLoopExecutionContext,
+  WorkflowRuntimeTerminalCodingLoopStepRequestOptions,
+} from "./runtime/workflow-runtime-terminal-coding-loop-execution";
 export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
