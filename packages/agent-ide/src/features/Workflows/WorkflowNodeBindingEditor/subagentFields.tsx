@@ -216,6 +216,19 @@ export function WorkflowSubagentStateFields({
         />
       </label>
       <label>
+        Budget usage field
+        <input
+          data-testid="workflow-state-subagent-budget-usage-field"
+          value={String(logic.subagentBudgetUsageField ?? "runtimeTelemetrySummary")}
+          onChange={(event) =>
+            updateLogic({
+              ...logic,
+              subagentBudgetUsageField: event.target.value,
+            })
+          }
+        />
+      </label>
+      <label>
         Output contract JSON
         <textarea
           data-testid="workflow-state-subagent-output-contract-json"

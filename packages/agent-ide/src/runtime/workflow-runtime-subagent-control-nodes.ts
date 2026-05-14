@@ -1,4 +1,8 @@
 import type { Node, NodeLogic } from "../types/graph";
+import {
+  workflowRuntimeTelemetrySummaryToUsageTelemetry,
+  type WorkflowRuntimeTelemetrySummary,
+} from "./workflow-runtime-telemetry-summary";
 
 export const WORKFLOW_RUNTIME_SUBAGENT_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-subagent-control.v1" as const;
@@ -81,6 +85,8 @@ export interface RuntimeSubagentControlRequestBody {
   wait_timeout_ms: number | null;
   waitTimeoutMs: number | null;
   budget: Record<string, unknown> | null;
+  budget_usage_telemetry: unknown | null;
+  budgetUsageTelemetry: unknown | null;
   output_contract: unknown[];
   outputContract: unknown[];
   merge_policy: string;
@@ -141,6 +147,9 @@ export interface RuntimeSubagentControlRequestInput {
   waitTimeoutMs?: number | null;
   budgetJson?: string | null;
   budget?: Record<string, unknown> | null;
+  budgetUsageTelemetry?: unknown;
+  budgetUsageTelemetryField?: string | null;
+  runtimeTelemetrySummary?: WorkflowRuntimeTelemetrySummary | null;
   outputContractJson?: string | null;
   outputContract?: unknown[] | null;
   mergePolicy?: string | null;
@@ -228,6 +237,17 @@ export function createRuntimeSubagentControlRequest(
       ...RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT,
     ]);
   const budget = params.budget ?? parseJsonObject(params.budgetJson, null);
+  const rawBudgetUsageTelemetry =
+    params.budgetUsageTelemetry ??
+    params.runtimeTelemetrySummary ??
+    valueAtPath(params.input, params.budgetUsageTelemetryField ?? "runtimeTelemetrySummary") ??
+    valueAtPath(params.input, "budgetUsageTelemetry") ??
+    valueAtPath(params.input, "budget_usage_telemetry") ??
+    null;
+  const budgetUsageTelemetry =
+    workflowRuntimeTelemetrySummaryToUsageTelemetry(rawBudgetUsageTelemetry) ??
+    rawBudgetUsageTelemetry ??
+    null;
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
     `runtime.subagent.${params.operation}.${safeId(role)}`;
@@ -347,6 +367,8 @@ export function createRuntimeSubagentControlRequest(
       wait_timeout_ms: numberOrNull(params.waitTimeoutMs),
       waitTimeoutMs: numberOrNull(params.waitTimeoutMs),
       budget,
+      budget_usage_telemetry: budgetUsageTelemetry,
+      budgetUsageTelemetry,
       output_contract: outputContract,
       outputContract,
       merge_policy: cleanString(params.mergePolicy) ?? "manual",
@@ -400,6 +422,7 @@ export function createRuntimeSubagentControlRequestFromWorkflowNode(
         ? logic.subagentWaitTimeoutMs
         : null,
     budgetJson: cleanString(logic.subagentBudgetJson),
+    budgetUsageTelemetryField: cleanString(logic.subagentBudgetUsageField),
     outputContractJson: cleanString(logic.subagentOutputContractJson),
     mergePolicy: cleanString(logic.subagentMergePolicy),
     cancellationInheritance: cleanString(logic.subagentCancellationInheritance),

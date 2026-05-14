@@ -3892,6 +3892,7 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
         subagentMaxConcurrency: { type: "number" },
         subagentWaitTimeoutMs: { type: "number" },
         subagentBudgetJson: { type: "string" },
+        subagentBudgetUsageField: { type: "string" },
         subagentOutputContractJson: { type: "string" },
         subagentMergePolicy: {
           type: "string",
@@ -5418,6 +5419,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       subagentForkContext: false,
       subagentMaxConcurrency: 2,
       subagentBudgetJson: "{}",
+      subagentBudgetUsageField: "runtimeTelemetrySummary",
       subagentOutputContractJson:
         "[\"SUMMARY\",\"CHANGES\",\"EVIDENCE\",\"RISKS\",\"BLOCKERS\",\"RECEIPTS\"]",
       subagentMergePolicy: "manual",

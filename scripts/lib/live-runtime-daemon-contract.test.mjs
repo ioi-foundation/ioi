@@ -6681,6 +6681,7 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
   const {
     createRuntimeSubagentControlRequestFromWorkflowNode,
     projectRuntimeTuiControlStateToWorkflowProjection,
+    workflowRuntimeTelemetrySummaryFromProjection,
   } = await importAgentIde();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-budget-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-subagent-budget-state-"));
@@ -6733,6 +6734,108 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
     assert.ok(allowed.usage_telemetry.cumulative_cost_estimate_usd > 0);
     assert.equal(allowed.event.payload_summary.budget_status, "within_budget");
 
+    const allowedProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      subagent_rows: [
+        {
+          ...allowed,
+          row_kind: "subagent",
+          subagent_operation: "spawn",
+          workflow_graph_id: workflowGraphId,
+          workflow_node_id: allowedRequest.body.workflowNodeId,
+        },
+      ],
+    });
+    const telemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: allowedProjection,
+    });
+    assert.ok(telemetrySummary.totalTokens > 1);
+    assert.equal(telemetrySummary.subagentCount, 1);
+
+    const summaryBlockedRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
+      stateNode("subagent-budget-summary-blocked", {
+        subagentPrompt:
+          "Continue delegated work only if the shared runtime telemetry summary budget allows it.",
+        subagentBudgetJson: JSON.stringify({
+          maxTokens: telemetrySummary.totalTokens,
+          maxCostUsd: 1,
+        }),
+        subagentBudgetUsageField: "runtimeTelemetrySummary",
+      }),
+      { threadId: thread.thread_id, runtimeTelemetrySummary: telemetrySummary },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(
+      summaryBlockedRequest.body.budgetUsageTelemetry.total_tokens,
+      telemetrySummary.totalTokens,
+    );
+    assert.equal(
+      summaryBlockedRequest.body.budgetUsageTelemetry.source_counts.subagents,
+      1,
+    );
+    const summaryBlocked = await fetchJsonStatus(
+      `${daemon.endpoint}${summaryBlockedRequest.endpoint}`,
+      {
+        method: summaryBlockedRequest.method,
+        body: JSON.stringify(summaryBlockedRequest.body),
+      },
+    );
+    assert.equal(summaryBlocked.status, 403);
+    assert.equal(summaryBlocked.body.error.details.reason, "subagent_budget_exceeded");
+    assert.equal(summaryBlocked.body.error.details.budget_status, "exceeded");
+    assert.ok(
+      summaryBlocked.body.error.details.budgetStatus.usage
+        .cumulative_total_tokens > telemetrySummary.totalTokens,
+    );
+    assert.equal(
+      summaryBlocked.body.error.details.subagent.budget_usage_telemetry
+        .cumulative_total_tokens,
+      telemetrySummary.totalTokens,
+    );
+
+    const continuationBlockedRequest =
+      createRuntimeSubagentControlRequestFromWorkflowNode(
+        stateNode("subagent-budget-summary-continuation-blocked", {
+          stateOperation: "subagent_send_input",
+          subagentId: allowed.subagent_id,
+          subagentInput:
+            "Continue delegated work only if the shared telemetry budget allows continuation.",
+          subagentBudgetJson: JSON.stringify({
+            maxTokens: telemetrySummary.totalTokens,
+            maxCostUsd: 1,
+          }),
+          subagentBudgetUsageField: "runtimeTelemetrySummary",
+        }),
+        { threadId: thread.thread_id, runtimeTelemetrySummary: telemetrySummary },
+        { workflowGraphId, actor: "workflow-author" },
+      );
+    assert.equal(
+      continuationBlockedRequest.body.budgetUsageTelemetry.total_tokens,
+      telemetrySummary.totalTokens,
+    );
+    const continuationBlocked = await fetchJsonStatus(
+      `${daemon.endpoint}${continuationBlockedRequest.endpoint}`,
+      {
+        method: continuationBlockedRequest.method,
+        body: JSON.stringify(continuationBlockedRequest.body),
+      },
+    );
+    assert.equal(continuationBlocked.status, 403);
+    assert.equal(
+      continuationBlocked.body.error.details.reason,
+      "subagent_budget_exceeded",
+    );
+    assert.equal(
+      continuationBlocked.body.error.details.subagent.lifecycle_status,
+      "blocked",
+    );
+    assert.equal(
+      continuationBlocked.body.error.details.subagent.budget_usage_telemetry
+        .cumulative_total_tokens,
+      telemetrySummary.totalTokens,
+    );
+
     const blockedRequest = createRuntimeSubagentControlRequestFromWorkflowNode(
       stateNode("subagent-budget-blocked", {
         subagentPrompt:
@@ -6758,8 +6861,19 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
       ),
     );
 
+    const summaryBlockedSubagentId = summaryBlocked.body.error.details.subagent.subagent_id;
     const blockedSubagentId = blocked.body.error.details.subagent.subagent_id;
     const listed = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`);
+    const summaryBlockedRecord = listed.subagents.find(
+      (subagent) => subagent.subagent_id === summaryBlockedSubagentId,
+    );
+    assert.ok(summaryBlockedRecord);
+    assert.equal(summaryBlockedRecord.lifecycle_status, "blocked");
+    assert.equal(summaryBlockedRecord.budget_status, "exceeded");
+    assert.equal(
+      summaryBlockedRecord.budget_usage_telemetry.cumulative_total_tokens,
+      telemetrySummary.totalTokens,
+    );
     const blockedRecord = listed.subagents.find((subagent) => subagent.subagent_id === blockedSubagentId);
     assert.ok(blockedRecord);
     assert.equal(blockedRecord.lifecycle_status, "blocked");
@@ -6801,10 +6915,17 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
           workflow_graph_id: workflowGraphId,
           workflow_node_id: blockedRequest.body.workflowNodeId,
         },
+        {
+          ...summaryBlockedRecord,
+          row_kind: "subagent",
+          subagent_operation: "spawn",
+          workflow_graph_id: workflowGraphId,
+          workflow_node_id: summaryBlockedRequest.body.workflowNodeId,
+        },
       ],
     });
-    assert.equal(projection.subagentRowCount, 2);
-    assert.equal(projection.subagentChildSubflowCount, 2);
+    assert.equal(projection.subagentRowCount, 3);
+    assert.equal(projection.subagentChildSubflowCount, 3);
     assert.ok(
       projection.rows.some(
         (row) =>
@@ -11886,6 +12007,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeSubagentControlNodes, /subagent_cancel_propagation/);
   assert.match(workflowRuntimeSubagentControlNodes, /propagate_cancel/);
   assert.match(workflowRuntimeSubagentControlNodes, /subagentBudgetJson/);
+  assert.match(workflowRuntimeSubagentControlNodes, /subagentBudgetUsageField/);
+  assert.match(workflowRuntimeSubagentControlNodes, /budgetUsageTelemetry/);
+  assert.match(workflowRuntimeSubagentControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.match(workflowRuntimeUsageControlNodes, /createRuntimeUsageMeterControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeUsageControlNodes, /runtime_usage_meter/);
   assert.match(workflowRuntimeUsageControlNodes, /RuntimeUsageTelemetry\.Read/);
@@ -11916,6 +12040,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime_context_budget/);
   assert.match(workflowRuntimeUiStrings, /runtime_compaction_policy/);
   assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
+  assert.match(runtimeDaemon, /subagentBudgetUsageTelemetryForRequest/);
   assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
   assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);
   assert.match(runtimeDaemon, /\/v1\/usage/);
@@ -11954,6 +12079,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /subagent_cancel_propagation/);
   assert.match(graphTypes, /subagentCancellationInheritance/);
   assert.match(graphTypes, /subagentBudgetJson/);
+  assert.match(graphTypes, /subagentBudgetUsageField/);
   assert.match(graphTypes, /subagentOutputContractJson/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-id/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-transport/);
@@ -11977,6 +12103,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-fork-context/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-max-concurrency/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-budget-json/);
+  assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-budget-usage-field/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-output-contract-json/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-merge-policy/);
   assert.match(workflowNodeBindingEditorSubagentFields, /workflow-state-subagent-cancellation-inheritance/);

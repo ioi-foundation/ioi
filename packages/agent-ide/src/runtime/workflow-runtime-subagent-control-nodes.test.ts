@@ -113,6 +113,80 @@ test("subagent delegate-summary request preserves context-pressure provenance", 
   ]);
 });
 
+test("subagent spawn state node normalizes runtime telemetry summary as budget usage", () => {
+  const node = makeWorkflowNode(
+    "subagent-summary-budget",
+    "state",
+    "Spawn with summary budget",
+    100,
+    120,
+    {
+      stateKey: "subagents",
+      stateOperation: "subagent_spawn",
+      reducer: "append",
+      subagentRole: "explore",
+      subagentPrompt: "Continue only if the shared telemetry budget permits it.",
+      subagentBudgetJson: JSON.stringify({ maxTokens: 750, maxCostUsd: 0.01 }),
+      subagentBudgetUsageField: "runtimeTelemetrySummary",
+      subagentOutputContractJson: "[\"SUMMARY\",\"EVIDENCE\",\"RECEIPTS\"]",
+    },
+  );
+
+  const request = createRuntimeSubagentControlRequestFromWorkflowNode(
+    node,
+    {
+      threadId: "thread-summary-budget",
+      runtimeTelemetrySummary: {
+        schemaVersion: "ioi.workflow.runtime-telemetry-summary.v1",
+        status: "elevated",
+        sourceKinds: ["runtime_usage_events", "tui_subagent_rows"],
+        threadIds: ["thread-summary-budget"],
+        turnIds: ["turn-summary"],
+        workflowGraphIds: ["workflow.subagent.summary-budget"],
+        workflowNodeIds: ["runtime.usage-telemetry"],
+        eventIds: ["event-usage", "event-subagent"],
+        latestSeq: 3,
+        latestCursor: "events_thread:3",
+        latestEventId: "event-subagent",
+        runtimeEventCount: 3,
+        usageEventCount: 1,
+        contextPressureEventCount: 1,
+        contextPressureAlertCount: 0,
+        tuiRowCount: 1,
+        usageRowCount: 1,
+        costRowCount: 1,
+        contextRowCount: 1,
+        subagentRowCount: 1,
+        totalTokens: 720,
+        inputTokens: 430,
+        outputTokens: 290,
+        costEstimateUsd: 0.0042,
+        contextPressure: 0.72,
+        contextPressureStatus: "elevated",
+        runCount: 1,
+        subagentCount: 1,
+        receiptRefs: ["receipt-summary"],
+        policyDecisionRefs: ["policy-summary"],
+      },
+    },
+    { workflowGraphId: "workflow.subagent.summary-budget" },
+  );
+
+  assert.deepEqual(request.body?.budget, { maxTokens: 750, maxCostUsd: 0.01 });
+  const budgetUsageTelemetry = request.body?.budgetUsageTelemetry as Record<
+    string,
+    unknown
+  >;
+  assert.equal(budgetUsageTelemetry.total_tokens, 720);
+  assert.equal(budgetUsageTelemetry.estimated_cost_usd, 0.0042);
+  assert.equal(budgetUsageTelemetry.context_pressure, 0.72);
+  assert.equal(
+    (budgetUsageTelemetry.source_counts as Record<string, unknown>).subagents,
+    1,
+  );
+  assert.deepEqual(request.body?.budget_usage_telemetry, request.body?.budgetUsageTelemetry);
+});
+
 test("subagent join state node builds a wait request with output contract gates", () => {
   const node = makeWorkflowNode("subagent-join", "state", "Join explorer", 100, 120, {
     stateKey: "subagents",
