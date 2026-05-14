@@ -235,7 +235,25 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(telemetrySourceBinding, /runtime_context_budget/);
   assert.match(telemetrySourceBinding, /runtime_compaction_policy/);
   assert.match(telemetrySourceBinding, /react_flow_quick_fix/);
+  assert.match(telemetrySourceBinding, /boundWorkflowNodeId/);
+  assert.match(telemetrySourceBinding, /boundCompactWorkflowNodeId/);
+  assert.match(telemetrySourceBinding, /runtimeContextBudgetUsageField: "runtimeUsageMeter"/);
   assert.match(telemetrySourceBindingTest, /wires selected summary into runtime budget nodes/);
+  assert.match(telemetrySourceBindingTest, /liveRuntimeContextBudget/);
+  assert.ok(
+    contextBudgetControlNodes.indexOf(
+      'valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter")',
+    ) < contextBudgetControlNodes.indexOf("params.usageTelemetry"),
+  );
+  assert.ok(
+    compactionPolicyControlNodes.indexOf(
+      'valueAtPath(params.input, params.contextBudgetField ?? "runtimeContextBudget")',
+    ) < compactionPolicyControlNodes.indexOf("params.contextBudget"),
+  );
+  assert.ok(
+    codingToolControlNodes.indexOf("valueAtPath(params.input, budgetUsageField)") <
+      codingToolControlNodes.indexOf("params.runtimeTelemetrySummary"),
+  );
   assert.match(compactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
   assert.match(compactionPolicyControlNodes, /runtime_compaction_policy/);
   assert.match(compactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);

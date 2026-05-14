@@ -136,7 +136,9 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
     { workflowGraphId: result.workflow.metadata.id },
   );
   assert.equal(usageRequest.threadId, "thread-telemetry-source");
+  assert.equal(usageRequest.metadata.workflowNodeId, "usage-meter");
   assert.match(usageRequest.endpoint, /^\/v1\/threads\/thread-telemetry-source\/usage\?/);
+  assert.match(usageRequest.endpoint, /workflow_node_id=usage-meter/);
 
   const contextRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
     contextNode,
@@ -144,11 +146,26 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
     { workflowGraphId: result.workflow.metadata.id },
   );
   assert.equal(contextRequest.threadId, "thread-telemetry-source");
+  assert.equal(contextRequest.body.workflowNodeId, "context-budget");
   assert.equal(
     (contextRequest.body.usageTelemetry as any).runtimeTelemetrySummarySchemaVersion,
     "ioi.workflow.runtime-telemetry-summary.v1",
   );
   assert.equal((contextRequest.body.usageTelemetry as any).totalTokens, 1800);
+
+  const liveUsageTelemetry = {
+    schema_version: "ioi.runtime.usage-telemetry.v1",
+    total_tokens: 2200,
+    estimated_cost_usd: 0.06,
+    context_pressure: 0.81,
+    context_pressure_status: "high",
+  };
+  const liveContextRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
+    contextNode,
+    { runtimeUsageMeter: liveUsageTelemetry },
+    { workflowGraphId: result.workflow.metadata.id },
+  );
+  assert.equal((liveContextRequest.body.usageTelemetry as any).total_tokens, 2200);
 
   const compactionRequest =
     createRuntimeCompactionPolicyControlRequestFromWorkflowNode(
@@ -158,18 +175,52 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
     );
   assert.equal(compactionRequest.threadId, "thread-telemetry-source");
   assert.equal(compactionRequest.turnId, "turn-telemetry-source");
+  assert.equal(compactionRequest.body.workflowNodeId, "compaction-policy");
+  assert.equal(compactionRequest.body.policy.compactWorkflowNodeId, "compaction-policy.compact");
   assert.equal(compactionRequest.body.contextBudgetStatus, "warn");
+  const liveRuntimeContextBudget = {
+    status: "blocked",
+    policyDecision: { status: "blocked" },
+  };
+  const liveCompactionRequest =
+    createRuntimeCompactionPolicyControlRequestFromWorkflowNode(
+      compactionNode,
+      { runtimeContextBudget: liveRuntimeContextBudget },
+      { workflowGraphId: result.workflow.metadata.id },
+    );
+  assert.equal(liveCompactionRequest.body.contextBudgetStatus, "blocked");
+  assert.equal(liveCompactionRequest.body.contextBudget, liveRuntimeContextBudget);
 
   const codingRequest = createRuntimeCodingToolControlRequestFromWorkflowNode(
     codingNode,
     codingNode.config?.logic?.testInput ?? {},
     { workflowGraphId: result.workflow.metadata.id },
   );
+  assert.equal(codingRequest.body.workflowNodeId, "coding-tool");
+  assert.equal(
+    (codingRequest.body.toolPack.coding.telemetrySourceBinding as any).schemaVersion,
+    "ioi.workflow.runtime-telemetry-source-binding.v1",
+  );
   assert.equal(
     (codingRequest.body.budgetUsageTelemetry as any)
       .runtimeTelemetrySummarySchemaVersion,
     "ioi.workflow.runtime-telemetry-summary.v1",
   );
+  const liveTelemetrySummary = {
+    ...telemetrySummary(),
+    totalTokens: 3333,
+    contextPressure: 0.91,
+    contextPressureStatus: "blocked",
+  };
+  const liveCodingRequest = createRuntimeCodingToolControlRequestFromWorkflowNode(
+    codingNode,
+    {
+      ...(codingNode.config?.logic?.testInput ?? {}),
+      runtimeTelemetrySummary: liveTelemetrySummary,
+    },
+    { workflowGraphId: result.workflow.metadata.id },
+  );
+  assert.equal((liveCodingRequest.body.budgetUsageTelemetry as any).total_tokens, 3333);
   assert.equal(codingRequest.body.toolPack.coding.budgetUsageField, "runtimeTelemetrySummary");
 
   const nextReadiness = evaluateWorkflowActivationReadiness(

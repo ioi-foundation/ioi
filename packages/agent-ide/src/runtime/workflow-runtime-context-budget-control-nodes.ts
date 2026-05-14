@@ -136,13 +136,13 @@ export function createRuntimeContextBudgetControlRequest(
   const workflowGraphId = cleanString(params.workflowGraphId);
   const simulationMode = params.simulationMode !== false;
   const rawUsageTelemetry =
-    params.usageTelemetry ??
-    params.runtimeTelemetrySummary ??
     valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter") ??
     valueAtPath(params.input, "runtimeTelemetrySummary") ??
     valueAtPath(params.input, "runtime_telemetry_summary") ??
     valueAtPath(params.input, "usageTelemetry") ??
     valueAtPath(params.input, "usage_telemetry") ??
+    params.usageTelemetry ??
+    params.runtimeTelemetrySummary ??
     null;
   const usageTelemetry =
     workflowRuntimeTelemetrySummaryToUsageTelemetry(rawUsageTelemetry) ??
