@@ -121,7 +121,9 @@ Strategic snapshot as of 2026-05-14:
   entry, typed request builder, schema/action metadata, Tauri scaffold,
   validation, local execution lane, live daemon/workflow proof, and a
   run-inspector affordance that materializes a prewired request/approve/reject/
-  retry recovery subflow from a blocked coding-tool budget row.
+  retry recovery subflow from a blocked coding-tool budget row. The generated
+  subflow is now also proven executable against the daemon recovery route, with
+  run-inspector reopen evidence captured for the generated retry node.
 - Model routing, memory, doctor/config, skills, hooks, GitHub/PR, task/job
   records, package/import execution, localization/accessibility, promotion, and
   default dispatch have validated foundation slices in the companion ledgers.
@@ -131,24 +133,21 @@ Strategic snapshot as of 2026-05-14:
 
 Most recent completed implementation slice:
 
-- 2026-05-14: P1-D coding-tool budget recovery subflow materialization
+- 2026-05-14: P1-D generated coding-tool budget recovery subflow execution
 - Evidence:
-  React Flow run-inspector coding-budget rows now expose `Create recovery
-  subflow`, preserving run/thread/workflow identity while inserting four
-  first-class recovery nodes and approval/retry graph edges around the blocked
-  run; focused TS tests, source-contract wiring, package build, whitespace
-  check, and live autopilot GUI preflight passed.
+  A live daemon proof now starts from a projected blocked coding-tool budget
+  row, materializes the generated recovery subflow, executes the inserted
+  request approval, approve override, and approved retry nodes through the
+  daemon recovery route, and asserts the run-inspector reopen evidence link for
+  the generated retry node.
 
 Previous focused slice:
 
-- 2026-05-14: P1-D React Flow coding-tool budget recovery control node
+- 2026-05-14: P1-D coding-tool budget recovery subflow materialization
 - Evidence:
-  React Flow `runtime_coding_tool_budget_recovery` nodes compile
-  request-approval, approve/reject override, and approved retry controls to
-  `/v1/runs/{run_id}/coding-tool-budget-recovery` with graph/node identity;
-  the node is available through the creator palette, typed schemas, generated
-  runtime action contracts, Tauri scaffolds, validation, and local execution,
-  with focused TS/Rust tests plus a live daemon workflow-route proof.
+  React Flow run-inspector coding-budget rows expose `Create recovery subflow`,
+  preserving run/thread/workflow identity while inserting four first-class
+  recovery nodes and approval/retry graph edges around the blocked run.
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -169,14 +168,15 @@ Completed-slice history belongs in the companion ledgers.
 | P1-B | MCP manager parity | MCP manager discovery/status/validation plus governed import/add/remove, enable/disable, invocation receipts, self-hosted HTTP JSON-RPC serve mode, vault-backed remote auth headers, large-catalog deferred tool exposure, global IOI MCP config discovery, keyboard-first TUI search/fetch, and React Flow-authored search/fetch/invoke request compilation are now daemon-owned for `$HOME/.ioi/mcp.json`, `.cursor/mcp.json`, `.agents/mcp.json`, inline options, active thread registries, and model-mounting MCP registry entries. `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`, `/v1/mcp/resources`, `/v1/mcp/prompts`, `/v1/mcp/validate`, `/v1/mcp/import`, `/v1/mcp/serve`, `/v1/mcp/servers`, `/v1/mcp/servers/{server_id}`, `/v1/mcp/servers/{server_id}/enable`, `/v1/mcp/servers/{server_id}/disable`, `/v1/mcp/tools/{tool_id}/invoke`, and matching thread-scoped controls expose governed catalog, validation, mutable registry writes, availability, invocation records, served IOI tool calls, source scope/compatibility provenance, redacted secret-ref provenance, request-time vault resolution evidence, catalog summaries, preview limits, stable catalog hashes, namespace summaries, and on-demand tool search/fetch without publishing header material or bloating status payloads. Command-backed stdio MCP tools launch through newline-delimited JSON-RPC, streamable HTTP servers launch through POST JSON-RPC, and SSE servers launch through endpoint-announced event streams; live discovery calls `tools/list`, `resources/list`, and `prompts/list` across supported transports. Remote HTTP/SSE auth-looking headers fail closed unless configured as `vault://` refs, and resolved material is injected only inside live transport requests. TUI `/mcp [status|tools|servers|search|fetch|validate|import|add|remove|enable|disable|invoke]` emits MCP control-state rows and source-mode-filtered search/fetch output; SDK clients and `Thread` handles can import/add/remove servers, search/fetch MCP tools, and call `mcpServeRpc`; React Flow exposes MCP import/add/remove/serve/search/fetch/invoke state-node operations with transport, URL, vault header refs, server config JSON, serve endpoint, allowed-tool JSON, catalog mode, config source mode, search query, tool input JSON, containment, egress intent, and preview-limit fields. | Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes only when a concrete workflow composition needs them. | MCP tool/resource/prompt rows and MCP state nodes carry server/tool/resource/prompt/containment/vault-boundary/catalog-summary/source-scope metadata; MCP import/add/remove/serve/search/fetch/invoke state nodes compile transport/url/vault-header/served-tool/catalog-query/source-mode/tool-input/containment config into daemon controls rather than a canvas-local registry. |
 | P1-M | Memory UX parity | Memory status/validation and write-side mutations are now daemon-owned through `/v1/memory`, `/v1/memory/validate`, `/v1/threads/{thread_id}/memory`, `/v1/threads/{thread_id}/memory/{memory_id}`, `/v1/threads/{thread_id}/memory/status`, and `/v1/threads/{thread_id}/memory/validate`. The daemon validates effective policy, storage paths, record shape, redaction, retention, scope, and subagent-inheritance mode; SDK clients and `Thread` handles expose memory status/validation plus remember/update/delete helpers; TUI `/memory [status|show|policy|path|validate|enable|disable|remember|edit|delete]` emits memory control-state rows; React Flow projects memory status/policy/record/mutation rows and exposes memory status/policy/search/list/remember/edit/delete state nodes. Existing remember/list/edit/delete/path/policy and subagent-inheritance runtime behavior remains intact. | Add redaction review and explicit memory injection/scope aliases only where they improve workflow readability; do not fork memory truth into canvas-local state. | Memory status, policy, search, list, write, delete, and injection controls must compile into daemon memory policy/projection requests rather than canvas-local state. |
 | P1-C | Modes, trust, approvals | Thread-level `plan`, `review`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Mutating coding tools now evaluate their coding-tool contract effect class before execution; in `plan`/`review` or human/policy approval modes the daemon returns a blocked coding-tool result, leaves the workspace unchanged, emits a receipt-backed `approval.required` / `OperatorApproval.Request` event with `ioi.runtime.coding-tool-approval-manifest.v1`, preserves workflow graph/node identity, records authority scopes/effect class/risk domain, and ignores permissive UI approval overrides. React Flow coding-tool control builders and coding-pack binding controls now compile `requiresApproval`, `approvalMode`, `trustProfile`, and `nodeApprovalOverride` into daemon invocation requests. The daemon folds those graph/node policy fields into `workflow_policy`, `workflow_trust_profile`, `node_requires_approval`, `node_approval_override`, `input_hash`, and policy-reason fields on the same approval manifest, blocks mutating tools even from `yolo`/`never_prompt` when workflow policy requires approval, records approval decisions with the original manifest, and executes approved retries idempotently by tool-call key. Review and YOLO mode changes emit daemon-owned `workspace.trust_warning` records with read-only repository context, branch policy warnings, graph/node provenance, ignored canvas-local trust/suppression fields, SDK `workspace_trust_warning` events, TUI `workspace_trust_rows`, and React Flow `runtime_workspace_trust_gate` projection. React Flow now has first-class `runtime_thread_mode` and `runtime_workspace_trust_gate` authoring nodes: mode nodes compile mode, approval mode, trust profile, warning-ack requirement, and graph/node provenance into the daemon mode endpoint; the run inspector renders executable workspace trust acknowledgement actions that call `/v1/threads/{thread_id}/workspace-trust/{warning_id}/acknowledge`; workflow readiness/run preflight consumes daemon warning and acknowledgement event history before allowing risky review/YOLO runs. SDK and React Flow now treat `approval.approved`/`approval.rejected` as `approval_decision` events, and `workflowRuntimePolicyStackFromEvents` plus the run inspector render the ordered daemon replay path from workspace trust warning through approved coding-tool retry. Proposal-only workflow edit locks are now daemon-owned through `/v1/threads/{thread_id}/workflow-edit-proposals` and `/apply`: proposed edits emit `workflow.edit_proposed`, request approval with a workflow-edit approval manifest, ignore permissive UI bypass fields, reject/direct-apply paths leave workflow files unchanged, approved apply writes bounded workflow patches inside the workspace, approved replays are idempotent, SDK maps proposal/apply events, React Flow proposal nodes compile create/apply controls, and the run inspector renders `workflowRuntimeEditProposalPolicyStackFromEvents` beside the existing trust/approval stack. | Keep proposal policy as regression coverage while moving to usage/context or terminal UX polish; remaining P1-C work is visual refinement rather than missing runtime truth. | Graph-level mode selector, trust profile, node approval overrides, workspace trust records, review/YOLO warnings, warning acknowledgements, approval decisions, approved retries, proposal-only edit locks, and `WorkspaceTrustGateNode` readiness gates compile into daemon-owned approval and warning manifests with replayable policy-stack projection. |
-| P1-D | Usage, cost, context telemetry | Usage, context-pressure, budget gates, coding-tool budget blocks, recovery policy, TUI `/run recovery`, first-class React Flow `runtime_coding_tool_budget_recovery` nodes, and run-inspector recovery subflow materialization now share daemon-owned telemetry, policy, event, approval, and retry contracts with graph/node identity preserved. | Prove the generated recovery subflow as an executable workflow template: run request approval, approve override, and approved retry nodes created from a blocked budget row against the daemon recovery route, then persist the run-inspector evidence link. | Usage, context, budget, recovery, and run-inspector controls must simulate, stream, inspect, and enforce workflow caps from daemon-owned telemetry and recovery events rather than canvas-local counters. |
+| P1-D | Usage, cost, context telemetry | Usage, context-pressure, budget gates, coding-tool budget blocks, recovery policy, TUI `/run recovery`, first-class React Flow `runtime_coding_tool_budget_recovery` nodes, run-inspector recovery subflow materialization, and generated-subflow daemon execution proof now share telemetry, policy, event, approval, retry, and evidence-link contracts with graph/node identity preserved. | Promote the proven recovery sequence into a reusable workflow-creator template/library item with configurable run/thread/policy inputs, so authors can prebuild the recovery bundle before a blocked run exists while retaining daemon-owned execution. | Usage, context, budget, recovery, and run-inspector controls must simulate, stream, inspect, and enforce workflow caps from daemon-owned telemetry and recovery events rather than canvas-local counters. |
 
 ### Immediate Tactical Queue
 
-1. Continue P1-D React Flow parity: prove the generated recovery subflow as an
-   executable workflow template by running request approval, approve override,
-   and approved retry nodes created from a blocked budget row against the daemon
-   recovery route, then persist the run-inspector evidence link.
+1. Continue P1-D React Flow parity: promote the proven coding-tool budget
+   recovery sequence into a reusable workflow-creator template/library item
+   with configurable run/thread/policy inputs, so authors can prebuild the
+   recovery bundle before a blocked run exists while retaining daemon-owned
+   execution.
 2. Keep P1-C proposal policy as a regression guard: rejected workflow edits
    must never mutate, approved apply must be idempotent, and React Flow should
    only apply workflow patches after daemon approval evidence exists.

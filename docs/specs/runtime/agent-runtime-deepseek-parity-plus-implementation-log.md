@@ -195,8 +195,44 @@ workstream was narrower.
 | 193 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery policy authoring | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-policy/2026-05-14T05-03-31-611Z/result.json |
 | 194 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | React Flow coding-tool budget recovery control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 | 195 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery subflow materialization | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow/2026-05-14T12-37-46-850Z/result.json |
+| 196 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | generated coding-tool budget recovery subflow execution | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow-execution/2026-05-14T12-48-11-460Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 196. 2026-05-14 - Generated coding-tool budget recovery subflow execution
+
+Implementation slice completed 2026-05-14, P1-D/P0-B executable generated
+recovery subflow proof:
+
+- Extended the generated recovery-subflow unit test so every inserted
+  `runtime_coding_tool_budget_recovery` node compiles into the same daemon
+  request contract used by hand-authored recovery nodes.
+- Added a live daemon proof that starts from a projected blocked
+  `coding_tool_budget` row, uses the projected run-inspector recovery action as
+  the subflow seed, and executes the generated request approval, approve
+  override, and approved retry nodes against
+  `/v1/runs/{runId}/coding-tool-budget-recovery`.
+- Verified graph/node identity across the generated request, approval decision,
+  and retry events: request maps to the generated request node, approval maps
+  to the generated approve node, and retry maps to the generated retry node.
+- Asserted the run-inspector projection contains the generated subflow nodes and
+  captured a reopen evidence-link descriptor for the generated retry node.
+- Kept the source-contract import freshness list aware of the subflow helper so
+  live contract tests rebuild the agent-ide bundle when the generated-subflow
+  helper changes.
+- Updated the master guide so the next slice is promoting the proven recovery
+  bundle into a reusable workflow-creator template/library item.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow generated coding-tool budget recovery subflow executes daemon recovery route" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build -w packages/agent-ide`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow-execution`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow-execution/2026-05-14T12-48-11-460Z/result.json`.
 
 ### Slice 195. 2026-05-14 - Coding-tool budget recovery subflow materialization
 
