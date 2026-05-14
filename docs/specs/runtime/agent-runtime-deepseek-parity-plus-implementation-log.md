@@ -197,8 +197,41 @@ workstream was narrower.
 | 195 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery subflow materialization | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow/2026-05-14T12-37-46-850Z/result.json |
 | 196 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | generated coding-tool budget recovery subflow execution | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow-execution/2026-05-14T12-48-11-460Z/result.json |
 | 197 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable coding-tool budget recovery template | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-template/2026-05-14T12-58-07-902Z/result.json |
+| 198 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template readiness validation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-readiness/2026-05-14T13-13-08-201Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 198. 2026-05-14 - Coding-tool budget recovery template readiness validation
+
+Implementation slice completed 2026-05-14, P1-D/P0-B recovery-template
+readiness validation:
+
+- Added activation-readiness blockers for input-driven
+  `runtime_coding_tool_budget_recovery` template nodes whose `runId`,
+  `threadId`, `approvalId`, `targetNodeIds`, or `recoveryPolicy` values are
+  neither fixed nor mapped from runtime inputs.
+- Mirrored the same readiness behavior in the Tauri desktop validation path so
+  live workflow activation/preflight and package-level React Flow readiness
+  agree on missing recovery-template bindings.
+- Covered negative and positive cases: unbound reusable templates produce one
+  actionable issue per missing field per recovery node, while mapped/fixed
+  recovery nodes do not.
+- Updated source-contract guards and the master guide so the next P1-D slice
+  moves from diagnosis to a React Flow quick-fix/binding assistant for blocked
+  coding-budget evidence.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.test.ts`
+- `cargo test workflow_activation_readiness_blocks_unbound_coding_budget_recovery_templates --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml -- --check`
+- `node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build -w packages/agent-ide`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-readiness`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-readiness/2026-05-14T13-13-08-201Z/result.json`.
 
 ### Slice 197. 2026-05-14 - Reusable coding-tool budget recovery template
 

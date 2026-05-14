@@ -1193,6 +1193,151 @@ fn workflow_json_bool(value: &Value, key: &str) -> Option<bool> {
     value.get(key).and_then(Value::as_bool)
 }
 
+fn workflow_json_string_list_present(value: &Value, key: &str) -> bool {
+    match value.get(key) {
+        Some(Value::Array(items)) => items.iter().any(|item| {
+            item.as_str()
+                .map(str::trim)
+                .is_some_and(|item| !item.is_empty())
+        }),
+        Some(Value::String(item)) => !item.trim().is_empty(),
+        _ => false,
+    }
+}
+
+fn workflow_json_input_binding_present(logic: &Value, aliases: &[&str]) -> bool {
+    let input_mapping = logic.get("inputMapping").and_then(Value::as_object);
+    if aliases.iter().any(|alias| {
+        input_mapping
+            .and_then(|mapping| mapping.get(*alias))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+    }) {
+        return true;
+    }
+    let field_mappings = logic.get("fieldMappings").and_then(Value::as_object);
+    aliases.iter().any(|alias| {
+        field_mappings
+            .and_then(|mapping| mapping.get(*alias))
+            .and_then(Value::as_object)
+            .map(|mapping| {
+                mapping
+                    .get("source")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .is_some_and(|value| !value.is_empty())
+                    && mapping
+                        .get("path")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .is_some_and(|value| !value.is_empty())
+            })
+            .unwrap_or(false)
+    })
+}
+
+fn workflow_runtime_recovery_policy_fixed(value: Option<&Value>) -> bool {
+    let Some(Value::Object(policy)) = value else {
+        return false;
+    };
+    let target_present = policy.get("targetNodeIds").is_some_and(|_| {
+        workflow_json_string_list_present(&Value::Object(policy.clone()), "targetNodeIds")
+    });
+    let source_node_present = policy.get("sourceNodeIds").is_some_and(|_| {
+        workflow_json_string_list_present(&Value::Object(policy.clone()), "sourceNodeIds")
+    });
+    let source = policy.get("source").and_then(Value::as_str).map(str::trim);
+    target_present
+        || source_node_present
+        || source
+            .map(|value| !value.is_empty() && value != "react_flow_template")
+            .unwrap_or(false)
+}
+
+fn workflow_runtime_coding_tool_budget_recovery_binding_issues(
+    node: &Value,
+) -> Vec<WorkflowValidationIssue> {
+    if workflow_node_type(node) != "runtime_coding_tool_budget_recovery" {
+        return Vec::new();
+    }
+    let logic = workflow_node_logic(node);
+    let node_id = workflow_node_id(node);
+    let node_name = workflow_node_name(node);
+    let requirements: [(&str, &str, &str, &str, &[&str], bool); 5] = [
+        (
+            "missing_runtime_coding_tool_budget_recovery_run_binding",
+            "run id",
+            "runtimeCodingToolBudgetRecoveryRunId",
+            "runtimeCodingToolBudgetRecoveryRunIdField",
+            &["runId", "run_id"],
+            workflow_json_string(&logic, "runtimeCodingToolBudgetRecoveryRunId").is_some(),
+        ),
+        (
+            "missing_runtime_coding_tool_budget_recovery_thread_binding",
+            "thread id",
+            "runtimeCodingToolBudgetRecoveryThreadId",
+            "runtimeCodingToolBudgetRecoveryThreadIdField",
+            &["threadId", "thread_id"],
+            workflow_json_string(&logic, "runtimeCodingToolBudgetRecoveryThreadId").is_some(),
+        ),
+        (
+            "missing_runtime_coding_tool_budget_recovery_approval_binding",
+            "approval id",
+            "runtimeCodingToolBudgetRecoveryApprovalId",
+            "runtimeCodingToolBudgetRecoveryApprovalIdField",
+            &["approvalId", "approval_id"],
+            workflow_json_string(&logic, "runtimeCodingToolBudgetRecoveryApprovalId").is_some(),
+        ),
+        (
+            "missing_runtime_coding_tool_budget_recovery_target_binding",
+            "target node ids",
+            "runtimeCodingToolBudgetRecoveryTargetNodeIds",
+            "runtimeCodingToolBudgetRecoveryTargetNodeIdsField",
+            &["targetNodeIds", "target_node_ids"],
+            workflow_json_string_list_present(
+                &logic,
+                "runtimeCodingToolBudgetRecoveryTargetNodeIds",
+            ),
+        ),
+        (
+            "missing_runtime_coding_tool_budget_recovery_policy_binding",
+            "recovery policy",
+            "runtimeCodingToolBudgetRecoveryPolicy",
+            "runtimeCodingToolBudgetRecoveryPolicyInputField",
+            &["recoveryPolicy", "recovery_policy"],
+            workflow_runtime_recovery_policy_fixed(
+                logic.get("runtimeCodingToolBudgetRecoveryPolicy"),
+            ),
+        ),
+    ];
+    let mut issues = Vec::new();
+    for (code, label, _fixed_key, field_key, default_field_aliases, fixed) in requirements {
+        if fixed {
+            continue;
+        }
+        let configured_field = workflow_json_string(&logic, field_key);
+        let mut aliases = default_field_aliases.to_vec();
+        if let Some(field) = configured_field {
+            aliases.push(field);
+        }
+        aliases.sort();
+        aliases.dedup();
+        if workflow_json_input_binding_present(&logic, &aliases) {
+            continue;
+        }
+        issues.push(WorkflowValidationIssue {
+            node_id: node_id.clone(),
+            code: code.to_string(),
+            message: format!(
+                "Runtime coding-tool budget recovery template node '{}' needs a {} input mapping or fixed value before execution.",
+                node_name, label
+            ),
+        });
+    }
+    issues
+}
+
 fn workflow_runtime_thread_mode_requires_workspace_trust_gate(logic: &Value) -> bool {
     if workflow_json_bool(logic, "runtimeThreadModeRequestWarningAcknowledgement") == Some(false) {
         return false;
@@ -1453,6 +1598,15 @@ pub(super) fn apply_workflow_activation_readiness(
                     message: "Risky runtime thread modes need a WorkspaceTrustGateNode wired to daemon workspace-trust receipts.".to_string(),
                 },
             );
+        }
+    }
+    for recovery_node in workflow
+        .nodes
+        .iter()
+        .filter(|node| workflow_node_type(node) == "runtime_coding_tool_budget_recovery")
+    {
+        for issue in workflow_runtime_coding_tool_budget_recovery_binding_issues(recovery_node) {
+            push_workflow_readiness_issue(&mut result, issue);
         }
     }
     let covered_node_ids = tests

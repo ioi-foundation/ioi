@@ -69,6 +69,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const readinessModelTest = read(
     "packages/agent-ide/src/runtime/workflow-readiness-model.test.ts",
   );
+  const workflowValidation = read(
+    "packages/agent-ide/src/runtime/workflow-validation.ts",
+  );
   const readinessPanel = read(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
   );
@@ -270,7 +273,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(readinessModel, /workflowCodingToolBudgetRecoveryPolicyFromWorkflow/);
   assert.match(readinessModel, /workflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(readinessModel, /Coding budget preflight/);
+  assert.match(workflowValidation, /workflowRuntimeCodingToolBudgetRecoveryBindingIssues/);
+  assert.match(workflowValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
   assert.match(readinessModelTest, /prior TUI budget evidence/);
+  assert.match(readinessModelTest, /unbound coding-tool budget recovery templates/);
   assert.match(readinessModelTest, /run launch annotations/);
   assert.match(readinessPanel, /workflow-readiness-coding-tool-budget-preflight/);
   assert.match(readinessPanel, /data-tool-call-ids/);
