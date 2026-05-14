@@ -78,6 +78,7 @@ export function WorkflowRunsPanel({
     harnessComparisons,
     timelineEvents,
     runtimeEventProjection,
+    runtimePolicyStack,
     tuiControlStateProjection,
   } = model;
 
@@ -334,6 +335,49 @@ export function WorkflowRunsPanel({
                 <span>{runtimeEventProjection.reactFlowNodes.length} nodes</span>
                 <span>{runtimeEventProjection.reactFlowEdges.length} edges</span>
               </div>
+              {runtimePolicyStack.status !== "not_required" ? (
+                <ol
+                  className="workflow-run-policy-stack"
+                  data-testid="workflow-run-policy-stack"
+                  data-schema-version={runtimePolicyStack.schemaVersion}
+                  data-policy-stack-status={runtimePolicyStack.status}
+                  data-policy-stack-stage-count={
+                    runtimePolicyStack.stages.length
+                  }
+                  data-approval-id={runtimePolicyStack.approvalId ?? ""}
+                  data-warning-id={runtimePolicyStack.warningId ?? ""}
+                  data-tool-call-id={runtimePolicyStack.toolCallId ?? ""}
+                  data-receipt-refs={runtimePolicyStack.receiptRefs.join("|")}
+                  data-policy-decision-refs={
+                    runtimePolicyStack.policyDecisionRefs.join("|")
+                  }
+                >
+                  {runtimePolicyStack.stages.map((stage) => (
+                    <li
+                      key={stage.kind}
+                      className={`workflow-run-policy-stack-stage is-${stage.status}`}
+                      data-testid={`workflow-run-policy-stack-stage-${stage.kind}`}
+                      data-stage-kind={stage.kind}
+                      data-stage-status={stage.status}
+                      data-event-id={stage.eventId ?? ""}
+                      data-event-seq={stage.eventSeq ?? ""}
+                      data-thread-id={stage.threadId ?? ""}
+                      data-workflow-graph-id={stage.workflowGraphId ?? ""}
+                      data-workflow-node-id={stage.workflowNodeId ?? ""}
+                      data-approval-id={stage.approvalId ?? ""}
+                      data-warning-id={stage.warningId ?? ""}
+                      data-tool-call-id={stage.toolCallId ?? ""}
+                      data-receipt-refs={stage.receiptRefs.join("|")}
+                      data-policy-decision-refs={
+                        stage.policyDecisionRefs.join("|")
+                      }
+                    >
+                      <span>{stage.label}</span>
+                      <small>{accessibleStatusLabel(stage.status)}</small>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
               <ol
                 className="workflow-run-runtime-event-nodes"
                 data-testid="workflow-run-runtime-event-nodes"

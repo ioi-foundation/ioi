@@ -50,6 +50,10 @@ export {
   workflowWorkspaceTrustGateReadiness,
 } from "./runtime/workflow-workspace-trust-gate";
 export {
+  WORKFLOW_RUNTIME_POLICY_STACK_SCHEMA_VERSION,
+  workflowRuntimePolicyStackFromEvents,
+} from "./runtime/workflow-runtime-policy-stack";
+export {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_CONTEXT_COMPACT_SOURCE,
@@ -432,6 +436,13 @@ export type {
   WorkflowRuntimeWorkspaceTrustAction,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "./runtime/workflow-runtime-event-projection";
+export type {
+  WorkflowRuntimePolicyStack,
+  WorkflowRuntimePolicyStackOptions,
+  WorkflowRuntimePolicyStackStage,
+  WorkflowRuntimePolicyStackStageKind,
+  WorkflowRuntimePolicyStackStatus,
+} from "./runtime/workflow-runtime-policy-stack";
 export type {
   WorkflowWorkspaceTrustGateReadiness,
   WorkflowWorkspaceTrustGateRequirement,

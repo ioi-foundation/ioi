@@ -19,6 +19,8 @@ export type IOISDKMessageType =
   | "context_pressure_alert"
   | "workspace_trust_warning"
   | "workspace_trust_acknowledged"
+  | "approval_required"
+  | "approval_decision"
   | "usage_final"
   | "stop_condition"
   | "quality_ledger"
@@ -166,6 +168,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "tool_completed",
   "tool_failed",
   "approval_required",
+  "approval_decision",
   "policy_blocked",
   "receipt_emitted",
   "model_route_decision",

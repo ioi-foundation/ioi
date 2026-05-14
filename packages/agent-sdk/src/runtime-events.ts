@@ -245,6 +245,9 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "tool_failed";
     case "approval.required":
       return "approval_required";
+    case "approval.approved":
+    case "approval.rejected":
+      return "approval_decision";
     case "policy.blocked":
       return "policy_blocked";
     case "receipt.emitted":
@@ -336,6 +339,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "context_pressure_delta") return "context_pressure";
   if (type === "context_pressure_alert") return "context_pressure_alert";
   if (type === "workspace_trust_warning" || type === "workspace_trust_acknowledged") return "workspace_trust";
+  if (type === "approval_required" || type === "approval_decision") return "approval_gate";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -353,6 +357,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "context_pressure_delta") return "runtime.context-budget";
   if (type === "context_pressure_alert") return "runtime.context-pressure-alert";
   if (type === "workspace_trust_warning" || type === "workspace_trust_acknowledged") return "runtime.workspace-trust";
+  if (type === "approval_decision") return "runtime.approval-decision";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
@@ -371,6 +376,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "context_pressure_alert") return "RuntimeContextPressure.Alert";
   if (type === "workspace_trust_warning") return "WorkspaceTrust.Warning";
   if (type === "workspace_trust_acknowledged") return "WorkspaceTrust.Acknowledged";
+  if (type === "approval_decision") return "OperatorApproval.Decision";
   return `run.${type}`;
 }
 
@@ -385,6 +391,7 @@ function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string 
   if (type === "context_pressure_alert") return "ioi.runtime.context-pressure-alert.v1";
   if (type === "workspace_trust_warning") return "ioi.runtime.workspace-trust-warning.v1";
   if (type === "workspace_trust_acknowledged") return "ioi.runtime.workspace-trust-acknowledgement.v1";
+  if (type === "approval_decision") return "ioi.runtime.approval-decision.v1";
   return "ioi.agent-sdk.event.v1";
 }
 
