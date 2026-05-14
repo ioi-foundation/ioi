@@ -125,6 +125,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleWorkflowNodeSelect,
     harnessActivationCandidate,
     harnessGroupSummary,
+    harnessGroupViews,
     harnessWorkbenchDeepLinkUrl,
     harnessWorkerBinding,
     ImportPackageModal,
@@ -415,6 +416,60 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             {lifecycleState.label}
           </span>
         </div>
+        {harnessGroupSummary.total > 0 ? (
+          <section
+            className="workflow-harness-teaching-view"
+            data-testid="workflow-harness-teaching-view"
+            aria-label="Default harness topology overview"
+          >
+            <header>
+              <div>
+                <strong>Default Agent Harness topology</strong>
+                <span>
+                  {harnessGroupSummary.total} canonical group
+                  {harnessGroupSummary.total === 1 ? "" : "s"} ·{" "}
+                  {harnessGroupSummary.collapsed} summarized on canvas
+                </span>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  data-testid="workflow-harness-teaching-fork"
+                  disabled={!isBlessedHarnessWorkflow}
+                  onClick={handleForkDefaultHarness}
+                >
+                  Fork editable copy
+                </button>
+                <button
+                  type="button"
+                  data-testid="workflow-harness-teaching-template"
+                  disabled={!isBlessedHarnessWorkflow}
+                  onClick={handleForkDefaultHarness}
+                >
+                  Use as template
+                </button>
+                <button
+                  type="button"
+                  data-testid="workflow-harness-teaching-advanced"
+                  onClick={() => setRightPanel("settings")}
+                >
+                  Advanced details
+                </button>
+              </div>
+            </header>
+            <div>
+              {harnessGroupViews.slice(0, 6).map((group) => (
+                <span
+                  key={group.groupId}
+                  data-readiness={group.statusRollup.readiness}
+                  data-testid="workflow-harness-teaching-group"
+                >
+                  {group.label}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <div className="workflow-composer-actions">
           <div
             className="workflow-action-cluster"
