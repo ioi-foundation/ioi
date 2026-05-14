@@ -184,6 +184,11 @@ import {
   type WorkflowNodeCreatorDefinition,
   type WorkflowNodeDefinition,
 } from "../runtime/workflow-node-registry";
+import { WORKFLOW_COMPOSITION_HELPERS } from "../runtime/workflow-composition-helpers";
+import {
+  searchWorkflowCompositionHelpers,
+  searchWorkflowNodeLibrary,
+} from "../runtime/workflow-node-library-search";
 import {
   buildScratchWorkflow,
   type ScratchWorkflowBlueprintId,
@@ -2687,35 +2692,30 @@ export function useWorkflowComposerController({
   );
   const isSearchingNodeLibrary = nodeSearch.trim().length > 0;
   const searchedNodeLibrary = useMemo(() => {
-    const query = nodeSearch.trim().toLowerCase();
-    return NODE_LIBRARY.filter((item) => {
+    return searchWorkflowNodeLibrary(NODE_LIBRARY, nodeSearch, (item) => {
       const scaffold = WORKFLOW_SCAFFOLDS.find(
         (entry) => entry.nodeType === item.type,
       );
       const action = ACTION_BY_NODE_TYPE.get(item.type);
-      const haystack = [
-        item.label,
-        item.group,
-        item.familyLabel,
-        item.metricLabel,
-        "creatorDescription" in item ? item.creatorDescription : "",
-        action?.description,
-        action?.requiredBinding,
-        action?.sideEffectClass,
-        action?.requiresApproval ? "approval" : "",
-        action?.supportsMockBinding ? "mock live credential" : "",
-        action?.schemaRequired ? "schema typed contract" : "",
-        ...(scaffold?.keywords ?? []),
-        ...(scaffold?.connectionClasses ?? []),
-        ...(action?.keywords ?? []),
-        ...(action?.connectionClasses ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return !query || haystack.includes(query);
+      return {
+        scaffoldKeywords: scaffold?.keywords,
+        scaffoldConnectionClasses: scaffold?.connectionClasses,
+        actionDescription: action?.description,
+        actionRequiredBinding: action?.requiredBinding,
+        actionSideEffectClass: action?.sideEffectClass,
+        actionKeywords: action?.keywords,
+        actionConnectionClasses: action?.connectionClasses,
+        actionRequiresApproval: action?.requiresApproval,
+        actionSupportsMockBinding: action?.supportsMockBinding,
+        actionSchemaRequired: action?.schemaRequired,
+      };
     });
   }, [nodeSearch]);
+  const searchedCompositionHelpers = useMemo(
+    () =>
+      searchWorkflowCompositionHelpers(WORKFLOW_COMPOSITION_HELPERS, nodeSearch),
+    [nodeSearch],
+  );
   const compatibleNodeHints = useMemo<WorkflowCompatibleNodeHint[]>(() => {
     if (!selectedNode) return [];
     const selectedActionKind = actionKindForWorkflowNodeType(selectedNode.type);
@@ -14764,6 +14764,7 @@ export function useWorkflowComposerController({
     executionCompareRun,
     executionStatusCounts,
     filteredNodeLibrary,
+    filteredCompositionHelpers: searchedCompositionHelpers,
     fitView,
     FlaskConical,
     functionDryRunResult,
