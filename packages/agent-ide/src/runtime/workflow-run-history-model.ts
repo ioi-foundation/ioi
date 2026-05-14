@@ -27,6 +27,10 @@ import {
   workflowRuntimePolicyStackFromEvents,
   type WorkflowRuntimePolicyStack,
 } from "./workflow-runtime-policy-stack";
+import {
+  workflowRuntimeEditProposalPolicyStackFromEvents,
+  type WorkflowRuntimeEditProposalPolicyStack,
+} from "./workflow-runtime-edit-proposal-policy";
 
 export type WorkflowRunHistoryRow = {
   run: WorkflowRunSummary;
@@ -63,6 +67,7 @@ export type WorkflowRunHistoryModel = {
   comparison: WorkflowRunComparison | null;
   runtimeEventProjection: WorkflowRuntimeEventProjection;
   runtimePolicyStack: WorkflowRuntimePolicyStack;
+  runtimeEditProposalPolicyStack: WorkflowRuntimeEditProposalPolicyStack;
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   defaultCompareRun: WorkflowRunSummary | null;
   timelineEvents: WorkflowStreamEvent[];
@@ -118,6 +123,11 @@ export function workflowRunHistoryModel({
     canonicalRuntimeThreadEvents,
     { workflowGraphId: workflow.metadata.id },
   );
+  const runtimeEditProposalPolicyStack =
+    workflowRuntimeEditProposalPolicyStackFromEvents(
+      canonicalRuntimeThreadEvents,
+      { workflowGraphId: workflow.metadata.id },
+    );
   const tuiControlStateProjection = projectRuntimeTuiControlStateToWorkflowProjection(
     tuiControlState ?? tuiControlStateForRunResult(selectedRun),
   );
@@ -152,6 +162,7 @@ export function workflowRunHistoryModel({
     comparison,
     runtimeEventProjection,
     runtimePolicyStack,
+    runtimeEditProposalPolicyStack,
     tuiControlStateProjection,
     defaultCompareRun,
     timelineEvents,

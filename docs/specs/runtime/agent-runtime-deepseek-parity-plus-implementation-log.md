@@ -179,8 +179,49 @@ workstream was narrower.
 | 177 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow mode/trust authoring and workspace trust acknowledgement controls | /tmp/ioi-autopilot-gui-harness-runtime-thread-mode-ack/2026-05-14T00-50-29-577Z/result.json |
 | 178 | 2026-05-14 | P1-C. Modes, Trust, Approvals | WorkspaceTrustGateNode activation/run gate | /tmp/ioi-autopilot-gui-harness-workspace-trust-gate/2026-05-14T01-22-22-906Z/result.json |
 | 179 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow policy-stack replay for trust plus coding approval | /tmp/ioi-autopilot-gui-harness-policy-stack-replay/2026-05-14T01-35-21-567Z/result.json |
+| 180 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-gated workflow edit proposals | /tmp/ioi-autopilot-gui-harness-workflow-edit-proposals/2026-05-14T01-59-10-348Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 180. 2026-05-14 - Daemon-gated workflow edit proposals
+
+Implementation slice completed 2026-05-14, P1-C proposal-only workflow edit
+policy:
+
+- Added daemon-owned workflow edit proposal routes at
+  `/v1/threads/{thread_id}/workflow-edit-proposals` and
+  `/v1/threads/{thread_id}/workflow-edit-proposals/{proposal_id}/apply`.
+- Proposal creation emits `workflow.edit_proposed`, carries graph/node identity,
+  target workflow-node ids, patch hash, workspace-relative target path, and a
+  workflow-edit approval manifest, then requests daemon approval.
+- Apply ignores permissive UI bypass fields, blocks before approval or after
+  rejection without mutating the workflow file, writes approved patches only
+  inside the runtime workspace, emits `workflow.edit_applied`, and returns
+  idempotent replay evidence on repeated apply.
+- Added SDK event normalization for `workflow.edit_proposed` and
+  `workflow.edit_applied` so React Flow and SDK consumers no longer see
+  proposal policy events as generic runtime steps.
+- Added React Flow proposal create/apply control builders and
+  `workflowRuntimeEditProposalPolicyStackFromEvents`, then surfaced the stack
+  in the run inspector beside the trust/approval policy stack.
+- Added focused unit coverage for proposal controls, policy replay,
+  event projection, and run-history modeling plus a live daemon proof that
+  rejects one proposal, approves another, applies it, and replays the apply
+  idempotently.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+- `node --test --test-name-pattern "React Flow workflow edit proposals are daemon-gated and replayable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow policy stack replays workspace trust and coding approval gates in order" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-edit-proposals`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-workflow-edit-proposals/2026-05-14T01-59-10-348Z/result.json`.
 
 ### Slice 179. 2026-05-14 - React Flow policy-stack replay for trust plus coding approval
 
