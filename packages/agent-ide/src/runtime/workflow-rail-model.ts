@@ -2376,6 +2376,8 @@ export function workflowEventLabel(event: WorkflowStreamEvent): string {
       return "Node blocked";
     case "node_interrupted":
       return "Waiting for approval";
+    case "model_invocation_succeeded":
+      return "Model invoked";
     case "state_updated":
       return "State updated";
     case "output_created":

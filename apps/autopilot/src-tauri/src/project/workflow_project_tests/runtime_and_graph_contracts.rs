@@ -2516,6 +2516,312 @@ fn workflow_model_binding_node_satisfies_model_attachment() {
         .any(|issue| issue.code == "missing_model_binding_result_schema"));
 }
 
+#[derive(Debug)]
+struct WorkflowEchoInferenceRuntime;
+
+#[async_trait::async_trait]
+impl ioi_api::vm::inference::InferenceRuntime for WorkflowEchoInferenceRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: ioi_types::app::InferenceOptions,
+    ) -> Result<Vec<u8>, ioi_types::error::VmError> {
+        Ok(format!(
+            "mounted-model saw {}",
+            String::from_utf8_lossy(input_context)
+        )
+        .into_bytes())
+    }
+
+    async fn load_model(
+        &self,
+        _model_hash: [u8; 32],
+        _path: &std::path::Path,
+    ) -> Result<(), ioi_types::error::VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(
+        &self,
+        _model_hash: [u8; 32],
+    ) -> Result<(), ioi_types::error::VmError> {
+        Ok(())
+    }
+}
+
+#[test]
+fn workflow_model_call_invokes_mounted_runtime_and_records_trace() {
+    let root = temp_root("model-call-live-runtime");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Model Call Live Runtime".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.global_config["modelBindings"]["reasoning"]["modelId"] = json!("demo-mounted-model");
+    let mut model = workflow_node(
+        "model-live",
+        "model_call",
+        "Answer with mounted model",
+        320,
+        120,
+        "Model",
+        "reasoning",
+    );
+    logic_mut(&mut model).insert(
+        "prompt".to_string(),
+        json!("Answer the workflow prompt: {{question}}"),
+    );
+    let runtime = WorkflowExecutionRuntime {
+        inference: Some(std::sync::Arc::new(WorkflowEchoInferenceRuntime)),
+        local_engine_registry: Some(crate::models::LocalEngineRegistryState {
+            registry_models: vec![crate::models::LocalEngineModelRecord {
+                model_id: "demo-mounted-model".to_string(),
+                status: "mounted".to_string(),
+                residency: "local".to_string(),
+                installed_at_ms: 0,
+                updated_at_ms: 0,
+                source_uri: None,
+                backend_id: Some("test-runtime".to_string()),
+                hardware_profile: Some("cpu".to_string()),
+                job_id: None,
+                bytes_transferred: None,
+            }],
+            ..Default::default()
+        }),
+        live_model_dispatch: true,
+    };
+
+    let output = execute_workflow_node(
+        Path::new(&bundle.workflow_path),
+        Some(&workflow),
+        &model,
+        json!({"question": "what's the latest sports news?"}),
+        1,
+        None,
+        &super::workflow_coding_route_lane::WorkflowSkillResolver::default(),
+        &runtime,
+    )
+    .expect("model call should invoke mounted runtime");
+
+    assert_eq!(
+        output
+            .get("modelInvocation")
+            .and_then(|value| value.get("mode"))
+            .and_then(Value::as_str),
+        Some("live_mounted_model")
+    );
+    assert_eq!(
+        output
+            .get("modelInvocation")
+            .and_then(|value| value.get("modelId"))
+            .and_then(Value::as_str),
+        Some("demo-mounted-model")
+    );
+    assert!(output
+        .get("response")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .contains("latest sports news"));
+    assert!(output
+        .get("modelInvocation")
+        .and_then(|value| value.get("promptHash"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .starts_with("sha256:"));
+    let phases = output
+        .get("modelInvocation")
+        .and_then(|value| value.get("trace"))
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get("phase").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(phases.contains(&"input"));
+    assert!(phases.contains(&"binding"));
+    assert!(phases.contains(&"prompt"));
+    assert!(phases.contains(&"model"));
+}
+
+#[test]
+fn workflow_project_run_carries_prompt_through_model_pipeline_trace() {
+    let root = temp_root("model-call-pipeline-trace");
+    let mut bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Model Call Pipeline Trace".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    bundle.workflow.global_config["modelBindings"]["reasoning"]["modelId"] =
+        json!("demo-mounted-model");
+    let mut source = workflow_node(
+        "source-prompt",
+        "source",
+        "Prompt",
+        80,
+        120,
+        "Input",
+        "manual",
+    );
+    logic_mut(&mut source).insert(
+        "payload".to_string(),
+        json!({"question": "what's the latest sports news?"}),
+    );
+    let mut model = workflow_node(
+        "model-live",
+        "model_call",
+        "Call mounted model",
+        320,
+        120,
+        "Model",
+        "reasoning",
+    );
+    logic_mut(&mut model).insert(
+        "prompt".to_string(),
+        json!("Answer the workflow prompt from the upstream input."),
+    );
+    let output = workflow_node(
+        "output-report",
+        "output",
+        "Report",
+        580,
+        120,
+        "Output",
+        "markdown",
+    );
+    bundle.workflow.nodes = vec![source, model, output];
+    bundle.workflow.edges = vec![
+        workflow_edge("edge-source-model", "source-prompt", "model-live"),
+        workflow_edge("edge-model-output", "model-live", "output-report"),
+    ];
+    let runtime = WorkflowExecutionRuntime {
+        inference: Some(std::sync::Arc::new(WorkflowEchoInferenceRuntime)),
+        local_engine_registry: Some(crate::models::LocalEngineRegistryState {
+            registry_models: vec![crate::models::LocalEngineModelRecord {
+                model_id: "demo-mounted-model".to_string(),
+                status: "mounted".to_string(),
+                residency: "local".to_string(),
+                installed_at_ms: 0,
+                updated_at_ms: 0,
+                source_uri: None,
+                backend_id: Some("test-runtime".to_string()),
+                hardware_profile: Some("cpu".to_string()),
+                job_id: None,
+                bytes_transferred: None,
+            }],
+            ..Default::default()
+        }),
+        live_model_dispatch: true,
+    };
+    let workflow_path = PathBuf::from(&bundle.workflow_path);
+    let thread = new_workflow_thread(&workflow_path, None);
+    let state = initial_workflow_state(&thread, "pending");
+    let run = execute_workflow_project(
+        &workflow_path,
+        bundle,
+        thread,
+        state,
+        None,
+        &super::workflow_coding_route_lane::WorkflowSkillResolver::default(),
+        &runtime,
+    )
+    .expect("workflow project should run through mounted model");
+
+    assert_eq!(run.summary.status, "passed");
+    let model_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "model-live")
+        .expect("model node run should be captured");
+    let model_output = model_run.output.as_ref().expect("model output");
+    assert_eq!(
+        model_output
+            .get("modelInvocation")
+            .and_then(|value| value.get("mode"))
+            .and_then(Value::as_str),
+        Some("live_mounted_model")
+    );
+    assert!(model_output
+        .get("modelInvocation")
+        .and_then(|value| value.get("prompt"))
+        .and_then(|value| value.get("user"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .contains("latest sports news"));
+    assert!(run.events.iter().any(|event| event.kind == "model_invocation_succeeded"
+        && event.node_id.as_deref() == Some("model-live")));
+}
+
+#[test]
+fn workflow_model_call_live_runtime_rejects_non_runnable_registry_status() {
+    let root = temp_root("model-call-loading-runtime");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Model Call Loading Runtime".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.global_config["modelBindings"]["reasoning"]["modelId"] = json!("demo-mounted-model");
+    let model = workflow_node(
+        "model-live",
+        "model_call",
+        "Answer with mounted model",
+        320,
+        120,
+        "Model",
+        "reasoning",
+    );
+    let runtime = WorkflowExecutionRuntime {
+        inference: Some(std::sync::Arc::new(WorkflowEchoInferenceRuntime)),
+        local_engine_registry: Some(crate::models::LocalEngineRegistryState {
+            registry_models: vec![crate::models::LocalEngineModelRecord {
+                model_id: "demo-mounted-model".to_string(),
+                status: "loading".to_string(),
+                residency: "local".to_string(),
+                installed_at_ms: 0,
+                updated_at_ms: 0,
+                source_uri: None,
+                backend_id: None,
+                hardware_profile: None,
+                job_id: None,
+                bytes_transferred: None,
+            }],
+            ..Default::default()
+        }),
+        live_model_dispatch: true,
+    };
+
+    let error = execute_workflow_node(
+        Path::new(&bundle.workflow_path),
+        Some(&workflow),
+        &model,
+        json!({"question": "hello"}),
+        1,
+        None,
+        &super::workflow_coding_route_lane::WorkflowSkillResolver::default(),
+        &runtime,
+    )
+    .expect_err("loading model should fail closed");
+
+    assert!(error.contains("loading"));
+    assert!(error.contains("runnable model"));
+}
+
 #[test]
 fn workflow_port_class_defaults_reject_edge_class_spoofing() {
     let root = temp_root("port-class-spoofing");

@@ -5242,6 +5242,7 @@ export interface WorkflowStreamEvent {
     | "node_failed"
     | "node_blocked"
     | "node_interrupted"
+    | "model_invocation_succeeded"
     | "policy_blocked"
     | "approval_required"
     | "approval_decision"

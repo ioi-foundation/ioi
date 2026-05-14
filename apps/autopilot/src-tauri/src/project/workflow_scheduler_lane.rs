@@ -21,6 +21,7 @@ pub(super) fn execute_workflow_project(
     mut state: WorkflowStateSnapshot,
     resume_gate: Option<(String, Value)>,
     skill_resolver: &WorkflowSkillResolver,
+    runtime: &WorkflowExecutionRuntime,
 ) -> Result<WorkflowRunResult, String> {
     let started_at_ms = now_ms();
     let run_id = unique_runtime_id("workflow-run");
@@ -127,6 +128,7 @@ pub(super) fn execute_workflow_project(
             input,
             resume_gate.as_ref(),
             skill_resolver,
+            runtime,
             &run_id,
             &thread_id,
             &mut state,
