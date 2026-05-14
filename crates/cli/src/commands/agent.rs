@@ -181,6 +181,12 @@ pub enum AgentCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Inspect daemon-owned durable runtime tasks.
+    Tasks {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Inspect canonical tool contracts and safety metadata.
     Tools {
         #[clap(subcommand)]
@@ -584,6 +590,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         AgentCommands::Hooks { json } => {
             print_runtime_catalog(json, "/v1/hooks", "hooks", "hookCount").await
         }
+        AgentCommands::Tasks { json } => print_runtime_list(json, "/v1/tasks", "tasks").await,
         AgentCommands::Tools {
             command,
             tool,
@@ -1827,6 +1834,40 @@ async fn print_runtime_catalog(
     Ok(())
 }
 
+async fn print_runtime_list(json: bool, route: &str, label: &str) -> Result<()> {
+    let value = match daemon_request(None, None, Method::GET, route, None).await {
+        Ok(value) => value,
+        Err(error) => serde_json::json!({
+            "schemaVersion": "ioi.agent-runtime.list-fallback.v1",
+            "object": "ioi.agent_runtime_list_fallback",
+            "status": "degraded",
+            "label": label,
+            "daemon": {
+                "endpoint": std::env::var("IOI_DAEMON_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8765".to_string()),
+                "route": route,
+                "reachable": false,
+                "error": error.to_string(),
+            },
+            "items": [],
+            "count": 0,
+            "redaction": {
+                "secretValuesIncluded": false
+            }
+        }),
+    };
+    if json {
+        return print_json(&value);
+    }
+    let count = value
+        .as_array()
+        .map(|items| items.len())
+        .or_else(|| value.get("count").and_then(|value| value.as_u64()).map(|count| count as usize))
+        .unwrap_or(0);
+    println!("Agent runtime {label}: count={count}");
+    println!("  report: {route} (secrets redacted)");
+    Ok(())
+}
+
 fn local_doctor_fallback(error: Option<String>) -> serde_json::Value {
     let substrate = RuntimeSubstratePortContract::default();
     let gui = AutopilotGuiHarnessValidationContract::default();
@@ -2458,6 +2499,13 @@ mod tests {
         assert!(matches!(
             hooks.command,
             Some(AgentCommands::Hooks { json: true })
+        ));
+
+        let tasks = AgentArgs::try_parse_from(["agent", "tasks", "--json"])
+            .expect("tasks command should parse");
+        assert!(matches!(
+            tasks.command,
+            Some(AgentCommands::Tasks { json: true })
         ));
     }
 

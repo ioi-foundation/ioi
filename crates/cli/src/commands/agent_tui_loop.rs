@@ -3,22 +3,24 @@
 use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     add_tui_mcp_server, apply_tui_workspace_restore, assign_tui_subagent, cancel_tui_job,
-    cancel_tui_run, cancel_tui_subagent, decide_tui_approval, delete_tui_memory, edit_tui_memory,
+    cancel_tui_run, cancel_tui_subagent, cancel_tui_task, decide_tui_approval, delete_tui_memory,
+    edit_tui_memory,
     evaluate_tui_compaction_policy, evaluate_tui_context_budget,
     execute_tui_diagnostics_repair_decision, execute_tui_run_coding_tool_budget_recovery,
     fetch_tui_event_batch, fetch_tui_job, fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace,
-    fetch_tui_subagent_result, fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp,
+    fetch_tui_subagent_result, fetch_tui_task, fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp,
     inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
     inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
     invoke_tui_mcp_tool, latest_event_seq, latest_usage_delta_status, list_tui_jobs_for_thread,
-    list_tui_memory_records, list_tui_subagents, list_tui_workspace_snapshots,
+    list_tui_memory_records, list_tui_subagents, list_tui_tasks_for_thread,
+    list_tui_workspace_snapshots,
     preview_tui_workspace_restore, propagate_tui_subagent_cancellation, remember_tui_memory,
     remove_tui_mcp_server, replay_tui_run_events, resume_tui_subagent, resume_tui_thread,
     search_tui_mcp_tools, selected_run_id_from_thread, selected_turn_id_from_values,
     send_tui_subagent_input, set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn,
     thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows,
     tui_context_pressure_rows, tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows,
-    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows,
+    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows, tui_task_rows,
     tui_usage_delta_rows, tui_usage_status, tui_workspace_trust_rows, update_tui_memory_policy,
     update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp,
     validate_tui_memory, wait_tui_subagent,
@@ -113,6 +115,13 @@ pub(crate) enum TuiLineCommand {
     },
     RetrieveResult {
         target: String,
+    },
+    Tasks,
+    TaskInspect {
+        task_id: Option<String>,
+    },
+    TaskCancel {
+        task_id: String,
     },
     Jobs,
     JobInspect {
@@ -574,6 +583,51 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 );
                 print_tui_control_state(&control_state)?;
             }
+            Ok(TuiLineCommand::Tasks) => {
+                let tasks = handle_tasks_command(&mut session).await?;
+                control_state
+                    .merge_task_rows(tui_task_rows(&tasks, control_state.thread_id.as_deref()));
+                control_state.record_command(
+                    "tasks",
+                    line.trim(),
+                    "applied",
+                    Some("tasks listed"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::TaskInspect { task_id }) => {
+                let task =
+                    handle_task_inspect_command(&mut session, &control_state, task_id).await?;
+                let tasks = vec![task];
+                control_state
+                    .merge_task_rows(tui_task_rows(&tasks, control_state.thread_id.as_deref()));
+                control_state.record_command(
+                    "task",
+                    line.trim(),
+                    "applied",
+                    Some("task inspected"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::TaskCancel { task_id }) => {
+                let task = handle_task_cancel_command(&mut session, &task_id).await?;
+                let tasks = vec![task];
+                control_state
+                    .merge_task_rows(tui_task_rows(&tasks, control_state.thread_id.as_deref()));
+                control_state.record_command(
+                    "task",
+                    line.trim(),
+                    "applied",
+                    Some("task canceled"),
+                    &session,
+                    &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
             Ok(TuiLineCommand::Jobs) => {
                 let jobs = handle_jobs_command(&mut session).await?;
                 control_state
@@ -907,6 +961,13 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 .ok_or_else(|| anyhow!("/retrieve requires a tool call id or artifact id"))?;
             Ok(TuiLineCommand::RetrieveResult { target })
         }
+        "tasks" => {
+            if !rest.is_empty() {
+                return Err(anyhow!("/{command} does not accept extra arguments"));
+            }
+            Ok(TuiLineCommand::Tasks)
+        }
+        "task" => parse_task_args(rest),
         "jobs" | "runs" => {
             if !rest.is_empty() {
                 return Err(anyhow!("/{command} does not accept extra arguments"));
@@ -2630,6 +2691,69 @@ async fn handle_jobs_command(session: &mut TuiInteractiveSession) -> Result<Vec<
     Ok(jobs)
 }
 
+async fn handle_tasks_command(session: &mut TuiInteractiveSession) -> Result<Vec<Value>> {
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let tasks =
+        list_tui_tasks_for_thread(&session.thread, &session.endpoint, session.token.as_deref())
+            .await?;
+    let rows = tui_task_rows(&tasks, Some(&thread_id));
+    println!("line_mode_command=tasks count={}", rows.len());
+    for row in &rows {
+        println!(
+            "  task={} run={} status={} family={} node={}",
+            json_path_string(row, "/task_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/run_id").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/status").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/task_family").unwrap_or_else(|| "unknown".to_string()),
+            json_path_string(row, "/workflow_node_id")
+                .unwrap_or_else(|| "runtime.runtime-task".to_string())
+        );
+    }
+    Ok(tasks)
+}
+
+async fn handle_task_inspect_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    task_id: Option<String>,
+) -> Result<Value> {
+    let task_id = select_task_id(session, control_state, task_id).await?;
+    let task = fetch_tui_task(&task_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=task action=inspect task={} run={} status={} family={} cancelable={}",
+        json_path_string(&task, "/taskId")
+            .or_else(|| json_path_string(&task, "/task_id"))
+            .unwrap_or_else(|| task_id.clone()),
+        json_path_string(&task, "/runId")
+            .or_else(|| json_path_string(&task, "/run_id"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&task, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&task, "/taskFamily")
+            .or_else(|| json_path_string(&task, "/task_family"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&task, "/cancelable").unwrap_or_else(|| "false".to_string())
+    );
+    Ok(task)
+}
+
+async fn handle_task_cancel_command(
+    session: &mut TuiInteractiveSession,
+    task_id: &str,
+) -> Result<Value> {
+    let task = cancel_tui_task(task_id, &session.endpoint, session.token.as_deref()).await?;
+    println!(
+        "line_mode_command=task action=cancel task={} run={} status={}",
+        json_path_string(&task, "/taskId")
+            .or_else(|| json_path_string(&task, "/task_id"))
+            .unwrap_or_else(|| task_id.to_string()),
+        json_path_string(&task, "/runId")
+            .or_else(|| json_path_string(&task, "/run_id"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&task, "/status").unwrap_or_else(|| "unknown".to_string())
+    );
+    Ok(task)
+}
+
 async fn handle_job_inspect_command(
     session: &mut TuiInteractiveSession,
     control_state: &TuiControlState,
@@ -2844,6 +2968,31 @@ async fn select_job_id(
         })
 }
 
+async fn select_task_id(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    explicit_task_id: Option<String>,
+) -> Result<String> {
+    if let Some(task_id) = explicit_task_id.filter(|value| !value.trim().is_empty()) {
+        return Ok(task_id);
+    }
+    if let Some(task_id) = control_state.default_task_id() {
+        return Ok(task_id);
+    }
+    let tasks =
+        list_tui_tasks_for_thread(&session.thread, &session.endpoint, session.token.as_deref())
+            .await?;
+    tasks
+        .iter()
+        .rev()
+        .find_map(|task| {
+            json_path_string(task, "/taskId").or_else(|| json_path_string(task, "/task_id"))
+        })
+        .ok_or_else(|| {
+            anyhow!("/task requires a task id when no task rows are loaded; use /tasks first")
+        })
+}
+
 async fn select_run_id(
     session: &mut TuiInteractiveSession,
     control_state: &TuiControlState,
@@ -2888,7 +3037,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3172,6 +3321,45 @@ fn parse_job_args(rest: &str) -> Result<TuiLineCommand> {
     }
 }
 
+fn parse_task_args(rest: &str) -> Result<TuiLineCommand> {
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        return Ok(TuiLineCommand::TaskInspect { task_id: None });
+    }
+    let mut parts = trimmed.split_whitespace();
+    let first = parts
+        .next()
+        .ok_or_else(|| anyhow!("/task accepts [task_id] or cancel <task_id>"))?;
+    match first.to_ascii_lowercase().as_str() {
+        "cancel" => {
+            let task_id = parts
+                .next()
+                .ok_or_else(|| anyhow!("/task cancel requires a task id"))?;
+            if parts.next().is_some() {
+                return Err(anyhow!("/task cancel accepts exactly one task id"));
+            }
+            Ok(TuiLineCommand::TaskCancel {
+                task_id: task_id.to_string(),
+            })
+        }
+        "inspect" | "show" => {
+            let task_id = parts.next().map(ToOwned::to_owned);
+            if parts.next().is_some() {
+                return Err(anyhow!("/task inspect accepts at most one task id"));
+            }
+            Ok(TuiLineCommand::TaskInspect { task_id })
+        }
+        _ => {
+            if parts.next().is_some() {
+                return Err(anyhow!("/task accepts [task_id] or cancel <task_id>"));
+            }
+            Ok(TuiLineCommand::TaskInspect {
+                task_id: Some(first.to_string()),
+            })
+        }
+    }
+}
+
 fn parse_run_args(rest: &str) -> Result<TuiLineCommand> {
     let trimmed = rest.trim();
     if trimmed.is_empty() {
@@ -3304,6 +3492,7 @@ struct TuiControlState {
     approval_rows: Vec<Value>,
     approval_decisions: Vec<Value>,
     workspace_trust_rows: Vec<Value>,
+    task_rows: Vec<Value>,
     job_rows: Vec<Value>,
     run_lifecycle_rows: Vec<Value>,
     cost_rows: Vec<Value>,
@@ -3333,6 +3522,7 @@ impl TuiControlState {
             approval_rows: Vec::new(),
             approval_decisions: Vec::new(),
             workspace_trust_rows: Vec::new(),
+            task_rows: Vec::new(),
             job_rows: Vec::new(),
             run_lifecycle_rows: Vec::new(),
             cost_rows: Vec::new(),
@@ -3518,6 +3708,28 @@ impl TuiControlState {
         }
     }
 
+    fn merge_task_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/task_id")
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.task_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.task_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/task_id")
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.task_rows.push(row);
+            }
+        }
+    }
+
     fn merge_run_lifecycle_rows(&mut self, rows: Vec<Value>) {
         for row in rows {
             let key = json_path_string(&row, "/run_id")
@@ -3694,6 +3906,13 @@ impl TuiControlState {
             .find_map(|row| json_path_string(row, "/job_id"))
     }
 
+    fn default_task_id(&self) -> Option<String> {
+        self.task_rows
+            .iter()
+            .rev()
+            .find_map(|row| json_path_string(row, "/task_id"))
+    }
+
     fn default_run_id(&self) -> Option<String> {
         self.run_lifecycle_rows
             .iter()
@@ -3727,6 +3946,7 @@ impl TuiControlState {
             "approval_rows": self.approval_rows.clone(),
             "approval_decisions": self.approval_decisions.clone(),
             "workspace_trust_rows": self.workspace_trust_rows.clone(),
+            "task_rows": self.task_rows.clone(),
             "job_rows": self.job_rows.clone(),
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
             "cost_rows": self.cost_rows.clone(),
@@ -4000,6 +4220,26 @@ mod tests {
             }
         );
         assert_eq!(
+            parse_tui_line_command("/tasks").unwrap(),
+            TuiLineCommand::Tasks
+        );
+        assert_eq!(
+            parse_tui_line_command("/task").unwrap(),
+            TuiLineCommand::TaskInspect { task_id: None }
+        );
+        assert_eq!(
+            parse_tui_line_command("/task inspect task_run_live").unwrap(),
+            TuiLineCommand::TaskInspect {
+                task_id: Some("task_run_live".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/task cancel task_run_live").unwrap(),
+            TuiLineCommand::TaskCancel {
+                task_id: "task_run_live".to_string()
+            }
+        );
+        assert_eq!(
             parse_tui_line_command("/jobs").unwrap(),
             TuiLineCommand::Jobs
         );
@@ -4124,9 +4364,12 @@ mod tests {
         assert!(parse_tui_line_command("/diagnostics repair").is_err());
         assert!(parse_tui_line_command("/diagnostics repair unknown").is_err());
         assert!(parse_tui_line_command("/diagnostics repair apply-restore").is_err());
+        assert!(parse_tui_line_command("/tasks extra").is_err());
         assert!(parse_tui_line_command("/jobs extra").is_err());
         assert!(parse_tui_line_command("/cost extra").is_err());
         assert!(parse_tui_line_command("/context extra").is_err());
+        assert!(parse_tui_line_command("/task cancel").is_err());
+        assert!(parse_tui_line_command("/task cancel task extra").is_err());
         assert!(parse_tui_line_command("/job cancel").is_err());
         assert!(parse_tui_line_command("/job cancel job extra").is_err());
         assert!(parse_tui_line_command("/run cancel").is_err());

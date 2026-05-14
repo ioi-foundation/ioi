@@ -206,6 +206,58 @@ export interface RuntimeUsageListResult {
   generatedAt?: string;
 }
 
+export interface RuntimeTaskRecord {
+  schemaVersion: string;
+  object: "ioi.runtime_task" | string;
+  taskId: string;
+  runId: string;
+  agentId: string | null;
+  threadId?: string | null;
+  turnId?: string | null;
+  status: "queued" | "running" | "completed" | "canceled" | "failed" | "blocked" | string;
+  mode?: string;
+  taskFamily?: string;
+  selectedStrategy?: string;
+  summary?: string;
+  promptHash?: string;
+  promptIncluded?: boolean;
+  modelRouteDecisionId?: string | null;
+  activeSkillHookManifestId?: string | null;
+  durable?: boolean;
+  replayable?: boolean;
+  cancelable?: boolean;
+  cancelEndpoint?: string;
+  endpoints?: Record<string, string>;
+  workflowNodeId?: string;
+  createdAt: string;
+  updatedAt: string;
+  evidenceRefs?: string[];
+  [key: string]: unknown;
+}
+
+export interface RuntimeTaskListOptions {
+  agentId?: string;
+  agent_id?: string;
+  status?: string;
+}
+
+export interface RuntimeTaskCreateOptions {
+  agentId?: string;
+  agent_id?: string;
+  prompt?: string;
+  objective?: string;
+  goal?: string;
+  mode?: string;
+  options?: Record<string, unknown>;
+  agent?: Record<string, unknown>;
+  agentOptions?: Record<string, unknown>;
+  agent_options?: Record<string, unknown>;
+  model?: Record<string, unknown>;
+  cwd?: string;
+  workspace?: string;
+  [key: string]: unknown;
+}
+
 export interface RuntimeJobRecord {
   schemaVersion: string;
   object: "ioi.runtime_job" | string;
@@ -1258,6 +1310,10 @@ export interface RuntimeSubstrateClient {
   getRunUsage(runId: string): Promise<RuntimeUsageTelemetry>;
   listRuns(agentId?: string): Promise<RuntimeRunRecord[]>;
   listUsage(input?: RuntimeUsageListInput): Promise<RuntimeUsageListResult>;
+  createTask(options?: RuntimeTaskCreateOptions): Promise<RuntimeTaskRecord>;
+  listTasks(options?: RuntimeTaskListOptions): Promise<RuntimeTaskRecord[]>;
+  getTask(taskId: string): Promise<RuntimeTaskRecord>;
+  cancelTask(taskId: string): Promise<RuntimeTaskRecord>;
   listJobs(options?: RuntimeJobListOptions): Promise<RuntimeJobRecord[]>;
   getJob(jobId: string): Promise<RuntimeJobRecord>;
   cancelJob(jobId: string): Promise<RuntimeJobRecord>;
@@ -1778,6 +1834,27 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async listUsage(input: RuntimeUsageListInput = {}): Promise<RuntimeUsageListResult> {
     const query = runtimeUsageListQuery(input);
     return this.request("listUsage", "GET", `/v1/usage${query}`);
+  }
+
+  async createTask(options: RuntimeTaskCreateOptions = {}): Promise<RuntimeTaskRecord> {
+    return this.request("createTask", "POST", "/v1/tasks", options);
+  }
+
+  async listTasks(options: RuntimeTaskListOptions = {}): Promise<RuntimeTaskRecord[]> {
+    const params = new URLSearchParams();
+    const agentId = options.agentId ?? options.agent_id;
+    if (agentId) params.set("agentId", agentId);
+    if (options.status) params.set("status", options.status);
+    const query = params.toString() ? `?${params}` : "";
+    return this.request("listTasks", "GET", `/v1/tasks${query}`);
+  }
+
+  async getTask(taskId: string): Promise<RuntimeTaskRecord> {
+    return this.request("getTask", "GET", `/v1/tasks/${encodePath(taskId)}`);
+  }
+
+  async cancelTask(taskId: string): Promise<RuntimeTaskRecord> {
+    return this.request("cancelTask", "POST", `/v1/tasks/${encodePath(taskId)}/cancel`);
   }
 
   async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {
@@ -2831,6 +2908,52 @@ function runtimeJobRecordForSdkRun(run: RuntimeRunRecord): RuntimeJobRecord {
     },
     workflowNodeId: "runtime.runtime-job",
     evidenceRefs: ["runtime_job", `run:${run.id}`],
+  };
+}
+
+function runtimeTaskRecordForSdkRun(run: RuntimeRunRecord): RuntimeTaskRecord {
+  const taskId = `task_${run.id}`;
+  const runWithTaskManifest = run as RuntimeRunRecord & {
+    activeSkillHookManifest?: { manifestId?: string };
+    trace?: RuntimeTraceBundle & { activeSkillHookManifest?: { manifestId?: string } };
+  };
+  return {
+    schemaVersion: "ioi.agent-runtime.task-record.v1",
+    object: "ioi.runtime_task",
+    taskId,
+    runId: run.id,
+    agentId: run.agentId,
+    threadId: threadIdForAgent(run.agentId),
+    turnId: turnIdForRun(run.id),
+    status: run.status,
+    mode: run.mode,
+    taskFamily: run.trace?.qualityLedger?.taskFamily ?? "coding_agent",
+    selectedStrategy: run.trace?.qualityLedger?.selectedStrategy ?? "agent",
+    summary: `Runtime task for ${run.mode} is ${run.status}.`,
+    promptHash: crypto.createHash("sha256").update(run.objective ?? "").digest("hex"),
+    promptIncluded: false,
+    modelRouteDecisionId:
+      run.modelRouteDecision?.decisionId ?? run.trace?.modelRouteDecision?.decisionId ?? null,
+    activeSkillHookManifestId:
+      runWithTaskManifest.activeSkillHookManifest?.manifestId ??
+      runWithTaskManifest.trace?.activeSkillHookManifest?.manifestId ??
+      null,
+    durable: true,
+    replayable: true,
+    cancelable: run.status !== "canceled",
+    cancelEndpoint: `/v1/tasks/${taskId}/cancel`,
+    endpoints: {
+      self: `/v1/tasks/${taskId}`,
+      cancel: `/v1/tasks/${taskId}/cancel`,
+      run: `/v1/runs/${run.id}`,
+      job: `/v1/jobs/job_${run.id}`,
+      events: `/v1/runs/${run.id}/events`,
+      trace: `/v1/runs/${run.id}/trace`,
+    },
+    workflowNodeId: "runtime.runtime-task",
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    evidenceRefs: ["runtime_task", "runtime.tasks.durable_projection", "RuntimeTaskNode", `run:${run.id}`],
   };
 }
 
@@ -4477,6 +4600,48 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
         (run) => run.usageTelemetry ?? run.usage_telemetry ?? run.runtimeUsage ?? run.usage ?? mockUsageForRun(run),
       ),
     );
+  }
+
+  async createTask(options: RuntimeTaskCreateOptions = {}): Promise<RuntimeTaskRecord> {
+    const agentId = options.agentId ?? options.agent_id;
+    const agent = agentId
+      ? await this.getAgent(agentId)
+      : await this.createAgent({
+          ...(options.agent ?? options.agentOptions ?? options.agent_options ?? {}),
+          local: {
+            cwd: options.cwd ?? options.workspace ?? this.cwd,
+            ...((options.agent ?? options.agentOptions ?? options.agent_options ?? {}).local ?? {}),
+          },
+          model: options.model,
+        } as AgentOptions);
+    const run = await this.send(agent.id, options.prompt ?? options.objective ?? options.goal ?? "", {
+      mode: options.mode,
+      options: options.options,
+    } as SendOptions);
+    return runtimeTaskRecordForSdkRun(run);
+  }
+
+  async listTasks(options: RuntimeTaskListOptions = {}): Promise<RuntimeTaskRecord[]> {
+    const agentId = options.agentId ?? options.agent_id;
+    return (await this.listRuns(agentId))
+      .map((run) => runtimeTaskRecordForSdkRun(run))
+      .filter((task) => !options.status || task.status === options.status);
+  }
+
+  async getTask(taskId: string): Promise<RuntimeTaskRecord> {
+    const task = (await this.listTasks()).find(
+      (candidate) => candidate.taskId === taskId || candidate.runId === taskId,
+    );
+    if (!task) {
+      throw new IoiAgentError({ code: "not_found", message: `Task not found: ${taskId}` });
+    }
+    return task;
+  }
+
+  async cancelTask(taskId: string): Promise<RuntimeTaskRecord> {
+    const task = await this.getTask(taskId);
+    const run = await this.cancelRun(task.runId);
+    return runtimeTaskRecordForSdkRun(run);
   }
 
   async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {

@@ -5160,6 +5160,49 @@ export class AgentgresRuntimeStateStore {
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
+  createTask(body = {}) {
+    const agentId = optionalString(body.agentId ?? body.agent_id);
+    const agent = agentId
+      ? this.getAgent(agentId)
+      : this.createAgent({
+          ...(body.agent ?? body.agent_options ?? body.agentOptions ?? {}),
+          local: {
+            cwd: body.cwd ?? body.workspace ?? this.defaultCwd,
+            ...((body.agent ?? body.agent_options ?? body.agentOptions ?? {}).local ?? {}),
+          },
+          model: body.model ?? (body.agent ?? body.agent_options ?? body.agentOptions ?? {}).model,
+        });
+    const options = body.options && typeof body.options === "object" ? body.options : {};
+    const run = this.createRun(agent.id, {
+      ...body,
+      mode: body.mode ?? "send",
+      prompt: body.prompt ?? body.objective ?? body.goal ?? "",
+      options,
+    });
+    return runtimeTaskRecordForRun(run);
+  }
+
+  listTasks(options = {}) {
+    const agentId = options.agentId ?? options.agent_id ?? undefined;
+    const status = options.status ?? undefined;
+    return this.listRuns(agentId)
+      .map((run) => runtimeTaskRecordForRun(run))
+      .filter((task) => !status || task.status === status)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  getTask(taskId) {
+    const task = this.listTasks().find((candidate) => candidate.taskId === taskId || candidate.runId === taskId);
+    if (!task) throw notFound(`Task not found: ${taskId}`, { taskId });
+    return task;
+  }
+
+  cancelTask(taskId) {
+    const task = this.getTask(taskId);
+    const canceledRun = this.cancelRun(task.runId);
+    return runtimeTaskRecordForRun(canceledRun);
+  }
+
   getJob(jobId) {
     const job = this.listJobs().find((candidate) => candidate.jobId === jobId || candidate.runId === jobId);
     if (!job) throw notFound(`Job not found: ${jobId}`, { jobId });
@@ -9748,6 +9791,22 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.listRuns(url.searchParams.get("agentId") ?? undefined));
       return;
     }
+    if (request.method === "POST" && url.pathname === "/v1/tasks") {
+      writeJsonResponse(response, store.createTask(await readBody(request)));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/tasks") {
+      writeJsonResponse(response, store.listTasks(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (segments[0] === "v1" && segments[1] === "tasks" && segments[2] && request.method === "POST" && segments[3] === "cancel") {
+      writeJsonResponse(response, store.cancelTask(decodeURIComponent(segments[2])));
+      return;
+    }
+    if (segments[0] === "v1" && segments[1] === "tasks" && segments[2] && !segments[3] && request.method === "GET") {
+      writeJsonResponse(response, store.getTask(decodeURIComponent(segments[2])));
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/v1/jobs") {
       writeJsonResponse(response, store.listJobs(Object.fromEntries(url.searchParams.entries())));
       return;
@@ -14255,6 +14314,16 @@ function runtimeTaskRecord({
     updatedAt: updatedAt ?? createdAt ?? new Date().toISOString(),
     durable: true,
     replayable: true,
+    cancelable: status !== "canceled",
+    cancelEndpoint: `/v1/tasks/task_${id}/cancel`,
+    endpoints: {
+      self: `/v1/tasks/task_${id}`,
+      cancel: `/v1/tasks/task_${id}/cancel`,
+      run: `/v1/runs/${id}`,
+      job: `/v1/jobs/job_${id}`,
+      events: `/v1/runs/${id}/events`,
+      trace: `/v1/runs/${id}/trace`,
+    },
     workflowNodeId: "runtime.runtime-task",
     redaction: {
       profile: "runtime_task_safe",

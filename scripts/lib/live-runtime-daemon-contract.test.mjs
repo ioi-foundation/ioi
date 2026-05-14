@@ -643,6 +643,25 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(sdkJobs[0].jobId, jobs[0].jobId);
     assert.equal(sdkJobs[0].runId, run.id);
     assert.equal((await client.getJob(jobs[0].jobId)).jobId, jobs[0].jobId);
+    const tasks = await fetchJson(`${daemon.endpoint}/v1/tasks`);
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0].schemaVersion, "ioi.agent-runtime.task-record.v1");
+    assert.equal(tasks[0].object, "ioi.runtime_task");
+    assert.equal(tasks[0].taskId, trace.runtimeTask.taskId);
+    assert.equal(tasks[0].runId, run.id);
+    assert.equal(tasks[0].status, "canceled");
+    assert.equal(tasks[0].promptIncluded, false);
+    assert.equal(tasks[0].endpoints.self, `/v1/tasks/${tasks[0].taskId}`);
+    assert.equal(tasks[0].endpoints.cancel, `/v1/tasks/${tasks[0].taskId}/cancel`);
+    assert.equal(tasks[0].endpoints.job, `/v1/jobs/${jobs[0].jobId}`);
+    const task = await fetchJson(`${daemon.endpoint}/v1/tasks/${tasks[0].taskId}`);
+    assert.equal(task.taskId, tasks[0].taskId);
+    assert.equal(task.runId, run.id);
+    const sdkTasks = await client.listTasks({ agentId: run.agentId });
+    assert.equal(sdkTasks.length, 1);
+    assert.equal(sdkTasks[0].taskId, tasks[0].taskId);
+    assert.equal(sdkTasks[0].runId, run.id);
+    assert.equal((await client.getTask(tasks[0].taskId)).taskId, tasks[0].taskId);
     const jobCancel = await fetchJson(`${daemon.endpoint}/v1/jobs/${jobs[0].jobId}/cancel`, {
       method: "POST",
       body: "{}",
@@ -654,6 +673,15 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     const sdkJobCancel = await client.cancelJob(jobs[0].jobId);
     assert.equal(sdkJobCancel.jobId, jobs[0].jobId);
     assert.equal(sdkJobCancel.status, "canceled");
+    const taskCancel = await fetchJson(`${daemon.endpoint}/v1/tasks/${tasks[0].taskId}/cancel`, {
+      method: "POST",
+      body: "{}",
+    });
+    assert.equal(taskCancel.taskId, tasks[0].taskId);
+    assert.equal(taskCancel.status, "canceled");
+    const sdkTaskCancel = await client.cancelTask(tasks[0].taskId);
+    assert.equal(sdkTaskCancel.taskId, tasks[0].taskId);
+    assert.equal(sdkTaskCancel.status, "canceled");
     assert.equal(jobCancel.checklistId, trace.runtimeChecklist.checklistId);
     assert.equal(jobCancel.checklistStatus, "canceled");
     const traceAfterJobCancel = await fetchJson(`${daemon.endpoint}/v1/runs/${run.id}/trace`);
@@ -15741,7 +15769,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /colorIndependentStatus/);
   assert.match(nodeRegistry, /runtime_task/);
   assert.match(nodeRegistry, /RuntimeTaskNode/);
+  assert.match(nodeRegistry, /\/v1\/tasks/);
+  assert.match(nodeRegistry, /\/v1\/tasks\/\{taskId\}\/cancel/);
   assert.match(nodeRegistry, /runtimeTaskStatusField/);
+  assert.match(nodeRegistry, /runtimeTaskCancelEndpoint/);
   assert.match(nodeRegistry, /runtime_job/);
   assert.match(nodeRegistry, /RuntimeJobNode/);
   assert.match(nodeRegistry, /\/v1\/jobs/);
