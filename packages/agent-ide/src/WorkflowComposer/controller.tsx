@@ -140,6 +140,11 @@ import {
 } from "../runtime/workflow-runtime-live-telemetry";
 import { workflowWorkspaceTrustGateReadiness } from "../runtime/workflow-workspace-trust-gate";
 import {
+  workflowCodingToolBudgetPreflight,
+  workflowCodingToolBudgetRunLaunchAnnotation,
+} from "../runtime/workflow-readiness-model";
+import { workflowRunHistoryModel } from "../runtime/workflow-run-history-model";
+import {
   WORKFLOW_NODE_DEFINITIONS,
   type WorkflowNodeCreatorDefinition,
   type WorkflowNodeDefinition,
@@ -9267,6 +9272,52 @@ export function useWorkflowComposerController({
     tests,
     validationResult,
   ]);
+  const runLaunchHistoryModel = useMemo(
+    () =>
+      workflowRunHistoryModel({
+        workflow: currentProjectFile,
+        runs,
+        lastRunResult,
+        compareRunResult,
+        selectedRunId,
+        compareRunId,
+        runEvents,
+        runtimeThreadEvents,
+        searchQuery: "",
+        statusFilter: "all",
+        sourceFilter: "all",
+      }),
+    [
+      compareRunId,
+      compareRunResult,
+      currentProjectFile,
+      lastRunResult,
+      runEvents,
+      runtimeThreadEvents,
+      runs,
+      selectedRunId,
+    ],
+  );
+  const workflowRunCodingBudgetPreflight = useMemo(
+    () =>
+      workflowCodingToolBudgetPreflight({
+        workflow: currentProjectFile,
+        evidence: runLaunchHistoryModel.runtimeCodingToolBudgetEvidence,
+      }),
+    [currentProjectFile, runLaunchHistoryModel.runtimeCodingToolBudgetEvidence],
+  );
+  const workflowRunCodingBudgetPreflightAnnotation = useMemo(
+    () =>
+      workflowCodingToolBudgetRunLaunchAnnotation(
+        workflowRunCodingBudgetPreflight,
+      ),
+    [workflowRunCodingBudgetPreflight],
+  );
+  const workflowRunLaunchBlocked =
+    workflowRunCodingBudgetPreflight?.status === "blocked";
+  const workflowRunLaunchDisabledReason = workflowRunLaunchBlocked
+    ? workflowRunCodingBudgetPreflight.issue.message
+    : null;
 
   const loadRuntimeSidecars = useCallback(
     async (path: string) => {
@@ -11913,6 +11964,27 @@ export function useWorkflowComposerController({
   };
 
   const handleRun = async () => {
+    if (workflowRunLaunchBlocked && workflowRunCodingBudgetPreflight) {
+      const blockedValidation = createWorkflowActionFailure(
+        "coding_tool_budget_preflight_blocked",
+        workflowRunCodingBudgetPreflight.issue.message,
+      );
+      setValidationResult(blockedValidation);
+      setReadinessResult(blockedValidation);
+      setRightPanel("runs");
+      setBottomPanel("run_output");
+      const blockedSummary = createSubstrateProjectionRunSummary(
+        currentProjectFile,
+        blockedValidation,
+      );
+      setSelectedRunId(blockedSummary.id);
+      setRuns((current) => [
+        blockedSummary,
+        ...current.filter((run) => run.id !== blockedSummary.id),
+      ]);
+      setStatusMessage(workflowRunCodingBudgetPreflight.issue.message);
+      return;
+    }
     let validation: WorkflowValidationResult;
     try {
       validation = runtime.validateWorkflowBundle
@@ -12070,13 +12142,19 @@ export function useWorkflowComposerController({
             `Run starting without live telemetry hydration: ${errorMessage(error)}`,
           );
         }
+        const workflowRunOptions: Record<string, unknown> = {};
+        if (liveTelemetryHydration) {
+          workflowRunOptions.threadId = liveTelemetryHydration.threadId;
+          workflowRunOptions.liveTelemetryHydration = true;
+        }
+        if (workflowRunCodingBudgetPreflightAnnotation) {
+          workflowRunOptions.codingToolBudgetPreflight =
+            workflowRunCodingBudgetPreflightAnnotation;
+        }
         const result = await runtime.runWorkflowProject(
           workflowPath,
-          liveTelemetryHydration
-            ? {
-                threadId: liveTelemetryHydration.threadId,
-                liveTelemetryHydration: true,
-              }
+          Object.keys(workflowRunOptions).length > 0
+            ? workflowRunOptions
             : undefined,
         );
         liveTelemetryHydration?.stop();
@@ -12322,13 +12400,40 @@ export function useWorkflowComposerController({
         logic.payload ?? { payload: "sample" };
       setRightPanel("runs");
       setBottomPanel("run_output");
+      const nodeHasCodingBudgetPreflight = Boolean(
+        workflowRunCodingBudgetPreflight?.targetNodeIds.includes(node.id),
+      );
+      if (
+        workflowRunCodingBudgetPreflight?.status === "blocked" &&
+        nodeHasCodingBudgetPreflight
+      ) {
+        const blocked = createSubstrateProjectionRunSummary(
+          currentProjectFile,
+          createWorkflowActionFailure(
+            "coding_tool_budget_preflight_blocked",
+            workflowRunCodingBudgetPreflight.issue.message,
+          ),
+        );
+        setSelectedRunId(blocked.id);
+        setRuns((current) => [blocked, ...current]);
+        setStatusMessage(workflowRunCodingBudgetPreflight.issue.message);
+        return;
+      }
       if (runtime.runWorkflowNode) {
         try {
+          const runOptions: Record<string, unknown> = { source: "inspector" };
+          if (
+            nodeHasCodingBudgetPreflight &&
+            workflowRunCodingBudgetPreflightAnnotation
+          ) {
+            runOptions.codingToolBudgetPreflight =
+              workflowRunCodingBudgetPreflightAnnotation;
+          }
           const result = await runtime.runWorkflowNode(
             workflowPath,
             node.id,
             input,
-            { source: "inspector" },
+            runOptions,
           );
           await applyRunResult(result);
           setStatusMessage(`Node run ${result.summary.status}`);
@@ -12353,6 +12458,8 @@ export function useWorkflowComposerController({
       handleDryRunNodeFromFixture,
       nodeRunStatusById,
       runtime,
+      workflowRunCodingBudgetPreflight,
+      workflowRunCodingBudgetPreflightAnnotation,
       workflowPath,
     ],
   );
@@ -12361,11 +12468,31 @@ export function useWorkflowComposerController({
     async (node: Node) => {
       setRightPanel("runs");
       setBottomPanel("run_output");
+      if (workflowRunLaunchBlocked && workflowRunCodingBudgetPreflight) {
+        const blocked = createSubstrateProjectionRunSummary(
+          currentProjectFile,
+          createWorkflowActionFailure(
+            "coding_tool_budget_preflight_blocked",
+            workflowRunCodingBudgetPreflight.issue.message,
+          ),
+        );
+        setSelectedRunId(blocked.id);
+        setRuns((current) => [blocked, ...current]);
+        setStatusMessage(workflowRunCodingBudgetPreflight.issue.message);
+        return;
+      }
       if (runtime.runWorkflowProject) {
         try {
-          const result = await runtime.runWorkflowProject(workflowPath, {
+          const runOptions: Record<string, unknown> = {
             stopAtNodeId: node.id,
             source: "inspector-upstream",
+          };
+          if (workflowRunCodingBudgetPreflightAnnotation) {
+            runOptions.codingToolBudgetPreflight =
+              workflowRunCodingBudgetPreflightAnnotation;
+          }
+          const result = await runtime.runWorkflowProject(workflowPath, {
+            ...runOptions,
           });
           await applyRunResult(result);
           setStatusMessage(`Upstream run ${result.summary.status}`);
@@ -12389,6 +12516,9 @@ export function useWorkflowComposerController({
       currentProjectFile,
       handleRunWorkflowNode,
       runtime,
+      workflowRunCodingBudgetPreflight,
+      workflowRunCodingBudgetPreflightAnnotation,
+      workflowRunLaunchBlocked,
       workflowPath,
     ],
   );
@@ -13919,6 +14049,9 @@ export function useWorkflowComposerController({
     validationResult,
     visibleCompatibleNodeHints,
     workflow,
+    workflowRunCodingBudgetPreflight,
+    workflowRunLaunchBlocked,
+    workflowRunLaunchDisabledReason,
     workflowActionMetadataLabel,
     WorkflowBottomShelf,
     workflowConfigSectionForNodeKind,

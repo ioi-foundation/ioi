@@ -12520,7 +12520,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowReadinessPanel, /data-policy-decision-refs/);
   assert.match(workflowReadinessModel, /workflowSchedulerLaneReadiness/);
   assert.match(workflowReadinessModel, /WorkflowCodingToolBudgetPreflight/);
+  assert.match(workflowReadinessModel, /WorkflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(workflowReadinessModel, /runtimeCodingToolBudgetEvidence/);
+  assert.match(workflowReadinessModel, /workflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(workflowReadinessModel, /prior_coding_tool_budget_evidence/);
   assert.match(workflowReadinessModel, /Coding budget preflight/);
   assert.match(workflowReadinessModel, /readinessItems/);
@@ -12613,6 +12615,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /workflowWorkspaceTrustGateReadiness/);
   assert.match(workflowComposerController, /createRuntimeThreadModeControlRequestFromWorkflowNode/);
   assert.match(workflowComposerController, /workspace_trust_warning_not_emitted/);
+  assert.match(workflowComposerController, /workflowRunHistoryModel/);
+  assert.match(workflowComposerController, /workflowRunCodingBudgetPreflight/);
+  assert.match(workflowComposerController, /coding_tool_budget_preflight_blocked/);
+  assert.match(workflowComposerController, /codingToolBudgetPreflight/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /WorkflowRuntimeDiagnosticsRepairActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /repair_decisions/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /runtime\.run-inspector\.diagnostics-repair/);
@@ -12632,6 +12638,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /"delegate_summary"/);
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
+  assert.match(workflowComposerView, /workflowRunLaunchBlocked/);
+  assert.match(workflowComposerView, /data-coding-tool-budget-preflight-status/);
+  assert.match(workflowComposerView, /data-disabled-reason/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
   assert.match(workflowComposerView, /onExecuteRuntimeContextPressureAction/);
   assert.match(workflowComposerView, /onExecuteRuntimeWorkspaceTrustAction/);
@@ -12660,6 +12669,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEventProjection, /approval_decision/);
   assert.match(workflowRuntimeEventProjection, /workspaceTrustRows/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
+  assert.match(graphRuntimeTypes, /WorkflowRunRequestOptions/);
+  assert.match(graphRuntimeTypes, /codingToolBudgetPreflight/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeApprovalRequestControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeCodingToolControlRequest/);

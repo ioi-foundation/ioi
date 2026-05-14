@@ -7,7 +7,11 @@ import type {
   WorkflowValidationIssue,
   WorkflowValidationResult,
 } from "../types/graph";
-import { workflowReadinessModel } from "./workflow-readiness-model";
+import {
+  workflowCodingToolBudgetPreflight,
+  workflowCodingToolBudgetRunLaunchAnnotation,
+  workflowReadinessModel,
+} from "./workflow-readiness-model";
 import { workflowSchedulerLaneReadiness } from "./workflow-scheduler-lane-readiness";
 
 const issue = (code: string, message = code): WorkflowValidationIssue => ({
@@ -313,4 +317,64 @@ test("workflow readiness model blocks mutating coding tools on prior TUI budget 
     readiness.attentionIssues[readiness.attentionIssues.length - 1]?.status,
     "blocked",
   );
+});
+
+test("workflow coding budget preflight creates run launch annotations", () => {
+  const preflight = workflowCodingToolBudgetPreflight({
+    workflow: workflow({
+      nodes: [
+        ...workflow().nodes,
+        {
+          id: "workflow.coding.file.apply_patch.followup",
+          type: "plugin_tool",
+          name: "Apply patch",
+          x: 0,
+          y: 0,
+          config: {
+            logic: {
+              toolBinding: {
+                bindingKind: "coding_tool_pack",
+                toolRef: "file.apply_patch",
+                sideEffectClass: "write",
+              },
+            },
+          },
+        } as Node,
+      ],
+    }),
+    evidence: {
+      sourceKind: "tui_coding_tool_rows",
+      label: "TUI coding budget evidence",
+      status: "elevated",
+      rowCount: 2,
+      eventIds: ["event-budget"],
+      workflowNodeIds: ["workflow.coding.file.apply_patch.prior"],
+      toolNames: ["file.apply_patch"],
+      toolCallIds: ["tool-call-budget"],
+      budgetStatuses: ["warn"],
+      contextBudgetStatuses: ["warn"],
+      totalTokens: 420,
+      costEstimateUsd: 0.0024,
+      contextPressure: 0.62,
+      contextPressureStatus: "elevated",
+      mutationBlocked: false,
+      receiptRefs: ["receipt-budget"],
+      policyDecisionRefs: ["policy-budget"],
+    },
+  });
+
+  const annotation = workflowCodingToolBudgetRunLaunchAnnotation(preflight);
+
+  assert.equal(
+    annotation?.schemaVersion,
+    "ioi.workflow.coding-tool-budget-preflight.v1",
+  );
+  assert.equal(annotation?.status, "warning");
+  assert.deepEqual(annotation?.targetNodeIds, [
+    "workflow.coding.file.apply_patch.followup",
+  ]);
+  assert.deepEqual(annotation?.toolCallIds, ["tool-call-budget"]);
+  assert.deepEqual(annotation?.policyDecisionRefs, ["policy-budget"]);
+  assert.equal(annotation?.issueCode, "prior_coding_tool_budget_evidence");
+  assert.match(annotation?.issueMessage ?? "", /reported tool-call-budget/);
 });

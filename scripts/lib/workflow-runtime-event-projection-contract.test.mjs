@@ -79,6 +79,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "packages/agent-ide/src/WorkflowComposer/controller.tsx",
   );
   const composerView = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+  const composerSupport = read(
+    "packages/agent-ide/src/WorkflowComposer/support.tsx",
+  );
   const graphRuntimeTypes = read(
     "packages/agent-ide/src/runtime/graph-runtime-types.ts",
   );
@@ -241,10 +244,13 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runHistoryModelTest, /projects canonical runtime thread events/);
   assert.match(runHistoryModelTest, /source-filtered TUI coding-tool budget evidence/);
   assert.match(readinessModel, /WorkflowCodingToolBudgetPreflight/);
+  assert.match(readinessModel, /WorkflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(readinessModel, /runtimeCodingToolBudgetEvidence/);
   assert.match(readinessModel, /prior_coding_tool_budget_evidence/);
+  assert.match(readinessModel, /workflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(readinessModel, /Coding budget preflight/);
   assert.match(readinessModelTest, /prior TUI budget evidence/);
+  assert.match(readinessModelTest, /run launch annotations/);
   assert.match(readinessPanel, /workflow-readiness-coding-tool-budget-preflight/);
   assert.match(readinessPanel, /data-tool-call-ids/);
   assert.match(readinessPanel, /data-policy-decision-refs/);
@@ -267,9 +273,18 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(railPanel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(railPanel, /runtimeThreadEvents,/);
   assert.match(railPanel, /runtimeCodingToolBudgetEvidence/);
+  assert.match(composerController, /workflowRunHistoryModel/);
+  assert.match(composerController, /workflowRunCodingBudgetPreflight/);
+  assert.match(composerController, /coding_tool_budget_preflight_blocked/);
+  assert.match(composerController, /codingToolBudgetPreflight/);
   assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
   assert.match(composerController, /setRuntimeThreadEvents/);
   assert.match(composerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
+  assert.match(composerView, /workflowRunLaunchBlocked/);
+  assert.match(composerView, /data-coding-tool-budget-preflight-status/);
+  assert.match(composerSupport, /data-disabled-reason/);
+  assert.match(graphRuntimeTypes, /WorkflowRunRequestOptions/);
+  assert.match(graphRuntimeTypes, /codingToolBudgetPreflight/);
   assert.match(graphRuntimeTypes, /loadWorkflowRuntimeThreadEvents/);
   assert.match(tauriRuntime, /loadWorkflowRuntimeThreadEvents/);
   assert.match(runsPanel, /workflow-run-runtime-event-graph/);

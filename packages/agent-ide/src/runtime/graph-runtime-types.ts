@@ -49,6 +49,7 @@ import type {
 } from "./workflow-runtime-control-nodes";
 import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-tool-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
+import type { WorkflowCodingToolBudgetRunLaunchAnnotation } from "./workflow-readiness-model";
 
 export type WorkflowRuntimeControlRequest =
   | RuntimeApprovalRequestControlRequest
@@ -119,6 +120,14 @@ export interface GraphCapabilityCatalog {
   activeIssueCount?: number;
 }
 
+export interface WorkflowRunRequestOptions extends Record<string, unknown> {
+  threadId?: string;
+  liveTelemetryHydration?: boolean;
+  source?: string;
+  stopAtNodeId?: string;
+  codingToolBudgetPreflight?: WorkflowCodingToolBudgetRunLaunchAnnotation;
+}
+
 export interface GraphExecutionRuntime {
   runGraph(payload: GraphPayload): Promise<void>;
   stopExecution(): Promise<void>;
@@ -160,13 +169,13 @@ export interface GraphExecutionRuntime {
   ): Promise<WorkflowThread>;
   runWorkflowProject?(
     path: string,
-    options?: Record<string, unknown>,
+    options?: WorkflowRunRequestOptions,
   ): Promise<WorkflowRunResult>;
   runWorkflowNode?(
     path: string,
     nodeId: string,
     input?: unknown,
-    options?: Record<string, unknown>,
+    options?: WorkflowRunRequestOptions,
   ): Promise<WorkflowRunResult>;
   dryRunWorkflowFunction?(
     path: string,

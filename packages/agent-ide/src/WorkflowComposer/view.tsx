@@ -245,6 +245,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     validationResult,
     visibleCompatibleNodeHints,
     workflow,
+    workflowRunCodingBudgetPreflight,
+    workflowRunLaunchBlocked,
+    workflowRunLaunchDisabledReason,
     workflowActionMetadataLabel,
     WorkflowBottomShelf,
     workflowConfigSectionForNodeKind,
@@ -264,7 +267,16 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     zoomOut
   } = model;
 
-    return (
+  const workflowRunDisabled = isReadOnlyWorkflow || workflowRunLaunchBlocked;
+  const workflowRunDisabledReason =
+    workflowRunLaunchDisabledReason ??
+    (isReadOnlyWorkflow ? "Workflow is read-only" : undefined);
+  const workflowRunPreflightStatus =
+    workflowRunCodingBudgetPreflight?.status ?? "none";
+  const workflowRunPreflightTargetNodeIds =
+    workflowRunCodingBudgetPreflight?.targetNodeIds.join("|") ?? "";
+
+  return (
     <div
       className="workflow-composer"
       data-testid="workflow-composer"
@@ -482,7 +494,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               onClick={handleRun}
               variant="primary"
               showLabel
-              disabled={isReadOnlyWorkflow}
+              disabled={workflowRunDisabled}
+              disabledReason={workflowRunDisabledReason}
+              title={workflowRunDisabledReason ?? "Run workflow"}
             />
           </div>
           <div
@@ -1632,6 +1646,15 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                 type="button"
                 onClick={handleRun}
                 data-testid="workflow-executions-run-now"
+                disabled={workflowRunDisabled}
+                title={workflowRunDisabledReason ?? "Run workflow"}
+                data-coding-tool-budget-preflight-status={
+                  workflowRunPreflightStatus
+                }
+                data-coding-tool-budget-preflight-target-node-ids={
+                  workflowRunPreflightTargetNodeIds
+                }
+                data-disabled-reason={workflowRunDisabledReason ?? ""}
               >
                 Run workflow
               </button>
