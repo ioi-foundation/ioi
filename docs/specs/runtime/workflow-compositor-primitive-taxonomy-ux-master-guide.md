@@ -82,8 +82,8 @@ Target sentence:
 | P1 | Post-starter flow | Adding a trigger/input keeps composition moving with a side inspector and `Add next node` compatible suggestions. | Done / regression guarded |
 | P1 | Empty canvas | Empty graph guides the user toward agent/tool/verification workflows and aligns the right rail with the current start task. | Done / regression guarded |
 | P1 | Harness teaching view | Default harness opens as a fitted canonical-group overview with fork/use action; raw type counts move to advanced details. | Done / regression guarded |
-| P1 | Naming and shape profiles | Labels and shapes communicate execution boundaries, authority, and status with text equivalents. | Planned |
-| P2 | Migration compatibility | Existing stored workflows project to the new authoring taxonomy without changing canonical runtime semantics. | Planned |
+| P1 | Naming and shape profiles | Labels and shapes communicate execution boundaries, authority, and status with text equivalents. | Done / regression guarded |
+| P2 | Migration compatibility | Existing stored workflows project to the new authoring taxonomy without changing canonical runtime semantics. | Done / regression guarded |
 | P2 | Regression harness | Static taxonomy tests and live GUI probes guard search, palette, blank run safety, harness overview, and graph activation. | Planned |
 
 ## Canonical Primitive Taxonomy
