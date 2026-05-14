@@ -1089,6 +1089,138 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.thread.mode"] },
   },
   {
+    type: "runtime_workspace_trust_gate",
+    label: "Workspace Trust Gate",
+    group: "Flow",
+    family: "flow_control",
+    token: "WG",
+    familyLabel: "Runtime",
+    metricLabel: "Trust",
+    metricValue: "gate",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["trust"],
+    outputs: ["gate", "status", "receipt"],
+    portDefinitions: [
+      port("trust", "Trust warning", "input", "state", "state", false, "state"),
+      port("gate", "Gate result", "output", "state", "output", false, "state"),
+      port("status", "Gate status", "output", "state", "output", false, "state"),
+      port("receipt", "Acknowledgement receipt", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("trust", "Trust warning", "input", "state", "state", false, "state"),
+      port("gate", "Gate result", "output", "state", "output", false, "state"),
+      port("status", "Gate status", "output", "state", "output", false, "state"),
+      port("receipt", "Acknowledgement receipt", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeWorkspaceTrustGateWarningWorkflowNodeId",
+        "runtimeWorkspaceTrustGateStatusField",
+      ],
+      properties: {
+        runtimeWorkspaceTrustGateField: { type: "string" },
+        runtimeWorkspaceTrustGateStatusField: { type: "string" },
+        runtimeWorkspaceTrustGateWarningId: { type: "string" },
+        runtimeWorkspaceTrustGateWarningIdField: { type: "string" },
+        runtimeWorkspaceTrustGateWarningWorkflowNodeId: { type: "string" },
+        runtimeWorkspaceTrustGateWarningWorkflowNodeIdField: { type: "string" },
+        runtimeWorkspaceTrustGateModeNodeId: { type: "string" },
+        runtimeWorkspaceTrustGateModeNodeIdField: { type: "string" },
+        runtimeWorkspaceTrustGateSourceEventIdField: { type: "string" },
+        runtimeWorkspaceTrustGateAcknowledgementEventField: { type: "string" },
+        runtimeWorkspaceTrustGateReceiptField: { type: "string" },
+        runtimeWorkspaceTrustGatePolicyField: { type: "string" },
+        runtimeWorkspaceTrustGateRequireAcknowledgement: { type: "boolean" },
+        runtimeWorkspaceTrustGateMode: { type: "string" },
+        runtimeWorkspaceTrustGateModeField: { type: "string" },
+        runtimeWorkspaceTrustGateWorkflowNodeId: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_workspace_trust_gate"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_workspace_trust_gate",
+      "runtimeWorkspaceTrustGate.status",
+    ),
+    policyProfile: policyProfile("none", true),
+    evidenceProfile: evidenceProfile(
+      ["execution", "verification"],
+      ["execution", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_workspace_trust_gate",
+      executorId: "workflow.runtime_workspace_trust_gate",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_workspace_trust_gate",
+        "runtimeWorkspaceTrustGate.status",
+      ),
+      runtimeWorkspaceTrustGateField: "runtimeWorkspaceTrustGate",
+      runtimeWorkspaceTrustGateStatusField: "runtimeWorkspaceTrustGate.status",
+      runtimeWorkspaceTrustGateWarningIdField: "warningId",
+      runtimeWorkspaceTrustGateWarningWorkflowNodeId:
+        "runtime.thread-mode.workspace-trust",
+      runtimeWorkspaceTrustGateModeNodeId: "runtime-thread-mode",
+      runtimeWorkspaceTrustGateSourceEventIdField: "sourceEventId",
+      runtimeWorkspaceTrustGateAcknowledgementEventField:
+        "runtimeWorkspaceTrustGate.acknowledgementEvent",
+      runtimeWorkspaceTrustGateReceiptField:
+        "runtimeWorkspaceTrustGate.receiptRefs",
+      runtimeWorkspaceTrustGatePolicyField:
+        "runtimeWorkspaceTrustGate.policyDecisionRefs",
+      runtimeWorkspaceTrustGateRequireAcknowledgement: true,
+      runtimeWorkspaceTrustGateMode: "review",
+      runtimeWorkspaceTrustGateModeField: "mode",
+      runtimeWorkspaceTrustGateWorkflowNodeId: "runtime.workspace-trust-gate",
+      dryRun: false,
+      mutationExecuted: false,
+      redactionProfile: "runtime_workspace_trust_gate_safe",
+      outputSchema: {
+        type: "object",
+        required: [
+          "schemaVersion",
+          "status",
+          "componentKind",
+          "workflowNodeId",
+          "warningWorkflowNodeId",
+          "daemonEventHistoryRequired",
+        ],
+        properties: {
+          runtimeWorkspaceTrustGate: { type: "object" },
+          status: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          warningId: { type: ["string", "null"] },
+          warningWorkflowNodeId: { type: "string" },
+          acknowledgementEventId: { type: ["string", "null"] },
+          receiptRefs: { type: "array" },
+          policyDecisionRefs: { type: "array" },
+          daemonEventHistoryRequired: { type: "boolean" },
+          canvasLocalTrustAccepted: { type: "boolean" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeWorkspaceTrustGate: true,
+        consumesRuntimeWorkspaceTrustAcknowledgement: true,
+        runtimeWorkspaceTrustGateField: "runtimeWorkspaceTrustGate",
+        runtimeWorkspaceTrustGateStatusField:
+          "runtimeWorkspaceTrustGate.status",
+        runtimeWorkspaceTrustAcknowledgementField:
+          "runtimeWorkspaceTrustGate.acknowledgementEvent",
+        runtimeWorkspaceTrustAcknowledgementStatusField:
+          "runtimeWorkspaceTrustGate.acknowledgementStatus",
+      },
+      nodeTypeLabel: "WorkspaceTrustGateNode",
+    },
+    defaultLaw: { privilegedActions: [] },
+  },
+  {
     type: "runtime_context_compact",
     label: "Runtime Context Compact",
     group: "Flow",
@@ -5712,7 +5844,9 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
     case "runtime_operator_steer":
       return ["runtime_operator_interrupt", "decision", "verifier", "output"];
     case "runtime_thread_mode":
-      return ["runtime_operator_steer", "human_gate", "decision", "output"];
+      return ["runtime_workspace_trust_gate", "runtime_operator_steer", "human_gate", "decision", "output"];
+    case "runtime_workspace_trust_gate":
+      return ["runtime_thread_mode", "runtime_operator_steer", "human_gate", "decision", "output"];
     case "runtime_context_compact":
       return ["runtime_operator_steer", "decision", "verifier", "output"];
     case "runtime_approval_request":
@@ -5833,6 +5967,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_operator_interrupt" ||
     type === "runtime_operator_steer" ||
     type === "runtime_thread_mode" ||
+    type === "runtime_workspace_trust_gate" ||
     type === "runtime_context_compact" ||
     type === "runtime_usage_meter" ||
     type === "runtime_context_budget" ||

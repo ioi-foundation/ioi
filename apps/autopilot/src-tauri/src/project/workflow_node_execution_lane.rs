@@ -454,9 +454,7 @@ fn workflow_runtime_diagnostics_repair_action(value: String) -> String {
 fn workflow_runtime_thread_mode_mode(value: String) -> String {
     match value.to_lowercase().replace(['-', '.'], "_").as_str() {
         "plan" | "planning" | "read_only" | "readonly" => "plan".to_string(),
-        "review" | "review_mode" | "human_review" | "approval_review" => {
-            "review".to_string()
-        }
+        "review" | "review_mode" | "human_review" | "approval_review" => "review".to_string(),
         "yolo" | "auto" | "auto_local" | "never_prompt" => "yolo".to_string(),
         "custom" | "dry_run" | "handoff" | "learn" => "custom".to_string(),
         _ => "agent".to_string(),
@@ -974,6 +972,99 @@ fn workflow_runtime_thread_mode_output(
     output["mode"] = json!(mode);
     output["approvalMode"] = json!(approval_mode);
     output
+}
+
+fn workflow_runtime_workspace_trust_gate_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let workflow_graph_id = workflow
+        .map(|project| project.metadata.id.clone())
+        .filter(|value| !value.trim().is_empty())
+        .map(Value::String)
+        .unwrap_or(Value::Null);
+    let workflow_node_id =
+        workflow_runtime_control_logic_string(logic, "runtimeWorkspaceTrustGateWorkflowNodeId")
+            .unwrap_or_else(|| "runtime.workspace-trust-gate".to_string());
+    let warning_workflow_node_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeWorkspaceTrustGateWarningWorkflowNodeIdField",
+        "warningWorkflowNodeId",
+        "runtimeWorkspaceTrustGateWarningWorkflowNodeId",
+        "runtime.thread-mode.workspace-trust",
+    );
+    let warning_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeWorkspaceTrustGateWarningIdField",
+        "warningId",
+        "runtimeWorkspaceTrustGateWarningId",
+        "",
+    );
+    let acknowledgement_event_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeWorkspaceTrustGateAcknowledgementEventField",
+        "acknowledgementEventId",
+        "runtimeWorkspaceTrustGateAcknowledgementEventId",
+        "",
+    );
+    let require_acknowledgement = workflow_runtime_control_bool_field_or_logic(
+        logic,
+        input,
+        "runtimeWorkspaceTrustGateRequireAcknowledgementField",
+        "requireAcknowledgement",
+        "runtimeWorkspaceTrustGateRequireAcknowledgement",
+        true,
+    );
+    let acknowledged = !require_acknowledgement || !acknowledgement_event_id.trim().is_empty();
+    let status = if acknowledged { "passed" } else { "blocked" };
+    let warning_id_value = if warning_id.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(warning_id)
+    };
+    let acknowledgement_event_value = if acknowledgement_event_id.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(acknowledgement_event_id)
+    };
+    let gate = json!({
+        "schemaVersion": "ioi.workflow.runtime-workspace-trust-gate.v1",
+        "status": status,
+        "componentKind": "workspace_trust_gate",
+        "workflowGraphId": workflow_graph_id.clone(),
+        "workflowNodeId": workflow_node_id.clone(),
+        "warningId": warning_id_value.clone(),
+        "warningWorkflowNodeId": warning_workflow_node_id,
+        "acknowledgementEventId": acknowledgement_event_value.clone(),
+        "receiptRefs": [],
+        "policyDecisionRefs": [],
+        "daemonEventHistoryRequired": true,
+        "canvasLocalTrustAccepted": false
+    });
+    json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "schemaVersion": "ioi.workflow.runtime-workspace-trust-gate.v1",
+        "status": status,
+        "componentKind": "workspace_trust_gate",
+        "workflowGraphId": workflow_graph_id,
+        "workflowNodeId": workflow_node_id,
+        "warningId": gate.get("warningId").cloned().unwrap_or(Value::Null),
+        "warningWorkflowNodeId": gate.get("warningWorkflowNodeId").cloned().unwrap_or(Value::Null),
+        "acknowledgementEventId": acknowledgement_event_value,
+        "receiptRefs": [],
+        "policyDecisionRefs": [],
+        "daemonEventHistoryRequired": true,
+        "canvasLocalTrustAccepted": false,
+        "runtimeWorkspaceTrustGate": gate,
+        "input": input
+    })
 }
 
 fn workflow_runtime_approval_request_output(
@@ -1540,7 +1631,10 @@ pub(super) fn execute_workflow_node(
             &input,
             evidence_kind,
         ),
-        ActionKind::RuntimeThreadMode => workflow_runtime_thread_mode_output(
+        ActionKind::RuntimeThreadMode => {
+            workflow_runtime_thread_mode_output(workflow, &node_id, &logic, &input, evidence_kind)
+        }
+        ActionKind::RuntimeWorkspaceTrustGate => workflow_runtime_workspace_trust_gate_output(
             workflow,
             &node_id,
             &logic,
