@@ -200,6 +200,52 @@ the practical workstream when the source heading is broad.
 | 199 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template binding assistant | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding/2026-05-14T13-29-50-390Z/result.json | node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.test.ts<br>npm run build -w packages/agent-ide<br>node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding |
 | 200 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry-source binding assistant | /tmp/ioi-autopilot-gui-harness-telemetry-source-binding/2026-05-14T13-46-44-397Z/result.json | node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts<br>npm run build -w packages/agent-ide<br>node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-telemetry-source-binding |
 | 201 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | bound telemetry-source chain execution proof | /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain/2026-05-14T14-04-05-115Z/result.json | node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts<br>node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build -w packages/agent-ide<br>node --test --test-reporter=spec --test-name-pattern "React Flow bound telemetry-source chain executes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>git diff --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain |
+| 202 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable telemetry budget-chain workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json | node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts packages/agent-ide/src/WorkflowComposer/controller.tsx packages/agent-ide/src/WorkflowComposer/view.tsx packages/agent-ide/src/index.ts scripts/lib/workflow-runtime-event-projection-contract.test.mjs scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
+
+## Slice 202. 2026-05-14 - Reusable telemetry budget-chain workflow template
+
+Guide section: P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts
+- packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts
+- packages/agent-ide/src/WorkflowComposer/controller.tsx
+- packages/agent-ide/src/WorkflowComposer/view.tsx
+- packages/agent-ide/src/index.ts
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- scripts/lib/autopilot-gui-harness-validation/core.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-23-27-944Z/result.json
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts`
+  - focused TS test passed for generated node/edge topology, daemon request
+    compilation, activation readiness, negative missing-binding validation, and
+    telemetry-source quick binding compatibility.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - source-contract guard passed for the helper, exports, composer controller,
+    workflow-creator UI entry point, and focused test coverage.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript and Vite build passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight`
+  - direct harness preflight passed after replacing a fragile nested `node -e`
+    package-script check with an in-process package read.
+- `npm run validate:autopilot-gui-harness`
+  - npm preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-23-27-944Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - escalated live GUI run launched the desktop app, produced
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json`,
+    was not blocked, and all eight retained chat scenarios passed. The overall
+    harness validator remains red on pre-existing package/activation evidence
+    artifact gaps unrelated to the telemetry-chain template.
+- `git diff --check -- ...`
+  - scoped whitespace check passed for the files changed in this slice.
 
 ## Slice 201. 2026-05-14 - Bound telemetry-source chain execution proof
 

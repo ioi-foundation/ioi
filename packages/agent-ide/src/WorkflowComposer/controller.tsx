@@ -54,6 +54,7 @@ import { useGraphState } from "../hooks/useGraphState";
 import type {
   CreateWorkflowProjectRequest,
   CreateWorkflowProposalRequest,
+  Edge,
   FirewallPolicy,
   GraphGlobalConfig,
   ImportWorkflowPackageRequest,
@@ -132,6 +133,10 @@ import {
   createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow,
   type WorkflowRuntimeCodingToolBudgetRecoverySubflow,
 } from "../runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
+import {
+  createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow,
+  type WorkflowRuntimeTelemetryBudgetChainSubflow,
+} from "../runtime/workflow-runtime-telemetry-budget-chain-subflow";
 import {
   bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence,
   workflowRuntimeCodingToolBudgetRecoveryBindingIssue,
@@ -9924,10 +9929,14 @@ export function useWorkflowComposerController({
     }));
   }, [isReadOnlyWorkflow]);
 
-  const insertWorkflowRuntimeCodingToolBudgetRecoverySubflow = useCallback(
+  const insertWorkflowRuntimeSubflow = useCallback(
     (
-      subflow: WorkflowRuntimeCodingToolBudgetRecoverySubflow,
-      statusMessage: string,
+      subflow: { nodes: Node[]; edges: Edge[] },
+      options: {
+        selectedNodeId: string | null;
+        configSection: WorkflowNodeConfigSectionId;
+        statusMessage: string;
+      },
     ) => {
       setNodes((currentNodes) => [
         ...currentNodes,
@@ -9961,14 +9970,42 @@ export function useWorkflowComposerController({
       markWorkflowDirty();
       setActiveTab("graph");
       setBottomPanel("selection");
-      handleNodeSelect(subflow.requestNodeId);
-      setNodeConfigInitialSection(
-        workflowConfigSectionForNodeKind("runtime_coding_tool_budget_recovery"),
-      );
+      handleNodeSelect(options.selectedNodeId);
+      setNodeConfigInitialSection(options.configSection);
       setNodeConfigOpen(true);
-      setStatusMessage(statusMessage);
+      setStatusMessage(options.statusMessage);
     },
     [handleNodeSelect, markWorkflowDirty, setEdges, setNodes],
+  );
+
+  const insertWorkflowRuntimeCodingToolBudgetRecoverySubflow = useCallback(
+    (
+      subflow: WorkflowRuntimeCodingToolBudgetRecoverySubflow,
+      statusMessage: string,
+    ) => {
+      insertWorkflowRuntimeSubflow(subflow, {
+        selectedNodeId: subflow.requestNodeId,
+        configSection: workflowConfigSectionForNodeKind(
+          "runtime_coding_tool_budget_recovery",
+        ),
+        statusMessage,
+      });
+    },
+    [insertWorkflowRuntimeSubflow],
+  );
+
+  const insertWorkflowRuntimeTelemetryBudgetChainSubflow = useCallback(
+    (
+      subflow: WorkflowRuntimeTelemetryBudgetChainSubflow,
+      statusMessage: string,
+    ) => {
+      insertWorkflowRuntimeSubflow(subflow, {
+        selectedNodeId: subflow.usageMeterNodeId,
+        configSection: workflowConfigSectionForNodeKind("runtime_usage_meter"),
+        statusMessage,
+      });
+    },
+    [insertWorkflowRuntimeSubflow],
   );
 
   const handleCreateRuntimeCodingToolBudgetRecoverySubflow = useCallback(
@@ -10238,6 +10275,42 @@ export function useWorkflowComposerController({
     closeLeftDrawer,
     currentProjectFile.metadata.id,
     insertWorkflowRuntimeCodingToolBudgetRecoverySubflow,
+    isReadOnlyWorkflow,
+    nodes.length,
+    selectedNode,
+  ]);
+
+  const handleInsertRuntimeTelemetryBudgetChainTemplate = useCallback(() => {
+    if (isReadOnlyWorkflow) {
+      setStatusMessage(
+        "Read-only harness graph cannot be edited. Fork it first.",
+      );
+      return;
+    }
+    const fallbackColumn = nodes.length % 4;
+    const fallbackRow = Math.floor(nodes.length / 4);
+    const origin = selectedNode
+      ? { x: selectedNode.x + 340, y: selectedNode.y }
+      : {
+          x: 160 + fallbackColumn * 300,
+          y: 180 + fallbackRow * 180,
+        };
+    const subflow = createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow({
+      idPrefix: `runtime-telemetry-budget-chain-${Date.now()}`,
+      workflowGraphId: currentProjectFile.metadata.id,
+      origin,
+    });
+    insertWorkflowRuntimeTelemetryBudgetChainSubflow(
+      subflow,
+      "Telemetry-governed budget chain added. Bind threadId, turnId, usage evidence, context budget, and runtimeTelemetrySummary before activation.",
+    );
+    closeCanvasSearch();
+    closeLeftDrawer();
+  }, [
+    closeCanvasSearch,
+    closeLeftDrawer,
+    currentProjectFile.metadata.id,
+    insertWorkflowRuntimeTelemetryBudgetChainSubflow,
     isReadOnlyWorkflow,
     nodes.length,
     selectedNode,
@@ -14381,6 +14454,7 @@ export function useWorkflowComposerController({
     handleImportPortablePackage,
     handleInsertAgentLoopMacro,
     handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
+    handleInsertRuntimeTelemetryBudgetChainTemplate,
     handleInspectExecutionNode,
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,

@@ -201,8 +201,54 @@ workstream was narrower.
 | 199 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template binding assistant | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding/2026-05-14T13-29-50-390Z/result.json |
 | 200 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry-source binding assistant | /tmp/ioi-autopilot-gui-harness-telemetry-source-binding/2026-05-14T13-46-44-397Z/result.json |
 | 201 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | bound telemetry-source chain execution proof | /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain/2026-05-14T14-04-05-115Z/result.json |
+| 202 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable telemetry budget-chain workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 202. 2026-05-14 - Reusable telemetry budget-chain workflow template
+
+Implementation slice completed 2026-05-14, P1-D/P0-B reusable telemetry
+budget-chain workflow template:
+
+- Added `createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow`, a reusable
+  workflow-creator template that emits
+  `runtime_usage_meter -> runtime_context_budget ->
+  runtime_compaction_policy -> plugin_tool` with three prewired edges,
+  live-input mappings, coding-tool budget-gate configuration, and preserved
+  workflow graph/node identity.
+- Added focused TS coverage proving the generated template compiles into daemon
+  request payloads for usage, context budget, compaction policy, and coding-tool
+  budget gates; remains activation-ready with live mappings; reports missing
+  upstream telemetry bindings; and stays compatible with telemetry-source quick
+  binding.
+- Refactored the composer insertion path so recovery templates and telemetry
+  budget-chain templates share the same React Flow node/edge materialization
+  helper.
+- Added a Composition helpers entry point,
+  `workflow-add-runtime-telemetry-budget-chain-template`, for inserting the
+  chain from the workflow creator.
+- Exported the helper from `@ioi/agent-ide` and extended source-contract guards
+  so the helper, exports, focused test, controller handler, and UI entry point
+  remain present.
+- Hardened the Autopilot GUI harness preflight by replacing a fragile nested
+  `node -e` package-script check with an in-process package read.
+- Updated the master guide so the next P1-D slice adds a targeted
+  workflow-creator GUI proof for the new helper and its readiness behavior.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-23-27-944Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - escalated live GUI run was not blocked and all eight retained chat
+    scenarios passed, while the broader harness validator still reports
+    pre-existing package/activation evidence artifact gaps. Evidence:
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json`.
 
 ### Slice 201. 2026-05-14 - Bound telemetry-source chain execution proof
 
