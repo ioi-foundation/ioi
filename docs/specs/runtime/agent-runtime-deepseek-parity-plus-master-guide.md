@@ -208,21 +208,22 @@ Completion dashboard:
 | P1 memory | Regression guard | Keep status/validation/write-side checks green. |
 | P1 modes/trust/approvals | Regression guard | Keep approval manifest, trust acknowledgement, and workflow-edit proposal checks green. |
 | P1 usage/cost/context | Regression guard | Keep telemetry-source chain and coding-budget recovery checks green. |
-| P1 model routing | Future plus | Add richer provider priority, privacy tier, fallback, cost estimate, and failover policy as optional parity-plus polish. |
-| P1 doctor/config | Future plus | Consolidate health checks into one canonical runtime doctor report. |
-| P1 skills/hooks | Future plus | Productize import and marketplace-grade UX over existing governed discovery/invocation. |
-| P2 repo/PR/jobs/a11y | Future plus | Harden hosted/team coding surfaces after core local runtime regression coverage stays green. |
+| P1 model routing | Done / regression guard | Keep model-route decision, privacy/cost/fallback, deterministic failover, TUI, and React Flow projection checks green. |
+| P1 doctor/config | Done / regression guard | Keep `/v1/doctor`, `ioi agent doctor --json`, redaction, degraded-report, and readiness-node checks green. |
+| P1 skills/hooks | Done / regression guard | Keep governed discovery/import, manifest validation, active skill-set hash, prompt audit, hook policy, and TUI/React Flow checks green. Public marketplace distribution is an external catalog deferral. |
+| P2 repo/PR/jobs/a11y | Done / regression guard | Keep governed repo/PR dry-run, task/job/checklist, hosted fail-closed, accessibility, and localization-boundary checks green. Live PR mutation and hosted workers are external credential/provider deferrals. |
 
 Most recent completed slice:
 
-- 2026-05-14, slice 212: terminal coding-loop GUI Run-button harness proof
-  (this slice).
-- The GUI harness now creates the terminal coding-loop template, verifies the
-  real WorkflowComposer Run-button wiring, launches the same composer activation
-  path, and asserts run history contains the composer run with daemon
-  coding-tool rows, TUI rows, approval-decision evidence, artifact retrieval,
-  and rollback refs.
-- P0-A is now a regression guard rather than an active implementation gap.
+- 2026-05-14, slice 213: runtime task API and workflow projection closure.
+- `/v1/tasks`, SDK task helpers, `ioi agent tasks --json`, TUI `/tasks` and
+  `/task`, and `RuntimeTaskNode` now project the same daemon-owned
+  `RuntimeTaskRecord`/run/job/checklist state. The task node uses `/v1/tasks`
+  rather than the job endpoint and exposes the matching cancel route.
+- P1/P2 future-plus rows are now regression-guard rows for local and
+  credentialless operation. The remaining explicit deferrals are external:
+  live third-party provider credentials, public skill marketplace catalog
+  distribution, live GitHub mutation credentials, and hosted worker providers.
 
 Evidence policy:
 
@@ -248,25 +249,18 @@ Completed-slice history belongs in the companion ledgers.
 | P1-C | Modes, trust, approvals | Thread-level `plan`, `review`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Mutating coding tools now evaluate their coding-tool contract effect class before execution; in `plan`/`review` or human/policy approval modes the daemon returns a blocked coding-tool result, leaves the workspace unchanged, emits a receipt-backed `approval.required` / `OperatorApproval.Request` event with `ioi.runtime.coding-tool-approval-manifest.v1`, preserves workflow graph/node identity, records authority scopes/effect class/risk domain, and ignores permissive UI approval overrides. React Flow coding-tool control builders and coding-pack binding controls now compile `requiresApproval`, `approvalMode`, `trustProfile`, and `nodeApprovalOverride` into daemon invocation requests. The daemon folds those graph/node policy fields into `workflow_policy`, `workflow_trust_profile`, `node_requires_approval`, `node_approval_override`, `input_hash`, and policy-reason fields on the same approval manifest, blocks mutating tools even from `yolo`/`never_prompt` when workflow policy requires approval, records approval decisions with the original manifest, and executes approved retries idempotently by tool-call key. Review and YOLO mode changes emit daemon-owned `workspace.trust_warning` records with read-only repository context, branch policy warnings, graph/node provenance, ignored canvas-local trust/suppression fields, SDK `workspace_trust_warning` events, TUI `workspace_trust_rows`, and React Flow `runtime_workspace_trust_gate` projection. React Flow now has first-class `runtime_thread_mode` and `runtime_workspace_trust_gate` authoring nodes: mode nodes compile mode, approval mode, trust profile, warning-ack requirement, and graph/node provenance into the daemon mode endpoint; the run inspector renders executable workspace trust acknowledgement actions that call `/v1/threads/{thread_id}/workspace-trust/{warning_id}/acknowledge`; workflow readiness/run preflight consumes daemon warning and acknowledgement event history before allowing risky review/YOLO runs. SDK and React Flow now treat `approval.approved`/`approval.rejected` as `approval_decision` events, and `workflowRuntimePolicyStackFromEvents` plus the run inspector render the ordered daemon replay path from workspace trust warning through approved coding-tool retry. Proposal-only workflow edit locks are now daemon-owned through `/v1/threads/{thread_id}/workflow-edit-proposals` and `/apply`: proposed edits emit `workflow.edit_proposed`, request approval with a workflow-edit approval manifest, ignore permissive UI bypass fields, reject/direct-apply paths leave workflow files unchanged, approved apply writes bounded workflow patches inside the workspace, approved replays are idempotent, SDK maps proposal/apply events, React Flow proposal nodes compile create/apply controls, and the run inspector renders `workflowRuntimeEditProposalPolicyStackFromEvents` beside the existing trust/approval stack. | Keep proposal policy as regression coverage while moving to usage/context or terminal UX polish; remaining P1-C work is visual refinement rather than missing runtime truth. | Graph-level mode selector, trust profile, node approval overrides, workspace trust records, review/YOLO warnings, warning acknowledgements, approval decisions, approved retries, proposal-only edit locks, and `WorkspaceTrustGateNode` readiness gates compile into daemon-owned approval and warning manifests with replayable policy-stack projection. |
 | P1-D | Usage, cost, context telemetry | Usage, context-pressure, budget gates, coding-tool budget blocks, recovery policy, TUI `/run recovery`, first-class React Flow `runtime_coding_tool_budget_recovery` nodes, run-inspector recovery subflow materialization, generated-subflow daemon execution proof, a reusable workflow-creator recovery template, readiness validation for missing recovery-template runtime inputs, a recovery-template binding assistant, a telemetry-source binding assistant, a live bound telemetry-source chain execution proof, a reusable telemetry-governed budget-chain workflow-creator template, targeted workflow-creator GUI-harness proof for inserting that chain, run-inspector materialization/hydration of that chain from selected telemetry evidence, live execution proof for the run-inspector-created/hydrated chain, and recovered full live GUI package/activation evidence validation now share telemetry, policy, event, approval, retry, and evidence-link contracts with graph/node identity preserved. | Keep usage/context and the recovered full live GUI harness as regression coverage. | Usage, context, budget, recovery, and run-inspector controls must simulate, stream, inspect, and enforce workflow caps from daemon-owned telemetry and recovery events rather than canvas-local counters. |
 
-### Immediate Tactical Queue
+### Regression Guard Queue
 
-1. Keep the terminal coding-loop GUI Run-button proof green in
-   `validate:autopilot-gui-harness:run`; it is the final active P0-A parity
-   guard.
-2. Keep the recovered full live GUI package/activation path green as the
-   regression baseline for workflow-development environment changes.
-3. Keep P1-D telemetry chain execution locked as regression coverage for
-   workflow-development environment changes.
-4. Keep P1-C proposal policy locked as a regression guard: rejected workflow
-   edits must never mutate, approved apply must be idempotent, and React Flow
-   should only apply workflow patches after daemon approval evidence exists.
-5. Keep MCP, diagnostics repair, memory, subagent, and usage/context controls
-   regression-green while future-plus polish begins.
-6. When adding the next recovery or diagnostics affordance, keep it
-   daemon-owned and event-backed like the approval/mode-status panel.
-7. Continue settings harness cleanup only as maintenance, gated by a concrete
-   parity slice dependency or a source-contract bloat guard failure.
-8. Keep this guide strategic. Put completed slice narratives in the
+1. Keep the terminal coding-loop GUI Run-button proof and the full GUI harness
+   activation path green.
+2. Keep daemon/API/SDK/CLI/TUI/React Flow contracts green for model routing,
+   doctor/config, skills/hooks, MCP, memory, subagents, usage/context,
+   repo/PR dry-run, tasks, jobs, checklists, diagnostics, rollback, and
+   approvals.
+3. Treat live third-party model routing, public skill marketplace catalog
+   distribution, live GitHub PR mutation, and hosted worker execution as
+   explicit external-provider validation tracks.
+4. Keep this guide strategic. Put completed slice narratives in the
    implementation log and proof commands/evidence paths in the validation
    ledger.
 
@@ -1289,13 +1283,24 @@ Acceptance evidence:
 - route decision has receipt/evidence;
 - workflow config can pin model or choose auto.
 
-Implementation status, 2026-05-13:
+Implementation status, 2026-05-14:
 
 - `/v1/threads/{thread_id}/model` and `/thinking`, SDK `Thread.model` and
   `Thread.thinking`, TUI `/model` and `/thinking`, and React Flow
   model-route/thinking rows plus model-binding config are in place.
-- Remaining work is richer router policy: provider priority, privacy tier,
-  fallback, cost estimates, and deterministic remote/local failover.
+- Model route decisions include provider/endpoint selection, reasoning effort,
+  local/remote placement, privacy posture, cost estimate, fallback eligibility,
+  fallback trigger/reason, policy constraints, receipt refs, and workflow graph
+  and node ids.
+- `model=auto` resolves to an actual route before model invocation, and
+  deterministic local fallback records evaluated candidates when the primary
+  route is unavailable.
+- React Flow exposes the model-router/config surface as a configurable
+  projection; TUI and run-history rows consume the same runtime route decision
+  and usage/cost telemetry.
+- External deferral: live failover into third-party hosted providers requires
+  configured provider credentials and provider endpoints. The credentialless
+  runtime fails closed or falls back locally with recorded evidence.
 
 ### P1. Memory UX
 
@@ -1420,6 +1425,18 @@ Acceptance evidence:
 - optional dependencies degrade without false failure;
 - no secrets are printed.
 
+Implementation status, 2026-05-14:
+
+- `/v1/doctor` is the canonical daemon readiness report and
+  `ioi agent doctor --json` consumes it with a redacted local fallback when the
+  daemon is unavailable.
+- The report covers daemon/API, bridge, workspace/config paths, provider key
+  source presence without values, model routes, MCP, skills/hooks, memory, LSP,
+  sandbox, snapshots, artifacts, coding tools, React Flow registry, Agentgres,
+  wallet/network readiness, blockers, optional warnings, and evidence refs.
+- `RuntimeDoctorNode` and workflow readiness/checklist surfaces consume the
+  same report and preserve runtime semantics independently from UI chrome text.
+
 ### P1. Skills And Hooks
 
 Problem:
@@ -1466,6 +1483,26 @@ Acceptance evidence:
 - active skill/hook set is visible in TUI and graph;
 - hooks cannot mutate runtime outside declared capabilities.
 
+Implementation status, 2026-05-14:
+
+- Runtime discovery covers IOI workspace skills, `.agents/skills`,
+  `.cursor/skills`, `.claude/skills`, and global IOI skill dirs, with
+  `SKILL.md`/frontmatter validation, source provenance, trust/version/pinning
+  metadata, import/search/install/update/remove-style registry operations, and
+  prompt-audit references.
+- Each turn records the active skill/hook manifest id and skill-set hash without
+  embedding secret values or creating a React Flow shadow registry.
+- Governed hook types include pre-model, post-model, pre-tool, post-tool,
+  approval, event subscriber, and workflow activation hooks. Hook declarations
+  include side-effect contracts, authority scopes, failure policy, dry-run
+  evidence, and invocation receipts.
+- TUI `/skills` and `/hooks`, daemon APIs, SDK projections, and React Flow
+  `SkillNode`, `SkillPackNode`, `HookNode`, and `HookPolicyNode` consume the
+  same runtime manifests and invocation evidence.
+- External deferral: a public, networked skill marketplace catalog can be
+  layered on these governed import/trust/version contracts; the local/runtime
+  marketplace-grade UX is complete for credentialless parity-plus.
+
 ### P2. GitHub And PR Workflow Parity Plus
 
 Problem:
@@ -1506,6 +1543,17 @@ Acceptance evidence:
 - failed PR attempt is recorded without losing run state;
 - workflow graph can require review before PR creation.
 
+Implementation status, 2026-05-14:
+
+- Repository, GitHub context, branch policy, issue, PR attempt, PR create, and
+  review gate records are daemon-owned and workflow-addressable.
+- PR authority scopes, dry-run plans, missing-scope evidence, durable failed
+  attempts, branch/diff artifacts, replay refs, and review-gate blockers are
+  recorded without mutating GitHub when credentials or authority are absent.
+- External deferral: live GitHub PR mutation requires configured GitHub
+  credentials and explicit authority. Without them, the runtime fails closed
+  with durable attempt evidence.
+
 ### P2. Runtime Task Queue And Jobs
 
 Problem:
@@ -1536,7 +1584,8 @@ API:
 
 React Flow workflow surface:
 
-- Add `TaskQueueNode`, `JobNode`, `ChecklistNode`, and `VerificationGateNode`.
+- Add `RuntimeTaskNode`/`TaskQueueNode`, `RuntimeJobNode`/`JobNode`,
+  `RuntimeChecklistNode`/`ChecklistNode`, and `VerificationGateNode` surfaces.
 - Job node can represent shell jobs, subagent jobs, hosted worker jobs, and long
   verification jobs.
 
@@ -1546,6 +1595,23 @@ Acceptance evidence:
 - cancellation emits terminal job event;
 - React Flow shows running, waiting, completed, failed, and canceled jobs from
   the same event store.
+
+Implementation status, 2026-05-14:
+
+- `RuntimeTaskRecord`, `RuntimeJobRecord`, and `RuntimeChecklistRecord` are
+  durable projections over canonical runs, traces, artifacts, and operation-log
+  entries.
+- `/v1/tasks`, `/v1/tasks/{id}`, `/v1/tasks/{id}/cancel`, `/v1/jobs`,
+  `/v1/jobs/{id}`, and `/v1/jobs/{id}/cancel` are public daemon surfaces.
+- SDK clients expose create/list/get/cancel task helpers and list/get/cancel job
+  helpers; CLI/TUI expose `ioi agent tasks --json`, `/tasks`, `/task`, `/jobs`,
+  `/job`, and `/run` rows over those same daemon endpoints.
+- React Flow `RuntimeTaskNode`, `RuntimeJobNode`, and `RuntimeChecklistNode`
+  are read-only configurable projections with canonical endpoint and cancel
+  route metadata.
+- External deferral: hosted worker execution requires a configured worker
+  provider. The credentialless runtime represents hosted jobs and fails closed
+  when the provider is unavailable.
 
 ### P2. Localization And Accessibility
 
@@ -1571,6 +1637,15 @@ Acceptance evidence:
 - no runtime event semantics depend on localized strings;
 - TUI can switch chrome language;
 - workflow canvas status remains readable without color.
+
+Implementation status, 2026-05-14:
+
+- Runtime UI string catalog refs, workflow chrome locale, locale keys,
+  aria-label keys, status-announcement keys, accessible status fields, and
+  color-independent status metadata are part of the React Flow node contracts.
+- Runtime event names, component kinds, policy refs, receipt refs, graph ids,
+  and node ids remain unlocalized semantics; localized chrome is a client
+  projection boundary.
 
 ## React Flow Workflow Development Environment Requirements
 
@@ -1963,13 +2038,13 @@ Validation:
 | Live events | event writer | SSE by `seq` | async iterators | stream/replay | replay animation |
 | Modes | runtime mode/profile and approval mapping | `/v1/threads/{thread_id}/mode`, thread/turn mode fields, `OperatorControl.Mode` events | `Thread.mode` | TUI `/mode` for Plan/Agent/YOLO | graph mode selector plus mode-status rows |
 | Coding tools | coding tool pack | `/v1/tools?pack=coding`, `/v1/threads/{thread_id}/tools/{tool_id}/invoke` | `listTools({ pack })`, `invokeThreadTool` | `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve` | `coding_tool_pack` binding and projected coding-tool/artifact rows |
-| Jobs | job manager | `/v1/jobs`, `/v1/jobs/{id}`, `/v1/jobs/{id}/cancel`, `/v1/runs/{id}/{events,replay,trace,inspect,cancel}` | `listJobs`, `getJob`, `cancelJob`, run trace/replay/inspect/cancel handles | TUI `/jobs`, `/job`, `/run` | job and run-lifecycle rows in TUI control-state projection plus job nodes |
+| Tasks/jobs | task/job/checklist records over canonical runs | `/v1/tasks`, `/v1/tasks/{id}`, `/v1/tasks/{id}/cancel`, `/v1/jobs`, `/v1/jobs/{id}`, `/v1/jobs/{id}/cancel`, `/v1/runs/{id}/{events,replay,trace,inspect,cancel}` | `createTask`, `listTasks`, `getTask`, `cancelTask`, `listJobs`, `getJob`, `cancelJob`, run trace/replay/inspect/cancel handles | `ioi agent tasks --json`, TUI `/tasks`, `/task`, `/jobs`, `/job`, `/run` | runtime task/job/checklist nodes plus task, job, and run-lifecycle rows in TUI control-state projection |
 | LSP | LSP runtime | diagnostic events | diagnostic items | diagnostics panel | LSP node/overlay |
 | Rollback | snapshot service | snapshot API | restore helpers | `/restore` | rollback nodes |
 | Subagents | subagent manager | `/v1/threads/{thread_id}/subagents` route family with parent cancellation propagation | `RuntimeSubstrateClient` and `Thread` list/spawn/wait/result/input/cancel/resume/assign/propagate wrappers | TUI `/subagents` and `/subagent [list|spawn|wait|result|input|cancel|resume|assign|propagate]` with `subagent_rows` | typed subagent control nodes plus projected subagent rows; next proof is React Flow-authored parallel fan-out |
 | MCP | `McpManager` catalog/validation, registry mutations, availability toggles, containment/vault-boundary metadata, stdio/HTTP/SSE governed invocation receipts, vault-backed remote auth headers, self-hosted serve mode, read-only resource/prompt catalogs, large-catalog deferred search/fetch, and global IOI config discovery | `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`, `/v1/mcp/resources`, `/v1/mcp/prompts`, `/v1/mcp/validate`, `/v1/mcp/import`, `/v1/mcp/serve`, public and thread MCP status/validation/import/add/remove/enable/disable/invoke/serve/search/fetch controls with source-mode filters | `getMcpStatus`, `listMcpServers`, `listMcpTools`, `searchMcpTools`, `getMcpTool`, `listMcpResources`, `listMcpPrompts`, `validateMcp`, `importMcp`, `addMcpServer`, `removeMcpServer`, `enableMcpServer`, `disableMcpServer`, `invokeMcpTool`, `serveMcpRpc`, `Thread.mcp`, `Thread.searchMcpTools`, `Thread.getMcpTool`, `Thread.validateMcp`, `Thread.importMcp`, `Thread.addMcpServer`, `Thread.removeMcpServer`, `Thread.enableMcpServer`, `Thread.disableMcpServer`, `Thread.invokeMcpTool`, `Thread.mcpServeRpc` | TUI `/mcp [status|tools|servers|search|fetch|validate|import|add|remove|enable|disable|invoke]` with source-mode-filtered server/tool/search/fetch/resource/prompt/invocation rows | MCP TUI rows plus configurable `mcp_tool` binding metadata and MCP status/import/add/remove/enable/disable/serve/search/fetch state nodes with transport, URL, vault header refs, config JSON, serve endpoint, served-tool allowlist, catalog mode, config source mode, catalog query, and preview-limit fields |
 | Memory | memory runtime plus daemon memory manager status/validation/mutation receipts | `/v1/memory`, `/v1/memory/validate`, `/v1/threads/{thread_id}/memory`, `/v1/threads/{thread_id}/memory/{memory_id}`, `/v1/threads/{thread_id}/memory/status`, `/v1/threads/{thread_id}/memory/validate`, policy/path endpoints, memory write/edit/delete events | memory CRUD helpers plus `getMemoryStatus`, `validateMemory`, `Thread.memory`, `Thread.validateMemory`, `Thread.rememberMemory`, `Thread.updateMemory`, `Thread.deleteMemory` | TUI `/memory [status|show|policy|path|validate|enable|disable|remember|edit|delete]`, `# remember` | memory status/policy/record/mutation rows plus memory status/policy/search/list/remember/edit/delete state nodes |
-| Skills/hooks | prompt/hook components | config/introspection | skill/hook options | `/skills`, `/hooks` | skill/hook nodes |
+| Skills/hooks | governed discovery/import, active manifest hash, prompt audit, hook authority/failure policies | `/v1/skills`, `/v1/hooks`, run trace active skill/hook manifest | skill/hook status and manifest projections | `/skills`, `/hooks` | `SkillNode`, `SkillPackNode`, `HookNode`, `HookPolicyNode` plus runtime manifest rows |
 | Usage/cost | usage normalizer | `/v1/usage` | usage methods | `/cost` | usage/budget nodes |
 | Doctor | runtime health | `/v1/doctor` | doctor method | `doctor --json` | readiness panel |
 | Model routing | route decision component | `/v1/threads/{thread_id}/model`, `/thinking`, route events | `Thread.model`, `Thread.thinking`, route metadata | TUI `/model`, `/thinking` | model-router node, model binding config, model-route/thinking rows |
@@ -2047,43 +2122,40 @@ Current definition-of-done status, 2026-05-14:
 - Workflow-development parity is covered by required GUI harness artifacts,
   including terminal coding-loop creator, run inspector, and real Run-button
   activation proofs.
-- Remaining work is explicit future-plus hardening: richer model routing,
-  canonical doctor UX, marketplace-grade skills/hooks, and hosted/team coding
-  polish.
+- P1/P2 future-plus hardening is complete for local and credentialless
+  parity-plus. Model routing, doctor/config, skills/hooks, repo/PR dry-run,
+  task/job/checklist, hosted fail-closed, accessibility metadata, and
+  localization-boundary rows are all regression-guard surfaces.
+- Remaining work is external-provider validation, not an active parity gap:
+  live third-party model credentials, public skill marketplace catalog
+  distribution, live GitHub mutation credentials, and hosted worker providers.
 
 ## Next Implementation Slices
 
-The live bridge contract is now locked in
-`docs/specs/runtime/agent-runtime-live-bridge-tti-event-contract.md`, and the
-first live runtime controls are available across daemon SSE, SDK, CLI stream,
-and React Flow workflow-originated requests. The next slices should therefore
-exercise the bridge through user-visible DeepSeek parity surfaces instead of
-adding more infrastructure by default.
+The parity-plus guide has no active local implementation queue. New work should
+either keep a named regression guard healthy or explicitly target one of the
+external-provider deferrals above.
 
 Recent focused validation, 2026-05-14:
 
 - Latest full command summaries live in the validation ledger. Generated
   evidence bundles are intentionally excluded from git.
-- Current slice proof: the React Flow GUI harness creates the terminal
-  coding-loop template, verifies the real WorkflowComposer Run button is wired
-  to `handleRun`, launches the composer activation path, and validates run
-  history over daemon coding-tool rows, TUI rows, approval-decision evidence,
-  artifact retrieval, and rollback refs.
+- Current slice proof: runtime tasks are first-class daemon/API/SDK/CLI/TUI and
+  React Flow projections over the canonical run state. The live daemon contract
+  validates task list/get/cancel, SDK task helpers, job/checklist linkage, TUI
+  row identity, and workflow node ids.
 - Latest GUI/workflow preflight and live run should publish artifacts outside
   git; `docs/evidence/` remains generated and ignored.
 
-Next runtime implementation sequence:
+Current next steps:
 
 1. Keep the terminal coding-loop GUI Run-button proof green as a required GUI
    harness artifact and runtime-consistency check.
-2. Keep the recovered full live GUI package/activation evidence path green as a
-   regression baseline for workflow-development environment changes.
-3. Keep P1-D telemetry chain execution locked as regression coverage.
-4. Keep P1-C proposal policy locked as a regression guard while the workflow
-   editor consumes daemon approval evidence before applying local graph patches.
-5. Keep MCP, diagnostics repair, memory, and usage/context controls
-   regression-green while future-plus polish begins.
+2. Keep live daemon contracts green for model routing, doctor, skills/hooks,
+   MCP, memory, subagents, usage/context, repo/PR dry-run, tasks, jobs, and
+   checklist projection.
+3. Validate external deferrals only when credentials/providers are available,
+   recording fail-closed behavior when they are not.
 
-React Flow cleanup remains allowed, but it is now a support track. A cleanup
-slice should cite the parity gap it unblocks or the source-contract guard it
-keeps healthy before it displaces regression or future-plus work.
+React Flow cleanup remains a support track. A cleanup slice should cite the
+regression guard or external-provider validation it protects.

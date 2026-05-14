@@ -625,6 +625,9 @@ export interface NodeLogic {
   runtimeTask?: unknown;
   runtimeTaskField?: string;
   runtimeTaskStatusField?: string;
+  runtimeTaskCancelEndpoint?: string;
+  runtimeTaskCancelable?: boolean;
+  runtimeTaskCancelRoute?: string;
   runtimeTaskReceiptField?: string;
   runtimeJobEndpoint?: string;
   runtimeJob?: unknown;

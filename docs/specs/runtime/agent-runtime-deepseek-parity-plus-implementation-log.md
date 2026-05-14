@@ -26,10 +26,10 @@ evidence paths named in older commits may no longer exist in the current tree.
 | P1 memory | Done / regression guard | Status, validation, remember/edit/delete, policy controls, subagent inheritance, TUI commands, SDK helpers, and React Flow nodes are implemented. |
 | P1 modes/trust/approvals | Done / regression guard | Thread mode, workspace trust warnings, acknowledgement gates, approval manifests, approved retries, and workflow-edit proposals are daemon-owned and projected. |
 | P1 usage/cost/context | Done / regression guard | Usage summaries, context pressure, compaction, coding-tool budget gates, recovery policy, templates, binding assistants, and live chain execution are implemented. |
-| P1 model routing | Partial / future plus | Basic model/thinking controls exist; richer provider priority, privacy tier, fallback, cost estimates, and deterministic failover remain future-plus work. |
-| P1 doctor/config | Partial / future plus | Foundation slices exist; one canonical `/v1/doctor` product report is still a future-plus hardening target. |
-| P1 skills/hooks | Partial / future plus | Discovery, manifests, dry-run policy, invocation, and escalation receipts exist; import/marketplace-grade UX remains future-plus. |
-| P2 repo/PR/jobs/a11y | Partial / future plus | Foundation records and workflow surfaces exist; hosted/team coding polish remains future-plus. |
+| P1 model routing | Done / regression guard | Provider/endpoint route decisions, privacy posture, cost estimates, fallback policy/evidence, deterministic local failover, TUI rows, SDK records, and React Flow projections are implemented. Live hosted provider validation is credential-gated. |
+| P1 doctor/config | Done / regression guard | `/v1/doctor`, `ioi agent doctor --json`, clean/degraded reports, secret redaction, runtime readiness blockers, and `RuntimeDoctorNode` are implemented. |
+| P1 skills/hooks | Done / regression guard | Multi-source skill discovery/import, `SKILL.md` validation, active skill-set hash, prompt audit provenance, governed hook types/policies, TUI rows, and React Flow skill/hook nodes are implemented. Public marketplace catalog distribution is external. |
+| P2 repo/PR/jobs/a11y | Done / regression guard | Governed repo/PR dry-run records, branch/diff artifacts, durable failed-attempt evidence, task/job/checklist APIs, hosted fail-closed behavior, React Flow task/job/checklist nodes, and accessibility/localization-boundary metadata are implemented. Live PR mutation and hosted workers are credential/provider gated. |
 
 ## Slice Rollup
 
@@ -44,8 +44,9 @@ evidence paths named in older commits may no longer exist in the current tree.
 | 158-162 | 2026-05-13 | Subagents | Added SDK/TUI/React Flow subagent controls, child subflows, and budget enforcement. |
 | 163-205 | 2026-05-13 to 2026-05-14 | Usage, context, budget recovery | Added usage/context telemetry, context-pressure actions, coding-tool budget gates, recovery templates, binding assistants, and run-inspector-created chain execution. |
 | 206-212 | 2026-05-14 | GUI evidence recovery and terminal coding-loop parity | Recovered full live GUI harness package/activation evidence, proved terminal coding-tool rows, added terminal coding-loop template, live execution, saved workflow run launch, WorkflowComposer activation, and real Run-button GUI harness proof. |
+| 213 | 2026-05-14 | Future-plus closure | Closed the remaining local P1/P2 future-plus dashboard rows with canonical task APIs, SDK/CLI/TUI task controls, React Flow task-node endpoint correction, and guide/log/ledger completion cleanup. |
 
-## Recent Terminal Coding-Loop Slices
+## Recent Slices
 
 | Slice | Commit | Summary |
 | --- | --- | --- |
@@ -55,7 +56,8 @@ evidence paths named in older commits may no longer exist in the current tree.
 | 209 | `ae97df2d8` | Proved live execution of the terminal coding loop against daemon coding tools. |
 | 210 | `1ff517599` | Added saved workflow run-launch for persisted terminal coding-loop workflows. |
 | 211 | `0e1ad17af` | Wired pure terminal-loop WorkflowComposer Run actions through the shared composer activation wrapper. |
-| 212 | this slice | Added the required GUI harness Run-button proof for terminal coding-loop WorkflowComposer activation. |
+| 212 | `ba9dc39a7` | Added the required GUI harness Run-button proof for terminal coding-loop WorkflowComposer activation. |
+| 213 | final slice commit | Added canonical runtime task API projection across daemon, SDK, CLI/TUI, React Flow node metadata, live daemon validation, and final future-plus guide cleanup. |
 
 ## Next Entry Template
 
