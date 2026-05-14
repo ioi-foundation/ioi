@@ -11037,8 +11037,8 @@ export function useWorkflowComposerController({
       closeLeftDrawer();
       closeCanvasSearch();
       setBottomPanel("selection");
-      setNodeConfigInitialSection(workflowConfigSectionForNodeKind(item.type));
-      setNodeConfigOpen(true);
+      setRightPanel("outputs");
+      setNodeConfigOpen(false);
       setStatusMessage(
         direction === "attachment"
           ? `${item.label} attached to ${sourceNode.name}`

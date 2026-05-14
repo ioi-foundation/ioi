@@ -84,7 +84,10 @@ Target sentence:
 | P1 | Harness teaching view | Default harness opens as a fitted canonical-group overview with fork/use action; raw type counts move to advanced details. | Done / regression guarded |
 | P1 | Naming and shape profiles | Labels and shapes communicate execution boundaries, authority, and status with text equivalents. | Done / regression guarded |
 | P2 | Migration compatibility | Existing stored workflows project to the new authoring taxonomy without changing canonical runtime semantics. | Done / regression guarded |
-| P2 | Regression harness | Static taxonomy tests and live GUI probes guard search, palette, blank run safety, harness overview, and graph activation. | Planned |
+| P2 | Regression harness | Static taxonomy tests and live GUI probes guard search, palette, blank run safety, harness overview, and graph activation. | Done / regression guarded |
+
+Completion state: all active sprint rows are complete and regression guarded.
+Generated GUI evidence lives outside git under `/tmp/ioi-compositor-ux-audit`.
 
 ## Canonical Primitive Taxonomy
 
@@ -560,8 +563,6 @@ This sprint is complete when:
 
 ## Immediate Tactical Recommendation
 
-Start with Slice 1, the blank composer `Run` crash guard.
-
-Reason: it is the only audited issue that breaks the basic authoring loop. Once
-`Run` fails closed safely, proceed to Slice 2 and make the taxonomy executable
-before changing palette layout.
+No active tactical queue remains for this sprint. The next work should be a new
+sprint only after the validated compositor baseline is pushed and any follow-on
+user trials produce fresh evidence.
