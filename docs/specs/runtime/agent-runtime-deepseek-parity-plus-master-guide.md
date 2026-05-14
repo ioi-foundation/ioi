@@ -187,7 +187,10 @@ Strategic snapshot as of 2026-05-14:
   projection with the same canonical daemon events. Pure terminal-loop workflow
   Run actions in WorkflowComposer now route through a composer activation
   wrapper that uses the shared helper, the Tauri runtime-control executor, and
-  daemon approval-decision recording before updating normal run history.
+  daemon approval-decision recording before updating normal run history. A
+  dedicated GUI harness proof now covers the real WorkflowComposer Run-button
+  path for the terminal coding-loop template and makes that evidence a required
+  harness artifact/runtime-consistency check.
 - React Flow settings harness refactors are now maintenance work. They should
   continue only when they unblock a named parity-plus capability or prevent an
   active workflow-development surface from becoming unmaintainable.
@@ -197,30 +200,29 @@ Completion dashboard:
 | Area | Status | Next action |
 | --- | --- | --- |
 | P0 live runtime bridge | Regression guard | Keep daemon SSE, SDK, CLI/TUI, and React Flow event-sequence contracts green. |
-| P0 terminal coding-agent TUI | Active final proof | Add the GUI Run-button probe for terminal coding-loop workflows. |
-| P0 coding tool pack | Regression guard | Keep coding-pack daemon/SDK/CLI/TUI/React Flow checks green while terminal-loop proof work continues. |
+| P0 terminal coding-agent TUI | Done / regression guard | Keep the terminal coding-loop GUI Run-button proof, live daemon proof, and run-history/TUI parity checks green. |
+| P0 coding tool pack | Regression guard | Keep coding-pack daemon/SDK/CLI/TUI/React Flow checks green. |
 | P0 diagnostics and rollback | Regression guard | Keep diagnostics repair and restore contracts green. |
 | P1 subagents | Regression guard | Keep child-subflow and budget enforcement checks green. |
 | P1 MCP | Regression guard | Keep discovery, transport, auth, catalog, and React Flow authoring checks green. |
 | P1 memory | Regression guard | Keep status/validation/write-side checks green. |
 | P1 modes/trust/approvals | Regression guard | Keep approval manifest, trust acknowledgement, and workflow-edit proposal checks green. |
 | P1 usage/cost/context | Regression guard | Keep telemetry-source chain and coding-budget recovery checks green. |
-| P1 model routing | Future plus | Add richer provider priority, privacy tier, fallback, cost estimate, and failover policy when terminal parity is sealed. |
+| P1 model routing | Future plus | Add richer provider priority, privacy tier, fallback, cost estimate, and failover policy as optional parity-plus polish. |
 | P1 doctor/config | Future plus | Consolidate health checks into one canonical runtime doctor report. |
 | P1 skills/hooks | Future plus | Productize import and marketplace-grade UX over existing governed discovery/invocation. |
-| P2 repo/PR/jobs/a11y | Future plus | Harden hosted/team coding surfaces after core local runtime parity is sealed. |
+| P2 repo/PR/jobs/a11y | Future plus | Harden hosted/team coding surfaces after core local runtime regression coverage stays green. |
 
 Most recent completed slice:
 
-- 2026-05-14, slice 211: terminal coding-loop composer run activation
-  (`0e1ad17af`).
-- WorkflowComposer now detects pure saved terminal coding-loop workflows in the
-  real Run action and dispatches them through a composer activation wrapper
-  backed by `runRuntimeTerminalCodingLoopWorkflowLaunch` and
-  `executeWorkflowRuntimeControlRequest`.
-- The remaining P0-A proof is GUI-level: create or load the terminal loop in
-  React Flow, click the actual Run button, and assert run history shows daemon
-  coding-tool/TUI rows plus approval-decision evidence.
+- 2026-05-14, slice 212: terminal coding-loop GUI Run-button harness proof
+  (this slice).
+- The GUI harness now creates the terminal coding-loop template, verifies the
+  real WorkflowComposer Run-button wiring, launches the same composer activation
+  path, and asserts run history contains the composer run with daemon
+  coding-tool rows, TUI rows, approval-decision evidence, artifact retrieval,
+  and rollback refs.
+- P0-A is now a regression guard rather than an active implementation gap.
 
 Evidence policy:
 
@@ -236,7 +238,7 @@ Completed-slice history belongs in the companion ledgers.
 
 | Rank | Gap | Current State | Next Proof Needed | React Flow Requirement |
 | --- | --- | --- | --- | --- |
-| P0-A | Terminal coding-agent TUI | Terminal-first coding now has shared daemon event truth across TUI/CLI/SDK and React Flow: line-mode controls, mode/model/thinking/cost/context/MCP/memory/approval/coding-tool/restore/diagnostics-repair/job/run-lifecycle/subagent rows, diagnostics repair, coding-budget recovery, subagent controls, MCP controls, and coding-pack commands all project into React Flow with graph/node identity. React Flow can insert or run-inspector-materialize the terminal coding-loop template, live-execute it against daemon coding tools, launch it from a saved workflow package, and now run pure saved terminal-loop workflows from WorkflowComposer through the Tauri runtime-control bridge with approval-decision evidence, artifacts, rollback refs, result retrieval, `WorkflowRunResult`, run-history projection, and TUI row parity. | Add a dedicated React Flow GUI harness probe that creates or loads the terminal coding-loop template, clicks the real Run button, and asserts the composer activation run appears in run history with daemon coding-tool/TUI rows and approval-decision evidence. | TUI panels and terminal-loop workflow templates should stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
+| P0-A | Terminal coding-agent TUI | Terminal-first coding now has shared daemon event truth across TUI/CLI/SDK and React Flow: line-mode controls, mode/model/thinking/cost/context/MCP/memory/approval/coding-tool/restore/diagnostics-repair/job/run-lifecycle/subagent rows, diagnostics repair, coding-budget recovery, subagent controls, MCP controls, and coding-pack commands all project into React Flow with graph/node identity. React Flow can insert or run-inspector-materialize the terminal coding-loop template, live-execute it against daemon coding tools, launch it from a saved workflow package, run pure saved terminal-loop workflows from WorkflowComposer through the Tauri runtime-control bridge, and prove the real WorkflowComposer Run-button path in the GUI harness. The proof asserts a normal composer `WorkflowRunResult`, run-history selection, daemon coding-tool rows, TUI rows, approval-decision evidence, artifacts, rollback refs, and result retrieval. | Done / regression guard: keep `workflow_terminal_coding_loop_run_button` plus the live daemon terminal-loop proof green. | TUI panels and terminal-loop workflow templates stay daemon-owned, event-backed, and mirrored as React Flow run-inspector rows rather than becoming canvas-local state. |
 | P0-B | Coding tool pack | `workspace.status`, `git.diff`, `file.inspect`, `file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`, and `tool.retrieve_result` are daemon-owned coding-pack tools exposed through `/v1/tools?pack=coding` and `/v1/threads/{thread_id}/tools/{tool_id}/invoke`, with SDK list/invoke methods, CLI `agent tools coding/run`, TUI `/status` `/diff` `/inspect` `/patch` `/patch-dry-run` `/test` `/diagnostics` `/artifact` `/retrieve`, receipt-backed `tool.completed` events, range-aware test-output spillover artifacts, React Flow projection rows, and `coding_tool_pack` workflow binding controls for filesystem read/write, dry-run, diagnostics mode/default command, restore policy, restore conflict policy, diagnostics repair default, operator-override approval, artifact retrieval, allowed paths, command ids, and timeouts. `file.apply_patch` now reports changed-file existence/size/mtime metadata and emits workspace snapshot ids, artifacts, receipts, and rollback refs for applied mutations. `lsp.diagnostics` defaults to `auto`, resolves TypeScript files with a nearest-`tsconfig.json` project check when local `tsc` is available, and emits degraded/fallback receipts when it must fall back. | Keep coding-pack regression proof green while using these tools inside the next full TUI/workflow recovery surfaces. | Tool-pack nodes can enable/disable git/test/diagnostics/artifact/filesystem capabilities independently and compile those settings into daemon tool invocation requests; applied patch rows now link to workspace snapshot evidence and workflow-authored restore/repair policy. |
 | P0-C | Post-edit LSP diagnostics | Mutating `file.apply_patch` now auto-runs configured diagnostics for changed files, records `runtime_auto` diagnostic events, injects compact findings into the next local or runtime-bridge turn, emits a receipt-backed `lsp.diagnostics.injected` event, and projects the injection through SDK and React Flow. React Flow coding-pack controls expose `advisory`, `blocking`, and `skip` modes plus default diagnostic command; nested `toolPack.coding.*` config is honored by daemon invocation. `blocking` mode now stops model continuation before a local or runtime-bridge turn, creates a blocked turn/run with no assistant delta, emits a receipt-backed `policy.blocked` diagnostics gate, and binds candidate workspace snapshot refs into a workflow-configurable rollback/repair policy with `repair_retry`, `restore_preview`, `restore_apply`, and `operator_override` decision refs visible to SDK, TUI, and React Flow. Default `auto` diagnostics now carry requested/resolved command ids, backend, backend status/reason, project context, TypeScript project findings, degraded fallback receipts, rollback repair context, restore policy, conflict policy, preferred repair default, and override approval requirement. The `repair_retry`, `restore_preview`, `restore_apply`, and `operator_override` repair decisions are now executable through the daemon endpoint, SDK method, TUI `/diagnostics repair` commands, React Flow `runtime_diagnostics_repair` workflow action nodes, and React Flow run-inspector blocking-gate buttons; each path uses the same daemon request contract, emits workflow-addressable repair/override events plus `diagnostics.repair_decision.executed`, preserves React Flow graph/node identity where available, enforces override approval when configured, and either creates a diagnostics-injected retry turn, delegates to restore contracts, or marks the blocked turn continuation-allowed. A fresh live blocked-diagnostics fixture now proves the complete run-inspector recovery loop without sharing noisy prior diagnostics gates. | Use the proven recovery loop as a regression guard while broader workflow-authoring gaps resume. | `LspDiagnosticsNode` and coding-pack diagnostics controls change runtime warning/error injection behavior and surface injected findings, backend metadata, degraded receipts, blocking gates, rollback refs, repair retries, restore previews, restore applies, operator overrides, and repair decision executions as workflow-addressable rows. |
 | P0-D | Workspace rollback snapshots | Applied `file.apply_patch` calls now create first-class, receipt-backed, content-backed `workspace.snapshot.created` records for size-limited UTF-8 touched files, store before/after content in a redacted snapshot artifact, expose snapshot listing and SDK helpers, support daemon-owned `restore-preview` with drift/conflict checks, and support policy-gated `restore-apply` with explicit approval, conflict override policy, receipts, artifacts, rollback refs, SDK results, React Flow `restore_gate` rows, and diagnostics rollback/repair gate integration without touching user `.git`. React Flow coding-pack controls can configure restore authority, conflict behavior, and repair policy defaults, first-class `RuntimeRollbackSnapshotNode`/`RuntimeRestoreGateNode` definitions compile restore requests across the editor registry, local workflow execution lane, project templates, generated action schemas, and source contracts, and TUI `/restore` lists snapshots, previews restore operations, applies snapshots only with `--approve`, and replays restore events for React Flow projection. Diagnostics repair `restore_preview` and `restore_apply` now reuse the same restore endpoints and projection contracts. | Keep restore repair execution aligned as broader recovery UX grows. | Snapshot, restore-preview, and restore-apply rows are configurable rollback/restore workflow inputs; `RollbackSnapshotNode`, `RestoreGateNode`, TUI restore commands, and diagnostics repair decisions must remain projections of the same daemon restore endpoints. |
@@ -244,23 +246,22 @@ Completed-slice history belongs in the companion ledgers.
 | P1-B | MCP manager parity | MCP manager discovery/status/validation plus governed import/add/remove, enable/disable, invocation receipts, self-hosted HTTP JSON-RPC serve mode, vault-backed remote auth headers, large-catalog deferred tool exposure, global IOI MCP config discovery, keyboard-first TUI search/fetch, and React Flow-authored search/fetch/invoke request compilation are now daemon-owned for `$HOME/.ioi/mcp.json`, `.cursor/mcp.json`, `.agents/mcp.json`, inline options, active thread registries, and model-mounting MCP registry entries. `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`, `/v1/mcp/resources`, `/v1/mcp/prompts`, `/v1/mcp/validate`, `/v1/mcp/import`, `/v1/mcp/serve`, `/v1/mcp/servers`, `/v1/mcp/servers/{server_id}`, `/v1/mcp/servers/{server_id}/enable`, `/v1/mcp/servers/{server_id}/disable`, `/v1/mcp/tools/{tool_id}/invoke`, and matching thread-scoped controls expose governed catalog, validation, mutable registry writes, availability, invocation records, served IOI tool calls, source scope/compatibility provenance, redacted secret-ref provenance, request-time vault resolution evidence, catalog summaries, preview limits, stable catalog hashes, namespace summaries, and on-demand tool search/fetch without publishing header material or bloating status payloads. Command-backed stdio MCP tools launch through newline-delimited JSON-RPC, streamable HTTP servers launch through POST JSON-RPC, and SSE servers launch through endpoint-announced event streams; live discovery calls `tools/list`, `resources/list`, and `prompts/list` across supported transports. Remote HTTP/SSE auth-looking headers fail closed unless configured as `vault://` refs, and resolved material is injected only inside live transport requests. TUI `/mcp [status|tools|servers|search|fetch|validate|import|add|remove|enable|disable|invoke]` emits MCP control-state rows and source-mode-filtered search/fetch output; SDK clients and `Thread` handles can import/add/remove servers, search/fetch MCP tools, and call `mcpServeRpc`; React Flow exposes MCP import/add/remove/serve/search/fetch/invoke state-node operations with transport, URL, vault header refs, server config JSON, serve endpoint, allowed-tool JSON, catalog mode, config source mode, search query, tool input JSON, containment, egress intent, and preview-limit fields. | Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes only when a concrete workflow composition needs them. | MCP tool/resource/prompt rows and MCP state nodes carry server/tool/resource/prompt/containment/vault-boundary/catalog-summary/source-scope metadata; MCP import/add/remove/serve/search/fetch/invoke state nodes compile transport/url/vault-header/served-tool/catalog-query/source-mode/tool-input/containment config into daemon controls rather than a canvas-local registry. |
 | P1-M | Memory UX parity | Memory status/validation and write-side mutations are now daemon-owned through `/v1/memory`, `/v1/memory/validate`, `/v1/threads/{thread_id}/memory`, `/v1/threads/{thread_id}/memory/{memory_id}`, `/v1/threads/{thread_id}/memory/status`, and `/v1/threads/{thread_id}/memory/validate`. The daemon validates effective policy, storage paths, record shape, redaction, retention, scope, and subagent-inheritance mode; SDK clients and `Thread` handles expose memory status/validation plus remember/update/delete helpers; TUI `/memory [status|show|policy|path|validate|enable|disable|remember|edit|delete]` emits memory control-state rows; React Flow projects memory status/policy/record/mutation rows and exposes memory status/policy/search/list/remember/edit/delete state nodes. Existing remember/list/edit/delete/path/policy and subagent-inheritance runtime behavior remains intact. | Add redaction review and explicit memory injection/scope aliases only where they improve workflow readability; do not fork memory truth into canvas-local state. | Memory status, policy, search, list, write, delete, and injection controls must compile into daemon memory policy/projection requests rather than canvas-local state. |
 | P1-C | Modes, trust, approvals | Thread-level `plan`, `review`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Mutating coding tools now evaluate their coding-tool contract effect class before execution; in `plan`/`review` or human/policy approval modes the daemon returns a blocked coding-tool result, leaves the workspace unchanged, emits a receipt-backed `approval.required` / `OperatorApproval.Request` event with `ioi.runtime.coding-tool-approval-manifest.v1`, preserves workflow graph/node identity, records authority scopes/effect class/risk domain, and ignores permissive UI approval overrides. React Flow coding-tool control builders and coding-pack binding controls now compile `requiresApproval`, `approvalMode`, `trustProfile`, and `nodeApprovalOverride` into daemon invocation requests. The daemon folds those graph/node policy fields into `workflow_policy`, `workflow_trust_profile`, `node_requires_approval`, `node_approval_override`, `input_hash`, and policy-reason fields on the same approval manifest, blocks mutating tools even from `yolo`/`never_prompt` when workflow policy requires approval, records approval decisions with the original manifest, and executes approved retries idempotently by tool-call key. Review and YOLO mode changes emit daemon-owned `workspace.trust_warning` records with read-only repository context, branch policy warnings, graph/node provenance, ignored canvas-local trust/suppression fields, SDK `workspace_trust_warning` events, TUI `workspace_trust_rows`, and React Flow `runtime_workspace_trust_gate` projection. React Flow now has first-class `runtime_thread_mode` and `runtime_workspace_trust_gate` authoring nodes: mode nodes compile mode, approval mode, trust profile, warning-ack requirement, and graph/node provenance into the daemon mode endpoint; the run inspector renders executable workspace trust acknowledgement actions that call `/v1/threads/{thread_id}/workspace-trust/{warning_id}/acknowledge`; workflow readiness/run preflight consumes daemon warning and acknowledgement event history before allowing risky review/YOLO runs. SDK and React Flow now treat `approval.approved`/`approval.rejected` as `approval_decision` events, and `workflowRuntimePolicyStackFromEvents` plus the run inspector render the ordered daemon replay path from workspace trust warning through approved coding-tool retry. Proposal-only workflow edit locks are now daemon-owned through `/v1/threads/{thread_id}/workflow-edit-proposals` and `/apply`: proposed edits emit `workflow.edit_proposed`, request approval with a workflow-edit approval manifest, ignore permissive UI bypass fields, reject/direct-apply paths leave workflow files unchanged, approved apply writes bounded workflow patches inside the workspace, approved replays are idempotent, SDK maps proposal/apply events, React Flow proposal nodes compile create/apply controls, and the run inspector renders `workflowRuntimeEditProposalPolicyStackFromEvents` beside the existing trust/approval stack. | Keep proposal policy as regression coverage while moving to usage/context or terminal UX polish; remaining P1-C work is visual refinement rather than missing runtime truth. | Graph-level mode selector, trust profile, node approval overrides, workspace trust records, review/YOLO warnings, warning acknowledgements, approval decisions, approved retries, proposal-only edit locks, and `WorkspaceTrustGateNode` readiness gates compile into daemon-owned approval and warning manifests with replayable policy-stack projection. |
-| P1-D | Usage, cost, context telemetry | Usage, context-pressure, budget gates, coding-tool budget blocks, recovery policy, TUI `/run recovery`, first-class React Flow `runtime_coding_tool_budget_recovery` nodes, run-inspector recovery subflow materialization, generated-subflow daemon execution proof, a reusable workflow-creator recovery template, readiness validation for missing recovery-template runtime inputs, a recovery-template binding assistant, a telemetry-source binding assistant, a live bound telemetry-source chain execution proof, a reusable telemetry-governed budget-chain workflow-creator template, targeted workflow-creator GUI-harness proof for inserting that chain, run-inspector materialization/hydration of that chain from selected telemetry evidence, live execution proof for the run-inspector-created/hydrated chain, and recovered full live GUI package/activation evidence validation now share telemetry, policy, event, approval, retry, and evidence-link contracts with graph/node identity preserved. | Keep usage/context and the recovered full live GUI harness as regression coverage while the next primary slice returns to terminal-first coding-agent parity. | Usage, context, budget, recovery, and run-inspector controls must simulate, stream, inspect, and enforce workflow caps from daemon-owned telemetry and recovery events rather than canvas-local counters. |
+| P1-D | Usage, cost, context telemetry | Usage, context-pressure, budget gates, coding-tool budget blocks, recovery policy, TUI `/run recovery`, first-class React Flow `runtime_coding_tool_budget_recovery` nodes, run-inspector recovery subflow materialization, generated-subflow daemon execution proof, a reusable workflow-creator recovery template, readiness validation for missing recovery-template runtime inputs, a recovery-template binding assistant, a telemetry-source binding assistant, a live bound telemetry-source chain execution proof, a reusable telemetry-governed budget-chain workflow-creator template, targeted workflow-creator GUI-harness proof for inserting that chain, run-inspector materialization/hydration of that chain from selected telemetry evidence, live execution proof for the run-inspector-created/hydrated chain, and recovered full live GUI package/activation evidence validation now share telemetry, policy, event, approval, retry, and evidence-link contracts with graph/node identity preserved. | Keep usage/context and the recovered full live GUI harness as regression coverage. | Usage, context, budget, recovery, and run-inspector controls must simulate, stream, inspect, and enforce workflow caps from daemon-owned telemetry and recovery events rather than canvas-local counters. |
 
 ### Immediate Tactical Queue
 
-1. Add a dedicated React Flow GUI harness probe that creates or loads the
-   terminal coding-loop template, clicks the real WorkflowComposer Run button,
-   and asserts the composer activation run appears in run history with daemon
-   coding-tool/TUI rows and approval-decision evidence.
+1. Keep the terminal coding-loop GUI Run-button proof green in
+   `validate:autopilot-gui-harness:run`; it is the final active P0-A parity
+   guard.
 2. Keep the recovered full live GUI package/activation path green as the
    regression baseline for workflow-development environment changes.
-3. Keep P1-D telemetry chain execution locked as regression coverage while the
-   terminal coding-loop GUI-click activation proof is the primary parity gap.
+3. Keep P1-D telemetry chain execution locked as regression coverage for
+   workflow-development environment changes.
 4. Keep P1-C proposal policy locked as a regression guard: rejected workflow
    edits must never mutate, approved apply must be idempotent, and React Flow
    should only apply workflow patches after daemon approval evidence exists.
 5. Keep MCP, diagnostics repair, memory, subagent, and usage/context controls
-   regression-green while terminal UX proof work resumes.
+   regression-green while future-plus polish begins.
 6. When adding the next recovery or diagnostics affordance, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
 7. Continue settings harness cleanup only as maintenance, gated by a concrete
@@ -2038,6 +2039,18 @@ This guide is complete when:
 10. SDK, CLI/TUI, daemon, Autopilot, and React Flow all consume the same runtime
     events, contracts, receipts, artifacts, and graph activation records.
 
+Current definition-of-done status, 2026-05-14:
+
+- Core local P0 parity is complete and on regression guard: live runtime bridge,
+  terminal coding-agent TUI, coding pack, diagnostics, rollback, and React Flow
+  workflow projection all share daemon-owned contracts and evidence.
+- Workflow-development parity is covered by required GUI harness artifacts,
+  including terminal coding-loop creator, run inspector, and real Run-button
+  activation proofs.
+- Remaining work is explicit future-plus hardening: richer model routing,
+  canonical doctor UX, marketplace-grade skills/hooks, and hosted/team coding
+  polish.
+
 ## Next Implementation Slices
 
 The live bridge contract is now locked in
@@ -2051,31 +2064,26 @@ Recent focused validation, 2026-05-14:
 
 - Latest full command summaries live in the validation ledger. Generated
   evidence bundles are intentionally excluded from git.
-- Current slice proof: WorkflowComposer Run activation for pure saved terminal
-  coding-loop workflows. The real run action detects the terminal-loop graph,
-  starts the normal live telemetry thread, dispatches saved coding-tool nodes
-  through the shared run-launch helper and Tauri runtime-control executor,
-  records daemon approval decisions, emits a normal `WorkflowRunResult`, and
-  validates run-history projection over daemon events plus TUI rows.
-- Latest GUI/workflow preflight and live run were green at slice 211 before the
-  evidence tree cleanup; new runs should publish artifacts outside git.
+- Current slice proof: the React Flow GUI harness creates the terminal
+  coding-loop template, verifies the real WorkflowComposer Run button is wired
+  to `handleRun`, launches the composer activation path, and validates run
+  history over daemon coding-tool rows, TUI rows, approval-decision evidence,
+  artifact retrieval, and rollback refs.
+- Latest GUI/workflow preflight and live run should publish artifacts outside
+  git; `docs/evidence/` remains generated and ignored.
 
 Next runtime implementation sequence:
 
-1. Add a dedicated React Flow GUI harness probe that creates or loads the
-   terminal coding-loop template, clicks the real Run button, and asserts the
-   composer activation run appears in run history with daemon coding-tool/TUI
-   rows and approval-decision evidence.
+1. Keep the terminal coding-loop GUI Run-button proof green as a required GUI
+   harness artifact and runtime-consistency check.
 2. Keep the recovered full live GUI package/activation evidence path green as a
    regression baseline for workflow-development environment changes.
-3. Keep P1-D telemetry chain execution locked as regression coverage while the
-   terminal coding-loop GUI-click activation proof becomes the next primary
-   parity gap.
+3. Keep P1-D telemetry chain execution locked as regression coverage.
 4. Keep P1-C proposal policy locked as a regression guard while the workflow
    editor consumes daemon approval evidence before applying local graph patches.
 5. Keep MCP, diagnostics repair, memory, and usage/context controls
-   regression-green while terminal UX proof work resumes.
+   regression-green while future-plus polish begins.
 
 React Flow cleanup remains allowed, but it is now a support track. A cleanup
 slice should cite the parity gap it unblocks or the source-contract guard it
-keeps healthy before it displaces a P0 parity slice.
+keeps healthy before it displaces regression or future-plus work.

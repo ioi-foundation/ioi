@@ -87,6 +87,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const terminalCodingLoopRunInspectorProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-run-inspector-probe.mjs",
   );
+  const terminalCodingLoopRunButtonProbe = read(
+    "scripts/lib/workflow-terminal-coding-loop-run-button-gui-probe.mjs",
+  );
   const telemetryBudgetChainRuntimeSubflowInsertion = read(
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
   );
@@ -586,6 +589,23 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /hydratesExistingLoop/,
   );
   assert.match(
+    terminalCodingLoopRunButtonProbe,
+    /workflow_terminal_coding_loop_run_button_activation/,
+  );
+  assert.match(terminalCodingLoopRunButtonProbe, /workflow-run-button/);
+  assert.match(
+    terminalCodingLoopRunButtonProbe,
+    /runWorkflowComposerTerminalCodingLoopActivation/,
+  );
+  assert.match(
+    terminalCodingLoopRunButtonProbe,
+    /workflowRunHistoryModel/,
+  );
+  assert.match(
+    terminalCodingLoopRunButtonProbe,
+    /approvalDecisionEvidence/,
+  );
+  assert.match(
     liveRuntimeDaemonContract,
     /React Flow run-inspector-created telemetry budget chain executes/,
   );
@@ -656,11 +676,19 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessContract,
+    /workflow_terminal_coding_loop_run_button/,
+  );
+  assert.match(
+    guiHarnessContract,
     /workflow_terminal_coding_loop_creator_proof_present/,
   );
   assert.match(
     guiHarnessContract,
     /workflow_terminal_coding_loop_run_inspector_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_terminal_coding_loop_run_button_proof_present/,
   );
   assert.match(
     guiHarnessValidation,
@@ -680,6 +708,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /collectWorkflowTerminalCodingLoopRunButtonProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflowTelemetryBudgetChainCreatorProof/,
   );
   assert.match(
@@ -693,6 +725,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflowTerminalCodingLoopRunInspectorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflowTerminalCodingLoopRunButtonProof/,
   );
   assert.match(
     guiHarnessValidation,
@@ -712,6 +748,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_terminal_coding_loop_run_button/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator_proof_present/,
   );
   assert.match(
@@ -725,6 +765,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflow_terminal_coding_loop_run_inspector_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_terminal_coding_loop_run_button_proof_present/,
   );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);

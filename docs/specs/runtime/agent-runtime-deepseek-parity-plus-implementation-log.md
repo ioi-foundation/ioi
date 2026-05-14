@@ -18,7 +18,7 @@ evidence paths named in older commits may no longer exist in the current tree.
 | Area | State | Notes |
 | --- | --- | --- |
 | P0 live runtime bridge | Done / regression guard | TTI schemas, daemon replay, Rust bridge execution, KernelEvent mapping, SDK wrappers, CLI stream, React Flow projection, and runtime controls are in place. |
-| P0 terminal coding-agent TUI | Active final proof | TUI rows, coding pack commands, terminal-loop template, live execution, saved workflow run launch, and WorkflowComposer activation are implemented. Remaining proof is the real GUI Run-button harness path. |
+| P0 terminal coding-agent TUI | Done / regression guard | TUI rows, coding pack commands, terminal-loop template, live execution, saved workflow run launch, WorkflowComposer activation, and the real GUI Run-button harness proof are implemented. |
 | P0 coding tool pack | Done / regression guard | Status, diff, inspect, patch, test, diagnostics, artifacts, result retrieval, receipts, approval, rollback refs, and React Flow config are implemented. |
 | P0 diagnostics and rollback | Done / regression guard | Post-edit diagnostics, blocking gates, repair decisions, snapshots, restore preview/apply, and React Flow/TUI repair surfaces are implemented. |
 | P1 subagents | Done / regression guard | Spawn, wait, result, send-input, cancel, resume, assign, parent propagation, child subflows, and budget enforcement are implemented. |
@@ -43,7 +43,7 @@ evidence paths named in older commits may no longer exist in the current tree.
 | 140-157 | 2026-05-13 | MCP, memory, diagnostics repair | Productized MCP manager, memory manager, repair decisions, and React Flow MCP/diagnostics authoring. |
 | 158-162 | 2026-05-13 | Subagents | Added SDK/TUI/React Flow subagent controls, child subflows, and budget enforcement. |
 | 163-205 | 2026-05-13 to 2026-05-14 | Usage, context, budget recovery | Added usage/context telemetry, context-pressure actions, coding-tool budget gates, recovery templates, binding assistants, and run-inspector-created chain execution. |
-| 206-211 | 2026-05-14 | GUI evidence recovery and terminal coding-loop parity | Recovered full live GUI harness package/activation evidence, proved terminal coding-tool rows, added terminal coding-loop template, live execution, saved workflow run launch, and WorkflowComposer activation. |
+| 206-212 | 2026-05-14 | GUI evidence recovery and terminal coding-loop parity | Recovered full live GUI harness package/activation evidence, proved terminal coding-tool rows, added terminal coding-loop template, live execution, saved workflow run launch, WorkflowComposer activation, and real Run-button GUI harness proof. |
 
 ## Recent Terminal Coding-Loop Slices
 
@@ -55,6 +55,7 @@ evidence paths named in older commits may no longer exist in the current tree.
 | 209 | `ae97df2d8` | Proved live execution of the terminal coding loop against daemon coding tools. |
 | 210 | `1ff517599` | Added saved workflow run-launch for persisted terminal coding-loop workflows. |
 | 211 | `0e1ad17af` | Wired pure terminal-loop WorkflowComposer Run actions through the shared composer activation wrapper. |
+| 212 | this slice | Added the required GUI harness Run-button proof for terminal coding-loop WorkflowComposer activation. |
 
 ## Next Entry Template
 

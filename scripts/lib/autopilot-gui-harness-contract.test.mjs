@@ -431,6 +431,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
     ),
   );
   assert.ok(contract.requiredArtifacts.includes("harness_read_only_capability_routing"));
+  assert.ok(
+    contract.requiredArtifacts.includes(
+      "workflow_terminal_coding_loop_run_button",
+    ),
+  );
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_shadow_attempts_present"));
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_gated_cognition_present"));
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_cognition_node_authority_present"));
@@ -753,6 +758,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
       "harness_read_only_capability_routing_present",
     ),
   );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "workflow_terminal_coding_loop_run_button_proof_present",
+    ),
+  );
 });
 
 test("GUI automation contract stays composer-only and forbids activity-bar clicks", () => {
@@ -962,6 +972,14 @@ test("blocked result records external blocker without pretending validation pass
 });
 
 test("latest-green index is the completed harness workflow authority", () => {
+  const latestPath = path.join(
+    repoRoot,
+    "docs/evidence/agent-runtime-harness-workflow/latest-green.json",
+  );
+  if (!fs.existsSync(latestPath)) {
+    assert.match(readRepo(".gitignore"), /docs\/evidence\//);
+    return;
+  }
   const latest = JSON.parse(
     readRepo("docs/evidence/agent-runtime-harness-workflow/latest-green.json"),
   );
