@@ -203,8 +203,62 @@ workstream was narrower.
 | 201 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | bound telemetry-source chain execution proof | /tmp/ioi-autopilot-gui-harness-bound-telemetry-source-chain/2026-05-14T14-04-05-115Z/result.json |
 | 202 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable telemetry budget-chain workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T14-47-23-326Z/result.json |
 | 203 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | telemetry budget-chain workflow creator GUI proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-09-35-601Z/result.json |
+| 204 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector telemetry budget-chain materialization | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 204. 2026-05-14 - Run-inspector telemetry budget-chain materialization
+
+Implementation slice completed 2026-05-14, P1-D/P0-B run-inspector
+materialization for the reusable telemetry budget chain:
+
+- Added `materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry`, which
+  creates the reusable usage-meter -> context-budget -> compaction-policy ->
+  coding-tool budget-gate chain from selected runtime telemetry evidence or
+  hydrates an existing compatible chain without inserting duplicate nodes.
+- Extended telemetry-source binding with targeted node IDs so materialization can
+  bind only the selected four-node chain while preserving run/thread/source-kind
+  evidence-link metadata.
+- Added focused TS coverage for materialization, hydration, missing telemetry
+  evidence blockers, and readiness failure after a required upstream binding is
+  removed.
+- Wired the WorkflowComposer run-inspector rail with a `Use budget chain` action
+  that calls the materializer, appends new React Flow nodes/edges when needed,
+  updates existing hydrated nodes, refreshes validation/readiness, and opens the
+  usage-meter config surface.
+- Added `workflow-telemetry-budget-chain-run-inspector-probe.mjs`, a targeted
+  GUI-harness proof for the run-inspector button, view/controller/rail wiring,
+  materialization/hydration semantics, readiness-positive case, missing-evidence
+  blocker, and broken-upstream-binding negative case.
+- Wired the Autopilot GUI harness to collect
+  `workflow_telemetry_budget_chain_run_inspector` as a required artifact and
+  `workflow_telemetry_budget_chain_run_inspector_proof_present` as a runtime
+  consistency signal.
+- Extended source-contract guards so the materialization helper, exports,
+  focused tests, run-inspector button, controller/view/rail wiring, probe script,
+  harness artifact key, and readiness negative case remain coupled.
+- Updated the master guide so the next P1-D slice executes a run-inspector
+  created or hydrated telemetry chain through daemon-owned events and proves
+  projected graph/node identity.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts`
+- `node --import tsx scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs /tmp/workflow-telemetry-budget-chain-run-inspector-proof.json`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test scripts/lib/autopilot-gui-harness-contract.test.mjs`
+- `node --check scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-43-761Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - escalated live GUI run wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-31-52-944Z/result.json`;
+    it was not blocked, all retained chat scenarios passed, and
+    `workflow_telemetry_budget_chain_run_inspector` passed. The broader harness
+    validator remains red on pre-existing package/activation evidence artifact
+    gaps unrelated to this slice.
 
 ### Slice 203. 2026-05-14 - Telemetry budget-chain workflow creator GUI proof
 

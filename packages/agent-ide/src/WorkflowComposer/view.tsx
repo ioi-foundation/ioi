@@ -81,6 +81,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleCreateRuntimeCodingToolBudgetRecoverySubflow,
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleBindRuntimeTelemetrySource,
+    handleMaterializeRuntimeTelemetryBudgetChain,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -1413,6 +1414,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onBindRuntimeTelemetrySource={(summary) => {
                       handleBindRuntimeTelemetrySource(summary);
+                    }}
+                    onMaterializeRuntimeTelemetryBudgetChain={(summary) => {
+                      handleMaterializeRuntimeTelemetryBudgetChain(summary);
                     }}
                     onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
                     onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}

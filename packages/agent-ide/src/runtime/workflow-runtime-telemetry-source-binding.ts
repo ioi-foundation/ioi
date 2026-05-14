@@ -51,6 +51,11 @@ export type WorkflowRuntimeTelemetrySourceNodeBindingResult = Omit<
   "workflow"
 >;
 
+export interface WorkflowRuntimeTelemetrySourceBindingOptions {
+  issue?: WorkflowValidationIssue | null;
+  targetNodeIds?: readonly string[] | null;
+}
+
 export function workflowRuntimeTelemetrySourceBindingIssue(
   issue: WorkflowValidationIssue | null | undefined,
 ): boolean {
@@ -88,7 +93,7 @@ export function workflowRuntimeTelemetrySourceEvidenceBinding(
 export function bindWorkflowRuntimeTelemetrySourceToWorkflow(
   workflow: WorkflowProject,
   summary: WorkflowRuntimeTelemetrySummary | null | undefined,
-  options: { issue?: WorkflowValidationIssue | null } = {},
+  options: WorkflowRuntimeTelemetrySourceBindingOptions = {},
 ): WorkflowRuntimeTelemetrySourceBindingResult {
   const result = bindWorkflowRuntimeTelemetrySourceToNodes(
     workflow.nodes,
@@ -112,10 +117,10 @@ export function bindWorkflowRuntimeTelemetrySourceToWorkflow(
 export function bindWorkflowRuntimeTelemetrySourceToNodes(
   nodes: readonly Node[],
   summary: WorkflowRuntimeTelemetrySummary | null | undefined,
-  options: { issue?: WorkflowValidationIssue | null } = {},
+  options: WorkflowRuntimeTelemetrySourceBindingOptions = {},
 ): WorkflowRuntimeTelemetrySourceNodeBindingResult {
   const evidenceBinding = workflowRuntimeTelemetrySourceEvidenceBinding(summary);
-  const targetNodeIds = telemetrySourceTargetNodeIds(nodes, options.issue);
+  const targetNodeIds = telemetrySourceTargetNodeIds(nodes, options);
   const blockers = [
     ...(evidenceBinding ? [] : ["runtime_telemetry_source_evidence_missing"]),
     ...(targetNodeIds.length > 0 ? [] : ["runtime_telemetry_source_target_node_missing"]),
@@ -318,9 +323,15 @@ function withTelemetryLogic(node: Node, logic: NodeLogic): Node {
 
 function telemetrySourceTargetNodeIds(
   nodes: readonly Node[],
-  issue: WorkflowValidationIssue | null | undefined,
+  options: WorkflowRuntimeTelemetrySourceBindingOptions,
 ): string[] {
   const candidates = nodes.filter(telemetrySourceBindableNode);
+  const explicitNodeIds = uniqueStrings(options.targetNodeIds ?? []);
+  if (explicitNodeIds.length > 0) {
+    const candidateIds = new Set(candidates.map((node) => node.id));
+    return explicitNodeIds.filter((nodeId) => candidateIds.has(nodeId));
+  }
+  const issue = options.issue;
   if (issue?.nodeId) {
     return candidates.some((node) => node.id === issue.nodeId)
       ? [issue.nodeId]

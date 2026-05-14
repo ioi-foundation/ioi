@@ -145,6 +145,7 @@ import {
   workflowRuntimeTelemetrySourceBindingIssue,
 } from "../runtime/workflow-runtime-telemetry-source-binding";
 import type { WorkflowRuntimeTelemetrySummary } from "../runtime/workflow-runtime-telemetry-summary";
+import { materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry } from "../runtime/workflow-runtime-telemetry-budget-chain-materialization";
 import { workflowRuntimeSubflowReactFlowElements } from "./runtimeSubflowInsertion";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
@@ -10220,6 +10221,135 @@ export function useWorkflowComposerController({
     ],
   );
 
+  const handleMaterializeRuntimeTelemetryBudgetChain = useCallback(
+    (summary?: WorkflowRuntimeTelemetrySummary | null) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      const selectedSummary = summary ?? runLaunchHistoryModel.runtimeTelemetrySummary;
+      if (!selectedSummary || selectedSummary.sourceKinds.length === 0) {
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          "Select a run with usage or context telemetry before creating a telemetry budget chain.",
+        );
+        return;
+      }
+      const fallbackColumn = nodes.length % 4;
+      const fallbackRow = Math.floor(nodes.length / 4);
+      const origin = selectedNode
+        ? { x: selectedNode.x + 340, y: selectedNode.y }
+        : {
+            x: 160 + fallbackColumn * 300,
+            y: 180 + fallbackRow * 180,
+          };
+      const result = materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry(
+        currentProjectFile,
+        selectedSummary,
+        {
+          idPrefix: `runtime-telemetry-budget-chain-${Date.now()}`,
+          origin,
+        },
+      );
+      if (result.status !== "bound") {
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          result.blockers.includes("runtime_telemetry_source_evidence_missing")
+            ? "Selected run has no usage or context telemetry to materialize."
+            : "Telemetry budget chain could not be materialized from the selected run.",
+        );
+        return;
+      }
+
+      const workflowNodesById = new Map(
+        result.workflow.nodes.map((node) => [node.id, node] as const),
+      );
+      const insertedElements = workflowRuntimeSubflowReactFlowElements({
+        nodes: result.insertedNodes,
+        edges: result.insertedEdges,
+      });
+      const insertedNodeIds = new Set(result.insertedNodeIds);
+      const boundNodeIds = new Set(result.boundNodeIds);
+      setNodes((currentNodes) => {
+        const existingIds = new Set(
+          currentNodes.map((flowNode) => {
+            const data = flowNode.data as Node | undefined;
+            return data?.id ?? flowNode.id;
+          }),
+        );
+        const updatedNodes = currentNodes.map((flowNode) => {
+          const data = flowNode.data as Node;
+          const nodeId = data.id ?? flowNode.id;
+          if (!boundNodeIds.has(nodeId)) return flowNode;
+          const bound = workflowNodesById.get(nodeId);
+          if (!bound) return flowNode;
+          return {
+            ...flowNode,
+            position: { x: bound.x, y: bound.y },
+            data: {
+              ...data,
+              ...bound,
+            },
+          };
+        });
+        const newNodes = insertedElements.nodes.filter(
+          (flowNode) =>
+            insertedNodeIds.has(flowNode.id) && !existingIds.has(flowNode.id),
+        );
+        return [...updatedNodes, ...newNodes];
+      });
+      setEdges((currentEdges) => {
+        const existingEdgeIds = new Set(currentEdges.map((edge) => edge.id));
+        return [
+          ...currentEdges,
+          ...insertedElements.edges.filter(
+            (edge) => !existingEdgeIds.has(edge.id),
+          ),
+        ];
+      });
+      setWorkflow(result.workflow);
+      const validation = validateWorkflowProject(result.workflow, tests);
+      const readiness = evaluateWorkflowActivationReadiness(
+        result.workflow,
+        tests,
+        validation,
+        proposals,
+        Object.values(nodeFixturesById).flat(),
+      );
+      setValidationResult(validation);
+      setReadinessResult(readiness);
+      setActiveTab("graph");
+      setRightPanel("readiness");
+      setBottomPanel("selection");
+      handleNodeSelect(result.boundNodeIds[0] ?? null);
+      setNodeConfigInitialSection(workflowConfigSectionForNodeKind("runtime_usage_meter"));
+      setNodeConfigOpen(true);
+      setStatusMessage(
+        result.mode === "hydrated"
+          ? `Hydrated telemetry budget chain from ${selectedSummary.latestEventId ?? selectedSummary.latestCursor ?? selectedSummary.status}`
+          : `Created telemetry budget chain from ${selectedSummary.latestEventId ?? selectedSummary.latestCursor ?? selectedSummary.status}`,
+      );
+    },
+    [
+      currentProjectFile,
+      handleNodeSelect,
+      isReadOnlyWorkflow,
+      nodeFixturesById,
+      nodes.length,
+      proposals,
+      runLaunchHistoryModel.runtimeTelemetrySummary,
+      selectedNode,
+      setEdges,
+      setNodes,
+      tests,
+      workflowConfigSectionForNodeKind,
+    ],
+  );
+
   const handleInsertRuntimeCodingToolBudgetRecoveryTemplate = useCallback(() => {
     if (isReadOnlyWorkflow) {
       setStatusMessage(
@@ -14423,6 +14553,7 @@ export function useWorkflowComposerController({
     handleCreateRuntimeCodingToolBudgetRecoverySubflow,
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleBindRuntimeTelemetrySource,
+    handleMaterializeRuntimeTelemetryBudgetChain,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
