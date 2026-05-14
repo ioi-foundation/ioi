@@ -20,8 +20,8 @@ This register names the document classes used to keep architecture doctrine, ref
 | `canonical-schema` | Shared schemas that drive generated contracts. | `docs/implementation/` until schema generation is split into a package |
 | `conformance-contract` | Hidden or public invariant contracts used for conformance checks. | `docs/conformance/` |
 | `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. | `docs/implementation/` |
-| `product-context` | Product-surface reference material and preserved UX intent. | `docs/architecture/products/` |
-| `preserved-context` | Historical or whitepaper context retained as non-primary authority. | Nearest owning component or `_meta/changelog/` |
+| `product-context` | Product-surface reference material and UX intent that follows canonical doctrine. | `docs/architecture/products/` |
+| `decision-history` | Resolved historical decisions retained only when future maintainers need the reason. | Nearest owning component or `_meta/changelog/` |
 | `formal-source` | TLA+, configs, proof source, and formal-model READMEs. | `docs/architecture/protocols/aft/formal/` |
 | `formal-generated` | TLC traces, generated trace modules, state dumps, and model-checker byproducts. | `docs/formal-artifacts/aft/` |
 | `evidence-artifact` | Validation outputs, scorecards, screenshots, bundles, and run reports. | `docs/evidence/` |

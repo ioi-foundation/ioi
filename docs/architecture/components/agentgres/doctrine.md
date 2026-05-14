@@ -1,16 +1,18 @@
 # Agentgres State Substrate Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md).
+Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-02.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
-**Agentgres is the per-domain state-retention and state-change substrate for canonical Web4 applications.**
+**Agentgres is the canonical operational state substrate for Web4 domains.**
 
-It records what happened, what changed, why it changed, who authorized it, what evidence supports it, how it can be queried, and how future agents can reuse it.
+It records what happened, what changed, why it changed, who authorized it, what
+evidence supports it, how it can be queried, and how future workers or agents
+can reuse it.
 
 Agentgres does not run on IOI L1. It runs inside application-domain kernel deployments.
 
@@ -22,9 +24,25 @@ Database doctrine:
 
 > **Rows are views. Settled state is truth.**
 
+Postgres bridge doctrine:
+
+> **Agentgres may expose Postgres-compatible projections and SQL-facing bridges, but its source of truth is operation-backed state, not mutable relational rows.**
+
 State/payload doctrine:
 
 > **Agentgres is the ledger of what is true; Filecoin/CAS is the warehouse of what proves it.**
+
+Portable state doctrine:
+
+> **Agentgres is not merely a mutable database. It treats state as operation-derived, root-addressed, and exportable into encrypted content-addressed archives. This allows workers, runtimes, and domains to suspend, migrate, restore, and verify state without making any blob store the canonical authority.**
+
+Agentgres should be described publicly as a canonical state substrate with a
+Postgres bridge. Builder-facing docs may call it a Postgres-compatible
+operational substrate for worker-produced state. Avoid unqualified "Postgres
+replacement" language unless the context is an internal ambition. The precise
+claim is that Agentgres replaces row-centric databases as canonical truth when
+state is produced by workers, scoped authority, artifacts, receipts,
+projections, and settlement mirrors.
 
 ## What Agentgres Owns
 
@@ -36,11 +54,33 @@ Agentgres owns per-domain operational truth:
 - object heads;
 - commit-critical constraints;
 - commit-critical indexes;
+- schema and migration lifecycle;
+- operation-log durability and replay state;
 - patch/change lifecycle;
 - runs;
 - tasks;
+- worker installs;
+- managed worker/agent instances;
+- runtime subscription and usage state;
 - orders;
 - workflow state;
+- domain ontologies;
+- canonical object models;
+- data recipes;
+- connector mappings;
+- policy-bound data views;
+- transformation runs and receipt refs;
+- evaluation dataset refs;
+- ontology-aware projection definitions;
+- ontology-to-worker plans;
+- Worker Training specs;
+- training lineage;
+- dataset commitments;
+- context mutations and supersession graphs;
+- post-training cycles;
+- promotion and rollback decisions;
+- benchmark and evaluation state;
+- MoW routing decisions;
 - delivery bundles;
 - artifact refs;
 - receipt metadata;
@@ -51,6 +91,7 @@ Agentgres owns per-domain operational truth:
 - subscriptions;
 - search/ranking views;
 - import/export state;
+- sealed state archive refs;
 - backup/restore metadata.
 
 ## What Agentgres Does Not Own
@@ -64,15 +105,25 @@ Agentgres does not own:
 - connector refresh tokens;
 - IOI L1 smart-contract settlement;
 - Filecoin/CAS payload bytes;
+- sealed archive bytes;
+- raw source-system payload authority;
+- connector mapping authority without wallet grants;
 - the physical compute resource;
 - every local UI hover/draft state;
 - private working memory unless promoted.
 
-wallet.network owns authority. Autopilot/IOI daemon owns execution. Filecoin/CAS owns payload availability. IOI L1 owns public settlement and rights.
+wallet.network owns authority. IOI daemon/runtime nodes own execution.
+Autopilot Desktop owns local UX/projections. Filecoin/CAS owns payload
+availability. IOI L1 owns public settlement and rights.
 
 ## State And Payload Boundary
 
-Agentgres state MUST NOT be reduced to opaque Filecoin blobs.
+Encrypted blob-backed state bundles are a defining Agentgres format. Agentgres
+should make them first-class without making blob storage the canonical live
+database.
+
+Agentgres state MUST NOT be reduced to opaque Filecoin blobs, and Agentgres
+must not store agent state in Filecoin/CAS as canonical live state.
 
 Agentgres stores canonical state in its own domain-local state-engine substrate.
 Filecoin/CAS stores large immutable payloads, artifacts, evidence bundles,
@@ -88,13 +139,115 @@ state = Filecoin blobs
 Model it as:
 
 ```text
-state = Agentgres objects, operations, heads, indexes, projections
-payloads = Filecoin/CAS blobs
-state references payloads by hash/CID
+canonical truth =
+  accepted operations
+  + object heads
+  + state roots
+  + receipts
+  + archive refs
+
+portable state format =
+  encrypted content-addressed state archive
+  + state root
+  + object heads
+  + schema version
+  + policy hash
+  + authority metadata
+  + receipt refs
+  + replay/import metadata
+
+serving layer =
+  projections
+  + query surfaces
+  + subscriptions
+  + SQL bridge
+
+storage plane =
+  local disk
+  + S3
+  + Filecoin/CAS
+  + Postgres/SQLite/RocksDB/custom log
 ```
 
 Agentgres remains the state machine and query substrate. Filecoin/CAS remains
-the content-addressed payload and evidence availability layer.
+the content-addressed payload, archive-byte, and evidence availability layer.
+
+## Storage Engine and SQL Bridge Posture
+
+Agentgres is storage-engine pluggable. It may run over Postgres, SQLite,
+RocksDB, object stores, a custom append-only log, or another durable engine.
+Those engines provide persistence mechanics; they do not define the Agentgres
+authority model.
+
+The canonical Agentgres contract is defined by accepted operations, domain
+sequence, object heads, state roots, constraints, invariants, receipts,
+projection checkpoints, and replay/recovery guarantees.
+
+SQL and Postgres-compatible surfaces should be read-first over named
+projections. Limited SQL writes may be introduced only when they compile into
+ordinary Agentgres operations with unambiguous schema, policy, authority, and
+constraint handling. Arbitrary SQL writes must not bypass operation settlement.
+
+## Worker Training, Benchmarks, and MoW State
+
+Agentgres owns the canonical operational truth for Worker Training and MoW
+routing inside each domain. It records:
+
+- DomainOntology, CanonicalObjectModel, DataRecipe, ConnectorMapping,
+  PolicyBoundDataView, TransformationRun, EvaluationDataset,
+  OntologyProjection, and OntologyToWorkerPlan state;
+- WorkerTraining specs and lifecycle state;
+- dataset commitments and source refs;
+- accepted/rejected curation summaries;
+- training lineage refs;
+- context mutation refs and supersession graphs;
+- post-training cycle state;
+- adapter, route-policy, evaluation, and package promotion decisions;
+- EvaluationReceipt and BenchmarkReceipt refs;
+- Sparse Worker Category submissions;
+- routing candidate-set commitments;
+- RoutingDecisionReceipt refs;
+- contribution policy refs;
+- quality and reputation records;
+- payout, royalty, and dispute state derived from ContributionReceipts.
+
+Agentgres does not own the large dataset bytes, trace bundle bytes, model
+checkpoint bytes, or sealed archive bytes. Those remain Filecoin/CAS or other
+blob payloads referenced by hash/CID. Agentgres also does not grant training
+authority; wallet.network owns the authority, secret, key lease, and data
+permission layer.
+
+Domain Ontologies and Data Recipes are the semantic data plane that makes
+Worker Training durable. A worker should not train on raw connector payloads or
+unstructured blobs when an ontology exists. The canonical path is:
+
+```text
+source refs
+-> ConnectorMapping
+-> DataRecipe
+-> TransformationRun
+-> ontology-bound objects / EvaluationDataset / OntologyProjection
+-> WorkerTraining / Benchmark / MoW routing
+```
+
+Agentgres records this path as operations, object heads, lineage refs,
+projection checkpoints, and transformation receipts. Filecoin/CAS stores large
+source snapshots, transformed payloads, datasets, and projection checkpoint
+bytes. wallet.network decides whether a worker, runtime, or service may read,
+transform, train on, evaluate with, export, publish, or route over the data.
+
+Training improves a worker's capability record. It does not expand the worker's
+authority. Any trained worker still needs a manifest, policy envelope, and
+bounded authority grants before it can act.
+
+For runtime and agent state, the correct model is:
+
+```text
+hot Agentgres state
+-> sealed encrypted snapshot/export
+-> Filecoin/CAS, S3, local disk, or another durable blob store
+-> verified rehydration/import back into hot Agentgres when needed
+```
 
 ### Agentgres Owns
 
@@ -102,6 +255,14 @@ the content-addressed payload and evidence availability layer.
 hot operational state
 canonical operation log
 object heads
+worker installs
+managed worker instances
+runtime subscriptions
+Worker Training specs
+training lineage
+dataset commitments
+benchmark/evaluation state
+MoW routing decisions
 indexes
 constraints
 projections
@@ -110,6 +271,8 @@ receipt metadata
 artifact refs
 delivery state
 quality/contribution ledgers
+sealed state archive refs
+restore policy and receipt metadata
 ```
 
 ### Filecoin/CAS Owns
@@ -125,6 +288,7 @@ trace bundles
 projection checkpoints
 historical snapshots
 encrypted archives
+sealed state archive bytes
 ```
 
 ## Why State Is Not Filecoin Blobs
@@ -161,8 +325,9 @@ The scalable path is layered:
 2. Warm Agentgres log/checkpoint store
    Operation segments, projection deltas, receipt metadata, snapshots.
 
-3. Filecoin/CAS archival/evidence plane
-   Large immutable payloads, encrypted bundles, checkpoint files, trace archives.
+3. Cold durable artifact plane
+   Large immutable payloads, sealed encrypted bundles, checkpoint files, trace
+   archives, evidence bundles.
 
 4. IOI L1 contract layer
    Registry, rights, escrow, settlement, dispute roots, selected commitments.
@@ -172,10 +337,104 @@ Operational flow:
 
 ```text
 hot state in Agentgres domain storage
--> periodic checkpoints/snapshots to Filecoin/CAS
+-> periodic checkpoints/snapshots to cold artifact storage
+-> sealed state archives to Filecoin/CAS or equivalent durable blob stores
 -> receipt/evidence bundles to Filecoin/CAS
 -> selected economic/trust commitments to IOI L1
 -> local/client projections for read scale
+```
+
+## Sealed State Archives And Rehydration
+
+Agentgres may export inactive, idle, suspended, or terminal runtime state into
+encrypted content-addressed archives. These archives are cold-state artifacts,
+not replacements for canonical Agentgres truth.
+
+The lifecycle is:
+
+```text
+hot runtime
+-> checkpoint periodically
+-> idle, suspend, or terminal boundary
+-> emit sealed state archive
+-> store encrypted archive bytes by CID/hash
+-> keep canonical refs and lifecycle metadata hot
+-> later verify, decrypt, and rehydrate through Agentgres operations
+```
+
+Hot Agentgres retains small canonical records:
+
+```text
+Run id
+Task id
+current lifecycle status
+latest state root
+archive CID/hash
+policy hash
+schema version
+owner/tenant authority
+restore permissions
+retention policy
+settlement refs
+dispute refs
+restore/import receipts
+```
+
+Cold archives may contain heavier state:
+
+```text
+task state
+working memory selected for retention
+patch branches
+tool traces
+model/tool transcripts
+artifact refs
+projection checkpoints
+replay metadata
+large file snapshots
+evidence bundles
+```
+
+Archive payloads must bind to the originating domain, schema version, state
+root, policy hash, object heads, authority context, and encryption envelope.
+The public claim should be conservative: hybrid post-quantum sealed state
+archives, not unbreakable storage.
+
+Restore/import flow:
+
+```text
+AgentStateRestoreRequested
+-> authority verified through wallet.network/policy
+-> archive fetched by CID/hash
+-> archive hash verified
+-> archive decrypted through an authorized key lease
+-> schema, version, state root, and policy validated
+-> Run, TaskState, ArtifactRefs, PatchBranches rehydrated
+-> projections rebuilt or resumed
+-> RestoreReceiptRecorded
+```
+
+Restore must not silently mutate runtime truth. Rehydration creates Agentgres
+operations and receipts so replay, dispute, and accountability remain intact.
+
+Secrets should be represented by wallet.network references or sealed key leases,
+not embedded as raw secret material in archives:
+
+```text
+archive may contain:
+  secret_ref: wallet.network://secret/api-key-openai
+
+archive should not contain:
+  raw OpenAI API key
+```
+
+This preserves the split:
+
+```text
+Agentgres = canonical hot state, archive refs, receipts
+wallet.network = authority, secrets, restore/key leases
+Filecoin/CAS = encrypted durable bytes
+dcrypt = hybrid/PQ sealing layer
 ```
 
 ## State Lifecycle
@@ -235,19 +494,27 @@ State, receipts, evidence, quality, and contribution are retained for replay, au
 Core object families:
 
 ```text
-Agent
 Worker
+ManagedWorkerInstance
 Service
 Task
 Run
 Order
 StandingOrder
+SchemaDefinition
+SchemaMigration
+ConstraintDefinition
+InvariantDefinition
+IndexDefinition
 Patch
 ScopeLease
 PolicyDecision
 Receipt
+ArchiveReceipt
+RestoreReceipt
 ArtifactRef
 ArtifactBundle
+AgentStateArchive
 EvidenceSet
 DeliveryBundle
 QualityRecord
@@ -264,6 +531,7 @@ Agentgres should provide:
 - object state;
 - native relations;
 - constraints;
+- Web4 invariants;
 - indexes;
 - transactions;
 - materialized projections;
@@ -296,6 +564,8 @@ Reads should wake shared runtime only when freshness, policy, key release, proof
 - worker listings;
 - versions;
 - install records;
+- managed worker instances;
+- runtime subscriptions;
 - usage receipts;
 - quality ledgers;
 - contribution accounting;
@@ -306,12 +576,27 @@ Reads should wake shared runtime only when freshness, policy, key release, proof
 
 - service listings;
 - service orders;
+- outcome workspaces;
+- runtime assignment refs;
+- compute session refs;
 - SLA/delivery state;
 - provider/customer state;
 - delivery bundles;
 - dispute evidence;
 - payout mirrors;
 - service quality records.
+
+### ioi.ai Agentgres
+
+- account/runtime profile refs;
+- device registrations;
+- sealed archive refs;
+- latest state-root pointers;
+- restore lifecycle records;
+- publishing flow records;
+- remote compute entitlement refs;
+- sync metadata;
+- lightweight runtime status.
 
 ## Interaction with IOI L1
 
@@ -341,9 +626,14 @@ Agentgres does not post every event or receipt to IOI L1.
 
 > **Agentgres gives intelligence memory: it makes autonomous work durable, queryable, composable, auditable, and settleable.**
 
-## Preserved Detailed Agentgres Spec Module
+## Detailed Agentgres Reference Module
 
-The following module preserves the detailed Agentgres v2.0 design context from the former `docs/specs/agentgres-spec.md`. It is retained for architecture memory and implementation detail. If it conflicts with the canonical doctrine above or the low-level object model in `agentgres-api-and-object-model.md`, the canonical architecture sections above and the low-level object model win.
+The following module carries detailed Agentgres v2.0 design context from the
+former `docs/specs/agentgres-spec.md`. It is supporting implementation detail,
+not a parallel architecture variant. If it conflicts with the canonical
+doctrine above or the low-level object model in `agentgres-api-and-object-model.md`,
+update this module to follow the canonical architecture sections above and the
+low-level object model.
 
 ---
 
@@ -388,9 +678,11 @@ roots, and portable projections carry verified state outward.
 
 # 1. Core Decision
 
-Agentgres is not merely a Postgres replacement.
+Agentgres is not a naked Postgres replacement. Canonically, it is a Web4
+operational state substrate with a Postgres bridge.
 
-It is a replacement for the:
+It is meant to absorb the app-specific state stack that agentic software
+otherwise assembles by hand:
 
 ```text
 Postgres
@@ -407,11 +699,11 @@ stack that agentic software otherwise assembles by hand.
 
 The decision:
 
-> **Agentgres must become the default state architecture for autonomous
-> software: a system where every consequential state change is proposed as a
-> scoped patch, settled into canonical truth, retained with receipts and
-> artifacts, and queried through local, projected, SQL-shaped, or proof-bound
-> views.**
+> **Agentgres should become the default canonical state architecture for
+> autonomous software: a system where every consequential state change is
+> proposed as a scoped patch, settled into canonical truth, retained with
+> receipts and artifacts, and queried through local, projected, SQL-shaped, or
+> proof-bound views.**
 
 Agentgres should absorb the core reasons teams use Postgres:
 
@@ -714,7 +1006,8 @@ scope_lease:
   expires_at: 2026-04-29T19:00:00Z
 ```
 
-Scope prevents blind collision.
+Scope prevents blind collision without requiring pessimistic file locks during
+drafting.
 
 ## 7.3 Patch
 
@@ -723,14 +1016,26 @@ The actor proposes concrete changes.
 Patch operations may be text-level, object-level, relation-level,
 document-level, AST-level, schema-level, workflow-level, or artifact-level.
 
+For file and artifact work, a patch binds to a pinned workspace snapshot and to
+the object heads it expects to replace. It does not mutate canonical file heads
+while the agent is drafting.
+
 ```yaml
 patch:
   patch_id: patch_789
   intent_id: intent_456
+  branch_id: branch_agent_7_task_12
+  base_state_root: root_r1
   base:
     object: Run
     id: run_123
     head: h_old
+  expected_heads:
+    file://src/foo.ts: sha256:a_old
+  resulting_heads:
+    file://src/foo.ts: sha256:a_new
+  changed_artifact_refs:
+    - artifact://patch_789/src/foo.ts
   operations:
     - op: advance_state
       field: status
@@ -756,10 +1061,14 @@ Validation checks:
 - receipts
 - migration compatibility
 - key-release requirements
+- snapshot pinning
 
 ```yaml
 validation:
   patch_id: patch_789
+  validation_target: patch_branch
+  base_state_root: root_r1
+  dependency_state: pinned
   checks:
     - run_status_transition_valid: pass
     - actor_can_advance_run: pass
@@ -767,6 +1076,12 @@ validation:
     - no_conflicting_head_change: pass
   result: pass
 ```
+
+Build, syntax, and test checks run against frozen snapshots such as
+`base_state_root + patch_id`, not against a moving live workspace. If canonical
+state advances while validation runs, the receipt still means "this patch passed
+against this pinned state." Merge eligibility must then re-check the current
+canonical heads.
 
 ## 7.5 Merge
 
@@ -787,11 +1102,16 @@ Merge may be:
 ```yaml
 merge_decision:
   patch_id: patch_789
+  base_state_root: root_r1
   base_head: h_old
   current_head: h_current
   outcome: accepted
   merge_strategy: compare_and_set_head
 ```
+
+If expected heads no longer match current canonical heads, the patch is stale.
+Agentgres must rebase, auto-merge, repair, revalidate, reject, or route the
+decision to a planner/reviewer before settlement.
 
 ## 7.6 Settle
 
@@ -809,6 +1129,11 @@ canonical_operation:
 ```
 
 Settlement produces truth.
+
+Rollback after settlement is also a new canonical operation. Agentgres may keep
+agent-local checkpoints for task/run rollback, but reverting settled truth must
+record a compensating patch or revert operation with receipts instead of
+deleting or mutating prior history.
 
 ## 7.7 Project
 
@@ -868,15 +1193,20 @@ It owns:
 - intents
 - work items
 - scope leases
+- file/object versions
+- workspace snapshots
 - patch branches
 - live edit sessions
 - semantic patch operations
 - conflict sets
 - dependency graphs
 - validation plans
+- build receipts
 - merge proposals
 - merge decisions
 - repair patches
+- revert operations
+- rollback receipts
 
 ## 8.1 Change Objects
 
@@ -886,7 +1216,11 @@ Core change objects:
 Intent
 WorkItem
 ScopeLease
+FileObject
+FileVersion
+WorkspaceSnapshot
 PatchBranch
+TaskBranch
 LiveEditSession
 PatchOperation
 SemanticDiff
@@ -894,9 +1228,12 @@ ConflictSet
 DependencySet
 ValidationPlan
 ValidationReceipt
+BuildReceipt
 MergeProposal
 MergeDecision
 RepairPatch
+RevertOperation
+RollbackReceipt
 SettlementCommit
 ```
 
@@ -921,7 +1258,80 @@ Patch branches are not Git branches, though they may export to Git.
 
 They are generalized branches over any state object.
 
-## 8.3 Live Edit Sessions
+## 8.3 Concurrent Agent Editing and Patch Isolation
+
+Agents may edit concurrently in isolated patch branches. Agentgres does not
+permit workers to directly mutate canonical file or object heads during
+drafting.
+
+Canonical state advances only through expected-head merges validated against
+pinned snapshots and current integration state.
+
+```text
+canonical:
+  file://src/parser.ts -> sha256:p1
+  repo/workspace -> state_root:r1
+
+agent A patch branch:
+  base_state_root: state_root:r1
+  expected_heads:
+    file://src/parser.ts: sha256:p1
+
+agent B patch branch:
+  base_state_root: state_root:r1
+  expected_heads:
+    file://src/parser.ts: sha256:p1
+```
+
+Both agents can draft changes to `src/parser.ts` at the same time because each
+branch produces isolated patch operations. Neither branch owns a mutable copy of
+the live repository.
+
+At merge time, Agentgres compares expected heads with canonical heads:
+
+```text
+if canonical head == expected head:
+  validate or verify required receipts
+  merge
+  settle
+else:
+  rebase
+  auto-merge
+  revalidate
+  reject
+  or ask planner/reviewer
+```
+
+A validation receipt must name the frozen target it validated:
+
+```text
+validation_target: patch_branch
+base_state_root: state_root:r1
+patch_id: patch_a
+dependency_state: pinned
+```
+
+This keeps compilation, syntax checks, and tests deterministic while other
+agents continue working. Expensive validation should not hold a global edit
+lock. A short integration lease may be used at the final merge boundary to
+check heads, materialize the merged tree, verify cached receipts or run a fast
+gate, commit the operation, and release.
+
+Rollback has two layers:
+
+- agent-local rollback: branch checkpoints for undoing bad intermediate task
+  edits before settlement
+- canonical rollback: new revert operations and rollback receipts after a patch
+  has settled
+
+The clean rule:
+
+> **Agents may edit concurrently in isolated patch branches. Canonical state
+> changes only through expected-head merges validated against pinned snapshots
+> and current integration state. Exclusive leases are reserved for
+> merge-critical, non-mergeable, or authority-sensitive scopes.**
+
+## 8.4 Live Edit Sessions
 
 For collaborative work, a patch branch may have a live operation stream.
 
@@ -970,18 +1380,23 @@ create_reference
 archive_object
 ```
 
-## 8.4 Scope Leases
+## 8.5 Scope Leases
 
-Agentgres should avoid unbounded concurrent edits by requiring scope.
+Agentgres should avoid unbounded authority by requiring scope, but scope is not
+the same thing as a long-lived file lock.
 
 Scope may target:
 
 - object
 - relation
 - file
+- directory
 - document section
 - code symbol
 - schema
+- package
+- migration
+- public API contract
 - workflow run
 - artifact bundle
 - policy
@@ -991,14 +1406,46 @@ Scope may target:
 scope:
   resource: Document:doc_123#section:pricing
   actor: agent:copy_editor
+  lease_type: non_exclusive_draft
   permissions:
     - propose_patch
     - edit_text
   expires_at: 2026-04-29T19:00:00Z
-  conflict_policy: block_conflicting_writes
+  conflict_policy: allow_parallel_drafts_detect_at_merge
 ```
 
-## 8.5 Semantic Conflict Detection
+Default code edits should use non-exclusive draft leases in isolated patch
+branches. Multiple agents can draft changes to the same file or symbol and let
+merge policy decide whether the results combine, rebase, or conflict.
+
+Exclusive leases should be short-lived and reserved for merge-critical,
+non-mergeable, or authority-sensitive scopes:
+
+```text
+package-lock.json
+Cargo.lock
+database migrations
+schema definitions
+generated artifacts
+global config
+deployment manifests
+public API contracts
+```
+
+Preferred exclusive form:
+
+```yaml
+scope:
+  resource: migration:billing-db
+  lease_type: exclusive_merge
+  duration: short_ttl
+  purpose: validation_and_merge
+```
+
+The lease says "this patch owns the integration boundary briefly," not "this
+agent owns the file while thinking."
+
+## 8.6 Semantic Conflict Detection
 
 Textual conflict is not enough.
 
@@ -1015,8 +1462,11 @@ Agentgres should detect semantic conflicts such as:
 - policy changed during patch
 - dependency patch superseded
 - hidden cross-domain transaction cost
+- overlapping symbol change
+- stale branch base
+- combined validation required
 
-## 8.6 Merge Policies
+## 8.7 Merge Policies
 
 Merge policy is declared per object class, relation, file type, or patch type.
 
@@ -1707,7 +2157,29 @@ A shared runtime may idle when:
 - no repair tasks
 - no side-effecting executions
 
-## 12.4 Reconnect Flow
+Before a long idle, suspend, or terminal boundary, Agentgres may emit a sealed
+state archive and keep only canonical refs, lifecycle state, policy, roots, and
+receipt metadata hot.
+
+## 12.4 Sealed Archive Flow
+
+For Autopilot and long-running agents:
+
+```text
+run hot
+-> checkpoint periodically
+-> reach idle, suspend, or terminal state
+-> emit sealed state archive
+-> store encrypted bundle by CID/hash
+-> retain AgentStateArchive ref hot
+-> restore later through verified rehydration
+```
+
+This is the zero-to-idle form of encrypted cloud backup for runtime state:
+local-first operation while active, cold durable state when inactive, and
+policy-bound restore when the user or worker needs to resume.
+
+## 12.5 Reconnect Flow
 
 ```text
 client presents resume token
@@ -1778,6 +2250,7 @@ Bundles group related artifacts:
 - validation outputs
 - evidence sets
 - projection checkpoints
+- sealed state archives
 
 ## 13.3 Receipts
 
@@ -1792,6 +2265,8 @@ MergeReceipt
 SettlementReceipt
 QueryReceipt
 ExecutionReceipt
+ArchiveReceipt
+RestoreReceipt
 PromotionReceipt
 ProjectionReceipt
 PolicyDecisionReceipt
@@ -1814,6 +2289,9 @@ A receipt may bind:
 - query result commitment
 - projection checkpoint
 - capability scope
+- archive CID/hash
+- encryption envelope
+- restore/import result
 
 ---
 
@@ -2180,6 +2658,9 @@ agentgres projection rebuild approval_inbox
 agentgres query explain "SELECT ..."
 agentgres backup create
 agentgres restore verify
+agentgres archive create --run run_123
+agentgres archive restore archive_123
+agentgres archive verify archive_123
 agentgres tenant export tenant_123
 agentgres artifact verify bundle_123
 agentgres receipt inspect receipt_123
@@ -2757,7 +3238,9 @@ Therefore every Agentgres patch should bind to:
 ```text
 repo fingerprint
 base commit
+base state root
 base file hashes
+expected file/object heads
 target paths/regions/symbols
 expected prior content
 scope lease
@@ -2778,7 +3261,9 @@ ask for review
 
 ## 27.7 Leases Without Breaking Git
 
-Leases should be advisory/overlay-level at first, not filesystem locks.
+Leases should be advisory/overlay-level at first, not filesystem locks. Normal
+code work should use isolated patch branches plus optimistic merge checks, not
+exclusive file ownership during drafting.
 
 Example:
 
@@ -2793,7 +3278,7 @@ Agentgres rebases or blocks settlement
 Do not use hard file locks by default. They will annoy developers and break
 normal IDE workflows.
 
-Use three lease modes:
+Use four lease modes:
 
 ```text
 advisory
@@ -2802,13 +3287,28 @@ advisory
 managed
   Autopilot agents respect leases internally
 
+non_exclusive_draft
+  allow concurrent patch branches and detect conflict at merge
+
 exclusive
-  optional mode for fully controlled workspaces/CI sandboxes
+  short TTL for controlled integration, non-mergeable resources, or CI sandboxes
 ```
 
-For normal developer machines, use advisory plus managed leases.
+For normal developer machines, use advisory, managed, and non-exclusive draft
+leases.
 
-For autonomous adaptive work graph sandboxes, use exclusive leases.
+For autonomous adaptive work graph sandboxes, use exclusive leases only at
+merge-critical boundaries or for resources that cannot be safely merged:
+
+```text
+lockfiles
+database migrations
+schema definitions
+generated files
+deployment manifests
+global config
+public API contracts
+```
 
 ## 27.8 Best Workflow
 
@@ -2849,7 +3349,7 @@ This is overlay state, not necessarily a Git branch.
 Safer mode:
 
 ```text
-agent patch branch
+agent patch branch over pinned WorkspaceSnapshot
 -> semantic diff
 -> validation
 -> apply to working tree on approval
@@ -2869,7 +3369,17 @@ Support both. Default to virtual patches for multi-agent work.
 
 ### Validate
 
-Agentgres runs:
+Agentgres runs validation against a frozen target, not the moving live
+workspace:
+
+```text
+validation_target: patch_branch
+base_state_root: root_r1
+patch_id: patch_abc
+dependency_state: pinned
+```
+
+Then it executes:
 
 ```text
 format
@@ -2881,17 +3391,26 @@ scope checks
 receipt checks
 ```
 
+If another patch settles while validation runs, this validation receipt remains
+valid for its pinned target. Before merge, Agentgres checks current canonical
+heads and requires rebase, repair, or affected revalidation when the target is
+stale.
+
 ### Settle
 
-Accepted patches apply to the working tree, stage files, and commit through
-normal Git:
+Accepted patches acquire any required short integration lease, compare expected
+heads with canonical heads, apply to the working tree, stage files, and commit
+through normal Git:
 
 ```text
 Agentgres patch accepted
+-> acquire integration lease if required
+-> compare expected heads
 -> apply files
 -> git add
 -> git commit
 -> attach receipt metadata
+-> release lease
 ```
 
 ### Preserve Compatibility

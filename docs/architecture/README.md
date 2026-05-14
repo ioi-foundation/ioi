@@ -4,45 +4,86 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-05-02.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
-This pack distills the IOI / canonical Web4 architecture into separate authority documents so each facet has a clear role, boundary, and dependency surface.
+This pack distills the IOI / canonical Web4 architecture into separate
+authority documents so each facet has a clear role, boundary, and dependency
+surface.
 
 The core doctrine is:
 
-> **IOI L1 settles rights and trust. Agentgres remembers operational truth. The daemon executes work. Autopilot, agent-ide, CLI/TUI, SDK, workflow compositor, harnesses, and benchmarks are clients. wallet.network authorizes power. Filecoin/CAS stores payloads. aiagent.xyz discovers workers. sas.xyz sells outcomes.**
+> **IOI is an edge-in Web4 stack for alignment-secure machine authority:
+> workers act under scoped authority, domains remember operational truth, and
+> IOI L1 settles only the commitments that need public trust.**
+
+Read the stack this way:
+
+- the IOI kernel is the L0 substrate for instantiating domains and chains;
+- IOI L1 anchors rights, settlement, registries, disputes, governance, release
+  commitments, and public commitments;
+- domain kernels run Agentgres, routing, policy, projections, and application
+  state;
+- Domain Ontologies and Data Recipes bind raw sources into trainable,
+  queryable, receipted domain truth;
+- IOI daemon/runtime nodes execute workers, workflows, tools, models,
+  connectors, and artifacts;
+- wallet.network authorizes identity, secrets, approvals, payments, data use,
+  and decryption;
+- Filecoin/CAS stores payload bytes, packages, artifacts, evidence bundles,
+  checkpoints, and sealed archive bytes;
+- MoW routes bounded workers by policy, benchmarks, receipts, cost, trust, and
+  contribution quality;
+- Autopilot Desktop trains and runs workers through a local daemon profile;
+- agent-ide, CLI/TUI, SDK, workflow compositor, harnesses, and benchmarks are
+  clients or projections;
+- aiagent.xyz publishes, benchmarks, ranks, installs, initializes managed
+  instances, and routes workers;
+- sas.xyz sells worker-powered outcomes, including Worker Training contracts;
+- ioi.ai coordinates accounts, devices, publishing, restore, sync metadata, and
+  remote-runtime access.
 
 Agentgres should not be read as "state stored as Filecoin blobs." Agentgres is
 the state machine and query substrate; Filecoin/CAS is the content-addressed
 payload and evidence availability layer.
 
-These documents should be treated as architectural authority prose. They are not implementation tickets, but they should constrain implementation choices, naming, product boundaries, and future specs.
+These documents should be treated as architectural authority prose. They are
+not implementation tickets, but they should constrain implementation choices,
+naming, product boundaries, and future specs.
 
 ## Taxonomy
 
-Architecture contains stable authority prose, protocol references, and low-level component references. Implementation plans live in [`docs/implementation`](../implementation/). Conformance contracts live in [`docs/conformance`](../conformance/). Generated formal outputs live in [`docs/formal-artifacts`](../formal-artifacts/).
+Architecture contains stable authority prose, protocol references, and
+low-level component references. Implementation plans live in
+[`docs/implementation`](../implementation/). Conformance contracts live in
+[`docs/conformance`](../conformance/). Generated formal outputs live in
+[`docs/formal-artifacts`](../formal-artifacts/).
 
 ## Navigation And Ownership
 
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) — canonical subject ownership, edit rules, and conflict policy.
-- [`contradiction-log.md`](./_meta/contradiction-log.md) — resolved contradictions and legacy-context policy.
+- [`Architecture Decision Records`](../decisions/README.md) — accepted decision history for durable architecture choices.
 - [`doc-classes.md`](./_meta/doc-classes.md) — documentation class vocabulary for future metadata/linting.
 - [`2026-05-02-taxonomy-refactor.md`](./_meta/changelog/2026-05-02-taxonomy-refactor.md) — latest documentation refactor report.
 
 ## High-Level Canonical Spec Files
 
 - [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) — category definition and stack map.
-- [`ioi-l1-mainnet.md`](./foundations/ioi-l1-mainnet.md) — IOI L1 duties, smart contracts, gas boundaries.
-- [`domain-kernels.md`](./foundations/domain-kernels.md) — root kernel, application-domain kernels, and Agentgres hosting.
+- [`mixture-of-workers.md`](./foundations/mixture-of-workers.md) — MoW labor-routing doctrine, sparse worker categories, routing receipts, and router neutrality.
+- [`worker-training-lifecycle.md`](./foundations/worker-training-lifecycle.md) — Worker Training lifecycle, Autopilot Foundry product home, training receipts, and training-vs-mutation doctrine.
+- [`domain-ontologies-and-data-recipes.md`](./foundations/domain-ontologies-and-data-recipes.md) — semantic data plane for domain ontologies, data recipes, connector mappings, evaluation datasets, and ontology-aware projections.
+- [`ioi-l1-mainnet.md`](./foundations/ioi-l1-mainnet.md) — IOI L1 duties, L0/L1 boundary, smart contracts, gas boundaries.
+- [`domain-kernels.md`](./foundations/domain-kernels.md) — L0 substrate, fractal/edge-in topology, application-domain kernels, and Agentgres hosting.
 - [`agentgres/doctrine.md`](./components/agentgres/doctrine.md) — per-domain state substrate for canonical operational truth.
+- [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
 - [`autopilot/local-app-workflow-canvas.md`](./products/autopilot/local-app-workflow-canvas.md) — local app, workflow builder, harness-as-workflow.
 - [`autopilot/internal-product-spec.md`](./products/autopilot/internal-product-spec.md) — Autopilot product definition, UX surface intent, and operator-shell direction.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
-- [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace application domain.
+- [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
 - [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md) — Service-as-Software outcome marketplace application domain.
+- [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md) — lightweight account, device, restore, publishing, and remote-runtime control plane.
 - [`protocols/ai-url/registry-and-manifests.md`](./protocols/ai-url/registry-and-manifests.md) — `ai://` naming, manifests, resolver metadata.
 - [`filecoin-cas/doctrine.md`](./components/filecoin-cas/doctrine.md) — package, artifact, evidence, checkpoint availability.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
@@ -55,11 +96,11 @@ Architecture contains stable authority prose, protocol references, and low-level
 ## Low-Level Reference Files
 
 - [`common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md) — shared envelopes, ID namespaces, primitive capabilities, authority scopes.
-- [`aiagent-xyz-agent-and-worker-endpoints.md`](./domains/aiagent/worker-endpoints.md) — aiagent.xyz worker and inter-agent endpoints.
+- [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./domains/aiagent/worker-endpoints.md) — aiagent.xyz worker and inter-agent endpoints.
 - [`sas-xyz-service-endpoints.md`](./domains/sas/service-endpoints.md) — sas.xyz order, delivery, provider, and dispute endpoints.
 - [`daemon-runtime/api.md`](./components/daemon-runtime/api.md) — public daemon runtime API, event streaming, inspect, scorecard, replay.
 - [`agentgres/api-object-model.md`](./components/agentgres/api-object-model.md) — Agentgres APIs, object classes, operation log, runtime v0 state.
-- [`agentgres/projection-system-reference.md`](./components/agentgres/projection-system-reference.md) — preserved CSPS taxonomy context for projection-native state systems.
+- [`agentgres/projection-system-reference.md`](./components/agentgres/projection-system-reference.md) — CSPS taxonomy reference for projection-native state systems.
 - [`wallet-network/api-authority-scopes.md`](./components/wallet-network/api-authority-scopes.md) — wallet.network authority scopes, grants, approvals, brokerage, revocation.
 - [`ioi-l1-contract-interfaces.md`](./foundations/ioi-l1-contract-interfaces.md) — IOI L1 contract interfaces.
 - [`protocols/ai-url/manifest-schemas.md`](./protocols/ai-url/manifest-schemas.md) — `ai://` manifest schemas and resolution flow.
@@ -95,13 +136,20 @@ supporting file.
 | Facet | Canonical Role |
 |---|---|
 | IOI L1 | Registry, rights, settlement, governance, bonds, disputes, and public trust commitments. |
+| Mixture of Workers | Labor-routing architecture that selects bounded workers by policy, benchmark evidence, cost, trust, and contribution quality. |
+| Worker Training | Supply-creation lifecycle for turning workflows, examples, corrections, data, gates, and training profiles into deployable benchmarked workers. |
+| Domain Ontologies and Data Recipes | Semantic data plane that turns sources, connector payloads, traces, schemas, and policies into ontology-bound training, evaluation, runtime, and projection truth. |
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
-| Autopilot | Local user application, workflow canvas, harness, and desktop execution/runtime control surface. |
-| IOI CLI/Daemon | Universal execution endpoint for workflows, workers, tools, models, connectors, and artifacts. |
+| IOI Daemon / Runtime Node | Universal execution endpoint for workflows, workers, tools, models, connectors, and artifacts. |
+| IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
+| IOI SDK | Developer client facade over daemon/substrate contracts, never the canonical execution owner. |
+| agent-ide / Workflow Compositor | GUI/workbench projection and workflow authoring client over shared contracts. |
+| Autopilot Desktop | Local user application and workbench that trains, runs, inspects, and governs workers through a local IOI daemon/runtime profile. |
 | wallet.network | Sovereign authority layer for identity, secrets, keys, authority scopes, approvals, payments, and revocation. |
-| aiagent.xyz | Canonical Web4 marketplace for portable digital workers. |
-| sas.xyz | Canonical Web4 marketplace for autonomous service outcomes. |
+| aiagent.xyz | Canonical Web4 marketplace for portable digital workers, benchmark profiles, Sparse Worker Categories, installs, and routing eligibility. |
+| sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
+| ioi.ai | Lightweight account/control plane for devices, restore routing, publishing, sync metadata, and remote-runtime entitlement. |
 | ai:// | Naming and manifest resolution protocol for intelligence, workers, services, apps, and domains. |
 | Filecoin/CAS | Immutable payload availability for packages, artifacts, evidence, receipts, and checkpoints. |
 | DePIN/TEE Nodes | Execution venues that run IOI daemon profiles, not the Web4 apps themselves. |
@@ -113,14 +161,23 @@ IOI L1
   registry, rights, settlement, governance, bonds, disputes, roots
 
 Application Domains
-  aiagent.xyz, sas.xyz, Autopilot domains, enterprise domains
+  aiagent.xyz, sas.xyz, ioi.ai, Autopilot local domains, enterprise domains
   each runs kernel/runtime deployment + Agentgres domain
 
+Semantic Data Plane
+  domain ontologies, canonical object models, data recipes, connector mappings, policy-bound data views, evaluation datasets, ontology-aware projections
+
+MoW Routing Layer
+  sparse worker categories, routing decisions, contribution policies, benchmark eligibility
+
 Execution Nodes
-  local Autopilot, hosted IOI daemon, provider daemon, DePIN node, TEE node, customer VPC
+  local IOI daemon under Autopilot Desktop, hosted IOI daemon, provider daemon, DePIN node, TEE node, customer VPC
+
+Client Surfaces
+  Autopilot Desktop, agent-ide, IOI CLI/TUI, @ioi/agent-sdk, browser apps, harnesses, benchmarks
 
 Storage Plane
-  Filecoin/CAS/CDN for packages, artifacts, evidence bundles, checkpoints
+  Filecoin/CAS/CDN for packages, artifacts, evidence bundles, checkpoints, sealed state archive bytes
 
 Authority Plane
   wallet.network for identity, secrets, authority scopes, payments, approvals, revocation
@@ -137,3 +194,9 @@ Authority Plane
 7. DePIN nodes are execution venues; Web4 apps define state, rights, UX, contracts, and outcomes.
 8. Filecoin/CAS stores payloads; trust comes from manifests, hashes, signatures, receipts, and settlement roots.
 9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, and artifact refs.
+10. Compute nodes initialize IOI daemon/runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
+11. CLI/TUI, agent-ide, SDK, Autopilot Desktop, harnesses, and benchmarks must share daemon/domain contracts rather than creating private runtime truth paths.
+12. Worker is the protocol actor; model is a cognition backend; agent is product-facing or colloquial language.
+13. MoW is labor routing across bounded workers, not a fifth Web primitive and not model-provider routing.
+14. Worker Training creates or improves capability but does not grant authority; wallet.network or equivalent authority grants power.
+15. Workers train on ontology-bound data and policy-bound data views, not raw blobs or ambient connector payloads.

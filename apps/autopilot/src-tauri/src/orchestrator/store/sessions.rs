@@ -1,11 +1,13 @@
 use super::core::{
-    clean_chat_session_title_candidate, normalize_workspace_root, persist_runtime_evidence_projection,
-    session_resume_hint_from_task, session_summary_title_from_task_intent, workspace_root_from_task,
+    clean_chat_session_title_candidate, normalize_workspace_root,
+    persist_runtime_evidence_projection, session_resume_hint_from_task,
+    session_summary_title_from_task_intent, workspace_root_from_task,
 };
 use super::shared::{
     get_session_storage_key, load_global_checkpoint_json, load_thread_checkpoint_json,
-    persist_global_checkpoint_json, persist_thread_checkpoint_json, LOCAL_SESSION_INDEX_CHECKPOINT_NAME,
-    LOCAL_TASK_CHECKPOINT_NAME, SESSION_COMPACTION_CHECKPOINT_NAME, SESSION_FILE_CONTEXT_CHECKPOINT_NAME,
+    persist_global_checkpoint_json, persist_thread_checkpoint_json,
+    LOCAL_SESSION_INDEX_CHECKPOINT_NAME, LOCAL_TASK_CHECKPOINT_NAME,
+    SESSION_COMPACTION_CHECKPOINT_NAME, SESSION_FILE_CONTEXT_CHECKPOINT_NAME,
     TEAM_MEMORY_SYNC_CHECKPOINT_NAME,
 };
 use crate::models::{

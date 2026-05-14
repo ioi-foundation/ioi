@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
@@ -18,14 +18,34 @@ AuthorityScopeRequestEnvelope
 AuthorityGrantEnvelope
 TaskEnvelope
 RunEnvelope
+WorkerInstanceEnvelope
+RuntimeSubscriptionEnvelope
+RuntimeAssignmentEnvelope
+ComputeSessionEnvelope
 RuntimeEventEnvelope
 ReceiptEnvelope
 ArtifactEnvelope
+SealedStateArchiveEnvelope
 DeliveryEnvelope
 SettlementEnvelope
 ContributionEnvelope
 QualityEnvelope
 DisputeEnvelope
+DomainOntologyEnvelope
+CanonicalObjectModelEnvelope
+DataRecipeEnvelope
+ConnectorMappingEnvelope
+PolicyBoundDataViewEnvelope
+TransformationRunEnvelope
+EvaluationDatasetEnvelope
+OntologyProjectionEnvelope
+OntologyToWorkerPlanEnvelope
+WorkerTrainingEnvelope
+PostTrainingCycleEnvelope
+ContextMutationEnvelope
+PromotionDecisionEnvelope
+BenchmarkEnvelope
+RoutingDecisionEnvelope
 ```
 
 ## Common ID Conventions
@@ -33,13 +53,28 @@ DisputeEnvelope
 ```text
 ai://...                global intelligence/app/worker/service namespace
 ioi://publisher/...     publisher identity
-agent://...             agent or worker instance
+agent://...             product-facing agent instance or compatibility worker instance
 worker://...            worker package or worker type
+install://...           worker install/license binding
+subscription://...      runtime or managed-instance subscription/entitlement
 service://...           sas.xyz service definition
 run://...               runtime run identity
 task://...              task identity
+runtime://...           IOI daemon/runtime-node identity
+compute://...           compute session identity
 artifact://...          Agentgres artifact ref
 receipt://...           receipt identity
+benchmark://...         benchmark profile or benchmark run identity
+rubric://...            evaluation rubric identity
+ontology://...          domain ontology identity
+object-model://...      canonical object model identity
+recipe://...            data recipe identity
+mapping://...           connector mapping identity
+view://...              policy-bound data view identity
+dataset://...           evaluation or training dataset identity
+projection://...        ontology-aware or Agentgres projection identity
+transform://...         transformation run identity
+plan://...              ontology-to-worker plan identity
 cid://...               Filecoin/CAS content ref
 wallet://...            wallet.network account or authority ref
 prim://...              primitive execution capability ref
@@ -95,6 +130,98 @@ ManifestEnvelope:
     contract: ManifestRootRegistry
     tx_hash: optional
   status: draft | active | deprecated | revoked
+  interaction_surfaces:
+    - chat
+    - form
+    - api
+    - workflow_node
+    - scheduler
+    - background_service
+  runtime_profiles:
+    - local
+    - hosted
+    - provider
+    - depin
+    - tee
+    - customer_vpc
+  persistence_profiles:
+    - ephemeral
+    - session
+    - zero_to_idle
+    - persistent
+  subscription_profiles:
+    - per_invocation
+    - warm_runtime
+    - managed_monthly
+  mow:
+    sparse_worker_category: optional
+    benchmark_profile_refs: []
+    evaluation_rubric_ref: optional
+    routing_eligibility_status: draft | submitted | benchmarking | eligible | suspended | revoked
+    contribution_policy_ref: optional
+    training_lineage_ref: optional
+  worker_profile:
+    architecture_profile: optional
+    active_context_strategy: optional
+    context_mutability: none | external_context_only | adapter_promoted | package_revision
+    post_training_policy_ref: optional
+  semantic_data:
+    ontology_refs: []
+    canonical_object_model_refs: []
+    data_recipe_refs: []
+    connector_mapping_refs: []
+    evaluation_dataset_refs: []
+```
+
+## WorkerInstanceEnvelope
+
+```yaml
+WorkerInstanceEnvelope:
+  worker_instance_id: agent://...
+  worker_id: worker://...
+  worker_manifest_ref: ai://...
+  install_id: install://...
+  owner_id: wallet://... | org://... | project://...
+  runtime_assignment_id: optional
+  runtime_id: optional
+  execution_profile: local | hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc
+  persistence_profile: ephemeral | session | zero_to_idle | persistent
+  interaction_surfaces:
+    - chat
+    - task
+    - api
+    - workflow_node
+    - scheduler
+  status: starting | running | idle | suspended | archived | failed
+  memory_policy:
+    mode: none | session | agentgres_refs | sealed_archive
+    archive_on_idle: boolean
+  authority_grant_refs:
+    - grant://...
+  subscription_ref: optional
+  latest_run_id: optional
+  latest_state_root: optional
+  archive_ref: optional
+  created_at: timestamp
+  updated_at: timestamp
+```
+
+## RuntimeSubscriptionEnvelope
+
+```yaml
+RuntimeSubscriptionEnvelope:
+  subscription_id: subscription://...
+  owner_id: wallet://... | org://...
+  worker_instance_id: optional
+  runtime_assignment_id: optional
+  mode: per_invocation | warm_runtime | managed_monthly
+  compute_profile: hosted | provider | depin | tee | customer_vpc | local
+  budget_policy_ref: optional
+  entitlement_ref: optional
+  billing_ref: optional
+  status: trial | active | past_due | paused | cancelled
+  renews_at: optional
+  expires_at: optional
 ```
 
 ## AuthorityScopeRequestEnvelope
@@ -161,9 +288,9 @@ TaskEnvelope:
   task_id: task_...
   requester_id: wallet://... | agent://... | service://...
   objective: string
-  task_class: coding | research | workflow | commerce | render | connector | service_delivery | other
+  task_class: coding | research | workflow | commerce | render | connector | service_delivery | managed_agent | other
   privacy_class: public | internal | confidential | regulated
-  execution_profile: local | hosted | depin_mutual_blind | tee_enterprise | customer_vpc
+  execution_profile: local | hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc
   input_refs:
     - artifact://...
     - agentgres://object/...
@@ -176,6 +303,15 @@ TaskEnvelope:
     deadline: optional
     max_budget: optional
     human_approval: optional
+  training_spec_ref: optional
+  domain_ontology_ref: optional
+  data_recipe_refs: []
+  policy_bound_data_view_refs: []
+  evaluation_dataset_refs: []
+  benchmark_profile_ref: optional
+  sparse_worker_category: optional
+  evaluation_rubric_ref: optional
+  contribution_policy_ref: optional
   primitive_capabilities_required:
     - prim:model.invoke
   authority_scopes_required:
@@ -191,7 +327,9 @@ RunEnvelope:
   task_id: task_...
   runtime_id: runtime://...
   worker_id: optional
+  worker_instance_id: optional
   service_id: optional
+  subscription_ref: optional
   state: queued | assigned | starting | running | awaiting_approval | paused | completed | failed | cancelled
   assignment:
     node_id: node://...
@@ -217,7 +355,7 @@ RuntimeEventEnvelope:
   run_id: run_...
   task_id: task_...
   turn_id: optional
-  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | receipt.emitted | run.completed | run.failed
+  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | evaluation_dataset.bound | ontology_projection.updated | receipt.emitted | run.completed | run.failed
   timestamp: timestamp
   actor_id: agent://... | runtime://... | wallet://...
   privacy_class: public | internal | private | secret
@@ -233,7 +371,7 @@ RuntimeEventEnvelope:
 ```yaml
 ReceiptEnvelope:
   receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | artifact | validation | delivery | settlement | contribution | quality
+  receipt_type: policy | approval | model_invocation | tool_execution | artifact | validation | delivery | settlement | contribution | quality | data_recipe_run | transformation | ontology_projection | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
   run_id: optional
   task_id: optional
   actor_id: string
@@ -267,6 +405,9 @@ ArtifactEnvelope:
     worker_id: optional
     operation_id: optional
     receipt_id: optional
+    ontology_ref: optional
+    data_recipe_ref: optional
+    transformation_run_id: optional
   access_policy_ref: optional
 ```
 
@@ -309,10 +450,353 @@ ContributionEnvelope:
   contributor_id: worker://... | service://... | publisher://... | tool://... | model://...
   consumer_id: wallet://... | service://... | agent://...
   task_id: task_...
-  contribution_type: worker_invocation | service_delivery | tool_use | model_use | dataset_use | workflow_use | verification
+  contribution_type: worker_invocation | service_delivery | tool_use | model_use | dataset_use | workflow_use | verification | training_data | training_service | benchmark_submission | routing_selection | verifier_signal
   usage_hash: hash
+  sparse_worker_category: optional
+  benchmark_profile_ref: optional
+  routing_decision_ref: optional
+  downstream_outcome_ref: optional
+  dispute_status: none | pending | upheld | rejected | no_fault
   quality_delta: optional
   reward_claim: optional
   license_ref: optional
   receipt_ref: receipt://...
+```
+
+## DomainOntologyEnvelope
+
+```yaml
+DomainOntologyEnvelope:
+  ontology_id: ontology://...
+  name: string
+  domain_ref: agentgres://domain/... | service://... | org://...
+  version: semver_or_hash
+  entity_types: []
+  relationship_types: []
+  event_types: []
+  action_types: []
+  state_machines: []
+  invariant_refs: []
+  owner_id: wallet://... | org://... | service://...
+  policy_hash: hash
+  status: draft | active | deprecated | revoked
+```
+
+## CanonicalObjectModelEnvelope
+
+```yaml
+CanonicalObjectModelEnvelope:
+  object_model_id: object-model://...
+  ontology_ref: ontology://...
+  object_type: string
+  id_strategy: deterministic | assigned | provider_mapped
+  schema_ref: artifact://... | cid://... | inline
+  lifecycle_states: []
+  constraints:
+    - constraint://...
+  privacy_class: public | internal | confidential | regulated
+  authority_scopes_required: []
+  projection_hints: []
+  status: draft | active | deprecated
+```
+
+## DataRecipeEnvelope
+
+```yaml
+DataRecipeEnvelope:
+  data_recipe_id: recipe://...
+  ontology_refs:
+    - ontology://...
+  input_source_types:
+    - connector
+    - document
+    - trace
+    - dataset
+    - artifact
+  connector_mapping_refs:
+    - mapping://...
+  output_object_model_refs:
+    - object-model://...
+  output_dataset_refs:
+    - dataset://...
+  transformation_steps:
+    - extract
+    - redact
+    - normalize
+    - dedupe
+    - validate
+    - map
+    - link
+    - export
+  policy_bound_data_view_refs:
+    - view://...
+  receipt_obligations:
+    - data_recipe_run
+    - transformation
+  status: draft | active | deprecated
+```
+
+## ConnectorMappingEnvelope
+
+```yaml
+ConnectorMappingEnvelope:
+  connector_mapping_id: mapping://...
+  connector_id: connector://...
+  ontology_ref: ontology://...
+  source_schema_ref: artifact://... | cid://... | provider_schema
+  target_object_model_refs:
+    - object-model://...
+  field_mappings: []
+  action_mappings: []
+  authority_scopes_required: []
+  redaction_policy_ref: optional
+  evidence_required: []
+  status: draft | active | deprecated
+```
+
+## PolicyBoundDataViewEnvelope
+
+```yaml
+PolicyBoundDataViewEnvelope:
+  view_id: view://...
+  domain_id: agentgres://domain/...
+  ontology_refs:
+    - ontology://...
+  object_model_refs:
+    - object-model://...
+  source_refs: []
+  allowed_uses:
+    - read
+    - transform
+    - train
+    - evaluate
+    - export
+    - publish
+    - route
+  authority_grant_refs:
+    - grant://...
+  retention_policy_ref: optional
+  privacy_class: public | internal | confidential | regulated
+  policy_hash: hash
+  expires_at: optional
+```
+
+## TransformationRunEnvelope
+
+```yaml
+TransformationRunEnvelope:
+  transformation_run_id: transform://...
+  data_recipe_ref: recipe://...
+  ontology_refs:
+    - ontology://...
+  input_refs:
+    - artifact://...
+    - connector://...
+    - agentgres://object/...
+  output_object_refs:
+    - agentgres://object/...
+  output_dataset_refs:
+    - dataset://...
+  output_artifact_refs:
+    - artifact://...
+  policy_bound_data_view_refs:
+    - view://...
+  authority_grant_refs:
+    - grant://...
+  receipt_refs:
+    - receipt://...
+  status: queued | running | completed | failed | rejected
+```
+
+## EvaluationDatasetEnvelope
+
+```yaml
+EvaluationDatasetEnvelope:
+  evaluation_dataset_id: dataset://...
+  ontology_refs:
+    - ontology://...
+  data_recipe_refs:
+    - recipe://...
+  dataset_type: golden | holdout | adversarial | regression | benchmark | synthetic
+  rubric_ref: rubric://...
+  benchmark_profile_ref: optional
+  source_commitment: hash
+  privacy_policy_ref: optional
+  artifact_refs:
+    - artifact://...
+  receipt_root: hash
+  status: draft | active | deprecated | revoked
+```
+
+## OntologyProjectionEnvelope
+
+```yaml
+OntologyProjectionEnvelope:
+  ontology_projection_id: projection://...
+  agentgres_projection_id: projection://...
+  ontology_refs:
+    - ontology://...
+  object_model_refs:
+    - object-model://...
+  data_recipe_refs:
+    - recipe://...
+  policy_bound_data_view_ref: optional
+  freshness_watermark: domain_seq:...
+  checkpoint_ref: optional
+  status: building | active | stale | rebuilding | deprecated
+```
+
+## OntologyToWorkerPlanEnvelope
+
+```yaml
+OntologyToWorkerPlanEnvelope:
+  plan_id: plan://...
+  ontology_refs:
+    - ontology://...
+  canonical_object_model_refs:
+    - object-model://...
+  data_recipe_refs:
+    - recipe://...
+  workflow_schema_refs: []
+  policy_bound_data_view_refs:
+    - view://...
+  evaluation_dataset_refs:
+    - dataset://...
+  benchmark_profile_refs:
+    - benchmark://...
+  proposed_worker_manifest_ref: optional
+  worker_training_ref: optional
+  status: draft | proposed | training | evaluated | bound | rejected
+```
+
+## WorkerTrainingEnvelope
+
+```yaml
+WorkerTrainingEnvelope:
+  training_id: train_...
+  target_worker_id: worker://...
+  requester_id: wallet://... | service://... | org://...
+  provider_id: worker://... | service://... | publisher://...
+  training_objective: string
+  training_profile: dense_transformer | moe | subquadratic | hybrid_attention_state | retrieval_augmented | mutable_context | adapter_trained | distillation_trained | deterministic_verifier | custom
+  training_methods:
+    - prompt_optimization
+    - workflow_trace
+    - retrieval_curation
+    - context_update
+    - route_policy_training
+    - adapter_training
+    - verifier_tuning
+    - eval_generation
+    - model_finetune
+    - distillation
+    - policy_hardening
+  dataset_commitment: hash
+  domain_ontology_ref: optional
+  canonical_object_model_refs: []
+  data_recipe_refs: []
+  policy_bound_data_view_refs: []
+  evaluation_dataset_refs: []
+  ontology_to_worker_plan_ref: optional
+  privacy_policy_ref: optional
+  evaluation_rubric_ref: rubric://...
+  post_training_policy_ref: optional
+  context_graph_ref: optional
+  promotion_gate_ref: optional
+  output_manifest_ref: ai://...
+  receipt_root: hash
+  status: proposed | running | evaluated | accepted | rejected | disputed
+```
+
+## PostTrainingCycleEnvelope
+
+```yaml
+PostTrainingCycleEnvelope:
+  cycle_id: ptc_...
+  worker_id: worker://...
+  trigger: user_correction | failed_eval | benchmark_submission | teacher_distillation | scheduled_retrain | service_delivery_feedback
+  allowed_training_methods:
+    - context_update
+    - adapter_training
+    - route_policy_training
+    - distillation
+    - eval_generation
+    - package_revision
+  source_trace_refs: []
+  privacy_policy_ref: policy://...
+  teacher_worker_refs: []
+  candidate_artifact_ref: cid://... | artifact://...
+  eval_profile_ref: benchmark://...
+  promotion_gate_ref: gate://...
+  rollback_required: true
+  status: proposed | training | evaluating | promoted | rejected | rolled_back
+```
+
+## ContextMutationEnvelope
+
+```yaml
+ContextMutationEnvelope:
+  mutation_id: ctxmut_...
+  worker_id: worker://...
+  project_ref: agentgres://project/... | optional
+  mutation_type: fact | preference | doctrine | route | procedure | eval | failure
+  operation: add | supersede | contradict | deprecate | activate | archive
+  claim_ref: artifact://... | hash://... | optional
+  prior_claim_refs: []
+  evidence_refs: []
+  source_authority: user | worker | verifier | benchmark | service_delivery | admin
+  policy_hash: hash
+  receipt_ref: receipt://...
+```
+
+## PromotionDecisionEnvelope
+
+```yaml
+PromotionDecisionEnvelope:
+  promotion_id: promote_...
+  cycle_id: ptc_...
+  candidate_ref: cid://... | artifact://...
+  baseline_version: worker://...@semver
+  candidate_version: worker://...@semver-candidate
+  eval_profile_ref: benchmark://...
+  baseline_score_commitment: hash
+  candidate_score_commitment: hash
+  regression_receipt_refs: []
+  decision: promoted | rejected | rolled_back
+  reason_ref: artifact://... | hash://...
+  rollback_ref: optional
+  receipt_ref: receipt://...
+```
+
+## BenchmarkEnvelope
+
+```yaml
+BenchmarkEnvelope:
+  benchmark_run_id: bench_...
+  worker_id: worker://...
+  sparse_worker_category: string
+  benchmark_profile_ref: benchmark://...
+  environment_hash: hash
+  manifest_hash: hash
+  policy_hash: hash
+  score_commitment: hash
+  evaluator_id: worker://... | verifier://...
+  evaluation_receipt_root: hash
+  routing_eligibility_result: eligible | ineligible | suspended
+```
+
+## RoutingDecisionEnvelope
+
+```yaml
+RoutingDecisionEnvelope:
+  routing_decision_id: route_...
+  task_id: task://...
+  router_id: worker://... | runtime://...
+  candidate_set_commitment: hash
+  routing_policy_hash: hash
+  selected_worker_id: worker://...
+  selection_reason: string
+  contribution_policy_ref: optional
+  receipt_obligations: []
+  signature: optional
 ```

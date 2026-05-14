@@ -4,11 +4,22 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime assignment, task capsule, privacy-mode, TEE attestation, and remote result envelopes.
 Supersedes: overlapping hosted/self-hosted worker protocol prose when capsule fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 ## Purpose
 
-Runtime nodes are execution venues. They may be local Autopilot, hosted IOI daemon, provider node, DePIN node, TEE-verified node, or customer VPC node. They execute task capsules and return events, artifacts, and receipts.
+Runtime nodes are execution venues. They may be a local IOI daemon managed by
+Autopilot Desktop, hosted IOI daemon, provider node, DePIN node, TEE-verified
+node, or customer VPC node. They execute task capsules and return events,
+artifacts, and receipts.
+
+Runtime nodes run IOI daemon-compatible profiles. A worker package may import
+SDK helpers, and an operator may use the SDK to control the run, but the SDK is
+not the compute-node execution substrate.
+
+Training, evaluation, benchmark, and MoW routing jobs are task-capsule
+compatible work. They use the same runtime assignment, authority, privacy, and
+receipt boundaries as ordinary worker execution.
 
 ## Execution Privacy Modes
 
@@ -46,6 +57,9 @@ Security claim:
 {
   "assignment_id": "assign_123",
   "run_id": "run_123",
+  "compute_session_id": "compute_session_123",
+  "daemon_profile": "hosted_ioi | provider | depin | tee | customer_vpc | local",
+  "runtime_bridge_profile": "fixture | runtime_service",
   "node_requirements": {
     "privacy_mode": "depin_mutual_blind | tee_enterprise",
     "resources": {"cpu": 8, "memory_gb": 32, "gpu": false},
@@ -53,12 +67,41 @@ Security claim:
   },
   "package_refs": ["cid://worker_bundle"],
   "task_capsule_ref": "agentgres://task_capsules/cap_123",
+  "worker_package_refs": ["cid://worker_bundle"],
+  "verification_requirements": ["execution_receipt", "artifact_hash", "policy_hash"],
+  "training_refs": {
+    "training_spec_ref": "optional",
+    "benchmark_profile_ref": "optional",
+    "evaluation_rubric_ref": "optional"
+  },
   "payment": {
     "quote": "5 IOI",
     "escrow_ref": "0x..."
   }
 }
 ```
+
+## ComputeSession
+
+```json
+{
+  "compute_session_id": "compute_session_123",
+  "assignment_id": "assign_123",
+  "venue": "local | hosted | provider | depin | tee | customer_vpc",
+  "substrate": "process | container | vm | browser_sandbox | gpu_job | tee_enclave",
+  "daemon_profile": "hosted_ioi",
+  "runtime_node_id": "runtime://node_abc",
+  "lifecycle": "cold | warming | ready | running | draining | idle | suspended | destroyed",
+  "authority_grants": ["grant://..."],
+  "state_checkpoint_policy": "none | periodic | terminal | zero_to_idle",
+  "created_at": "2026-05-01T00:00:00Z",
+  "expires_at": "2026-05-01T00:15:00Z"
+}
+```
+
+The substrate may be a VM, container, browser sandbox, GPU job, TEE enclave, or
+local process. The architectural unit is the compute session plus daemon
+profile, not the VM by itself.
 
 ## TaskCapsule
 
@@ -142,3 +185,5 @@ Enterprise Secure:
 3. Enterprise Secure nodes require attestation before sensitive key release.
 4. Every remote run must emit execution receipts and artifact commitments.
 5. Stolen capsules should be non-transferable: expiring, watermarked, authority-grant-bound, primitive-capability-constrained, and useless outside settlement path.
+6. Runtime assignment must name a daemon/runtime-node profile and verification
+   path; it must not imply that the SDK is the runtime owner.

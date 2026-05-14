@@ -100,12 +100,27 @@ ModelEndpointManifest
     "scorecard_ref": "agentgres://quality/runtime-auditor",
     "benchmark_refs": []
   },
+  "mow": {
+    "sparse_worker_category": "std:code:runtime_audit.v1",
+    "benchmark_profile_refs": [
+      "benchmark://ioi/categories/runtime_audit/v1"
+    ],
+    "evaluation_rubric_ref": "rubric://ioi/runtime_audit/v1",
+    "routing_eligibility_status": "draft | submitted | benchmarking | eligible | suspended | revoked",
+    "contribution_policy_ref": "license://...",
+    "training_lineage_ref": "agentgres://training/train_..."
+  },
   "license": {
     "type": "open | source_visible | run_only | hosted_only | paid_license",
     "terms_root": "sha256:..."
   }
 }
 ```
+
+MoW fields are optional, but a worker cannot claim sparse-category ranking,
+benchmark eligibility, or receipt-weighted routing status without binding the
+relevant benchmark profile, rubric, routing eligibility status, contribution
+policy, and training lineage where applicable.
 
 ## ServiceManifest
 
@@ -133,6 +148,12 @@ ModelEndpointManifest
   "sla": {
     "deadline_hours": 24,
     "bond_required": true
+  },
+  "worker_training": {
+    "enabled": false,
+    "training_contract_ref": "optional",
+    "benchmark_profile_refs": [],
+    "evaluation_rubric_ref": "optional"
   }
 }
 ```

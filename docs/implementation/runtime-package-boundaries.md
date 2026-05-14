@@ -4,7 +4,7 @@ Status: canonical package-boundary reference; pre-leg ready.
 Canonical owner: this file for package/runtime/client ownership boundaries.
 Supersedes: overlapping SDK/CLI/agent-ide/harness/compositor boundary prose in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 This document names the execution ownership boundaries that must hold before the
 next architecture leg. It is intentionally short so package authors can use it as
@@ -16,13 +16,13 @@ code.
 | Layer | Owns | Must Not Own |
 | --- | --- | --- |
 | Domain kernel | Runtime, authority, state-transition, and settlement-facing invariants | Product UI or client ergonomics |
-| `ioi-daemon` | Deployable process hosting the runtime endpoint and daemon-local execution services | Root authority, marketplace truth, or independent application state |
-| Agentgres | Canonical operational truth: runs, tasks, artifacts, receipts, policy decisions, ledgers, projections | Direct model/tool mutation without governed envelopes |
-| wallet.network | Identity, secrets, authority scopes, leases, approvals, revocation, payments | Rich workflow state, run traces, or artifact payload bytes |
-| `ioi-cli` | Human terminal/TUI client over daemon/public runtime APIs | Agent runtime semantics or a private execution loop |
+| `ioi-daemon` | Deployable process hosting the runtime endpoint, runtime-node profile, thread/turn controls, training/evaluation/benchmark/routing jobs, and daemon-local execution services | Root authority, marketplace truth, independent application state, or SDK-owned execution |
+| Agentgres | Canonical operational truth: runs, tasks, artifacts, receipts, policy decisions, training lineage, benchmark state, routing decisions, ledgers, projections | Direct model/tool/training mutation without governed envelopes |
+| wallet.network | Identity, secrets, authority scopes, data-use permissions, leases, approvals, revocation, payments | Rich workflow state, run traces, training datasets, or artifact payload bytes |
+| `ioi-cli` / TUI | Human terminal and interactive TUI client over daemon/public runtime APIs, including training runs, benchmark jobs, receipts, and routing inspection | Agent runtime semantics, hidden TUI-only state transitions, or a private execution loop |
 | `@ioi/agent-sdk` | Developer SDK client over the daemon/substrate | Synthetic runtime as canonical default |
 | `@ioi/agent-ide` | UI/workbench/workflow composer client over shared contracts | Canonical run/session/proposal/task truth |
-| Autopilot | Product shell composing chat, IDE, and local daemon UX | A separate runtime path |
+| Autopilot Desktop | Product shell composing chat, IDE, Autopilot Foundry, and local daemon UX | A separate runtime path, marketplace ranking authority, or portable headless substrate |
 | Harness/benchmarks | Deterministic validation over public substrate contracts | Privileged bypasses or fixture-only production routing |
 | Adaptive Work Graph | Execution strategy under the generic runtime envelope | Product surface, daemon, SDK, or runtime identity |
 
@@ -53,6 +53,14 @@ written through daemon/Agentgres-compatible APIs with receipts.
 
 UI helpers may create non-canonical projections for empty or disconnected states,
 but those helpers must be named and documented as projections.
+
+Compute nodes and remote runtime venues boot IOI daemon/runtime-node profiles.
+SDK helpers may be available inside worker packages or clients, but they must
+not become the execution owner.
+
+Training, evaluation, benchmark, and MoW routing state follows the same rule:
+product surfaces may project or initiate it, but canonical state must flow
+through daemon/Agentgres-compatible APIs with receipts.
 
 ## Mock And Fixture Boundary
 

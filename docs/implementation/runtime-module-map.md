@@ -4,7 +4,7 @@ Status: canonical source-tree map; layout-refactor guardrail.
 Canonical owner: this file for implementation module locations related to runtime substrate, clients, projections, fixtures, and validation.
 Supersedes: overlapping source-tree maps in plans/specs when module ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 This map names the canonical homes for runtime execution, clients,
 projections, validation, and compatibility code. It is intentionally concrete:
@@ -18,17 +18,18 @@ parallel execution path.
 | Runtime kernel | `crates/services/src/agentic/runtime/kernel/` | State transition, authority, and execution invariants. |
 | Runtime service loop | `crates/services/src/agentic/runtime/service/` | Agent loop orchestration over the kernel and tool contracts. |
 | Runtime tools | `crates/services/src/agentic/runtime/tools/` | Governed tool contracts, discovery, MCP, skills, and built-ins. |
-| Daemon service | `packages/runtime-daemon/` | Local public daemon API for SDK/CLI/GUI/harness validation. |
-| Agentgres state | `packages/runtime-daemon/src/index.mjs` for local v0 proof, future `crates/agentgres` or daemon storage crate | Canonical operation log, runs, tasks, receipts, scorecards, and projections. |
+| Daemon service | `packages/runtime-daemon/` | Public daemon API, runtime-node profile, thread/turn controls, training/evaluation/benchmark/routing jobs, and local v0 substrate for SDK/CLI/TUI/GUI/harness validation. |
+| Runtime service bridge | `crates/node/src/bin/ioi-runtime-bridge.rs` and `packages/runtime-daemon/src/runtime-api-bridge.mjs` | Bridge from daemon API into `RuntimeAgentService` or equivalent lower-level runtime service loops. |
+| Agentgres state | `packages/runtime-daemon/src/index.mjs` for local v0 proof, future `crates/agentgres` or daemon storage crate | Canonical operation log, runs, tasks, training lineage, benchmark state, routing decisions, receipts, scorecards, and projections. |
 
 ## Clients And Projections
 
 | Surface | Canonical Home | Must Remain |
 | --- | --- | --- |
 | `@ioi/agent-sdk` | `packages/agent-sdk/` | Developer client over daemon/substrate contracts. |
-| `ioi-cli` | `crates/cli/` | Terminal/TUI client over daemon/public runtime APIs. |
+| `ioi-cli` / TUI | `crates/cli/` | Terminal and interactive TUI client over daemon/public runtime APIs, including training, benchmark, receipt, and routing inspection controls. |
 | `@ioi/agent-ide` | `packages/agent-ide/` | Workbench and workflow-composer projection over shared contracts. |
-| Autopilot | `apps/autopilot/` | Product shell over chat, IDE, and daemon/runtime projections. |
+| Autopilot | `apps/autopilot/` | Product shell over chat, IDE, Autopilot Foundry, and daemon/runtime projections. |
 | Workflow compositor | `packages/agent-ide/src/WorkflowComposer/` | UI/workflow client that submits to the substrate, not canonical run truth. |
 
 ## Validation Surfaces
@@ -50,6 +51,17 @@ parallel execution path.
   proof runs.
 - `RuntimeProjection` means UI/cache/read-model state derived from canonical
   events or traces.
+- `RuntimeApiBridge` means a daemon-internal bridge into lower-level runtime
+  service code. It is not an SDK client and not an application-domain store.
+- `ComputeSession` means a bounded runtime allocation served by a daemon profile
+  on local, hosted, provider, DePIN, TEE, customer, or browser/container/VM
+  substrate.
+- `AutopilotFoundry` means the Autopilot product surface for Worker Training.
+  It is a client/projection over daemon, Agentgres, wallet.network, model
+  router, and Filecoin/CAS contracts.
+- `MoWRouter` means worker routing logic over bounded workers and receipts. It
+  is not the model router and must not be implemented as hidden product-surface
+  ranking.
 - `adaptive work graph` is the public execution-strategy term. `adaptive work graph` is
   legacy/historical vocabulary unless isolated in compatibility or old plan
   material.

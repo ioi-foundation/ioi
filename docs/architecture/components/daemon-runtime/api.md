@@ -4,11 +4,16 @@ Status: canonical low-level reference.
 Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
-The IOI daemon is the universal execution endpoint for canonical Web4. The IOI CLI/TUI, `@ioi/agent-sdk`, agent-ide, Autopilot, workflow compositor, harnesses, and benchmarks are clients over this public runtime API. They must not own separate execution semantics. Local Autopilot, hosted providers, DePIN nodes, TEE nodes, and customer VPC nodes run daemon-compatible runtime nodes to execute workers, workflows, model calls, tools, connectors, and artifact production.
+The IOI daemon is the universal execution endpoint for canonical Web4. The IOI CLI/TUI, `@ioi/agent-sdk`, agent-ide, Autopilot Desktop, workflow compositor, harnesses, and benchmarks are clients over this public runtime API. They must not own separate execution semantics. Local Autopilot-managed daemons, hosted providers, DePIN nodes, TEE nodes, and customer VPC nodes run daemon-compatible runtime nodes to execute workers, workflows, model calls, tools, connectors, worker-training jobs, evaluation jobs, benchmark jobs, MoW routing decisions, and artifact production.
+
+Compute nodes initialize daemon-compatible runtime-node profiles, optionally
+bridging into lower-level runtime services. The SDK may submit, inspect, stream,
+or control work through this API, but it is not the execution substrate booted
+on a compute node.
 
 ## Runtime Identity and Health
 
@@ -30,8 +35,8 @@ GET /v1/runtime/nodes
   "runtime_type": "local_autopilot | hosted_ioi | provider | depin | tee | customer_vpc",
   "daemon_version": "0.8.0",
   "agentgres_version": "0.2.0",
-  "supported_execution_profiles": ["local", "hosted", "depin_mutual_blind", "tee_enterprise"],
-  "supported_interfaces": ["agents", "runs", "workers", "tools", "models", "connectors", "artifacts", "receipts", "trace", "replay", "scorecards"],
+  "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "tee_enterprise", "customer_vpc"],
+  "supported_interfaces": ["agents", "managed_instances", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "artifacts", "receipts", "trace", "replay", "scorecards"],
   "primitive_capabilities": ["prim:fs.read", "prim:fs.write", "prim:sys.exec", "prim:net.request", "prim:model.invoke"],
   "attestation": {
     "required": false,
@@ -68,7 +73,12 @@ GET  /v1/workers/{worker_id}/manifest
 }
 ```
 
-## Agent and Run Lifecycle
+## Worker/Agent and Run Lifecycle
+
+In the daemon API, `agents` are product-facing managed worker instances. The
+protocol actor remains the worker package/version; the agent instance binds that
+worker to an owner, runtime assignment, persistence profile, memory/archive
+policy, and interaction surface.
 
 ```http
 POST /v1/agents
@@ -104,6 +114,105 @@ GET  /v1/models
 GET  /v1/repositories
 GET  /v1/account
 ```
+
+### Create Managed Agent Instance
+
+```json
+{
+  "worker_manifest_ref": "ai://workers.runtime-auditor.ioi@1.0.0",
+  "install_id": "install_123",
+  "owner_id": "wallet://user_123",
+  "execution_profile": "local | hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc",
+  "persistence_profile": "ephemeral | session | zero_to_idle | persistent",
+  "interaction_surfaces": ["chat", "task", "api", "scheduler"],
+  "subscription_profile": "per_invocation | warm_runtime | managed_monthly",
+  "memory_policy": {
+    "mode": "none | session | agentgres_refs | sealed_archive",
+    "archive_on_idle": true
+  },
+  "authority_policy": {
+    "primitive_capabilities_required": ["prim:model.invoke"],
+    "authority_scopes_required": ["scope:repo.read"],
+    "approval_required_for": ["external_message", "file.write"]
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "agent_id": "agent://runtime-auditor/heath/default",
+  "worker_id": "worker://runtime-auditor.ioi",
+  "runtime_assignment_id": "assign_456",
+  "status": "starting",
+  "thread_endpoint": "/v1/threads",
+  "runs_endpoint": "/v1/agents/agent_.../runs"
+}
+```
+
+## Data Recipe, Worker Training, Benchmark, and MoW Routing API
+
+Data recipe, transformation, training, evaluation, benchmark, and routing
+endpoints are daemon execution surfaces. Autopilot, CLI/TUI, SDK, harnesses,
+and benchmarks can call them as clients; they must not implement a separate
+semantic-data or training runtime.
+
+```http
+POST /v1/data-recipes/{recipe_id}/run
+GET  /v1/data-recipes/runs/{transformation_run_id}
+GET  /v1/data-recipes/runs/{transformation_run_id}/receipts
+POST /v1/ontology-projections/{projection_id}/refresh
+POST /v1/training/specs
+GET  /v1/training/specs/{training_id}
+POST /v1/training/{training_id}/run
+POST /v1/training/{training_id}/curate
+POST /v1/training/{training_id}/evaluate
+POST /v1/training/{training_id}/publish
+GET  /v1/training/{training_id}/receipts
+POST /v1/benchmarks/runs
+GET  /v1/benchmarks/runs/{benchmark_run_id}
+GET  /v1/benchmarks/runs/{benchmark_run_id}/receipts
+POST /v1/mow/route
+GET  /v1/mow/routes/{routing_decision_id}
+GET  /v1/mow/routes/{routing_decision_id}/receipt
+```
+
+These endpoints bind to DataRecipeEnvelope, TransformationRunEnvelope,
+OntologyProjectionEnvelope, WorkerTrainingEnvelope, BenchmarkEnvelope,
+RoutingDecisionEnvelope, and the receipt types defined in the runtime receipt
+reference.
+
+## Thread and Turn Control API
+
+Interactive clients use threads for operator-facing sessions and turns for
+bounded user/model/runtime exchanges. A thread may map to one or more runs,
+jobs, tool invocations, subagents, snapshots, or restore decisions, but the
+thread API is still a daemon control surface over canonical runtime contracts.
+
+```http
+POST /v1/threads
+GET  /v1/threads
+GET  /v1/threads/{thread_id}
+GET  /v1/threads/{thread_id}/usage
+POST /v1/threads/{thread_id}/resume
+POST /v1/threads/{thread_id}/fork
+POST /v1/threads/{thread_id}/mode
+POST /v1/threads/{thread_id}/model
+POST /v1/threads/{thread_id}/thinking
+POST /v1/threads/{thread_id}/compact
+GET  /v1/threads/{thread_id}/events
+GET  /v1/threads/{thread_id}/events/stream
+POST /v1/threads/{thread_id}/turns
+GET  /v1/threads/{thread_id}/turns
+GET  /v1/threads/{thread_id}/turns/{turn_id}
+POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt
+POST /v1/threads/{thread_id}/turns/{turn_id}/steer
+```
+
+TUI, SDK, agent-ide, workflow-composer, and Autopilot Desktop clients may
+render these controls differently, but they must converge on these daemon
+contracts rather than maintaining private session loops.
 
 ### Start Run
 
@@ -152,6 +261,8 @@ GET  /v1/approvals/{approval_id}
 POST /v1/approvals/{approval_id}/approve
 POST /v1/approvals/{approval_id}/deny
 POST /v1/approvals/{approval_id}/edit-and-approve
+GET  /v1/threads/{thread_id}/approvals
+POST /v1/threads/{thread_id}/approvals/{approval_id}/decision
 ```
 
 Approval request shape:
@@ -177,6 +288,7 @@ GET  /v1/tools/{tool_id}
 POST /v1/tools/{tool_id}/dry-run
 POST /v1/tools/{tool_id}/call
 GET  /v1/tools/{tool_id}/policy
+POST /v1/threads/{thread_id}/tools/{tool_id}/invoke
 ```
 
 Effectful tools must be called through a run, not ad hoc, unless operator mode explicitly allows and records a run.
@@ -201,6 +313,120 @@ POST /v1/connectors/{connector_id}/auth/start
 POST /v1/connectors/{connector_id}/auth/callback
 GET  /v1/connectors/{connector_id}/tools
 POST /v1/connectors/{connector_id}/subscriptions
+```
+
+## MCP Manager API
+
+MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
+tool invocation to TUI, SDK, agent-ide, and Autopilot Desktop surfaces. Global
+endpoints describe runtime-wide MCP state; thread endpoints bind MCP activity
+to a specific operator/runtime session.
+
+```http
+GET  /v1/mcp
+GET  /v1/mcp/servers
+POST /v1/mcp/servers
+DELETE /v1/mcp/servers/{server_id}
+POST /v1/mcp/servers/{server_id}/enable
+POST /v1/mcp/servers/{server_id}/disable
+GET  /v1/mcp/tools
+GET  /v1/mcp/tools/search
+GET  /v1/mcp/tools/{tool_id}
+POST /v1/mcp/tools/{tool_id}/invoke
+GET  /v1/mcp/resources
+GET  /v1/mcp/prompts
+POST /v1/mcp/validate
+POST /v1/mcp/import
+POST /v1/mcp/serve
+GET  /v1/threads/{thread_id}/mcp/status
+POST /v1/threads/{thread_id}/mcp/validate
+POST /v1/threads/{thread_id}/mcp/import
+POST /v1/threads/{thread_id}/mcp/servers
+DELETE /v1/threads/{thread_id}/mcp/servers/{server_id}
+POST /v1/threads/{thread_id}/mcp/servers/{server_id}/enable
+POST /v1/threads/{thread_id}/mcp/servers/{server_id}/disable
+GET  /v1/threads/{thread_id}/mcp/tools/search
+GET  /v1/threads/{thread_id}/mcp/tools/{tool_id}
+POST /v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke
+POST /v1/threads/{thread_id}/mcp/serve
+```
+
+MCP endpoints do not bypass runtime tool contracts, primitive capability
+requirements, authority scopes, or receipts.
+
+## Memory API
+
+Memory endpoints expose daemon-governed memory status, validation, policy,
+paths, and records. Durable memory state belongs in Agentgres-compatible state
+or explicit wallet/connector-backed stores; UI caches remain projections.
+
+```http
+GET  /v1/memory
+GET  /v1/memory/records
+GET  /v1/memory/policy
+GET  /v1/memory/path
+POST /v1/memory/validate
+GET  /v1/threads/{thread_id}/memory/status
+POST /v1/threads/{thread_id}/memory/validate
+GET  /v1/threads/{thread_id}/memory/policy
+GET  /v1/threads/{thread_id}/memory/path
+GET  /v1/threads/{thread_id}/memory
+POST /v1/threads/{thread_id}/memory
+PATCH /v1/threads/{thread_id}/memory/{memory_id}
+DELETE /v1/threads/{thread_id}/memory/{memory_id}
+```
+
+## Subagent API
+
+Subagents are delegated work items under the same runtime substrate. They must
+inherit thread/run authority posture, budget limits, output contracts,
+cancellation behavior, and receipt requirements.
+
+```http
+GET  /v1/threads/{thread_id}/subagents
+POST /v1/threads/{thread_id}/subagents
+POST /v1/threads/{thread_id}/subagents/{subagent_id}/wait
+GET  /v1/threads/{thread_id}/subagents/{subagent_id}/result
+POST /v1/threads/{thread_id}/subagents/{subagent_id}/input
+POST /v1/threads/{thread_id}/subagents/{subagent_id}/cancel
+POST /v1/threads/{thread_id}/subagents/{subagent_id}/resume
+POST /v1/threads/{thread_id}/subagents/{subagent_id}/assign
+POST /v1/threads/{thread_id}/subagents/cancel
+```
+
+## Jobs, Usage, and Context Budget API
+
+Jobs are daemon-visible long-running work units. Usage and context-budget
+endpoints allow clients to render cost, token, context-pressure, and compaction
+state without creating private accounting.
+
+```http
+GET  /v1/jobs
+GET  /v1/jobs/{job_id}
+POST /v1/jobs/{job_id}/cancel
+GET  /v1/usage
+GET  /v1/threads/{thread_id}/usage
+POST /v1/context-budget
+POST /v1/threads/{thread_id}/context-budget
+POST /v1/threads/{thread_id}/compaction-policy
+```
+
+## Workspace Trust, Snapshot, Restore, and Diagnostics API
+
+Workspace trust, rollback snapshots, restore gates, and diagnostics repair are
+operator controls over patch/workspace state. They must emit events and
+receipts and must not silently mutate canonical state.
+
+```http
+POST /v1/threads/{thread_id}/workspace-trust/{warning_id}/acknowledge
+GET  /v1/threads/{thread_id}/snapshots
+POST /v1/threads/{thread_id}/snapshots
+POST /v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-preview
+POST /v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-apply
+POST /v1/threads/{thread_id}/diagnostics/repair-decisions/{decision_id}/execute
+GET  /v1/threads/{thread_id}/workflow-edit-proposals
+POST /v1/threads/{thread_id}/workflow-edit-proposals
+POST /v1/threads/{thread_id}/workflow-edit-proposals/{proposal_id}/apply
 ```
 
 ## Artifact and Receipt API
@@ -255,4 +481,10 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 3. The daemon cannot receive raw secrets unless it is local/customer-controlled or Enterprise Secure mode with attestation.
 4. All effectful actions require policy decision persistence.
 5. Every exposed API must support redacted diagnostic export.
-6. SDK, CLI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
+6. SDK, CLI/TUI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
+7. TUI controls must be represented as daemon/domain API controls, not as hidden
+   client-only state transitions.
+8. Compute/runtime nodes run daemon-compatible profiles; SDK helpers may be
+   present inside worker or client code, but they are not the execution owner.
+9. Training, evaluation, benchmark, and MoW routing paths are daemon/runtime
+   jobs with receipts, not product-surface private loops.

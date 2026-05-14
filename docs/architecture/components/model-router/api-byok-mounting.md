@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for model provider, endpoint, route, invocation, BYOK, and run-to-idle API shapes.
 Supersedes: overlapping model-router API examples in plans/specs when route or invocation fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
@@ -42,6 +42,15 @@ GET  /v1/models/receipts/{receipt_id}
       "model_id": "qwen-coder-local",
       "modalities": ["text"],
       "context_window": 128000,
+      "architecture_profile": "dense_transformer | moe | subquadratic | hybrid_attention_state | retrieval_augmented | mutable_context | deterministic_verifier | custom",
+      "active_context_strategy": "full_attention | local_window | state_scan | sparse_attention | retrieval_packets | external_context_graph | hybrid",
+      "context_mutability": "none | external_context_only | adapter_promoted | package_revision",
+      "post_training_support": [
+        "context_update",
+        "adapter_training",
+        "route_policy_training",
+        "eval_generation"
+      ],
       "tool_calling": false,
       "structured_output": true
     }
@@ -63,6 +72,8 @@ GET  /v1/models/receipts/{receipt_id}
   "role": "planner | executor | verifier | summarizer | code | vision | embedding",
   "selection_policy": {
     "preferred_profiles": ["reasoning_high", "local_private"],
+    "allowed_architecture_profiles": ["dense_transformer", "hybrid_attention_state"],
+    "required_context_mutability": "none | external_context_only | adapter_promoted | package_revision | any",
     "max_cost_usd": 2,
     "privacy_constraints": ["no_external_api_for_private_data"],
     "fallback_allowed": true

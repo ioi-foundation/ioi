@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-02.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
@@ -16,8 +16,20 @@ Required event kinds:
 
 ```text
 session.started
+thread.created
+thread.resumed
+thread.forked
+thread.mode_changed
+thread.model_route_changed
+thread.thinking_changed
 turn.started
+turn.interrupted
+turn.steered
 context.prepared
+context.compacted
+context.budget_updated
+context.pressure_delta
+context.pressure_alert
 task_state.updated
 uncertainty.assessed
 probe.started
@@ -37,11 +49,57 @@ tool.progress
 tool.completed
 artifact.created
 memory.retrieved
+memory.validated
+memory.updated
+mcp.server_validated
+mcp.server_imported
+mcp.tool_invoked
 delegation.started
 delegation.completed
+subagent.spawned
+subagent.input_sent
+subagent.assigned
+subagent.cancelled
+subagent.completed
 handoff.recorded
 stop_condition.recorded
 scorecard.updated
+usage.delta
+usage.final
+workspace_trust.warning
+workspace_trust.acknowledged
+workspace_snapshot.created
+workspace_restore.previewed
+workspace_restore.applied
+diagnostics.injected
+diagnostics.repair_decision_recorded
+diagnostics.repair_executed
+job.queued
+job.started
+job.completed
+job.failed
+job.cancelled
+ontology.bound
+ontology_projection.updated
+data_recipe.run_started
+data_recipe.run_completed
+transformation.receipt_emitted
+evaluation_dataset.bound
+training.spec_bound
+training.dataset_curated
+training.context_mutated
+training.post_training_cycle_started
+training.post_training_cycle_promoted
+training.post_training_cycle_rejected
+training.post_training_cycle_rolled_back
+training.run_started
+training.run_completed
+evaluation.started
+evaluation.completed
+benchmark.started
+benchmark.completed
+routing.candidate_set_committed
+routing.decision_recorded
 receipt.emitted
 run.completed
 run.failed
@@ -82,7 +140,29 @@ SettlementReceipt
 DeliveryReceipt
 ContributionReceipt
 QualityReceipt
+DataRecipeRunReceipt
+TransformationReceipt
+OntologyProjectionReceipt
+TrainingTraceReceipt
+DatasetCurationReceipt
+ContextMutationReceipt
+PostTrainingCycleReceipt
+PromotionDecisionReceipt
+BenchmarkRunReceipt
+EvaluationVerdictReceipt
+RoutingDecisionReceipt
 RuntimeAttestationReceipt
+RuntimeBridgeReceipt
+RuntimeUsageReceipt
+ContextBudgetReceipt
+MemoryMutationReceipt
+McpInvocationReceipt
+SubagentReceipt
+WorkspaceTrustReceipt
+WorkspaceSnapshotReceipt
+WorkspaceRestoreReceipt
+DiagnosticsRepairReceipt
+JobReceipt
 ```
 
 ## ToolExecutionReceipt
@@ -105,6 +185,107 @@ RuntimeAttestationReceipt
   "artifact_refs": []
 }
 ```
+
+## Worker Training Receipts
+
+Data recipe, transformation, Worker Training, benchmark, evaluation, ontology
+projection, and MoW routing receipts are specialized receipts. They are not new
+artifact classes and they do not bypass the normal receipt semantics: canonical
+input, policy hash, actor identity, artifact refs, timestamps, and signatures
+still apply.
+
+```json
+{
+  "receipt_id": "receipt_recipe_123",
+  "receipt_type": "data_recipe_run | transformation | ontology_projection",
+  "data_recipe_ref": "recipe://construction/estimate-normalization/v1",
+  "ontology_refs": ["ontology://construction-estimating/v1"],
+  "transformation_run_id": "transform://123",
+  "policy_bound_data_view_refs": ["view://customer-estimate-training"],
+  "input_hash": "sha256:...",
+  "output_hash": "sha256:...",
+  "authority_grant_id": "grant://...",
+  "artifact_refs": ["artifact://transformation-output"],
+  "policy_hash": "sha256:...",
+  "status": "accepted | rejected | redacted"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_training_123",
+  "receipt_type": "training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision",
+  "training_id": "train_123",
+  "target_worker_id": "worker://...",
+  "run_id": "run_123",
+  "ontology_refs": ["ontology://..."],
+  "data_recipe_refs": ["recipe://..."],
+  "evaluation_dataset_refs": ["dataset://..."],
+  "dataset_commitment": "sha256:...",
+  "privacy_policy_ref": "policy://...",
+  "policy_hash": "sha256:...",
+  "artifact_refs": ["artifact://dataset"],
+  "status": "accepted | rejected | redacted"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_promotion_123",
+  "receipt_type": "promotion_decision",
+  "cycle_id": "ptc_123",
+  "worker_id": "worker://...",
+  "candidate_ref": "cid://...",
+  "baseline_version": "worker://...@1.0.1",
+  "candidate_version": "worker://...@1.0.2-candidate",
+  "eval_profile_ref": "benchmark://...",
+  "regression_receipt_refs": ["receipt://eval_123"],
+  "decision": "promoted | rejected | rolled_back",
+  "rollback_ref": "optional",
+  "policy_hash": "sha256:..."
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_benchmark_123",
+  "receipt_type": "benchmark_run | evaluation_verdict",
+  "benchmark_run_id": "bench_123",
+  "worker_id": "worker://...",
+  "sparse_worker_category": "std:code:runtime_audit.v1",
+  "benchmark_profile_ref": "benchmark://ioi/categories/runtime_audit/v1",
+  "evaluation_rubric_ref": "rubric://ioi/runtime_audit/v1",
+  "environment_hash": "sha256:...",
+  "manifest_hash": "sha256:...",
+  "policy_hash": "sha256:...",
+  "score_commitment": "sha256:...",
+  "routing_eligibility_result": "eligible | ineligible | suspended"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_route_123",
+  "receipt_type": "routing_decision",
+  "routing_decision_id": "route_123",
+  "task_id": "task://...",
+  "router_id": "runtime://...",
+  "candidate_set_commitment": "sha256:...",
+  "routing_policy_hash": "sha256:...",
+  "selected_worker_id": "worker://...",
+  "selection_reason": "policy-compatible, benchmark-leading, within budget",
+  "contribution_policy_ref": "license://...",
+  "receipt_obligations": ["receipt://contribution_required"]
+}
+```
+
+Training receipts prove training lineage and dataset/evaluation commitments.
+Context mutation receipts prove versioned supersession rather than silent memory
+overwrite. Promotion receipts prove that a context, adapter, route-policy,
+evaluation, or package update passed or failed declared gates. Benchmark
+receipts prove performance under declared profiles. Routing receipts prove
+legible selection under a declared candidate set and policy. None of these
+receipts prove universal worker superiority.
 
 ## DeliveryBundle
 
@@ -143,6 +324,7 @@ RuntimeAttestationReceipt
     "approvals_used": ["approval_123"],
     "denied_actions": []
   },
+  "routing_refs": ["receipt://route_123"],
   "contribution_refs": ["contrib_123"],
   "settlement": {
     "l1_contract": "0x...",
@@ -178,6 +360,14 @@ archival checkpoint files.
   "approvals": [],
   "execution_receipts": [],
   "memory_retrieval_receipts": [],
+  "runtime_bridge_receipts": [],
+  "usage_receipts": [],
+  "memory_mutation_receipts": [],
+  "mcp_invocation_receipts": [],
+  "subagent_receipts": [],
+  "workspace_snapshot_receipts": [],
+  "workspace_restore_receipts": [],
+  "diagnostics_repair_receipts": [],
   "artifact_refs": [],
   "final_outcome": {},
   "stop_condition": {},
@@ -215,3 +405,5 @@ archival checkpoint files.
 3. Delivery requires outputs plus evidence, not just files.
 4. Quality/reputation roots should be aggregated before L1 commitment.
 5. Private traces must support redacted export.
+6. TUI, SDK, agent-ide, and Autopilot controls must leave the same event and
+   receipt trail when they mutate runtime state.
