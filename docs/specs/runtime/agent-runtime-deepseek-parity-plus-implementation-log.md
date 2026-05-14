@@ -198,8 +198,44 @@ workstream was narrower.
 | 196 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | generated coding-tool budget recovery subflow execution | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow-execution/2026-05-14T12-48-11-460Z/result.json |
 | 197 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | reusable coding-tool budget recovery template | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-template/2026-05-14T12-58-07-902Z/result.json |
 | 198 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template readiness validation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-readiness/2026-05-14T13-13-08-201Z/result.json |
+| 199 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery template binding assistant | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding/2026-05-14T13-29-50-390Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 199. 2026-05-14 - Coding-tool budget recovery template binding assistant
+
+Implementation slice completed 2026-05-14, P1-D/P0-B recovery-template
+binding assistant:
+
+- Added a shared recovery-template binding helper that selects blocked-run
+  budget evidence from the runtime event projection and fills request/approve/
+  reject/retry `runtime_coding_tool_budget_recovery` template siblings with
+  fixed runtime values, runtime input mappings, test input, and evidence-binding
+  metadata.
+- Made missing recovery-template binding readiness issues actionable through a
+  React Flow quick-fix path, so authors can resolve unbound run id, thread id,
+  approval id, target node ids, and recovery policy fields without hand-editing
+  JSON.
+- Added a run-inspector `Bind recovery template` control beside the existing
+  materialization control, allowing selected coding-tool budget rows to seed an
+  existing reusable template.
+- Exported the helper from `@ioi/agent-ide` and extended source-contract guards
+  so the binding helper, controller callback, run-inspector affordance, and
+  focused tests remain workflow-addressable.
+- Updated the master guide so the next P1-D slice returns to usage/context
+  telemetry-source binding for usage meter, context budget, compaction-policy,
+  and budget-gate nodes.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.test.ts`
+- `npm run build -w packages/agent-ide`
+- `node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-binding/2026-05-14T13-29-50-390Z/result.json`.
 
 ### Slice 198. 2026-05-14 - Coding-tool budget recovery template readiness validation
 
