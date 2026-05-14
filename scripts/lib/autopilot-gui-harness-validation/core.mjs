@@ -4244,7 +4244,52 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx";
   const settingsModelPath =
     "packages/agent-ide/src/runtime/workflow-settings-model.ts";
-  const settingsHarnessPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx"; const settingsHarnessTypesPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts"; const settingsHarnessActivationPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx"; const settingsHarnessActivationGatePanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx"; const settingsHarnessActivationGateRefsPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx"; const settingsHarnessActivationGateTimelinePanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx"; const settingsHarnessPackageEvidencePanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx"; const settingsHarnessPackageEvidenceRowsPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx"; const settingsHarnessPackageImportReviewPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx"; const settingsHarnessWorkerBindingPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx"; const settingsHarnessActiveRuntimeRollbackPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx"; const settingsHarnessActiveRuntimeBindingPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx"; const settingsHarnessRollbackRestoreProofPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx"; const settingsHarnessPromotionPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx"; const settingsHarnessPromotionReadinessPanelPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx";
+  const settingsHarnessPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx";
+  const settingsHarnessTypesPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts";
+  const settingsHarnessRailTypesPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts";
+  const settingsHarnessStatusPrimitivesPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx";
+  const settingsHarnessActivationPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx";
+  const settingsHarnessActivationActionsPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationActions.tsx";
+  const settingsHarnessActivationWizardDetailsPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx";
+  const settingsHarnessActivationGatePanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx";
+  const settingsHarnessActivationGateRefsPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx";
+  const settingsHarnessActivationGateTimelinePanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx";
+  const settingsHarnessPackageEvidencePanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx";
+  const settingsHarnessPackageEvidenceRowsPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx";
+  const settingsHarnessPackageImportReviewPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx";
+  const settingsHarnessWorkerBindingPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx";
+  const settingsHarnessActiveRuntimeRollbackPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx";
+  const settingsHarnessActiveRuntimeBindingPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx";
+  const settingsHarnessActiveRuntimeBindingSummaryPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx";
+  const settingsHarnessActiveRuntimeBindingDeepLinksPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx";
+  const settingsHarnessRollbackRestoreProofPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx";
+  const settingsHarnessPromotionPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx";
+  const settingsHarnessPromotionReadinessPanelPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx";
+  const settingsHarnessPromotionReadinessSummaryPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessSummary.tsx";
+  const settingsHarnessPromotionReadinessRoutingCanaryPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessRoutingCanary.tsx";
   const settingsHarnessModelPath =
     "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts";
   const readinessPanelPath =
@@ -4368,12 +4413,120 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
     resolve(repoRoot, settingsHarnessActivationPanelPath),
     "utf8",
   );
-  const settingsHarnessTypes = readFileSync(resolve(repoRoot, settingsHarnessTypesPath), "utf8"); const settingsHarnessActivationGatePanel = readFileSync(resolve(repoRoot, settingsHarnessActivationGatePanelPath), "utf8"); const settingsHarnessActivationGateRefsPanel = readFileSync(resolve(repoRoot, settingsHarnessActivationGateRefsPanelPath), "utf8"); const settingsHarnessActivationGateTimelinePanel = readFileSync(resolve(repoRoot, settingsHarnessActivationGateTimelinePanelPath), "utf8"); const settingsHarnessPackageEvidencePanel = readFileSync(resolve(repoRoot, settingsHarnessPackageEvidencePanelPath), "utf8"); const settingsHarnessPackageEvidenceRowsPanel = readFileSync(resolve(repoRoot, settingsHarnessPackageEvidenceRowsPanelPath), "utf8"); const settingsHarnessPackageImportReviewPanel = readFileSync(resolve(repoRoot, settingsHarnessPackageImportReviewPanelPath), "utf8"); const settingsHarnessWorkerBindingPanel = readFileSync(resolve(repoRoot, settingsHarnessWorkerBindingPanelPath), "utf8"); const settingsHarnessActiveRuntimeRollbackPanel = readFileSync(resolve(repoRoot, settingsHarnessActiveRuntimeRollbackPanelPath), "utf8"); const settingsHarnessActiveRuntimeBindingPanel = readFileSync(resolve(repoRoot, settingsHarnessActiveRuntimeBindingPanelPath), "utf8"); const settingsHarnessRollbackRestoreProofPanel = readFileSync(resolve(repoRoot, settingsHarnessRollbackRestoreProofPanelPath), "utf8"); const settingsHarnessPromotionPanel = readFileSync(resolve(repoRoot, settingsHarnessPromotionPanelPath), "utf8"); const settingsHarnessPromotionReadinessPanel = readFileSync(resolve(repoRoot, settingsHarnessPromotionReadinessPanelPath), "utf8");
+  const settingsHarnessTypes = readFileSync(
+    resolve(repoRoot, settingsHarnessTypesPath),
+    "utf8",
+  );
+  const settingsHarnessRailTypes = readFileSync(
+    resolve(repoRoot, settingsHarnessRailTypesPath),
+    "utf8",
+  );
+  const settingsHarnessStatusPrimitives = readFileSync(
+    resolve(repoRoot, settingsHarnessStatusPrimitivesPath),
+    "utf8",
+  );
+  const settingsHarnessActivationActions = readFileSync(
+    resolve(repoRoot, settingsHarnessActivationActionsPath),
+    "utf8",
+  );
+  const settingsHarnessActivationWizardDetails = readFileSync(
+    resolve(repoRoot, settingsHarnessActivationWizardDetailsPath),
+    "utf8",
+  );
+  const settingsHarnessActivationGatePanel = readFileSync(
+    resolve(repoRoot, settingsHarnessActivationGatePanelPath),
+    "utf8",
+  );
+  const settingsHarnessActivationGateRefsPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessActivationGateRefsPanelPath),
+    "utf8",
+  );
+  const settingsHarnessActivationGateTimelinePanel = readFileSync(
+    resolve(repoRoot, settingsHarnessActivationGateTimelinePanelPath),
+    "utf8",
+  );
+  const settingsHarnessPackageEvidencePanel = readFileSync(
+    resolve(repoRoot, settingsHarnessPackageEvidencePanelPath),
+    "utf8",
+  );
+  const settingsHarnessPackageEvidenceRowsPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessPackageEvidenceRowsPanelPath),
+    "utf8",
+  );
+  const settingsHarnessPackageImportReviewPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessPackageImportReviewPanelPath),
+    "utf8",
+  );
+  const settingsHarnessWorkerBindingPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessWorkerBindingPanelPath),
+    "utf8",
+  );
+  const settingsHarnessActiveRuntimeRollbackPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessActiveRuntimeRollbackPanelPath),
+    "utf8",
+  );
+  const settingsHarnessActiveRuntimeBindingPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessActiveRuntimeBindingPanelPath),
+    "utf8",
+  );
+  const settingsHarnessActiveRuntimeBindingSummary = readFileSync(
+    resolve(repoRoot, settingsHarnessActiveRuntimeBindingSummaryPath),
+    "utf8",
+  );
+  const settingsHarnessActiveRuntimeBindingDeepLinks = readFileSync(
+    resolve(repoRoot, settingsHarnessActiveRuntimeBindingDeepLinksPath),
+    "utf8",
+  );
+  const settingsHarnessRollbackRestoreProofPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessRollbackRestoreProofPanelPath),
+    "utf8",
+  );
+  const settingsHarnessPromotionPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessPromotionPanelPath),
+    "utf8",
+  );
+  const settingsHarnessPromotionReadinessPanel = readFileSync(
+    resolve(repoRoot, settingsHarnessPromotionReadinessPanelPath),
+    "utf8",
+  );
+  const settingsHarnessPromotionReadinessSummary = readFileSync(
+    resolve(repoRoot, settingsHarnessPromotionReadinessSummaryPath),
+    "utf8",
+  );
+  const settingsHarnessPromotionReadinessRoutingCanary = readFileSync(
+    resolve(repoRoot, settingsHarnessPromotionReadinessRoutingCanaryPath),
+    "utf8",
+  );
   const settingsHarnessModel = readFileSync(
     resolve(repoRoot, settingsHarnessModelPath),
     "utf8",
   );
-  rail = `${rail}\n${settingsHarnessPanel}\n${settingsHarnessTypes}\n${settingsHarnessActivationPanel}\n${settingsHarnessActivationGatePanel}\n${settingsHarnessActivationGateRefsPanel}\n${settingsHarnessActivationGateTimelinePanel}\n${settingsHarnessPackageEvidencePanel}\n${settingsHarnessPackageEvidenceRowsPanel}\n${settingsHarnessPackageImportReviewPanel}\n${settingsHarnessWorkerBindingPanel}\n${settingsHarnessActiveRuntimeRollbackPanel}\n${settingsHarnessActiveRuntimeBindingPanel}\n${settingsHarnessRollbackRestoreProofPanel}\n${settingsHarnessPromotionPanel}\n${settingsHarnessPromotionReadinessPanel}`;
+  rail = [
+    rail,
+    settingsHarnessPanel,
+    settingsHarnessTypes,
+    settingsHarnessRailTypes,
+    settingsHarnessStatusPrimitives,
+    settingsHarnessActivationPanel,
+    settingsHarnessActivationActions,
+    settingsHarnessActivationWizardDetails,
+    settingsHarnessActivationGatePanel,
+    settingsHarnessActivationGateRefsPanel,
+    settingsHarnessActivationGateTimelinePanel,
+    settingsHarnessPackageEvidencePanel,
+    settingsHarnessPackageEvidenceRowsPanel,
+    settingsHarnessPackageImportReviewPanel,
+    settingsHarnessWorkerBindingPanel,
+    settingsHarnessActiveRuntimeRollbackPanel,
+    settingsHarnessActiveRuntimeBindingPanel,
+    settingsHarnessActiveRuntimeBindingSummary,
+    settingsHarnessActiveRuntimeBindingDeepLinks,
+    settingsHarnessRollbackRestoreProofPanel,
+    settingsHarnessPromotionPanel,
+    settingsHarnessPromotionReadinessPanel,
+    settingsHarnessPromotionReadinessSummary,
+    settingsHarnessPromotionReadinessRoutingCanary,
+  ].join("\n");
   const readinessPanel = readFileSync(
     resolve(repoRoot, readinessPanelPath),
     "utf8",
@@ -5712,8 +5865,27 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
       settingsModelPath,
       settingsHarnessPanelPath,
       settingsHarnessTypesPath,
-      settingsHarnessActivationPanelPath, settingsHarnessActivationGatePanelPath, settingsHarnessActivationGateRefsPanelPath, settingsHarnessActivationGateTimelinePanelPath, settingsHarnessPackageEvidencePanelPath, settingsHarnessPackageEvidenceRowsPanelPath, settingsHarnessPackageImportReviewPanelPath,
-      settingsHarnessWorkerBindingPanelPath, settingsHarnessActiveRuntimeRollbackPanelPath, settingsHarnessActiveRuntimeBindingPanelPath, settingsHarnessRollbackRestoreProofPanelPath, settingsHarnessPromotionPanelPath, settingsHarnessPromotionReadinessPanelPath,
+      settingsHarnessRailTypesPath,
+      settingsHarnessStatusPrimitivesPath,
+      settingsHarnessActivationPanelPath,
+      settingsHarnessActivationActionsPath,
+      settingsHarnessActivationWizardDetailsPath,
+      settingsHarnessActivationGatePanelPath,
+      settingsHarnessActivationGateRefsPanelPath,
+      settingsHarnessActivationGateTimelinePanelPath,
+      settingsHarnessPackageEvidencePanelPath,
+      settingsHarnessPackageEvidenceRowsPanelPath,
+      settingsHarnessPackageImportReviewPanelPath,
+      settingsHarnessWorkerBindingPanelPath,
+      settingsHarnessActiveRuntimeRollbackPanelPath,
+      settingsHarnessActiveRuntimeBindingPanelPath,
+      settingsHarnessActiveRuntimeBindingSummaryPath,
+      settingsHarnessActiveRuntimeBindingDeepLinksPath,
+      settingsHarnessRollbackRestoreProofPanelPath,
+      settingsHarnessPromotionPanelPath,
+      settingsHarnessPromotionReadinessPanelPath,
+      settingsHarnessPromotionReadinessSummaryPath,
+      settingsHarnessPromotionReadinessRoutingCanaryPath,
       settingsHarnessModelPath,
       readinessPanelPath,
       readinessModelPath,
