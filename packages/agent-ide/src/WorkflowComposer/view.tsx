@@ -750,8 +750,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                             }
                             title={`Add ${item.label}`}
                           >
-                            <strong>{item.label}</strong>
-                            <span>{item.group}</span>
+                            <strong>{item.displayLabel}</strong>
+                            <span>{item.label} · {item.group}</span>
                             <small
                               className="workflow-action-metadata"
                               data-testid={`workflow-recent-action-${itemId}`}
@@ -808,8 +808,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                             }
                             title={`Add ${item.label}: ${hint.sourcePort.label} to ${hint.targetPort.label}`}
                           >
-                            <strong>{item.label}</strong>
+                            <strong>{item.displayLabel}</strong>
                             <span data-testid="workflow-compatible-port-path">
+                              {item.label} ·{" "}
                               {hint.direction === "attachment"
                                 ? "Attach"
                                 : "After"}{" "}
@@ -922,6 +923,10 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                             globalConfig,
                           );
                           const itemId = workflowCreatorItemId(item);
+                          const itemDisplayLabel =
+                            nodePaletteMode === "advanced"
+                              ? item.advancedLabel
+                              : item.displayLabel;
                           const compatibleHint =
                             selectedNode && isSearchingNodeLibrary
                               ? compatibleNodeHints.find(
@@ -970,9 +975,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                                 `Add ${item.label}`
                               }
                             >
-                              <strong>{item.label}</strong>
+                              <strong>{itemDisplayLabel}</strong>
                               <span>
-                                {item.familyLabel} · {classList}
+                                {item.label} · {item.familyLabel} · {classList}
                               </span>
                               <small
                                 className="workflow-action-metadata"

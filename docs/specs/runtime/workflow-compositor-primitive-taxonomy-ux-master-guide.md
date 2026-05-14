@@ -78,7 +78,7 @@ Target sentence:
 | P0 | Canonical taxonomy metadata | Every node definition and creator preset has canonical primitive metadata, palette visibility, collapse target, search aliases, and runtime mapping. | Done / regression guarded |
 | P0 | Default vs advanced palette | Default palette shows authoring primitives/templates; advanced palette exposes raw runtime/protocol/debug nodes. | Done / regression guarded |
 | P1 | Search and synonyms | Common authoring words find the expected primitive: worker, terminal, agent, pull request, repo, skills, memory, tool, policy. | Done / regression guarded |
-| P1 | Primitive collapse | Skills, Memory, Tool Pack, Worker, Repository/Pull Request, Hook, Model/Agent Step collapse into config modes where appropriate. | Planned |
+| P1 | Primitive collapse | Skills, Memory, Tool Pack, Worker, Repository/Pull Request, Hook, Model/Agent Step collapse into config modes where appropriate. | Done / regression guarded |
 | P1 | Post-starter flow | Adding a trigger/input keeps composition moving with a side inspector and `Add next node` compatible suggestions. | Planned |
 | P1 | Empty canvas | Empty graph guides the user toward agent/tool/verification workflows and aligns the right rail with the current start task. | Planned |
 | P1 | Harness teaching view | Default harness opens as a fitted canonical-group overview with fork/use action; raw type counts move to advanced details. | Planned |

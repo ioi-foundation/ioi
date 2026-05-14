@@ -162,7 +162,10 @@ const SUBFACET_TYPES = new Set<WorkflowNodeKind>([
   "hook_policy",
 ]);
 
-const PRIMITIVE_SECTIONS: Record<WorkflowCanonicalPrimitive, string[]> = {
+export const WORKFLOW_PRIMITIVE_CONFIG_SECTIONS: Record<
+  WorkflowCanonicalPrimitive,
+  string[]
+> = {
   trigger: ["start", "schedule", "event", "runtime"],
   input: ["source", "schema", "sanitization", "sample"],
   context: ["source", "scope", "binding", "receipts"],
@@ -275,7 +278,28 @@ function displayLabel(
   input: WorkflowNodeTaxonomyInput,
   primitive: WorkflowCanonicalPrimitive,
 ): string {
-  if (input.creatorId && input.creatorId !== input.type) return input.label;
+  if (input.creatorId && input.creatorId !== input.type) {
+    switch (primitive) {
+      case "agent_step":
+        return "Agent Step";
+      case "tool_pack":
+        return "Tool Pack";
+      case "memory":
+        return "Memory";
+      case "skills":
+        return "Skills";
+      case "worker":
+        return "Worker";
+      case "hook":
+        return "Hook";
+      case "pull_request":
+        return "Pull Request";
+      case "connector":
+        return "Connector";
+      default:
+        return input.label;
+    }
+  }
   switch (primitive) {
     case "agent_step":
       return input.type === "model_call" ? "Agent Step" : input.label;
@@ -331,7 +355,7 @@ export function workflowNodeTaxonomyMetadata(
     displayLabel: label,
     advancedLabel: `${input.label} (${input.type})`,
     searchAliases: aliases,
-    configSections: PRIMITIVE_SECTIONS[primitive],
+    configSections: WORKFLOW_PRIMITIVE_CONFIG_SECTIONS[primitive],
     runtimeMapping: {
       componentKind: input.executor.nodeType,
       executorId: input.executor.executorId,

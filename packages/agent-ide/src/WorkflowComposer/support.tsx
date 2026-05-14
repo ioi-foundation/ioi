@@ -534,6 +534,10 @@ export function workflowConfigSectionForNodeKind(
       "model_call",
       "model_binding",
       "skill_context",
+      "skill",
+      "skill_pack",
+      "hook",
+      "hook_policy",
       "adapter",
       "plugin_tool",
       "parser",
@@ -542,13 +546,19 @@ export function workflowConfigSectionForNodeKind(
       "source",
       "output",
       "proposal",
+      "repository_context",
+      "branch_policy",
+      "github_context",
+      "issue_context",
+      "pr_attempt",
+      "github_pr_create",
       "subgraph",
     ].includes(kind)
   ) {
     return "bindings";
   }
   if (kind === "test_assertion") return "tests";
-  if (kind === "human_gate") return "policy";
+  if (kind === "human_gate" || kind === "review_gate") return "policy";
   return "settings";
 }
 
