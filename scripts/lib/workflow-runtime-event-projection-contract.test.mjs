@@ -129,6 +129,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /usage_status/);
   assert.match(projection, /usageTotalTokens/);
   assert.match(projection, /usageCostEstimateUsd/);
+  assert.match(projection, /coding_tool_budget/);
+  assert.match(projection, /codingToolBudgetRowCount/);
+  assert.match(projection, /codingToolBudgetStatus/);
+  assert.match(projection, /codingToolBudgetViolationCount/);
+  assert.match(projection, /codingToolMutationBlocked/);
+  assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);
   assert.match(projection, /runtimeSubagentRun/);
   assert.match(projection, /runtime_thread_fork/);
@@ -187,6 +193,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(usageControlNodesTest, /workflow\.react-flow\.usage-meter-proof/);
   assert.match(contextBudgetControlNodesTest, /workflow\.react-flow\.context-budget-proof/);
   assert.match(codingToolControlNodesTest, /runtime telemetry summary budget gates/);
+  assert.match(typeTest, /projects coding tool budget blocks/);
+  assert.match(typeTest, /projects TUI coding-tool budget rows/);
+  assert.match(runHistoryModelTest, /componentKind: "coding_tool"/);
+  assert.match(runsPanel, /data-coding-tool-budget-row-count/);
+  assert.match(runsPanel, /data-coding-tool-budget-status/);
+  assert.match(runsPanel, /data-coding-tool-mutation-blocked/);
   assert.match(compactionPolicyControlNodesTest, /workflow\.react-flow\.compaction-policy-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.thread-fork-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-interrupt-proof/);

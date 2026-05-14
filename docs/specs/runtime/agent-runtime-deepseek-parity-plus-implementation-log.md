@@ -184,8 +184,40 @@ workstream was narrower.
 | 182 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary budget gate enforcement | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary-budget-gate/2026-05-14T02-21-14-227Z/result.json |
 | 183 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | subagent summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-subagent-summary-budget/2026-05-14T02-32-43-456Z/result.json |
 | 184 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget/2026-05-14T02-47-09-164Z/result.json |
+| 185 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget-block inspector projection | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 185. 2026-05-14 - Coding-tool budget-block inspector projection
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool
+budget-block projection:
+
+- Added a shared coding-tool budget evidence extractor to runtime event
+  projection so `policy.blocked` coding-tool events stay `plugin_tool` nodes
+  instead of collapsing into generic policy-gate rows.
+- Projected budget status, budget reason, context-budget status/mode/decision,
+  threshold check and violation counts, usage telemetry, tool call ids, and
+  blocked-mutation evidence onto React Flow node data.
+- Added first-class `coding_tool_budget` TUI control-state rows plus run
+  inspector data attributes and summary counts so budget blocks are visible and
+  policy-addressable in React Flow.
+- Extended the live summary-budget daemon proof to project the emitted budget
+  block through both React Flow event projection and TUI control-state rows.
+- Updated source-contract guards, the master guide queue, and validation
+  ledger to make budget-block inspector projection a pinned parity surface.
+
+Validation evidence:
+
+- `node --import tsx --test --test-name-pattern "coding tool budget|TUI coding-tool budget" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json`.
 
 ### Slice 184. 2026-05-14 - Coding-tool summary-budget enforcement
 
